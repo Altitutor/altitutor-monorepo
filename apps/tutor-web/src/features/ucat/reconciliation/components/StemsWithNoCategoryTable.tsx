@@ -27,6 +27,8 @@ import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useUcatCategories, useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import type { CategoryOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { cn } from '@/shared/utils'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
@@ -56,7 +58,10 @@ export function StemsWithNoCategoryTable({
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
 
-  const categories = categoriesQuery.data ?? []
+  const categories = useMemo(
+    () => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[],
+    [categoriesQuery.data]
+  )
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -264,7 +269,7 @@ export function StemsWithNoCategoryTable({
         onCancel={() => setSelectedStemIds(new Set())}
         hideDelete
       >
-        <SearchableSelect<{ id: string | null; name: string | null; ucat_section_id: string | null }>
+        <SearchableSelect<CategoryOption>
           items={categories}
           value={null}
           onValueChange={(c) => {
@@ -274,8 +279,8 @@ export function StemsWithNoCategoryTable({
             }
           }}
           getItemId={(c) => c.id ?? ''}
-          getItemLabel={(c) => c.name ?? 'Untitled'}
-          getItemValue={(c) => c.name ?? ''}
+          getItemLabel={(c) => taxonomyDisplayLabel(c)}
+          getItemValue={(c) => taxonomyDisplayLabel(c)}
           placeholder="Add category"
           searchPlaceholder="Search categories..."
           emptyMessage="No categories found"
@@ -295,7 +300,7 @@ export function StemsWithNoCategoryTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Set category for {selectedStemIds.size} stem(s)?</AlertDialogTitle>
             <AlertDialogDescription>
-              Category will be set to &quot;{categories.find((c) => c.id === bulkCategoryId)?.name ?? ''}&quot; for all selected stems.
+              Category will be set to &quot;{taxonomyDisplayLabel(categories.find((c) => c.id === bulkCategoryId) ?? { name: '' })}&quot; for all selected stems.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -321,7 +326,7 @@ function StemWithNoCategoryRow({
   onOpenStemDialog,
 }: {
   item: StemWithNoCategory
-  categories: Array<{ id: string | null; name: string | null; ucat_section_id: string | null }>
+  categories: CategoryOption[]
   sectionId: string
   visibleColumnKeys: string[]
   selection?: {
@@ -405,12 +410,12 @@ function AddCategorySelect({
   onSelect,
   disabled,
 }: {
-  categories: Array<{ id: string | null; name: string | null }>
+  categories: CategoryOption[]
   onSelect: (categoryId: string) => Promise<void>
   disabled: boolean
 }) {
   const items = useMemo(
-    () => categories.filter((c): c is { id: string; name: string } => !!c.id && !!c.name),
+    () => categories.filter((c): c is CategoryOption & { id: string } => !!c.id && !!c.name),
     [categories]
   )
 
@@ -423,13 +428,13 @@ function AddCategorySelect({
   }
 
   return (
-    <SearchableSelect<{ id: string; name: string }>
+    <SearchableSelect<CategoryOption & { id: string }>
       items={items}
       value={null}
       onValueChange={async (cat) => {
         if (cat) await onSelect(cat.id)
       }}
-      getItemLabel={(c) => c.name}
+      getItemLabel={(c) => taxonomyDisplayLabel(c)}
       getItemId={(c) => c.id}
       placeholder="Add category"
       disabled={disabled}

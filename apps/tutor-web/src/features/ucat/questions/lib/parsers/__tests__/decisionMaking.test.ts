@@ -67,6 +67,29 @@ E`;
     expect(stems[0]?.questions[0]?.questionType).toBe('syllogism');
   });
 
+  it('parses an unnumbered syllogism instruction followed by five statements', () => {
+    const input = `Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+All physicians from Sydney practise General Medicine.
+Some physicians from Melbourne practise Oncology.
+No physicians from Sydney practise Oncology.
+Some Oncology physicians are from Melbourne.
+All physicians who practise General Medicine are from Sydney.`;
+
+    const stems = parseDecisionMakingPlainText(input);
+    expect(stems).toHaveLength(1);
+    expect(stems[0]?.stemText).toContain('Physicians are from either Melbourne or Sydney');
+    expect(stems[0]?.questions).toHaveLength(1);
+    expect(stems[0]?.questions[0]?.questionType).toBe('syllogism');
+    expect(stems[0]?.questions[0]?.text).toContain("Place 'Yes'");
+    expect(stems[0]?.questions[0]?.options).toHaveLength(5);
+    expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
+      'All physicians from Sydney practise General Medicine.'
+    );
+  });
+
   it('classifies multiple choice questions correctly', () => {
     const input = `Passage.
 

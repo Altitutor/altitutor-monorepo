@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
@@ -185,14 +185,17 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full">
-          <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-          <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
-          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="space-y-6">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'messages', label: 'Messages' },
+          { value: 'activity', label: 'Activity' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
           <ParentDetailsTab
             parent={parent}
             studentIds={students.map(s => s.id)}
@@ -234,9 +237,9 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
               </Button>
             </div>
           )}
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="messages" className="space-y-6">
+        <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">
           <div className="h-[600px]">
             <MessagesTabContent 
               conversationId={conversationId}
@@ -246,12 +249,12 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
               relatedType="parent"
             />
           </div>
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="activity" className="space-y-6">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
           <ParentActivityTab parentId={id} isOpen={true} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
 
       {/* Student Modal */}
       {modals.selectedStudentId && (

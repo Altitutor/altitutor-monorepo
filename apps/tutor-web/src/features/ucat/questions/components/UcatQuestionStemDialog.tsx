@@ -31,6 +31,7 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -55,8 +56,13 @@ function getFirstValidationMessage(errors: Record<string, unknown>): string {
   return 'Please fix the errors in the form.'
 }
 
-export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
-export type TagOption = { id: string; name: string }
+export type CategoryOption = {
+  id: string | null
+  name: string | null
+  ucat_section_id?: string | null
+  label?: string | null
+}
+export type TagOption = { id: string; name: string; label?: string | null }
 
 /** Section row for the stem form + engine preview layout (two-column vs single column). */
 export type UcatSectionOption = { id: string | null; name: string | null; display_columns?: number | null }
@@ -75,6 +81,7 @@ export function UcatQuestionStemDialog({
   initial,
   loading,
   onDelete,
+  initialQuestionIndex,
 }: {
   open: boolean
   title: string
@@ -87,6 +94,7 @@ export function UcatQuestionStemDialog({
   initial?: StemDetailRow | null
   loading?: boolean
   onDelete?: () => void
+  initialQuestionIndex?: number
 }) {
   const { toast } = useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
@@ -308,6 +316,7 @@ export function UcatQuestionStemDialog({
           categories={categories}
           tags={tags}
           stemId={stemId ?? null}
+          initialQuestionIndex={initialQuestionIndex}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
@@ -371,12 +380,12 @@ export function QuestionTagsSelect({
                 return (
                   <CommandItem
                     key={tag.id}
-                    value={`${tag.id}-${tag.name}`}
+                    value={`${tag.id}-${taxonomyDisplayLabel(tag)}`}
                     onSelect={() => toggleTag(tag.id)}
                     className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
                     <Checkbox checked={isSelected} />
-                    <span>{tag.name}</span>
+                    <span>{taxonomyDisplayLabel(tag)}</span>
                   </CommandItem>
                 )
               })}

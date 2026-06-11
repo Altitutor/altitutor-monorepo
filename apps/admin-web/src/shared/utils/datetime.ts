@@ -185,3 +185,24 @@ export function adelaideTimeToMinutes(isoString: string): number {
   const { hours, minutes } = getAdelaideTimeComponents(isoString);
   return hours * 60 + minutes;
 }
+
+const PILL_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+/** Normalise ISO or YYYY-MM-DD for date inputs. */
+export function toDateInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+/** Compact pill label, e.g. "9 Jun". */
+export function formatPillDisplayDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${PILL_MONTHS[d.getUTCMonth()]}`;
+}

@@ -51,7 +51,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportWizardSteps'
 import {
   buildFormValuesFromSeparateStemDocuments,
-  parseCombinedDocumentForSection,
+  parseCombinedDocumentResultForSectionWithOcr,
   parseQuestionsOnlyForSection,
   mapParsedStemsToFormValues,
   splitStemDocumentFromDoc,
@@ -64,6 +64,17 @@ import {
   applyBulkAnswersToStems,
   validateBulkAnswersDocument,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
+import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import {
+  StepStemCategories,
+  everyStemHasCategory,
+  type BulkImportCategoryOption,
+} from '@/features/ucat/questions/components/bulk-import/StepStemCategories'
+import {
+  StepQuestionTags,
+  type BulkImportTagOption,
+} from '@/features/ucat/questions/components/bulk-import/StepQuestionTags'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
@@ -100,6 +111,7 @@ export function BulkImportQuestionStemsModal({
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [isParsing, setIsParsing] = useState(false)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [separateStemDocument, setSeparateStemDocument] = useState(false)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
@@ -114,7 +126,7 @@ export function BulkImportQuestionStemsModal({
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'dot',
@@ -141,7 +153,22 @@ export function BulkImportQuestionStemsModal({
   }
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const categoryOptions = useMemo(
+    () => mapCategoriesToOptions(categoriesQuery.data ?? []),
+    [categoriesQuery.data]
+  )
   const categories = categoriesQuery.data ?? []
+  const tagOptions = useMemo(
+    () => mapTagsToOptions(tagsQuery.data ?? []),
+    [tagsQuery.data]
+  )
+  const selectableTagOptions = useMemo(
+    () =>
+      mapTagsToOptions(
+        filterTagsForImportSection(tagsQuery.data ?? [], sectionId)
+      ) as BulkImportTagOption[],
+    [tagsQuery.data, sectionId]
+  )
 
   const selectedSection = useMemo(
     () => sections.find((s) => s.id === sectionId) ?? null,
@@ -173,36 +200,38 @@ export function BulkImportQuestionStemsModal({
   }, [wipeDownstreamFromStems])
 
   useEffect(() => {
-    if (!open) {
-      setExpanded(false)
-      setStep(0)
-      setStatus('idle')
-      setSubmitError(null)
-      setParseError(null)
-      setSectionId(null)
-      setSeparateStemDocument(false)
-      setPastedContent(null)
-      setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
-      setPastedStemDoc(null)
-      setParsedStemTexts([])
-      setPerStemQuestionDocs([])
-      setPastedAnswersJson(null)
-      setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
-      setPasteTableBehavior('strip_outside')
-      setAddToSetEnabled(false)
-      setAddToSetConfig(null)
-      setParsingOptions({
-        questionIndicator: 'dot',
-        answerOptionIndicator: 'dot',
-        questionNumberOnOwnLine: false,
-        answerOptionOnOwnLine: false,
-        requireConsecutiveQuestionNumbers: true,
-      })
-      suppressDialogCloseRef.current = false
-      setPendingConfirm(null)
-      step2NewImageFileIdsRef.current = new Set()
-      wizard.reset()
+    if (open) {
+      setExpanded(true)
+      return
     }
+    setStep(0)
+    setStatus('idle')
+    setSubmitError(null)
+    setParseError(null)
+    setIsParsing(false)
+    setSectionId(null)
+    setSeparateStemDocument(false)
+    setPastedContent(null)
+    setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
+    setPastedStemDoc(null)
+    setParsedStemTexts([])
+    setPerStemQuestionDocs([])
+    setPastedAnswersJson(null)
+    setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
+    setPasteTableBehavior('strip_outside')
+    setAddToSetEnabled(false)
+    setAddToSetConfig(null)
+    setParsingOptions({
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'dot',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+      requireConsecutiveQuestionNumbers: true,
+    })
+    suppressDialogCloseRef.current = false
+    setPendingConfirm(null)
+    step2NewImageFileIdsRef.current = new Set()
+    wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
 
@@ -251,7 +280,7 @@ export function BulkImportQuestionStemsModal({
     })
   }, [parsedStemTexts, perStemQuestionDocs, resolvedBulkImportSection, parsingOptions])
 
-  const canGoPrevious = step > 0 && status !== 'submitting'
+  const canGoPrevious = step > 0 && status !== 'submitting' && !isParsing
 
   const answerParseOptions = useMemo(
     () => answerParsingOptionsToParseOptions(answerParsingOptions),
@@ -259,7 +288,7 @@ export function BulkImportQuestionStemsModal({
   )
 
   const canGoNext = useMemo(() => {
-    if (status === 'submitting') return false
+    if (status === 'submitting' || isParsing) return false
     if (stepKind === 'section') return !!sectionId
     if (stepKind === 'paste_stems') {
       const split = splitStemDocumentFromDoc(pastedStemDoc, stemSplitOptions)
@@ -277,10 +306,13 @@ export function BulkImportQuestionStemsModal({
       )
       return validation.ok
     }
+    if (stepKind === 'stem_categories') return everyStemHasCategory(wizard.state.stems)
+    if (stepKind === 'question_tags') return wizard.state.stems.length > 0
     if (step >= totalStepsResolved - 1) return false
     return true
   }, [
     status,
+    isParsing,
     stepKind,
     sectionId,
     pastedStemDoc,
@@ -300,7 +332,7 @@ export function BulkImportQuestionStemsModal({
     sectionsQuery.isError || categoriesQuery.isError || tagsQuery.isError
 
   function performClose() {
-    if (status === 'submitting') return
+    if (status === 'submitting' || isParsing) return
     const ids = Array.from(step2NewImageFileIdsRef.current)
     if (ids.length > 0 && status !== 'success') {
       void fetch('/api/ucat/images/cleanup', {
@@ -315,7 +347,7 @@ export function BulkImportQuestionStemsModal({
   }
 
   function handleRequestClose() {
-    if (status === 'submitting') return
+    if (status === 'submitting' || isParsing) return
     if (suppressDialogCloseRef.current || pendingConfirm != null) return
     if (hasUnsavedBulkImportWork) {
       queueConfirm({ type: 'close_modal' })
@@ -334,7 +366,7 @@ export function BulkImportQuestionStemsModal({
       event.preventDefault()
       return
     }
-    if (status === 'submitting') {
+    if (status === 'submitting' || isParsing) {
       event.preventDefault()
       return
     }
@@ -344,10 +376,12 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function parseCombinedDocument(): { ok: true; drafts: BulkImportStemDraft[] } | { ok: false } {
+  async function parseCombinedDocument(): Promise<
+    { ok: true; drafts: BulkImportStemDraft[] } | { ok: false }
+  > {
     if (!sectionId || !resolvedBulkImportSection) return { ok: false }
     try {
-      const parsed = parseCombinedDocumentForSection(
+      const { parsed, ocr } = await parseCombinedDocumentResultForSectionWithOcr(
         pastedContent,
         resolvedBulkImportSection,
         parsingOptions
@@ -356,10 +390,22 @@ export function BulkImportQuestionStemsModal({
         parsed,
         resolvedBulkImportSection,
         sectionId,
-        categories
+        categories,
+        tagsQuery.data ?? []
       )
       if (forms.length === 0) {
-        setParseError('No valid stems and questions were detected. Please check the formatting.')
+        const ocrMessage =
+          ocr != null && ocr.warnings.length > 0
+            ? ` ${ocr.warnings.join(' ')}`
+            : ''
+        setParseError(
+          `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
+        )
+        wizard.setStems([])
+        return { ok: false }
+      }
+      if (ocr != null && ocr.warnings.length > 0) {
+        setParseError(ocr.warnings.join(' '))
         wizard.setStems([])
         return { ok: false }
       }
@@ -384,7 +430,8 @@ export function BulkImportQuestionStemsModal({
         resolvedBulkImportSection,
         sectionId,
         parsingOptions,
-        categories
+        categories,
+        tagsQuery.data ?? []
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected.')
@@ -401,12 +448,17 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function handleNextClick() {
+  async function handleNextClick() {
     if (!canGoNext) return
 
     if (stepKind === 'paste_document') {
-      const result = parseCombinedDocument()
-      if (!result.ok) return
+      setIsParsing(true)
+      try {
+        const result = await parseCombinedDocument()
+        if (!result.ok) return
+      } finally {
+        setIsParsing(false)
+      }
     }
 
     if (stepKind === 'paste_stems') {
@@ -663,19 +715,50 @@ export function BulkImportQuestionStemsModal({
       )
     }
 
+    if (stepKind === 'stem_categories') {
+      return (
+        <StepStemCategories
+          stems={wizard.state.stems}
+          sectionId={sectionId}
+          categories={categoryOptions.flatMap((category) =>
+            typeof category.id === 'string' && category.id.length > 0
+              ? [
+                  {
+                    id: category.id,
+                    name: category.name,
+                    label: category.label,
+                    ucat_section_id: category.ucat_section_id,
+                  } satisfies BulkImportCategoryOption,
+                ]
+              : []
+          )}
+          onUpdateStem={wizard.updateStemForm}
+        />
+      )
+    }
+
+    if (stepKind === 'question_tags') {
+      return (
+        <StepQuestionTags
+          stems={wizard.state.stems}
+          tags={tagOptions as BulkImportTagOption[]}
+          selectableTags={selectableTagOptions}
+          onUpdateStem={wizard.updateStemForm}
+        />
+      )
+    }
+
     if (stepKind === 'review') {
       return (
         <Step3SetAnswers
           stems={wizard.state.stems}
-          categories={categories}
+          categories={categoryOptions}
           sections={sections.map((s) => ({
             id: s.id,
             name: s.name,
             display_columns: s.display_columns,
           }))}
-          tags={(tagsQuery.data ?? [])
-            .filter((tag): tag is typeof tag & { id: string } => typeof tag.id === 'string' && tag.id.length > 0)
-            .map((tag) => ({ id: tag.id, name: tag.name ?? '' }))}
+          tags={tagOptions}
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
         />
@@ -762,7 +845,7 @@ export function BulkImportQuestionStemsModal({
                     size="icon"
                     onClick={handleRequestClose}
                     className="shrink-0"
-                    disabled={status === 'submitting'}
+                    disabled={status === 'submitting' || isParsing}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -840,7 +923,7 @@ export function BulkImportQuestionStemsModal({
               <Button onClick={handleRequestClose}>Close</Button>
             ) : step < totalStepsResolved - 1 ? (
               <Button onClick={handleNextClick} disabled={!canGoNext}>
-                Next
+                {isParsing ? 'Parsing…' : 'Next'}
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : isBulkParseSection ? (

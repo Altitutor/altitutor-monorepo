@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -270,12 +270,7 @@ export function ViewAdminShiftModal({
     <>
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
-        <Tabs 
-          defaultValue="details" 
-          value={activeTab} 
-          onValueChange={setActiveTab}
-          className="flex flex-col h-full min-h-0"
-        >
+        <div className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
           <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
             <SheetHeader className="px-6 pt-6 pb-4">
@@ -308,18 +303,23 @@ export function ViewAdminShiftModal({
               </div>
             </SheetHeader>
             <div className="px-6 pb-4">
-              <TabsList className="w-full">
-                <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-                <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
-                <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
-                <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-              </TabsList>
+              <SegmentedControl
+                fullWidth
+                value={activeTab}
+                onValueChange={setActiveTab}
+                options={[
+                  { value: 'details', label: 'Details' },
+                  { value: 'staff', label: 'Staff' },
+                  { value: 'sessions', label: 'Sessions' },
+                  { value: 'activity', label: 'Activity' },
+                ]}
+              />
             </div>
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 min-h-0 relative">
-            <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+            <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6">
                 <AdminShiftInfoTab
                   adminShiftData={adminShiftData}
@@ -330,9 +330,9 @@ export function ViewAdminShiftModal({
                   onSubmit={handleAdminShiftUpdate}
                 />
               </div>
-            </TabsContent>
+            </SegmentedTabPanelContent>
         
-            <TabsContent value="staff" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+            <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6">
                 <AdminShiftStaffTab
                   adminShiftData={adminShiftData}
@@ -344,9 +344,9 @@ export function ViewAdminShiftModal({
                   onRemoveStaff={handleRemoveStaff}
                 />
               </div>
-            </TabsContent>
+            </SegmentedTabPanelContent>
         
-            <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+            <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
               <div className="h-full p-6">
                 <AdminShiftSessionsTab
                   adminShiftData={adminShiftData}
@@ -354,17 +354,17 @@ export function ViewAdminShiftModal({
                   adminShiftSessions={adminShiftSessions}
                 />
               </div>
-            </TabsContent>
+            </SegmentedTabPanelContent>
 
-            <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+            <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6">
                 {adminShiftId && (
                   <AdminShiftActivityTab adminShiftId={adminShiftId} isOpen={isOpen} />
                 )}
               </div>
-            </TabsContent>
+            </SegmentedTabPanelContent>
           </div>
-        </Tabs>
+        </div>
         
         {/* Sticky Footer with Buttons */}
         {adminShiftData && isEditing && activeTab === 'details' && (

@@ -17,10 +17,8 @@ import {
   FormField,
   FormItem,
   ScrollArea,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
+  SegmentedControl,
+  SegmentedTabPanelContent,
   type JSONContent,
   type MentionClickDetail,
 } from '@altitutor/ui';
@@ -76,6 +74,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('outline');
   const lastBlurSavedTitleRef = useRef<string | null>(null);
 
   const form = useForm<NoteFormData, unknown, NoteFormData>({
@@ -366,16 +365,21 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       </div>
 
       <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-        <Tabs defaultValue="outline" className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="properties">Properties</TabsTrigger>
-              <TabsTrigger value="outline">Outline</TabsTrigger>
-            </TabsList>
+            <SegmentedControl
+              fullWidth
+              value={sidebarTab}
+              onValueChange={(v) => setSidebarTab(v as 'properties' | 'outline')}
+              options={[
+                { value: 'properties', label: 'Properties' },
+                { value: 'outline', label: 'Outline' },
+              ]}
+            />
           </div>
 
           <div className="flex-1 min-h-0 overflow-hidden">
-            <TabsContent value="properties" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+            <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
               <ScrollArea className="flex-1">
                 <div className="p-6">
                   <NotePropertiesPanel
@@ -384,9 +388,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                   />
                 </div>
               </ScrollArea>
-            </TabsContent>
+            </SegmentedTabPanelContent>
 
-            <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
+            <SegmentedTabPanelContent when="outline" activeTab={sidebarTab} className="h-full min-h-0 overflow-hidden flex flex-col">
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-6">
                   <NoteTableOfContentsWithLiveTitle
@@ -395,9 +399,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                   />
                 </div>
               </ScrollArea>
-            </TabsContent>
+            </SegmentedTabPanelContent>
           </div>
-        </Tabs>
+        </div>
       </div>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}

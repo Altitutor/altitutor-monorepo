@@ -1,7 +1,5 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { UcatReconciliationPage } from '@/features/ucat/reconciliation'
-
-export default function UcatReconciliationRoute() {
-  return <UcatReconciliationPage />
+export default function UcatReconciliationIndexPage() {
+  redirect('/ucat/reconciliation/questions')
 }

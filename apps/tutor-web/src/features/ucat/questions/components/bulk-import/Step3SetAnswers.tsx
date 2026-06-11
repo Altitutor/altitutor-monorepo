@@ -20,7 +20,6 @@ import type {
   CategoryOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
 const QUESTION_TEXT_MAX = 60
 const OPTION_TEXT_MAX = 36
@@ -31,9 +30,14 @@ function truncateOneLine(text: string, maxLen: number): string {
   return `${oneLine.slice(0, maxLen)}…`
 }
 
-type ReviewCategoryOption = { id?: string | null; name?: string | null; ucat_section_id?: string | null }
+type ReviewCategoryOption = {
+  id?: string | null
+  name?: string | null
+  ucat_section_id?: string | null
+  label?: string | null
+}
 type ReviewSectionOption = { id: string | null; name?: string | null; display_columns?: number | null }
-type ReviewTagOption = { id: string; name: string }
+type ReviewTagOption = { id: string; name: string; label?: string | null }
 
 export type AnswerRow = {
   stemId: string
@@ -42,7 +46,6 @@ export type AnswerRow = {
   globalQuestionNumber: number
   questionText: string
   questionTextJson: Json | null
-  categoryName: string
   optionCount: number
   optionTexts: string[]
   optionTextJsons: Array<Json | null>
@@ -54,18 +57,10 @@ export type AnswerRow = {
   answerExplanationJson: Json | null
 }
 
-function buildAnswerRows(
-  stems: BulkImportStemDraft[],
-  categories: ReviewCategoryOption[]
-): AnswerRow[] {
+function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
   stems.forEach((stem, stemIndex) => {
-    const categoryId = stem.values.categoryId ?? null
-    const category = categoryId
-      ? categories.find((c) => (c.id ?? null) === categoryId)
-      : null
-    const categoryName = (category?.name ?? '').trim() || '—'
     const questions = stem.values.questions ?? []
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
@@ -93,7 +88,6 @@ function buildAnswerRows(
           QUESTION_TEXT_MAX
         ),
         questionTextJson: (q.questionText ?? null) as Json | null,
-        categoryName,
         optionCount: options.length,
         optionTexts,
         optionTextJsons,
@@ -126,7 +120,7 @@ export function Step3SetAnswers({
   onUpdateStem,
   onNewImageFileIds,
 }: Step3SetAnswersProps) {
-  const rows = useMemo(() => buildAnswerRows(stems, categories), [stems, categories])
+  const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
 
   const editorSections = useMemo<UcatSectionOption[]>(
@@ -144,6 +138,7 @@ export function Step3SetAnswers({
         id: category.id ?? null,
         name: category.name ?? null,
         ucat_section_id: category.ucat_section_id,
+        label: category.label ?? null,
       })),
     [categories]
   )
@@ -153,7 +148,7 @@ export function Step3SetAnswers({
     [rows]
   )
   const optionLabelsToShow = OPTION_LABELS.slice(0, maxOptionCount)
-  const totalCols = 4 + maxOptionCount + 2
+  const totalCols = 3 + maxOptionCount + 2
 
   const toggleExpanded = useCallback((key: string) => {
     setExpandedRowKey((current) => (current === key ? null : key))
@@ -181,8 +176,7 @@ export function Step3SetAnswers({
             <TableRow>
               <TableHead className="w-[3rem] px-2">Stem</TableHead>
               <TableHead className="w-[2.5rem] px-2">#</TableHead>
-              <TableHead className="w-[22%] px-2">Question</TableHead>
-              <TableHead className="w-[12%] px-2">Category</TableHead>
+              <TableHead className="w-[28%] px-2">Question</TableHead>
               {optionLabelsToShow.map((label) => (
                 <TableHead key={label} className="px-2">
                   {label}
@@ -222,9 +216,6 @@ export function Step3SetAnswers({
                         singleLine
                         emptyFallback={<span className="text-muted-foreground">—</span>}
                       />
-                    </TableCell>
-                    <TableCell className="truncate px-2 text-muted-foreground" title={row.categoryName}>
-                      {row.categoryName}
                     </TableCell>
                     {optionLabelsToShow.map((label, idx) => (
                       <TableCell key={label} className="max-w-0 overflow-hidden px-2">

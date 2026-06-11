@@ -26,8 +26,14 @@ DECLARE
   v_since_promotion_days INTEGER;
   v_since_promotion_weeks INTEGER;
   v_since_promotion_months INTEGER;
+  v_is_service_role BOOLEAN;
 BEGIN
-  IF NOT public.is_adminstaff_active() AND public.current_staff_id() IS DISTINCT FROM p_staff_id THEN
+  v_is_service_role := COALESCE(auth.jwt() ->> 'role', '') = 'service_role';
+
+  IF NOT v_is_service_role
+    AND NOT public.is_adminstaff_active()
+    AND public.current_staff_id() IS DISTINCT FROM p_staff_id
+  THEN
     RAISE EXCEPTION 'Forbidden';
   END IF;
 
@@ -125,7 +131,9 @@ BEGIN
 
   IF v_overrides IS NOT NULL AND v_overrides <> '{}'::jsonb THEN
     FOR v_override_key, v_override_val IN
-      SELECT key, value::text::numeric FROM jsonb_each(v_overrides)
+      SELECT e.key, (e.value #>> '{}')::numeric
+      FROM jsonb_each(v_overrides) AS e(key, value)
+      WHERE (e.value #>> '{}') ~ '^-?[0-9]+(\.[0-9]+)?$'
     LOOP
       v_metrics := v_metrics || jsonb_build_object(
         v_override_key,

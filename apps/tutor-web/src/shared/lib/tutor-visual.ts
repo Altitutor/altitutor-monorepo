@@ -33,13 +33,6 @@ export const tutorDataTableProps = {
   bodyRowClassName: tutorTableBodyRow,
 } as const;
 
-/** Tabs control — pill list like student app */
-export const tutorTabsList =
-  'inline-flex h-11 items-center justify-center rounded-2xl bg-muted/90 p-1.5 text-muted-foreground dark:bg-background dark:ring-white/10';
-
-export const tutorTabsTrigger =
-  'rounded-xl px-4 py-2 transition-all duration-300 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm';
-
 /** Sheet / dialog shell — borderless, soft shadow + ring (matches app cards). */
 export const tutorModalShell =
   'border-0 bg-card shadow-[0_12px_48px_rgb(0,0,0,0.12)] ring-1 ring-black/[0.08] dark:shadow-[0_12px_48px_rgb(0,0,0,0.45)] dark:ring-white/10';

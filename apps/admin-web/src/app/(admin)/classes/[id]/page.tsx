@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -229,16 +229,19 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full">
-          <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-          <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
-          <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
-          <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
-          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="space-y-6">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'students', label: 'Students' },
+          { value: 'staff', label: 'Staff' },
+          { value: 'sessions', label: 'Sessions' },
+          { value: 'activity', label: 'Activity' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
           <ClassInfoTab
             classData={classData}
             subject={subject || undefined}
@@ -268,9 +271,9 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
               </Button>
             </div>
           )}
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="students" className="space-y-6">
+        <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-6">
           <ClassStudentsTab
             classData={classData}
             classSubject={subject || undefined}
@@ -280,9 +283,9 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             loadingStudents={false}
             onStudentsUpdated={handleClassUpdated}
           />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="staff" className="space-y-6">
+        <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="space-y-6">
           <ClassStaffTab
             classData={classData}
             classSubject={subject || undefined}
@@ -292,9 +295,9 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             onAssignStaff={handleAssignStaff}
             onRemoveStaff={handleRemoveStaff}
           />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="sessions" className="space-y-6">
+        <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           {classData && (
             <ClassSessionsTab
               classData={classData}
@@ -302,12 +305,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
               classStaff={classStaff}
             />
           )}
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="activity" className="space-y-6">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
           <ClassActivityTab classId={id} isOpen={true} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {

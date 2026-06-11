@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { Tables, Database } from '@altitutor/shared';
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { Button, SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AddPaymentMethodModal } from '@/features/billing/components/AddPaymentMethodModal';
@@ -272,37 +272,41 @@ function SubsidiesTab({ studentId }: SubsidiesTabProps) {
 
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
   const studentName = `${student.first_name} ${student.last_name}`;
+  const [activeTab, setActiveTab] = useState('invoices');
 
   return (
-    <Tabs defaultValue="invoices" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-5">
-        <TabsTrigger value="invoices">Invoices</TabsTrigger>
-        <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-        <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-        <TabsTrigger value="subsidies">Subsidies</TabsTrigger>
-        <TabsTrigger value="billing-preferences">Billing Preferences</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="invoices" className="mt-6">
+    <SegmentedTabPanel
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="w-full"
+      options={[
+        { value: 'invoices', label: 'Invoices' },
+        { value: 'payment-methods', label: 'Payment Methods' },
+        { value: 'subscriptions', label: 'Subscriptions' },
+        { value: 'subsidies', label: 'Subsidies' },
+        { value: 'billing-preferences', label: 'Billing Preferences' },
+      ]}
+    >
+      <SegmentedTabPanelContent when="invoices" activeTab={activeTab} className="mt-6">
         <InvoicesTab studentId={student.id} studentName={studentName} />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="payment-methods" className="mt-6">
+      <SegmentedTabPanelContent when="payment-methods" activeTab={activeTab} className="mt-6">
         <PaymentMethodsTab student={student} />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="subscriptions" className="mt-6">
+      <SegmentedTabPanelContent when="subscriptions" activeTab={activeTab} className="mt-6">
         <SubscriptionsTab studentId={student.id} />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="subsidies" className="mt-6">
+      <SegmentedTabPanelContent when="subsidies" activeTab={activeTab} className="mt-6">
         <SubsidiesTab studentId={student.id} />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="billing-preferences" className="mt-6">
+      <SegmentedTabPanelContent when="billing-preferences" activeTab={activeTab} className="mt-6">
         <BillingPreferencesTab student={student} />
-      </TabsContent>
-    </Tabs>
+      </SegmentedTabPanelContent>
+    </SegmentedTabPanel>
   );
 }
 

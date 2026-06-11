@@ -16,4 +16,11 @@ export {
   SegmentedControl,
   type SegmentedControlOption,
   type SegmentedControlProps,
-} from './segmented-control'; 
+} from './segmented-control';
+
+export {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+  type SegmentedTabPanelContentProps,
+  type SegmentedTabPanelProps,
+} from './segmented-tab-panel'; 

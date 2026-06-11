@@ -14,9 +14,102 @@
 
 - **UCAT section** — One of the canonical UCAT areas, such as Verbal Reasoning, Decision Making, Quantitative Reasoning, or Situational Judgement.
 
+- **Learning module** — A node in the UCAT Learn catalog tree. Two mutually exclusive kinds: **folder** (organizes child modules) or **lesson** (delivers ordered content blocks). A module is exactly one kind — never both. May optionally belong to one UCAT section for grouping on `/learn`. Tutors manage the catalog in tutor-web; students browse the tree on `/learn` and open lessons at `/learn/{id}`.
+  _Avoid_: Course, topic, unit
+
+- **Learning module folder** — A learning module that contains only child learning modules in display order. Has no content blocks. Completion progress is derived from its descendants. Browsing or expanding folders does not consume UCAT Free learn quota.
+  _Avoid_: Category, module group, container node
+
+- **Learning module lesson** — A learning module that contains only ordered content blocks. Has no child modules. The student lesson view (`/learn/{id}`) applies to lessons only. First open of a lesson in the current quota period consumes one UCAT Free learn quota unit; returning to the same lesson in the same period does not consume again. Tutors configure **lesson display mode** per lesson: **scroll** (all blocks on one page with TOC anchor jumps) or **stepped** (one block at a time with previous/next navigation). Gating (`require_completion_before_next`) applies in both modes — in scroll mode, TOC jumps to a block are blocked until prior gated blocks are complete.
+  _Avoid_: Learning unit, module page, lesson node
+
+- **Learning module lesson display mode** — Tutor-authored setting on each lesson. **Scroll:** all blocks visible on one scrollable page; table of contents jumps to in-page anchors. **Stepped:** one block visible at a time; footer previous/next moves between blocks. Default for new lessons: stepped.
+  _Avoid_: View mode, layout toggle
+
+- **Learning module block** — One ordered content unit within a learning module lesson. Stored in a dedicated blocks table (not inline JSONB on the lesson). Types: rich text, video, file, question stem, single question, or skill trainer set. Images are embedded in rich text blocks only — there is no separate image block type. Video blocks store an external embed URL (YouTube, Vimeo, Loom, etc.) in block `content` — no uploaded video storage in v1. Each block has display order, an optional `require_completion_before_next` gate (default on), and typed foreign keys where the content references existing UCAT entities (stems, questions, files). Simple payloads (e.g. rich text body, video URL) may live in a small JSONB `content` column on the block row. Tutors may attach either a whole question stem or a single question per block — both block types are supported.
+  _Avoid_: Lesson section, content chunk, block JSON
+
+- **Skill trainer set** — A tutor-authored, ordered list of skill trainer items drawn from a single skill trainer type (e.g. five Find the word items). Used as the fixed item queue for a skill trainer set block in a lesson and managed in tutor-web separately from the global trainer item bank shuffle.
+  _Avoid_: Trainer playlist, drill set
+
+- **Learning module video block** — Embeds an external video URL (YouTube, Vimeo, Loom, etc.) stored in block `content`. Block completion when at least 50% has been watched.
+  _Avoid_: Uploaded video, media block
+
+- **Learning module skill trainer block** — A learning module block that references one skill trainer set. The student runs a timed skill trainer attempt using that set's ordered items (not the global bank shuffle). Block completion when that learn-context attempt completes (time expiry or all set items finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
+  _Avoid_: Embedded trainer game, inline drill
+
+- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references a question stem; the student works through all questions on that stem. **Question block:** references one question; stem context is shown when the question belongs to a stem. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+  _Avoid_: Practice embed, inline quiz
+
+- **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
+  _Avoid_: Section done, step finished
+
+- **Learning module lesson completion** — A lesson is complete when every block in that lesson is complete (including manually marked blocks). The lesson-level **Mark as complete** control marks all blocks in that lesson complete at once; it does not maintain a separate completion state.
+  _Avoid_: Course finished, module done flag
+
+- **Learning module folder progress** — Completion percentage for a folder is rolled up from its descendant lessons and folders (child module completion feeds parent display progress on `/learn`).
+  _Avoid_: Category progress, folder checkmark
+
+- **Learning module progress** — Per-student progress on the Learn catalog. **Module progress row:** one per `(student, learning module)` — records `started_at` (first lesson open; consumes learn quota when applicable), cached completion percentage, and timestamps. **Block progress row:** one per `(student, learning module block)` — records block completion, manual override, and type-specific interaction state (e.g. video watch percentage). Lesson completion is derived from block rows; folder completion rolls up from descendant module rows. Block rows are created lazily as the student interacts.
+  _Avoid_: Lesson attempt, course enrollment
+
+- **Session-linked learning module** — A learning module lesson attached to a class session via `ucat_sessions_resources` (alongside sets, mocks, and question stems). Only **lessons** may be session-linked — folders are catalog structure only. Students on that session's class roster may open the linked lesson from the session view; access follows the same session-scoping pattern as session-linked question stems.
+  _Avoid_: Session course, assigned module folder
+
+- **Learning module visibility** — Each folder and lesson has an `is_private` flag (same model as question stems). New modules default to **private**. There is no separate `is_active` flag — private vs public is the catalog gate; `deleted_at` retires content entirely. **Public** (`is_private: false`) lessons appear on `/learn` for all UCAT students. **Private** lessons are excluded from the global catalog but remain openable when session-linked for rostered students. A folder appears on `/learn` only if it contains at least one accessible descendant lesson (public, or private via session link for that student).
+  _Avoid_: Published flag, is_active, catalog toggle
+
+- **Skill trainer** — A gamified, timed UCAT drill that targets one narrow skill (e.g. speed reading, mental maths). Separate from exam questions, sets, mocks, and practice — own catalog, content bank, scoring rules, and attempt history. A student picks a trainer type, plays for a configured time limit, and earns a score. Optional passage text may be imported from an existing question stem when authoring VR items; skill trainer play does not count as practice or exam attempts.
+  _Avoid_: Mini practice, drill mode, skill game
+
+- **Skill trainer type** — One of six fixed catalog entries (Find the word, Find the concept, Quick syllogisms, Mental maths, Numpad speed, Calculator maths speed). Each belongs to one UCAT section and has admin-configurable timing and scoring. The catalog is seeded in the database; admin may enable or disable a type but cannot add new types without a code release.
+  _Avoid_: Skill trainer game, exercise mode
+
+- **Skill trainer item** — One unit of drill content within a skill trainer type (e.g. one VR passage with keywords and hit targets, one maths question, one calculator button sequence). Authored for the skill trainer bank only; not an exam question stem.
+  _Avoid_: Trainer question, drill stem
+
+- **Skill trainer config** — Admin-editable timing and scoring rules for one skill trainer type (time limit, cooldowns, base points, streak rules). Snapshotted when an attempt starts. Interaction tolerances (e.g. hitbox padding around a target sentence) and formulaic scoring for item complexity (mental maths difficulty, numpad sequence length) are computed in application code, not admin settings.
+  _Avoid_: Trainer settings, game config
+
+- **Skill trainer target** — A correct interaction location within a skill trainer item (e.g. the sentence containing a keyword, or one occurrence of a concept in a passage). Stored as authored metadata on the item; click/drag tolerance padding is a fixed UI constant, not configurable per trainer. Find the word: target sentence index within the passage. Find the concept: character offsets (plain text) per occurrence.
+  _Avoid_: Hitbox config, hotspot setting
+
+- **Skill trainer item bank** — The set of active skill trainer items for one trainer type. Items are stored in a single bank per type with a JSONB content payload validated per trainer key; VR items may optionally reference a source question stem for imported passage text only.
+  _Avoid_: Trainer question pool, drill database
+
+- **Skill trainer item authoring** — Tutors create and edit skill trainer items in tutor-web (list + detail routes, similar to the UCAT questions workflow). Admin-web configures trainer-level timing and scoring only, not individual item content.
+  _Avoid_: Trainer content admin, drill CMS
+
+- **Skill trainer item approval** — Skill trainer items follow the same approval workflow as question stems: `approved`, `pending`, or `rejected`. New tutor-authored items default to pending. Only approved and active items are included in the student item bank. Admin staff may approve, reject, or deactivate items; tutors author and edit.
+  _Avoid_: Trainer publish, content review queue
+
+- **Skill trainer attempt** — One student play-through of a single skill trainer type from start to finish (or time expiry). Consumes one UCAT Free skill-trainer quota unit when started. Produces one score used for personal history and leaderboards. The timer is fixed at start (`ends_at = started_at + time limit`) and keeps running if the student leaves and returns — resuming the same in-progress attempt does not consume another quota unit. A student may have at most one in-progress skill trainer attempt at a time, across all trainer types.
+  _Avoid_: Trainer session, drill run
+
+- **Skill trainer attempt resume** — Returning to an in-progress skill trainer attempt continues the same timed run with the remaining time on the server clock. Abandoned attempts are not auto-completed; they remain in progress until time expires or the student finishes. Starting a different trainer type while one is in progress is blocked until the current attempt ends or expires.
+  _Avoid_: Attempt restart, new run
+
+- **Skill trainer attempt expiry** — When the server clock reaches `ends_at`, the attempt is finalized lazily on the next skill-trainer API call: `completed_at` is set to `ends_at`, in-progress item state is cleared, and the score becomes eligible for leaderboards. No background cron is required.
+  _Avoid_: Timer job, session timeout worker
+
+- **Skill trainer attempt item** — One skill trainer item completed within an attempt (e.g. one passage finished, one maths question answered). Records score delta and a result summary; used for analytics and score audit. In-progress partial state for the current item lives on the parent attempt, not as an attempt item row until complete.
+  _Avoid_: Round, trainer question attempt
+
+- **Skill trainer item queue** — The ordered list of items presented during one attempt. Built at attempt start by shuffling the active item bank; when exhausted, reshuffled and continued until time expires. The same item is not shown twice in a row when the bank has more than one item. Queue state is persisted on the attempt for resume.
+  _Avoid_: Item playlist, drill order
+
+- **Skill trainer leaderboard** — A ranked list of students by best attempt score for one skill trainer type within a time window. One board per trainer type (not global across types). Windows: this week (ISO week, student timezone) and all time. Only completed attempts count. Ties broken by earlier achievement.
+  _Avoid_: High scores table, global ranking
+
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat data-type categories such as tables, bar charts, line graphs, maps, diagrams, and infographics; bar charts are one category regardless of horizontal or vertical orientation.
+  _Avoid_: Topic, tag, data subtype
+
 - **Answer option** — One selectable response for a UCAT question.
+
+- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. A question may have multiple tags, and tags may be hierarchical when the domain has meaningful parent-child relationships; root tags may optionally belong to one UCAT section, while child tags inherit their section from their root.
+  _Avoid_: Category, stem type
 
 - **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields are strict by question type: multiple-choice uses question-level explanation only; syllogism uses per–answer-option explanations only (no scope toggle, unlike bulk import). The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
   Used in the stem dialog and the full-page stem detail route (`/ucat/questions/[id]`) with the same layout. Opens in **edit mode** by default. **View mode** is read-only engine preview with an optional show/hide-answer toggle in the right column; **edit mode** always shows answers. View/edit and show/hide-answer controls live in the right column, not the dialog header.
@@ -25,6 +118,9 @@
   _Avoid_: Question editor, stem dialog form
 
 - **Bulk import** — A tutor workflow for turning pasted source exam content into UCAT question stems, questions, answer options, and answer metadata for review and import. Explanations are always required on import. The answers step supports either a bulk answers document (auto-parsed) or per-question entry in global question order. Multiple-choice: correct answer via option radio; default explanation scope is question-level (toggleable per question to per-option). Syllogism: per-option Yes/No; default explanation scope is per-option. Rich text in all explanation fields.
+
+- **Syllogism image options table** — A Decision Making syllogism source format where the five conclusion statements are supplied as text inside an image of a five-row table rather than as selectable text. The five statements are still answer options for one syllogism question; the image is not a separate question stem or diagram.
+  _Avoid_: Syllogism diagram, image question
 
 - **Separate stem document (bulk import)** — A bulk import input mode where question stems are pasted from one document and questions from another. Each parsed stem is paired with its own question paste area in one scrollable step. The paste-stems step shows live stem count, truncated previews, and in-editor markers at each split boundary. Per-stem question pastes are parsed questions-only; stem-like content in a question paste triggers a row warning. Uses a six-step wizard (section → paste stems → per-stem questions → answers → review → create set). The default combined-document flow uses five steps (section → paste document → answers → review → create set).
 
@@ -86,13 +182,13 @@
 - **Manual online access override** — An admin-granted setting on a student that overrides their Stripe-derived online tier. Values: **Default** (follow Stripe), **Force Free** (UCAT Free even if subscribed), **Force Unlimited** (UCAT Unlimited without a subscription), **Force Pro** (paid UCAT Pro entitlements including human-support, without a subscription). Unlimited trial cannot be forced. Independent of in-person access. No legacy subscriber migration is required — UCAT paid subscriptions are greenfield.
   _Avoid_: Manual grant, comp access
 
-- **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions submitted), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (sessions started). A quota of zero disables that area for UCAT Free students.
+- **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions submitted), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (attempts started). A quota of zero disables that area for UCAT Free students.
   _Avoid_: Usage limit, rate limit
 
-- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: first submit on a unique question ID within the period. Sets, mocks, learn modules, and skill trainer sessions: when the attempt or session is started. Consumption timing is independent per area.
+- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: first submit on a unique question ID within the period. Sets, mocks, learn modules, and skill trainer attempts: when the attempt is started. Consumption timing is independent per area.
   _Avoid_: Usage event, quota hit
 
-- **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: block immediately after submitting the last allowed question — no further submits in that period. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt or session to finish; block starting the next one.
+- **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: block immediately after submitting the last allowed question — no further submits in that period. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt to finish; block starting the next one.
   _Avoid_: Rate limit exceeded, quota reached
 
 - **UCAT Free quota period** — The rolling window for a UCAT Free quota. Configured independently per area (day, week, or month) in admin settings. Boundaries use the student's timezone: calendar day, ISO week (Monday start), or calendar month.

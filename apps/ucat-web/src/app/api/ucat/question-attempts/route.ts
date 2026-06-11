@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
 import {
   checkQuotaForAction,
   quotaExceededResponse,
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
     timeSpentSeconds?: number | null;
     isFlagged?: boolean;
     wasTimed?: boolean;
-    mode?: "question" | "question_stem" | "set" | "mock";
+    learningModuleBlockId?: string | null;
+    mode?: "question" | "question_stem" | "set" | "mock" | "learn";
   };
 
   if (!body.questionId) {
@@ -69,7 +71,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const isLearnAttempt =
+    body.learningModuleBlockId != null && body.learningModuleBlockId !== "";
   const isPracticeAttempt =
+    !isLearnAttempt &&
     body.studentPracticeSessionId != null &&
     body.studentPracticeSessionId !== "" &&
     body.studentQuestionSetAttemptId === null;
@@ -101,10 +106,13 @@ export async function POST(request: NextRequest) {
     query = query
       .is("student_question_set_attempt_id", null)
       .eq("student_practice_session_id", body.studentPracticeSessionId);
+  } else if (isLearnAttempt) {
+    query = query.eq("learning_module_block_id", body.learningModuleBlockId!);
   } else if (body.studentQuestionSetAttemptId === null) {
     query = query
       .is("student_question_set_attempt_id", null)
-      .is("student_practice_session_id", null);
+      .is("student_practice_session_id", null)
+      .is("learning_module_block_id", null);
   } else {
     query = query.eq(
       "student_question_set_attempt_id",
@@ -134,7 +142,8 @@ export async function POST(request: NextRequest) {
       time_spent_seconds?: number | null;
       is_flagged?: boolean;
       was_timed?: boolean;
-      mode?: "question" | "question_stem" | "set" | "mock";
+      mode?: "question" | "question_stem" | "set" | "mock" | "learn";
+      learning_module_block_id?: string | null;
     } = {
       question_answer_option_id: body.questionAnswerOptionId,
       answer_snapshot: body.answerSnapshot ?? null,
@@ -166,6 +175,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    const hasAnswer =
+      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    if (isLearnAttempt && hasAnswer) {
+      try {
+        await maybeAutoCompleteQuestionBlock(
+          supabaseAdmin,
+          student.id,
+          body.learningModuleBlockId!,
+        );
+      } catch {
+        // Progress update is best-effort; attempt is already saved.
+      }
+    }
+
     return NextResponse.json({ id: existing.id });
   }
 
@@ -189,11 +212,13 @@ export async function POST(request: NextRequest) {
     is_submitted: boolean;
     time_spent_seconds: number | null;
     was_timed: boolean;
-    mode: "question" | "question_stem" | "set" | "mock" | null;
+    mode: "question" | "question_stem" | "set" | "mock" | "learn" | null;
+    learning_module_block_id: string | null;
   } = {
     student_id: student.id,
     student_question_set_attempt_id: setAttemptId,
     student_practice_session_id: practiceSessionId,
+    learning_module_block_id: isLearnAttempt ? body.learningModuleBlockId! : null,
     question_id: body.questionId,
     question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,
@@ -215,6 +240,20 @@ export async function POST(request: NextRequest) {
       { error: insertError?.message ?? "Failed to insert question attempt" },
       { status: 500 },
     );
+  }
+
+  const hasAnswer =
+    body.questionAnswerOptionId != null || body.answerSnapshot != null;
+  if (isLearnAttempt && hasAnswer) {
+    try {
+      await maybeAutoCompleteQuestionBlock(
+        supabaseAdmin,
+        student.id,
+        body.learningModuleBlockId!,
+      );
+    } catch {
+      // Progress update is best-effort; attempt is already saved.
+    }
   }
 
   return NextResponse.json({ id: inserted.id });

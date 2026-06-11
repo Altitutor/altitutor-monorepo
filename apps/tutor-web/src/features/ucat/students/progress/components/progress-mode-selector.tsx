@@ -1,7 +1,7 @@
 'use client'
 
 import { SearchableSelect } from '@altitutor/ui'
-import { SegmentedControl } from './segmented-control'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 import { ProgressAttemptFilterSelector } from './progress-attempt-filter-selector'
 import {
   type ProgressMode,

@@ -30,6 +30,7 @@ export type PrivateStemNotInSet = {
   id: string
   sectionId: string
   sectionName: string
+  categoryId: string | null
   categoryName: string | null
   stemText: unknown
   questions: Array<{ id: string; question_text: unknown; index: number }>

@@ -71,6 +71,67 @@ function deriveDayStatus(
   return "missed";
 }
 
+function buildPracticeProgress(
+  minQuestions: number,
+  tz: string,
+  attemptRows: { attempted_at: string | null }[] | null,
+  earnedCreditDates: Set<string>,
+): Pick<
+  PracticeDiscountDashboardStatus,
+  "today" | "lastSevenDays"
+> {
+  const todayStr = todayLocalDateString(tz);
+  const lastSevenDates = localDatesEndingToday(tz, 7);
+  const fromDate = lastSevenDates[0] ?? todayStr;
+  const toDate = lastSevenDates[lastSevenDates.length - 1] ?? todayStr;
+
+  const attemptsByDate = new Map<string, number>();
+  for (const row of attemptRows ?? []) {
+    if (!row.attempted_at) continue;
+    const dateStr = localDateStringInTimezone(new Date(row.attempted_at), tz);
+    if (dateStr < fromDate || dateStr > toDate) continue;
+    attemptsByDate.set(dateStr, (attemptsByDate.get(dateStr) ?? 0) + 1);
+  }
+
+  const todayQuestions = attemptsByDate.get(todayStr) ?? 0;
+  const todayEarned = earnedCreditDates.has(todayStr);
+  const todayRemaining = todayEarned
+    ? 0
+    : Math.max(0, minQuestions - todayQuestions);
+
+  const lastSevenDays: PracticeDiscountDayEntry[] = lastSevenDates.map(
+    (date) => {
+      const questionsDone = attemptsByDate.get(date) ?? 0;
+      const earnedCredit = earnedCreditDates.has(date);
+      const isToday = date === todayStr;
+      return {
+        date,
+        weekdayLabel: weekdayShort(date, tz),
+        questionsDone,
+        minQuestions,
+        earnedCredit,
+        isToday,
+        status: deriveDayStatus(
+          earnedCredit,
+          isToday,
+          questionsDone,
+          minQuestions,
+        ),
+      };
+    },
+  );
+
+  return {
+    today: {
+      questionsDone: todayQuestions,
+      minQuestions,
+      remainingQuestions: todayRemaining,
+      earnedCredit: todayEarned,
+    },
+    lastSevenDays,
+  };
+}
+
 export async function getPracticeDiscountDashboardStatus(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -126,41 +187,11 @@ export async function getPracticeDiscountDashboardStatus(
   const minQuestions = config?.min_questions_per_day ?? 20;
   const currency = (config?.currency ?? "aud").toLowerCase();
 
-  if (
-    !subscription?.billing_interval ||
-    !isUcatBillingInterval(subscription.billing_interval)
-  ) {
+  if (!subscription) {
     return { ...empty, minQuestionsPerDay: minQuestions, currency };
   }
 
-  const billingInterval = subscription.billing_interval;
-
-  const { data: rule } = await supabase
-    .from("ucat_practice_day_discount_config")
-    .select("discount_per_day_cents, max_discounts_per_period")
-    .eq("billing_interval", billingInterval)
-    .maybeSingle();
-
-  const discountPerDayCents = rule?.discount_per_day_cents ?? 0;
-  const cap = rule?.max_discounts_per_period ?? 0;
-
-  if (discountPerDayCents <= 0 || cap <= 0) {
-    return {
-      ...empty,
-      minQuestionsPerDay: minQuestions,
-      currency,
-      billingInterval,
-    };
-  }
-
-  const todayStr = todayLocalDateString(tz);
-  const lastSevenDates = localDatesEndingToday(tz, 7);
-  const fromDate = lastSevenDates[0] ?? todayStr;
-  const toDate = lastSevenDates[lastSevenDates.length - 1] ?? todayStr;
-
-  const lookbackStart = new Date(
-    Date.now() - lastSevenDates.length * 86_400_000,
-  ).toISOString();
+  const lookbackStart = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
   const [{ data: attemptRows }, { data: creditRows }] = await Promise.all([
     supabase
@@ -177,15 +208,63 @@ export async function getPracticeDiscountDashboardStatus(
       .is("forfeited_at", null),
   ]);
 
-  const attemptsByDate = new Map<string, number>();
-  for (const row of attemptRows ?? []) {
-    if (!row.attempted_at) continue;
-    const dateStr = localDateStringInTimezone(new Date(row.attempted_at), tz);
-    if (dateStr < fromDate || dateStr > toDate) continue;
-    attemptsByDate.set(dateStr, (attemptsByDate.get(dateStr) ?? 0) + 1);
+  const earnedCreditDates = new Set<string>();
+  for (const credit of creditRows ?? []) {
+    earnedCreditDates.add(credit.credit_date);
   }
 
-  const earnedCreditDates = new Set<string>();
+  const progress = buildPracticeProgress(
+    minQuestions,
+    tz,
+    attemptRows,
+    earnedCreditDates,
+  );
+
+  const billingInterval =
+    subscription.billing_interval &&
+    isUcatBillingInterval(subscription.billing_interval)
+      ? subscription.billing_interval
+      : null;
+
+  if (!billingInterval) {
+    return {
+      eligible: false,
+      minQuestionsPerDay: minQuestions,
+      discountPerDayCents: 0,
+      billingInterval: null,
+      currency,
+      earned: 0,
+      cap: 0,
+      totalDiscountCents: 0,
+      periodCapReached: false,
+      ...progress,
+    };
+  }
+
+  const { data: rule } = await supabase
+    .from("ucat_practice_day_discount_config")
+    .select("discount_per_day_cents, max_discounts_per_period")
+    .eq("billing_interval", billingInterval)
+    .maybeSingle();
+
+  const discountPerDayCents = rule?.discount_per_day_cents ?? 0;
+  const cap = rule?.max_discounts_per_period ?? 0;
+
+  if (discountPerDayCents <= 0 || cap <= 0) {
+    return {
+      eligible: false,
+      minQuestionsPerDay: minQuestions,
+      discountPerDayCents: 0,
+      billingInterval,
+      currency,
+      earned: 0,
+      cap: 0,
+      totalDiscountCents: 0,
+      periodCapReached: false,
+      ...progress,
+    };
+  }
+
   let earned = 0;
   let totalDiscountCents = 0;
 
@@ -201,37 +280,9 @@ export async function getPracticeDiscountDashboardStatus(
       earned += 1;
       totalDiscountCents += credit.discount_cents;
     }
-    earnedCreditDates.add(credit.credit_date);
   }
 
   const periodCapReached = earned >= cap;
-  const todayQuestions = attemptsByDate.get(todayStr) ?? 0;
-  const todayEarned = earnedCreditDates.has(todayStr);
-  const todayRemaining = todayEarned
-    ? 0
-    : Math.max(0, minQuestions - todayQuestions);
-
-  const lastSevenDays: PracticeDiscountDayEntry[] = lastSevenDates.map(
-    (date) => {
-      const questionsDone = attemptsByDate.get(date) ?? 0;
-      const earnedCredit = earnedCreditDates.has(date);
-      const isToday = date === todayStr;
-      return {
-        date,
-        weekdayLabel: weekdayShort(date, tz),
-        questionsDone,
-        minQuestions,
-        earnedCredit,
-        isToday,
-        status: deriveDayStatus(
-          earnedCredit,
-          isToday,
-          questionsDone,
-          minQuestions,
-        ),
-      };
-    },
-  );
 
   return {
     eligible: true,
@@ -243,12 +294,6 @@ export async function getPracticeDiscountDashboardStatus(
     cap,
     totalDiscountCents,
     periodCapReached,
-    today: {
-      questionsDone: todayQuestions,
-      minQuestions,
-      remainingQuestions: todayRemaining,
-      earnedCredit: todayEarned,
-    },
-    lastSevenDays,
+    ...progress,
   };
 }

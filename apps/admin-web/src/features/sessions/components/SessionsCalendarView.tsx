@@ -8,7 +8,7 @@ import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
-import { Button, Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
+import { Button, SegmentedControl } from "@altitutor/ui";
 
 type Props = { onOpenSession?: (id: string) => void };
 
@@ -88,12 +88,14 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'day' | 'week')}>
-          <TabsList>
-            <TabsTrigger value="day">1 day</TabsTrigger>
-            <TabsTrigger value="week">1 week</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <SegmentedControl
+          value={viewMode}
+          onValueChange={(value) => setViewMode(value as 'day' | 'week')}
+          options={[
+            { value: 'day', label: '1 day' },
+            { value: 'week', label: '1 week' },
+          ]}
+        />
         
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePrevious}>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
+import { SegmentedControl, useToast } from '@altitutor/ui';
 import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
 import { StaffSessionsCalendarView } from './StaffSessionsCalendarView';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -88,12 +88,14 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
   return (
     <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}>
-          <TabsList>
-            <TabsTrigger value="table">Table</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <SegmentedControl
+          value={viewMode}
+          onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}
+          options={[
+            { value: 'table', label: 'Table' },
+            { value: 'calendar', label: 'Calendar' },
+          ]}
+        />
       </div>
 
       {viewMode === 'calendar' && (

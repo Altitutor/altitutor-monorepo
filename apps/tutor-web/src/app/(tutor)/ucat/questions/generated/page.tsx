@@ -1,7 +1,5 @@
-'use client'
-
-import { UcatQuestionsPage } from '@/features/ucat'
+import { redirect } from 'next/navigation'
 
 export default function UcatGeneratedQuestionsRoute() {
-  return <UcatQuestionsPage mode="generated" />
+  redirect('/ucat/questions?tab=generated')
 }

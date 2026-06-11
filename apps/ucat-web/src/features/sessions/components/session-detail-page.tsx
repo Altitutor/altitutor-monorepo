@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { BrainCircuit, ListChecks, NotebookText } from "lucide-react";
+import { BookOpen, BrainCircuit, ListChecks, NotebookText } from "lucide-react";
 import { Card, CardContent } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import {
@@ -22,6 +22,7 @@ import { formatSetSections } from "@/features/sets/lib/section-labels";
 import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-card-icon-chip";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import { useLearningModules } from "@/features/learning/hooks/use-learning";
 import { cn } from "@/lib/utils";
 
 const sessionResourceLinkClassName = cn(
@@ -64,6 +65,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
   } = useStudentUcatSessionResources(sessionId);
   const { data: sets, isLoading: setsLoading } = useSets();
   const { data: mocks, isLoading: mocksLoading } = useMocks();
+  const { data: learningModules, isLoading: lessonsLoading } = useLearningModules();
 
   const setsById = useMemo(
     () => new Map((sets ?? []).map((s) => [s.id, s])),
@@ -72,6 +74,10 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
   const mocksById = useMemo(
     () => new Map((mocks ?? []).map((m) => [m.id, m])),
     [mocks],
+  );
+  const lessonsById = useMemo(
+    () => new Map((learningModules ?? []).map((m) => [m.id, m])),
+    [learningModules],
   );
 
   const needsSetsCatalog = useMemo(
@@ -82,10 +88,16 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
     () => resources?.some((r) => r.type === "mock") ?? false,
     [resources],
   );
+  const needsLessonsCatalog = useMemo(
+    () => resources?.some((r) => r.type === "lesson") ?? false,
+    [resources],
+  );
   const catalogBlocking =
     !!resources &&
     resources.length > 0 &&
-    ((needsSetsCatalog && setsLoading) || (needsMocksCatalog && mocksLoading));
+    ((needsSetsCatalog && setsLoading) ||
+      (needsMocksCatalog && mocksLoading) ||
+      (needsLessonsCatalog && lessonsLoading));
 
   const visibleResources = useMemo(() => {
     if (!resources?.length) return [];
@@ -99,9 +111,21 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
         if (mocksLoading) return false;
         return mocksById.has(r.ucat_mock_id);
       }
+      if (r.type === "lesson") {
+        if (lessonsLoading) return false;
+        return lessonsById.has(r.ucat_learning_module_id);
+      }
       return false;
     });
-  }, [resources, setsLoading, mocksLoading, setsById, mocksById]);
+  }, [
+    resources,
+    setsLoading,
+    mocksLoading,
+    lessonsLoading,
+    setsById,
+    mocksById,
+    lessonsById,
+  ]);
 
   if (isLoading) {
     return (
@@ -203,6 +227,35 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
 
       <ul className="flex flex-col gap-4">
         {visibleResources.map((resource) => {
+          if (resource.type === "lesson") {
+            const lesson = lessonsById.get(resource.ucat_learning_module_id);
+            const href = `/learn/${encodeURIComponent(resource.ucat_learning_module_id)}`;
+            return (
+              <li key={resource.id} className="min-w-0">
+                <Link href={href} className={sessionResourceLinkClassName}>
+                  <Card className={sessionResourceCardClassName}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className={sessionCardIconChipClassName("default")}>
+                          <BookOpen className="h-5 w-5" aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <h3 className="font-semibold leading-tight">
+                            {lesson?.title ?? "Learning module"}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Open lesson
+                          </p>
+                        </div>
+                        <UcatHoverChevron />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </li>
+            );
+          }
+
           if (resource.type === "stem") {
             const href = `/practice/stem/${encodeURIComponent(resource.question_stem_id)}`;
             return (

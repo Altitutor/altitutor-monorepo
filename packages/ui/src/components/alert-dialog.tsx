@@ -4,6 +4,7 @@ import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "../lib/cn"
+import { handleModalInteractOutside } from "../lib/modal-interact-outside"
 import { buttonVariants } from "./button"
 
 const AlertDialog = AlertDialogPrimitive.Root
@@ -36,12 +37,7 @@ const AlertDialogContent = React.forwardRef<
   AlertDialogContentProps
 >(({ className, onInteractOutside, ...props }, ref) => {
   const handleInteractOutside = React.useCallback((e: Event) => {
-    const target = e.target as HTMLElement;
-    // Prevent closing alert dialog when clicking on toast elements
-    if (target?.closest('[data-toast-container]')) {
-      e.preventDefault();
-    }
-    // Call the user-provided handler if it exists
+    handleModalInteractOutside(e);
     onInteractOutside?.(e);
   }, [onInteractOutside]);
 

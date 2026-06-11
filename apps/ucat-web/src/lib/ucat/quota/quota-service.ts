@@ -95,9 +95,53 @@ export async function countQuotaUsage(
     case "mocks":
       return countMockStarts(supabase, ctx.studentId, periodStart);
     case "learn":
+      return countLearnStarts(supabase, ctx.studentId, periodStart);
     case "skill_trainer":
-      return 0;
+      return countSkillTrainerStarts(supabase, ctx.studentId, periodStart);
   }
+}
+
+async function countLearnStarts(
+  supabase: AdminClient,
+  studentId: string,
+  periodStart: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("ucat_student_learning_module_progress")
+    .select("id, ucat_learning_modules!inner(kind)", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .eq("ucat_learning_modules.kind", "lesson")
+    .gte("started_at", periodStart);
+
+  if (error) {
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return 0;
+    }
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
+async function countSkillTrainerStarts(
+  supabase: AdminClient,
+  studentId: string,
+  periodStart: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("student_skill_trainer_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .is("learning_module_block_id", null)
+    .gte("started_at", periodStart);
+
+  if (error) {
+    // Skill trainer schema may not be deployed yet; do not fail other quota areas.
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return 0;
+    }
+    throw new Error(error.message);
+  }
+  return count ?? 0;
 }
 
 async function countPracticeUsage(
@@ -204,7 +248,11 @@ export async function checkQuotaForAction(
   supabase: AdminClient,
   studentId: string,
   area: UcatQuotaArea,
-  options?: { practiceQuestionId?: string; hasAnswer?: boolean },
+  options?: {
+    practiceQuestionId?: string;
+    hasAnswer?: boolean;
+    learningModuleId?: string;
+  },
 ): Promise<QuotaCheckResult> {
   const ctx = await resolveStudentQuotaContext(supabase, studentId);
   if (!ctx || ctx.isQuotaExempt) return { allowed: true };
@@ -232,6 +280,15 @@ export async function checkQuotaForAction(
       config,
       options.practiceQuestionId,
       options.hasAnswer ?? false,
+    );
+  }
+
+  if (area === "learn" && options?.learningModuleId) {
+    return checkLearnStartQuota(
+      supabase,
+      ctx,
+      config,
+      options.learningModuleId,
     );
   }
 
@@ -298,6 +355,56 @@ async function checkPracticeSubmitQuota(
       payload: {
         code: "QUOTA_EXCEEDED",
         area: "practice",
+        used,
+        limit,
+        period,
+      },
+    };
+  }
+
+  return { allowed: true };
+}
+
+async function checkLearnStartQuota(
+  supabase: AdminClient,
+  ctx: StudentQuotaContext,
+  config: UcatFreeQuotaConfig,
+  lessonId: string,
+): Promise<QuotaCheckResult> {
+  const { limit, period } = getAreaConfig(config, "learn");
+
+  if (limit === 0) {
+    return {
+      allowed: false,
+      payload: {
+        code: "QUOTA_EXCEEDED",
+        area: "learn",
+        used: 0,
+        limit: 0,
+        period,
+      },
+    };
+  }
+
+  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+
+  const { data: existing } = await supabase
+    .from("ucat_student_learning_module_progress")
+    .select("id")
+    .eq("student_id", ctx.studentId)
+    .eq("learning_module_id", lessonId)
+    .gte("started_at", periodStart)
+    .maybeSingle();
+
+  if (existing) return { allowed: true };
+
+  const used = await countLearnStarts(supabase, ctx.studentId, periodStart);
+  if (used >= limit) {
+    return {
+      allowed: false,
+      payload: {
+        code: "QUOTA_EXCEEDED",
+        area: "learn",
         used,
         limit,
         period,

@@ -26,7 +26,7 @@ import { Textarea } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Switch } from '@altitutor/ui';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useUpdateAutomationRule } from '../api/mutations';
 import { useAutomationRule } from '../api/queries';
@@ -146,7 +146,7 @@ export function EditAutomationRuleDialog({
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -171,11 +171,16 @@ export function EditAutomationRuleDialog({
               </div>
             </DialogHeader>
             <div className="px-6 pb-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="trigger">Trigger</TabsTrigger>
-                <TabsTrigger value="actions">Actions</TabsTrigger>
-              </TabsList>
+              <SegmentedControl
+                fullWidth
+                value={activeTab}
+                onValueChange={setActiveTab}
+                options={[
+                  { value: 'details', label: 'Details' },
+                  { value: 'trigger', label: 'Trigger' },
+                  { value: 'actions', label: 'Actions' },
+                ]}
+              />
             </div>
           </div>
 
@@ -193,7 +198,7 @@ export function EditAutomationRuleDialog({
                     className="space-y-6"
                   >
                     {/* Details Tab */}
-                    <TabsContent value="details" className="space-y-6 mt-0">
+                    <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
                       <FormField
                         control={form.control}
                         name="name"
@@ -265,10 +270,10 @@ export function EditAutomationRuleDialog({
                           )}
                         />
                       </div>
-                    </TabsContent>
+                    </SegmentedTabPanelContent>
 
                     {/* Trigger Tab */}
-                    <TabsContent value="trigger" className="space-y-6 mt-0">
+                    <SegmentedTabPanelContent when="trigger" activeTab={activeTab} className="space-y-6">
                       <div className="space-y-4">
                         <div className="text-sm text-muted-foreground mb-4">
                           Configure when this automation rule should trigger
@@ -416,10 +421,10 @@ export function EditAutomationRuleDialog({
                           )}
                         </div>
                       </div>
-                    </TabsContent>
+                    </SegmentedTabPanelContent>
 
                     {/* Actions Tab */}
-                    <TabsContent value="actions" className="space-y-6 mt-0">
+                    <SegmentedTabPanelContent when="actions" activeTab={activeTab} className="space-y-6">
                       <div>
                         {rule.id && (
                           <AutomationActionsList
@@ -429,7 +434,7 @@ export function EditAutomationRuleDialog({
                           />
                         )}
                       </div>
-                    </TabsContent>
+                    </SegmentedTabPanelContent>
                   </form>
                 </Form>
               </div>
@@ -447,7 +452,7 @@ export function EditAutomationRuleDialog({
               </Button>
             )}
           </div>
-        </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );

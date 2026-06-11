@@ -27,6 +27,7 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
@@ -162,11 +163,13 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
       <UcatPageHeader
         title={mode === 'generated' ? 'Review generated UCAT stem' : 'Edit UCAT Question Stem'}
         description={initial?.id ? `Editing stem ${initial.id}` : 'Edit question stem'}
-        backHref={mode === 'generated' ? '/ucat/questions/generated' : '/ucat/questions'}
+        backHref={mode === 'generated' ? '/ucat/questions?tab=generated' : '/ucat/questions'}
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
           { label: 'Questions', href: '/ucat/questions' },
-          ...(mode === 'generated' ? [{ label: 'Generated', href: '/ucat/questions/generated' }] : []),
+          ...(mode === 'generated'
+            ? [{ label: 'Generated questions', href: '/ucat/questions?tab=generated' }]
+            : []),
           { label: stemId ?? 'Question stem' },
         ]}
         actions={
@@ -213,14 +216,8 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
             name: section.name,
             display_columns: section.display_columns,
           }))}
-          categories={
-            categories.map((c) => ({
-              id: c.id,
-              name: c.name,
-              ucat_section_id: c.ucat_section_id,
-            })) as CategoryOption[]
-          }
-          tags={tags.map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+          categories={mapCategoriesToOptions(categories) as CategoryOption[]}
+          tags={mapTagsToOptions(tags) as TagOption[]}
           stemId={stemId}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}

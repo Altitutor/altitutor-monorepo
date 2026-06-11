@@ -3,6 +3,10 @@ import {
   collectBlocksFromDocForQuantitativeReasoning,
   collectLogicalLinesFromDoc,
 } from '@/features/ucat/questions/lib/parsers/core'
+import {
+  normalizeDecisionMakingSyllogismLines,
+} from '@/features/ucat/questions/lib/parsers/decisionMaking'
+import type { ParsingOptions } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 
 export type BulkImportParseSection =
   | 'verbal_reasoning'
@@ -31,14 +35,17 @@ export function bulkImportParserAcceptSyllogism(section: BulkImportParseSection)
 /** Logical lines fed into {@link parseFromLines} for the selected UCAT bulk-import section. */
 export function getBulkImportLogicalLines(
   doc: Json | null | undefined,
-  section: BulkImportParseSection
+  section: BulkImportParseSection,
+  parsingOptions?: Partial<ParsingOptions> & { imageTokenMode?: 'preserve' | 'placeholder' }
 ): string[] {
   switch (section) {
     case 'verbal_reasoning':
     case 'situational_judgement':
       return collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })
     case 'decision_making':
-      return collectLogicalLinesFromDoc(doc)
+      return normalizeDecisionMakingSyllogismLines(collectLogicalLinesFromDoc(doc), parsingOptions ?? {}, {
+        imageTokenMode: parsingOptions?.imageTokenMode ?? 'preserve',
+      })
     case 'quantitative_reasoning':
       return collectBlocksFromDocForQuantitativeReasoning(doc).logicalLines
   }

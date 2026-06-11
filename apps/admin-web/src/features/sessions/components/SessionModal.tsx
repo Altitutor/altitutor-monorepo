@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, SegmentedControl, SegmentedTabPanelContent, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -302,7 +302,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+          <div className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
             <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
               <SheetHeader className="px-6 pt-6 pb-4">
@@ -347,16 +347,21 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               </SheetHeader>
               <div className="px-6 pb-4">
-                <TabsList className="w-full">
-                  <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-                  <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-                </TabsList>
+                <SegmentedControl
+                  fullWidth
+                  value={activeTab}
+                  onValueChange={setActiveTab}
+                  options={[
+                    { value: 'details', label: 'Details' },
+                    { value: 'activity', label: 'Activity' },
+                  ]}
+                />
               </div>
             </div>
 
             {/* Scrollable Content */}
             <div className="flex-1 min-h-0 relative">
-              <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                 <div className="p-6">
                   <SessionDetailsTab
                     key={`session-details-${sessionId ?? ''}-${isEditing}`}
@@ -463,15 +468,15 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     <SessionFiles sessionId={sessionId} />
                   )}
                 </div>
-              </TabsContent>
+              </SegmentedTabPanelContent>
 
-              <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                 <div className="p-6">
                   {sessionId && (
                     <SessionActivityTab sessionId={sessionId} isOpen={isOpen} />
                   )}
                 </div>
-              </TabsContent>
+              </SegmentedTabPanelContent>
             </div>
             {sessionId && isEditing && activeTab === 'details' && (
               <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
@@ -500,7 +505,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               </div>
             )}
-          </Tabs>
+          </div>
         </SheetContent>
       </Sheet>
       

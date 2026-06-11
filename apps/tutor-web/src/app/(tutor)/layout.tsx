@@ -4,13 +4,24 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Calendar,
-  Home,
   BookOpen,
   BrainCircuit,
-  TrendingUp,
+  Calendar,
   ChevronDown,
+  FileQuestion,
+  FolderTree,
+  GitMerge,
+  Home,
+  Layers,
+  LayoutGrid,
+  School,
+  ScrollText,
   Settings,
+  Tag,
+  Target,
+  TrendingUp,
+  Users,
+  Dumbbell,
 } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
@@ -25,27 +36,73 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   onToggle: () => void;
 }
 
-type NavLink = { title: string; href: string };
+type NavLink = { title: string; href: string; icon: LucideIcon };
+
+type DropdownChild = NavLink | { type: 'heading'; title: string };
 
 type NavItem =
   | { type?: 'link'; title: string; href: string; icon: LucideIcon }
-  | { type: 'dropdown'; title: string; href: string; icon: LucideIcon; children: NavLink[] }
+  | { type: 'dropdown'; title: string; href: string; icon: LucideIcon; children: DropdownChild[] }
   | { type: 'heading'; title: string };
 
 type NavLinkItem = { title: string; href: string; icon: LucideIcon };
 
-const ucatDropdownChildren: NavLink[] = [
-  { title: 'Questions', href: '/ucat/questions' },
-  { title: 'Generated Questions', href: '/ucat/questions/generated' },
-  { title: 'Sets', href: '/ucat/sets' },
-  { title: 'Mocks', href: '/ucat/mocks' },
-  { title: 'Students', href: '/ucat/students' },
-  { title: 'Classes', href: '/ucat/classes' },
-  { title: 'Reconciliation', href: '/ucat/reconciliation' },
-  { title: 'Question Categories', href: '/ucat/question-stem-categories' },
-  { title: 'Question Tags', href: '/ucat/question-tags' },
-  { title: 'Sections', href: '/ucat/sections' },
+const ucatDropdownChildren: DropdownChild[] = [
+  { type: 'heading', title: 'Learn and practice' },
+  { title: 'Learning modules', href: '/ucat/learning-modules', icon: BookOpen },
+  { title: 'Skill trainer questions', href: '/ucat/skill-trainer-questions', icon: Dumbbell },
+  { title: 'Skill trainer sets', href: '/ucat/skill-trainer-sets', icon: Target },
+  { type: 'heading', title: 'Questions' },
+  { title: 'Questions', href: '/ucat/questions', icon: FileQuestion },
+  { title: 'Sets', href: '/ucat/sets', icon: Layers },
+  { title: 'Mocks', href: '/ucat/mocks', icon: ScrollText },
+  { type: 'heading', title: 'Students' },
+  { title: 'Students', href: '/ucat/students', icon: Users },
+  { title: 'Classes', href: '/ucat/classes', icon: School },
+  { type: 'heading', title: 'Settings' },
+  { title: 'Reconciliation', href: '/ucat/reconciliation', icon: GitMerge },
+  { title: 'Question tags', href: '/ucat/question-tags', icon: Tag },
+  { title: 'Question stem categories', href: '/ucat/question-stem-categories', icon: FolderTree },
+  { title: 'Sections', href: '/ucat/sections', icon: LayoutGrid },
 ];
+
+const ucatDropdownHeadingClass =
+  'px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/75 first:pt-1';
+
+function renderUcatDropdownChild(
+  child: DropdownChild,
+  childIndex: number,
+  linkClassName: (href: string) => string,
+  collapsed = false,
+) {
+  if (!('href' in child)) {
+    return (
+      <div
+        key={`heading-${childIndex}`}
+        className={cn(ucatDropdownHeadingClass, collapsed && 'px-0 text-center')}
+        aria-hidden
+      >
+        {!collapsed ? (
+          <span className="overflow-hidden whitespace-nowrap">{child.title}</span>
+        ) : (
+          <div className="mx-auto h-px max-w-[20px] bg-border" />
+        )}
+      </div>
+    );
+  }
+
+  const Icon = child.icon;
+  return (
+    <Link
+      key={child.href}
+      href={child.href}
+      className={cn(linkClassName(child.href), 'flex items-center gap-2')}
+    >
+      <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+      <span className="truncate">{child.title}</span>
+    </Link>
+  );
+}
 
 const primaryNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
@@ -70,6 +127,13 @@ function isNavLinkActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === '/') return false;
   return pathname.startsWith(`${href}/`);
+}
+
+function isUcatDropdownChildActive(pathname: string, href: string): boolean {
+  if (href === '/ucat/questions') {
+    return pathname === '/ucat/questions' || pathname.startsWith('/ucat/questions/');
+  }
+  return isNavLinkActive(pathname, href);
 }
 
 /** Animated height for UCAT (and future) submenu — grid 0fr → 1fr */
@@ -158,7 +222,7 @@ function MobileMenu({
   const childLinkClass = (href: string) =>
     cn(
       'rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
-      pathname === href
+      isUcatDropdownChildActive(pathname, href)
         ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
         : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
     );
@@ -233,11 +297,9 @@ function MobileMenu({
                       </button>
                     </div>
                     <NavSubmenu open={open}>
-                      {item.children.map((child) => (
-                        <Link key={child.href} href={child.href} className={childLinkClass(child.href)}>
-                          {child.title}
-                        </Link>
-                      ))}
+                      {item.children.map((child, childIndex) =>
+                        renderUcatDropdownChild(child, childIndex, childLinkClass),
+                      )}
                     </NavSubmenu>
                   </div>
                 );
@@ -288,7 +350,7 @@ function SidebarNav({
   const childLinkClass = (href: string) =>
     cn(
       'rounded-xl px-2 py-1.5 text-sm transition-all duration-300 ease-out whitespace-nowrap overflow-hidden',
-      pathname === href
+      isUcatDropdownChildActive(pathname, href)
         ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
         : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
     );
@@ -399,11 +461,9 @@ function SidebarNav({
                     </button>
                   </div>
                   <NavSubmenu open={open}>
-                    {item.children.map((child) => (
-                      <Link key={child.href} href={child.href} className={childLinkClass(child.href)}>
-                        {child.title}
-                      </Link>
-                    ))}
+                    {item.children.map((child, childIndex) =>
+                      renderUcatDropdownChild(child, childIndex, childLinkClass, collapsed),
+                    )}
                   </NavSubmenu>
                 </div>
               );

@@ -27,6 +27,7 @@ import {
   type UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
 
 export type StemEditorMode = 'edit' | 'view'
@@ -290,16 +291,24 @@ export function UcatStemEditorPropertiesPanel({
               />
             </PropertyRow>
             <PropertyRow label="Category">
-              <SearchableSelect<{ id: string; name: string }>
+              <SearchableSelect<{ id: string; name: string; label: string }>
                 items={[
-                  { id: 'none', name: 'No category' },
-                  ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
+                  { id: 'none', name: 'No category', label: 'No category' },
+                  ...categoriesFiltered.map((c) => ({
+                    id: c.id ?? 'none',
+                    name: c.name ?? 'Untitled',
+                    label: taxonomyDisplayLabel(c),
+                  })),
                 ]}
                 value={(() => {
                   const categoryId = form.watch('categoryId')
                   const opts = [
-                    { id: 'none', name: 'No category' },
-                    ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
+                    { id: 'none', name: 'No category', label: 'No category' },
+                    ...categoriesFiltered.map((c) => ({
+                      id: c.id ?? 'none',
+                      name: c.name ?? 'Untitled',
+                      label: taxonomyDisplayLabel(c),
+                    })),
                   ]
                   return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
                 })()}
@@ -312,7 +321,7 @@ export function UcatStemEditorPropertiesPanel({
                     shouldDirty: true,
                   })
                 }}
-                getItemLabel={(c) => c.name}
+                getItemLabel={(c) => taxonomyDisplayLabel(c)}
                 getItemId={(c) => c.id}
                 placeholder={!sectionId ? 'Select section first' : 'Select category'}
                 disabled={!sectionId}

@@ -50,14 +50,15 @@ export function ParsedDocumentPreviewPanel({
   const totalQuestions = parsedStems.reduce((acc, stem) => acc + stem.questions.length, 0)
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-2">
-      <Label className="text-xs font-medium text-muted-foreground lg:sr-only">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
+      <Label className="shrink-0 text-xs font-medium text-muted-foreground lg:sr-only">
         Parsed preview
       </Label>
       {parsedStems.length === 0 ? (
         <p className="text-sm text-muted-foreground">No stems detected yet.</p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="flex flex-col gap-3">
           {parsedStems.map((stem, stemIndex) => (
             <div key={stemIndex} className="flex flex-col gap-2">
               <CollapsibleStemCard
@@ -67,9 +68,11 @@ export function ParsedDocumentPreviewPanel({
                 onToggle={() => toggleStemExpanded(stemIndex)}
               />
               {stem.questions.length === 0 ? (
-                <p className="pl-1 text-xs text-muted-foreground">No questions in this stem.</p>
+                <p className="ml-4 border-l border-border pl-3 text-xs text-muted-foreground">
+                  No questions in this stem.
+                </p>
               ) : (
-                <div className="flex flex-col gap-2 pl-1">
+                <div className="ml-4 flex flex-col gap-2 border-l border-border pl-3">
                   {stem.questions.map((question, questionIndex) => {
                     const key = `${stemIndex}:${questionIndex}`
                     return (
@@ -91,6 +94,7 @@ export function ParsedDocumentPreviewPanel({
               Stems found but no questions yet. Check your question settings.
             </p>
           ) : null}
+          </div>
         </div>
       )}
     </div>

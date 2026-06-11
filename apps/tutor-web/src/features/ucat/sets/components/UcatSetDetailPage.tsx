@@ -27,6 +27,7 @@ import { cn } from '@/shared/utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
@@ -185,7 +186,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     ]
 
     const sections = sectionsQuery.data ?? []
-    const categories = categoriesQuery.data ?? []
+    const categories = mapCategoriesToOptions(categoriesQuery.data ?? [])
 
     return [
       {
@@ -198,7 +199,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       },
       {
         ...base[1],
-        options: categories.map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
+        options: categories.map((c) => ({ label: taxonomyDisplayLabel(c), value: c.id ?? '' })),
       },
       base[2],
       base[3],
@@ -383,10 +384,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           name: section.name,
           display_columns: section.display_columns,
         }))}
-        categories={
-          (categoriesQuery.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]
-        }
-        tags={(tagsQuery.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        categories={mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[]}
+        tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
       />

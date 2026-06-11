@@ -35,12 +35,21 @@ export function DashboardFreeQuotaCard() {
   const { openQuotaLimit } = useQuotaLimitModal();
   const { openPlanPicker } = useUpsellDialog();
 
-  const isFreeTier =
+  const accessIndicatesFree =
     !access.isLoading &&
     access.onlineTier === "free" &&
     !access.isQuotaExempt;
+  const quotaIndicatesFree =
+    !isLoading &&
+    !isError &&
+    data?.onlineTier === "free" &&
+    !data.isQuotaExempt;
+  const isFreeTier = accessIndicatesFree || quotaIndicatesFree;
 
-  if (!access.isLoading && !isFreeTier) {
+  const enabledAreas =
+    data?.areas.filter((entry) => !entry.disabled) ?? [];
+
+  if (!access.isLoading && !isLoading && !isFreeTier) {
     return null;
   }
 
@@ -52,7 +61,7 @@ export function DashboardFreeQuotaCard() {
     return null;
   }
 
-  const areas = data.areas.filter((entry) => !entry.disabled);
+  const areas = enabledAreas;
   if (areas.length === 0) return null;
 
   const anyAtLimit = areas.some((entry) => entry.atLimit);

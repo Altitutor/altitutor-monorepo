@@ -11,9 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  Tabs,
-  TabsList,
-  TabsTrigger,
+  SegmentedControl,
 } from '@altitutor/ui';
 import { Check, ChevronLeft, ChevronRight, CloudOff, Loader2 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -233,12 +231,14 @@ export default function DashboardDatePage({ params }: { params: { date: string }
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>Sessions</CardTitle>
-          <Tabs value={sessionsViewMode} onValueChange={(v) => setSessionsViewMode(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={sessionsViewMode}
+            onValueChange={(v) => setSessionsViewMode(v as ViewMode)}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'calendar', label: 'Calendar' },
+            ]}
+          />
         </CardHeader>
         <CardContent className="p-0">
           <TodaySessionsView date={dateStr} viewMode={sessionsViewMode} onOpenSession={handleSessionClick} />

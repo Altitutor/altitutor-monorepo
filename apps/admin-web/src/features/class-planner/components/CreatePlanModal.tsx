@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useCreateClassPlan } from '../hooks/useClassPlansQuery';
@@ -58,6 +58,7 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
   const [planName, setPlanName] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
   const [defaultLength, setDefaultLength] = useState(1.5);
+  const [activeDayTab, setActiveDayTab] = useState('1');
   const [slots, setSlots] = useState<Record<number, TimeSlot[]>>({
     0: [],
     1: [],
@@ -278,17 +279,23 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
 
           <div className="space-y-4">
             <Label>Time Slots (per day)</Label>
-            <Tabs defaultValue="1" className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
-                {DAYS_OF_WEEK.map((day) => (
-                  <TabsTrigger key={day.value} value={day.value.toString()}>
-                    {day.short}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
+            <SegmentedTabPanel
+              value={activeDayTab}
+              onValueChange={setActiveDayTab}
+              fullWidth
+              className="w-full"
+              options={DAYS_OF_WEEK.map((day) => ({
+                value: day.value.toString(),
+                label: day.short,
+              }))}
+            >
               {DAYS_OF_WEEK.map((day) => (
-                <TabsContent key={day.value} value={day.value.toString()} className="space-y-3">
+                <SegmentedTabPanelContent
+                  key={day.value}
+                  when={day.value.toString()}
+                  activeTab={activeDayTab}
+                  className="space-y-3"
+                >
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{day.label} Slots</h4>
                     <Button
@@ -346,9 +353,9 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
                       ))}
                     </div>
                   )}
-                </TabsContent>
+                </SegmentedTabPanelContent>
               ))}
-            </Tabs>
+            </SegmentedTabPanel>
           </div>
 
           <div className="flex justify-end space-x-2 pt-4 border-t">

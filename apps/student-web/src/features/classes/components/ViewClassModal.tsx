@@ -1,7 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@altitutor/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Loader2, Calendar, Clock, MapPin, User } from 'lucide-react';
@@ -23,6 +27,7 @@ interface ViewClassModalProps {
 }
 
 export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
+  const [activeTab, setActiveTab] = useState<'details' | 'sessions'>('details');
   const { data: classDetails, isLoading: isLoadingDetails } = useClassDetails(classId);
   const { data: sessions, isLoading: isLoadingSessions } = useClassSessions(classId);
 
@@ -41,14 +46,16 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
               <SheetTitle>Class Details</SheetTitle>
             </SheetHeader>
 
-            <Tabs defaultValue="details" className="mt-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="details">Class Details</TabsTrigger>
-                <TabsTrigger value="sessions">Sessions</TabsTrigger>
-              </TabsList>
-
-              {/* Tab 1: Class Details */}
-              <TabsContent value="details" className="space-y-4 mt-4">
+            <SegmentedTabPanel
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as 'details' | 'sessions')}
+              className="mt-6"
+              options={[
+                { value: 'details', label: 'Class Details' },
+                { value: 'sessions', label: 'Sessions' },
+              ]}
+            >
+              <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-4 space-y-4">
                 {/* Subject Information */}
                 <Card>
                   <CardHeader>
@@ -173,10 +180,9 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     </CardContent>
                   </Card>
                 )}
-              </TabsContent>
+              </SegmentedTabPanelContent>
 
-              {/* Tab 2: Sessions */}
-              <TabsContent value="sessions" className="mt-4">
+              <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="mt-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Class Sessions</CardTitle>
@@ -234,8 +240,8 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     )}
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
+              </SegmentedTabPanelContent>
+            </SegmentedTabPanel>
           </>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

@@ -15,10 +15,8 @@ import {
   FormField,
   FormItem,
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
+  SegmentedControl,
+  SegmentedTabPanelContent,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -77,6 +75,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('properties');
 
   useEffect(() => {
     if (!isOpen) {
@@ -336,16 +335,21 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                 </div>
 
                 <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-                  <Tabs defaultValue="properties" className="flex-1 flex flex-col min-h-0">
+                  <div className="flex-1 flex flex-col min-h-0">
                     <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="properties">Properties</TabsTrigger>
-                        <TabsTrigger value="outline">Outline</TabsTrigger>
-                      </TabsList>
+                      <SegmentedControl
+                        fullWidth
+                        value={sidebarTab}
+                        onValueChange={(v) => setSidebarTab(v as 'properties' | 'outline')}
+                        options={[
+                          { value: 'properties', label: 'Properties' },
+                          { value: 'outline', label: 'Outline' },
+                        ]}
+                      />
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-hidden">
-                      <TabsContent value="properties" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+                      <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
                         <ScrollArea className="flex-1">
                           <div className="p-6">
                             <NotePropertiesPanel
@@ -354,17 +358,17 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                             />
                           </div>
                         </ScrollArea>
-                      </TabsContent>
+                      </SegmentedTabPanelContent>
 
-                      <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
+                      <SegmentedTabPanelContent when="outline" activeTab={sidebarTab} className="h-full min-h-0 overflow-hidden flex flex-col">
                         <ScrollArea className="flex-1 min-h-0">
                           <div className="p-6">
                             <NoteTableOfContents editor={editorInstance} />
                           </div>
                         </ScrollArea>
-                      </TabsContent>
+                      </SegmentedTabPanelContent>
                     </div>
-                  </Tabs>
+                  </div>
                 </div>
               </form>
             </Form>

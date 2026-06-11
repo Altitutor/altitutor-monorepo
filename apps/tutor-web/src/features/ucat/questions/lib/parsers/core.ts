@@ -115,6 +115,10 @@ function isBlank(line: string): boolean {
   return line.trim().length === 0
 }
 
+function isImageTokenLine(line: string): boolean {
+  return /^\s*\[\[IMG:[^\]]+\]\]\s*$/.test(line)
+}
+
 function normaliseStructuralText(text: string): string {
   return text
     .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
@@ -166,9 +170,9 @@ export function nodeToText(node: PMNode | null | undefined): string {
 }
 
 /** Matches option labels: A. B. a) b) etc. (label only) */
-const OPTION_LABEL_RE = /^\s*([A-Ea-e])[\.\)]\s*$/
+const OPTION_LABEL_RE = /^\s*([A-Ea-e])([\.\)])\s*$/
 /** Matches label + text in same cell: A. $180 or a) option text */
-const OPTION_LABEL_WITH_TEXT_RE = /^\s*([A-Ea-e])[\.\)]\s*(.+)$/
+const OPTION_LABEL_WITH_TEXT_RE = /^\s*([A-Ea-e])([\.\)])\s*(.+)$/
 /** Matches question number: 1. 2. 10. etc. */
 const QUESTION_NUMBER_RE = /^\s*(\d+)\.\s*$/
 
@@ -247,30 +251,35 @@ export function isOptionsTable(rows: string[][]): boolean {
 
 /**
  * Extract option lines from an options table. Supports label and text in
- * separate cells or combined (e.g. "A. $180"). Returns lines like "A) option text".
+ * separate cells or combined (e.g. "A. $180"). Preserves the source label style
+ * (dot or paren) in emitted lines, e.g. "A. option text" or "A) option text".
  */
 export function extractOptionLinesFromTable(rows: string[][]): string[] {
   const lines: string[] = []
   for (const row of rows) {
     let labelChar = ''
+    let labelSeparator: '.' | ')' = '.'
     let textCell = ''
     for (const cell of row) {
       const trimmed = cell.trim()
       const combined = OPTION_LABEL_WITH_TEXT_RE.exec(trimmed)
       if (combined) {
         labelChar = (combined[1] ?? '').toUpperCase()
-        textCell = (combined[2] ?? '').trim()
+        labelSeparator = combined[2] === ')' ? ')' : '.'
+        textCell = (combined[3] ?? '').trim()
         break
       }
       const labelOnly = OPTION_LABEL_RE.exec(trimmed)
       if (labelOnly) {
         labelChar = (labelOnly[1] ?? '').toUpperCase()
+        labelSeparator = labelOnly[2] === ')' ? ')' : '.'
       } else if (trimmed.length > 0) {
         textCell = trimmed
       }
     }
     if (labelChar && textCell) {
-      lines.push(`${labelChar}) ${textCell}`)
+      const separator = labelSeparator === ')' ? ') ' : '. '
+      lines.push(`${labelChar}${separator}${textCell}`)
     }
   }
   return lines
@@ -620,6 +629,10 @@ function hasNearbyAnswerOptionEvidence(
 
     if (getQuestionMatch(candidate, qRe, questionNumberOnOwnLine)) {
       return false
+    }
+
+    if (config.acceptSyllogismOptions && isImageTokenLine(candidate)) {
+      return true
     }
 
     const inlineOptionMatch = oRe.inline.exec(candidate)
@@ -1098,6 +1111,12 @@ export function classifyParseLineRoles(
     }
 
     if (currentQuestion && !haveSeenOptionForCurrentQuestion) {
+      if (config.acceptSyllogismOptions && isImageTokenLine(line)) {
+        roles[idx] = 'option'
+        haveSeenOptionForCurrentQuestion = true
+        continue
+      }
+
       roles[idx] = 'question'
       questionTextLines.push(line)
       questionTextSources.push(idx)

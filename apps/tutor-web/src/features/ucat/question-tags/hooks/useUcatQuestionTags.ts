@@ -30,3 +30,11 @@ export function useDeleteUcatQuestionTag() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.tags() }),
   })
 }
+
+export function useUcatTagLinkedQuestions(tagId: string | null) {
+  return useQuery({
+    queryKey: ucatKeys.tagQuestions(tagId ?? ''),
+    queryFn: () => ucatQuestionTagsApi.listLinkedQuestions(tagId ?? ''),
+    enabled: Boolean(tagId),
+  })
+}
