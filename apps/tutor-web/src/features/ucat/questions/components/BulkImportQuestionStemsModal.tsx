@@ -64,6 +64,7 @@ import {
   applyBulkAnswersToStems,
   validateBulkAnswersDocument,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
+import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
   StepStemCategories,
@@ -124,7 +125,7 @@ export function BulkImportQuestionStemsModal({
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'dot',
@@ -160,6 +161,13 @@ export function BulkImportQuestionStemsModal({
     () => mapTagsToOptions(tagsQuery.data ?? []),
     [tagsQuery.data]
   )
+  const selectableTagOptions = useMemo(
+    () =>
+      mapTagsToOptions(
+        filterTagsForImportSection(tagsQuery.data ?? [], sectionId)
+      ) as BulkImportTagOption[],
+    [tagsQuery.data, sectionId]
+  )
 
   const selectedSection = useMemo(
     () => sections.find((s) => s.id === sectionId) ?? null,
@@ -191,36 +199,37 @@ export function BulkImportQuestionStemsModal({
   }, [wipeDownstreamFromStems])
 
   useEffect(() => {
-    if (!open) {
-      setExpanded(false)
-      setStep(0)
-      setStatus('idle')
-      setSubmitError(null)
-      setParseError(null)
-      setSectionId(null)
-      setSeparateStemDocument(false)
-      setPastedContent(null)
-      setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
-      setPastedStemDoc(null)
-      setParsedStemTexts([])
-      setPerStemQuestionDocs([])
-      setPastedAnswersJson(null)
-      setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
-      setPasteTableBehavior('strip_outside')
-      setAddToSetEnabled(false)
-      setAddToSetConfig(null)
-      setParsingOptions({
-        questionIndicator: 'dot',
-        answerOptionIndicator: 'dot',
-        questionNumberOnOwnLine: false,
-        answerOptionOnOwnLine: false,
-        requireConsecutiveQuestionNumbers: true,
-      })
-      suppressDialogCloseRef.current = false
-      setPendingConfirm(null)
-      step2NewImageFileIdsRef.current = new Set()
-      wizard.reset()
+    if (open) {
+      setExpanded(true)
+      return
     }
+    setStep(0)
+    setStatus('idle')
+    setSubmitError(null)
+    setParseError(null)
+    setSectionId(null)
+    setSeparateStemDocument(false)
+    setPastedContent(null)
+    setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
+    setPastedStemDoc(null)
+    setParsedStemTexts([])
+    setPerStemQuestionDocs([])
+    setPastedAnswersJson(null)
+    setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
+    setPasteTableBehavior('strip_outside')
+    setAddToSetEnabled(false)
+    setAddToSetConfig(null)
+    setParsingOptions({
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'dot',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+      requireConsecutiveQuestionNumbers: true,
+    })
+    suppressDialogCloseRef.current = false
+    setPendingConfirm(null)
+    step2NewImageFileIdsRef.current = new Set()
+    wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
 
@@ -712,6 +721,7 @@ export function BulkImportQuestionStemsModal({
         <StepQuestionTags
           stems={wizard.state.stems}
           tags={tagOptions as BulkImportTagOption[]}
+          selectableTags={selectableTagOptions}
           onUpdateStem={wizard.updateStemForm}
         />
       )

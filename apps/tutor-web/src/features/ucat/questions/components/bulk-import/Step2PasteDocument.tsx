@@ -373,7 +373,7 @@ export function Step2PasteDocument({
               ucatParseHighlight={ucatQHighlight}
             />
           </div>
-          <div className="min-h-0 min-w-0 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <ParsedDocumentPreviewPanel
               value={value}
               section={liveParseSection}

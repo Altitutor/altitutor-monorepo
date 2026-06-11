@@ -39,6 +39,38 @@ export function resolveRootSectionId(
   return null
 }
 
+export type TagRowForSectionFilter = {
+  id?: string | null
+  parent_id?: string | null
+  parent_question_tag_id?: string | null
+  section_id?: string | null
+  ucat_section_id?: string | null
+}
+
+function toTaxonomyRowForSectionFilter(row: TagRowForSectionFilter & { id: string }): TaxonomyRowForReparent {
+  return {
+    id: row.id,
+    parent_id: row.parent_id ?? row.parent_question_tag_id ?? null,
+    section_id: row.section_id ?? row.ucat_section_id ?? null,
+  }
+}
+
+/** Tags whose root section matches `sectionId`, or whose root has no section. */
+export function filterTagsForImportSection<T extends TagRowForSectionFilter>(
+  rows: T[],
+  sectionId: string | null
+): T[] {
+  const validRows = rows.filter(
+    (row): row is T & { id: string } => typeof row.id === 'string' && row.id.length > 0
+  )
+  if (!sectionId) return validRows
+  const taxonomyRows = validRows.map(toTaxonomyRowForSectionFilter)
+  return validRows.filter((row) => {
+    const rootSectionId = resolveRootSectionId(taxonomyRows, row.id)
+    return rootSectionId === null || rootSectionId === sectionId
+  })
+}
+
 export function collectDescendantIds(
   rows: TaxonomyRowForReparent[],
   rootId: string

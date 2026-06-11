@@ -1,9 +1,7 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  Button,
-  Checkbox,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -14,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@altitutor/ui'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -30,7 +28,10 @@ export type BulkImportTagOption = {
 
 type StepQuestionTagsProps = {
   stems: BulkImportStemDraft[]
+  /** All tags — used to resolve labels for already-selected pills. */
   tags: BulkImportTagOption[]
+  /** Tags available in the add-tag picker (section-scoped). */
+  selectableTags: BulkImportTagOption[]
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
 }
 
@@ -65,63 +66,102 @@ function questionPreview(row: QuestionRow): string {
   return proseMirrorToPlainText(question?.questionText ?? null)?.replace(/\s+/g, ' ').trim() ?? ''
 }
 
-function TagMultiSelect({
+function TagPill({
+  label,
+  onRemove,
+}: {
+  label: string
+  onRemove: () => void
+}) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-md border bg-muted py-0.5 pl-2 pr-1 text-xs text-muted-foreground">
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        className="shrink-0 rounded-sm p-0.5 hover:bg-background/80"
+        aria-label={`Remove ${label}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onRemove()
+        }}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
+
+function InlineQuestionTags({
   tags,
+  selectableTags,
   selectedIds,
   onChange,
 }: {
   tags: BulkImportTagOption[]
+  selectableTags: BulkImportTagOption[]
   selectedIds: string[]
   onChange: (ids: string[]) => void
 }) {
+  const [open, setOpen] = useState(false)
   const selectedTags = tags.filter((tag) => selectedIds.includes(tag.id))
+  const availableTags = selectableTags.filter((tag) => !selectedIds.includes(tag.id))
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="w-full justify-between">
-          <span className="truncate">
-            {selectedTags.length === 0 ? 'Add tags' : `${selectedTags.length} tag(s) selected`}
-          </span>
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[24rem] p-0" align="end">
-        <Command>
-          <CommandInput placeholder="Search tags..." />
-          <CommandList>
-            <CommandEmpty>No tags found.</CommandEmpty>
-            <CommandGroup>
-              {tags.map((tag) => {
-                const checked = selectedIds.includes(tag.id)
-                return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {selectedTags.map((tag) => (
+        <TagPill
+          key={tag.id}
+          label={taxonomyDisplayLabel(tag)}
+          onRemove={() => onChange(selectedIds.filter((id) => id !== tag.id))}
+        />
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'inline-flex items-center rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground',
+              'hover:bg-muted/50'
+            )}
+          >
+            + Add tag
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[24rem] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Search tags..." />
+            <CommandList>
+              <CommandEmpty>No tags found.</CommandEmpty>
+              <CommandGroup>
+                {availableTags.map((tag) => (
                   <CommandItem
                     key={tag.id}
                     value={`${tag.id}-${taxonomyDisplayLabel(tag)}`}
                     onSelect={() => {
-                      onChange(
-                        checked
-                          ? selectedIds.filter((id) => id !== tag.id)
-                          : [...selectedIds, tag.id]
-                      )
+                      onChange([...selectedIds, tag.id])
+                      setOpen(false)
                     }}
                   >
-                    <Checkbox checked={checked} className="mr-2" />
-                    <span>{taxonomyDisplayLabel(tag)}</span>
+                    {taxonomyDisplayLabel(tag)}
                   </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }
 
-export function StepQuestionTags({ stems, tags, onUpdateStem }: StepQuestionTagsProps) {
+export function StepQuestionTags({
+  stems,
+  tags,
+  selectableTags,
+  onUpdateStem,
+}: StepQuestionTagsProps) {
   const rows = useMemo(() => buildQuestionRows(stems), [stems])
-  const [expandedKey, setExpandedKey] = useState<string | null>(rows[0]?.key ?? null)
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   if (rows.length === 0) {
     return (
@@ -135,14 +175,17 @@ export function StepQuestionTags({ stems, tags, onUpdateStem }: StepQuestionTags
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold">Add question tags</h2>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-3">
-          {rows.map((row) => {
-            const expanded = expandedKey === row.key
-            const question = row.stem.values.questions[row.questionIndex]
-            const selectedCount = question?.tagIds?.length ?? 0
-            return (
-              <div key={row.key} className="rounded-md border bg-background">
+      <div className="space-y-3">
+        {rows.map((row) => {
+          const expanded = expandedKey === row.key
+          const question = row.stem.values.questions[row.questionIndex]
+          const selectedIds = question?.tagIds ?? []
+          return (
+            <div
+              key={row.key}
+              className="flex flex-col gap-2 lg:flex-row lg:items-start lg:gap-3"
+            >
+              <div className="min-w-0 flex-1 rounded-md border bg-background">
                 <button
                   type="button"
                   className="flex w-full items-start gap-2 px-3 py-2 text-left"
@@ -155,9 +198,8 @@ export function StepQuestionTags({ stems, tags, onUpdateStem }: StepQuestionTags
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium">Question {row.globalQuestionNumber}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {selectedCount === 0 ? 'No tags' : `${selectedCount} tag(s)`}
+                      <span className="text-sm font-medium">
+                        Question {row.globalQuestionNumber}
                       </span>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -174,50 +216,24 @@ export function StepQuestionTags({ stems, tags, onUpdateStem }: StepQuestionTags
                   </div>
                 ) : null}
               </div>
-            )
-          })}
-        </div>
 
-        <div className="rounded-md border bg-background p-4">
-          {rows.map((row) => {
-            if (row.key !== expandedKey) return null
-            const question = row.stem.values.questions[row.questionIndex]
-            const selectedIds = question?.tagIds ?? []
-            const selectedTags = tags.filter((tag) => selectedIds.includes(tag.id))
-            return (
-              <Fragment key={row.key}>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Question {row.globalQuestionNumber} tags</div>
-                  <TagMultiSelect
-                    tags={tags}
-                    selectedIds={selectedIds}
-                    onChange={(tagIds) => {
-                      const questions = [...row.stem.values.questions]
-                      const current = questions[row.questionIndex]
-                      if (!current) return
-                      questions[row.questionIndex] = { ...current, tagIds }
-                      onUpdateStem(row.stem.id, { ...row.stem.values, questions })
-                    }}
-                  />
-                </div>
-                {selectedTags.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {selectedTags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className={cn(
-                          'rounded-md border bg-muted px-2 py-1 text-xs text-muted-foreground'
-                        )}
-                      >
-                        {taxonomyDisplayLabel(tag)}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </Fragment>
-            )
-          })}
-        </div>
+              <div className="w-full shrink-0 lg:max-w-sm lg:pt-1.5">
+                <InlineQuestionTags
+                  tags={tags}
+                  selectableTags={selectableTags}
+                  selectedIds={selectedIds}
+                  onChange={(tagIds) => {
+                    const questions = [...row.stem.values.questions]
+                    const current = questions[row.questionIndex]
+                    if (!current) return
+                    questions[row.questionIndex] = { ...current, tagIds }
+                    onUpdateStem(row.stem.id, { ...row.stem.values, questions })
+                  }}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

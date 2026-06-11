@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Button, SearchableSelect } from '@altitutor/ui'
+import { SearchableSelect } from '@altitutor/ui'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -38,7 +38,7 @@ export function StepStemCategories({
   categories,
   onUpdateStem,
 }: StepStemCategoriesProps) {
-  const [expandedStemId, setExpandedStemId] = useState<string | null>(stems[0]?.id ?? null)
+  const [expandedStemId, setExpandedStemId] = useState<string | null>(null)
   const sectionCategories = useMemo(
     () => categories.filter((category) => (category.ucat_section_id ?? null) === sectionId),
     [categories, sectionId]
@@ -56,17 +56,20 @@ export function StepStemCategories({
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold">Set question stem categories</h2>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="space-y-3">
-          {stems.map((stem, index) => {
-            const expanded = expandedStemId === stem.id
-            const category = sectionCategories.find((item) => item.id === stem.values.categoryId)
-            const text = previewText(stem)
-            return (
+      <div className="space-y-3">
+        {stems.map((stem, index) => {
+          const expanded = expandedStemId === stem.id
+          const category = sectionCategories.find((item) => item.id === stem.values.categoryId)
+          const selected = category ?? null
+          const text = previewText(stem)
+          return (
+            <div
+              key={stem.id}
+              className="flex flex-col gap-2 lg:flex-row lg:items-start lg:gap-3"
+            >
               <div
-                key={stem.id}
                 className={cn(
-                  'rounded-md border bg-background',
+                  'min-w-0 flex-1 rounded-md border bg-background',
                   !stem.values.categoryId && 'border-destructive/50'
                 )}
               >
@@ -83,14 +86,6 @@ export function StepStemCategories({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium">Stem {index + 1}</span>
-                      <span
-                        className={cn(
-                          'shrink-0 truncate text-xs',
-                          category ? 'text-muted-foreground' : 'text-destructive'
-                        )}
-                      >
-                        {category ? taxonomyDisplayLabel(category) : 'Category required'}
-                      </span>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
                       {text || 'No stem preview'}
@@ -103,18 +98,8 @@ export function StepStemCategories({
                   </div>
                 ) : null}
               </div>
-            )
-          })}
-        </div>
 
-        <div className="rounded-md border bg-background p-4">
-          {stems.map((stem, index) => {
-            if (stem.id !== expandedStemId) return null
-            const selected =
-              sectionCategories.find((category) => category.id === stem.values.categoryId) ?? null
-            return (
-              <div key={stem.id} className="space-y-2">
-                <div className="text-sm font-medium">Stem {index + 1} category</div>
+              <div className="w-full shrink-0 lg:w-52">
                 <SearchableSelect<BulkImportCategoryOption>
                   items={sectionCategories}
                   value={selected}
@@ -130,21 +115,12 @@ export function StepStemCategories({
                   placeholder="Select category"
                   searchPlaceholder="Search categories..."
                   emptyMessage="No categories found"
+                  triggerClassName="h-9 text-xs"
                 />
               </div>
-            )
-          })}
-          {!expandedStemId ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setExpandedStemId(stems[0]?.id ?? null)}
-            >
-              Select a stem
-            </Button>
-          ) : null}
-        </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
