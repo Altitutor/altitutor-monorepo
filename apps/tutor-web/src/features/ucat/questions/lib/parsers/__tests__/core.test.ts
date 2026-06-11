@@ -2,6 +2,7 @@ import {
   buildQuestionPasteSpansForLine,
   classifyParseLineRoles,
   collectLogicalLinesFromDoc,
+  extractOptionLinesFromTable,
   mergeConsecutiveStemsWithSameText,
   parseFromLines,
 } from '../core'
@@ -348,6 +349,46 @@ describe('buildQuestionPasteSpansForLine', () => {
 })
 
 describe('table-backed question paste', () => {
+  it('preserves dot-style option labels when extracting from options tables', () => {
+    const rows = [
+      ['A.', 'First option'],
+      ['B.', 'Second option'],
+      ['C.', 'Third option'],
+    ]
+    expect(extractOptionLinesFromTable(rows)).toEqual([
+      'A. First option',
+      'B. Second option',
+      'C. Third option',
+    ])
+  })
+
+  it('preserves paren-style option labels when extracting from options tables', () => {
+    const rows = [
+      ['a)', 'First option'],
+      ['b)', 'Second option'],
+      ['c)', 'Third option'],
+    ]
+    expect(extractOptionLinesFromTable(rows)).toEqual([
+      'A) First option',
+      'B) Second option',
+      'C) Third option',
+    ])
+  })
+
+  it('parses table-extracted dot options when dot indicator is selected', () => {
+    const optionLines = extractOptionLinesFromTable([
+      ['A.', 'Alpha'],
+      ['B.', 'Beta'],
+      ['C.', 'Gamma'],
+    ])
+    const stems = parseFromLines(['1. Which is correct?', ...optionLines], {
+      questionsOnly: true,
+      answerOptionIndicator: 'dot',
+    })
+    expect(stems[0]?.questions[0]?.options).toHaveLength(3)
+    expect(stems[0]?.questions[0]?.options[0]?.text).toBe('Alpha')
+  })
+
   it('collects lines from every non-empty table cell when nested question rows are absent', () => {
     const doc = {
       type: 'doc',
