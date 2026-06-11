@@ -1,5 +1,6 @@
 import type { Json } from '@altitutor/shared'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { getBulkImportLogicalLines } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import type { ParsingOptions } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
@@ -20,6 +21,7 @@ import {
   mapParsedDecisionMakingToFormValues,
   getDecisionMakingStemCategoryName,
   isSyllogismQuestionText,
+  parseDecisionMakingPlainText,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
   parseQuantitativeReasoningFromDoc,
@@ -34,7 +36,10 @@ import {
   parseSituationalJudgementFromDoc,
 } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
 import { parseVerbalReasoningFromDoc } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
-import { parseDecisionMakingFromDoc } from '@/features/ucat/questions/lib/parsers/decisionMaking'
+import {
+  collectDecisionMakingLinesWithSyllogismImageOcr,
+  type DecisionMakingSyllogismOcrResult,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportDecisionMakingOcr'
 
 type CategoryRow = { id?: string | null; ucat_section_id?: string | null; name?: string | null }
 type TagRow = {
@@ -48,7 +53,7 @@ type ParsedSectionResult =
   | { section: BulkImportParseSection; stems: ParsedStem[] }
   | { section: 'quantitative_reasoning'; stems: ParsedStem[]; tableMap: Map<string, Json> }
 
-function parserConfigFromOptions(
+export function parserConfigFromOptions(
   section: BulkImportParseSection,
   parsingOptions: ParsingOptions,
   questionsOnly = false
@@ -86,7 +91,13 @@ export function parseCombinedDocumentResultForSection(
     case 'decision_making':
       return {
         section,
-        stems: parseDecisionMakingFromDoc(doc, parserConfigFromOptions(section, parsingOptions)),
+        stems: parseDecisionMakingPlainText(
+          getBulkImportLogicalLines(doc, section, {
+            ...parsingOptions,
+            imageTokenMode: 'placeholder',
+          }).join('\n'),
+          parserConfigFromOptions(section, parsingOptions)
+        ),
       }
     case 'quantitative_reasoning': {
       const result = parseQuantitativeReasoningFromDoc(
@@ -102,6 +113,30 @@ export function parseCombinedDocumentResultForSection(
       }
     default:
       return { section: 'verbal_reasoning', stems: [] }
+  }
+}
+
+export async function parseCombinedDocumentResultForSectionWithOcr(
+  doc: Json | null | undefined,
+  section: BulkImportParseSection,
+  parsingOptions: ParsingOptions
+): Promise<{ parsed: ParsedSectionResult; ocr: DecisionMakingSyllogismOcrResult | null }> {
+  if (section !== 'decision_making') {
+    return {
+      parsed: parseCombinedDocumentResultForSection(doc, section, parsingOptions),
+      ocr: null,
+    }
+  }
+
+  const config = parserConfigFromOptions(section, parsingOptions)
+  const ocr = await collectDecisionMakingLinesWithSyllogismImageOcr(doc, config)
+
+  return {
+    parsed: {
+      section,
+      stems: parseDecisionMakingPlainText(ocr.lines.join('\n'), config),
+    },
+    ocr,
   }
 }
 

@@ -5,6 +5,7 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  buildQuestionRegexes,
   collectLogicalLinesFromDoc,
   parseFromLines,
   type ParserConfig,
@@ -56,14 +57,122 @@ export function isSyllogismQuestionText(questionText: string): boolean {
   )
 }
 
+const IMAGE_TOKEN_RE = /^\s*\[\[IMG:[^\]]+\]\]\s*$/
+
+function lineHasQuestionNumber(line: string, config: Partial<ParserConfig>): boolean {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  return qRe.inline.test(line) || qRe.numberOnly.test(line)
+}
+
+function previousNonBlankLine(lines: string[], index: number): string | null {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const line = lines[i]?.trim() ?? ''
+    if (line.length > 0) return line
+  }
+  return null
+}
+
+function hasSyllogismOptionEvidenceAfter(lines: string[], index: number): boolean {
+  const nonBlank: string[] = []
+  for (let i = index + 1; i < lines.length && nonBlank.length < 5; i += 1) {
+    const line = lines[i]?.trim() ?? ''
+    if (line.length === 0) continue
+    if (IMAGE_TOKEN_RE.test(line)) return true
+    nonBlank.push(line)
+  }
+  return nonBlank.length >= 5
+}
+
+const SYLLOGISM_IMAGE_PLACEHOLDER_LINES = [
+  '[Syllogism image statement 1 pending OCR]',
+  '[Syllogism image statement 2 pending OCR]',
+  '[Syllogism image statement 3 pending OCR]',
+  '[Syllogism image statement 4 pending OCR]',
+  '[Syllogism image statement 5 pending OCR]',
+]
+
+function stripQuestionNumber(line: string, config: Partial<ParserConfig>): string {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const inlineMatch = qRe.inline.exec(line)
+  if (inlineMatch) return inlineMatch[2]?.trim() ?? ''
+  return line.trim()
+}
+
+function isSyllogismImageTokenForPreviousQuestion(
+  lines: string[],
+  index: number,
+  config: Partial<ParserConfig>
+): boolean {
+  const line = lines[index]?.trim() ?? ''
+  if (!IMAGE_TOKEN_RE.test(line)) return false
+  const previous = previousNonBlankLine(lines, index)
+  if (!previous) return false
+  return isSyllogismQuestionText(stripQuestionNumber(previous, config))
+}
+
+export function normalizeDecisionMakingSyllogismLines(
+  rawLines: string[],
+  config: Partial<ParserConfig>,
+  options?: { imageTokenMode?: 'preserve' | 'placeholder' }
+): string[] {
+  const questionIndicator = config.questionIndicator ?? 'dot'
+  const separator = questionIndicator === 'paren' ? ')' : '.'
+  let nextQuestionNumber = 1
+  const normalized: string[] = []
+
+  rawLines.forEach((line, index) => {
+    if (
+      options?.imageTokenMode === 'placeholder' &&
+      isSyllogismImageTokenForPreviousQuestion(rawLines, index, config)
+    ) {
+      normalized.push(...SYLLOGISM_IMAGE_PLACEHOLDER_LINES)
+      return
+    }
+
+    const qRe = buildQuestionRegexes(questionIndicator)
+    const inlineMatch = qRe.inline.exec(line)
+    const numberOnlyMatch = qRe.numberOnly.exec(line)
+    const existingNumber = Number.parseInt(inlineMatch?.[1] ?? numberOnlyMatch?.[1] ?? '', 10)
+    if (!Number.isNaN(existingNumber)) {
+      nextQuestionNumber = existingNumber + 1
+      normalized.push(line)
+      return
+    }
+
+    const trimmed = line.trim()
+    if (!isSyllogismQuestionText(trimmed)) {
+      normalized.push(line)
+      return
+    }
+    if (!hasSyllogismOptionEvidenceAfter(rawLines, index)) {
+      normalized.push(line)
+      return
+    }
+
+    const previous = previousNonBlankLine(rawLines, index)
+    if (previous && lineHasQuestionNumber(previous, config)) {
+      normalized.push(line)
+      return
+    }
+
+    const numbered = `${nextQuestionNumber}${separator} ${trimmed}`
+    nextQuestionNumber += 1
+    normalized.push(numbered)
+  })
+
+  return normalized
+}
+
 function parseDecisionMakingFromLines(
   rawLines: string[],
   configOverrides?: Partial<ParserConfig>
 ): ParsedDecisionMakingStem[] {
-  const stems = parseFromLines(rawLines, {
+  const config = {
     acceptSyllogismOptions: true,
     ...configOverrides,
-  })
+  }
+  const normalizedLines = normalizeDecisionMakingSyllogismLines(rawLines, config)
+  const stems = parseFromLines(normalizedLines, config)
   return stems.map((stem) => ({
     stemText: stem.stemText,
     questions: stem.questions.map((q) => ({

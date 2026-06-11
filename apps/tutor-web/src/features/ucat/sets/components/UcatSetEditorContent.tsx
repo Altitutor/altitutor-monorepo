@@ -2,11 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import {
-  Badge,
   Button,
-  getUcatVisibilityColor,
   Input,
-  ListToolbar,
   SearchableSelect,
   Slider,
   Textarea,
@@ -16,21 +13,18 @@ import {
   TooltipTrigger,
 } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
-import { Info, Pencil, Plus } from 'lucide-react'
+import { Info } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  UcatStemCatalogAddPanel,
+  UcatStemCatalogLabel,
+} from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
-import {
-  applyBooleanTextFilter,
-  applyCoreStringFilter,
-  applySingleSelectFilter,
-} from '@/features/ucat/shared/hooks/useUcatTableState'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
-import { cn } from '@/shared/utils'
-import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 
 export type UcatSectionForTimeLimit = {
   id: string
@@ -67,85 +61,6 @@ type UcatSetEditorContentProps = {
   onChangeTimeLimitSpeed: (value: number) => void
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
-}
-
-function AvailableStemRow({
-  stem,
-  onAdd,
-  onEdit,
-}: {
-  stem: UcatStemCatalogItem
-  onAdd: () => void
-  onEdit: () => void
-}) {
-  return (
-    <div className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted">
-      <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem.text || stem.id}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span>
-            {stem.sectionNumber}. {stem.sectionName}
-          </span>
-          <Badge
-            variant="outline"
-            className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
-          >
-            {stem.isPrivate ? 'Private' : 'Public'}
-          </Badge>
-          <span>
-            · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-          </span>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
-          onClick={onEdit}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="default"
-          size="icon"
-          className={cn(tutorBtnPrimary, 'shrink-0')}
-          onClick={onAdd}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function StemListLabel({ stem, id, index }: { stem: UcatStemCatalogItem | undefined; id: string; index: number }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
-      <div className="min-w-0">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
-        {stem ? (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span>
-              {stem.sectionNumber}. {stem.sectionName}
-            </span>
-            <Badge
-              variant="outline"
-              className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
-            >
-              {stem.isPrivate ? 'Private' : 'Public'}
-            </Badge>
-            <span>
-              · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-            </span>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
 export function UcatSetEditorContent({
@@ -282,39 +197,6 @@ export function UcatSetEditorContent({
     [sectionFullTimeFormatted, sectionAutoTimeFormatted, setSectionCount],
   )
 
-  const stemsTableState = useMemo(
-    () => ({
-      search,
-      filters,
-      sortBy: null,
-      sortDirection: 'desc' as const,
-      groupBy: null,
-      page: 1,
-      pageSize: 100,
-      visibleColumns: [] as string[],
-    }),
-    [search, filters],
-  )
-
-  const availableStems = useMemo(() => {
-    const questionTypeFilter = filters.question_type?.[0] as string | undefined
-    return stemCatalog
-      .filter((stem) => {
-        if (draftStemIds.includes(stem.id)) return false
-        if (!applyCoreStringFilter(stem.text, search)) return false
-        if (!applySingleSelectFilter(stemsTableState, 'section_id', stem.sectionNumber)) return false
-        if (!applySingleSelectFilter(stemsTableState, 'question_stem_category_id', stem.categoryId)) return false
-        if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.isPrivate)) return false
-        if (questionTypeFilter && questionTypeFilter !== 'all') {
-          if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
-            return false
-          }
-        }
-        return true
-      })
-      .slice(0, 60)
-  }, [stemCatalog, draftStemIds, search, stemsTableState, filters.question_type])
-
   const stemById = useMemo(() => {
     const map = new Map<string, UcatStemCatalogItem>()
     for (const stem of stemCatalog) {
@@ -336,7 +218,7 @@ export function UcatSetEditorContent({
             onRemove={(id) => setDraftStemIds(draftStemIds.filter((stemId) => stemId !== id))}
             onEdit={onEditStem}
             renderLabel={(id, index) => (
-              <StemListLabel stem={stemById.get(id)} id={id} index={index} />
+              <UcatStemCatalogLabel stem={stemById.get(id)} id={id} index={index} />
             )}
           />
         )}
@@ -498,32 +380,21 @@ export function UcatSetEditorContent({
           <SegmentedTabPanelContent
             when="add-stems"
             activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pt-4"
+            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-4"
           >
-            <ListToolbar
+            <UcatStemCatalogAddPanel
+              stems={stemCatalog}
+              excludedIds={draftStemIds}
               search={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Search stems"
-              filterDefinitions={filterDefinitions}
               filters={filters}
               onFiltersChange={setFilters}
+              filterDefinitions={filterDefinitions}
+              onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
+              onEditStem={onEditStem}
+              title="Add stems"
+              emptyMessage="No stems to add, or all matching stems are already in the set."
             />
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-              {availableStems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No stems to add, or all matching stems are already in the set.
-                </p>
-              ) : (
-                availableStems.map((stem) => (
-                  <AvailableStemRow
-                    key={stem.id}
-                    stem={stem}
-                    onAdd={() => setDraftStemIds([...draftStemIds, stem.id])}
-                    onEdit={() => onEditStem(stem.id)}
-                  />
-                ))
-              )}
-            </div>
           </SegmentedTabPanelContent>
         </SegmentedTabPanel>
       </aside>

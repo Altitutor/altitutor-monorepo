@@ -158,6 +158,7 @@ export const reconciliationApi = {
       `)
       .neq('status', 'paid')
       .neq('status', 'void')
+      .neq('status', 'uncollectible')
       .gt('amount_due_cents', 0)
       .is('deleted_at', null)
       .order('invoice_date', { ascending: true });
@@ -750,6 +751,7 @@ async function countUnpaidInvoicesExact(): Promise<number> {
     .select('id', { count: 'exact', head: true })
     .neq('status', 'paid')
     .neq('status', 'void')
+    .neq('status', 'uncollectible')
     .gt('amount_due_cents', 0)
     .is('deleted_at', null);
   if (error) throw error;

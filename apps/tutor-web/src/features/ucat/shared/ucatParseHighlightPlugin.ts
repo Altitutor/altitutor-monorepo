@@ -122,6 +122,12 @@ function addLineClassDecoration(
   pushPmInlineRangeDecorations(doc, from, to, className, out)
 }
 
+function isImageNodeRange(doc: Node, from: number, to: number): boolean {
+  if (from >= to || from < 0 || to > doc.content.size) return false
+  const nodeAfter = doc.resolve(from).nodeAfter
+  return !!nodeAfter && nodeAfter.type.name === 'image' && from + nodeAfter.nodeSize === to
+}
+
 function roleClassQuestion(role: ParseLineHighlightRole): string {
   switch (role) {
     case 'stem':
@@ -162,7 +168,7 @@ function buildQuestionDecorations(
     ? collectLogicalLinesFromDoc(j, {
         detectNestedQuestionTables: cfg.section !== 'quantitative_reasoning',
       })
-    : getBulkImportLogicalLines(j, cfg.section)
+    : getBulkImportLogicalLines(j, cfg.section, cfg.classify)
   if (lines.length === 0) return DecorationSet.empty
   const ranges = collectQuestionLineTextRanges(doc, cfg.section, { questionsOnly })
   if (ranges == null) return DecorationSet.empty
@@ -184,6 +190,10 @@ function buildQuestionDecorations(
     }
     const highlightRole = resolveQuestionHighlightRole(docLineText, classifiedRole, cfg.classify)
     if (!highlightRole) continue
+    if (isImageNodeRange(doc, range.from, range.to)) {
+      addLineClassDecoration(doc, range.from, range.to, roleClassQuestion(highlightRole), decos)
+      continue
+    }
     const spans = buildQuestionPasteSpansForLine(docLineText, highlightRole, cfg.classify)
     for (const sp of spans) {
       const from = range.from + sp.start

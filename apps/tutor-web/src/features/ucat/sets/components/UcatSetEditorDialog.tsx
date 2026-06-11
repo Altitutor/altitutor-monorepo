@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
@@ -26,7 +25,8 @@ import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/Uca
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { Trash2 } from 'lucide-react'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
@@ -167,48 +167,14 @@ export function UcatSetEditorDialog({
     return isSnapshotDirty(snapshot, baseline)
   }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, timeLimitSeconds])
 
-  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
-    const base: DataTableFilterDefinition[] = [
-      { key: 'section_id', label: 'Section' },
-      { key: 'question_stem_category_id', label: 'Category' },
-      {
-        key: 'visibility',
-        label: 'Visibility',
-        options: [
-          { label: 'Public', value: 'public' },
-          { label: 'Private', value: 'private' },
-        ],
-      },
-      {
-        key: 'question_type',
-        label: 'Type',
-        options: [
-          { label: 'Multiple Choice', value: 'multiple_choice' },
-          { label: 'Syllogism', value: 'syllogism' },
-        ],
-      },
-    ]
-
-    const sections = sectionsQuery.data ?? []
-    const categories = mapCategoriesToOptions(categoriesQuery.data ?? [])
-
-    return [
-      {
-        ...base[0],
-        options: sections.map((s) => ({
-          label: s.name ?? 'Untitled',
-          // Use section_number for filtering to avoid any ID mismatch issues
-          value: s.section_number ?? 0,
-        })),
-      },
-      {
-        ...base[1],
-        options: categories.map((c) => ({ label: taxonomyDisplayLabel(c), value: c.id ?? '' })),
-      },
-      base[2],
-      base[3],
-    ]
-  }, [sectionsQuery.data, categoriesQuery.data])
+  const filterDefinitions = useMemo(
+    () =>
+      buildStemCatalogFilterDefinitions(
+        sectionsQuery.data ?? [],
+        mapCategoriesToOptions(categoriesQuery.data ?? [])
+      ),
+    [sectionsQuery.data, categoriesQuery.data]
+  )
 
   const stemsThatWillBecomePublicCount = useMemo(() => {
     if (draftPrivate) return 0

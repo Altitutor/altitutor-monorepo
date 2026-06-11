@@ -51,7 +51,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportWizardSteps'
 import {
   buildFormValuesFromSeparateStemDocuments,
-  parseCombinedDocumentResultForSection,
+  parseCombinedDocumentResultForSectionWithOcr,
   parseQuestionsOnlyForSection,
   mapParsedStemsToFormValues,
   splitStemDocumentFromDoc,
@@ -111,6 +111,7 @@ export function BulkImportQuestionStemsModal({
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [isParsing, setIsParsing] = useState(false)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [separateStemDocument, setSeparateStemDocument] = useState(false)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
@@ -207,6 +208,7 @@ export function BulkImportQuestionStemsModal({
     setStatus('idle')
     setSubmitError(null)
     setParseError(null)
+    setIsParsing(false)
     setSectionId(null)
     setSeparateStemDocument(false)
     setPastedContent(null)
@@ -278,7 +280,7 @@ export function BulkImportQuestionStemsModal({
     })
   }, [parsedStemTexts, perStemQuestionDocs, resolvedBulkImportSection, parsingOptions])
 
-  const canGoPrevious = step > 0 && status !== 'submitting'
+  const canGoPrevious = step > 0 && status !== 'submitting' && !isParsing
 
   const answerParseOptions = useMemo(
     () => answerParsingOptionsToParseOptions(answerParsingOptions),
@@ -286,7 +288,7 @@ export function BulkImportQuestionStemsModal({
   )
 
   const canGoNext = useMemo(() => {
-    if (status === 'submitting') return false
+    if (status === 'submitting' || isParsing) return false
     if (stepKind === 'section') return !!sectionId
     if (stepKind === 'paste_stems') {
       const split = splitStemDocumentFromDoc(pastedStemDoc, stemSplitOptions)
@@ -310,6 +312,7 @@ export function BulkImportQuestionStemsModal({
     return true
   }, [
     status,
+    isParsing,
     stepKind,
     sectionId,
     pastedStemDoc,
@@ -329,7 +332,7 @@ export function BulkImportQuestionStemsModal({
     sectionsQuery.isError || categoriesQuery.isError || tagsQuery.isError
 
   function performClose() {
-    if (status === 'submitting') return
+    if (status === 'submitting' || isParsing) return
     const ids = Array.from(step2NewImageFileIdsRef.current)
     if (ids.length > 0 && status !== 'success') {
       void fetch('/api/ucat/images/cleanup', {
@@ -344,7 +347,7 @@ export function BulkImportQuestionStemsModal({
   }
 
   function handleRequestClose() {
-    if (status === 'submitting') return
+    if (status === 'submitting' || isParsing) return
     if (suppressDialogCloseRef.current || pendingConfirm != null) return
     if (hasUnsavedBulkImportWork) {
       queueConfirm({ type: 'close_modal' })
@@ -363,7 +366,7 @@ export function BulkImportQuestionStemsModal({
       event.preventDefault()
       return
     }
-    if (status === 'submitting') {
+    if (status === 'submitting' || isParsing) {
       event.preventDefault()
       return
     }
@@ -373,10 +376,12 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function parseCombinedDocument(): { ok: true; drafts: BulkImportStemDraft[] } | { ok: false } {
+  async function parseCombinedDocument(): Promise<
+    { ok: true; drafts: BulkImportStemDraft[] } | { ok: false }
+  > {
     if (!sectionId || !resolvedBulkImportSection) return { ok: false }
     try {
-      const parsed = parseCombinedDocumentResultForSection(
+      const { parsed, ocr } = await parseCombinedDocumentResultForSectionWithOcr(
         pastedContent,
         resolvedBulkImportSection,
         parsingOptions
@@ -389,7 +394,18 @@ export function BulkImportQuestionStemsModal({
         tagsQuery.data ?? []
       )
       if (forms.length === 0) {
-        setParseError('No valid stems and questions were detected. Please check the formatting.')
+        const ocrMessage =
+          ocr != null && ocr.warnings.length > 0
+            ? ` ${ocr.warnings.join(' ')}`
+            : ''
+        setParseError(
+          `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
+        )
+        wizard.setStems([])
+        return { ok: false }
+      }
+      if (ocr != null && ocr.warnings.length > 0) {
+        setParseError(ocr.warnings.join(' '))
         wizard.setStems([])
         return { ok: false }
       }
@@ -432,12 +448,17 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function handleNextClick() {
+  async function handleNextClick() {
     if (!canGoNext) return
 
     if (stepKind === 'paste_document') {
-      const result = parseCombinedDocument()
-      if (!result.ok) return
+      setIsParsing(true)
+      try {
+        const result = await parseCombinedDocument()
+        if (!result.ok) return
+      } finally {
+        setIsParsing(false)
+      }
     }
 
     if (stepKind === 'paste_stems') {
@@ -824,7 +845,7 @@ export function BulkImportQuestionStemsModal({
                     size="icon"
                     onClick={handleRequestClose}
                     className="shrink-0"
-                    disabled={status === 'submitting'}
+                    disabled={status === 'submitting' || isParsing}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -902,7 +923,7 @@ export function BulkImportQuestionStemsModal({
               <Button onClick={handleRequestClose}>Close</Button>
             ) : step < totalStepsResolved - 1 ? (
               <Button onClick={handleNextClick} disabled={!canGoNext}>
-                Next
+                {isParsing ? 'Parsing…' : 'Next'}
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : isBulkParseSection ? (

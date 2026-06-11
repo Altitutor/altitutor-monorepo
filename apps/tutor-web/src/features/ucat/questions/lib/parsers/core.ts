@@ -115,6 +115,10 @@ function isBlank(line: string): boolean {
   return line.trim().length === 0
 }
 
+function isImageTokenLine(line: string): boolean {
+  return /^\s*\[\[IMG:[^\]]+\]\]\s*$/.test(line)
+}
+
 function normaliseStructuralText(text: string): string {
   return text
     .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
@@ -627,6 +631,10 @@ function hasNearbyAnswerOptionEvidence(
       return false
     }
 
+    if (config.acceptSyllogismOptions && isImageTokenLine(candidate)) {
+      return true
+    }
+
     const inlineOptionMatch = oRe.inline.exec(candidate)
     const labelOnlyMatch = oRe.labelOnly.exec(candidate)
     if (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) {
@@ -1103,6 +1111,12 @@ export function classifyParseLineRoles(
     }
 
     if (currentQuestion && !haveSeenOptionForCurrentQuestion) {
+      if (config.acceptSyllogismOptions && isImageTokenLine(line)) {
+        roles[idx] = 'option'
+        haveSeenOptionForCurrentQuestion = true
+        continue
+      }
+
       roles[idx] = 'question'
       questionTextLines.push(line)
       questionTextSources.push(idx)
