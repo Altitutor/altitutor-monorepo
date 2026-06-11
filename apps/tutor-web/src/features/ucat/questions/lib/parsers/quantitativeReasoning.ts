@@ -5,6 +5,8 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  buildOptionRegexes,
+  buildQuestionRegexes,
   collectBlocksFromDocForQuantitativeReasoning,
   mergeConsecutiveStemsWithSameText,
   parseFromLines,
@@ -18,6 +20,89 @@ export type QuantitativeReasoningParserConfig = ParserConfig
 
 const QR_DEFAULT_CONFIG: Partial<ParserConfig> = {
   questionLookaheadLimit: 160,
+}
+
+function isQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  return qRe.numberOnly.test(line) || qRe.inline.test(line)
+}
+
+function splitQuestionNumberLine(
+  line: string,
+  config: Partial<ParserConfig>
+): { numberText: string; inlineText: string } | null {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const inlineMatch = qRe.inline.exec(line)
+  if (inlineMatch) {
+    return { numberText: inlineMatch[1] ?? '', inlineText: inlineMatch[2] ?? '' }
+  }
+  const numberOnlyMatch = qRe.numberOnly.exec(line)
+  if (numberOnlyMatch) {
+    return { numberText: numberOnlyMatch[1] ?? '', inlineText: '' }
+  }
+  return null
+}
+
+function isAnswerOptionLine(line: string, config: Partial<ParserConfig>): boolean {
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
+  return oRe.labelOnly.test(line) || oRe.inline.test(line)
+}
+
+function findLastNonBlankIndex(lines: string[], endExclusive: number): number {
+  for (let i = endExclusive - 1; i >= 0; i -= 1) {
+    if ((lines[i] ?? '').trim().length > 0) return i
+  }
+  return -1
+}
+
+export function normalizeQuantitativeReasoningItemStemLines(
+  rawLines: string[],
+  config: Partial<ParserConfig>
+): string[] {
+  if (config.questionNumberPlacement !== 'item_stem') return rawLines
+
+  const blocks: Array<{ numberText: string; lines: string[] }> = []
+  let current: { numberText: string; lines: string[] } | null = null
+  const introLines: string[] = []
+
+  for (const line of rawLines) {
+    const marker = isQuestionNumberLine(line, config)
+      ? splitQuestionNumberLine(line, config)
+      : null
+    if (marker) {
+      if (current) blocks.push(current)
+      current = {
+        numberText: marker.numberText,
+        lines: marker.inlineText.trim().length > 0 ? [marker.inlineText] : [],
+      }
+      continue
+    }
+
+    if (current) current.lines.push(line)
+    else introLines.push(line)
+  }
+  if (current) blocks.push(current)
+  if (blocks.length === 0) return rawLines
+
+  const separator = (config.questionIndicator ?? 'dot') === 'paren' ? ')' : '.'
+  const normalized: string[] = [...introLines]
+
+  for (const block of blocks) {
+    const optionStart = block.lines.findIndex((line) => isAnswerOptionLine(line, config))
+    const questionIndex = optionStart >= 0 ? findLastNonBlankIndex(block.lines, optionStart) : -1
+
+    if (optionStart < 0 || questionIndex < 0) {
+      normalized.push(`${block.numberText}${separator}`)
+      normalized.push(...block.lines)
+      continue
+    }
+
+    normalized.push(...block.lines.slice(0, questionIndex))
+    normalized.push(`${block.numberText}${separator} ${block.lines[questionIndex]?.trim() ?? ''}`)
+    normalized.push(...block.lines.slice(questionIndex + 1))
+  }
+
+  return normalized
 }
 
 export type QuantitativeReasoningToFormOptions = {
@@ -35,8 +120,10 @@ export function parseQuantitativeReasoningFromLines(
   rawLines: string[],
   configOverrides?: Partial<ParserConfig>
 ): ParsedStem[] {
+  const config = { ...QR_DEFAULT_CONFIG, ...configOverrides }
+  const normalizedLines = normalizeQuantitativeReasoningItemStemLines(rawLines, config)
   return mergeConsecutiveStemsWithSameText(
-    parseFromLines(rawLines, { ...QR_DEFAULT_CONFIG, ...configOverrides })
+    parseFromLines(normalizedLines, config)
   )
 }
 

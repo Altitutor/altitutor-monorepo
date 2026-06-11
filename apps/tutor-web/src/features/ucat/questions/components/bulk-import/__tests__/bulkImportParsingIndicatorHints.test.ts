@@ -11,6 +11,8 @@ const DEFAULT_OPTS: ParsingOptions = {
   questionNumberOnOwnLine: false,
   answerOptionOnOwnLine: false,
   requireConsecutiveQuestionNumbers: true,
+  decisionMakingQuestionNumberPlacement: 'question',
+  quantitativeReasoningQuestionNumberPlacement: 'question',
 }
 
 describe('detectAlternativeParsingIndicators', () => {

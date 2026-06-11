@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react'
 import type { DataTableFilterDefinition, Json } from '@altitutor/shared'
 import {
-  Button,
   Input,
   Label,
   SearchableSelect,
@@ -14,7 +13,6 @@ import {
   SelectValue,
   useToast,
 } from '@altitutor/ui'
-import { ChevronLeft } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import {
   useGenerateUcatQuestionDrafts,
@@ -34,7 +32,6 @@ import {
   UcatStemCatalogSidePanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
-import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
 type GenerateQuestionStemsModalProps = {
@@ -262,6 +259,13 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   function handleRequestClose() {
     if (isBusy) return
+    if (
+      step === 'review' &&
+      drafts.length > 0 &&
+      !window.confirm('Generated stems will be discarded. Close without importing?')
+    ) {
+      return
+    }
     resetState()
     onClose()
   }
@@ -299,22 +303,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
       saveDisabled={
         step === 'config' ? !stepReady || generateMutation.isPending : drafts.length === 0 || importMutation.isPending
       }
-      hideCancel={step === 'review'}
       defaultExpanded
-      headerActions={
-        step === 'review' ? (
-          <Button
-            type="button"
-            variant="outline"
-            className={tutorBtnOutline}
-            onClick={() => setStep('config')}
-            disabled={isBusy}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Back
-          </Button>
-        ) : undefined
-      }
     >
       {step === 'config' ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">

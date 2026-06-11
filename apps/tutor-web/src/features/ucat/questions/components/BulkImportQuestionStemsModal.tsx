@@ -133,6 +133,8 @@ export function BulkImportQuestionStemsModal({
     questionNumberOnOwnLine: false,
     answerOptionOnOwnLine: false,
     requireConsecutiveQuestionNumbers: true,
+    decisionMakingQuestionNumberPlacement: 'question',
+    quantitativeReasoningQuestionNumberPlacement: 'question',
   })
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
@@ -227,6 +229,8 @@ export function BulkImportQuestionStemsModal({
       questionNumberOnOwnLine: false,
       answerOptionOnOwnLine: false,
       requireConsecutiveQuestionNumbers: true,
+      decisionMakingQuestionNumberPlacement: 'question',
+      quantitativeReasoningQuestionNumberPlacement: 'question',
     })
     suppressDialogCloseRef.current = false
     setPendingConfirm(null)

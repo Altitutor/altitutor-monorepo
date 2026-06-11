@@ -47,6 +47,7 @@ function PerStemQuestionRow({
   onStemToggle,
   expandedQuestionKeys,
   onQuestionToggle,
+  globalQuestionOffset,
 }: {
   index: number
   stemText: string
@@ -60,6 +61,7 @@ function PerStemQuestionRow({
   onStemToggle: () => void
   expandedQuestionKeys: Set<string>
   onQuestionToggle: (questionIndex: number) => void
+  globalQuestionOffset: number
 }) {
   const classify = useMemo(() => parsingOptionsToClassify(parsingOptions), [parsingOptions])
 
@@ -162,6 +164,7 @@ function PerStemQuestionRow({
                   key={key}
                   question={question}
                   index={questionIndex}
+                  globalIndex={globalQuestionOffset + questionIndex}
                   expanded={expandedQuestionKeys.has(key)}
                   onToggle={() => onQuestionToggle(questionIndex)}
                 />
@@ -207,6 +210,20 @@ export function StepPerStemQuestions({
     })
   }, [])
 
+  const globalQuestionOffsets = useMemo(() => {
+    let offset = 0
+    return stemTexts.map((_, stemIndex) => {
+      const start = offset
+      const questions = parseQuestionsOnlyForSection(
+        perStemDocs[stemIndex] ?? null,
+        section,
+        parsingOptions
+      ).questions
+      offset += questions.length
+      return start
+    })
+  }, [stemTexts, perStemDocs, section, parsingOptions])
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -251,6 +268,7 @@ export function StepPerStemQuestions({
                 onStemToggle={() => toggleStemExpanded(index)}
                 expandedQuestionKeys={expandedQuestionKeys}
                 onQuestionToggle={(questionIndex) => toggleQuestionExpanded(index, questionIndex)}
+                globalQuestionOffset={globalQuestionOffsets[index] ?? 0}
               />
             ))}
           </div>

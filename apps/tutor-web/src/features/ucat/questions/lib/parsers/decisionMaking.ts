@@ -5,6 +5,7 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  buildOptionRegexes,
   buildQuestionRegexes,
   collectLogicalLinesFromDoc,
   parseFromLines,
@@ -27,6 +28,12 @@ export type ParsedDecisionMakingQuestion = {
 export type ParsedDecisionMakingStem = {
   stemText: string
   questions: ParsedDecisionMakingQuestion[]
+}
+
+export type DecisionMakingQuestionNumberPlacement = 'question' | 'item_stem'
+
+export type DecisionMakingParserConfig = Partial<ParserConfig> & {
+  questionNumberPlacement?: DecisionMakingQuestionNumberPlacement
 }
 
 function normaliseForSyllogismDetection(text: string): string {
@@ -110,11 +117,128 @@ function isSyllogismImageTokenForPreviousQuestion(
   return isSyllogismQuestionText(stripQuestionNumber(previous, config))
 }
 
+function isQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  return qRe.numberOnly.test(line) || qRe.inline.test(line)
+}
+
+function splitQuestionNumberLine(
+  line: string,
+  config: Partial<ParserConfig>
+): { numberText: string; inlineText: string } | null {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const inlineMatch = qRe.inline.exec(line)
+  if (inlineMatch) {
+    return { numberText: inlineMatch[1] ?? '', inlineText: inlineMatch[2] ?? '' }
+  }
+  const numberOnlyMatch = qRe.numberOnly.exec(line)
+  if (numberOnlyMatch) {
+    return { numberText: numberOnlyMatch[1] ?? '', inlineText: '' }
+  }
+  return null
+}
+
+function isAnswerOptionLine(line: string, config: Partial<ParserConfig>): boolean {
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
+  return oRe.labelOnly.test(line) || oRe.inline.test(line)
+}
+
+function findLastNonBlankIndex(lines: string[], endExclusive: number): number {
+  for (let i = endExclusive - 1; i >= 0; i -= 1) {
+    if ((lines[i] ?? '').trim().length > 0) return i
+  }
+  return -1
+}
+
+function findItemStemOptionStart(lines: string[], config: Partial<ParserConfig>): number {
+  for (let i = 0; i < lines.length; i += 1) {
+    if (isAnswerOptionLine(lines[i] ?? '', config)) return i
+  }
+
+  for (let i = 1; i < lines.length; i += 1) {
+    if (
+      IMAGE_TOKEN_RE.test((lines[i] ?? '').trim()) &&
+      isSyllogismQuestionText(lines[findLastNonBlankIndex(lines, i)] ?? '')
+    ) {
+      return i
+    }
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!isSyllogismQuestionText(lines[i] ?? '')) continue
+    const trailingNonBlank = lines.slice(i + 1).filter((line) => line.trim().length > 0)
+    if (trailingNonBlank.length >= 5) return i + 1
+  }
+
+  return -1
+}
+
+function normalizeItemStemNumberedQuestionLines(
+  rawLines: string[],
+  config: Partial<ParserConfig>
+): string[] {
+  const blocks: Array<{ numberText: string; lines: string[] }> = []
+  let current: { numberText: string; lines: string[] } | null = null
+  const introLines: string[] = []
+
+  for (const line of rawLines) {
+    const marker = isQuestionNumberLine(line, config)
+      ? splitQuestionNumberLine(line, config)
+      : null
+    if (marker) {
+      if (current) blocks.push(current)
+      current = {
+        numberText: marker.numberText,
+        lines: marker.inlineText.trim().length > 0 ? [marker.inlineText] : [],
+      }
+      continue
+    }
+
+    if (current) {
+      current.lines.push(line)
+    } else {
+      introLines.push(line)
+    }
+  }
+  if (current) blocks.push(current)
+
+  if (blocks.length === 0) return rawLines
+
+  const normalized: string[] = [...introLines]
+  const questionIndicator = config.questionIndicator ?? 'dot'
+  const separator = questionIndicator === 'paren' ? ')' : '.'
+
+  for (const block of blocks) {
+    const optionStart = findItemStemOptionStart(block.lines, config)
+    const questionIndex = optionStart >= 0 ? findLastNonBlankIndex(block.lines, optionStart) : -1
+
+    if (optionStart < 0 || questionIndex < 0) {
+      normalized.push(`${block.numberText}${separator}`)
+      normalized.push(...block.lines)
+      continue
+    }
+
+    normalized.push(...block.lines.slice(0, questionIndex))
+    normalized.push(`${block.numberText}${separator} ${block.lines[questionIndex]?.trim() ?? ''}`)
+    normalized.push(...block.lines.slice(questionIndex + 1))
+  }
+
+  return normalized
+}
+
 export function normalizeDecisionMakingSyllogismLines(
   rawLines: string[],
   config: Partial<ParserConfig>,
   options?: { imageTokenMode?: 'preserve' | 'placeholder' }
 ): string[] {
+  if (config.questionNumberPlacement === 'item_stem') {
+    return normalizeDecisionMakingSyllogismLines(
+      normalizeItemStemNumberedQuestionLines(rawLines, config),
+      { ...config, questionNumberPlacement: 'question' },
+      options
+    )
+  }
+
   const questionIndicator = config.questionIndicator ?? 'dot'
   const separator = questionIndicator === 'paren' ? ')' : '.'
   let nextQuestionNumber = 1
@@ -165,7 +289,7 @@ export function normalizeDecisionMakingSyllogismLines(
 
 function parseDecisionMakingFromLines(
   rawLines: string[],
-  configOverrides?: Partial<ParserConfig>
+  configOverrides?: DecisionMakingParserConfig
 ): ParsedDecisionMakingStem[] {
   const config = {
     acceptSyllogismOptions: true,
@@ -188,7 +312,7 @@ function parseDecisionMakingFromLines(
 
 export function parseDecisionMakingFromDoc(
   doc: Json | null | undefined,
-  configOverrides?: Partial<ParserConfig>
+  configOverrides?: DecisionMakingParserConfig
 ): ParsedDecisionMakingStem[] {
   const logicalLines = collectLogicalLinesFromDoc(doc)
   return parseDecisionMakingFromLines(logicalLines, configOverrides)
@@ -196,7 +320,7 @@ export function parseDecisionMakingFromDoc(
 
 export function parseDecisionMakingPlainText(
   input: string,
-  configOverrides?: Partial<ParserConfig>
+  configOverrides?: DecisionMakingParserConfig
 ): ParsedDecisionMakingStem[] {
   const rawLines = input.split(/\r?\n/u)
   return parseDecisionMakingFromLines(rawLines, configOverrides)

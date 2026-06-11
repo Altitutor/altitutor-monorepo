@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
 import {
@@ -123,6 +124,21 @@ export function UcatRichTextEditor({
   forceLightChrome = false,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
+  const [isPasteProcessing, setIsPasteProcessing] = useState(false)
+  const pasteWorkCountRef = useRef(0)
+
+  const beginPasteWork = useCallback(() => {
+    pasteWorkCountRef.current += 1
+    setIsPasteProcessing(true)
+  }, [])
+
+  const endPasteWork = useCallback(() => {
+    pasteWorkCountRef.current = Math.max(0, pasteWorkCountRef.current - 1)
+    if (pasteWorkCountRef.current === 0) {
+      setIsPasteProcessing(false)
+    }
+  }, [])
+
   const ucatParseHighlight = useMemo<UcatParseHighlightConfig>(
     () => ucatParseHighlightProp ?? { mode: 'off' as const },
     [ucatParseHighlightProp]
@@ -147,6 +163,9 @@ export function UcatRichTextEditor({
   /** Shared logic: insert placeholders, upload, replace (or remove on error) at a given position. */
   const processImagesAtPosition = useCallback(
     async (editor: Editor, files: File[], insertPos: number) => {
+      if (files.length === 0) return
+      beginPasteWork()
+      try {
       const collectedFileIds: string[] = []
       for (const file of files) {
         const placeholderId = crypto.randomUUID()
@@ -249,8 +268,11 @@ export function UcatRichTextEditor({
             : collectedFileIds
         onImageFileIdsChange(limited)
       }
+      } finally {
+        endPasteWork()
+      }
     },
-    [stemId, maxImagesPerDocument, onImageFileIdsChange]
+    [beginPasteWork, endPasteWork, stemId, maxImagesPerDocument, onImageFileIdsChange]
   )
 
   const handleDrop = useCallback(
@@ -323,52 +345,57 @@ export function UcatRichTextEditor({
       if (options?.pastedHtml) {
         const pastedHtml: string = options.pastedHtml
         void (async () => {
-          const signedUrls: string[] = []
-          const collectedFileIds: string[] = []
-          for (const file of files) {
-            try {
-              const { fileId, signedUrl } = await uploadUcatImage({
-                file,
-                stemId,
-              })
-              collectedFileIds.push(fileId)
-              signedUrls.push(signedUrl)
-            } catch (error) {
-              console.error(
-                'Failed to upload UCAT image from pasted HTML:',
-                error
-              )
-              signedUrls.push('')
+          beginPasteWork()
+          try {
+            const signedUrls: string[] = []
+            const collectedFileIds: string[] = []
+            for (const file of files) {
+              try {
+                const { fileId, signedUrl } = await uploadUcatImage({
+                  file,
+                  stemId,
+                })
+                collectedFileIds.push(fileId)
+                signedUrls.push(signedUrl)
+              } catch (error) {
+                console.error(
+                  'Failed to upload UCAT image from pasted HTML:',
+                  error
+                )
+                signedUrls.push('')
+              }
             }
-          }
-          let html: string = pastedHtml
-          for (let i = 0; i < signedUrls.length; i += 1) {
-            const url = signedUrls[i]
-            const fileId = collectedFileIds[i]
-            if (!url || !fileId) continue
-            const placeholder = `__UPLOAD_${i}__`
-            html = html.replace(
-              new RegExp(
-                `(<img\\b[^>]*\\bsrc\\s*=\\s*["'])${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(["'])`,
-                'gi'
-              ),
-              `$1${url}$2 data-file-id="${fileId}"`
-            )
-          }
-          editor
-            .chain()
-            .focus()
-            .insertContentAt(insertPos, html as unknown as Parameters<Editor['commands']['insertContentAt']>[1])
-            .run()
-          if (
-            collectedFileIds.length > 0 &&
-            typeof onImageFileIdsChange === 'function'
-          ) {
-            const limited =
-              typeof maxImagesPerDocument === 'number' && maxImagesPerDocument > 0
-                ? collectedFileIds.slice(-maxImagesPerDocument)
-                : collectedFileIds
-            onImageFileIdsChange(limited)
+            let html: string = pastedHtml
+            for (let i = 0; i < signedUrls.length; i += 1) {
+              const url = signedUrls[i]
+              const fileId = collectedFileIds[i]
+              if (!url || !fileId) continue
+              const placeholder = `__UPLOAD_${i}__`
+              html = html.replace(
+                new RegExp(
+                  `(<img\\b[^>]*\\bsrc\\s*=\\s*["'])${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(["'])`,
+                  'gi'
+                ),
+                `$1${url}$2 data-file-id="${fileId}"`
+              )
+            }
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(insertPos, html as unknown as Parameters<Editor['commands']['insertContentAt']>[1])
+              .run()
+            if (
+              collectedFileIds.length > 0 &&
+              typeof onImageFileIdsChange === 'function'
+            ) {
+              const limited =
+                typeof maxImagesPerDocument === 'number' && maxImagesPerDocument > 0
+                  ? collectedFileIds.slice(-maxImagesPerDocument)
+                  : collectedFileIds
+              onImageFileIdsChange(limited)
+            }
+          } finally {
+            endPasteWork()
           }
         })()
         return
@@ -377,6 +404,8 @@ export function UcatRichTextEditor({
       void processImagesAtPosition(editor, files, insertPos)
     },
     [
+      beginPasteWork,
+      endPasteWork,
       stemId,
       maxImagesPerDocument,
       onImageFileIdsChange,
@@ -393,6 +422,7 @@ export function UcatRichTextEditor({
   return (
     <div
       className={cn(
+        'relative',
         className,
         forceLightChrome && UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME,
         forceLightChrome && UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
@@ -404,6 +434,16 @@ export function UcatRichTextEditor({
       }}
       onDrop={handleDrop}
     >
+      {isPasteProcessing ? (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md bg-background/80 text-sm text-muted-foreground backdrop-blur-[1px]"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+          <span>Pasting…</span>
+        </div>
+      ) : null}
       <RichTextEditor
         ref={editorRef}
         content={toJsonContent(value)}

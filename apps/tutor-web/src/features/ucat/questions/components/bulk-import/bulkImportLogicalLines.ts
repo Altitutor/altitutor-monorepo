@@ -6,6 +6,9 @@ import {
 import {
   normalizeDecisionMakingSyllogismLines,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
+import {
+  normalizeQuantitativeReasoningItemStemLines,
+} from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
 import type { ParsingOptions } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 
 export type BulkImportParseSection =
@@ -36,17 +39,35 @@ export function bulkImportParserAcceptSyllogism(section: BulkImportParseSection)
 export function getBulkImportLogicalLines(
   doc: Json | null | undefined,
   section: BulkImportParseSection,
-  parsingOptions?: Partial<ParsingOptions> & { imageTokenMode?: 'preserve' | 'placeholder' }
+  parsingOptions?: Partial<ParsingOptions> & {
+    imageTokenMode?: 'preserve' | 'placeholder'
+    questionNumberPlacement?: 'question' | 'item_stem'
+  }
 ): string[] {
   switch (section) {
     case 'verbal_reasoning':
     case 'situational_judgement':
       return collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })
     case 'decision_making':
-      return normalizeDecisionMakingSyllogismLines(collectLogicalLinesFromDoc(doc), parsingOptions ?? {}, {
+      return normalizeDecisionMakingSyllogismLines(collectLogicalLinesFromDoc(doc), {
+        ...(parsingOptions ?? {}),
+        questionNumberPlacement:
+          parsingOptions?.questionNumberPlacement ??
+          parsingOptions?.decisionMakingQuestionNumberPlacement ??
+          'question',
+      }, {
         imageTokenMode: parsingOptions?.imageTokenMode ?? 'preserve',
       })
     case 'quantitative_reasoning':
-      return collectBlocksFromDocForQuantitativeReasoning(doc).logicalLines
+      return normalizeQuantitativeReasoningItemStemLines(
+        collectBlocksFromDocForQuantitativeReasoning(doc).logicalLines,
+        {
+          ...(parsingOptions ?? {}),
+          questionNumberPlacement:
+            parsingOptions?.questionNumberPlacement ??
+            parsingOptions?.quantitativeReasoningQuestionNumberPlacement ??
+            'question',
+        }
+      )
   }
 }

@@ -65,6 +65,12 @@ export function parserConfigFromOptions(
     answerOptionOnOwnLine: parsingOptions.answerOptionOnOwnLine,
     enforceSequentialQuestionNumbers: parsingOptions.requireConsecutiveQuestionNumbers,
     acceptSyllogismOptions: section === 'decision_making',
+    questionNumberPlacement:
+      section === 'decision_making'
+        ? parsingOptions.decisionMakingQuestionNumberPlacement
+        : section === 'quantitative_reasoning'
+          ? parsingOptions.quantitativeReasoningQuestionNumberPlacement
+        : 'question',
     questionsOnly,
   }
 }

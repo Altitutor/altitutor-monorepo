@@ -175,11 +175,22 @@ export function StepAnswers({
       </div>
 
       <div className="grid shrink-0 gap-3 border-b border-border pb-2 lg:grid-cols-2">
-        <Label className="text-xs font-medium text-muted-foreground">Questions</Label>
         <Label className="text-xs font-medium text-muted-foreground">Paste answers document</Label>
+        <Label className="text-xs font-medium text-muted-foreground">Questions</Label>
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
+        <div className="flex min-h-0 min-w-0 flex-col">
+          <Step2PasteAnswers
+            value={bulkAnswersJson}
+            onChange={onBulkAnswersChange}
+            onImageFileIdsChange={onImageFileIdsChange}
+            layout="split"
+            embedded
+            answerParsingOptions={answerParsingOptions}
+          />
+        </div>
+
         <div className="min-h-0 overflow-y-auto pr-1">
           {previews.length === 0 ? (
             <p className="text-sm text-muted-foreground">No questions to match answers against.</p>
@@ -198,17 +209,6 @@ export function StepAnswers({
               })}
             </div>
           )}
-        </div>
-
-        <div className="flex min-h-0 min-w-0 flex-col">
-          <Step2PasteAnswers
-            value={bulkAnswersJson}
-            onChange={onBulkAnswersChange}
-            onImageFileIdsChange={onImageFileIdsChange}
-            layout="split"
-            embedded
-            answerParsingOptions={answerParsingOptions}
-          />
         </div>
       </div>
     </div>

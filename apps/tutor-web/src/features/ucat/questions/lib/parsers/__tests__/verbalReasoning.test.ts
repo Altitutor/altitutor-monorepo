@@ -54,6 +54,8 @@ describe('parseQuestionsOnlyForSection', () => {
       questionNumberOnOwnLine: false,
       answerOptionOnOwnLine: false,
       requireConsecutiveQuestionNumbers: true,
+      decisionMakingQuestionNumberPlacement: 'question',
+      quantitativeReasoningQuestionNumberPlacement: 'question',
     })
 
     expect(questions).toHaveLength(2)
