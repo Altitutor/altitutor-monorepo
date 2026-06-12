@@ -1,12 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
-import type { DataTableFilterDefinition } from '@altitutor/shared'
+import { useMemo, useState } from 'react'
+import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import { Badge, Button, getUcatVisibilityColor, ListToolbar } from '@altitutor/ui'
 import { Pencil, Plus } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { filterStemCatalogItems } from '@/features/ucat/shared/lib/stem-catalog-filters'
-import { cn } from '@/shared/utils'
+import {
+  filterStemCatalogItems,
+  stemCatalogColumnDefinitions,
+} from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { cn, formatDateTime } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
 
@@ -14,10 +17,12 @@ export function UcatStemCatalogRow({
   stem,
   onAdd,
   onEdit,
+  showCreatedAt = false,
 }: {
   stem: UcatStemCatalogItem
   onAdd: () => void
   onEdit?: () => void
+  showCreatedAt?: boolean
 }) {
   return (
     <div className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted">
@@ -36,6 +41,9 @@ export function UcatStemCatalogRow({
           <span>
             · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
           </span>
+          {showCreatedAt ? (
+            <span>· Created {formatDateTime(stem.createdAt ?? '') || '—'}</span>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -107,6 +115,7 @@ type UcatStemCatalogAddPanelProps = {
   filters: Record<string, unknown[]>
   onFiltersChange: (value: Record<string, unknown[]>) => void
   filterDefinitions: DataTableFilterDefinition[]
+  columnDefinitions?: DataTableColumnDefinition[]
   onAddStem: (stemId: string) => void
   onEditStem?: (stemId: string) => void
   title?: string
@@ -123,6 +132,7 @@ export function UcatStemCatalogAddPanel({
   filters,
   onFiltersChange,
   filterDefinitions,
+  columnDefinitions = stemCatalogColumnDefinitions,
   onAddStem,
   onEditStem,
   title = 'Add stems',
@@ -130,6 +140,11 @@ export function UcatStemCatalogAddPanel({
   searchPlaceholder = 'Search stems',
   className,
 }: UcatStemCatalogAddPanelProps) {
+  const [visibleColumns, setVisibleColumns] = useState(() =>
+    columnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key)
+  )
+  const showCreatedAt = visibleColumns.includes('created_at')
+
   const availableStems = useMemo(
     () =>
       filterStemCatalogItems({
@@ -151,6 +166,9 @@ export function UcatStemCatalogAddPanel({
         filterDefinitions={filterDefinitions}
         filters={filters}
         onFiltersChange={onFiltersChange}
+        columnDefinitions={columnDefinitions}
+        visibleColumns={visibleColumns}
+        onVisibleColumnsChange={setVisibleColumns}
       />
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {availableStems.length === 0 ? (
@@ -160,6 +178,7 @@ export function UcatStemCatalogAddPanel({
             <UcatStemCatalogRow
               key={stem.id}
               stem={stem}
+              showCreatedAt={showCreatedAt}
               onAdd={() => onAddStem(stem.id)}
               onEdit={onEditStem ? () => onEditStem(stem.id) : undefined}
             />

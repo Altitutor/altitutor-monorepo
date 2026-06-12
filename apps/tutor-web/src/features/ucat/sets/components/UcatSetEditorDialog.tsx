@@ -171,9 +171,11 @@ export function UcatSetEditorDialog({
     () =>
       buildStemCatalogFilterDefinitions(
         sectionsQuery.data ?? [],
-        mapCategoriesToOptions(categoriesQuery.data ?? [])
+        categoriesQuery.data ?? [],
+        tagsQuery.data ?? [],
+        filters
       ),
-    [sectionsQuery.data, categoriesQuery.data]
+    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters]
   )
 
   const stemsThatWillBecomePublicCount = useMemo(() => {

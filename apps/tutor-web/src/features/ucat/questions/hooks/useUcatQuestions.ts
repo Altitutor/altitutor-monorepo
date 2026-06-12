@@ -50,6 +50,13 @@ export function useUcatQuestionStemTypes() {
   })
 }
 
+export function useUcatStemTagIds() {
+  return useQuery({
+    queryKey: ucatKeys.questionStemTagIds(),
+    queryFn: () => ucatQuestionsApi.getStemTagIds(),
+  })
+}
+
 export type UcatStemCatalogItem = {
   id: string
   text: string
@@ -61,6 +68,8 @@ export type UcatStemCatalogItem = {
   categoryName: string | null
   isPrivate: boolean
   questionTypes: ('multiple_choice' | 'syllogism')[]
+  tagIds: string[]
+  createdAt: string | null
 }
 
 export type UcatQuestionCatalogItem = {
@@ -115,28 +124,42 @@ export function useUcatStemCatalog(enabled: boolean) {
     queryKey: ucatKeys.stemCatalog(),
     queryFn: async () => {
       const rows = await ucatQuestionsApi.getStemCatalog()
-      return rows.map((row) => ({
-        id: row.id ?? '',
-        text: proseMirrorToPlainText(row.stem_text),
-        questionsCount: Array.isArray(row.questions)
-          ? (row.questions as Array<{ deleted_at?: string | null }>).filter((q) => !q.deleted_at).length
-          : 0,
-        sectionName: row.section_name ?? 'Unknown section',
-        sectionNumber: row.section_number ?? 0,
-        sectionId: row.section_id ?? null,
-        categoryId: row.question_stem_category_id ?? null,
-        categoryName: row.category_name ?? null,
-        isPrivate: !!row.is_private,
-        questionTypes: Array.isArray(row.questions)
-          ? Array.from(
-              new Set(
-                (row.questions as Array<{ question_type?: string | null }>).flatMap((q) =>
-                  q.question_type === 'multiple_choice' || q.question_type === 'syllogism' ? [q.question_type] : []
-                )
+      return rows.map((row) => {
+        const activeQuestions = Array.isArray(row.questions)
+          ? (row.questions as Array<{
+              deleted_at?: string | null
+              question_type?: string | null
+              tags?: Array<{ id?: string | null }> | null
+            }>).filter((q) => !q.deleted_at)
+          : []
+        const tagIds = new Set<string>()
+        for (const question of activeQuestions) {
+          const tags = Array.isArray(question.tags) ? question.tags : []
+          for (const tag of tags) {
+            if (tag.id) tagIds.add(tag.id)
+          }
+        }
+        return {
+          id: row.id ?? '',
+          text: proseMirrorToPlainText(row.stem_text),
+          questionsCount: activeQuestions.length,
+          sectionName: row.section_name ?? 'Unknown section',
+          sectionNumber: row.section_number ?? 0,
+          sectionId: row.section_id ?? null,
+          categoryId: row.question_stem_category_id ?? null,
+          categoryName: row.category_name ?? null,
+          isPrivate: !!row.is_private,
+          questionTypes: Array.from(
+            new Set(
+              activeQuestions.flatMap((q) =>
+                q.question_type === 'multiple_choice' || q.question_type === 'syllogism' ? [q.question_type] : []
               )
             )
-          : [],
-      }))
+          ) as ('multiple_choice' | 'syllogism')[],
+          tagIds: Array.from(tagIds),
+          createdAt: row.created_at ?? null,
+        }
+      })
     },
     enabled,
   })
@@ -149,6 +172,7 @@ export function useCreateUcatQuestionStem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
     },
   })
 }
@@ -163,6 +187,7 @@ export function useUpdateUcatQuestionStem() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
     },
   })
 }
@@ -174,6 +199,7 @@ export function useDeleteUcatQuestionStem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
     },
   })
 }
@@ -198,6 +224,7 @@ export function useBulkImportUcatQuestionStems() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
     },
   })
 }
@@ -223,6 +250,7 @@ export function useImportGeneratedUcatQuestionStems() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
     },
   })
 }

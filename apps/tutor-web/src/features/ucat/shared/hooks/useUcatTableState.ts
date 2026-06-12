@@ -63,6 +63,32 @@ export function applySingleSelectFilter(state: DataTableState, key: string, rawV
   return String(rawValue ?? '') === selected
 }
 
+/** Multi-select filter: row matches when its value is among selected values. */
+export function applyMultiSelectFilter(state: DataTableState, key: string, rawValue: unknown) {
+  const selected = getFilterValues(state, key).map(String)
+  if (selected.length === 0) return true
+  return selected.includes(String(rawValue ?? ''))
+}
+
+/** Category filter supporting a sentinel value for uncategorised stems. */
+export function applyCategoryFilter(
+  state: DataTableState,
+  categoryId: string | null | undefined,
+  noneSentinel: string
+) {
+  const selected = getSingleFilterValue(state, 'question_stem_category_id')
+  if (selected === 'all') return true
+  if (selected === noneSentinel) return categoryId == null || categoryId === ''
+  return String(categoryId ?? '') === selected
+}
+
+/** Multi-select tag filter: stem matches when it has any selected tag. */
+export function applyTagFilter(state: DataTableState, tagIds: string[], key = 'question_tag_id') {
+  const selected = getFilterValues(state, key).map(String)
+  if (selected.length === 0) return true
+  return selected.some((id) => tagIds.includes(id))
+}
+
 export function applyBooleanTextFilter(state: DataTableState, key: string, value: boolean) {
   const selected = getSingleFilterValue(state, key)
   if (selected === 'all') return true
