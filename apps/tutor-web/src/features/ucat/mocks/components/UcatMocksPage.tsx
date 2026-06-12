@@ -31,7 +31,8 @@ import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { applyBooleanTextFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyBooleanTextFilter, applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -92,8 +93,12 @@ export function UcatMocksPage() {
   const createMock = useCreateUcatMock()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
-  const [showDeleted, setShowDeleted] = useState(false)
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
+    syncShowDeleted: true,
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
+  const showDeleted = tableState.showDeleted ?? false
+  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)

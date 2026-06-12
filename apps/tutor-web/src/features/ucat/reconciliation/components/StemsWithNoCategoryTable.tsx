@@ -31,7 +31,8 @@ import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/sh
 import type { CategoryOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { cn } from '@/shared/utils'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
-import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 
 const TRUNCATE_LEN = 80
@@ -75,7 +76,10 @@ export function StemsWithNoCategoryTable({
     { key: 'questions', label: 'Questions' },
   ]
 
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
+    paramPrefix: 'noCategory',
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({

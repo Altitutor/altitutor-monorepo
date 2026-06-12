@@ -6,9 +6,9 @@ import {
   applyBooleanTextFilter,
   applyRangeFilter,
   applySort,
-  useUcatTableState,
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import { cn } from '@/shared/utils'
 
@@ -26,6 +26,7 @@ export type SkillTrainerSetTableRow = {
 type UseUcatSkillTrainerSetsTableParams = {
   data: UcatSkillTrainerSetRow[] | undefined
   initialVisibleColumns: string[]
+  availableColumns?: string[]
   onOpenSet?: (setId: string) => void
 }
 
@@ -39,9 +40,12 @@ function formatUpdatedAt(value: string): string {
 export function useUcatSkillTrainerSetsTable({
   data,
   initialVisibleColumns,
+  availableColumns,
   onOpenSet,
 }: UseUcatSkillTrainerSetsTableParams) {
-  const tableState = useUcatTableState(initialVisibleColumns)
+  const tableState = useUcatTableUrlState(initialVisibleColumns, {
+    availableColumns: availableColumns ?? initialVisibleColumns,
+  })
 
   const rows: SkillTrainerSetTableRow[] = useMemo(
     () =>

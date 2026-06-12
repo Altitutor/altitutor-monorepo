@@ -77,8 +77,6 @@ export function UcatSetsPage() {
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
-  const [showDeleted, setShowDeleted] = useState(false)
-
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
@@ -179,9 +177,8 @@ export function UcatSetsPage() {
     ]
   }, [sections, mockFilterOptions])
 
-  const { rows, visibleColumns, tableState } = useUcatSetsTable({
+  const { rows, visibleColumns, tableState, showDeleted, setShowDeleted } = useUcatSetsTable({
     data: sets.data,
-    showDeleted,
     defaultFilters: {},
     sections,
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),

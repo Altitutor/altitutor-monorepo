@@ -95,8 +95,9 @@ import {
   applySort,
   applyTagFilter,
   getFilterValues,
-  useUcatTableState,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
+import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
 import {
   filterCategoriesForSections,
   filterTagsForSections,
@@ -216,6 +217,7 @@ export function UcatQuestionsPage() {
 
   const setActiveTab = (tab: QuestionsTab) => {
     const params = new URLSearchParams(searchParams.toString())
+    clearUcatTableUrlParams(params)
     if (tab === 'generated') params.set('tab', 'generated')
     else params.delete('tab')
     const query = params.toString()
@@ -227,7 +229,6 @@ export function UcatQuestionsPage() {
   const [aiImportOpen, setAiImportOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
-  const [showDeleted, setShowDeleted] = useState(false)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
   const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
   const [selectedStemIds, setSelectedStemIds] = useState<Set<string>>(new Set())
@@ -258,19 +259,26 @@ export function UcatQuestionsPage() {
         : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     [mode],
   )
-  const tableState = useUcatTableState(initialVisibleColumns)
+  const availableColumnKeys = useMemo(() => columnDefinitions.map((column) => column.key), [])
+  const tableState = useUcatTableUrlState(initialVisibleColumns, {
+    syncShowDeleted: true,
+    availableColumns: availableColumnKeys,
+  })
+  const showDeleted = tableState.showDeleted ?? false
+  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
 
   const previousTabRef = useRef(activeTab)
+  const tableActionsRef = useRef(tableState.actions)
+  tableActionsRef.current = tableState.actions
   useEffect(() => {
     if (previousTabRef.current === activeTab) return
     previousTabRef.current = activeTab
-    tableState.actions.onVisibleColumnsChange(initialVisibleColumns)
-    tableState.actions.onReset()
+    tableActionsRef.current.onVisibleColumnsChange(initialVisibleColumns)
+    tableActionsRef.current.onReset()
     setSelectedStemIds(new Set())
     setExpandedStemIds(new Set())
     setExpandedQuestionKeys(new Set())
-    setShowDeleted(false)
-  }, [activeTab, initialVisibleColumns, tableState.actions])
+  }, [activeTab, initialVisibleColumns])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({

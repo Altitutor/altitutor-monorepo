@@ -16,7 +16,8 @@ import {
 import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { applyRangeFilter, applySingleSelectFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyRangeFilter, applySingleSelectFilter, applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { useCreateUcatSection, useUcatSections, useUpdateUcatSection } from '@/features/ucat/sections/hooks/useUcatSections'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -124,7 +125,9 @@ export function UcatSectionsPage() {
   const { toast } = useToast()
   const createSection = useCreateUcatSection()
   const updateSection = useUpdateUcatSection()
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<SectionRow | null>(null)

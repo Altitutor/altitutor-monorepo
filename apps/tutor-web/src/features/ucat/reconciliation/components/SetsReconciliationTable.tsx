@@ -8,7 +8,8 @@ import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import type { SetReconciliationRow } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
-import { useUcatTableState, applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
@@ -42,7 +43,16 @@ export function SetsReconciliationTable({
     { key: 'question_count', label: 'Questions' },
   ]
 
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key))
+  const urlParamPrefix =
+    dataKey === 'setsWithIncorrectQuestionCount'
+      ? 'incorrectQuestionCount'
+      : dataKey === 'setsWithIncorrectTiming'
+        ? 'incorrectTiming'
+        : 'multipleSections'
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
+    paramPrefix: urlParamPrefix,
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const accessors = useMemo(
     () => ({

@@ -8,7 +8,8 @@ import type { UntaggedQuestion } from '../api/reconciliation'
 import { useReconciliationData, useAddQuestionTag } from '../hooks/useReconciliation'
 import { useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
@@ -42,7 +43,10 @@ export function UntaggedQuestionsTable({
     { key: 'question_text', label: 'Question' },
   ]
 
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
+    paramPrefix: 'untagged',
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({
