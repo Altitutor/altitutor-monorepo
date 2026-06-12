@@ -39,6 +39,8 @@ type UcatStemEditorShellProps = {
   initialQuestionIndex?: number
   /** Show prev/next question controls in exam chrome when the stem has multiple questions. */
   showQuestionNavigator?: boolean
+  /** Initial edit vs preview mode (resets when stemId changes). */
+  initialEditorMode?: StemEditorMode
 }
 
 export function UcatStemEditorShell({
@@ -55,8 +57,9 @@ export function UcatStemEditorShell({
   flush = false,
   initialQuestionIndex,
   showQuestionNavigator = false,
+  initialEditorMode = 'edit',
 }: UcatStemEditorShellProps) {
-  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex ?? 0)
 
@@ -99,6 +102,10 @@ export function UcatStemEditorShell({
     if (initialQuestionIndex == null) return
     setCurrentQuestionIndex(Math.min(initialQuestionIndex, Math.max(questionCount - 1, 0)))
   }, [initialQuestionIndex, questionCount])
+
+  useEffect(() => {
+    setEditorMode(initialEditorMode)
+  }, [initialEditorMode, stemId])
 
   return (
     <div className={className ?? 'flex min-h-0 flex-1 overflow-hidden'}>

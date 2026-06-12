@@ -31,6 +31,7 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
@@ -82,6 +83,8 @@ export function UcatQuestionStemDialog({
   loading,
   onDelete,
   initialQuestionIndex,
+  initialEditorMode = 'edit',
+  readOnly = false,
 }: {
   open: boolean
   title: string
@@ -95,6 +98,8 @@ export function UcatQuestionStemDialog({
   loading?: boolean
   onDelete?: () => void
   initialQuestionIndex?: number
+  initialEditorMode?: StemEditorMode
+  readOnly?: boolean
 }) {
   const { toast } = useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
@@ -300,7 +305,7 @@ export function UcatQuestionStemDialog({
       onClose={handleRequestClose}
       title={title}
       subtitle="Create or update nested UCAT question stems"
-      onSave={handleSave}
+      onSave={readOnly ? undefined : handleSave}
       saveLabel={submitLabel}
       saveDisabled={loading}
       isSaving={loading}
@@ -317,6 +322,7 @@ export function UcatQuestionStemDialog({
           tags={tags}
           stemId={stemId ?? null}
           initialQuestionIndex={initialQuestionIndex}
+          initialEditorMode={initialEditorMode}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}

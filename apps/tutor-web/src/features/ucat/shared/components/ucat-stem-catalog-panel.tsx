@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import { Badge, Button, getUcatVisibilityColor, ListToolbar } from '@altitutor/ui'
-import { Pencil, Plus } from 'lucide-react'
+import { Eye, Pencil, Plus } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   filterStemCatalogItems,
@@ -16,11 +16,13 @@ import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dia
 export function UcatStemCatalogRow({
   stem,
   onAdd,
+  onView,
   onEdit,
   showCreatedAt = false,
 }: {
   stem: UcatStemCatalogItem
   onAdd: () => void
+  onView?: () => void
   onEdit?: () => void
   showCreatedAt?: boolean
 }) {
@@ -47,6 +49,18 @@ export function UcatStemCatalogRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {onView ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
+            onClick={onView}
+            aria-label={`View ${stem.text || stem.id}`}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        ) : null}
         {onEdit ? (
           <Button
             type="button"
@@ -54,6 +68,7 @@ export function UcatStemCatalogRow({
             size="icon"
             className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
             onClick={onEdit}
+            aria-label={`Edit ${stem.text || stem.id}`}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -117,6 +132,7 @@ type UcatStemCatalogAddPanelProps = {
   filterDefinitions: DataTableFilterDefinition[]
   columnDefinitions?: DataTableColumnDefinition[]
   onAddStem: (stemId: string) => void
+  onViewStem?: (stemId: string) => void
   onEditStem?: (stemId: string) => void
   title?: string
   emptyMessage?: string
@@ -134,6 +150,7 @@ export function UcatStemCatalogAddPanel({
   filterDefinitions,
   columnDefinitions = stemCatalogColumnDefinitions,
   onAddStem,
+  onViewStem,
   onEditStem,
   title = 'Add stems',
   emptyMessage = 'No stems to add, or all matching stems are already selected.',
@@ -180,6 +197,7 @@ export function UcatStemCatalogAddPanel({
               stem={stem}
               showCreatedAt={showCreatedAt}
               onAdd={() => onAddStem(stem.id)}
+              onView={onViewStem ? () => onViewStem(stem.id) : undefined}
               onEdit={onEditStem ? () => onEditStem(stem.id) : undefined}
             />
           ))
