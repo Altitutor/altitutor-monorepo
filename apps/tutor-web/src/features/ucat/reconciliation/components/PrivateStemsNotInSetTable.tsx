@@ -34,7 +34,8 @@ import {
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
@@ -88,7 +89,10 @@ export function PrivateStemsNotInSetTable({
     { key: 'questions', label: 'Questions' },
   ]
 
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
+    paramPrefix: 'privateNotInSet',
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({

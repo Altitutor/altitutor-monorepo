@@ -12,7 +12,8 @@ import {
   useUcatClasses,
   useUcatStudentProgressSummary,
 } from '@/features/ucat/students/hooks/useUcatStudents'
-import { applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { ProgressModeSelector } from '@/features/ucat/students/progress/components/progress-mode-selector'
 import {
@@ -32,14 +33,26 @@ export function UcatStudentsPage() {
   const access = useUcatAccess()
   const progress = useUcatStudentProgressSummary(mode, timeFrameDays)
   const classes = useUcatClasses()
-  const tableState = useUcatTableState([
-    'student_name',
-    'total_questions',
-    'total_sets_attempted',
-    'total_mocks_attempted',
-    'exam',
-    'actions',
-  ])
+  const tableState = useUcatTableUrlState(
+    [
+      'student_name',
+      'total_questions',
+      'total_sets_attempted',
+      'total_mocks_attempted',
+      'exam',
+      'actions',
+    ],
+    {
+      availableColumns: [
+        'student_name',
+        'total_questions',
+        'total_sets_attempted',
+        'total_mocks_attempted',
+        'exam',
+        'actions',
+      ],
+    },
+  )
 
   const classFilterValue = (tableState.state.filters.class_id?.[0] as string | undefined) ?? 'all'
   const classStudents = useUcatClassStudentIds(

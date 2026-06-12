@@ -55,6 +55,131 @@ function findLastNonBlankIndex(lines: string[], endExclusive: number): number {
   return -1
 }
 
+function normaliseStructuralLine(line: string): string {
+  return line
+    .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
+    .replace(/\[\[IMG:[^\]]+\]\]/g, '[[IMG]]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function commonPrefixLengthForLineSets(lineSets: string[][]): number {
+  if (lineSets.length === 0) return 0
+
+  const shortestLength = Math.min(...lineSets.map((lines) => lines.length))
+  let length = 0
+
+  while (length < shortestLength) {
+    const first = normaliseStructuralLine(lineSets[0]?.[length] ?? '')
+    if (lineSets.every((lines) => normaliseStructuralLine(lines[length] ?? '') === first)) {
+      length += 1
+      continue
+    }
+    break
+  }
+
+  return length
+}
+
+function isStructuralTokenLine(line: string): boolean {
+  const normalised = normaliseStructuralLine(line)
+  return normalised === '[[img]]' || normalised === '[[table]]'
+}
+
+function hasUsableRepeatedStemPrefix(prefixLines: string[]): boolean {
+  const substantiveLines = prefixLines.filter((line) => normaliseStructuralLine(line).length > 0)
+  if (substantiveLines.length >= 2) return true
+  return substantiveLines.some(isStructuralTokenLine)
+}
+
+function trimLeadingBlankLines(lines: string[]): string[] {
+  let firstNonBlank = 0
+  while (firstNonBlank < lines.length && (lines[firstNonBlank] ?? '').trim().length === 0) {
+    firstNonBlank += 1
+  }
+  return lines.slice(firstNonBlank)
+}
+
+function splitFinalSentenceFromLine(line: string): { stemText: string; questionText: string } {
+  const text = line.trim()
+  const sentenceBoundaries = Array.from(text.matchAll(/[.!?]\s+(?=[A-Z])/g))
+  const lastBoundary = sentenceBoundaries[sentenceBoundaries.length - 1]
+  if (!lastBoundary || lastBoundary.index == null) {
+    return { stemText: '', questionText: text }
+  }
+
+  const splitIndex = lastBoundary.index + 1
+  return {
+    stemText: text.slice(0, splitIndex).trim(),
+    questionText: text.slice(splitIndex).trim(),
+  }
+}
+
+type QuantitativeReasoningItemStemBlock = {
+  numberText: string
+  lines: string[]
+  optionStart: number
+}
+
+function appendFallbackItemStemBlock(
+  normalized: string[],
+  block: QuantitativeReasoningItemStemBlock,
+  separator: string
+): void {
+  const questionIndex =
+    block.optionStart >= 0 ? findLastNonBlankIndex(block.lines, block.optionStart) : -1
+
+  if (block.optionStart < 0 || questionIndex < 0) {
+    normalized.push(`${block.numberText}${separator}`)
+    normalized.push(...block.lines)
+    return
+  }
+
+  const stemLines = block.lines.slice(0, questionIndex)
+  const questionLine = block.lines[questionIndex]?.trim() ?? ''
+  const hasStemLine = stemLines.some((line) => line.trim().length > 0)
+
+  if (!hasStemLine) {
+    const split = splitFinalSentenceFromLine(questionLine)
+    if (split.stemText.length > 0) {
+      normalized.push(split.stemText)
+      normalized.push(`${block.numberText}${separator} ${split.questionText}`)
+      normalized.push(...block.lines.slice(questionIndex + 1))
+      return
+    }
+  }
+
+  normalized.push(...stemLines)
+  normalized.push(`${block.numberText}${separator} ${questionLine}`)
+  normalized.push(...block.lines.slice(questionIndex + 1))
+}
+
+function appendRepeatedStemBlockRun(
+  normalized: string[],
+  blocks: QuantitativeReasoningItemStemBlock[],
+  commonStemLineCount: number,
+  separator: string
+): void {
+  for (const block of blocks) {
+    const preOptionLines = block.lines.slice(0, block.optionStart)
+    const questionLines = trimLeadingBlankLines(preOptionLines.slice(commonStemLineCount))
+    const firstQuestionLine = questionLines[0]?.trim() ?? ''
+
+    if (firstQuestionLine.length === 0) {
+      normalized.push(...block.lines.slice(0, commonStemLineCount))
+      normalized.push(`${block.numberText}${separator}`)
+      normalized.push(...block.lines.slice(commonStemLineCount))
+      continue
+    }
+
+    normalized.push(...block.lines.slice(0, commonStemLineCount))
+    normalized.push(`${block.numberText}${separator} ${firstQuestionLine}`)
+    normalized.push(...questionLines.slice(1))
+    normalized.push(...block.lines.slice(block.optionStart))
+  }
+}
+
 export function normalizeQuantitativeReasoningItemStemLines(
   rawLines: string[],
   config: Partial<ParserConfig>
@@ -86,20 +211,49 @@ export function normalizeQuantitativeReasoningItemStemLines(
 
   const separator = (config.questionIndicator ?? 'dot') === 'paren' ? ')' : '.'
   const normalized: string[] = [...introLines]
+  const preparedBlocks: QuantitativeReasoningItemStemBlock[] = blocks.map((block) => ({
+    ...block,
+    optionStart: block.lines.findIndex((line) => isAnswerOptionLine(line, config)),
+  }))
 
-  for (const block of blocks) {
-    const optionStart = block.lines.findIndex((line) => isAnswerOptionLine(line, config))
-    const questionIndex = optionStart >= 0 ? findLastNonBlankIndex(block.lines, optionStart) : -1
+  let index = 0
+  while (index < preparedBlocks.length) {
+    const firstBlock = preparedBlocks[index]!
 
-    if (optionStart < 0 || questionIndex < 0) {
-      normalized.push(`${block.numberText}${separator}`)
-      normalized.push(...block.lines)
+    if (firstBlock.optionStart < 0) {
+      appendFallbackItemStemBlock(normalized, firstBlock, separator)
+      index += 1
       continue
     }
 
-    normalized.push(...block.lines.slice(0, questionIndex))
-    normalized.push(`${block.numberText}${separator} ${block.lines[questionIndex]?.trim() ?? ''}`)
-    normalized.push(...block.lines.slice(questionIndex + 1))
+    const run: QuantitativeReasoningItemStemBlock[] = [firstBlock]
+    let commonStemLineCount = firstBlock.optionStart
+    let nextIndex = index + 1
+
+    while (nextIndex < preparedBlocks.length) {
+      const candidate = preparedBlocks[nextIndex]!
+      if (candidate.optionStart < 0) break
+
+      const candidateLineSets = [...run, candidate].map((block) =>
+        block.lines.slice(0, block.optionStart)
+      )
+      const nextCommonStemLineCount = commonPrefixLengthForLineSets(candidateLineSets)
+      const nextCommonPrefix = firstBlock.lines.slice(0, nextCommonStemLineCount)
+
+      if (!hasUsableRepeatedStemPrefix(nextCommonPrefix)) break
+
+      run.push(candidate)
+      commonStemLineCount = nextCommonStemLineCount
+      nextIndex += 1
+    }
+
+    if (run.length < 2 || commonStemLineCount <= 0) {
+      appendFallbackItemStemBlock(normalized, firstBlock, separator)
+      index += 1
+    } else {
+      appendRepeatedStemBlockRun(normalized, run, commonStemLineCount, separator)
+      index += run.length
+    }
   }
 
   return normalized

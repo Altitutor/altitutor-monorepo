@@ -5,9 +5,9 @@ import {
   applyCoreStringFilter,
   applyEnumFilter,
   applySort,
-  useUcatTableState,
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/items'
 import { skillTrainerItemContentSummary } from '@/features/ucat/skill-trainer/lib/content-summary'
 
@@ -23,6 +23,7 @@ export type SkillTrainerItemTableRow = {
 type Params = {
   data: UcatSkillTrainerItemRow[] | undefined
   initialVisibleColumns: string[]
+  availableColumns?: string[]
   onOpenItem?: (itemId: string) => void
 }
 
@@ -33,8 +34,15 @@ function formatUpdatedAt(value: string): string {
   return date.toLocaleDateString()
 }
 
-export function useUcatSkillTrainerItemsTable({ data, initialVisibleColumns, onOpenItem }: Params) {
-  const tableState = useUcatTableState(initialVisibleColumns)
+export function useUcatSkillTrainerItemsTable({
+  data,
+  initialVisibleColumns,
+  availableColumns,
+  onOpenItem,
+}: Params) {
+  const tableState = useUcatTableUrlState(initialVisibleColumns, {
+    availableColumns: availableColumns ?? initialVisibleColumns,
+  })
 
   const rows: SkillTrainerItemTableRow[] = useMemo(
     () =>

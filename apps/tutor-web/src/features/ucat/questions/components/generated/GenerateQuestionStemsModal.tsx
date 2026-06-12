@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { DataTableFilterDefinition, Json } from '@altitutor/shared'
+import type { Json } from '@altitutor/shared'
 import {
   Input,
   Label,
@@ -18,11 +18,19 @@ import {
   useGenerateUcatQuestionDrafts,
   useImportGeneratedUcatQuestionStems,
   useUcatCategories,
+  useUcatQuestionDetail,
   useUcatSections,
   useUcatStemCatalog,
+  useUcatTags,
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import {
+  UcatQuestionStemDialog,
+  type CategoryOption,
+  type TagOption,
+} from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -112,29 +120,13 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
   }
 }
 
-const SOURCE_STEM_FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
-  {
-    key: 'visibility',
-    label: 'Visibility',
-    options: [
-      { label: 'Public', value: 'public' },
-      { label: 'Private', value: 'private' },
-    ],
-  },
-  {
-    key: 'question_type',
-    label: 'Type',
-    options: [
-      { label: 'Multiple Choice', value: 'multiple_choice' },
-      { label: 'Syllogism', value: 'syllogism' },
-    ],
-  },
-]
+const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility', 'question_type'])
 
 export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionStemsModalProps) {
   const { toast } = useToast()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
   const stemCatalogQuery = useUcatStemCatalog(open)
   const generateMutation = useGenerateUcatQuestionDrafts()
   const importMutation = useImportGeneratedUcatQuestionStems()
@@ -148,6 +140,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [drafts, setDrafts] = useState<DraftWithMetadata[]>([])
   const [stemSearch, setStemSearch] = useState('')
   const [stemFilters, setStemFilters] = useState<Record<string, unknown[]>>({})
+  const [viewingStemId, setViewingStemId] = useState<string | null>(null)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
@@ -185,6 +178,26 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     [categories, sectionId]
   )
 
+  const sourceStemFilterDefinitions = useMemo(() => {
+    const scopedSections = sectionId ? sections.filter((section) => section.id === sectionId) : sections
+    return buildStemCatalogFilterDefinitions(
+      scopedSections,
+      categories,
+      tagsQuery.data ?? [],
+      stemFilters
+    ).filter((definition) => SOURCE_STEM_FILTER_KEYS.has(definition.key))
+  }, [sections, sectionId, categories, tagsQuery.data, stemFilters])
+
+  const stemDialogCategories = useMemo(
+    () => mapCategoriesToOptions(categories) as CategoryOption[],
+    [categories]
+  )
+  const stemDialogTags = useMemo(
+    () => mapTagsToOptions(tagsQuery.data ?? []) as TagOption[],
+    [tagsQuery.data]
+  )
+  const viewingStemDetail = useUcatQuestionDetail(viewingStemId)
+
   const stepReady =
     sectionId.length > 0 &&
     stemCount > 0 &&
@@ -204,6 +217,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setDrafts([])
     setStemSearch('')
     setStemFilters({})
+    setViewingStemId(null)
   }
 
   async function handleGenerate() {
@@ -293,6 +307,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         : 'Import to generated queue'
 
   return (
+    <>
     <UcatDialogShell
       open={open}
       onClose={handleRequestClose}
@@ -425,8 +440,9 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
               onSearchChange={setStemSearch}
               filters={stemFilters}
               onFiltersChange={setStemFilters}
-              filterDefinitions={SOURCE_STEM_FILTER_DEFINITIONS}
+              filterDefinitions={sourceStemFilterDefinitions}
               onAddStem={(stemId) => setSelectedSourceIds((prev) => [...prev, stemId])}
+              onViewStem={setViewingStemId}
               title="Add source stems"
               emptyMessage={
                 !sectionId
@@ -454,5 +470,25 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         </div>
       )}
     </UcatDialogShell>
+
+    <UcatQuestionStemDialog
+      open={!!viewingStemId}
+      title="View Question Stem"
+      submitLabel="Save"
+      onClose={() => setViewingStemId(null)}
+      onSubmit={async () => undefined}
+      sections={sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        display_columns: section.display_columns,
+      }))}
+      categories={stemDialogCategories}
+      tags={stemDialogTags}
+      initial={viewingStemDetail.data}
+      loading={viewingStemDetail.isLoading}
+      initialEditorMode="view"
+      readOnly
+    />
+    </>
   )
 }

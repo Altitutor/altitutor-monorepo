@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { ListToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -25,7 +26,9 @@ export function UcatClassesPage() {
   const access = useUcatAccess()
   const { data: classes, isLoading } = useUcatClassesWithDetails()
   const [classDialogId, setClassDialogId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const tableUrl = useUcatTableUrlState([], { availableColumns: [] })
+  const search = tableUrl.state.search
+  const setSearch = tableUrl.actions.onSearchChange
 
   const rows = useMemo(() => {
     const list = classes ?? []

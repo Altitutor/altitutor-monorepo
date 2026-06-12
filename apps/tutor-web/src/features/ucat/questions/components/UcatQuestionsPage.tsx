@@ -51,6 +51,7 @@ import {
   useUcatQuestionStemTypes,
   useUcatQuestions,
   useUcatSections,
+  useUcatStemTagIds,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -88,16 +89,25 @@ import {
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
   applyBooleanTextFilter,
+  applyCategoryFilter,
+  applyMultiSelectFilter,
   applySingleSelectFilter,
   applySort,
+  applyTagFilter,
   getFilterValues,
-  useUcatTableState,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
+import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
+import {
+  filterCategoriesForSections,
+  filterTagsForSections,
+} from '@/features/ucat/shared/lib/taxonomy-reparent'
+import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
+import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
-import { cn } from '@/shared/utils'
+import { cn, formatDateTime } from '@/shared/utils'
 import {
   tutorBtnOutline,
   tutorBtnPrimary,
@@ -131,7 +141,9 @@ type QuestionRow = {
   question_stem_category_id: string | null
   question_count: number
   is_private: boolean
+  created_at: string | null
   updated_at: string | null
+  tag_ids: string[]
   type_summary: string
   stem_text: string
   set_names: string
@@ -144,6 +156,7 @@ type QuestionRow = {
 const filterDefinitions: DataTableFilterDefinition[] = [
   { key: 'section_id', label: 'Section' },
   { key: 'question_stem_category_id', label: 'Category' },
+  { key: 'question_tag_id', label: 'Tag' },
   {
     key: 'visibility',
     label: 'Visibility',
@@ -178,6 +191,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
   { key: 'sets', label: 'Sets', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'created_at', label: 'Date created', visibleByDefault: false },
   { key: 'approval_status', label: 'Approval', visibleByDefault: false },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
@@ -190,6 +204,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'sets', label: 'Sets' },
   { key: 'type_summary', label: 'Type' },
   { key: 'visibility', label: 'Visibility' },
+  { key: 'created_at', label: 'Date created' },
   { key: 'approval_status', label: 'Approval status' },
 ]
 
@@ -202,6 +217,7 @@ export function UcatQuestionsPage() {
 
   const setActiveTab = (tab: QuestionsTab) => {
     const params = new URLSearchParams(searchParams.toString())
+    clearUcatTableUrlParams(params)
     if (tab === 'generated') params.set('tab', 'generated')
     else params.delete('tab')
     const query = params.toString()
@@ -213,7 +229,6 @@ export function UcatQuestionsPage() {
   const [aiImportOpen, setAiImportOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
-  const [showDeleted, setShowDeleted] = useState(false)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
   const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
   const [selectedStemIds, setSelectedStemIds] = useState<Set<string>>(new Set())
@@ -235,6 +250,8 @@ export function UcatQuestionsPage() {
 
   const stemTypesQuery = useUcatQuestionStemTypes()
   const stemTypes = stemTypesQuery.data ?? {}
+  const stemTagIdsQuery = useUcatStemTagIds()
+  const stemTagIds = stemTagIdsQuery.data ?? {}
   const initialVisibleColumns = useMemo(
     () =>
       mode === 'generated'
@@ -242,19 +259,26 @@ export function UcatQuestionsPage() {
         : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     [mode],
   )
-  const tableState = useUcatTableState(initialVisibleColumns)
+  const availableColumnKeys = useMemo(() => columnDefinitions.map((column) => column.key), [])
+  const tableState = useUcatTableUrlState(initialVisibleColumns, {
+    syncShowDeleted: true,
+    availableColumns: availableColumnKeys,
+  })
+  const showDeleted = tableState.showDeleted ?? false
+  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
 
   const previousTabRef = useRef(activeTab)
+  const tableActionsRef = useRef(tableState.actions)
+  tableActionsRef.current = tableState.actions
   useEffect(() => {
     if (previousTabRef.current === activeTab) return
     previousTabRef.current = activeTab
-    tableState.actions.onVisibleColumnsChange(initialVisibleColumns)
-    tableState.actions.onReset()
+    tableActionsRef.current.onVisibleColumnsChange(initialVisibleColumns)
+    tableActionsRef.current.onReset()
     setSelectedStemIds(new Set())
     setExpandedStemIds(new Set())
     setExpandedQuestionKeys(new Set())
-    setShowDeleted(false)
-  }, [activeTab, initialVisibleColumns, tableState.actions])
+  }, [activeTab, initialVisibleColumns])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -386,7 +410,9 @@ export function UcatQuestionsPage() {
       question_stem_category_id: row.question_stem_category_id,
       question_count: row.question_count ?? 0,
       is_private: !!row.is_private,
+      created_at: row.created_at ?? null,
       updated_at: row.updated_at,
+      tag_ids: row.id ? (stemTagIds[row.id] ?? []) : [],
       type_summary: summary || '-',
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
       set_names: setsDisplay,
@@ -417,8 +443,13 @@ export function UcatQuestionsPage() {
           .toLowerCase()
           .includes(search)
 
-      const sectionHit = applySingleSelectFilter(tableState.state, 'section_id', row.section_id)
-      const categoryHit = applySingleSelectFilter(tableState.state, 'question_stem_category_id', row.question_stem_category_id)
+      const sectionHit = applyMultiSelectFilter(tableState.state, 'section_id', row.section_id)
+      const categoryHit = applyCategoryFilter(
+        tableState.state,
+        row.question_stem_category_id,
+        UCAT_FILTER_NO_CATEGORY
+      )
+      const tagHit = applyTagFilter(tableState.state, row.tag_ids)
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
       const approvalHit =
         mode !== 'generated' || applySingleSelectFilter(tableState.state, 'approval_status', row.approval_status)
@@ -437,7 +468,7 @@ export function UcatQuestionsPage() {
         (wantsNotInAnySet && row.set_ids.length === 0) ||
         specificSetIds.some((sid) => row.set_ids.includes(sid))
 
-      return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit && setHit
+      return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit
     })
   }, [rows, tableState.state, showDeleted, mode, categoryPathLookup])
 
@@ -452,6 +483,7 @@ export function UcatQuestionsPage() {
         sets: (r) => r.set_names,
         type_summary: (r) => r.type_summary,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        created_at: (r) => r.created_at,
         approval_status: (r) => r.approval_status,
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection, categoryPathLookup]
@@ -494,6 +526,7 @@ export function UcatQuestionsPage() {
     (visible('question_count') ? 1 : 0) +
     (visible('sets') ? 1 : 0) +
     (visible('visibility') ? 1 : 0) +
+    (visible('created_at') ? 1 : 0) +
     (visible('approval_status') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
@@ -763,6 +796,14 @@ export function UcatQuestionsPage() {
   }, [setsList, setFilterSearch])
 
   const sectionFilterDefs = useMemo((): DataTableFilterDefinition[] => {
+    const selectedSectionIds = resolveSectionIdsFromIdFilter(tableState.state.filters)
+    const scopedCategoryOptions = mapCategoriesToOptions(
+      filterCategoriesForSections(categories.data ?? [], selectedSectionIds)
+    ) as CategoryOption[]
+    const scopedTagOptions = mapTagsToOptions(
+      filterTagsForSections(tags.data ?? [], selectedSectionIds)
+    ) as TagOption[]
+
     const base: DataTableFilterDefinition[] = [
       {
         ...filterDefinitions[0],
@@ -770,13 +811,23 @@ export function UcatQuestionsPage() {
       },
       {
         ...filterDefinitions[1],
-        options: categoryOptions.map((c) => ({
-          label: taxonomyDisplayLabel(c),
-          value: c.id ?? '',
+        options: [
+          { label: 'No category', value: UCAT_FILTER_NO_CATEGORY },
+          ...scopedCategoryOptions.map((c) => ({
+            label: taxonomyDisplayLabel(c),
+            value: c.id ?? '',
+          })),
+        ],
+      },
+      {
+        ...filterDefinitions[2],
+        options: scopedTagOptions.map((tag) => ({
+          label: tag.label ?? tag.name,
+          value: tag.id,
         })),
       },
-      filterDefinitions[2],
       filterDefinitions[3],
+      filterDefinitions[4],
       {
         key: 'question_set_id',
         label: 'Set',
@@ -785,10 +836,12 @@ export function UcatQuestionsPage() {
         searchPlaceholder: 'Search sets...',
       },
     ]
-    return mode === 'generated' ? [...base, filterDefinitions[4]] : base
-  }, [sections.data, categoryOptions, setFilterOptions, mode])
+    return mode === 'generated' ? [...base, filterDefinitions[5]] : base
+  }, [sections.data, categories.data, tags.data, tableState.state.filters, setFilterOptions, mode])
 
-  if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
+  if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading || stemTagIdsQuery.isLoading) {
+    return <UcatPageSkeleton rows={8} />
+  }
   if (!access.data) return <UcatAccessDenied />
 
   return (
@@ -898,6 +951,7 @@ export function UcatQuestionsPage() {
               {visible('question_count') && <TableHead>Questions</TableHead>}
               {visible('sets') && <TableHead>Sets</TableHead>}
               {visible('visibility') && <TableHead>Visibility</TableHead>}
+              {visible('created_at') && <TableHead>Date created</TableHead>}
               {visible('approval_status') && <TableHead>Approval</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
               {visible('actions') && <TableHead className="w-16 shrink-0" />}
@@ -963,6 +1017,9 @@ export function UcatQuestionsPage() {
                     )}
                     {visible('visibility') && (
                       <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
+                    )}
+                    {visible('created_at') && (
+                      <TableCell>{formatDateTime(row.created_at ?? '') || '—'}</TableCell>
                     )}
                     {visible('approval_status') && <TableCell className="capitalize">{row.approval_status}</TableCell>}
                     {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}

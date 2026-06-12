@@ -5,9 +5,9 @@ import {
   applyRangeFilter,
   applySort,
   getFilterValues,
-  useUcatTableState,
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import { formatSetSectionsDisplay, getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import type { Json } from '@altitutor/shared'
@@ -46,7 +46,6 @@ type UcatSectionForStatus = {
 
 type UseUcatSetsTableParams<T> = {
   data: T[] | undefined
-  showDeleted: boolean
   defaultFilters: Record<string, unknown[]>
   sections?: UcatSectionForStatus[]
   /** Initial visible column keys; defaults to all base columns if not provided */
@@ -75,7 +74,6 @@ type SetRowInput = {
 
 export function useUcatSetsTable<T extends SetRowInput>({
   data,
-  showDeleted,
   defaultFilters,
   sections = [],
   initialVisibleColumns,
@@ -90,12 +88,13 @@ export function useUcatSetsTable<T extends SetRowInput>({
     { key: 'created_by', label: 'Created by' },
   ]
 
-  const tableState = useUcatTableState(
-    initialVisibleColumns ?? baseColumns.map((c) => c.key),
-    {
-      defaultFilters,
-    }
-  )
+  const resolvedInitialColumns = initialVisibleColumns ?? baseColumns.map((c) => c.key)
+  const tableState = useUcatTableUrlState(resolvedInitialColumns, {
+    defaultFilters,
+    syncShowDeleted: true,
+    availableColumns: [...baseColumns.map((c) => c.key), 'actions'],
+  })
+  const showDeleted = tableState.showDeleted ?? false
 
   const rows: SetRow[] = useMemo(
     () =>
@@ -266,10 +265,14 @@ export function useUcatSetsTable<T extends SetRowInput>({
 
   const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
 
+  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
+
   return {
     tableState,
     rows: sortedRows,
     visibleColumns,
+    showDeleted,
+    setShowDeleted,
   }
 }
 

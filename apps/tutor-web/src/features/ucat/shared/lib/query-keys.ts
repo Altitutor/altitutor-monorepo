@@ -10,6 +10,7 @@ export const ucatKeys = {
     [...ucatKeys.all, 'questions', mode] as const,
   question: (id: string) => [...ucatKeys.all, 'question', id] as const,
   questionStemTypes: () => [...ucatKeys.questions('all'), 'stem-types'] as const,
+  questionStemTagIds: () => [...ucatKeys.questions('all'), 'stem-tag-ids'] as const,
   stemCatalog: () => [...ucatKeys.questions('all'), 'stem-catalog'] as const,
   questionCatalog: () => [...ucatKeys.questions('all'), 'question-catalog'] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,

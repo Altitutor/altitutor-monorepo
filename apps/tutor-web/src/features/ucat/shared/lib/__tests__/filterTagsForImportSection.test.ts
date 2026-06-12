@@ -1,4 +1,4 @@
-import { filterTagsForImportSection } from '../taxonomy-reparent'
+import { filterCategoriesForSections, filterTagsForImportSection, filterTagsForSections } from '../taxonomy-reparent'
 
 const QR = 'section-qr'
 const VR = 'section-vr'
@@ -36,5 +36,35 @@ describe('filterTagsForImportSection', () => {
 
   it('returns all rows when sectionId is null', () => {
     expect(filterTagsForImportSection(rows, null)).toEqual(rows)
+  })
+
+  it('supports multiple section filters', () => {
+    const filtered = filterTagsForSections(rows, [QR, VR])
+    expect(filtered.map((row) => row.id)).toEqual([
+      'qr-root',
+      'qr-child',
+      'vr-root',
+      'vr-child',
+      'global-root',
+      'global-child',
+    ])
+  })
+})
+
+describe('filterCategoriesForSections', () => {
+  const categories = [
+    { id: 'qr-root', name: 'QR root', parent_question_stem_category_id: null, ucat_section_id: QR },
+    { id: 'qr-child', name: 'QR child', parent_question_stem_category_id: 'qr-root', ucat_section_id: null },
+    { id: 'vr-root', name: 'VR root', parent_question_stem_category_id: null, ucat_section_id: VR },
+    { id: 'global-root', name: 'Global', parent_question_stem_category_id: null, ucat_section_id: null },
+  ]
+
+  it('includes matching section categories, unsectioned categories, and descendants', () => {
+    const filtered = filterCategoriesForSections(categories, [QR])
+    expect(filtered.map((row) => row.id)).toEqual(['qr-root', 'qr-child', 'global-root'])
+  })
+
+  it('returns all rows when no sections are selected', () => {
+    expect(filterCategoriesForSections(categories, [])).toEqual(categories)
   })
 })

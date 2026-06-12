@@ -126,6 +126,57 @@ David`
     )
   })
 
+  it('uses the repeated common prefix as the stem when QR questions span multiple lines', () => {
+    const input = `1.
+The table below depicts the income of the persons over the years.
+[[IMG:f=img-1;s=https%3A%2F%2Fexample.com%2Fone.png]]
+Compound interest = Principal x (1 + Rate of interest/100) number of years
+If the percentage growth of sales for Car A between May and July
+is equal to the percentage growth between November and January, how many were sold?
+A.
+120
+B.
+160
+
+2.
+The table below depicts the income of the persons over the years.
+[[IMG:f=img-2;s=https%3A%2F%2Fexample.com%2Ftwo.png]]
+Compound interest = Principal x (1 + Rate of interest/100) number of years
+In March, a marketing campaign increased the total sales by 25%.
+How many additional cars were sold?
+A.
+40
+B.
+50`
+
+    const stems = parseQuantitativeReasoningPlainText(input, {
+      questionNumberPlacement: 'item_stem',
+      answerOptionOnOwnLine: true,
+    })
+
+    expect(stems).toHaveLength(1)
+    expect(stems[0]?.stemText).toBe(
+      [
+        'The table below depicts the income of the persons over the years.',
+        '[[IMG:f=img-1;s=https%3A%2F%2Fexample.com%2Fone.png]]',
+        'Compound interest = Principal x (1 + Rate of interest/100) number of years',
+      ].join('\n')
+    )
+    expect(stems[0]?.questions).toHaveLength(2)
+    expect(stems[0]?.questions[0]?.text).toBe(
+      [
+        'If the percentage growth of sales for Car A between May and July',
+        'is equal to the percentage growth between November and January, how many were sold?',
+      ].join('\n')
+    )
+    expect(stems[0]?.questions[1]?.text).toBe(
+      [
+        'In March, a marketing campaign increased the total sales by 25%.',
+        'How many additional cars were sold?',
+      ].join('\n')
+    )
+  })
+
   it('keeps different consecutive stems separate in item-stem mode', () => {
     const input = `1.
 First repeated data setup.
@@ -151,5 +202,66 @@ B.
     expect(stems).toHaveLength(2)
     expect(stems[0]?.stemText).toBe('First repeated data setup.')
     expect(stems[1]?.stemText).toBe('Second different data setup.')
+  })
+
+  it('keeps consecutive standalone QR items separate when they do not share a repeated stem', () => {
+    const input = `29.
+John is twice as efficient as Mark. Alice can type 20% fewer pages in an hour than Mark and John combined.
+If Mark can type 4 pages in an hour, how much time will Alice take to type 25 pages?
+A.
+111.75 minutes
+B.
+125 minutes
+
+30.
+The average age of 11 students in a class is 12 and their teacher's age is 24. In two year's time, what will be the average age of all of them together?
+A.
+15.17
+B.
+17
+
+31.
+A person spends half his income and saves the remaining half. If his expenses increase by 20%, by what percentage will his savings reduce?
+A.
+25%
+B.
+20%
+
+32.
+A towel when bleached lost 20% of its length and 10% of its breadth. What is the percentage decrease in its area?
+A.
+30%
+B.
+16%`
+
+    const stems = parseQuantitativeReasoningPlainText(input, {
+      questionNumberPlacement: 'item_stem',
+      answerOptionOnOwnLine: true,
+    })
+
+    expect(stems).toHaveLength(4)
+    expect(stems.map((stem) => stem.questions[0]?.number)).toEqual([29, 30, 31, 32])
+    expect(stems[0]?.stemText).toBe(
+      'John is twice as efficient as Mark. Alice can type 20% fewer pages in an hour than Mark and John combined.'
+    )
+    expect(stems[0]?.questions[0]?.text).toBe(
+      'If Mark can type 4 pages in an hour, how much time will Alice take to type 25 pages?'
+    )
+    expect(stems[1]?.stemText).toBe(
+      "The average age of 11 students in a class is 12 and their teacher's age is 24."
+    )
+    expect(stems[1]?.questions[0]?.text).toBe(
+      "In two year's time, what will be the average age of all of them together?"
+    )
+    expect(stems[2]?.stemText).toBe(
+      'A person spends half his income and saves the remaining half.'
+    )
+    expect(stems[2]?.questions[0]?.text).toBe(
+      'If his expenses increase by 20%, by what percentage will his savings reduce?'
+    )
+    expect(stems[3]?.stemText).toBe(
+      'A towel when bleached lost 20% of its length and 10% of its breadth.'
+    )
+    expect(stems[3]?.questions[0]?.text).toBe('What is the percentage decrease in its area?')
   })
 })

@@ -1,23 +1,30 @@
 'use client'
 
-import { useMemo } from 'react'
-import type { DataTableFilterDefinition } from '@altitutor/shared'
+import { useMemo, useState } from 'react'
+import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import { Badge, Button, getUcatVisibilityColor, ListToolbar } from '@altitutor/ui'
-import { Pencil, Plus } from 'lucide-react'
+import { Eye, Pencil, Plus } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { filterStemCatalogItems } from '@/features/ucat/shared/lib/stem-catalog-filters'
-import { cn } from '@/shared/utils'
+import {
+  filterStemCatalogItems,
+  stemCatalogColumnDefinitions,
+} from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { cn, formatDateTime } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
 
 export function UcatStemCatalogRow({
   stem,
   onAdd,
+  onView,
   onEdit,
+  showCreatedAt = false,
 }: {
   stem: UcatStemCatalogItem
   onAdd: () => void
+  onView?: () => void
   onEdit?: () => void
+  showCreatedAt?: boolean
 }) {
   return (
     <div className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted">
@@ -36,9 +43,24 @@ export function UcatStemCatalogRow({
           <span>
             · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
           </span>
+          {showCreatedAt ? (
+            <span>· Created {formatDateTime(stem.createdAt ?? '') || '—'}</span>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {onView ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
+            onClick={onView}
+            aria-label={`View ${stem.text || stem.id}`}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        ) : null}
         {onEdit ? (
           <Button
             type="button"
@@ -46,6 +68,7 @@ export function UcatStemCatalogRow({
             size="icon"
             className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
             onClick={onEdit}
+            aria-label={`Edit ${stem.text || stem.id}`}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -107,7 +130,9 @@ type UcatStemCatalogAddPanelProps = {
   filters: Record<string, unknown[]>
   onFiltersChange: (value: Record<string, unknown[]>) => void
   filterDefinitions: DataTableFilterDefinition[]
+  columnDefinitions?: DataTableColumnDefinition[]
   onAddStem: (stemId: string) => void
+  onViewStem?: (stemId: string) => void
   onEditStem?: (stemId: string) => void
   title?: string
   emptyMessage?: string
@@ -123,13 +148,20 @@ export function UcatStemCatalogAddPanel({
   filters,
   onFiltersChange,
   filterDefinitions,
+  columnDefinitions = stemCatalogColumnDefinitions,
   onAddStem,
+  onViewStem,
   onEditStem,
   title = 'Add stems',
   emptyMessage = 'No stems to add, or all matching stems are already selected.',
   searchPlaceholder = 'Search stems',
   className,
 }: UcatStemCatalogAddPanelProps) {
+  const [visibleColumns, setVisibleColumns] = useState(() =>
+    columnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key)
+  )
+  const showCreatedAt = visibleColumns.includes('created_at')
+
   const availableStems = useMemo(
     () =>
       filterStemCatalogItems({
@@ -151,6 +183,9 @@ export function UcatStemCatalogAddPanel({
         filterDefinitions={filterDefinitions}
         filters={filters}
         onFiltersChange={onFiltersChange}
+        columnDefinitions={columnDefinitions}
+        visibleColumns={visibleColumns}
+        onVisibleColumnsChange={setVisibleColumns}
       />
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {availableStems.length === 0 ? (
@@ -160,7 +195,9 @@ export function UcatStemCatalogAddPanel({
             <UcatStemCatalogRow
               key={stem.id}
               stem={stem}
+              showCreatedAt={showCreatedAt}
               onAdd={() => onAddStem(stem.id)}
+              onView={onViewStem ? () => onViewStem(stem.id) : undefined}
               onEdit={onEditStem ? () => onEditStem(stem.id) : undefined}
             />
           ))

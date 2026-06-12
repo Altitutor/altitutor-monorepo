@@ -35,6 +35,7 @@ import {
   type SkillTrainerSetTableRow,
 } from '@/features/ucat/skill-trainer-sets/hooks/useUcatSkillTrainerSetsTable'
 import { UcatSkillTrainerSetDialog } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetDialog'
+import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
 import { tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 
@@ -74,6 +75,7 @@ export function UcatSkillTrainerSetsPage() {
   const setActiveTab = useCallback(
     (key: UcatSkillTrainerKey) => {
       const params = new URLSearchParams(searchParams.toString())
+      clearUcatTableUrlParams(params)
       params.set('tab', trainerKeyToSlug(key))
       router.replace(`${pathname}?${params.toString()}`, { scroll: false })
     },
@@ -96,6 +98,7 @@ export function UcatSkillTrainerSetsPage() {
   const { rows, visibleColumns, tableState } = useUcatSkillTrainerSetsTable({
     data: setsQuery.data,
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
+    availableColumns: columnDefinitions.map((c) => c.key),
     onOpenSet: handleOpenSet,
   })
 

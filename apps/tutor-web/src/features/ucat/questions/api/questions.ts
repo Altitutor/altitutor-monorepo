@@ -148,12 +148,44 @@ export const ucatQuestionsApi = {
     return map
   },
 
+  async getStemTagIds() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_question_stem_detail')
+      .select('id,questions')
+
+    if (error) throw error
+
+    type QuestionWithTags = {
+      deleted_at?: string | null
+      tags?: Array<{ id?: string | null }> | null
+    }
+    const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
+    const map: Record<string, string[]> = {}
+
+    for (const row of rows) {
+      if (!row.id) continue
+      const tagIds = new Set<string>()
+      const questions = Array.isArray(row.questions) ? (row.questions as QuestionWithTags[]) : []
+      for (const question of questions) {
+        if (question.deleted_at) continue
+        const tags = Array.isArray(question.tags) ? question.tags : []
+        for (const tag of tags) {
+          if (tag.id) tagIds.add(tag.id)
+        }
+      }
+      map[row.id] = Array.from(tagIds)
+    }
+
+    return map
+  },
+
   async getStemCatalog() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase
       .from('vtutor_ucat_question_stem_detail')
       .select(
-        'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,deleted_at'
+        'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,created_at,deleted_at'
       )
       .is('deleted_at', null)
       .filter('approval_status', 'eq', 'approved')
@@ -170,6 +202,7 @@ export const ucatQuestionsApi = {
       question_stem_category_id: string | null
       category_name: string | null
       is_private: boolean | null
+      created_at: string | null
     }>
   },
 

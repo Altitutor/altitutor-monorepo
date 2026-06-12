@@ -7,7 +7,8 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { QuestionWithNoExplanation } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
 import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
@@ -38,7 +39,10 @@ export function QuestionsWithNoExplanationTable({
     { key: 'question_text', label: 'Question' },
   ]
 
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key))
+  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
+    paramPrefix: 'noExplanation',
+    availableColumns: columnDefinitions.map((c) => c.key),
+  })
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({
