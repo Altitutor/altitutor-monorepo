@@ -380,31 +380,35 @@ function hasAny(text: string, patterns: Array<string | RegExp>): boolean {
 export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): string | null {
   const raw = stem.stemText
   const text = normalizedText(raw)
+  const hasTable = raw.includes('[[TABLE:') || hasAny(text, [/\btables?\b/])
+  const hasGraphOrChart = hasAny(text, [
+    /\bgraphs?\b/,
+    /\bcharts?\b/,
+    /\bbar chart\b/,
+    /\bbar graph\b/,
+    /\bline graph\b/,
+    /\bline chart\b/,
+    /\bpie chart\b/,
+    /\bscatter plot\b/,
+    /\bhistogram\b/,
+    /\bfigure above shows\b/,
+    /\bgraph below\b/,
+  ])
+  const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/])
+  const hasDiagram = hasAny(text, [/\bmaps?\b/, /\bdiagrams?\b/, /\bschematic\b/])
+  const structuredSourceCount = [hasTable, hasGraphOrChart, hasSchedule, hasDiagram].filter(Boolean).length
 
-  if (hasAny(text, [/currency exchange/, /exchange rate/, /foreign currenc/])) {
-    return 'Currency Exchange Tables'
+  if (
+    structuredSourceCount > 1 ||
+    hasAny(text, [/\bchart 1\b.*\bchart 2\b/, /\bfollowing diagram represents\b/])
+  ) {
+    return 'Mixed Data Sources'
   }
-  if (hasAny(text, [/financial statement/, /balance sheet/, /income statement/])) {
-    return 'Financial Statements'
-  }
-  if (hasAny(text, [/invoice/, /receipt/])) return 'Invoices'
-  if (hasAny(text, [/price list/, /price table/, /fare table/, /tariff/])) return 'Price Lists'
-  if (hasAny(text, [/population data/, /population table/, /census/])) {
-    return 'Population Data Tables'
-  }
-  if (hasAny(text, [/frequency table/])) return 'Frequency Tables'
-  if (hasAny(text, [/timetable/])) return 'Timetables'
-  if (hasAny(text, [/calendar/])) return 'Calendars'
-  if (hasAny(text, [/bar chart/, /bar graph/, /grouped bar/, /stacked bar/])) return 'Bar Charts'
-  if (hasAny(text, [/line graph/, /line chart/])) return 'Line Graphs'
-  if (hasAny(text, [/pie chart/, /pie graph/])) return 'Pie Charts'
-  if (hasAny(text, [/scatter plot/, /scatter diagram/])) return 'Scatter Plots'
-  if (hasAny(text, [/histogram/])) return 'Histograms'
-  if (hasAny(text, [/map\b/, /maps\b/])) return 'Maps'
-  if (hasAny(text, [/diagram/, /schematic/])) return 'Diagrams'
-  if (hasAny(text, [/infographic/])) return 'Infographics'
-
-  if (raw.includes('[[TABLE:')) return 'Tables'
+  if (hasSchedule) return 'Timetables and Calendars'
+  if (hasGraphOrChart) return 'Graphs and Charts'
+  if (hasDiagram) return 'Maps and Diagrams'
+  if (hasTable) return 'Data Tables'
+  if (text.length > 0 && !raw.includes('[[IMG:')) return 'Text-Only Scenarios'
   return null
 }
 

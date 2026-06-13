@@ -103,7 +103,7 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
-- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat data-type categories such as tables, bar charts, line graphs, maps, diagrams, and infographics; bar charts are one category regardless of horizontal or vertical orientation.
+- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat, mutually exclusive presentation categories: Data Tables, Graphs and Charts, Timetables and Calendars, Maps and Diagrams, Mixed Data Sources, and Text-Only Scenarios.
   _Avoid_: Topic, tag, data subtype
 
 - **Answer option** — One selectable response for a UCAT question.

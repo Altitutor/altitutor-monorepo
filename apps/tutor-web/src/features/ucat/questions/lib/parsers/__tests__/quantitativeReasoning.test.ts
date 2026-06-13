@@ -14,7 +14,7 @@ function stem(overrides: Partial<ParsedStem>): ParsedStem {
 }
 
 describe('Quantitative Reasoning metadata detection', () => {
-  it('detects high-confidence table subtypes before generic tables', () => {
+  it('detects table-only stems as data tables', () => {
     expect(
       getQuantitativeReasoningStemCategoryName(
         stem({
@@ -22,17 +22,18 @@ describe('Quantitative Reasoning metadata detection', () => {
             'Currency exchange rates for AUD, USD, and GBP are shown below.\n[[TABLE:t1]]',
         })
       )
-    ).toBe('Currency Exchange Tables')
+    ).toBe('Data Tables')
   })
 
-  it('uses generic Tables for table placeholders without stronger text hints', () => {
+  it('detects mixed stems when table and diagram evidence are both present', () => {
     expect(
       getQuantitativeReasoningStemCategoryName(
         stem({
-          stemText: 'The following data applies to questions 1-4.\n[[TABLE:t1]]',
+          stemText:
+            'The following table shows car sales.\n[[TABLE:t1]]\nThe following diagram represents the lot sizes.',
         })
       )
-    ).toBe('Tables')
+    ).toBe('Mixed Data Sources')
   })
 
   it('does not guess visual categories from image-only stems', () => {
@@ -43,6 +44,16 @@ describe('Quantitative Reasoning metadata detection', () => {
         })
       )
     ).toBeNull()
+  })
+
+  it('detects text-only stems when no structured presentation is present', () => {
+    expect(
+      getQuantitativeReasoningStemCategoryName(
+        stem({
+          stemText: 'A train moving at a speed of 72mph takes 50 seconds to pass a post.',
+        })
+      )
+    ).toBe('Text-Only Scenarios')
   })
 
   it('returns only the most specific matching QR tag paths', () => {
