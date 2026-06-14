@@ -9516,6 +9516,452 @@ export type Database = {
           },
         ]
       }
+      ucat_ai_generation_profiles: {
+        Row: {
+          base_system_prompt: string
+          candidates_per_stem: number
+          created_at: string
+          created_by: string | null
+          critic_prompt: string
+          id: string
+          is_default: boolean
+          is_enabled: boolean
+          max_completion_tokens: number
+          model: string
+          name: string
+          planner_prompt: string
+          profile_version: number
+          provider_id: string
+          rewriter_prompt: string
+          temperature: number
+          updated_at: string
+          updated_by: string | null
+          writer_prompt: string
+        }
+        Insert: {
+          base_system_prompt: string
+          candidates_per_stem?: number
+          created_at?: string
+          created_by?: string | null
+          critic_prompt: string
+          id?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          max_completion_tokens?: number
+          model: string
+          name: string
+          planner_prompt: string
+          profile_version?: number
+          provider_id: string
+          rewriter_prompt: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          writer_prompt: string
+        }
+        Update: {
+          base_system_prompt?: string
+          candidates_per_stem?: number
+          created_at?: string
+          created_by?: string | null
+          critic_prompt?: string
+          id?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          max_completion_tokens?: number
+          model?: string
+          name?: string
+          planner_prompt?: string
+          profile_version?: number
+          provider_id?: string
+          rewriter_prompt?: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          writer_prompt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_ai_generation_prompt_layers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_enabled: boolean
+          prompt_text: string
+          prompt_version: number
+          scope_id: string
+          scope_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          prompt_text: string
+          prompt_version?: number
+          scope_id: string
+          scope_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          prompt_text?: string
+          prompt_version?: number
+          scope_id?: string
+          scope_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_ai_generation_providers: {
+        Row: {
+          base_url: string
+          created_at: string
+          created_by: string | null
+          default_headers: Json
+          id: string
+          is_enabled: boolean
+          name: string
+          provider_key: string
+          secret_env_var_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          created_by?: string | null
+          default_headers?: Json
+          id?: string
+          is_enabled?: boolean
+          name: string
+          provider_key: string
+          secret_env_var_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          created_by?: string | null
+          default_headers?: Json
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          provider_key?: string
+          secret_env_var_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_ai_generation_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          daily_cost_budget_cents: number | null
+          daily_token_budget: number | null
+          id: string
+          max_candidates_per_stem: number
+          max_requested_stems_per_run: number
+          raw_logging_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          daily_cost_budget_cents?: number | null
+          daily_token_budget?: number | null
+          id?: string
+          max_candidates_per_stem?: number
+          max_requested_stems_per_run?: number
+          raw_logging_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          daily_cost_budget_cents?: number | null
+          daily_token_budget?: number | null
+          id?: string
+          max_candidates_per_stem?: number
+          max_requested_stems_per_run?: number
+          raw_logging_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_ai_generation_usage: {
+        Row: {
+          completion_tokens: number | null
+          created_at: string
+          created_by: string | null
+          estimated_cost_cents: number | null
+          id: string
+          metadata: Json | null
+          model: string | null
+          operation: string
+          profile_id: string | null
+          prompt_tokens: number | null
+          provider_id: string | null
+          total_tokens: number | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost_cents?: number | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          operation: string
+          profile_id?: string | null
+          prompt_tokens?: number | null
+          provider_id?: string | null
+          total_tokens?: number | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost_cents?: number | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          operation?: string
+          profile_id?: string | null
+          prompt_tokens?: number | null
+          provider_id?: string | null
+          total_tokens?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_usage_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_usage_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_usage_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_usage_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_usage_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ucat_learning_module_blocks: {
         Row: {
           block_type: Database["public"]["Enums"]["ucat_learning_module_block_type"]
