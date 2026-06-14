@@ -1,4 +1,5 @@
 -- Seed Quantitative Reasoning stem categories and question tags from the QR breakdown.
+-- Stem categories are refined to mutually exclusive presentation formats.
 -- IDs are deterministic so this migration can run safely in dev and prod.
 
 DO $$
@@ -24,29 +25,29 @@ BEGIN
     updated_by
   )
   VALUES
-    ('aab95252-6be3-5ca9-9616-aeb5e2a6113f', 'Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('afe45c18-2a27-57ad-9a35-a32cb4a286c4', 'Bar Charts', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('263e2492-af9d-5adc-a27c-b87eb1eb4f19', 'Line Graphs', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('45266b56-9e78-5239-a6d8-2cef5767cd1e', 'Pie Charts', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('598c3e68-5760-5119-84f4-eac48cd556bf', 'Scatter Plots', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('1a5c7a06-550d-5cb3-9c81-413dc1513e23', 'Histograms', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('a11fb874-675f-5fc3-b23e-51c9a385f33e', 'Frequency Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('c83053ac-82d4-50f3-bdaf-a1639075ec55', 'Timetables', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('1c06d50d-295f-52d0-8347-738af21b8dd3', 'Calendars', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('dbaba388-56e9-5ae8-baed-b1770ee1de40', 'Currency Exchange Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('d34881b4-cfef-5ccc-98e8-67747ddaa0b3', 'Financial Statements', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('34110545-29ce-5952-9ef5-cd786862eb75', 'Invoices', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('bf87497f-0b75-5cc8-af92-e2bcab739bff', 'Price Lists', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('89cb9609-9be9-5ce6-a4a1-17a6970538a4', 'Population Data Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('ba4f0242-b6c7-5134-beb6-fd261095ac4a', 'Maps', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('9873278c-4c4d-57eb-b895-35bf8ddd49ad', 'Diagrams', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('c4ed7537-ad09-5e52-a777-9fd03524a9fc', 'Infographics', NULL, v_qr_section_id, NULL, NULL, NULL)
+    ('aab95252-6be3-5ca9-9616-aeb5e2a6113f', 'Data Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('afe45c18-2a27-57ad-9a35-a32cb4a286c4', 'Graphs and Charts', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('c83053ac-82d4-50f3-bdaf-a1639075ec55', 'Timetables and Calendars', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('9873278c-4c4d-57eb-b895-35bf8ddd49ad', 'Maps and Diagrams', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('c4ed7537-ad09-5e52-a777-9fd03524a9fc', 'Mixed Data Sources', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('ba4f0242-b6c7-5134-beb6-fd261095ac4a', 'Text-Only Scenarios', NULL, v_qr_section_id, NULL, NULL, NULL)
   ON CONFLICT (id) DO UPDATE
   SET
     name = EXCLUDED.name,
     ucat_section_id = EXCLUDED.ucat_section_id,
     parent_question_stem_category_id = NULL,
     updated_at = NOW();
+
+  DELETE FROM public.question_stem_categories
+  WHERE ucat_section_id = v_qr_section_id
+    AND id NOT IN (
+      'aab95252-6be3-5ca9-9616-aeb5e2a6113f',
+      'afe45c18-2a27-57ad-9a35-a32cb4a286c4',
+      'c83053ac-82d4-50f3-bdaf-a1639075ec55',
+      '9873278c-4c4d-57eb-b895-35bf8ddd49ad',
+      'c4ed7537-ad09-5e52-a777-9fd03524a9fc',
+      'ba4f0242-b6c7-5134-beb6-fd261095ac4a'
+    );
 
   INSERT INTO public.question_tags (
     id,

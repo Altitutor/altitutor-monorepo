@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const { error } = await client.rpc('tutor_ucat_set_question_stem_approval', {
     p_stem_id: params.id,
     p_approval_status: body.approvalStatus,
-    p_auto_publish_on_approval: true,
+    p_auto_publish_on_approval: false,
   })
 
   if (error) {

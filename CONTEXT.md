@@ -103,13 +103,79 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
-- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat data-type categories such as tables, bar charts, line graphs, maps, diagrams, and infographics; bar charts are one category regardless of horizontal or vertical orientation.
+- **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
+  _Avoid_: Approval status, published status
+
+- **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
+  _Avoid_: Auto-published question, synthetic question
+
+- **Generation brief** — The structured intent for producing AI-generated UCAT content, including section, stem category, target skill tags, difficulty, time burden, format constraints, and optional calibration examples. A generation brief defines what should be created; source examples are optional style calibration and should not be required or copied.
+  _Avoid_: Prompt, source stem selection
+
+- **Generation profile** — An admin-managed configuration that controls which AI provider/model and prompt instructions may be used for UCAT generation. Tutors may choose among approved generation profiles when creating generation candidates.
+  _Avoid_: UCAT model config, API key setting
+
+- **AI generation provider** — An admin-approved OpenAI-compatible model provider used by UCAT generation, defined by endpoint, secret reference, and allowed model IDs. OpenRouter may be the default provider, but generation should not be coupled to one provider.
+  _Avoid_: OpenRouter-only integration, hard-coded model
+
+- **UCAT generation settings** — The admin-web settings area for managing AI generation profiles, prompt layers, allowed models, generation budgets, and gate configuration. This is separate from UCAT model config, which controls score prediction constants.
+  _Avoid_: UCAT model config, tutor prompt settings
+
+- **Layered generation prompt** — The combined prompt instructions used for AI generation, assembled from the generation profile, UCAT section, stem category, question tags, and optional run instructions. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
+  _Avoid_: One big prompt, tutor system prompt
+
+- **Generated content block** — A structured content unit returned by AI generation before conversion into the editor format, such as a paragraph, table, or image request. Generated content blocks are validated and converted by the app instead of asking the AI model to produce raw editor JSON.
+  _Avoid_: ProseMirror output, raw rich text JSON
+
+- **Image generation request** — A generated content block that asks the app to create a data-bearing visual asset for a UCAT stem. Image generation is allowed only when the selected stem category warrants visual content, and the generated image spec must be validated against the question and answer logic before the asset is used.
+  _Avoid_: Image-dependent VR, image-only table
+
+- **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
+  _Avoid_: Freeform generated chart, decorative diagram
+
+- **Generation candidate** — One AI-produced answer to a generation brief. The workflow may create multiple generation candidates per requested question stem, silently discard candidates that fail blocking gates, then keep only the strongest passing candidates for tutor review.
+  _Avoid_: Final generated question, published generated question
+
+- **Generation gate** — A validation check applied to generation candidates before tutor review. Blocking gates reject candidates that break hard UCAT format or answer-validity rules; warning gates surface likely quality issues while still allowing tutor review.
+  _Avoid_: Tutor approval, publish approval
+
+- **Generation warning** — A non-blocking quality issue shown during tutor review of an AI-generated question stem. Warnings should appear as lightweight summary and inline badges, with detail available on demand.
+  _Avoid_: Rejection reason, validation error
+
+- **Generation metadata** — Audit information stored with an AI-generated question stem, such as generation profile version, provider/model, generation brief, source stem IDs, candidate counts, gate results, warnings, solver scores, usage, generated-at time, and generated-by tutor. Raw prompts, discarded candidates, and provider responses are not retained by default.
+  _Avoid_: Full prompt log, provider transcript
+
+- **Generation solver check** — A generation gate where a separate solver or critic attempts the generated UCAT question independently of the writer's rationale. Solver disagreement blocks high-confidence objective errors, such as QR arithmetic or DM logic mistakes, and warns on plausible ambiguity in more subjective areas such as Situational Judgement or some Verbal Reasoning items.
+  _Avoid_: Answer key generation, tutor review
+
+- **Generation budget** — An admin-managed limit on UCAT AI generation cost or volume, such as daily spend, token usage, requested stems per run, or internal candidates per requested stem. Generation budgets protect the organisation's API usage without treating ordinary tutor use as abuse.
+  _Avoid_: Tutor quota, student quota
+
+- **Generation similarity gate** — A generation gate that rejects disguised clones of selected source examples or existing UCAT content, such as reused scenario premises, near-identical data relationships, near-identical question wording, or high text overlap. Shared UCAT archetypes, broad topics, calculation skills, passage genres, generic table/chart dimensions, incidental answer-key patterns, and repeated ordinary names or places are acceptable and should not be rejected by themselves.
+  _Avoid_: Answer pattern check, topic uniqueness, generic layout check
+
+- **Answer mode** — The answer-option pattern required by a UCAT stem category, such as Verbal Reasoning Reading Comprehension using four options or True, False, Can't Tell using three fixed options. Answer mode is distinct from `multiple_choice`, which is the stored question type for all non-syllogism questions.
+  _Avoid_: Question category, question type
+
+- **Question difficulty target** — A coarse generation target for how hard a UCAT question should be: Easy, Medium, Hard, or Mixed. Difficulty targets apply to individual questions, with stem-level and batch-level defaults available for convenience; Mixed batches should distribute generated questions around the estimated difficulty spread of real UCAT questions rather than producing one uniform level.
+  _Avoid_: Exact score, rank
+
+- **Question time burden target** — A coarse generation target for the estimated time a student would take to answer a UCAT question correctly: Low, Medium, High, or Mixed. Time burden targets apply to individual questions, with stem-level and batch-level defaults available for convenience; the burden reflects processing load such as long or confusing VR stems, convoluted DM reasoning, or information-dense QR tables.
+  _Avoid_: Time limit, section timing
+
+- **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.
+  _Avoid_: Randomness, prompt temperature
+
+- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat, mutually exclusive presentation categories: Data Tables, Graphs and Charts, Timetables and Calendars, Maps and Diagrams, Mixed Data Sources, and Text-Only Scenarios.
   _Avoid_: Topic, tag, data subtype
 
 - **Answer option** — One selectable response for a UCAT question.
 
 - **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. A question may have multiple tags, and tags may be hierarchical when the domain has meaningful parent-child relationships; root tags may optionally belong to one UCAT section, while child tags inherit their section from their root.
   _Avoid_: Category, stem type
+
+- **Target question tag** — An optional question tag included in a generation brief to steer AI-generated questions toward specific skills or topics. When target tags are provided, generation gates should check whether the candidate fits them; when omitted, tags may be suggested after generation.
+  _Avoid_: Required tag, stem category
 
 - **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields are strict by question type: multiple-choice uses question-level explanation only; syllogism uses per–answer-option explanations only (no scope toggle, unlike bulk import). The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
   Used in the stem dialog and the full-page stem detail route (`/ucat/questions/[id]`) with the same layout. Opens in **edit mode** by default. **View mode** is read-only engine preview with an optional show/hide-answer toggle in the right column; **edit mode** always shows answers. View/edit and show/hide-answer controls live in the right column, not the dialog header.

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Database } from '@altitutor/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import {
@@ -12,6 +14,7 @@ import {
   type AiImportDraftStemPayload,
   type AiImportSectionKey,
 } from '@/features/ucat/questions/lib/ai-import/schema'
+import { callUcatAiJson } from '@/features/ucat/shared/server/ucat-ai-client'
 
 const GenerateMissingBodySchema = z.object({
   section: z.enum([
@@ -60,37 +63,15 @@ function listMissingTargets(stems: AiImportDraftStemPayload[]) {
   return targets
 }
 
-async function callOpenAiMissingAnswers(userPrompt: string) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not configured')
-  const model = process.env.UCAT_AI_IMPORT_MODEL ?? process.env.UCAT_AI_GENERATION_MODEL ?? 'gpt-4o-mini'
-  const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: AI_IMPORT_GENERATE_MISSING_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
+async function callOpenAiMissingAnswers(client: SupabaseClient<Database>, userPrompt: string) {
+  const result = await callUcatAiJson({
+    client,
+    operation: 'ai_import_generate_missing',
+    systemPrompt: AI_IMPORT_GENERATE_MISSING_SYSTEM_PROMPT,
+    userPrompt,
+    temperature: 0.2,
   })
-  if (!response.ok) {
-    throw new Error(`Generate missing answers failed: ${await response.text()}`)
-  }
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null } }>
-  }
-  const content = json.choices?.[0]?.message?.content
-  if (!content) throw new Error('Generate missing answers returned empty response')
-  return JSON.parse(content)
+  return result.parsed
 }
 
 function applyUpdates(
@@ -128,6 +109,7 @@ function applyUpdates(
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
+  const client = access.userClient as unknown as SupabaseClient<Database>
 
   let body: z.infer<typeof GenerateMissingBodySchema>
   try {
@@ -170,7 +152,7 @@ export async function POST(request: NextRequest) {
   )
 
   try {
-    const raw = await callOpenAiMissingAnswers(prompt)
+    const raw = await callOpenAiMissingAnswers(client, prompt)
     const parse = AiImportGenerateMissingResponseSchema.safeParse(raw)
     if (!parse.success) {
       return NextResponse.json(

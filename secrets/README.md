@@ -129,6 +129,7 @@ Secrets for **development/preview environments**.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (dev)
 - `STRIPE_SECRET_KEY` (test mode: `sk_test_...`)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (test mode: `pk_test_...`)
+- `OPENROUTER_API_KEY` (dev key for tutor-web UCAT AI generation)
 
 ### `.env.production`
 Secrets for **production environment**.
@@ -142,6 +143,7 @@ Secrets for **production environment**.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (prod)
 - `STRIPE_SECRET_KEY` (live mode: `sk_live_...`)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live mode: `pk_live_...`)
+- `OPENROUTER_API_KEY` (prod key for tutor-web UCAT AI generation)
 
 ## 🎯 Where Secrets Go
 
@@ -157,10 +159,12 @@ Secrets for **production environment**.
   - `SUPABASE_ACCESS_TOKEN` (if different from shared)
 
 **Why:** GitHub Actions uses these for CI/CD workflows, database migrations, and automated tasks. The workflow automatically selects the correct environment based on the branch (develop → development, main → production).
+Vercel runtime-only secrets such as `OPENROUTER_API_KEY` are intentionally skipped here.
 
 ### Vercel
 - **Preview environment**: Client-side vars from `.env.development` (`NEXT_PUBLIC_*`)
 - **Production environment**: Client-side vars from `.env.production` (`NEXT_PUBLIC_*`)
+- **Tutor-web server routes**: `OPENROUTER_API_KEY` from the matching environment file, deployed only to `altitutor-tutor-web`
 
 **Apps deployed:**
 - `altitutor-admin-web` (apps/admin-web)
@@ -168,6 +172,7 @@ Secrets for **production environment**.
 - `altitutor-tutor-web` (apps/tutor-web)
 
 **Why:** Vercel needs client-side environment variables at build time. Only `NEXT_PUBLIC_*` variables are exposed to the browser.
+Server-side API routes also need selected encrypted secrets, such as `OPENROUTER_API_KEY` for tutor-web UCAT AI generation.
 
 ### EAS (Expo student-app)
 - **Development + preview environments**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.development`
@@ -256,7 +261,7 @@ By default, the scripts use patterns to determine which secrets go where:
 ### GitHub (`deploy-github.sh`)
 ```bash
 # Excludes NEXT_PUBLIC_* (Vercel-only)
-if [[ ! "$key" =~ ^NEXT_PUBLIC_ ]]; then
+if should_deploy_github_environment_secret "$key"; then
     deploy_github_secret "$key" "$value" "development"
 fi
 ```
@@ -266,6 +271,11 @@ fi
 # Only includes NEXT_PUBLIC_* variables (client-side/build-time vars)
 if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
     deploy_vercel_secret "$key" "$value" "$project" "preview"
+fi
+
+# Tutor-web-only server secrets
+if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+    deploy_tutor_web_server_secret "$key" "$value" "preview"
 fi
 ```
 

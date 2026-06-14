@@ -169,6 +169,14 @@ deploy_vercel_secret() {
     fi
 }
 
+deploy_tutor_web_server_secret() {
+    local secret_name=$1
+    local secret_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_TUTOR_PROJECT" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
@@ -190,6 +198,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
+    # Deploy tutor-web-only server secrets
+    elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+        deploy_tutor_web_server_secret "$key" "$value" "preview"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.development"
@@ -220,6 +231,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
+    # Deploy tutor-web-only server secrets
+    elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+        deploy_tutor_web_server_secret "$key" "$value" "production"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.production"
@@ -233,7 +247,6 @@ echo ""
 print_summary
 
 exit $?
-
 
 
 

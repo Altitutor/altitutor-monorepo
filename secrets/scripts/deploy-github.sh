@@ -97,6 +97,17 @@ deploy_github_secret() {
     fi
 }
 
+should_deploy_github_environment_secret() {
+    local key=$1
+
+    # Vercel runtime-only secrets do not need to live in GitHub Actions.
+    if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+        return 1
+    fi
+
+    [[ ! "$key" =~ ^NEXT_PUBLIC_ ]]
+}
+
 # ============================================================
 # Deploy Shared Secrets (Repository Level)
 # ============================================================
@@ -121,9 +132,8 @@ echo -e "${YELLOW}GitHub Development Environment:${NC}"
     parse_env_file "$SECRETS_DIR/.env.shared"
     parse_env_file "$SECRETS_DIR/.env.development"
 } | while IFS='=' read -r key value; do
-    # Skip Vercel-specific secrets (NEXT_PUBLIC_*) for GitHub
-    # Also skip derived vars that are only for Vercel
-    if [[ ! "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    # Skip Vercel-specific secrets and derived vars that are only for Vercel
+    if should_deploy_github_environment_secret "$key"; then
         # Map SUPABASE_PROJECT_REF to SUPABASE_PROJECT_ID for consistency
         if [[ "$key" == "SUPABASE_PROJECT_REF" ]]; then
             deploy_github_secret "SUPABASE_PROJECT_ID" "$value" "development"
@@ -148,9 +158,8 @@ echo -e "${YELLOW}GitHub Production Environment:${NC}"
     parse_env_file "$SECRETS_DIR/.env.shared"
     parse_env_file "$SECRETS_DIR/.env.production"
 } | while IFS='=' read -r key value; do
-    # Skip Vercel-specific secrets (NEXT_PUBLIC_*) for GitHub
-    # Also skip derived vars that are only for Vercel
-    if [[ ! "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    # Skip Vercel-specific secrets and derived vars that are only for Vercel
+    if should_deploy_github_environment_secret "$key"; then
         # Map SUPABASE_PROJECT_REF to SUPABASE_PROJECT_ID for consistency
         if [[ "$key" == "SUPABASE_PROJECT_REF" ]]; then
             deploy_github_secret "SUPABASE_PROJECT_ID" "$value" "production"
@@ -200,7 +209,6 @@ fi
 print_summary
 
 exit $?
-
 
 
 

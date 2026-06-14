@@ -323,9 +323,14 @@ export const ucatQuestionsApi = {
   async generateDrafts(input: {
     sectionId: string
     categoryId?: string | null
-    sourceMode: 'random' | 'selected'
+    profileId?: string | null
+    sourceMode: 'none' | 'random' | 'selected'
     sourceStemIds?: string[]
     stemCount: number
+    difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
+    timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
+    targetTagIds: string[]
+    runInstructions?: string | null
   }) {
     const response = await fetch('/api/ucat/question-stems/generated/generate', {
       method: 'POST',
@@ -337,6 +342,7 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? 'Failed to generate question drafts')
     }
     return response.json() as Promise<{
+      discardedCount?: number
       stems: Array<{
         sectionId: string
         categoryId: string | null
@@ -359,6 +365,27 @@ export const ucatQuestionsApi = {
         }>
         aiGenerationMetadata: Json | null
       }>
+    }>
+  },
+
+  async getGenerationProfiles() {
+    const response = await fetch('/api/ucat/question-stems/generated/profiles')
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to load generation profiles')
+    }
+    return response.json() as Promise<{
+      profiles: Array<{
+        id: string
+        name: string
+        model: string
+        isDefault: boolean
+        candidatesPerStem: number
+      }>
+      settings: {
+        maxRequestedStems: number
+        maxCandidatesPerStem: number
+      }
     }>
   },
 
