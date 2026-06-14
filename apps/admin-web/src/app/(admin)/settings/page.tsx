@@ -129,6 +129,12 @@ export default function SettingsPage() {
           icon: GraduationCap,
         },
         {
+          title: 'UCAT generation',
+          description: 'Configure AI generation providers, prompts, budgets, and profiles',
+          href: '/settings/ucat-generation',
+          icon: GraduationCap,
+        },
+        {
           title: 'Score predictor model',
           description: 'Configure cold-start constants for UCAT section score projections',
           href: '/settings/ucat-model-config',
@@ -193,5 +199,4 @@ export default function SettingsPage() {
     </div>
   );
 }
-
 

@@ -234,10 +234,23 @@ export function useGenerateUcatQuestionDrafts() {
     mutationFn: (args: {
       sectionId: string
       categoryId?: string | null
-      sourceMode: 'random' | 'selected'
+      profileId?: string | null
+      sourceMode: 'none' | 'random' | 'selected'
       sourceStemIds?: string[]
       stemCount: number
+      difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
+      timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
+      targetTagIds: string[]
+      runInstructions?: string | null
     }) => ucatQuestionsApi.generateDrafts(args),
+  })
+}
+
+export function useUcatGenerationProfiles(enabled: boolean) {
+  return useQuery({
+    queryKey: [...ucatKeys.questions(), 'generation-profiles'],
+    queryFn: () => ucatQuestionsApi.getGenerationProfiles(),
+    enabled,
   })
 }
 

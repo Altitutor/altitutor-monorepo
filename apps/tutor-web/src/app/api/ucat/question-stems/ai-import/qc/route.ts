@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Database } from '@altitutor/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { AI_IMPORT_QC_SYSTEM_PROMPT, getAiImportSectionPrompt } from '@/features/ucat/questions/lib/ai-import/prompts'
@@ -9,6 +11,7 @@ import {
   type AiImportSectionKey,
 } from '@/features/ucat/questions/lib/ai-import/schema'
 import { appendAiIssueMetadata } from '@/features/ucat/questions/lib/ai-import/normalize'
+import { callUcatAiJson } from '@/features/ucat/shared/server/ucat-ai-client'
 
 const QcBodySchema = z.object({
   section: z.enum([
@@ -38,41 +41,21 @@ function summarizeStems(stems: z.infer<typeof QcBodySchema>['stems']) {
   }))
 }
 
-async function callOpenAiQc(userPrompt: string) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not configured')
-  const model = process.env.UCAT_AI_IMPORT_MODEL ?? process.env.UCAT_AI_GENERATION_MODEL ?? 'gpt-4o-mini'
-  const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: AI_IMPORT_QC_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
+async function callOpenAiQc(client: SupabaseClient<Database>, userPrompt: string) {
+  const result = await callUcatAiJson({
+    client,
+    operation: 'ai_import_qc',
+    systemPrompt: AI_IMPORT_QC_SYSTEM_PROMPT,
+    userPrompt,
+    temperature: 0.1,
   })
-  if (!response.ok) {
-    throw new Error(`QC run failed: ${await response.text()}`)
-  }
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null } }>
-  }
-  const content = json.choices?.[0]?.message?.content
-  if (!content) throw new Error('QC run returned empty response')
-  return JSON.parse(content)
+  return result.parsed
 }
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
+  const client = access.userClient as unknown as SupabaseClient<Database>
 
   let body: z.infer<typeof QcBodySchema>
   try {
@@ -109,7 +92,7 @@ export async function POST(request: NextRequest) {
   )
 
   try {
-    const raw = await callOpenAiQc(prompt)
+    const raw = await callOpenAiQc(client, prompt)
     const parse = AiImportQcResponseSchema.safeParse(raw)
     if (!parse.success) {
       return NextResponse.json(

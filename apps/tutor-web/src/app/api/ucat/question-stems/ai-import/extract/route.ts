@@ -20,6 +20,7 @@ import {
 import { normalizeAiExtractionToDrafts } from '@/features/ucat/questions/lib/ai-import/normalize'
 import { validateAiExtraction } from '@/features/ucat/questions/lib/ai-import/validators'
 import { parseDecisionMakingAnswers } from '@/features/ucat/questions/lib/parseAnswersTable'
+import { callUcatAiJson } from '@/features/ucat/shared/server/ucat-ai-client'
 
 const ExtractBodySchema = z.object({
   sectionId: z.string().uuid(),
@@ -204,64 +205,31 @@ function applyDecisionMakingAnswerRepair(args: {
 }
 
 async function callOpenAiJson(params: {
+  client: SupabaseClient<Database>
   systemPrompt: string
   userPrompt: string
   maxCompletionTokens?: number
 }) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured')
-  }
-  const model = process.env.UCAT_AI_IMPORT_MODEL ?? process.env.UCAT_AI_GENERATION_MODEL ?? 'gpt-4o-mini'
-  const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
-
-  const controller = new AbortController()
   const timeoutMs = Number.parseInt(process.env.UCAT_AI_IMPORT_TIMEOUT_MS ?? '120000', 10)
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const maxCompletionTokens =
     params.maxCompletionTokens ??
     Number.parseInt(process.env.UCAT_AI_IMPORT_MAX_COMPLETION_TOKENS ?? '6000', 10)
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    signal: controller.signal,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      max_completion_tokens: maxCompletionTokens,
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-    }),
-  }).finally(() => clearTimeout(timeout))
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`AI extract failed: ${text}`)
-  }
-
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null }; finish_reason?: string | null }>
-    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
-  }
-  const content = json.choices?.[0]?.message?.content
-  if (!content) {
-    throw new Error('AI extract returned empty response')
-  }
-
-  return {
-    content,
-    model,
-    usage: json.usage ?? null,
-    contentLength: content.length,
-    finishReason: json.choices?.[0]?.finish_reason ?? null,
+  const response = await callUcatAiJson({
+    client: params.client,
+    operation: 'ai_import_extract',
+    systemPrompt: params.systemPrompt,
+    userPrompt: params.userPrompt,
+    temperature: 0,
     maxCompletionTokens,
+    timeoutMs,
+  })
+  return {
+    content: response.content,
+    model: response.model,
+    usage: response.usage,
+    contentLength: response.content.length,
+    finishReason: response.finishReason,
+    maxCompletionTokens: response.maxCompletionTokens,
   }
 }
 
@@ -349,6 +317,7 @@ export async function POST(request: NextRequest) {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const response = await callOpenAiJson({
+        client,
         systemPrompt: AI_IMPORT_EXTRACT_SYSTEM_PROMPT,
         userPrompt,
         maxCompletionTokens: completionBudget,
