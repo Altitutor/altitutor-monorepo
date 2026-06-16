@@ -3,6 +3,8 @@
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
@@ -21,6 +23,7 @@ export function UcatLearningModuleDialog({
   onDeleted,
 }: UcatLearningModuleDialogProps) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const editor = useLearningModuleEditor(open ? moduleId : null)
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
@@ -56,9 +59,24 @@ export function UcatLearningModuleDialog({
     }
   }
 
+  const copyIdAction =
+    moduleId != null
+      ? buildCopyIdRowAction(
+          [
+            { label: 'Module', id: moduleId },
+            ...editor.draftBlocks.map((block, index) => ({
+              label: `Block ${index + 1}`,
+              id: block.clientId,
+            })),
+          ],
+          copyId,
+        )
+      : null
+
   const headerActions = moduleId ? (
     <UcatRowActions
       actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
         {
           label: 'Open in page',
           icon: <ExternalLink className="h-4 w-4" />,

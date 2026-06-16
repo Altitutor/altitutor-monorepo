@@ -12,6 +12,8 @@ import {
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
@@ -144,6 +146,7 @@ export function UcatQuestionTagDialog({
 }: UcatQuestionTagDialogProps) {
   const [activeTab, setActiveTab] = useState<'edit' | 'questions'>('edit')
   const updateTag = useUpdateUcatQuestionTag()
+  const { copyId } = useUcatCopyId()
   const linkedQuestions = useUcatTagLinkedQuestions(tag?.id ?? null)
 
   useEffect(() => {
@@ -211,6 +214,8 @@ export function UcatQuestionTagDialog({
     onClose()
   }
 
+  const copyIdAction = tag != null ? buildCopyIdRowAction([{ label: 'Tag', id: tag.id }], copyId) : null
+
   return (
     <UcatDialogShell
       open={open}
@@ -225,6 +230,7 @@ export function UcatQuestionTagDialog({
         tag ? (
           <UcatRowActions
             actions={[
+              ...(copyIdAction ? [copyIdAction] : []),
               {
                 label: 'Delete',
                 icon: <Trash2 className="h-4 w-4" />,

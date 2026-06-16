@@ -23,6 +23,9 @@ import {
 import { GripVertical, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
@@ -292,6 +295,7 @@ export function UcatClassDialog({
     enabled: open,
   })
   const { data: lessonsList = [] } = useUcatLearningModules({ kind: 'lesson', enabled: open })
+  const { copyId } = useUcatCopyId()
 
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
@@ -681,6 +685,23 @@ export function UcatClassDialog({
     onClose()
   }
 
+  const copyIdAction =
+    classId != null
+      ? buildCopyIdRowAction(
+          [
+            { label: 'Class', id: classId },
+            ...sessions.map((session, index) => ({
+              label: sessionTitle(session.start_at) || `Session ${index + 1}`,
+              id: session.session_id,
+            })),
+          ],
+          copyId,
+        )
+      : null
+
+  const headerActions =
+    classId != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null
+
   return (
     <UcatDialogShell
       open={open}
@@ -690,6 +711,7 @@ export function UcatClassDialog({
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
+      headerActions={headerActions}
     >
       <DndContext
         sensors={sensors}

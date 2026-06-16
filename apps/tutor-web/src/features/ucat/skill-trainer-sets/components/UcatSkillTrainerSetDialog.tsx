@@ -3,6 +3,8 @@
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSkillTrainerSetEditorShell } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetEditorShell'
 import { useSkillTrainerSetEditor } from '@/features/ucat/skill-trainer-sets/hooks/useSkillTrainerSetEditor'
@@ -21,6 +23,7 @@ export function UcatSkillTrainerSetDialog({
   onDeleted,
 }: UcatSkillTrainerSetDialogProps) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const editor = useSkillTrainerSetEditor(open ? setId : null)
 
   const title = editor.name.trim() || editor.setQuery.data?.name || 'Skill trainer set'
@@ -56,9 +59,24 @@ export function UcatSkillTrainerSetDialog({
     }
   }
 
+  const copyIdAction =
+    setId != null
+      ? buildCopyIdRowAction(
+          [
+            { label: 'Set', id: setId },
+            ...editor.itemIds.map((itemId, index) => ({
+              label: `Item ${index + 1}`,
+              id: itemId,
+            })),
+          ],
+          copyId,
+        )
+      : null
+
   const headerActions = setId ? (
     <UcatRowActions
       actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
         {
           label: 'Open in page',
           icon: <ExternalLink className="h-4 w-4" />,

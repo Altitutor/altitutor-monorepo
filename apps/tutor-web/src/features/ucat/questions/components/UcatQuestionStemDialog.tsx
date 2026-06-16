@@ -29,6 +29,8 @@ import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat
 import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
@@ -102,6 +104,7 @@ export function UcatQuestionStemDialog({
   readOnly?: boolean
 }) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
@@ -256,11 +259,15 @@ export function UcatQuestionStemDialog({
 
   const stemId = initial?.id
 
+  const copyIdAction =
+    initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
+
   const headerActions = (
     <div className="flex items-center gap-2">
       {stemId != null ? (
         <UcatRowActions
           actions={[
+            ...(copyIdAction ? [copyIdAction] : []),
             {
               label: 'Open in page',
               icon: <ExternalLink className="h-4 w-4" />,
