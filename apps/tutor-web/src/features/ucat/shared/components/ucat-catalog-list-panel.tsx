@@ -73,8 +73,6 @@ export function UcatCatalogListPanel({
   pageSize,
   total,
   onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
   isLoading = false,
   emptyMessage,
   hasItems,
@@ -130,15 +128,13 @@ export function UcatCatalogListPanel({
         )}
       </div>
 
-      {!isLoading ? (
-        <div className="mt-2 shrink-0 border-t border-black/[0.06] bg-background pt-2 dark:border-white/10">
+      {!isLoading && pageCount > 1 ? (
+        <div className="mt-2 shrink-0 pt-2">
           <UcatCatalogPagination
             page={effectivePage}
             pageSize={pageSize}
             total={total}
             onPageChange={onPageChange}
-            onPageSizeChange={onPageSizeChange}
-            pageSizeOptions={pageSizeOptions}
           />
         </div>
       ) : null}

@@ -328,15 +328,27 @@ export function DataTableToolbar({
           variant="outline"
           size="sm"
           className={cn(
-            'h-7 shrink-0 rounded-full px-2 text-xs',
-            compact && 'h-7 px-2',
+            'h-7 shrink-0 rounded-full text-xs',
+            compact ? 'size-7 px-0' : 'px-2',
             controlClassName,
           )}
           aria-label={`Search from ${searchFromSummary}`}
         >
-          <Search className="h-3.5 w-3.5 opacity-70 sm:mr-1" />
-          <span className="hidden max-w-[9rem] truncate sm:inline">{searchFromSummary}</span>
-          <ChevronDown className="hidden h-3.5 w-3.5 opacity-60 sm:ml-1 sm:inline" />
+          <Search className={cn('h-3.5 w-3.5 opacity-70', !compact && 'sm:mr-1')} />
+          <span
+            className={cn(
+              'max-w-[9rem] truncate',
+              compact ? 'sr-only' : 'hidden sm:inline',
+            )}
+          >
+            {searchFromSummary}
+          </span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 opacity-60',
+              compact ? 'sr-only' : 'hidden sm:ml-1 sm:inline',
+            )}
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[220px]">

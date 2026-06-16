@@ -1,18 +1,19 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button, SearchableSelect } from '@altitutor/ui'
+import { Button } from '@altitutor/ui'
+import { getTruncatedPageNumbers } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
 import { cn } from '@/shared/utils'
-import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 
 type UcatCatalogPaginationProps = {
   page: number
   pageSize: number
   total: number
   onPageChange: (page: number) => void
-  onPageSizeChange: (pageSize: number) => void
-  pageSizeOptions?: number[]
   className?: string
+  maxVisiblePages?: number
 }
 
 export function UcatCatalogPagination({
@@ -20,64 +21,79 @@ export function UcatCatalogPagination({
   pageSize,
   total,
   onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
   className,
+  maxVisiblePages = 5,
 }: UcatCatalogPaginationProps) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(Math.max(page, 1), pageCount)
 
-  type PageSizeItem = { value: number }
-  const pageSizeItems: PageSizeItem[] = pageSizeOptions.map((value) => ({ value }))
-  const selectedPageSize = pageSizeItems.find((item) => item.value === pageSize) ?? pageSizeItems[0]
+  const pages = useMemo(
+    () => getTruncatedPageNumbers(currentPage, pageCount, maxVisiblePages),
+    [currentPage, pageCount, maxVisiblePages],
+  )
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pageCount && newPage !== currentPage) {
+      onPageChange(newPage)
+    }
+  }
+
+  if (pageCount <= 1) {
+    return null
+  }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between',
-        className,
-      )}
+    <nav
+      aria-label="Pagination"
+      className={cn('flex items-center justify-center gap-1', className)}
     >
-      <span className="tabular-nums">
-        {total} {total === 1 ? 'item' : 'items'} · Page {currentPage} of {pageCount}
-      </span>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <div className="flex items-center gap-1.5">
-          <span className="whitespace-nowrap">Per page</span>
-          <SearchableSelect<PageSizeItem>
-            items={pageSizeItems}
-            value={selectedPageSize}
-            onValueChange={(item) => item && onPageSizeChange(item.value)}
-            getItemLabel={(item) => String(item.value)}
-            getItemId={(item) => String(item.value)}
-            triggerClassName="!h-8 !w-[4.25rem] min-w-0 shrink-0 text-xs"
-          />
-        </div>
-        <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn(tutorBtnOutline, 'size-8')}
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        aria-label="Previous page"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+
+      {pages.map((item, index) =>
+        item === 'ellipsis' ? (
+          <span key={`ellipsis-${index}`} className="px-1 text-xs text-muted-foreground">
+            …
+          </span>
+        ) : (
           <Button
+            key={item}
             type="button"
-            variant="outline"
-            size="icon"
-            className={cn(tutorBtnOutline, 'size-8')}
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            aria-label="Previous page"
+            variant={item === currentPage ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'size-8 min-w-8 p-0 text-xs tabular-nums',
+              item === currentPage ? tutorBtnPrimary : tutorBtnOutline,
+            )}
+            onClick={() => handlePageChange(item)}
+            aria-label={`Page ${item}`}
+            aria-current={item === currentPage ? 'page' : undefined}
           >
-            <ChevronLeft className="h-4 w-4" />
+            {item}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className={cn(tutorBtnOutline, 'size-8')}
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= pageCount}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
+        ),
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn(tutorBtnOutline, 'size-8')}
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage >= pageCount}
+        aria-label="Next page"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </nav>
   )
 }
