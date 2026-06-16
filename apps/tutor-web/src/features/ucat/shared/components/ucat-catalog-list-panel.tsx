@@ -5,7 +5,7 @@ import type {
   DataTableFilterDefinition,
   DataTableSortOption,
 } from '@altitutor/shared'
-import { ListToolbar, Skeleton } from '@altitutor/ui'
+import { ListToolbar, Skeleton, type DataTableSearchFromOption } from '@altitutor/ui'
 import { UcatCatalogPagination } from '@/features/ucat/shared/components/ucat-catalog-pagination'
 import {
   ucatCatalogToolbarClassName,
@@ -21,6 +21,9 @@ type UcatCatalogListPanelProps = {
   onSearchChange: (value: string) => void
   searchPlaceholder?: string
   searchLeadingAccessory?: React.ReactNode
+  searchFromOptions?: DataTableSearchFromOption[]
+  searchFromValue?: string[]
+  onSearchFromChange?: (values: string[]) => void
   filterDefinitions?: DataTableFilterDefinition[]
   filters?: Record<string, unknown[]>
   onFiltersChange?: (filters: Record<string, unknown[]>) => void
@@ -51,6 +54,9 @@ export function UcatCatalogListPanel({
   onSearchChange,
   searchPlaceholder = 'Search...',
   searchLeadingAccessory,
+  searchFromOptions,
+  searchFromValue,
+  onSearchFromChange,
   filterDefinitions = [],
   filters = {},
   onFiltersChange = () => {},
@@ -87,6 +93,9 @@ export function UcatCatalogListPanel({
           onSearchChange={onSearchChange}
           searchPlaceholder={searchPlaceholder}
           searchLeadingAccessory={searchLeadingAccessory}
+          searchFromOptions={searchFromOptions}
+          searchFromValue={searchFromValue}
+          onSearchFromChange={onSearchFromChange}
           filterDefinitions={filterDefinitions}
           filters={filters}
           onFiltersChange={onFiltersChange}
