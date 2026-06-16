@@ -64,8 +64,17 @@ type SourceStem = {
   }> | null
 }
 
+type StemCategoryChoice = {
+  id: string
+  name: string
+}
+
 function asAny(client: SupabaseClient<Database>): SupabaseAny {
   return client as SupabaseAny
+}
+
+function normalizeLabel(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function extractText(value: Json | null | undefined): string {
@@ -177,6 +186,22 @@ async function fetchTargetTags(client: SupabaseClient<Database>, tagIds: string[
   }))
 }
 
+async function fetchSectionCategories(
+  client: SupabaseClient<Database>,
+  sectionId: string
+): Promise<StemCategoryChoice[]> {
+  const { data, error } = await asAny(client)
+    .from('vtutor_ucat_question_stem_categories')
+    .select('id,name,ucat_section_id')
+    .eq('ucat_section_id', sectionId)
+    .order('name')
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as unknown as Array<{ id: string; name: string | null }>).map((category) => ({
+    id: category.id,
+    name: category.name ?? 'Untitled category',
+  }))
+}
+
 async function fetchBankComparisonTexts(client: SupabaseClient<Database>, sectionId: string): Promise<string[]> {
   const { data, error } = await asAny(client)
     .from('vtutor_ucat_question_stem_detail')
@@ -195,23 +220,26 @@ async function buildPromptLayers(params: {
   sectionName: string
   categoryId: string | null
   categoryName: string | null
+  availableCategories: StemCategoryChoice[]
   tags: Array<{ id: string; name: string }>
 }): Promise<AiGenerationBrief['promptLayers']> {
   const layers = await getUcatAiPromptLayers({
     client: params.client,
     sectionId: params.sectionId,
     categoryId: params.categoryId,
+    categoryIds: params.categoryId ? [] : params.availableCategories.map((category) => category.id),
     tagIds: params.tags.map((tag) => tag.id),
   })
   return layers.map((layer) => {
     const tag = params.tags.find((item) => item.id === layer.scope_id)
+    const category = params.availableCategories.find((item) => item.id === layer.scope_id)
     return {
       scopeType: layer.scope_type,
       name:
         layer.scope_type === 'section'
           ? params.sectionName
           : layer.scope_type === 'stem_category'
-            ? params.categoryName ?? 'Selected category'
+            ? params.categoryName ?? category?.name ?? 'Selected category'
             : tag?.name ?? 'Selected tag',
       promptText: layer.prompt_text,
       version: layer.prompt_version,
@@ -280,10 +308,17 @@ function toDraft(params: {
   providerId: string | null
   model: string
   metadata: Record<string, unknown>
+  categoryIdByName: Map<string, string>
 }) {
+  const generatedCategoryId =
+    params.stem.categoryId ??
+    params.body.categoryId ??
+    params.categoryIdByName.get(normalizeLabel(params.stem.categoryName)) ??
+    null
+
   return {
     sectionId: params.body.sectionId,
-    categoryId: params.stem.categoryId ?? params.body.categoryId ?? null,
+    categoryId: generatedCategoryId,
     stemText: generatedContentToProseMirror(params.stem.stemText),
     isPrivate: true,
     questions: params.stem.questions.map((question, questionIndex) => ({
@@ -310,7 +345,9 @@ function toDraft(params: {
       model: params.model,
       generationBrief: {
         sectionId: params.body.sectionId,
-        categoryId: params.body.categoryId ?? null,
+        categoryId: generatedCategoryId,
+        requestedCategoryId: params.body.categoryId ?? null,
+        generatedCategoryName: params.stem.categoryName ?? null,
         difficultyTarget: params.body.difficultyTarget,
         timeBurdenTarget: params.body.timeBurdenTarget,
         targetTagIds: params.body.targetTagIds,
@@ -355,18 +392,16 @@ export async function POST(request: NextRequest) {
     const sectionRow = section as { id: string; name: string | null } | null
     if (sectionError || !sectionRow) return NextResponse.json({ error: 'Section not found' }, { status: 400 })
 
+    const categoryChoices = await fetchSectionCategories(client, body.sectionId)
+    const categoryIdByName = new Map(categoryChoices.map((category) => [normalizeLabel(category.name), category.id]))
+
     let categoryName: string | null = null
     if (body.categoryId) {
-      const { data: category, error: categoryError } = await asAny(client)
-        .from('vtutor_ucat_question_stem_categories')
-        .select('id,name,ucat_section_id')
-        .eq('id', body.categoryId)
-        .maybeSingle()
-      const categoryRow = category as { id: string; name: string | null; ucat_section_id: string | null } | null
-      if (categoryError || !categoryRow || categoryRow.ucat_section_id !== body.sectionId) {
+      const categoryRow = categoryChoices.find((category) => category.id === body.categoryId) ?? null
+      if (!categoryRow) {
         return NextResponse.json({ error: 'Invalid category for selected section' }, { status: 400 })
       }
-      categoryName = categoryRow.name ?? null
+      categoryName = categoryRow.name
     }
 
     const sourceSamples = await fetchSourceStems(client, body)
@@ -377,6 +412,7 @@ export async function POST(request: NextRequest) {
       sectionName: sectionRow.name ?? 'UCAT',
       categoryId: body.categoryId ?? null,
       categoryName,
+      availableCategories: categoryChoices,
       tags: targetTags,
     })
     const candidateCount = Math.min(config.profile.candidates_per_stem, config.settings.max_candidates_per_stem)
@@ -384,6 +420,7 @@ export async function POST(request: NextRequest) {
     const brief: AiGenerationBrief = {
       sectionName: sectionRow.name ?? 'UCAT',
       categoryName,
+      availableCategories: body.categoryId ? [] : categoryChoices,
       stemCount: body.stemCount,
       candidateCount,
       difficultyTarget: body.difficultyTarget,
@@ -505,6 +542,7 @@ export async function POST(request: NextRequest) {
           gateIssues: item.issues,
           profileVersion: config.profile.profile_version,
         },
+        categoryIdByName,
       })
     )
 

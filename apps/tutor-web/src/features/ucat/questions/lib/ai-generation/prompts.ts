@@ -124,6 +124,7 @@ export type AiGenerationPromptLayer = {
 export type AiGenerationBrief = {
   sectionName: string
   categoryName: string | null
+  availableCategories?: Array<{ id: string; name: string }>
   stemCount: number
   candidateCount: number
   difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
@@ -145,6 +146,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
       brief: {
         section: input.sectionName,
         category: input.categoryName,
+        availableCategories: input.availableCategories ?? [],
         requestedStemCount: input.stemCount,
         candidatesPerStem: input.candidateCount,
         difficultyTarget: input.difficultyTarget,
@@ -157,6 +159,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
       requirements: [
         'Create exactly requestedStemCount * candidatesPerStem plan rows.',
         'For mixed difficulty/time burden, distribute targets across the batch like real UCAT question spread.',
+        'If no category is selected, distribute planned stems evenly across availableCategories and name the selected category exactly.',
         'Vary scenario domains, question archetypes, distractor plans, wording patterns, names, and data relationships.',
         'Avoid planning disguised clones of source examples.',
       ],
@@ -167,6 +170,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
             candidateIndex: 0,
             scenarioDomain: 'string',
             questionArchetype: 'string',
+            categoryName: input.categoryName ?? 'exact available category name',
             distractorPlan: 'string',
             difficultyTarget: 'easy|medium|hard|mixed',
             timeBurdenTarget: 'low|medium|high|mixed',
@@ -187,6 +191,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       brief: {
         section: input.sectionName,
         category: input.categoryName,
+        availableCategories: input.availableCategories ?? [],
         requestedStemCount: input.stemCount,
         candidatesPerStem: input.candidateCount,
         difficultyTarget: input.difficultyTarget,
@@ -208,6 +213,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       requirements: [
         'Return JSON only.',
         'Return candidates for the full plan.',
+        'Set each stem categoryName exactly to the selected category. If the brief category is null, choose only from availableCategories.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
         'Every multiple_choice question must have exactly one isAnswer=true option and a question-level explanation.',
         'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
@@ -256,6 +262,7 @@ export function buildCriticPrompt(input: AiGenerationBrief & { candidates: unkno
       brief: {
         section: input.sectionName,
         category: input.categoryName,
+        availableCategories: input.availableCategories ?? [],
         difficultyTarget: input.difficultyTarget,
         timeBurdenTarget: input.timeBurdenTarget,
         targetTags: input.targetTags,
