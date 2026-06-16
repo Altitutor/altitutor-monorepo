@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Json } from '@altitutor/shared';
 
 type SupabaseAny = ReturnType<typeof getSupabaseClient> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,7 +12,7 @@ export type UcatGenerationProvider = {
   provider_key: string;
   base_url: string;
   secret_env_var_name: string;
-  default_headers: Record<string, unknown>;
+  default_headers: Json;
   is_enabled: boolean;
 };
 
@@ -132,9 +133,14 @@ export const ucatGenerationSettingsApi = {
   },
 
   async updateProvider(id: string, updates: Partial<UcatGenerationProvider>): Promise<void> {
+    const payload = {
+      ...updates,
+      default_headers: updates.default_headers,
+      updated_at: new Date().toISOString(),
+    };
     const { error } = await client()
       .from('ucat_ai_generation_providers')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', id);
     if (error) throw error;
   },

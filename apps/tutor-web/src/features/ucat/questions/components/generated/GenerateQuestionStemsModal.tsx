@@ -7,11 +7,7 @@ import {
   Input,
   Label,
   SearchableSelect,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Spinner,
   Textarea,
   useToast,
 } from '@altitutor/ui'
@@ -57,6 +53,31 @@ type DraftWithMetadata = BulkImportStemDraft & {
 type DifficultyTarget = 'easy' | 'medium' | 'hard' | 'mixed'
 type TimeBurdenTarget = 'low' | 'medium' | 'high' | 'mixed'
 type SourceMode = 'none' | 'random' | 'selected'
+
+type SelectOption<TValue extends string> = {
+  id: TValue
+  label: string
+}
+
+const DIFFICULTY_OPTIONS: Array<SelectOption<DifficultyTarget>> = [
+  { id: 'mixed', label: 'Mixed' },
+  { id: 'easy', label: 'Easy' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'hard', label: 'Hard' },
+]
+
+const TIME_BURDEN_OPTIONS: Array<SelectOption<TimeBurdenTarget>> = [
+  { id: 'mixed', label: 'Mixed' },
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+]
+
+const SOURCE_MODE_OPTIONS: Array<SelectOption<SourceMode>> = [
+  { id: 'random', label: 'Random approved stems' },
+  { id: 'selected', label: 'Manually choose source stems' },
+  { id: 'none', label: 'No source examples' },
+]
 
 function toFormValues(stem: {
   sectionId: string
@@ -144,11 +165,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const generateMutation = useGenerateUcatQuestionDrafts()
   const importMutation = useImportGeneratedUcatQuestionStems()
 
-  const [step, setStep] = useState<'config' | 'review'>('config')
+  const [step, setStep] = useState<'config' | 'generating' | 'review'>('config')
   const [sectionId, setSectionId] = useState<string>('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [profileId, setProfileId] = useState<string | null>(null)
-  const [sourceMode, setSourceMode] = useState<SourceMode>('none')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('random')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
   const [difficultyTarget, setDifficultyTarget] = useState<DifficultyTarget>('mixed')
@@ -240,7 +261,6 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   const stepReady =
     sectionId.length > 0 &&
-    !!categoryId &&
     !!effectiveProfileId &&
     stemCount > 0 &&
     stemCount <= maxRequestedStems &&
@@ -254,7 +274,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setSectionId('')
     setCategoryId(null)
     setProfileId(null)
-    setSourceMode('none')
+    setSourceMode('random')
     setSelectedSourceIds([])
     setTargetTagIds([])
     setDifficultyTarget('mixed')
@@ -269,6 +289,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   async function handleGenerate() {
     if (!stepReady) return
+    setStep('generating')
     try {
       const result = await generateMutation.mutateAsync({
         sectionId,
@@ -299,6 +320,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         })
       }
     } catch (error) {
+      setStep('config')
       toast({
         title: 'Generation failed',
         description: error instanceof Error ? error.message : 'Unable to generate question stems',
@@ -350,6 +372,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const subtitle =
     step === 'config'
       ? 'Build a structured generation brief. Passing candidates will be shown for tutor review.'
+      : step === 'generating'
+        ? 'Generating candidates, running gates, and preparing tutor-review drafts.'
       : 'Review warnings, edit candidates, then import to the generated queue.'
 
   const saveLabel =
@@ -357,6 +381,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
       ? generateMutation.isPending
         ? 'Generating...'
         : 'Generate'
+      : step === 'generating'
+        ? 'Generating...'
       : importMutation.isPending
         ? 'Importing...'
         : 'Import to generated queue'
@@ -375,6 +401,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         saveDisabled={
           step === 'config'
             ? !stepReady || generateMutation.isPending
+            : step === 'generating'
+              ? true
             : drafts.length === 0 || importMutation.isPending
         }
         defaultExpanded
@@ -387,125 +415,107 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 showSourceStemPicker && 'border-r'
               )}
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Section</Label>
-                  <SearchableSelect<(typeof sections)[number]>
-                    items={sections}
-                    value={selectedSection}
-                    onValueChange={(section) => {
-                      if (!section?.id) return
-                      setSectionId(section.id)
-                      setCategoryId(null)
-                      setSelectedSourceIds([])
-                      setTargetTagIds([])
-                      setStemSearch('')
-                      setStemFilters({})
-                    }}
-                    getItemLabel={(section) => section.name ?? 'Untitled section'}
-                    getItemId={(section) => section.id ?? 'none'}
-                    placeholder={sections.length > 0 ? 'Select a section' : 'No sections available'}
-                    searchPlaceholder="Search sections..."
-                    emptyMessage="No sections found"
-                    disabled={sections.length === 0}
-                  />
+              <section className="space-y-4 rounded-md border p-4">
+                <div>
+                  <h2 className="font-semibold">Question settings</h2>
                 </div>
-                <div className="space-y-2">
-                  <Label>Stem category</Label>
-                  <SearchableSelect<{ id: string; name: string }>
-                    items={categoryOptions}
-                    value={categoryOptions.find((item) => item.id === categoryId) ?? null}
-                    onValueChange={(value) => {
-                      setCategoryId(value?.id ?? null)
-                      setSelectedSourceIds([])
-                    }}
-                    getItemId={(item) => item.id}
-                    getItemLabel={(item) => taxonomyDisplayLabel(item)}
-                    placeholder="Select a category"
-                    searchPlaceholder="Search categories..."
-                    emptyMessage="No categories found"
-                    disabled={!sectionId}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Generation profile</Label>
-                  <Select value={effectiveProfileId ?? ''} onValueChange={setProfileId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={profilesQuery.isLoading ? 'Loading profiles...' : 'Select profile'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {profiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.name} ({profile.model})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Number of stems</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={maxRequestedStems}
-                    value={stemCount}
-                    onChange={(event) => {
-                      const next = Number.parseInt(event.target.value || '1', 10)
-                      setStemCount(Number.isFinite(next) ? Math.max(1, Math.min(maxRequestedStems, next)) : 1)
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Difficulty target</Label>
-                  <Select value={difficultyTarget} onValueChange={(value) => setDifficultyTarget(value as DifficultyTarget)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mixed">Mixed</SelectItem>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Time burden target</Label>
-                  <Select value={timeBurdenTarget} onValueChange={(value) => setTimeBurdenTarget(value as TimeBurdenTarget)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mixed">Mixed</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Target tags (optional)</Label>
-                <div className="flex gap-2">
-                  <select
-                    className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
-                    value=""
-                    disabled={!sectionId || tagOptions.length === 0}
-                    onChange={(event) => {
-                      const value = event.target.value
-                      if (value && !targetTagIds.includes(value)) setTargetTagIds((prev) => [...prev, value])
-                    }}
-                  >
-                    <option value="">Add tag...</option>
-                    {tagOptions
-                      .filter((tag) => !targetTagIds.includes(tag.id))
-                      .map((tag) => (
-                        <option key={tag.id} value={tag.id}>
-                          {tag.name}
-                        </option>
-                      ))}
-                  </select>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Section</Label>
+                    <SearchableSelect<(typeof sections)[number]>
+                      items={sections}
+                      value={selectedSection}
+                      onValueChange={(section) => {
+                        if (!section?.id) return
+                        setSectionId(section.id)
+                        setCategoryId(null)
+                        setSelectedSourceIds([])
+                        setTargetTagIds([])
+                        setStemSearch('')
+                        setStemFilters({})
+                      }}
+                      getItemLabel={(section) => section.name ?? 'Untitled section'}
+                      getItemId={(section) => section.id ?? 'none'}
+                      placeholder={sections.length > 0 ? 'Select a section' : 'No sections available'}
+                      searchPlaceholder="Search sections..."
+                      emptyMessage="No sections found"
+                      disabled={sections.length === 0}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stem category</Label>
+                    <SearchableSelect<{ id: string; name: string }>
+                      items={categoryOptions}
+                      value={categoryOptions.find((item) => item.id === categoryId) ?? null}
+                      onValueChange={(value) => {
+                        setCategoryId(value?.id ?? null)
+                        setSelectedSourceIds([])
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => taxonomyDisplayLabel(item)}
+                      placeholder="Spread across categories"
+                      searchPlaceholder="Search categories..."
+                      emptyMessage="No categories found"
+                      disabled={!sectionId}
+                      allowClear
+                      clearLabel="Spread across categories"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Number of stems</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={maxRequestedStems}
+                      value={stemCount}
+                      onChange={(event) => {
+                        const next = Number.parseInt(event.target.value || '1', 10)
+                        setStemCount(Number.isFinite(next) ? Math.max(1, Math.min(maxRequestedStems, next)) : 1)
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Difficulty target</Label>
+                    <SearchableSelect<SelectOption<DifficultyTarget>>
+                      items={DIFFICULTY_OPTIONS}
+                      value={DIFFICULTY_OPTIONS.find((item) => item.id === difficultyTarget) ?? null}
+                      onValueChange={(value) => {
+                        if (value) setDifficultyTarget(value.id)
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      searchPlaceholder="Search difficulty..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time burden target</Label>
+                    <SearchableSelect<SelectOption<TimeBurdenTarget>>
+                      items={TIME_BURDEN_OPTIONS}
+                      value={TIME_BURDEN_OPTIONS.find((item) => item.id === timeBurdenTarget) ?? null}
+                      onValueChange={(value) => {
+                        if (value) setTimeBurdenTarget(value.id)
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      searchPlaceholder="Search time burden..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Target tags</Label>
+                    <SearchableSelect<{ id: string; name: string }>
+                      items={tagOptions.filter((tag) => !targetTagIds.includes(tag.id))}
+                      value={null}
+                      onValueChange={(value) => {
+                        if (value?.id && !targetTagIds.includes(value.id)) setTargetTagIds((prev) => [...prev, value.id])
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.name}
+                      placeholder="Add tag"
+                      searchPlaceholder="Search tags..."
+                      emptyMessage="No tags found"
+                      disabled={!sectionId || tagOptions.length === 0}
+                    />
+                  </div>
                 </div>
                 {selectedTags.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
@@ -522,31 +532,47 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                     ))}
                   </div>
                 ) : null}
-              </div>
+              </section>
 
-              <div className="space-y-2">
-                <Label>Source examples</Label>
-                <Select
-                  value={sourceMode}
-                  onValueChange={(value) => {
-                    setSourceMode(value as SourceMode)
-                    setSelectedSourceIds([])
-                    setStemSearch('')
-                    setStemFilters({})
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No source examples</SelectItem>
-                    <SelectItem value="random">Random approved stems</SelectItem>
-                    <SelectItem value="selected">Manually choose source stems</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <section className="space-y-4 rounded-md border p-4">
+                <div>
+                  <h2 className="font-semibold">AI settings</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Generation profile</Label>
+                    <SearchableSelect<(typeof profiles)[number]>
+                      items={profiles}
+                      value={profiles.find((profile) => profile.id === effectiveProfileId) ?? null}
+                      onValueChange={(profile) => setProfileId(profile?.id ?? null)}
+                      getItemId={(profile) => profile.id}
+                      getItemLabel={(profile) => `${profile.name} (${profile.model})`}
+                      placeholder={profilesQuery.isLoading ? 'Loading profiles...' : 'Select profile'}
+                      searchPlaceholder="Search profiles..."
+                      emptyMessage="No profiles found"
+                      loading={profilesQuery.isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Source examples</Label>
+                    <SearchableSelect<SelectOption<SourceMode>>
+                      items={SOURCE_MODE_OPTIONS}
+                      value={SOURCE_MODE_OPTIONS.find((item) => item.id === sourceMode) ?? null}
+                      onValueChange={(value) => {
+                        if (!value) return
+                        setSourceMode(value.id)
+                        setSelectedSourceIds([])
+                        setStemSearch('')
+                        setStemFilters({})
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      searchPlaceholder="Search source modes..."
+                    />
+                  </div>
+                </div>
 
-              {showSourceStemPicker ? (
+                {showSourceStemPicker ? (
                 <div className="space-y-3">
                   <div>
                     <h2 className="font-semibold">Selected source stems</h2>
@@ -567,17 +593,18 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                     />
                   )}
                 </div>
-              ) : null}
+                ) : null}
 
-              <div className="space-y-2">
-                <Label>Run instructions (optional)</Label>
-                <Textarea
-                  className="min-h-24"
-                  value={runInstructions}
-                  onChange={(event) => setRunInstructions(event.target.value)}
-                  placeholder="One-off notes for this generation run"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Run instructions</Label>
+                  <Textarea
+                    className="min-h-24"
+                    value={runInstructions}
+                    onChange={(event) => setRunInstructions(event.target.value)}
+                    placeholder="One-off notes for this generation run"
+                  />
+                </div>
+              </section>
             </section>
 
             <UcatStemCatalogSidePanel open={showSourceStemPicker}>
@@ -602,6 +629,40 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 className="min-h-0 flex-1"
               />
             </UcatStemCatalogSidePanel>
+          </div>
+        ) : step === 'generating' ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-10">
+            <div className="w-full max-w-lg space-y-6 rounded-md border p-6">
+              <div className="flex items-center gap-3">
+                <Spinner size="md" />
+                <div>
+                  <h2 className="font-semibold">Generating tutor-review drafts</h2>
+                  <p className="text-sm text-muted-foreground">
+                    This can take a little while because candidates are planned, written, checked, and rewritten if needed.
+                  </p>
+                </div>
+              </div>
+              <ol className="space-y-3 text-sm">
+                {[
+                  'Planning category mix and candidate targets',
+                  'Writing stems, questions, answers, and explanations',
+                  'Running deterministic gates and similarity checks',
+                  'Critiquing and preparing editable drafts',
+                ].map((label, index) => (
+                  <li key={label} className="flex items-center gap-3">
+                    <span
+                      className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs',
+                        index === 0 ? 'border-primary text-primary' : 'border-muted-foreground/30 text-muted-foreground'
+                      )}
+                    >
+                      {index + 1}
+                    </span>
+                    <span>{label}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         ) : (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
