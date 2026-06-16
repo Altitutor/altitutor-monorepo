@@ -618,7 +618,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 filterDefinitions={sourceStemFilterDefinitions}
                 onAddStem={(stemId) => setSelectedSourceIds((prev) => [...prev, stemId])}
                 onViewStem={setViewingStemId}
-                title="Add source stems"
+                searchPlaceholder="Search stems or questions"
                 emptyMessage={
                   !sectionId
                     ? 'Select a section to browse approved stems.'

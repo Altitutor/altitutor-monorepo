@@ -7,6 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useToast } from '@altitutor/ui'
 import type { UcatSkillTrainerApprovalStatus, UcatSkillTrainerKey } from '@altitutor/shared'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { skillTrainerItemContentSummary } from '@/features/ucat/skill-trainer/lib/content-summary'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { isSnapshotDirty } from '@/features/ucat/shared/lib/dirty-state'
 import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/items'
 import { UcatSkillTrainerEditorShell } from '@/features/ucat/skill-trainer/components/editor/UcatSkillTrainerEditorShell'
@@ -68,6 +72,7 @@ export function UcatSkillTrainerItemDialog({
   loading,
 }: Props) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const trainerOptions = useMemo(
     () =>
       trainers
@@ -164,6 +169,23 @@ export function UcatSkillTrainerItemDialog({
     }
   }
 
+  const copyIdAction =
+    initial?.id != null
+      ? buildCopyIdRowAction(
+          [
+            {
+              label: 'Item',
+              id: initial.id,
+              description: withCopyIdDescription(skillTrainerItemContentSummary(initial)),
+            },
+          ],
+          copyId,
+        )
+      : null
+
+  const headerActions =
+    initial?.id != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null
+
   return (
     <UcatDialogShell
       open={open}
@@ -176,6 +198,7 @@ export function UcatSkillTrainerItemDialog({
       isSaving={loading}
       hideCancel
       defaultExpanded
+      headerActions={headerActions}
     >
       <UcatSkillTrainerEditorShell
         form={form}

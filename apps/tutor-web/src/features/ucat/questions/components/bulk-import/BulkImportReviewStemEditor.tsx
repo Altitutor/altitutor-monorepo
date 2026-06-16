@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { ucatQuestionStemSchema } from '@/features/ucat/questions/types/schema'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import type {
   CategoryOption,
   TagOption,
@@ -57,9 +59,11 @@ export function BulkImportReviewStemEditor({
 
   const sectionMeta = sections.find((section) => section.id === values.sectionId)
   const questionCount = values.questions?.length ?? 0
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   return (
-    <UcatStemEditorShell
+    <div className="relative flex h-full min-h-0 overflow-hidden">
+      <UcatStemEditorShell
       flush
       form={form}
       sections={sections}
@@ -71,7 +75,10 @@ export function BulkImportReviewStemEditor({
       initialQuestionIndex={initialQuestionIndex}
       showQuestionNavigator={questionCount > 1}
       onNewImageFileIds={onNewImageFileIds}
+      onActiveTextEditorChange={setActiveTextEditor}
       className="flex h-full min-h-0 overflow-hidden"
     />
+      <UcatRichTextFloatingToolbar editor={activeTextEditor} />
+    </div>
   )
 }

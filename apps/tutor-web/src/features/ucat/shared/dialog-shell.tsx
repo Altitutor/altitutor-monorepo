@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import type { Editor } from '@tiptap/react'
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui'
+import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { X } from 'lucide-react'
 import {
   ExpandButton,
@@ -31,19 +33,22 @@ export function UcatDialogShell({
   hideCancel = false,
   headerActions,
   defaultExpanded = false,
+  richTextToolbarEditor = null,
 }: {
   open: boolean
   onClose: () => void
   title: string
   subtitle?: string
-  children: React.ReactNode
+  children: ReactNode
   onSave?: () => void
   saveLabel?: string
   saveDisabled?: boolean
   isSaving?: boolean
   hideCancel?: boolean
-  headerActions?: React.ReactNode
+  headerActions?: ReactNode
   defaultExpanded?: boolean
+  /** When set, renders the rich-text toolbar inline in the dialog footer beside action buttons. */
+  richTextToolbarEditor?: Editor | null
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -87,23 +92,35 @@ export function UcatDialogShell({
 
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden">{children}</div>
 
-        <DialogFooter className={cn('flex-shrink-0 px-6 py-4', tutorDialogFooterStrip)}>
-          <div className="flex w-full items-center justify-end gap-2">
-            {!hideCancel ? (
-              <Button type="button" variant="outline" className={tutorBtnOutline} onClick={onClose}>
-                Cancel
-              </Button>
+        <DialogFooter
+          className={cn(
+            'flex-shrink-0 flex-row items-center gap-3 px-6 py-4 sm:justify-start',
+            tutorDialogFooterStrip,
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            {richTextToolbarEditor ? (
+              <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
+                <UcatRichTextToolbar editor={richTextToolbarEditor} />
+              </div>
             ) : null}
-            {onSave ? (
-              <Button
-                type="button"
-                className={tutorBtnPrimary}
-                onClick={onSave}
-                disabled={saveDisabled || isSaving}
-              >
-                {isSaving ? 'Saving...' : saveLabel}
-              </Button>
-            ) : null}
+            <div className={cn('flex shrink-0 items-center gap-2', !richTextToolbarEditor && 'ml-auto')}>
+              {!hideCancel ? (
+                <Button type="button" variant="outline" className={tutorBtnOutline} onClick={onClose}>
+                  Cancel
+                </Button>
+              ) : null}
+              {onSave ? (
+                <Button
+                  type="button"
+                  className={tutorBtnPrimary}
+                  onClick={onSave}
+                  disabled={saveDisabled || isSaving}
+                >
+                  {isSaving ? 'Saving...' : saveLabel}
+                </Button>
+              ) : null}
+            </div>
           </div>
         </DialogFooter>
       </DialogContent>

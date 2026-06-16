@@ -113,10 +113,15 @@ export const ucatSetsApi = {
 }
 
 function serialize(payload: UcatQuestionSetPayload) {
+  const description =
+    typeof payload.description === 'string'
+      ? plainTextToProseMirror(payload.description)
+      : (payload.description ?? plainTextToProseMirror(''))
+
   return {
     id: payload.id ?? null,
     name: payload.name ?? null,
-    description: plainTextToProseMirror(payload.description),
+    description,
     timeLimitSeconds: payload.timeLimitSeconds ?? null,
     isPrivate: payload.isPrivate,
     isStudentGenerated: payload.isStudentGenerated,

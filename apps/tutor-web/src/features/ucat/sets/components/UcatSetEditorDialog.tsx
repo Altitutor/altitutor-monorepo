@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import { useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -22,12 +23,15 @@ import {
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemBundlePayload, RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { Trash2 } from 'lucide-react'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -48,6 +52,7 @@ export function UcatSetEditorDialog({
   onDelete?: () => void
 }) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const detail = useUcatSetDetail(open ? setId : null)
   const updateSet = useUpdateUcatSet()
 
@@ -56,10 +61,12 @@ export function UcatSetEditorDialog({
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
+  const setsQuery = useUcatSets()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
-  const [draftDescription, setDraftDescription] = useState('')
+  const [draftDescription, setDraftDescription] = useState<RichTextJson | null>(null)
   const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
@@ -68,6 +75,7 @@ export function UcatSetEditorDialog({
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   useEffect(() => {
     const current = detail.data
@@ -77,7 +85,7 @@ export function UcatSetEditorDialog({
     const stemIds = stems.map((s) => s.stem_id)
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
-    setDraftDescription(proseMirrorToPlainText(current.description))
+    setDraftDescription((current.description ?? null) as RichTextJson | null)
     const sec = current.time_limit_seconds ?? 0
     setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
@@ -89,7 +97,7 @@ export function UcatSetEditorDialog({
     setBaseline(
       snapshotSetDetail({
         name: proseMirrorToPlainText(current.name ?? null),
-        description: proseMirrorToPlainText(current.description),
+        description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
         isPrivate: !!current.is_private,
         isStudentGenerated: false,
@@ -97,6 +105,10 @@ export function UcatSetEditorDialog({
       })
     )
   }, [detail.data])
+
+  useEffect(() => {
+    if (!open) setActiveTextEditor(null)
+  }, [open])
 
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
@@ -168,14 +180,26 @@ export function UcatSetEditorDialog({
   }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, timeLimitSeconds])
 
   const filterDefinitions = useMemo(
-    () =>
-      buildStemCatalogFilterDefinitions(
+    () => {
+      const setsList = (setsQuery.data ?? []).filter(
+        (set) =>
+          !(set as { deleted_at?: string | null }).deleted_at &&
+          !(set as { is_student_generated?: boolean }).is_student_generated,
+      )
+      return buildStemCatalogFilterDefinitions(
         sectionsQuery.data ?? [],
         categoriesQuery.data ?? [],
         tagsQuery.data ?? [],
-        filters
-      ),
-    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters]
+        filters,
+        buildStemCatalogSetFilterOptions(setsList, setFilterSearch),
+      )
+    },
+    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch],
+  )
+
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
+    [categoriesQuery.data],
   )
 
   const stemsThatWillBecomePublicCount = useMemo(() => {
@@ -275,11 +299,27 @@ export function UcatSetEditorDialog({
     }
   }
 
+  const copyIdAction =
+    setId != null
+      ? buildCopyIdRowAction(
+          [
+            { label: 'Set', id: setId, description: withCopyIdDescription(draftName) },
+            ...draftStemIds.map((stemId, index) => ({
+              label: `Stem ${index + 1}`,
+              id: stemId,
+              description: withCopyIdDescription(stemCatalog.find((stem) => stem.id === stemId)?.text),
+            })),
+          ],
+          copyId,
+        )
+      : null
+
   const headerActions =
     setId != null
       ? (
           <UcatRowActions
             actions={[
+              ...(copyIdAction ? [copyIdAction] : []),
               {
                 label: 'Open in page',
                 href: `/ucat/sets/${setId}`,
@@ -312,6 +352,7 @@ export function UcatSetEditorDialog({
         headerActions={headerActions}
         hideCancel
         defaultExpanded
+        richTextToolbarEditor={activeTextEditor}
       >
         {stemsThatWillBecomePublicCount > 0 && (
           <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
@@ -334,6 +375,12 @@ export function UcatSetEditorDialog({
           filters={filters}
           setFilters={setFilters}
           filterDefinitions={filterDefinitions}
+          categoryPathLookup={categoryPathLookup}
+          filterSearchValues={{ question_set_id: setFilterSearch }}
+          onFilterSearchChange={(filterKey, value) => {
+            if (filterKey === 'question_set_id') setSetFilterSearch(value)
+          }}
+          stemCatalogLoading={stemCatalogQuery.isLoading}
           onEditStem={(id) => setEditingStemId(id)}
           onChangeName={setDraftName}
           onChangeDescription={setDraftDescription}
@@ -350,6 +397,7 @@ export function UcatSetEditorDialog({
           onChangeTimeLimitSource={setDraftTimeLimitSource}
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
+          onActiveTextEditorChange={setActiveTextEditor}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,

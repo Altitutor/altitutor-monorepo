@@ -8,7 +8,7 @@ import type {
   DataTableColumnDefinition,
   DataTableState,
 } from '@altitutor/shared';
-import { DataTableToolbar } from './data-table-toolbar';
+import { DataTableToolbar, type DataTableSearchFromOption } from './data-table-toolbar';
 
 export interface ListToolbarProps {
   /** Controlled search value */
@@ -32,6 +32,19 @@ export interface ListToolbarProps {
   columnDefinitions?: DataTableColumnDefinition[];
   visibleColumns?: string[];
   onVisibleColumnsChange?: (columns: string[]) => void;
+  filterSearchValues?: Record<string, string>;
+  onFilterSearchChange?: (filterKey: string, value: string) => void;
+  /** Icon-only controls for narrow panels (e.g. editor sidebars). */
+  compact?: boolean;
+  className?: string;
+  rowClassName?: string;
+  searchFromOptions?: DataTableSearchFromOption[];
+  searchFromValue?: string[];
+  onSearchFromChange?: (values: string[]) => void;
+  searchContainerClassName?: string;
+  searchInputClassName?: string;
+  controlClassName?: string;
+  searchLeadingAccessory?: React.ReactNode;
 }
 
 const emptyState: DataTableState = {
@@ -66,6 +79,18 @@ export function ListToolbar({
   columnDefinitions = [],
   visibleColumns = [],
   onVisibleColumnsChange,
+  filterSearchValues,
+  onFilterSearchChange,
+  compact = false,
+  className,
+  rowClassName,
+  searchFromOptions,
+  searchFromValue,
+  onSearchFromChange,
+  searchContainerClassName,
+  searchInputClassName,
+  controlClassName,
+  searchLeadingAccessory,
 }: ListToolbarProps) {
   const state: DataTableState = React.useMemo(
     () => ({
@@ -123,6 +148,18 @@ export function ListToolbar({
       columnDefinitions={columnDefinitions}
       groupByOptions={groupByOptions}
       searchPlaceholder={searchPlaceholder}
+      searchFromOptions={searchFromOptions}
+      searchFromValue={searchFromValue}
+      onSearchFromChange={onSearchFromChange}
+      filterSearchValues={filterSearchValues}
+      onFilterSearchChange={onFilterSearchChange}
+      compact={compact}
+      className={className}
+      rowClassName={rowClassName}
+      searchContainerClassName={searchContainerClassName}
+      searchInputClassName={searchInputClassName}
+      controlClassName={controlClassName}
+      searchLeadingAccessory={searchLeadingAccessory}
     />
   );
 }

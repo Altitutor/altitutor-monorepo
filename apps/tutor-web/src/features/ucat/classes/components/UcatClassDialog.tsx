@@ -20,9 +20,13 @@ import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
+import { tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
@@ -292,6 +296,7 @@ export function UcatClassDialog({
     enabled: open,
   })
   const { data: lessonsList = [] } = useUcatLearningModules({ kind: 'lesson', enabled: open })
+  const { copyId } = useUcatCopyId()
 
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
@@ -681,6 +686,28 @@ export function UcatClassDialog({
     onClose()
   }
 
+  const copyIdAction =
+    classId != null
+      ? buildCopyIdRowAction(
+          [
+            {
+              label: 'Class',
+              id: classId,
+              description: `${sessions.length} session${sessions.length === 1 ? '' : 's'}`,
+            },
+            ...sessions.map((session, index) => ({
+              label: sessionTitle(session.start_at) || `Session ${index + 1}`,
+              id: session.session_id,
+              description: `${session.resources.length} resource${session.resources.length === 1 ? '' : 's'}`,
+            })),
+          ],
+          copyId,
+        )
+      : null
+
+  const headerActions =
+    classId != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null
+
   return (
     <UcatDialogShell
       open={open}
@@ -690,6 +717,7 @@ export function UcatClassDialog({
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
+      headerActions={headerActions}
     >
       <DndContext
         sensors={sensors}
@@ -703,6 +731,7 @@ export function UcatClassDialog({
             <ListToolbar
               search={searchSessions}
               onSearchChange={setSearchSessions}
+              {...tutorToolbarProps}
               searchPlaceholder="Search sessions"
               filterDefinitions={sessionFilterDefinitions}
               filters={filtersSessions}
@@ -754,6 +783,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchSets}
                   onSearchChange={setSearchSets}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter sets"
                   filterDefinitions={setFilterDefinitions}
                   filters={filtersSets}
@@ -787,6 +817,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchMocks}
                   onSearchChange={setSearchMocks}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter mocks"
                   filterDefinitions={mockFilterDefinitions}
                   filters={filtersMocks}
@@ -807,6 +838,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchStems}
                   onSearchChange={setSearchStems}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter stems"
                   filterDefinitions={stemFilterDefinitions}
                   filters={filtersStems}
@@ -831,6 +863,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchLessons}
                   onSearchChange={setSearchLessons}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter lessons"
                 />
                 <div className="space-y-1.5 max-h-96 overflow-auto">

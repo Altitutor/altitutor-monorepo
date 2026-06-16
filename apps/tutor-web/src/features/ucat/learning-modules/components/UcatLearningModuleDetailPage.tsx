@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@altitutor/ui'
 import { UcatAccessDenied } from '@/features/ucat/shared/components'
@@ -9,6 +10,7 @@ import { TutorPageContainer } from '@/shared/components/layouts'
 import { useUcatLearningModule } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
+import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
 
 export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string }) {
@@ -18,6 +20,7 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
   const moduleQuery = useUcatLearningModule(moduleId)
   const editor = useLearningModuleEditor(moduleId)
   const [dialogOpen, setDialogOpen] = useState(true)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   useEffect(() => {
     setDialogOpen(true)
@@ -67,8 +70,13 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
           </Button>
         </div>
       </div>
-      <div className="flex min-h-[70vh] flex-1 flex-col">
-        <UcatLearningModuleEditorShell editor={editor} hasUcatAccess={hasUcatAccess} />
+      <div className="relative flex min-h-[70vh] flex-1 flex-col">
+        <UcatLearningModuleEditorShell
+          editor={editor}
+          hasUcatAccess={hasUcatAccess}
+          onActiveTextEditorChange={setActiveTextEditor}
+        />
+        <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
     </TutorPageContainer>
   )

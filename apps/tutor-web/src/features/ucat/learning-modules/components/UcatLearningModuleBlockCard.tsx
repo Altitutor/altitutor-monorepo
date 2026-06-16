@@ -12,6 +12,7 @@ import {
 } from '@/features/ucat/learning-modules/lib/learning-module-editor-types'
 import type { UcatQuestionCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -198,18 +199,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
             value={(block.content.body as Json) ?? plainTextToProseMirror('')}
             onChange={(body) => onUpdate({ content: { body } })}
             minHeight="120px"
-            onEditorReady={(editor) => {
-              const handleFocus = () => onTextEditorActive?.(editor)
-              const handleBlur = () => {
-                window.setTimeout(() => {
-                  const active = document.activeElement
-                  if (active?.closest('[data-rich-text-toolbar]')) return
-                  onTextEditorActive?.(null)
-                }, 0)
-              }
-              editor.on('focus', handleFocus)
-              editor.on('blur', handleBlur)
-            }}
+            onEditorReady={(editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)}
           />
         ) : null}
 

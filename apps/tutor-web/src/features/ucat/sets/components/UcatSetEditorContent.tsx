@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import {
   Button,
   Input,
   SearchableSelect,
   Slider,
-  Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,15 +16,17 @@ import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { Info } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
-  UcatStemCatalogAddPanel,
-  UcatStemCatalogLabel,
+  UcatStemCatalogListPanel,
+  UcatStemMembershipListPanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
-import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
+import type { RichTextJson } from '@/features/ucat/shared/types'
 
 export type UcatSectionForTimeLimit = {
   id: string
@@ -36,7 +38,7 @@ export type UcatSectionForTimeLimit = {
 
 type UcatSetEditorContentProps = {
   draftName: string
-  draftDescription: string
+  draftDescription: RichTextJson | null
   draftIsTimed: boolean
   draftTimeLimitMinutes: string
   draftTimeLimitSeconds: string
@@ -51,9 +53,13 @@ type UcatSetEditorContentProps = {
   filters: Record<string, unknown[]>
   setFilters: (value: Record<string, unknown[]>) => void
   filterDefinitions: DataTableFilterDefinition[]
+  categoryPathLookup?: Map<string, string>
+  filterSearchValues?: Record<string, string>
+  onFilterSearchChange?: (filterKey: string, value: string) => void
+  stemCatalogLoading?: boolean
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
-  onChangeDescription: (value: string) => void
+  onChangeDescription: (value: RichTextJson | null) => void
   onChangeIsTimed: (value: boolean) => void
   onChangeTimeLimitMinutes: (value: string) => void
   onChangeTimeLimitSeconds: (value: string) => void
@@ -61,6 +67,7 @@ type UcatSetEditorContentProps = {
   onChangeTimeLimitSpeed: (value: number) => void
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
+  onActiveTextEditorChange?: (editor: Editor | null) => void
 }
 
 export function UcatSetEditorContent({
@@ -80,6 +87,10 @@ export function UcatSetEditorContent({
   filters,
   setFilters,
   filterDefinitions,
+  categoryPathLookup,
+  filterSearchValues,
+  onFilterSearchChange,
+  stemCatalogLoading = false,
   onEditStem,
   onChangeName,
   onChangeDescription,
@@ -90,9 +101,17 @@ export function UcatSetEditorContent({
   onChangeTimeLimitSpeed,
   onChangePrivate,
   sections = [],
+  onActiveTextEditorChange,
 }: UcatSetEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-stems'>('properties')
   const [isEditingTimeLimit, setIsEditingTimeLimit] = useState(false)
+
+  const handleTextEditorActive = useCallback(
+    (textEditor: Editor | null) => {
+      onActiveTextEditorChange?.(textEditor)
+    },
+    [onActiveTextEditorChange],
+  )
 
   const setSectionsFromStems = useMemo(() => {
     const sectionMap = new Map<string, { sectionId: string; sectionNumber: number; questionCount: number }>()
@@ -197,32 +216,21 @@ export function UcatSetEditorContent({
     [sectionFullTimeFormatted, sectionAutoTimeFormatted, setSectionCount],
   )
 
-  const stemById = useMemo(() => {
-    const map = new Map<string, UcatStemCatalogItem>()
-    for (const stem of stemCatalog) {
-      map.set(stem.id, stem)
-    }
-    return map
-  }, [stemCatalog])
-
   return (
     <div className="flex h-full min-h-0">
-      <section className="min-w-0 flex-1 space-y-3 overflow-y-auto border-r p-6">
-        <h2 className="font-semibold">Stems in set</h2>
-        {draftStemIds.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No stems in this set yet.</p>
-        ) : (
-          <UcatSortableList
-            ids={draftStemIds}
-            onChange={setDraftStemIds}
-            onRemove={(id) => setDraftStemIds(draftStemIds.filter((stemId) => stemId !== id))}
-            onEdit={onEditStem}
-            renderLabel={(id, index) => (
-              <UcatStemCatalogLabel stem={stemById.get(id)} id={id} index={index} />
-            )}
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden border-r p-6">
+          <h2 className="mb-3 shrink-0 font-semibold">Stems in set</h2>
+          <UcatStemMembershipListPanel
+            stemIds={draftStemIds}
+            onStemIdsChange={setDraftStemIds}
+            stems={stemCatalog}
+            filterDefinitions={filterDefinitions}
+            filterSearchValues={filterSearchValues}
+            onFilterSearchChange={onFilterSearchChange}
+            onEditStem={onEditStem}
+            className="min-h-0 flex-1"
           />
-        )}
-      </section>
+        </section>
 
       <aside className="flex h-full w-96 shrink-0 flex-col overflow-hidden border-l p-6">
         <SegmentedTabPanel
@@ -246,11 +254,15 @@ export function UcatSetEditorContent({
             </label>
             <label className="block text-sm">
               <span className="mb-1 block font-medium">Description</span>
-              <Textarea
-                className="min-h-24"
-                value={draftDescription}
-                onChange={(e) => onChangeDescription(e.target.value)}
-              />
+              <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                <UcatRichTextEditor
+                  value={draftDescription}
+                  onChange={(value) => onChangeDescription(value)}
+                  placeholder="Optional set description..."
+                  minHeight="120px"
+                  onEditorReady={(editor) => bindRichTextToolbarFocus(editor, handleTextEditorActive)}
+                />
+              </div>
             </label>
             <div className="block text-sm">
               <span className="mb-1 block font-medium">Time limit</span>
@@ -380,9 +392,9 @@ export function UcatSetEditorContent({
           <SegmentedTabPanelContent
             when="add-stems"
             activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-4"
+            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-2"
           >
-            <UcatStemCatalogAddPanel
+            <UcatStemCatalogListPanel
               stems={stemCatalog}
               excludedIds={draftStemIds}
               search={search}
@@ -390,9 +402,13 @@ export function UcatSetEditorContent({
               filters={filters}
               onFiltersChange={setFilters}
               filterDefinitions={filterDefinitions}
+              categoryPathLookup={categoryPathLookup}
+              filterSearchValues={filterSearchValues}
+              onFilterSearchChange={onFilterSearchChange}
+              isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}
-              title="Add stems"
+              searchPlaceholder="Search stems or questions"
               emptyMessage="No stems to add, or all matching stems are already in the set."
             />
           </SegmentedTabPanelContent>

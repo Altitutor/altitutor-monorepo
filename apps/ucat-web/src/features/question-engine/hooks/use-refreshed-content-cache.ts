@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 import {
-  collectUcatImagePathsFromDocs,
+  collectUcatImageRefsFromDocs,
   applySignedUrlsToDoc,
   extractImageUrlsFromDoc,
 } from "@/features/question-engine/lib/refresh-ucat-image-urls";
@@ -73,8 +73,8 @@ export function useRefreshedContentCache(
         : null,
     }));
 
-    const paths = collectUcatImagePathsFromDocs(docs);
-    if (paths.length === 0) {
+    const { paths, fileIds } = collectUcatImageRefsFromDocs(docs);
+    if (paths.length === 0 && fileIds.length === 0) {
       const result = new Map<string, CachedContent>();
       toFetch.forEach((q, i) => {
         result.set(q.id, {
@@ -94,7 +94,7 @@ export function useRefreshedContentCache(
     fetch("/api/ucat/images/signed-urls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paths }),
+      body: JSON.stringify({ paths, fileIds }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -105,6 +105,9 @@ export function useRefreshedContentCache(
         }
         const { signedUrls } = (await res.json()) as { signedUrls: string[] };
         const pathToUrl = new Map(paths.map((p, i) => [p, signedUrls[i]]));
+        const fileIdToUrl = new Map(
+          fileIds.map((fileId, i) => [fileId, signedUrls[paths.length + i]]),
+        );
 
         const result = new Map<string, CachedContent>();
         const urlsToPreload: string[] = [];
@@ -113,10 +116,12 @@ export function useRefreshedContentCache(
           const stemDoc = docs[i].stem;
           const questionDoc = docs[i].question;
           const stem =
-            stemDoc != null ? applySignedUrlsToDoc(stemDoc, pathToUrl) : null;
+            stemDoc != null
+              ? applySignedUrlsToDoc(stemDoc, pathToUrl, fileIdToUrl)
+              : null;
           const question =
             questionDoc != null
-              ? applySignedUrlsToDoc(questionDoc, pathToUrl)
+              ? applySignedUrlsToDoc(questionDoc, pathToUrl, fileIdToUrl)
               : null;
           result.set(q.id, { stem, question });
           if (stem) urlsToPreload.push(...extractImageUrlsFromDoc(stem));

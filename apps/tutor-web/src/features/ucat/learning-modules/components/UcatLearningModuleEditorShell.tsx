@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { RichTextEditorBottomToolbar, SearchableSelect } from '@altitutor/ui'
+import { SearchableSelect } from '@altitutor/ui'
 import {
   useUcatQuestionCatalog,
   useUcatSections,
@@ -25,6 +25,7 @@ type LearningModuleEditor = ReturnType<typeof useLearningModuleEditor>
 type UcatLearningModuleEditorShellProps = {
   editor: LearningModuleEditor
   hasUcatAccess: boolean
+  onActiveTextEditorChange?: (editor: Editor | null) => void
 }
 
 const BLOCK_TYPE_OPTIONS = (Object.keys(BLOCK_TYPE_LABELS) as UcatLearningModuleBlockType[]).map(
@@ -37,12 +38,19 @@ const BLOCK_TYPE_OPTIONS = (Object.keys(BLOCK_TYPE_LABELS) as UcatLearningModule
 export function UcatLearningModuleEditorShell({
   editor,
   hasUcatAccess,
+  onActiveTextEditorChange,
 }: UcatLearningModuleEditorShellProps) {
   const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
-  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [popoverContainer, setPopoverContainer] = useState<HTMLElement | null>(null)
   const shellRef = useRef<HTMLDivElement>(null)
   const blockCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  const handleTextEditorActive = useCallback(
+    (textEditor: Editor | null) => {
+      onActiveTextEditorChange?.(textEditor)
+    },
+    [onActiveTextEditorChange],
+  )
 
   const { data: sections } = useUcatSections()
   const stemCatalog = useUcatStemCatalog(hasUcatAccess)
@@ -83,9 +91,11 @@ export function UcatLearningModuleEditorShell({
     [editor],
   )
 
-  const handleTextEditorActive = useCallback((textEditor: Editor | null) => {
-    setActiveTextEditor(textEditor)
-  }, [])
+  useEffect(() => {
+    if (editorMode !== 'edit') {
+      onActiveTextEditorChange?.(null)
+    }
+  }, [editorMode, onActiveTextEditorChange])
 
   return (
     <div ref={shellRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -197,16 +207,6 @@ export function UcatLearningModuleEditorShell({
         />
       </div>
 
-      {activeTextEditor && editorMode === 'edit' ? (
-        <div
-          className="pointer-events-none flex-shrink-0 border-t bg-background/90 px-4 py-3 backdrop-blur-sm"
-          data-rich-text-toolbar
-        >
-          <div className="pointer-events-auto mx-auto max-w-3xl">
-            <RichTextEditorBottomToolbar editor={activeTextEditor} />
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

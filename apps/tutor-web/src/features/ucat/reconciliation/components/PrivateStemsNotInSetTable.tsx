@@ -38,7 +38,7 @@ import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/fea
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 const TRUNCATE_LEN = 80
 
@@ -76,6 +76,7 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetOpen, setBulkSetOpen] = useState(false)
   const [bulkSetId, setBulkSetId] = useState<string | null>(null)
   const [bulkSetPending, setBulkSetPending] = useState(false)
+  const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'category_name', 'section_name'])
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'category_name', label: 'Category', visibleByDefault: true },
@@ -124,23 +125,19 @@ export function PrivateStemsNotInSetTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter((stem) => {
-        const stemText = stemAccessors.stem_text(stem)
-        const questionsText = stemAccessors.questions(stem)
-        return (
-          applyCoreStringFilter(stemText, search) ||
-          applyCoreStringFilter(questionsText, search) ||
-          applyCoreStringFilter(
-            resolveCategoryPathLabel(categoryPathLookup, stem.categoryId, stem.categoryName),
-            search
-          ) ||
-          applyCoreStringFilter(stem.sectionName, search)
-        )
+        const values: Record<string, string> = {
+          stem_text: stemAccessors.stem_text(stem),
+          questions: stemAccessors.questions(stem),
+          category_name: resolveCategoryPathLabel(categoryPathLookup, stem.categoryId, stem.categoryName),
+          section_name: stem.sectionName ?? '',
+        }
+        return searchScopes.some((scope) => applyCoreStringFilter(values[scope] ?? '', search))
       })
     }
     result = result.filter((stem) => applySingleSelectFilter(tableState.state, 'section_id', stem.sectionId))
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
     return result
-  }, [data?.privateStemsNotInSet, tableState.state, stemAccessors, categoryPathLookup])
+  }, [data?.privateStemsNotInSet, tableState.state, stemAccessors, categoryPathLookup, searchScopes])
 
   const handleAddToSet = useCallback(
     async (item: PrivateStemNotInSet, setId: string) => {
@@ -253,7 +250,16 @@ export function PrivateStemsNotInSetTable({
       filterDefinitions={[sectionFilterDef]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search stems..."
+      searchFromOptions={[
+        { label: 'Stem text', value: 'stem_text' },
+        { label: 'Question text', value: 'questions' },
+        { label: 'Category', value: 'category_name' },
+        { label: 'Section', value: 'section_name' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

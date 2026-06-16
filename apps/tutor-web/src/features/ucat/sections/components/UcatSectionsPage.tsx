@@ -21,10 +21,12 @@ import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableU
 import { useCreateUcatSection, useUcatSections, useUpdateUcatSection } from '@/features/ucat/sections/hooks/useUcatSections'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import type { Json } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 
 type SectionRow = {
@@ -123,6 +125,7 @@ export function UcatSectionsPage() {
   const queryClient = useQueryClient()
   const sections = useUcatSections()
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const createSection = useCreateUcatSection()
   const updateSection = useUpdateUcatSection()
   const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
@@ -370,6 +373,14 @@ export function UcatSectionsPage() {
     setDraft(emptyDraft)
   }
 
+  const editingCopyIdAction =
+    editing != null
+      ? buildCopyIdRowAction(
+          [{ label: 'Section', id: editing.id, description: withCopyIdDescription(editing.name) }],
+          copyId,
+        )
+      : null
+
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
@@ -392,6 +403,7 @@ export function UcatSectionsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder="Search sections"
       />
 
@@ -436,6 +448,9 @@ export function UcatSectionsPage() {
             ((t) => t == null || t <= 0)(minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)))
         }
         isSaving={updateSection.isPending}
+        headerActions={
+          editingCopyIdAction ? <UcatRowActions actions={[editingCopyIdAction]} /> : null
+        }
       >
         <div className="p-6 overflow-y-auto h-full">
           <SectionForm draft={draft} setDraft={setDraft} />

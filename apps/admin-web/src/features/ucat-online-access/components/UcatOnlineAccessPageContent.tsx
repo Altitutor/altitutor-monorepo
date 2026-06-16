@@ -37,7 +37,10 @@ import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
 import { useSubjectsSearchForFilter } from '@/features/classes/hooks/useSubjectsSearchForFilter';
-import { useManualOnlineAccessTable } from '../hooks/useManualOnlineAccessTable';
+import {
+  useManualOnlineAccessTable,
+  type ManualOnlineAccessSearchScope,
+} from '../hooks/useManualOnlineAccessTable';
 
 export function UcatOnlineAccessPageContent() {
   const { toast } = useToast();
@@ -48,6 +51,11 @@ export function UcatOnlineAccessPageContent() {
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
   const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
+  const [searchScopes, setSearchScopes] = useState<ManualOnlineAccessSearchScope[]>([
+    'student',
+    'subject',
+    'notes',
+  ]);
 
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'created_at', direction: 'desc' as const }), []);
@@ -88,11 +96,14 @@ export function UcatOnlineAccessPageContent() {
     [subjectSearchData?.subjects],
   );
 
-  const { rows, total, isLoading, isFetching, error, refetch } = useManualOnlineAccessTable(state);
+  const { rows, total, isLoading, isFetching, error, refetch } = useManualOnlineAccessTable(
+    state,
+    searchScopes,
+  );
 
   useEffect(() => {
     setPage(1);
-  }, [state.search, state.filters, setPage]);
+  }, [state.search, state.filters, searchScopes, setPage]);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -205,6 +216,13 @@ export function UcatOnlineAccessPageContent() {
             if (filterKey === 'subject') setSubjectFilterSearch(value);
           }}
           searchPlaceholder="Search by student, subject, notes..."
+          searchFromOptions={[
+            { label: 'Student', value: 'student' },
+            { label: 'Subject', value: 'subject' },
+            { label: 'Notes', value: 'notes' },
+          ]}
+          searchFromValue={searchScopes}
+          onSearchFromChange={(values) => setSearchScopes(values as ManualOnlineAccessSearchScope[])}
           isLoading
         />
         <SkeletonTable rows={8} columns={state.visibleColumns.length + 1} />
@@ -268,6 +286,13 @@ export function UcatOnlineAccessPageContent() {
           if (filterKey === 'subject') setSubjectFilterSearch(value);
         }}
         searchPlaceholder="Search by student, subject, notes..."
+        searchFromOptions={[
+          { label: 'Student', value: 'student' },
+          { label: 'Subject', value: 'subject' },
+          { label: 'Notes', value: 'notes' },
+        ]}
+        searchFromValue={searchScopes}
+        onSearchFromChange={(values) => setSearchScopes(values as ManualOnlineAccessSearchScope[])}
         isLoading={isFetching}
       />
 

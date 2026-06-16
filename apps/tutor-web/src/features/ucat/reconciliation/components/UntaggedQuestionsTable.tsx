@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useCallback } from 'react'
+import React, { useMemo, useCallback, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar, SearchableSelect, useToast } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -11,7 +11,7 @@ import { mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/l
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 const TRUNCATE_LEN = 80
 
@@ -30,6 +30,7 @@ export function UntaggedQuestionsTable({
   const sectionsQuery = useUcatSections()
   const tagsQuery = useUcatTags()
   const addTagMutation = useAddQuestionTag()
+  const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -74,16 +75,15 @@ export function UntaggedQuestionsTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter(
-        (q) =>
-          applyCoreStringFilter(questionAccessors.stem_text(q), search) ||
-          applyCoreStringFilter(questionAccessors.question_text(q), search) ||
-          applyCoreStringFilter(q.sectionName, search)
+        (q) => searchScopes.some((scope) =>
+          applyCoreStringFilter(questionAccessors[scope as keyof typeof questionAccessors](q), search)
+        )
       )
     }
     result = result.filter((q) => applySingleSelectFilter(tableState.state, 'section_id', q.sectionId))
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, questionAccessors)
     return result
-  }, [data?.untaggedQuestions, tableState.state, questionAccessors])
+  }, [data?.untaggedQuestions, tableState.state, questionAccessors, searchScopes])
 
   const handleAddTag = useCallback(
     async (item: UntaggedQuestion, tagId: string) => {
@@ -130,7 +130,15 @@ export function UntaggedQuestionsTable({
       filterDefinitions={[sectionFilterDef]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search questions..."
+      searchFromOptions={[
+        { label: 'Stem text', value: 'stem_text' },
+        { label: 'Question text', value: 'question_text' },
+        { label: 'Section', value: 'section_id' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

@@ -12,7 +12,7 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatClassDialog } from '@/features/ucat/classes/components/UcatClassDialog'
 import { applyCoreStringFilter } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { Pencil } from 'lucide-react'
-import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 function formatClassTime(c: UcatClassWithDetails): string {
   const day = c.day_of_week != null ? getDayOfWeek(c.day_of_week) : ''
@@ -61,6 +61,7 @@ export function UcatClassesPage() {
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
+        {...tutorToolbarProps}
         searchPlaceholder="Search classes"
       />
 

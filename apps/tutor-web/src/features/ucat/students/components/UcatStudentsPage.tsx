@@ -22,7 +22,7 @@ import {
   TIME_FRAME_OPTIONS,
 } from '@/features/ucat/students/progress/lib/progress-mode'
 import type { StudentProgressSummaryRow } from '@/features/ucat/students/api/students'
-import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 export function UcatStudentsPage() {
   const [mode, setMode] = useState<ProgressMode>('all_time')
@@ -271,6 +271,7 @@ export function UcatStudentsPage() {
         filterDefinitions={classFilters}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder="Search students"
       />
 

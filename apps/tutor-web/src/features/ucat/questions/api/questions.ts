@@ -2,6 +2,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatQuestionStem, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type UcatQuestionListMode = 'default' | 'generated' | 'all'
 export type UcatApprovalStatus = 'approved' | 'pending' | 'rejected'
@@ -180,19 +181,82 @@ export const ucatQuestionsApi = {
     return map
   },
 
-  async getStemCatalog() {
+  async getQuestionSearchTexts() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase
       .from('vtutor_ucat_question_stem_detail')
-      .select(
-        'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,created_at,deleted_at'
-      )
-      .is('deleted_at', null)
-      .filter('approval_status', 'eq', 'approved')
+      .select('id,questions')
 
     if (error) throw error
 
-    return (data ?? []) as Array<{
+    type QuestionWithSearchContent = {
+      deleted_at?: string | null
+      question_text?: Json | null
+      answer_options?: Array<{
+        deleted_at?: string | null
+        answer_text?: Json | null
+      }> | null
+    }
+    const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
+    const map: Record<string, { questionText: string; answerOptionText: string }> = {}
+
+    for (const row of rows) {
+      if (!row.id) continue
+      const questions = Array.isArray(row.questions) ? (row.questions as QuestionWithSearchContent[]) : []
+      const questionTexts: string[] = []
+      const answerOptionTexts: string[] = []
+
+      for (const question of questions) {
+        if (question.deleted_at) continue
+        const questionText = proseMirrorToPlainText(question.question_text)
+        if (questionText) questionTexts.push(questionText)
+
+        const answerOptions = Array.isArray(question.answer_options) ? question.answer_options : []
+        for (const option of answerOptions) {
+          if (option.deleted_at) continue
+          const answerText = proseMirrorToPlainText(option.answer_text)
+          if (answerText) answerOptionTexts.push(answerText)
+        }
+      }
+
+      map[row.id] = {
+        questionText: questionTexts.join(' '),
+        answerOptionText: answerOptionTexts.join(' '),
+      }
+    }
+
+    return map
+  },
+
+  async getStemCatalog() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const [detailResult, approvedResult] = await Promise.all([
+      supabase
+        .from('vtutor_ucat_question_stem_detail')
+        .select(
+          'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,created_at,deleted_at'
+        )
+        .is('deleted_at', null)
+        .filter('approval_status', 'eq', 'approved'),
+      supabase
+        .from('vtutor_ucat_question_stems_approved')
+        .select('id,set_names,set_ids'),
+    ])
+
+    if (detailResult.error) throw detailResult.error
+    if (approvedResult.error) throw approvedResult.error
+
+    const setInfoById = new Map(
+      (approvedResult.data ?? []).map((row) => [
+        row.id ?? '',
+        {
+          setNames: row.set_names,
+          setIds: row.set_ids,
+        },
+      ])
+    )
+
+    return ((detailResult.data ?? []) as Array<{
       id: string | null
       stem_text: Json | null
       questions: unknown
@@ -203,7 +267,16 @@ export const ucatQuestionsApi = {
       category_name: string | null
       is_private: boolean | null
       created_at: string | null
-    }>
+      set_names?: unknown
+      set_ids?: unknown
+    }>).map((row) => {
+      const setInfo = row.id ? setInfoById.get(row.id) : undefined
+      return {
+        ...row,
+        set_names: setInfo?.setNames ?? null,
+        set_ids: setInfo?.setIds ?? null,
+      }
+    })
   },
 
   async create(payload: UcatQuestionStemBundlePayload) {

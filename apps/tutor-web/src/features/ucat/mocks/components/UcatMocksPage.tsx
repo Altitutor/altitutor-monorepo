@@ -47,7 +47,7 @@ import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/l
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
-import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 type MockRow = {
   id: string
@@ -384,6 +384,7 @@ export function UcatMocksPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder="Search mocks"
         filterFooter={
           <div className="px-2 py-2 border-t">

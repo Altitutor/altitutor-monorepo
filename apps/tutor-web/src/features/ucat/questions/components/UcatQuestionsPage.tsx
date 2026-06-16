@@ -48,6 +48,7 @@ import {
   useRestoreUcatQuestionStem,
   useUcatCategories,
   useUcatQuestionDetail,
+  useUcatQuestionSearchTexts,
   useUcatQuestionStemTypes,
   useUcatQuestions,
   useUcatSections,
@@ -114,10 +115,24 @@ import {
   tutorTableBodyRow,
   tutorTableHeaderRow,
   tutorTableShell,
+  tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 
 type QuestionsTab = 'questions' | 'generated'
+type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
+
+const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: string }> = [
+  { value: 'stem_text', label: 'Stem text' },
+  { value: 'question_text', label: 'Question text' },
+  { value: 'answer_option_text', label: 'Answer options' },
+]
+
+const defaultQuestionSearchScopes: QuestionSearchScope[] = [
+  'stem_text',
+  'question_text',
+  'answer_option_text',
+]
 
 function parseQuestionsTab(value: string | null): QuestionsTab {
   return value === 'generated' ? 'generated' : 'questions'
@@ -146,6 +161,8 @@ type QuestionRow = {
   tag_ids: string[]
   type_summary: string
   stem_text: string
+  question_text: string
+  answer_option_text: string
   set_names: string
   /** Staff sets only (matches set_names / set_ids in API). */
   set_ids: string[]
@@ -246,6 +263,7 @@ export function UcatQuestionsPage() {
   const [bulkSetsPending, setBulkSetsPending] = useState(false)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [setFilterSearch, setSetFilterSearch] = useState('')
+  const [searchScopes, setSearchScopes] = useState<QuestionSearchScope[]>(defaultQuestionSearchScopes)
   const selectionMode = selectedStemIds.size > 0
 
   const stemTypesQuery = useUcatQuestionStemTypes()
@@ -298,6 +316,7 @@ export function UcatQuestionsPage() {
 
   const access = useUcatAccess()
   const questions = useUcatQuestions({ mode })
+  const questionSearchTexts = useUcatQuestionSearchTexts()
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
@@ -394,6 +413,7 @@ export function UcatQuestionsPage() {
 
   const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
     const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
+    const searchTexts = row.id ? questionSearchTexts.data?.[row.id] : null
     const setNamesArr = Array.isArray(row.set_names) ? (row.set_names as import('@altitutor/shared').Json[]) : []
     const setsDisplay =
       setNamesArr.length > 0
@@ -415,6 +435,8 @@ export function UcatQuestionsPage() {
       tag_ids: row.id ? (stemTagIds[row.id] ?? []) : [],
       type_summary: summary || '-',
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
+      question_text: searchTexts?.questionText ?? '',
+      answer_option_text: searchTexts?.answerOptionText ?? '',
       set_names: setsDisplay,
       set_ids: parseJsonUuidArray((row as { set_ids?: unknown }).set_ids),
       deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
@@ -433,15 +455,7 @@ export function UcatQuestionsPage() {
     return byDeleted.filter((row) => {
       const searchHit =
         search.length === 0 ||
-        row.stem_text.toLowerCase().includes(search) ||
-        row.section_name.toLowerCase().includes(search) ||
-        resolveCategoryPathLabel(
-          categoryPathLookup,
-          row.question_stem_category_id,
-          row.category_name
-        )
-          .toLowerCase()
-          .includes(search)
+        searchScopes.some((scope) => row[scope].toLowerCase().includes(search))
 
       const sectionHit = applyMultiSelectFilter(tableState.state, 'section_id', row.section_id)
       const categoryHit = applyCategoryFilter(
@@ -470,7 +484,7 @@ export function UcatQuestionsPage() {
 
       return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit
     })
-  }, [rows, tableState.state, showDeleted, mode, categoryPathLookup])
+  }, [rows, tableState.state, showDeleted, mode, searchScopes])
 
   const sortedRows = useMemo(
     () =>
@@ -902,7 +916,11 @@ export function UcatQuestionsPage() {
         filterDefinitions={sectionFilterDefs}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder={mode === 'generated' ? 'Search generated questions' : 'Search questions'}
+        searchFromOptions={questionSearchScopeOptions}
+        searchFromValue={searchScopes}
+        onSearchFromChange={(values) => setSearchScopes(values as QuestionSearchScope[])}
         filterSearchValues={{ question_set_id: setFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)

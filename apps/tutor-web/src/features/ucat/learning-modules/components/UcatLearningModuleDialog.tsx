@@ -1,8 +1,12 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, summarizeLearningModuleBlock, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
@@ -21,7 +25,13 @@ export function UcatLearningModuleDialog({
   onDeleted,
 }: UcatLearningModuleDialogProps) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const editor = useLearningModuleEditor(open ? moduleId : null)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+
+  useEffect(() => {
+    if (!open) setActiveTextEditor(null)
+  }, [open])
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
 
@@ -56,9 +66,29 @@ export function UcatLearningModuleDialog({
     }
   }
 
+  const copyIdAction =
+    moduleId != null
+      ? buildCopyIdRowAction(
+          [
+            {
+              label: 'Module',
+              id: moduleId,
+              description: withCopyIdDescription(editor.title.trim() || editor.moduleQuery.data?.title),
+            },
+            ...editor.draftBlocks.map((block, index) => ({
+              label: `Block ${index + 1}`,
+              id: block.clientId,
+              description: summarizeLearningModuleBlock(block),
+            })),
+          ],
+          copyId,
+        )
+      : null
+
   const headerActions = moduleId ? (
     <UcatRowActions
       actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
         {
           label: 'Open in page',
           icon: <ExternalLink className="h-4 w-4" />,
@@ -89,9 +119,14 @@ export function UcatLearningModuleDialog({
       hideCancel
       headerActions={headerActions}
       defaultExpanded
+      richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <UcatLearningModuleEditorShell editor={editor} hasUcatAccess />
+        <UcatLearningModuleEditorShell
+          editor={editor}
+          hasUcatAccess
+          onActiveTextEditorChange={setActiveTextEditor}
+        />
       </div>
     </UcatDialogShell>
   )

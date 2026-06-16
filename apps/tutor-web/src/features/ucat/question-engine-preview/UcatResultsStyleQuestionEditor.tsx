@@ -2,6 +2,7 @@
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Json } from '@altitutor/shared'
+import type { Editor } from '@tiptap/react'
 import { Button, Label } from '@altitutor/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
@@ -10,6 +11,7 @@ import { cn } from '@/shared/utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 
 const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
 
@@ -30,6 +32,7 @@ type RichEditorImageProps = {
   stemId?: string | null
   enableImages?: boolean
   onImageFileIdsChange?: (fileIds: string[]) => void
+  onTextEditorActive?: (editor: Editor | null) => void
 }
 
 export type ResultsMcQuestionBlockProps = {
@@ -71,10 +74,13 @@ export function ResultsMcQuestionBlock({
   stemId = null,
   enableImages = false,
   onImageFileIdsChange,
+  onTextEditorActive,
 }: ResultsMcQuestionBlockProps) {
   const imageProps = enableImages
-    ? { stemId, enableImages: true as const, onImageFileIdsChange }
-    : {}
+    ? { stemId, enableImages: true as const, onImageFileIdsChange, onTextEditorActive }
+    : { onTextEditorActive }
+
+  const onEditorReady = (editor: Editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)
 
   return (
     <div className="space-y-3 px-1">
@@ -88,6 +94,7 @@ export function ResultsMcQuestionBlock({
             onChange={(v) => setStemText(v)}
             minHeight="120px"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       ) : null}
@@ -103,6 +110,7 @@ export function ResultsMcQuestionBlock({
             onChange={(v) => setQuestionText(v)}
             minHeight="4rem"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       </div>
@@ -157,6 +165,7 @@ export function ResultsMcQuestionBlock({
                     }}
                     minHeight="48px"
                     pasteTableBehavior="keep"
+                    onEditorReady={onEditorReady}
                   />
                 </div>
                 {optionIsCorrect ? (
@@ -194,6 +203,7 @@ export function ResultsMcQuestionBlock({
                     }}
                     minHeight="36px"
                     pasteTableBehavior="keep"
+                    onEditorReady={onEditorReady}
                   />
                   <div className="mt-0.5 text-[10pt]" style={EXPLANATION_MUTED_STYLE}>
                     Option explanation (optional)
@@ -217,6 +227,7 @@ export function ResultsMcQuestionBlock({
             onChange={(v) => setAnswerExplanation(v)}
             minHeight="60px"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       ) : null}
@@ -257,10 +268,13 @@ export function ResultsSyllogismQuestionBlock({
   stemId = null,
   enableImages = false,
   onImageFileIdsChange,
+  onTextEditorActive,
 }: ResultsSyllogismQuestionBlockProps) {
   const imageProps = enableImages
-    ? { stemId, enableImages: true as const, onImageFileIdsChange }
-    : {}
+    ? { stemId, enableImages: true as const, onImageFileIdsChange, onTextEditorActive }
+    : { onTextEditorActive }
+
+  const onEditorReady = (editor: Editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)
 
   return (
     <div className="space-y-3 px-1">
@@ -274,6 +288,7 @@ export function ResultsSyllogismQuestionBlock({
             onChange={(v) => setStemText(v)}
             minHeight="120px"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       ) : null}
@@ -289,6 +304,7 @@ export function ResultsSyllogismQuestionBlock({
             onChange={(v) => setQuestionText(v)}
             minHeight="4rem"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       </div>
@@ -320,6 +336,7 @@ export function ResultsSyllogismQuestionBlock({
                     }}
                     minHeight="44px"
                     pasteTableBehavior="keep"
+                    onEditorReady={onEditorReady}
                   />
                 </div>
               </div>
@@ -356,6 +373,7 @@ export function ResultsSyllogismQuestionBlock({
                   }}
                   minHeight="44px"
                   pasteTableBehavior="keep"
+                  onEditorReady={onEditorReady}
                 />
               </div>
             </div>
@@ -375,6 +393,7 @@ export function ResultsSyllogismQuestionBlock({
             onChange={(v) => setAnswerExplanation(v)}
             minHeight="60px"
             pasteTableBehavior="keep"
+            onEditorReady={onEditorReady}
           />
         </div>
       ) : null}

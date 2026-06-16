@@ -31,13 +31,14 @@ describe("isSubscriptionCancelScheduled", () => {
   });
 
   it("returns end date from cancel_at", () => {
+    const futureCancelAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     expect(
       getSubscriptionEndDateIso({
         status: "active",
         cancel_at_period_end: false,
-        cancel_at: "2026-06-12T22:15:40.000Z",
+        cancel_at: futureCancelAt,
         current_period_end: null,
       }),
-    ).toBe("2026-06-12");
+    ).toBe(futureCancelAt.slice(0, 10));
   });
 });

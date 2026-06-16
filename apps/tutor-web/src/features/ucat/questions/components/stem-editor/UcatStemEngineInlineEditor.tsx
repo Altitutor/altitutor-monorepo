@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { Json } from '@altitutor/shared'
+import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { Label } from '@altitutor/ui'
@@ -12,6 +13,7 @@ import {
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 
 const RTE = { forceLightChrome: true as const }
 
@@ -25,6 +27,7 @@ type UcatStemEngineInlineEditorProps = {
   stemId?: string | null
   enableImages?: boolean
   onNewImageFileIds?: (fileIds: string[]) => void
+  onTextEditorActive?: (editor: Editor | null) => void
 }
 
 export function UcatStemEngineInlineEditor({
@@ -34,6 +37,7 @@ export function UcatStemEngineInlineEditor({
   stemId = null,
   enableImages = true,
   onNewImageFileIds,
+  onTextEditorActive,
 }: UcatStemEngineInlineEditorProps) {
   const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
     | 'multiple_choice'
@@ -123,6 +127,7 @@ export function UcatStemEngineInlineEditor({
       showOptionExplanations={false}
       showQuestionExplanation
       allowOptionAddRemove
+      onTextEditorActive={onTextEditorActive}
       {...imageHandlers}
     />
   )
@@ -142,6 +147,7 @@ export function UcatStemEngineInlineEditor({
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
       showQuestionExplanation={false}
+      onTextEditorActive={onTextEditorActive}
       {...imageHandlers}
     />
   )
@@ -167,6 +173,7 @@ export function UcatStemEngineInlineEditor({
               onChange={(v) => setStemText(v)}
               minHeight="200px"
               pasteTableBehavior="keep"
+              onEditorReady={(editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)}
             />
           </div>
         </article>
@@ -189,6 +196,7 @@ export function UcatStemEngineInlineEditor({
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
               showQuestionExplanation={false}
+              onTextEditorActive={onTextEditorActive}
               {...imageHandlers}
             />
           ) : (
@@ -209,6 +217,7 @@ export function UcatStemEngineInlineEditor({
               showOptionExplanations={false}
               showQuestionExplanation
               allowOptionAddRemove
+              onTextEditorActive={onTextEditorActive}
               {...imageHandlers}
             />
           )}

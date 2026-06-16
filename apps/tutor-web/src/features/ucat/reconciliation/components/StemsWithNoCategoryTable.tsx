@@ -30,7 +30,7 @@ import { useUcatCategories, useUcatSections } from '@/features/ucat/questions/ho
 import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import type { CategoryOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
@@ -58,6 +58,7 @@ export function StemsWithNoCategoryTable({
   const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
+  const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'section_id'])
 
   const categories = useMemo(
     () => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[],
@@ -110,19 +111,18 @@ export function StemsWithNoCategoryTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter((stem) => {
-        const stemText = stemAccessors.stem_text(stem)
-        const questionsText = stemAccessors.questions(stem)
-        return (
-          applyCoreStringFilter(stemText, search) ||
-          applyCoreStringFilter(questionsText, search) ||
-          applyCoreStringFilter(stem.sectionName, search)
-        )
+        const values: Record<string, string> = {
+          stem_text: stemAccessors.stem_text(stem),
+          questions: stemAccessors.questions(stem),
+          section_id: stem.sectionName ?? '',
+        }
+        return searchScopes.some((scope) => applyCoreStringFilter(values[scope] ?? '', search))
       })
     }
     result = result.filter((stem) => applySingleSelectFilter(tableState.state, 'section_id', stem.sectionId))
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
     return result
-  }, [data?.stemsWithNoCategory, tableState.state, stemAccessors])
+  }, [data?.stemsWithNoCategory, tableState.state, stemAccessors, searchScopes])
 
   const handleSetCategory = useCallback(
     async (item: StemWithNoCategory, categoryId: string) => {
@@ -232,7 +232,15 @@ export function StemsWithNoCategoryTable({
       filterDefinitions={[sectionFilterDef]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search stems..."
+      searchFromOptions={[
+        { label: 'Stem text', value: 'stem_text' },
+        { label: 'Question text', value: 'questions' },
+        { label: 'Section', value: 'section_id' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

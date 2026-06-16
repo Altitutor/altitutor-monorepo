@@ -1,25 +1,60 @@
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import type { UcatSection } from '@/features/ucat/shared/types'
 import {
   applyBooleanTextFilter,
   applyCategoryFilter,
-  applyCoreStringFilter,
   applyMultiSelectFilter,
+  applySort,
   applyTagFilter,
+  getFilterValues,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { mapCategoriesToOptions, mapTagsToOptions, resolveCategoryPathLabel, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
   filterCategoriesForSections,
   filterTagsForSections,
   type CategoryRowForSectionFilter,
   type TagRowForSectionFilter,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
-import { resolveSectionIdsFromNumberFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
-import { UCAT_FILTER_NO_CATEGORY } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
+import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import type { Json } from '@altitutor/shared'
+
+export type StemCatalogSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
+
+export const stemCatalogSearchScopeOptions: Array<{ value: StemCatalogSearchScope; label: string }> = [
+  { value: 'stem_text', label: 'Stem text' },
+  { value: 'question_text', label: 'Question text' },
+  { value: 'answer_option_text', label: 'Answer options' },
+]
+
+export const defaultStemCatalogSearchScopes: StemCatalogSearchScope[] = [
+  'stem_text',
+  'question_text',
+  'answer_option_text',
+]
 
 export const stemCatalogColumnDefinitions: DataTableColumnDefinition[] = [
+  { key: 'section_name', label: 'Section', visibleByDefault: true },
+  { key: 'category_name', label: 'Category', visibleByDefault: false },
+  { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
+  { key: 'question_count', label: 'Questions', visibleByDefault: true },
+  { key: 'sets', label: 'Sets', visibleByDefault: false },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
+  { key: 'type_summary', label: 'Type', visibleByDefault: false },
+]
+
+export const stemCatalogSortOptions: DataTableSortOption[] = [
+  { key: 'section_name', label: 'Section' },
+  { key: 'category_name', label: 'Category' },
+  { key: 'stem_text', label: 'Stem text' },
+  { key: 'question_count', label: 'Questions' },
+  { key: 'sets', label: 'Sets' },
+  { key: 'type_summary', label: 'Type' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'created_at', label: 'Date created' },
 ]
 
 const baseStemCatalogFilterDefinitions: DataTableFilterDefinition[] = [
@@ -44,22 +79,25 @@ const baseStemCatalogFilterDefinitions: DataTableFilterDefinition[] = [
   },
 ]
 
+type SetFilterOption = { label: string; value: string }
+
 export function buildStemCatalogFilterDefinitions(
   sections: UcatSection[],
   categoryRows: CategoryRowForSectionFilter[],
   tagRows: TagRowForSectionFilter[] = [],
   filters: Record<string, unknown[]> = {},
+  setOptions: SetFilterOption[] = [],
 ): DataTableFilterDefinition[] {
-  const selectedSectionIds = resolveSectionIdsFromNumberFilter(sections, filters)
+  const selectedSectionIds = resolveSectionIdsFromIdFilter(filters)
   const categories = mapCategoriesToOptions(filterCategoriesForSections(categoryRows, selectedSectionIds))
   const tags = mapTagsToOptions(filterTagsForSections(tagRows, selectedSectionIds))
 
-  return [
+  const defs: DataTableFilterDefinition[] = [
     {
       ...baseStemCatalogFilterDefinitions[0],
       options: sections.map((section) => ({
         label: section.name ?? 'Untitled',
-        value: section.section_number ?? 0,
+        value: section.id ?? '',
       })),
     },
     {
@@ -82,20 +120,51 @@ export function buildStemCatalogFilterDefinitions(
     baseStemCatalogFilterDefinitions[3],
     baseStemCatalogFilterDefinitions[4],
   ]
+
+  if (setOptions.length > 0) {
+    defs.push({
+      key: 'question_set_id',
+      label: 'Set',
+      options: setOptions,
+      searchable: true,
+      searchPlaceholder: 'Search sets...',
+    })
+  }
+
+  return defs
+}
+
+function stemMatchesSearch(
+  stem: UcatStemCatalogItem,
+  search: string,
+  searchScopes: StemCatalogSearchScope[] = defaultStemCatalogSearchScopes,
+) {
+  const query = search.trim().toLowerCase()
+  if (!query) return true
+
+  const scopeValues: Record<StemCatalogSearchScope, string> = {
+    stem_text: stem.text,
+    question_text: stem.questionSearchText,
+    answer_option_text: stem.answerOptionSearchText,
+  }
+
+  return searchScopes.some((scope) => scopeValues[scope].toLowerCase().includes(query))
 }
 
 export function filterStemCatalogItems({
   stems,
-  excludedIds,
+  excludedIds = [],
+  includedIds,
   search,
   filters,
-  limit = 60,
+  searchScopes = defaultStemCatalogSearchScopes,
 }: {
   stems: UcatStemCatalogItem[]
-  excludedIds: string[]
+  excludedIds?: string[]
+  includedIds?: Set<string>
   search: string
   filters: Record<string, unknown[]>
-  limit?: number
+  searchScopes?: StemCatalogSearchScope[]
 }): UcatStemCatalogItem[] {
   const questionTypeFilter = filters.question_type?.[0] as string | undefined
   const stemsTableState = {
@@ -109,20 +178,73 @@ export function filterStemCatalogItems({
     visibleColumns: [] as string[],
   }
 
-  return stems
-    .filter((stem) => {
-      if (excludedIds.includes(stem.id)) return false
-      if (!applyCoreStringFilter(stem.text, search)) return false
-      if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionNumber)) return false
-      if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
-      if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
-      if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.isPrivate)) return false
-      if (questionTypeFilter && questionTypeFilter !== 'all') {
-        if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
-          return false
-        }
+  return stems.filter((stem) => {
+    if (excludedIds.includes(stem.id)) return false
+    if (includedIds && !includedIds.has(stem.id)) return false
+    if (!stemMatchesSearch(stem, search, searchScopes)) return false
+    if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
+    if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
+    if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
+    if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.isPrivate)) return false
+    if (questionTypeFilter && questionTypeFilter !== 'all') {
+      if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
+        return false
       }
-      return true
+    }
+
+    const selectedSetIds = getFilterValues(stemsTableState, 'question_set_id').map(String)
+    const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
+    const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
+    const setHit =
+      selectedSetIds.length === 0 ||
+      (wantsNotInAnySet && stem.setIds.length === 0) ||
+      specificSetIds.some((setId) => stem.setIds.includes(setId))
+
+    return setHit
+  })
+}
+
+export function sortStemCatalogItems(
+  stems: UcatStemCatalogItem[],
+  sortBy: string | null,
+  sortDirection: 'asc' | 'desc',
+  categoryPathLookup: Map<string, string>,
+): UcatStemCatalogItem[] {
+  return applySort(stems, sortBy, sortDirection, {
+    section_name: (stem) => stem.sectionName,
+    category_name: (stem) =>
+      resolveCategoryPathLabel(categoryPathLookup, stem.categoryId, stem.categoryName),
+    stem_text: (stem) => stem.text,
+    question_count: (stem) => stem.questionsCount,
+    sets: (stem) => stem.setNames,
+    type_summary: (stem) => stem.typeSummary,
+    visibility: (stem) => (stem.isPrivate ? 'Private' : 'Public'),
+    created_at: (stem) => stem.createdAt,
+  })
+}
+
+export function getDefaultStemCatalogVisibleColumns(): string[] {
+  return stemCatalogColumnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key)
+}
+
+export function buildStemCatalogSetFilterOptions(
+  sets: Array<{ id?: string | null; name?: Json | null }>,
+  search: string,
+): SetFilterOption[] {
+  const query = search.trim().toLowerCase()
+  const noneOption = { label: 'Not in any set', value: UCAT_FILTER_NOT_IN_ANY_SET }
+  const fromSets = sets
+    .filter((set) => {
+      if (!set.id) return false
+      const name = proseMirrorToPlainText(set.name).toLowerCase()
+      return !query || name.includes(query)
     })
-    .slice(0, limit)
+    .sort((a, b) => proseMirrorToPlainText(a.name).localeCompare(proseMirrorToPlainText(b.name)))
+    .map((set) => ({
+      label: proseMirrorToPlainText(set.name) || 'Untitled',
+      value: set.id as string,
+    }))
+  const combined = [noneOption, ...fromSets]
+  if (!query) return combined
+  return combined.filter((option) => option.label.toLowerCase().includes(query))
 }

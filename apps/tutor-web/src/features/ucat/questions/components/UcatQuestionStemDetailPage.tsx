@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import type { Json } from '@altitutor/shared'
+import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,6 +28,7 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
 
 type UcatQuestionStemDetailPageProps = {
@@ -151,6 +153,8 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
     | 'pending'
     | 'rejected'
 
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+
   async function handleSetApproval(status: 'approved' | 'pending' | 'rejected') {
     await approvalMutation.mutateAsync({ stemId, status })
   }
@@ -208,7 +212,7 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
         }
       />
 
-      <div className="mt-4 flex min-h-[min(72vh,900px)] overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div className="relative mt-4 flex min-h-[min(72vh,900px)] overflow-hidden rounded-lg border bg-card shadow-sm">
         <UcatStemEditorShell
           form={form}
           sections={sections.map((section) => ({
@@ -223,7 +227,9 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           className="flex min-h-0 flex-1 overflow-hidden"
+          onActiveTextEditorChange={setActiveTextEditor}
         />
+        <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
     </div>
   )

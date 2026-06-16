@@ -21,7 +21,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Pencil } from 'lucide-react'
 import { cn } from '@/shared/utils'
-import { tutorBtnIconOutline } from '@/shared/lib/tutor-visual'
+import { tutorBtnIconOutline, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { applyCoreStringFilter } from '@/features/ucat/shared/hooks/useUcatTableState'
 
 export type LinkedResourceCatalogItem = {
@@ -203,6 +203,7 @@ export function LinkedResourceCatalog({
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
+        {...tutorToolbarProps}
         searchPlaceholder={searchPlaceholder}
         filterDefinitions={filterDefinitions}
         filters={filters}

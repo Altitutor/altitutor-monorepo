@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Json } from '@altitutor/shared'
 import {
   Input,
   SearchableSelect,
@@ -13,18 +12,30 @@ import {
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
   buildTaxonomyPathLookup,
   categoriesToTaxonomyNodes,
   taxonomyDisplayLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
+  useUcatCategories,
+  useUcatSections,
+  useUcatStemCatalog,
+  useUcatTags,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import {
   useUcatCategoryLinkedStems,
   useUpdateUcatQuestionStemCategory,
 } from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
-import { LinkedResourceCatalog } from '@/features/ucat/shared/components/linked-resource-catalog'
+import { UcatStemCatalogListPanel } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
+import {
+  buildStemCatalogFilterDefinitions,
+  buildStemCatalogSetFilterOptions,
+} from '@/features/ucat/shared/lib/stem-catalog-filters'
 import type {
   UcatCategoryLinkedStem,
   UcatQuestionStemCategoryDraft,
@@ -144,12 +155,24 @@ export function UcatQuestionStemCategoryDialog({
   onStemClick,
 }: UcatQuestionStemCategoryDialogProps) {
   const [activeTab, setActiveTab] = useState<'edit' | 'stems'>('edit')
+  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [setFilterSearch, setSetFilterSearch] = useState('')
   const updateCategory = useUpdateUcatQuestionStemCategory()
+  const { copyId } = useUcatCopyId()
   const linkedStems = useUcatCategoryLinkedStems(category?.id ?? null)
+  const stemCatalogQuery = useUcatStemCatalog(open && activeTab === 'stems')
+  const sectionsQuery = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const setsQuery = useUcatSets()
 
   useEffect(() => {
     if (open) {
       setActiveTab('edit')
+      setSearch('')
+      setFilters({})
+      setSetFilterSearch('')
     }
   }, [open, category?.id])
 
@@ -174,28 +197,36 @@ export function UcatQuestionStemCategoryDialog({
     [allCategories]
   )
 
+  const linkedStemIds = useMemo(
+    () => new Set((linkedStems.data ?? []).map((stem) => stem.stemId)),
+    [linkedStems.data],
+  )
+
+  const filterDefinitions = useMemo(() => {
+    const setsList = (setsQuery.data ?? []).filter(
+      (set) =>
+        !(set as { deleted_at?: string | null }).deleted_at &&
+        !(set as { is_student_generated?: boolean }).is_student_generated,
+    )
+    return buildStemCatalogFilterDefinitions(
+      sectionsQuery.data ?? [],
+      categoriesQuery.data ?? [],
+      tagsQuery.data ?? [],
+      filters,
+      buildStemCatalogSetFilterOptions(setsList, setFilterSearch),
+    )
+  }, [
+    sectionsQuery.data,
+    categoriesQuery.data,
+    tagsQuery.data,
+    filters,
+    setsQuery.data,
+    setFilterSearch,
+  ])
+
   const dialogTitle = category
     ? categoryPathLookup.get(category.id) ?? category.name
     : 'Category'
-
-  const catalogItems = useMemo(() => {
-    return (linkedStems.data ?? []).map((stem) => {
-      const preview = proseMirrorToPlainText(stem.stemText as Json | undefined)
-      return {
-        id: stem.stemId,
-        title: preview || stem.stemId,
-        sectionName: stem.sectionName,
-      }
-    })
-  }, [linkedStems.data])
-
-  const sectionOptions = useMemo(
-    () =>
-      sections
-        .filter((section): section is { id: string; name: string } => !!section.id && !!section.name)
-        .map((section) => ({ id: section.id, name: section.name })),
-    [sections]
-  )
 
   async function saveEdit() {
     if (!category) return
@@ -211,6 +242,14 @@ export function UcatQuestionStemCategoryDialog({
     onClose()
   }
 
+  const copyIdAction =
+    category != null
+      ? buildCopyIdRowAction(
+          [{ label: 'Category', id: category.id, description: withCopyIdDescription(category.name) }],
+          copyId,
+        )
+      : null
+
   return (
     <UcatDialogShell
       open={open}
@@ -225,6 +264,7 @@ export function UcatQuestionStemCategoryDialog({
         category ? (
           <UcatRowActions
             actions={[
+              ...(copyIdAction ? [copyIdAction] : []),
               {
                 label: 'Delete',
                 icon: <Trash2 className="h-4 w-4" />,
@@ -268,15 +308,29 @@ export function UcatQuestionStemCategoryDialog({
           <SegmentedTabPanelContent
             when="stems"
             activeTab={activeTab}
-            className="mt-4 min-h-0 flex-1 overflow-hidden"
+            className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            <LinkedResourceCatalog
-              items={catalogItems}
-              isLoading={linkedStems.isLoading}
+            <UcatStemCatalogListPanel
+              stems={stemCatalogQuery.data ?? []}
+              includedIds={linkedStemIds}
+              search={search}
+              onSearchChange={setSearch}
+              filters={filters}
+              onFiltersChange={setFilters}
+              filterDefinitions={filterDefinitions}
+              categoryPathLookup={categoryPathLookup}
+              filterSearchValues={{ question_set_id: setFilterSearch }}
+              onFilterSearchChange={(filterKey, value) => {
+                if (filterKey === 'question_set_id') setSetFilterSearch(value)
+              }}
+              isLoading={linkedStems.isLoading || stemCatalogQuery.isLoading}
+              searchPlaceholder="Search stems or questions"
               emptyMessage="No question stems are linked to this category."
-              searchPlaceholder="Search stems..."
-              sectionOptions={sectionOptions}
-              onItemClick={(stemId) => {
+              onOpenStem={(stemId) => {
+                const stem = (linkedStems.data ?? []).find((row) => row.stemId === stemId)
+                if (stem) onStemClick(stem)
+              }}
+              onEditStem={(stemId) => {
                 const stem = (linkedStems.data ?? []).find((row) => row.stemId === stemId)
                 if (stem) onStemClick(stem)
               }}

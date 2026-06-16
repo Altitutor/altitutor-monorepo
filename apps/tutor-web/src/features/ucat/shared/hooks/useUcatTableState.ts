@@ -5,7 +5,7 @@ import type { DataTableState, QuickFilter } from '@altitutor/shared'
 
 export function useUcatTableState(
   initialVisibleColumns: string[],
-  options?: { defaultFilters?: Record<string, unknown[]> }
+  options?: { defaultFilters?: Record<string, unknown[]>; defaultPageSize?: number }
 ) {
   const defaultFilters = options?.defaultFilters ?? {}
   const [state, setState] = useState<DataTableState>({
@@ -15,7 +15,7 @@ export function useUcatTableState(
     sortDirection: 'desc',
     groupBy: null,
     page: 1,
-    pageSize: 20,
+    pageSize: options?.defaultPageSize ?? 20,
     visibleColumns: initialVisibleColumns,
   })
 
