@@ -72,3 +72,22 @@ export const tutorBtnPrimary = cn(tutorTransition, 'rounded-xl shadow-sm');
 
 /** Icon-only outline control (back, close, expand) */
 export const tutorBtnIconOutline = cn(tutorBtnOutline, 'size-9 shrink-0');
+
+export const tutorToolbarClassName = 'py-1';
+
+export const tutorToolbarRowClassName = 'gap-2';
+
+export const tutorToolbarSearchContainerClassName =
+  'h-10 rounded-xl border-0 bg-muted/55 px-2 shadow-sm ring-1 ring-black/[0.06] focus-within:ring-brand-blue/25 dark:ring-white/10';
+
+export const tutorToolbarSearchInputClassName = 'placeholder:text-muted-foreground/70';
+
+export const tutorToolbarControlClassName = tutorBtnOutline;
+
+export const tutorToolbarProps = {
+  className: tutorToolbarClassName,
+  rowClassName: tutorToolbarRowClassName,
+  searchContainerClassName: tutorToolbarSearchContainerClassName,
+  searchInputClassName: tutorToolbarSearchInputClassName,
+  controlClassName: tutorToolbarControlClassName,
+} as const;

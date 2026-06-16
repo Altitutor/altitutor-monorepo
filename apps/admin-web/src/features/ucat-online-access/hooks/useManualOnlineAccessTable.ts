@@ -6,17 +6,31 @@ import { format, parseISO } from 'date-fns';
 import type { DataTableState } from '@altitutor/shared';
 import { manualOnlineAccessApi, type ManualOnlineAccessRow } from '../api/ucat-online-access';
 
-function matchesSearch(row: ManualOnlineAccessRow, q: string): boolean {
+export type ManualOnlineAccessSearchScope = 'student' | 'subject' | 'notes';
+
+function matchesSearch(
+  row: ManualOnlineAccessRow,
+  q: string,
+  searchScopes: ManualOnlineAccessSearchScope[],
+): boolean {
   if (!q.trim()) return true;
   const s = q.trim().toLowerCase();
   const st = row.student;
   const fullName = `${st?.first_name ?? ''} ${st?.last_name ?? ''}`.trim().toLowerCase();
   const sub = row.subject?.name?.toLowerCase() ?? '';
   const notes = (row.notes ?? '').toLowerCase();
-  return fullName.includes(s) || sub.includes(s) || notes.includes(s);
+  const values: Record<ManualOnlineAccessSearchScope, string> = {
+    student: fullName,
+    subject: sub,
+    notes,
+  };
+  return searchScopes.some((scope) => values[scope].includes(s));
 }
 
-export function useManualOnlineAccessTable(state: DataTableState) {
+export function useManualOnlineAccessTable(
+  state: DataTableState,
+  searchScopes: ManualOnlineAccessSearchScope[] = ['student', 'subject', 'notes'],
+) {
   const query = useQuery({
     queryKey: ['manual-online-access', 'list'],
     queryFn: () => manualOnlineAccessApi.list(),
@@ -45,7 +59,7 @@ export function useManualOnlineAccessTable(state: DataTableState) {
       });
     }
     if (state.search.trim()) {
-      list = list.filter((r) => matchesSearch(r, state.search));
+      list = list.filter((r) => matchesSearch(r, state.search, searchScopes));
     }
 
     const sortBy = state.sortBy ?? 'created_at';
@@ -71,7 +85,7 @@ export function useManualOnlineAccessTable(state: DataTableState) {
     const start = (state.page - 1) * state.pageSize;
     const paginated = list.slice(start, start + state.pageSize);
     return { rows: paginated, total: totalCount };
-  }, [query.data, state]);
+  }, [query.data, state, searchScopes]);
 
   return {
     rows,

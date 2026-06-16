@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
@@ -41,6 +42,8 @@ type UcatStemEditorShellProps = {
   showQuestionNavigator?: boolean
   /** Initial edit vs preview mode (resets when stemId changes). */
   initialEditorMode?: StemEditorMode
+  /** Reports the focused TipTap editor for dialog footer or floating toolbar placement. */
+  onActiveTextEditorChange?: (editor: Editor | null) => void
 }
 
 export function UcatStemEditorShell({
@@ -58,10 +61,18 @@ export function UcatStemEditorShell({
   initialQuestionIndex,
   showQuestionNavigator = false,
   initialEditorMode = 'edit',
+  onActiveTextEditorChange,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex ?? 0)
+
+  const handleTextEditorActive = useCallback(
+    (textEditor: Editor | null) => {
+      onActiveTextEditorChange?.(textEditor)
+    },
+    [onActiveTextEditorChange],
+  )
 
   const watchedValues = form.watch()
   const watchedSectionId = form.watch('sectionId')
@@ -107,6 +118,12 @@ export function UcatStemEditorShell({
     setEditorMode(initialEditorMode)
   }, [initialEditorMode, stemId])
 
+  useEffect(() => {
+    if (editorMode !== 'edit') {
+      onActiveTextEditorChange?.(null)
+    }
+  }, [editorMode, onActiveTextEditorChange])
+
   return (
     <div className={className ?? 'flex min-h-0 flex-1 overflow-hidden'}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -132,6 +149,7 @@ export function UcatStemEditorShell({
                 stemId={stemId}
                 enableImages={enableImages}
                 onNewImageFileIds={onNewImageFileIds}
+                onTextEditorActive={handleTextEditorActive}
               />
             ) : previewQuestion ? (
               <UcatQuestionEnginePreview

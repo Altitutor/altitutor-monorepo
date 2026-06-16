@@ -45,6 +45,8 @@ export function UcatSortableList({
   onEdit?: (id: string) => void
   disableReorder?: boolean
 }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
   if (disableReorder) {
     return (
       <div className="space-y-2">
@@ -60,8 +62,6 @@ export function UcatSortableList({
       </div>
     )
   }
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   return (
     <DndContext

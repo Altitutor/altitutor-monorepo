@@ -36,7 +36,7 @@ import {
 } from '@/features/ucat/skill-trainer-sets/hooks/useUcatSkillTrainerSetsTable'
 import { UcatSkillTrainerSetDialog } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetDialog'
 import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
-import { tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -95,7 +95,7 @@ export function UcatSkillTrainerSetsPage() {
     setEditingSetId(setId)
   }, [])
 
-  const { rows, visibleColumns, tableState } = useUcatSkillTrainerSetsTable({
+  const { rows, visibleColumns, tableState, searchScopes, setSearchScopes } = useUcatSkillTrainerSetsTable({
     data: setsQuery.data,
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     availableColumns: columnDefinitions.map((c) => c.key),
@@ -203,7 +203,15 @@ export function UcatSkillTrainerSetsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder={`Search ${activeTrainerName} sets`}
+        searchFromOptions={[
+          { label: 'Name', value: 'name' },
+          { label: 'Trainer', value: 'trainer_name' },
+          { label: 'Description', value: 'description' },
+        ]}
+        searchFromValue={searchScopes}
+        onSearchFromChange={setSearchScopes}
       />
 
       <div className="pt-3">

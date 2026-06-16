@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { ReconciliationTable } from './ReconciliationTable'
@@ -9,7 +9,7 @@ import { useReconciliationData } from '../hooks/useReconciliation'
 import { applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 export function MocksWithIncorrectSetsTable({
   onEditMock,
@@ -18,6 +18,7 @@ export function MocksWithIncorrectSetsTable({
 }) {
   const { data, isLoading } = useReconciliationData()
   const items = useMemo(() => data?.mocksWithIncorrectSets ?? [], [data?.mocksWithIncorrectSets])
+  const [searchScopes, setSearchScopes] = useState(['name', 'sets'])
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'name', label: 'Name', visibleByDefault: true },
@@ -47,14 +48,14 @@ export function MocksWithIncorrectSetsTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter(
-        (r) =>
-          applyCoreStringFilter(accessors.name(r), search) ||
-          applyCoreStringFilter(accessors.sets(r), search)
+        (r) => searchScopes.some((scope) =>
+          applyCoreStringFilter(accessors[scope as keyof typeof accessors](r), search)
+        )
       )
     }
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, accessors)
     return result
-  }, [items, tableState.state, accessors])
+  }, [items, tableState.state, accessors, searchScopes])
 
   const toolbar = (
     <DataTableToolbar
@@ -69,7 +70,14 @@ export function MocksWithIncorrectSetsTable({
       filterDefinitions={[]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search mocks..."
+      searchFromOptions={[
+        { label: 'Name', value: 'name' },
+        { label: 'Sets', value: 'sets' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

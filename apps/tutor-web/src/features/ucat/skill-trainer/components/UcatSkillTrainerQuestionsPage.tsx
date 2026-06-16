@@ -33,7 +33,7 @@ import {
   type SkillTrainerItemTableRow,
 } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItemsTable'
 import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
-import { tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -215,6 +215,7 @@ export function UcatSkillTrainerQuestionsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder={`Search ${activeTrainerName} questions`}
       />
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import { useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -22,7 +23,7 @@ import {
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemBundlePayload, RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -65,7 +66,7 @@ export function UcatSetEditorDialog({
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
-  const [draftDescription, setDraftDescription] = useState('')
+  const [draftDescription, setDraftDescription] = useState<RichTextJson | null>(null)
   const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
@@ -74,6 +75,7 @@ export function UcatSetEditorDialog({
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   useEffect(() => {
     const current = detail.data
@@ -83,7 +85,7 @@ export function UcatSetEditorDialog({
     const stemIds = stems.map((s) => s.stem_id)
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
-    setDraftDescription(proseMirrorToPlainText(current.description))
+    setDraftDescription((current.description ?? null) as RichTextJson | null)
     const sec = current.time_limit_seconds ?? 0
     setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
@@ -95,7 +97,7 @@ export function UcatSetEditorDialog({
     setBaseline(
       snapshotSetDetail({
         name: proseMirrorToPlainText(current.name ?? null),
-        description: proseMirrorToPlainText(current.description),
+        description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
         isPrivate: !!current.is_private,
         isStudentGenerated: false,
@@ -103,6 +105,10 @@ export function UcatSetEditorDialog({
       })
     )
   }, [detail.data])
+
+  useEffect(() => {
+    if (!open) setActiveTextEditor(null)
+  }, [open])
 
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
@@ -346,6 +352,7 @@ export function UcatSetEditorDialog({
         headerActions={headerActions}
         hideCancel
         defaultExpanded
+        richTextToolbarEditor={activeTextEditor}
       >
         {stemsThatWillBecomePublicCount > 0 && (
           <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
@@ -390,6 +397,7 @@ export function UcatSetEditorDialog({
           onChangeTimeLimitSource={setDraftTimeLimitSource}
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
+          onActiveTextEditorChange={setActiveTextEditor}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,

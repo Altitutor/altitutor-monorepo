@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { ReconciliationTable } from './ReconciliationTable'
@@ -11,7 +11,7 @@ import { useReconciliationData } from '../hooks/useReconciliation'
 import { applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 export function SetsReconciliationTable({
   title,
@@ -26,6 +26,7 @@ export function SetsReconciliationTable({
 }) {
   const { data, isLoading } = useReconciliationData()
   const items = useMemo(() => data?.[dataKey] ?? [], [data, dataKey])
+  const [searchScopes, setSearchScopes] = useState(['name', 'section'])
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'name', label: 'Name', visibleByDefault: true },
@@ -70,14 +71,14 @@ export function SetsReconciliationTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter(
-        (r) =>
-          applyCoreStringFilter(accessors.name(r), search) ||
-          applyCoreStringFilter(accessors.section(r), search)
+        (r) => searchScopes.some((scope) =>
+          applyCoreStringFilter(String(accessors[scope as keyof typeof accessors](r)), search)
+        )
       )
     }
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, accessors)
     return result
-  }, [items, tableState.state, accessors])
+  }, [items, tableState.state, accessors, searchScopes])
 
   const toolbar = (
     <DataTableToolbar
@@ -92,7 +93,14 @@ export function SetsReconciliationTable({
       filterDefinitions={[]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search sets..."
+      searchFromOptions={[
+        { label: 'Name', value: 'name' },
+        { label: 'Section', value: 'section' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

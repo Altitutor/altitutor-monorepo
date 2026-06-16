@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -10,7 +10,7 @@ import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestion
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 const TRUNCATE_LEN = 80
 
@@ -26,6 +26,7 @@ export function QuestionsWithNoExplanationTable({
 }) {
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
+  const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -70,19 +71,15 @@ export function QuestionsWithNoExplanationTable({
     const { search } = tableState.state
     if (search.trim()) {
       result = result.filter((q) => {
-        const stemText = questionAccessors.stem_text(q)
-        const questionText = questionAccessors.question_text(q)
-        return (
-          applyCoreStringFilter(stemText, search) ||
-          applyCoreStringFilter(questionText, search) ||
-          applyCoreStringFilter(q.sectionName, search)
+        return searchScopes.some((scope) =>
+          applyCoreStringFilter(questionAccessors[scope as keyof typeof questionAccessors](q), search)
         )
       })
     }
     result = result.filter((q) => applySingleSelectFilter(tableState.state, 'section_id', q.sectionId))
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, questionAccessors)
     return result
-  }, [data?.questionsWithNoExplanation, tableState.state, questionAccessors])
+  }, [data?.questionsWithNoExplanation, tableState.state, questionAccessors, searchScopes])
 
   const toolbar = (
     <DataTableToolbar
@@ -97,7 +94,15 @@ export function QuestionsWithNoExplanationTable({
       filterDefinitions={[sectionFilterDef]}
       columnDefinitions={columnDefinitions}
       sortOptions={sortOptions}
+      {...tutorToolbarProps}
       searchPlaceholder="Search questions..."
+      searchFromOptions={[
+        { label: 'Stem text', value: 'stem_text' },
+        { label: 'Question text', value: 'question_text' },
+        { label: 'Section', value: 'section_id' },
+      ]}
+      searchFromValue={searchScopes}
+      onSearchFromChange={setSearchScopes}
     />
   )
 

@@ -61,7 +61,24 @@ export function useRefreshedUcatContent(
       return signedUrls[0];
     };
 
-    refreshUcatImageUrls(doc, createSignedUrl)
+    const createSignedUrlFromFileId = async (fileId: string): Promise<string> => {
+      const res = await fetch("/api/ucat/images/signed-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds: [fileId] }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          err?.error ?? `Failed to get signed URL: ${res.status}`,
+        );
+      }
+      const { signedUrls } = (await res.json()) as { signedUrls: string[] };
+      if (!signedUrls?.[0]) throw new Error("No signed URL returned");
+      return signedUrls[0];
+    };
+
+    refreshUcatImageUrls(doc, createSignedUrl, createSignedUrlFromFileId)
       .then((refreshed) => {
         if (!cancelled) {
           setContent(refreshed);

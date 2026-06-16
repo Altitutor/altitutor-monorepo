@@ -23,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -33,6 +34,7 @@ import {
 import { ScrollArea } from './scroll-area';
 import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
+import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -41,7 +43,6 @@ import {
   ArrowDown,
   Filter,
   Plus,
-  ChevronDown,
   X,
   Layers,
 } from 'lucide-react';
@@ -331,13 +332,12 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   return (
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 flex-shrink-0 w-full overflow-hidden min-w-0">
+      <div className="flex flex-wrap items-center gap-2 p-2 flex-shrink-0 w-full overflow-hidden min-w-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="mr-auto">
+            <Button variant="outline" size="sm" className="mr-auto h-10">
               <LayoutGrid className="h-4 w-4 mr-2" />
               <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-              <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[200px]">
@@ -389,15 +389,14 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         </DropdownMenu>
 
         {groupByOptions.length > 0 && (
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
+                <Button variant="outline" size="sm" className="h-10">
                   <Layers className="h-4 w-4 mr-2" />
                   <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                     Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
-                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -419,98 +418,109 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 />
               </DropdownMenuContent>
             </DropdownMenu>
-            {groupBy && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => setGroupBy(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            {groupBy ? (
+              <ToolbarActiveBadge onClear={() => setGroupBy(null)} ariaLabel="Clear group by">
+                1
+              </ToolbarActiveBadge>
+            ) : null}
           </div>
         )}
 
         {sortByOptions.length > 0 && (
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
+                <Button variant="outline" size="sm" className="h-10">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
                     Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                   </span>
-                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] p-0">
-                <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-[220px]">
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <SearchableSelectInline<{ key: string; label: string }>
-                  items={visibleSortByOptions}
-                  value={
-                    sortBy === 'name'
-                      ? null
-                      : visibleSortByOptions.find((o) => o.key === sortBy) ?? null
-                  }
-                  onValueChange={(opt) => {
-                    if (opt) {
-                      const nextDir =
-                        sortBy === opt.key ? (sortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
-                      setSortBy(opt.key, nextDir);
-                    } else {
-                      setSortBy('name', 'asc');
-                    }
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setSortBy('name', 'asc');
                     setSortOpen(false);
                   }}
-                  getItemId={(o) => o.key}
-                  getItemLabel={(o) => o.label}
-                  searchPlaceholder="Search sort options..."
-                  emptyMessage="No options found"
-                  allowClear
-                  clearLabel="None (by name)"
-                />
+                >
+                  None (by name)
+                </DropdownMenuItem>
+                {visibleSortByOptions.map((option) => {
+                  const selected = sortBy === option.key;
+                  return (
+                    <DropdownMenuItem
+                      key={option.key}
+                      className="flex items-center gap-2"
+                      onSelect={(event) => {
+                        if (selected) {
+                          event.preventDefault();
+                          return;
+                        }
+                        setSortBy(option.key, 'asc');
+                        setSortOpen(false);
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      {selected ? (
+                        <button
+                          type="button"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs hover:bg-muted"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSortBy(option.key, sortDirection === 'asc' ? 'desc' : 'asc');
+                          }}
+                          aria-label={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                        >
+                          {sortDirection === 'asc' ? (
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          )}
+                          {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+                        </button>
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+                {sortBy !== 'name' ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setSortBy('name', 'asc');
+                        setSortOpen(false);
+                      }}
+                    >
+                      Clear sort
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
-            {sortBy !== 'name' && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-none border-l-0 px-2"
-                  onClick={() => setSortBy(sortBy, sortDirection === 'asc' ? 'desc' : 'asc')}
-                  aria-label={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
-                >
-                  {sortDirection === 'asc' ? (
-                    <ArrowUp className="h-4 w-4" />
-                  ) : (
-                    <ArrowDown className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-l-none border-l-0 px-2"
-                  onClick={() => setSortBy('name', 'asc')}
-                  aria-label="Clear sort"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            )}
+            {sortBy !== 'name' ? (
+              <ToolbarActiveBadge onClear={() => setSortBy('name', 'asc')} ariaLabel="Clear sort">
+                {sortDirection === 'asc' ? (
+                  <ArrowUp className="h-3 w-3" />
+                ) : (
+                  <ArrowDown className="h-3 w-3" />
+                )}
+              </ToolbarActiveBadge>
+            ) : null}
           </div>
         )}
 
-        <div className="flex items-center">
+        <div className="relative flex items-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
+              <Button variant="outline" size="sm" className="h-10">
                 <Filter className="h-4 w-4 mr-2" />
                 <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
-                  Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                  Filter
                 </span>
-                <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
               </Button>
             </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
@@ -828,16 +838,11 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
-            {activeFilterCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={clearFilters}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            {activeFilterCount > 0 ? (
+              <ToolbarActiveBadge onClear={clearFilters} ariaLabel="Clear all filters">
+                {activeFilterCount}
+              </ToolbarActiveBadge>
+            ) : null}
           </div>
         </div>
 

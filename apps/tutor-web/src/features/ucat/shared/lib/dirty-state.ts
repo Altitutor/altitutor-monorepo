@@ -3,13 +3,23 @@ import { proseMirrorToPlainText } from './rich-text'
 
 export function snapshotSetDetail(value: {
   name: string
-  description: string
+  description: string | Json | null
   time: number | null
   isPrivate: boolean
   isStudentGenerated: boolean
   stemIds: string[]
 }) {
-  return JSON.stringify(value)
+  return JSON.stringify({
+    name: value.name,
+    description:
+      typeof value.description === 'string'
+        ? value.description
+        : jsonToPlainText(value.description),
+    time: value.time,
+    isPrivate: value.isPrivate,
+    isStudentGenerated: value.isStudentGenerated,
+    stemIds: value.stemIds,
+  })
 }
 
 export function isSnapshotDirty(next: string, baseline: string) {

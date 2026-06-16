@@ -40,7 +40,7 @@ export type UcatQuestionStemBundlePayload = {
 export type UcatQuestionSetPayload = {
   id?: string | null
   name?: RichTextJson | null
-  description: string
+  description: string | RichTextJson
   timeLimitSeconds?: number | null
   isPrivate: boolean
   isStudentGenerated: boolean

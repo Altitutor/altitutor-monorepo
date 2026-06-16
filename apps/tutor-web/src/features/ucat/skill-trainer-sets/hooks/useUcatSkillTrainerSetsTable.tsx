@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import Link from 'next/link'
 import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
@@ -23,6 +23,14 @@ export type SkillTrainerSetTableRow = {
   updated_at: string
 }
 
+type SkillTrainerSetSearchScope = 'name' | 'trainer_name' | 'description'
+
+const defaultSkillTrainerSetSearchScopes: SkillTrainerSetSearchScope[] = [
+  'name',
+  'trainer_name',
+  'description',
+]
+
 type UseUcatSkillTrainerSetsTableParams = {
   data: UcatSkillTrainerSetRow[] | undefined
   initialVisibleColumns: string[]
@@ -46,6 +54,9 @@ export function useUcatSkillTrainerSetsTable({
   const tableState = useUcatTableUrlState(initialVisibleColumns, {
     availableColumns: availableColumns ?? initialVisibleColumns,
   })
+  const [searchScopes, setSearchScopes] = useState<SkillTrainerSetSearchScope[]>(
+    defaultSkillTrainerSetSearchScopes,
+  )
 
   const rows: SkillTrainerSetTableRow[] = useMemo(
     () =>
@@ -67,9 +78,10 @@ export function useUcatSkillTrainerSetsTable({
     return rows.filter((row) => {
       const searchHit =
         search.length === 0 ||
-        row.name.toLowerCase().includes(search) ||
-        row.trainer_name.toLowerCase().includes(search) ||
-        (row.description ?? '').toLowerCase().includes(search)
+        searchScopes.some((scope) => {
+          const value = scope === 'description' ? row.description ?? '' : row[scope]
+          return value.toLowerCase().includes(search)
+        })
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
       const itemCountHit = applyRangeFilter(
         tableState.state,
@@ -79,7 +91,7 @@ export function useUcatSkillTrainerSetsTable({
       )
       return searchHit && visibilityHit && itemCountHit
     })
-  }, [rows, tableState.state])
+  }, [rows, tableState.state, searchScopes])
 
   const sortedRows = useMemo(
     () =>
@@ -167,5 +179,7 @@ export function useUcatSkillTrainerSetsTable({
     tableState,
     rows: sortedRows,
     visibleColumns,
+    searchScopes,
+    setSearchScopes: (values: string[]) => setSearchScopes(values as SkillTrainerSetSearchScope[]),
   }
 }

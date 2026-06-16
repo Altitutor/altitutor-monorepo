@@ -44,7 +44,7 @@ import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUca
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
-import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -326,6 +326,7 @@ export function UcatSetsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder="Search sets"
         filterSearchValues={{ ucat_mock_id: mockFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {

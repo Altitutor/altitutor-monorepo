@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -25,6 +27,11 @@ export function UcatLearningModuleDialog({
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
   const editor = useLearningModuleEditor(open ? moduleId : null)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+
+  useEffect(() => {
+    if (!open) setActiveTextEditor(null)
+  }, [open])
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
 
@@ -112,9 +119,14 @@ export function UcatLearningModuleDialog({
       hideCancel
       headerActions={headerActions}
       defaultExpanded
+      richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <UcatLearningModuleEditorShell editor={editor} hasUcatAccess />
+        <UcatLearningModuleEditorShell
+          editor={editor}
+          hasUcatAccess
+          onActiveTextEditorChange={setActiveTextEditor}
+        />
       </div>
     </UcatDialogShell>
   )

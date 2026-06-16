@@ -15,7 +15,7 @@ import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/
 import { skillTrainerItemContentSummary } from '@/features/ucat/skill-trainer/lib/content-summary'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { cn } from '@/shared/utils'
-import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
+import { tutorBtnIconOutline, tutorBtnPrimary, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
@@ -256,6 +256,7 @@ export function UcatSkillTrainerSetEditorContent({
             <ListToolbar
               search={search}
               onSearchChange={setSearch}
+              {...tutorToolbarProps}
               searchPlaceholder="Search questions"
               filterDefinitions={filterDefinitions}
               filters={filters}

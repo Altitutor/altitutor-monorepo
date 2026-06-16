@@ -26,7 +26,7 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import type { Json } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 
 type SectionRow = {
@@ -403,6 +403,7 @@ export function UcatSectionsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
+        {...tutorToolbarProps}
         searchPlaceholder="Search sections"
       />
 

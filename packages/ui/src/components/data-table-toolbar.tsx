@@ -8,7 +8,6 @@ import {
   ArrowDown,
   Filter,
   X,
-  ChevronDown,
   Search,
   Layers,
 } from 'lucide-react';
@@ -39,6 +38,7 @@ import {
 import { ScrollArea } from './scroll-area';
 import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
+import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
 
 interface DataTableToolbarProps {
@@ -282,43 +282,8 @@ export function DataTableToolbar({
   const labelFlexClass = compact
     ? 'sr-only'
     : 'hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap';
-  const chevronClass = compact ? 'sr-only' : 'hidden md:inline h-4 w-4 md:ml-1 opacity-50 shrink-0';
   const controlBtnClass = (extra?: string) => cn(compact ? 'h-9 px-2' : 'h-10', controlClassName, extra);
   const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'mr-2', extra);
-
-  const ClearableBadge = ({
-    children,
-    onClear,
-    ariaLabel,
-  }: {
-    children: React.ReactNode;
-    onClear: () => void;
-    ariaLabel: string;
-  }) => (
-    <span
-      role="button"
-      tabIndex={0}
-      aria-label={ariaLabel}
-      className={cn(
-        'group/badge ml-2 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-none text-primary-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground',
-        compact && 'absolute -right-1 -top-1 ml-0',
-      )}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onClear();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        event.stopPropagation();
-        onClear();
-      }}
-    >
-      <span className="group-hover/badge:hidden">{children}</span>
-      <X className="hidden h-3 w-3 group-hover/badge:block" />
-    </span>
-  );
 
   const searchFromControl = searchFromEnabled ? (
     <DropdownMenu>
@@ -343,12 +308,6 @@ export function DataTableToolbar({
           >
             {searchFromSummary}
           </span>
-          <ChevronDown
-            className={cn(
-              'h-3.5 w-3.5 opacity-60',
-              compact ? 'sr-only' : 'hidden sm:ml-1 sm:inline',
-            )}
-          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[220px]">
@@ -366,12 +325,18 @@ export function DataTableToolbar({
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null;
+  const defaultSearchLeadingAccessory = (
+    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      <Search className="h-3.5 w-3.5" />
+    </span>
+  );
+  const searchLeadingContent = searchLeadingAccessory ?? searchFromControl ?? defaultSearchLeadingAccessory;
 
   return (
     <div className={cn('flex w-full flex-col gap-2', compact && 'gap-1.5', className)}>
       <div className={cn('flex items-center gap-2', compact ? 'flex-nowrap gap-1' : 'flex-wrap', rowClassName)}>
         {/* Search */}
-        {!hideSearch && (searchLeadingAccessory || searchFromControl) ? (
+        {!hideSearch ? (
           <div
             className={cn(
               'flex h-10 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
@@ -379,7 +344,7 @@ export function DataTableToolbar({
               searchContainerClassName,
             )}
           >
-            {searchLeadingAccessory ?? searchFromControl}
+            {searchLeadingContent}
             <Input
               placeholder={searchPlaceholder}
               value={searchValue}
@@ -399,28 +364,10 @@ export function DataTableToolbar({
               </button>
             )}
           </div>
-        ) : !hideSearch ? (
-          <div className={cn('relative min-w-0 flex-1', searchContainerClassName)}>
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              className={cn('h-10 pl-9', compact && 'h-9 text-sm', searchInputClassName)}
-            />
-            {searchValue && (
-              <button
-                onClick={() => setSearchValue('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
         ) : null}
         {!hideSearch && searchAccessory}
 
-        <div className={cn('flex shrink-0 items-center gap-1', hideSearch && 'w-full')}>
+        <div className={cn('flex shrink-0 items-center gap-2', hideSearch && 'w-full')}>
           {/* View Options (Columns) */}
           {columnDefinitions.length > 0 && (
             <DropdownMenu>
@@ -428,7 +375,6 @@ export function DataTableToolbar({
                 <Button variant="outline" size="sm" className={controlBtnClass()} aria-label="View columns">
                   <LayoutGrid className={iconClass()} />
                   <span className={labelClass}>View</span>
-                  <ChevronDown className={chevronClass} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -450,22 +396,16 @@ export function DataTableToolbar({
 
           {/* Group By */}
           {groupByOptions.length > 0 && (
-            <div className="flex items-center">
+            <div className="relative flex items-center">
               <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(controlBtnClass('relative'))} aria-label="Group by">
+                  <Button variant="outline" size="sm" className={controlBtnClass()} aria-label="Group by">
                     <Layers className={iconClass()} />
                     <span className={labelClass}>
                       {state.groupBy
                         ? groupByOptions.find((o) => o.key === state.groupBy)?.label ?? 'Grouped'
                         : 'Group by'}
                     </span>
-                    <ChevronDown className={chevronClass} />
-                    {state.groupBy ? (
-                      <ClearableBadge onClear={() => onGroupByChange(null)} ariaLabel="Clear group by">
-                        1
-                      </ClearableBadge>
-                    ) : null}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -487,18 +427,23 @@ export function DataTableToolbar({
                   />
                 </DropdownMenuContent>
               </DropdownMenu>
+              {state.groupBy ? (
+                <ToolbarActiveBadge onClear={() => onGroupByChange(null)} ariaLabel="Clear group by">
+                  1
+                </ToolbarActiveBadge>
+              ) : null}
             </div>
           )}
 
           {/* Sort By */}
           {sortOptions.length > 0 && (
-            <div className="flex items-center shrink-0">
+            <div className="relative flex shrink-0 items-center">
               <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    className={cn(controlBtnClass('relative flex-nowrap shrink-0'))}
+                    className={controlBtnClass('flex-nowrap shrink-0')}
                     aria-label="Sort"
                   >
                     <ArrowUpDown className={iconClass()} />
@@ -509,16 +454,6 @@ export function DataTableToolbar({
                         'Sort by'
                       )}
                     </span>
-                    <ChevronDown className={chevronClass} />
-                    {state.sortBy ? (
-                      <ClearableBadge onClear={() => onSortChange(null, 'desc')} ariaLabel="Clear sort">
-                        {state.sortDirection === 'asc' ? (
-                          <ArrowUp className="h-3 w-3" />
-                        ) : (
-                          <ArrowDown className="h-3 w-3" />
-                        )}
-                      </ClearableBadge>
-                    ) : null}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[240px]">
@@ -564,29 +499,30 @@ export function DataTableToolbar({
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {state.sortBy ? (
+                <ToolbarActiveBadge onClear={() => onSortChange(null, 'desc')} ariaLabel="Clear sort">
+                  {state.sortDirection === 'asc' ? (
+                    <ArrowUp className="h-3 w-3" />
+                  ) : (
+                    <ArrowDown className="h-3 w-3" />
+                  )}
+                </ToolbarActiveBadge>
+              ) : null}
             </div>
           )}
 
           {/* Filters */}
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className={cn(
-                    controlBtnClass('relative'),
-                  )}
+                  className={controlBtnClass()}
                   aria-label={`Filter${effectiveActiveFilterCount > 0 ? ` (${effectiveActiveFilterCount})` : ''}`}
                 >
                   <Filter className={iconClass()} />
                   <span className={labelClass}>Filter</span>
-                  <ChevronDown className={chevronClass} />
-                  {effectiveActiveFilterCount > 0 ? (
-                    <ClearableBadge onClear={handleClearAllFilters} ariaLabel="Clear all filters">
-                      {effectiveActiveFilterCount}
-                    </ClearableBadge>
-                  ) : null}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
@@ -881,6 +817,11 @@ export function DataTableToolbar({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            {effectiveActiveFilterCount > 0 ? (
+              <ToolbarActiveBadge onClear={handleClearAllFilters} ariaLabel="Clear all filters">
+                {effectiveActiveFilterCount}
+              </ToolbarActiveBadge>
+            ) : null}
           </div>
         </div>
       </div>

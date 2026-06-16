@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -23,7 +24,7 @@ import {
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { tutorTableShell } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemBundlePayload, RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -34,6 +35,7 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
+import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -58,7 +60,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
-  const [draftDescription, setDraftDescription] = useState('')
+  const [draftDescription, setDraftDescription] = useState<RichTextJson | null>(null)
   const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
@@ -67,6 +69,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   useEffect(() => {
     const current = detail.data
@@ -76,7 +79,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     const stemIds = stems.map((s) => s.stem_id)
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
-    setDraftDescription(proseMirrorToPlainText(current.description))
+    setDraftDescription((current.description ?? null) as RichTextJson | null)
     const sec = current.time_limit_seconds ?? 0
     setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
@@ -88,7 +91,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     setBaseline(
       snapshotSetDetail({
         name: proseMirrorToPlainText(current.name ?? null),
-        description: proseMirrorToPlainText(current.description),
+        description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
         isPrivate: !!current.is_private,
         isStudentGenerated: false,
@@ -312,7 +315,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       {stemsThatWillBecomePublicCount > 0 && (
         <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
       )}
-      <div className={cn('mt-4 h-[70vh]', tutorTableShell)}>
+      <div className={cn('relative mt-4 flex h-[70vh] min-h-0 flex-col', tutorTableShell)}>
         <UcatSetEditorContent
           draftName={draftName}
           draftDescription={draftDescription}
@@ -352,6 +355,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onChangeTimeLimitSource={setDraftTimeLimitSource}
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
+          onActiveTextEditorChange={setActiveTextEditor}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
@@ -360,6 +364,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
             number_of_questions: s.number_of_questions ?? null,
           }))}
         />
+        <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
 
       <UcatQuestionStemDialog

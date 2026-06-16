@@ -24,6 +24,7 @@ import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
+import { tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 type SetOption = {
   id: string
@@ -387,6 +388,7 @@ export function Step4CreateSet({
               <ListToolbar
                 search={search}
                 onSearchChange={setSearch}
+                {...tutorToolbarProps}
                 searchPlaceholder="Filter sets"
                 filterDefinitions={SET_FILTER_DEFINITIONS}
                 filters={filters}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
@@ -106,6 +107,7 @@ export function UcatQuestionStemDialog({
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
       return {
@@ -185,6 +187,7 @@ export function UcatQuestionStemDialog({
   useEffect(() => {
     if (!open) {
       lastResetStemIdRef.current = null
+      setActiveTextEditor(null)
     }
   }, [open])
 
@@ -319,6 +322,7 @@ export function UcatQuestionStemDialog({
       headerActions={headerActions}
       hideCancel
       defaultExpanded
+      richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <UcatStemEditorShell
@@ -333,6 +337,7 @@ export function UcatQuestionStemDialog({
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
+          onActiveTextEditorChange={setActiveTextEditor}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

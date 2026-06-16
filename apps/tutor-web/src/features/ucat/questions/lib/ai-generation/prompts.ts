@@ -5,24 +5,28 @@ export type AiGenerationSectionKey =
   | 'situational_judgement'
   | 'generic'
 
-export const AI_GENERATION_SYSTEM_PROMPT = `You generate high-quality UCAT ANZ question stems for tutor review.
+export const AI_GENERATION_SYSTEM_PROMPT = `You generate UCAT ANZ tutor-review drafts that should need minimal editing before approval.
 
 Return JSON only. Do not include markdown or prose outside the JSON object.
+Write in the style of official UCAT practice material: concise stems, ordinary real-world contexts, precise wording, plausible distractors, and no teaching-style scaffolding.
 Every generated question must include a concise, student-facing question-level answerExplanation.
-Explanations must justify why the correct answer is correct, and should not merely restate the answer.
-Do not copy sample stems verbatim. Create distinct scenarios that test similar reasoning skills.
-Avoid image-dependent questions unless the request explicitly asks for images.`
+Explanations must justify why the correct answer is correct and why the main distractors fail.
+Do not copy sample stems, distinctive premises, data relationships, names, or near-exact wording. Use examples only to calibrate style, length, difficulty, and answer format.
+Avoid image-dependent questions unless the selected category warrants a deterministic table, chart, diagram, or visual spec that contains examinable data.`
 
 const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
   verbal_reasoning: `Verbal Reasoning rules:
-- Each stem must be a passage of 2-6 paragraphs.
+- Each stem must be a passage of 2-6 paragraphs, written like a compact factual article or commentary excerpt.
 - Generate exactly 4 questions per stem.
+- Keep the passage self-contained and neutral. Do not require outside knowledge, specialist facts, or moral judgement.
+- Use dense but readable prose with enough detail for inference, author attitude, purpose, exact wording, and not-given distinctions.
 - A stem must use one answer mode consistently:
-  - True, False, Can't Tell category: every question has exactly 3 options: True, False, Can't Tell.
+  - True, False, Can't Tell category: every question has exactly 3 options, in this order: True, False, Can't Tell.
   - Reading Comprehension category: every question has exactly 4 options.
 - Use only one correct answer per question.
-- Questions must be answerable from the passage alone.
-- Include a question-level answerExplanation for every question, explaining why the correct answer is correct and why distractors are wrong.`,
+- Questions must be answerable from the passage alone. Wrong options should be tempting because they overstate, reverse, confuse scope, import outside knowledge, or match only part of the passage.
+- Do not write comprehension questions that can be answered by keyword matching alone.
+- Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.`,
   decision_making: `Decision Making rules:
 - Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Drawing Conclusions, Probabilistic and Statistical Reasoning, Logical Puzzles.
 - Generate exactly 1 question per stem.
@@ -31,14 +35,19 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Syllogisms question text must be exactly: Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
 - Recognising Assumptions question text must be exactly: Select the strongest argument from the statements below.
 - Syllogisms must have exactly five statements and per-option explanations.
+- Keep standalone stems compact. Use precise conditions, dates, quantities, set relationships, rankings, eligibility rules, or short public-policy prompts.
+- Correct answers must follow from the supplied information, not real-world plausibility. Distractors should fail by adding assumptions, reversing conditions, confusing necessary and sufficient conditions, or ignoring constraints.
+- Argument items should use a balanced public question and four arguments. The strongest option should be directly relevant, evidence-based, and decisive; weaker options should be emotive, tangential, unsupported, or too narrow.
 - Include a question-level answerExplanation for non-syllogism questions.`,
   quantitative_reasoning: `Quantitative Reasoning rules:
-- Generate structured tables and deterministic visual specs where useful; do not rely on freeform image descriptions.
-- Use realistic numbers, units, and calculations.
+- Generate between 1 and 4 questions per stem, using the same data source where multiple questions are present.
 - Include exactly 5 options and exactly one correct answer per question.
-- Generate between 1 and 4 questions per stem.
-- Include enough information in the stem for all calculations.
-- Include a question-level answerExplanation for every question with the working or reasoning.`,
+- Use realistic numbers, units, ratios, percentages, currencies, dates, times, distances, rates, prices, or summary statistics.
+- Use structured tables and deterministic visual specs where useful; do not rely on freeform image descriptions.
+- Keep the data source compact but information-rich. Official-style QR often asks for one or two calculation steps plus interpretation, not long algebra.
+- Make distractors numerically plausible: common rounding choices, inverse ratios, wrong denominator, percentage point vs percent change, unit conversion slips, transposed table entries, or reading the wrong series.
+- Include enough information in the stem for all calculations, including any formula or reference definition needed.
+- Include a question-level answerExplanation for every question with auditable working and units.`,
   situational_judgement: `Situational Judgement rules:
 - Generate realistic professional/ethical scenarios.
 - Generate exactly 4 questions per stem.
@@ -46,6 +55,9 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - How Important options exactly: Very important; Important; Of minor importance; Not important at all.
 - How Appropriate options exactly: A very appropriate thing to do; Appropriate, but not ideal; Inappropriate, but not awful; A very inappropriate thing to do.
 - Include exactly one best answer per question.
+- Scenario context should be brief and concrete: medical student, junior doctor, patient, colleague, tutor, supervisor, ward, clinic, placement, confidentiality, consent, safety, honesty, respect, teamwork, or escalation.
+- Each question should evaluate one consideration or action, not a bundle of several actions.
+- The best answer should reflect patient safety, professional integrity, scope of practice, confidentiality, seeking help, and respectful communication.
 - Include a question-level answerExplanation for every question, acknowledging plausible judgement nuance where relevant.`,
   generic: `Generic UCAT rules:
 - Generate coherent UCAT-style stems with linked questions.

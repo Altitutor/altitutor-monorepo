@@ -20,6 +20,7 @@ import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
+import { tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -730,6 +731,7 @@ export function UcatClassDialog({
             <ListToolbar
               search={searchSessions}
               onSearchChange={setSearchSessions}
+              {...tutorToolbarProps}
               searchPlaceholder="Search sessions"
               filterDefinitions={sessionFilterDefinitions}
               filters={filtersSessions}
@@ -781,6 +783,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchSets}
                   onSearchChange={setSearchSets}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter sets"
                   filterDefinitions={setFilterDefinitions}
                   filters={filtersSets}
@@ -814,6 +817,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchMocks}
                   onSearchChange={setSearchMocks}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter mocks"
                   filterDefinitions={mockFilterDefinitions}
                   filters={filtersMocks}
@@ -834,6 +838,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchStems}
                   onSearchChange={setSearchStems}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter stems"
                   filterDefinitions={stemFilterDefinitions}
                   filters={filtersStems}
@@ -858,6 +863,7 @@ export function UcatClassDialog({
                 <ListToolbar
                   search={searchLessons}
                   onSearchChange={setSearchLessons}
+                  {...tutorToolbarProps}
                   searchPlaceholder="Filter lessons"
                 />
                 <div className="space-y-1.5 max-h-96 overflow-auto">
