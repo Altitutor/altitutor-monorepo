@@ -13,6 +13,7 @@ import { TextSelection } from '@tiptap/pm/state'
 import type { Editor } from '@tiptap/react'
 import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
+import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
 import {
   createUcatParseHighlight,
   UCAT_PARSE_DECO_META,
@@ -416,6 +417,19 @@ export function UcatRichTextEditor({
   const pasteImagesProp =
     enableImages !== false ? { onPasteImages: handlePasteImages } : {}
 
+  const jsonRecord =
+    value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+  const { content: refreshedContent, hasImageRefs } = useRefreshedUcatContent(jsonRecord)
+
+  // Match UcatRichContentBlock: never mount TipTap with expired signed URLs — broken
+  // images do not recover when src is updated via setContent after the first failed load.
+  const waitingForImageRefresh = hasImageRefs && refreshedContent == null
+  const editorContent = waitingForImageRefresh
+    ? null
+    : refreshedContent != null
+      ? (refreshedContent as JSONContent)
+      : toJsonContent(value)
+
   const omitTypography =
     forceLightChrome || ucatParseHighlight.mode !== 'off'
 
@@ -434,37 +448,41 @@ export function UcatRichTextEditor({
       }}
       onDrop={handleDrop}
     >
-      {isPasteProcessing ? (
+      {isPasteProcessing || waitingForImageRefresh ? (
         <div
           className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md bg-background/80 text-sm text-muted-foreground backdrop-blur-[1px]"
           aria-live="polite"
           aria-busy="true"
         >
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-          <span>Pasting…</span>
+          <span>{isPasteProcessing ? 'Pasting…' : 'Loading images…'}</span>
         </div>
       ) : null}
-      <RichTextEditor
-        ref={editorRef}
-        content={toJsonContent(value)}
-        onChange={onChange ? (json) => onChange(fromJsonContent(json)) : undefined}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        editable={editable}
-        minHeight={minHeight}
-        pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
-        pasteTableBehavior={pasteTableBehavior}
-        pasteStripFormatting={pasteStripFormatting}
-        extensions={mergedExtraExtensions}
-        omitTypography={omitTypography}
-        onEditorReady={(ed) => {
-          if (ucatParseHighlightProp != null) {
-            ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))
-          }
-          onEditorReadyProp?.(ed)
-        }}
-        {...pasteImagesProp}
-      />
+      {!waitingForImageRefresh ? (
+        <RichTextEditor
+          ref={editorRef}
+          content={editorContent}
+          onChange={onChange ? (json) => onChange(fromJsonContent(json)) : undefined}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          editable={editable}
+          minHeight={minHeight}
+          pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
+          pasteTableBehavior={pasteTableBehavior}
+          pasteStripFormatting={pasteStripFormatting}
+          extensions={mergedExtraExtensions}
+          omitTypography={omitTypography}
+          onEditorReady={(ed) => {
+            if (ucatParseHighlightProp != null) {
+              ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))
+            }
+            onEditorReadyProp?.(ed)
+          }}
+          {...pasteImagesProp}
+        />
+      ) : (
+        <div style={{ minHeight }} aria-hidden />
+      )}
     </div>
   )
 }

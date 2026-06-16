@@ -21,26 +21,36 @@ export function extractUcatImagePathFromSignedUrl(src: string): string | null {
 /** Default expiry for refreshed URLs: 24 hours (covers a typical exam session). */
 export const REFRESHED_URL_EXPIRY_SECONDS = 86400
 
+type UcatImageRef =
+  | { node: Record<string, unknown>; path: string; fileId?: null }
+  | { node: Record<string, unknown>; path?: null; fileId: string }
+
 /**
  * Recursively walks a Tiptap JSON document and replaces ucat-images signed URLs
  * with fresh signed URLs. Returns a deep clone with updated image srcs.
  */
 export async function refreshUcatImageUrls(
   doc: Record<string, unknown>,
-  createSignedUrl: (path: string) => Promise<string>
+  createSignedUrl: (path: string) => Promise<string>,
+  createSignedUrlFromFileId?: (fileId: string) => Promise<string>
 ): Promise<Record<string, unknown>> {
   const result = JSON.parse(JSON.stringify(doc)) as Record<string, unknown>
-  const nodesToRefresh: Array<{ node: Record<string, unknown>; path: string }> = []
+  const nodesToRefresh: UcatImageRef[] = []
 
   function walk(node: Record<string, unknown>): void {
     if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
       const attrs = node.attrs as Record<string, unknown>
       const src = attrs.src
+      const fileId = attrs.fileId
       if (typeof src === 'string') {
         const path = extractUcatImagePathFromSignedUrl(src)
         if (path) {
           nodesToRefresh.push({ node, path })
+          return
         }
+      }
+      if (typeof fileId === 'string' && fileId.length > 0 && createSignedUrlFromFileId) {
+        nodesToRefresh.push({ node, fileId })
       }
     }
     const content = node.content
@@ -55,7 +65,13 @@ export async function refreshUcatImageUrls(
 
   walk(result)
 
-  const freshUrls = await Promise.all(nodesToRefresh.map(({ path }) => createSignedUrl(path)))
+  const freshUrls = await Promise.all(
+    nodesToRefresh.map((ref) => {
+      if ('path' in ref && ref.path) return createSignedUrl(ref.path)
+      const fileId = ref.fileId
+      return fileId ? createSignedUrlFromFileId?.(fileId) ?? '' : ''
+    })
+  )
 
   for (let i = 0; i < nodesToRefresh.length; i++) {
     const attrs = nodesToRefresh[i].node.attrs as Record<string, unknown>
@@ -65,4 +81,46 @@ export async function refreshUcatImageUrls(
   }
 
   return result
+}
+
+/** Collects unique ucat-images storage paths and file IDs from a Tiptap JSON document. */
+export function collectUcatImageRefsFromDoc(doc: Record<string, unknown>): {
+  paths: string[]
+  fileIds: string[]
+} {
+  const paths = new Set<string>()
+  const fileIds = new Set<string>()
+
+  function walk(node: Record<string, unknown>): void {
+    if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
+      const attrs = node.attrs as Record<string, unknown>
+      const src = attrs.src
+      if (typeof src === 'string') {
+        const path = extractUcatImagePathFromSignedUrl(src)
+        if (path) {
+          paths.add(path)
+        } else if (typeof attrs.fileId === 'string' && attrs.fileId.length > 0) {
+          fileIds.add(attrs.fileId)
+        }
+      } else if (typeof attrs.fileId === 'string' && attrs.fileId.length > 0) {
+        fileIds.add(attrs.fileId)
+      }
+    }
+    const content = node.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === 'object') {
+          walk(child as Record<string, unknown>)
+        }
+      }
+    }
+  }
+
+  walk(doc)
+  return { paths: [...paths], fileIds: [...fileIds] }
+}
+
+/** Collects unique ucat-images storage paths from a Tiptap JSON document. */
+export function collectUcatImagePathsFromDoc(doc: Record<string, unknown>): string[] {
+  return collectUcatImageRefsFromDoc(doc).paths
 }
