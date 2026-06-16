@@ -6,7 +6,7 @@ import { Badge, Button, getUcatVisibilityColor } from '@altitutor/ui'
 import { Pencil, Plus } from 'lucide-react'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatCatalogListPanel } from '@/features/ucat/shared/components/ucat-catalog-list-panel'
-import { UcatSearchScopePill } from '@/features/ucat/shared/components/ucat-search-scope-pill'
+import { mergeVisibleOrderIntoFull, UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatCatalogListState } from '@/features/ucat/shared/hooks/useUcatCatalogListState'
 import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
@@ -22,6 +22,7 @@ import {
 } from '@/features/ucat/shared/lib/set-catalog-filters'
 import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import { paginateCatalogItems } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
+import { hasCatalogToolbarRefinements } from '@/features/ucat/shared/lib/ucat-catalog-toolbar'
 import { cn } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary, tutorTransition } from '@/shared/lib/tutor-visual'
 
@@ -76,6 +77,39 @@ function SetCatalogMetadata({
           · {formatSetTimeLimit(set.time_limit_seconds)}
         </SetStatusSpan>
       ) : null}
+    </div>
+  )
+}
+
+export function SetListLabel({
+  set,
+  id,
+  index,
+  sections,
+  visibleColumns = getDefaultSetCatalogVisibleColumns(),
+}: {
+  set: SetOption | undefined
+  id: string
+  index: number
+  sections: UcatSetCatalogListPanelProps['sections']
+  visibleColumns?: string[]
+}) {
+  if (!set) {
+    return (
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
+        <span className="text-xs sm:text-sm">{id.slice(0, 8)}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
+      <div className="min-w-0">
+        <div className="line-clamp-2 break-words text-xs font-medium sm:text-sm">{set.name}</div>
+        <SetCatalogMetadata set={set} sections={sections} visibleColumns={visibleColumns} />
+      </div>
     </div>
   )
 }
@@ -211,13 +245,9 @@ export function UcatSetCatalogListPanel({
       search={search}
       onSearchChange={onSearchChange}
       searchPlaceholder={searchPlaceholder}
-      searchLeadingAccessory={
-        <UcatSearchScopePill
-          options={setCatalogSearchScopeOptions}
-          scopes={searchScopes}
-          onScopesChange={setSearchScopes}
-        />
-      }
+      searchFromOptions={setCatalogSearchScopeOptions}
+      searchFromValue={searchScopes}
+      onSearchFromChange={(values) => setSearchScopes(values as SetCatalogSearchScope[])}
       filterDefinitions={filterDefinitions}
       filters={filters}
       onFiltersChange={onFiltersChange}
@@ -250,6 +280,119 @@ export function UcatSetCatalogListPanel({
           onEdit={onEditSet ? () => onEditSet(set.id) : undefined}
         />
       ))}
+    </UcatCatalogListPanel>
+  )
+}
+
+type UcatSetMembershipListPanelProps = {
+  setIds: string[]
+  onSetIdsChange: (ids: string[]) => void
+  sets: SetOption[]
+  filterDefinitions: DataTableFilterDefinition[]
+  filterSearchValues?: Record<string, string>
+  onFilterSearchChange?: (filterKey: string, value: string) => void
+  sections?: UcatSetCatalogListPanelProps['sections']
+  onEditSet?: (setId: string) => void
+  emptyMessage?: string
+  searchPlaceholder?: string
+  className?: string
+}
+
+export function UcatSetMembershipListPanel({
+  setIds,
+  onSetIdsChange,
+  sets,
+  filterDefinitions,
+  filterSearchValues,
+  onFilterSearchChange,
+  sections = [],
+  onEditSet,
+  emptyMessage = 'No sets match the current filters.',
+  searchPlaceholder = 'Search sets',
+  className,
+}: UcatSetMembershipListPanelProps) {
+  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [searchScopes, setSearchScopes] = useState<SetCatalogSearchScope[]>(defaultSetCatalogSearchScopes)
+  const listState = useUcatCatalogListState(getDefaultSetCatalogVisibleColumns())
+
+  const setById = useMemo(() => new Map(sets.map((set) => [set.id, set])), [sets])
+
+  const membershipSets = useMemo(
+    () =>
+      setIds
+        .map((id) => setById.get(id))
+        .filter((set): set is SetOption => set != null),
+    [setIds, setById],
+  )
+
+  const filteredSets = useMemo(
+    () => filterSetCatalogItems({ sets: membershipSets, search, filters, searchScopes }),
+    [membershipSets, search, filters, searchScopes],
+  )
+
+  const filteredIdSet = useMemo(() => new Set(filteredSets.map((set) => set.id)), [filteredSets])
+
+  const displayIds = useMemo(
+    () => setIds.filter((id) => filteredIdSet.has(id)),
+    [setIds, filteredIdSet],
+  )
+
+  const reorderDisabled = useMemo(
+    () =>
+      hasCatalogToolbarRefinements({
+        search,
+        searchScopes,
+        defaultSearchScopes: defaultSetCatalogSearchScopes,
+        filters,
+      }),
+    [search, searchScopes, filters],
+  )
+
+  if (setIds.length === 0) {
+    return <p className="text-sm text-muted-foreground">No sets in this mock yet.</p>
+  }
+
+  return (
+    <UcatCatalogListPanel
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder={searchPlaceholder}
+      searchFromOptions={setCatalogSearchScopeOptions}
+      searchFromValue={searchScopes}
+      onSearchFromChange={(values) => setSearchScopes(values as SetCatalogSearchScope[])}
+      filterDefinitions={filterDefinitions}
+      filters={filters}
+      onFiltersChange={setFilters}
+      filterSearchValues={filterSearchValues}
+      onFilterSearchChange={onFilterSearchChange}
+      columnDefinitions={setCatalogColumnDefinitions}
+      visibleColumns={listState.state.visibleColumns}
+      onVisibleColumnsChange={listState.actions.onVisibleColumnsChange}
+      emptyMessage={emptyMessage}
+      hasItems={displayIds.length > 0}
+      hidePagination
+      compact={false}
+      className={className}
+    >
+      <UcatSortableList
+        ids={displayIds}
+        disableReorder={reorderDisabled}
+        onChange={(reorderedVisibleIds) => {
+          onSetIdsChange(mergeVisibleOrderIntoFull(setIds, displayIds, reorderedVisibleIds))
+        }}
+        onRemove={(id) => onSetIdsChange(setIds.filter((setId) => setId !== id))}
+        onEdit={onEditSet}
+        renderLabel={(id) => (
+          <SetListLabel
+            set={setById.get(id)}
+            id={id}
+            index={setIds.indexOf(id)}
+            sections={sections}
+            visibleColumns={listState.state.visibleColumns}
+          />
+        )}
+      />
     </UcatCatalogListPanel>
   )
 }

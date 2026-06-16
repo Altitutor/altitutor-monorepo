@@ -1,13 +1,39 @@
-import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
+import {
+  tutorToolbarClassName,
+  tutorToolbarControlClassName,
+  tutorToolbarRowClassName,
+  tutorToolbarSearchContainerClassName,
+  tutorToolbarSearchInputClassName,
+} from '@/shared/lib/tutor-visual'
 
-export const ucatCatalogToolbarClassName =
-  'rounded-2xl bg-card/80 p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/[0.06] dark:ring-white/[0.08]'
+export const ucatCatalogToolbarClassName = tutorToolbarClassName
 
-export const ucatCatalogToolbarRowClassName = 'gap-1.5'
+export const ucatCatalogToolbarRowClassName = tutorToolbarRowClassName
 
-export const ucatCatalogToolbarSearchContainerClassName =
-  'h-9 min-w-0 flex-1 rounded-xl border-0 bg-muted/55 px-2 shadow-sm ring-1 ring-black/[0.06] focus-within:ring-brand-blue/25 dark:ring-white/10'
+export const ucatCatalogToolbarSearchContainerClassName = tutorToolbarSearchContainerClassName
 
-export const ucatCatalogToolbarSearchInputClassName = 'placeholder:text-muted-foreground/70 text-sm'
+export const ucatCatalogToolbarSearchInputClassName = tutorToolbarSearchInputClassName
 
-export const ucatCatalogToolbarControlClassName = tutorBtnOutline
+export const ucatCatalogToolbarControlClassName = tutorToolbarControlClassName
+
+export function hasCatalogToolbarRefinements({
+  search,
+  searchScopes,
+  defaultSearchScopes,
+  filters,
+}: {
+  search: string
+  searchScopes: string[]
+  defaultSearchScopes: string[]
+  filters: Record<string, unknown[]>
+}): boolean {
+  if (search.trim().length > 0) return true
+
+  const scopesMatchDefaults =
+    searchScopes.length === defaultSearchScopes.length &&
+    defaultSearchScopes.every((scope) => searchScopes.includes(scope))
+
+  if (!scopesMatchDefaults) return true
+
+  return Object.values(filters).some((values) => Array.isArray(values) && values.length > 0)
+}

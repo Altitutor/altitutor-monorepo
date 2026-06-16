@@ -6,12 +6,13 @@ import { Badge, Button, getUcatVisibilityColor } from '@altitutor/ui'
 import { Eye, Pencil, Plus } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatCatalogListPanel } from '@/features/ucat/shared/components/ucat-catalog-list-panel'
-import { UcatSearchScopePill } from '@/features/ucat/shared/components/ucat-search-scope-pill'
+import { mergeVisibleOrderIntoFull, UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { useUcatCatalogListState } from '@/features/ucat/shared/hooks/useUcatCatalogListState'
 import {
   resolveCategoryPathLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { paginateCatalogItems } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
+import { hasCatalogToolbarRefinements } from '@/features/ucat/shared/lib/ucat-catalog-toolbar'
 import {
   defaultStemCatalogSearchScopes,
   filterStemCatalogItems,
@@ -168,17 +169,21 @@ export function UcatStemCatalogLabel({
   stem,
   id,
   index,
+  visibleColumns = getDefaultStemCatalogVisibleColumns(),
 }: {
   stem: UcatStemCatalogItem | undefined
   id: string
   index: number
+  visibleColumns?: string[]
 }) {
   return (
     <div className="flex items-start gap-2">
       <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
       <div className="min-w-0">
         <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
-        {stem ? <UcatStemCatalogMetadata stem={stem} visibleColumns={getDefaultStemCatalogVisibleColumns()} /> : null}
+        {stem ? (
+          <UcatStemCatalogMetadata stem={stem} visibleColumns={visibleColumns} />
+        ) : null}
       </div>
     </div>
   )
@@ -278,13 +283,9 @@ export function UcatStemCatalogListPanel({
       search={search}
       onSearchChange={onSearchChange}
       searchPlaceholder={searchPlaceholder}
-      searchLeadingAccessory={
-        <UcatSearchScopePill
-          options={stemCatalogSearchScopeOptions}
-          scopes={searchScopes}
-          onScopesChange={setSearchScopes}
-        />
-      }
+      searchFromOptions={stemCatalogSearchScopeOptions}
+      searchFromValue={searchScopes}
+      onSearchFromChange={(values) => setSearchScopes(values as StemCatalogSearchScope[])}
       filterDefinitions={filterDefinitions}
       filters={filters}
       onFiltersChange={onFiltersChange}
@@ -326,6 +327,116 @@ export function UcatStemCatalogListPanel({
 /** @deprecated Use `UcatStemCatalogListPanel` */
 export function UcatStemCatalogAddPanel(props: UcatStemCatalogListPanelProps) {
   return <UcatStemCatalogListPanel {...props} />
+}
+
+type UcatStemMembershipListPanelProps = {
+  stemIds: string[]
+  onStemIdsChange: (ids: string[]) => void
+  stems: UcatStemCatalogItem[]
+  filterDefinitions: DataTableFilterDefinition[]
+  filterSearchValues?: Record<string, string>
+  onFilterSearchChange?: (filterKey: string, value: string) => void
+  onEditStem?: (stemId: string) => void
+  emptyMessage?: string
+  searchPlaceholder?: string
+  className?: string
+}
+
+export function UcatStemMembershipListPanel({
+  stemIds,
+  onStemIdsChange,
+  stems,
+  filterDefinitions,
+  filterSearchValues,
+  onFilterSearchChange,
+  onEditStem,
+  emptyMessage = 'No stems match the current filters.',
+  searchPlaceholder = 'Search stems or questions',
+  className,
+}: UcatStemMembershipListPanelProps) {
+  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [searchScopes, setSearchScopes] = useState<StemCatalogSearchScope[]>(defaultStemCatalogSearchScopes)
+  const listState = useUcatCatalogListState(getDefaultStemCatalogVisibleColumns())
+
+  const stemById = useMemo(() => new Map(stems.map((stem) => [stem.id, stem])), [stems])
+
+  const membershipStems = useMemo(
+    () =>
+      stemIds
+        .map((id) => stemById.get(id))
+        .filter((stem): stem is UcatStemCatalogItem => stem != null),
+    [stemIds, stemById],
+  )
+
+  const filteredStems = useMemo(
+    () => filterStemCatalogItems({ stems: membershipStems, search, filters, searchScopes }),
+    [membershipStems, search, filters, searchScopes],
+  )
+
+  const filteredIdSet = useMemo(() => new Set(filteredStems.map((stem) => stem.id)), [filteredStems])
+
+  const displayIds = useMemo(
+    () => stemIds.filter((id) => filteredIdSet.has(id)),
+    [stemIds, filteredIdSet],
+  )
+
+  const reorderDisabled = useMemo(
+    () =>
+      hasCatalogToolbarRefinements({
+        search,
+        searchScopes,
+        defaultSearchScopes: defaultStemCatalogSearchScopes,
+        filters,
+      }),
+    [search, searchScopes, filters],
+  )
+
+  if (stemIds.length === 0) {
+    return <p className="text-sm text-muted-foreground">No stems in this set yet.</p>
+  }
+
+  return (
+    <UcatCatalogListPanel
+      search={search}
+      onSearchChange={setSearch}
+      searchPlaceholder={searchPlaceholder}
+      searchFromOptions={stemCatalogSearchScopeOptions}
+      searchFromValue={searchScopes}
+      onSearchFromChange={(values) => setSearchScopes(values as StemCatalogSearchScope[])}
+      filterDefinitions={filterDefinitions}
+      filters={filters}
+      onFiltersChange={setFilters}
+      filterSearchValues={filterSearchValues}
+      onFilterSearchChange={onFilterSearchChange}
+      columnDefinitions={stemCatalogColumnDefinitions}
+      visibleColumns={listState.state.visibleColumns}
+      onVisibleColumnsChange={listState.actions.onVisibleColumnsChange}
+      emptyMessage={emptyMessage}
+      hasItems={displayIds.length > 0}
+      hidePagination
+      compact={false}
+      className={className}
+    >
+      <UcatSortableList
+        ids={displayIds}
+        disableReorder={reorderDisabled}
+        onChange={(reorderedVisibleIds) => {
+          onStemIdsChange(mergeVisibleOrderIntoFull(stemIds, displayIds, reorderedVisibleIds))
+        }}
+        onRemove={(id) => onStemIdsChange(stemIds.filter((stemId) => stemId !== id))}
+        onEdit={onEditStem}
+        renderLabel={(id) => (
+          <UcatStemCatalogLabel
+            stem={stemById.get(id)}
+            id={id}
+            index={stemIds.indexOf(id)}
+            visibleColumns={listState.state.visibleColumns}
+          />
+        )}
+      />
+    </UcatCatalogListPanel>
+  )
 }
 
 export function UcatStemCatalogSidePanel({

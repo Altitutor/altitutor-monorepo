@@ -36,15 +36,17 @@ type UcatCatalogListPanelProps = {
   columnDefinitions?: DataTableColumnDefinition[]
   visibleColumns?: string[]
   onVisibleColumnsChange?: (columns: string[]) => void
-  page: number
-  pageSize: number
-  total: number
-  onPageChange: (page: number) => void
-  onPageSizeChange: (pageSize: number) => void
+  page?: number
+  pageSize?: number
+  total?: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
   pageSizeOptions?: number[]
   isLoading?: boolean
   emptyMessage: string
   hasItems: boolean
+  hidePagination?: boolean
+  compact?: boolean
   className?: string
   children: React.ReactNode
 }
@@ -69,13 +71,15 @@ export function UcatCatalogListPanel({
   columnDefinitions = [],
   visibleColumns = [],
   onVisibleColumnsChange,
-  page,
-  pageSize,
-  total,
-  onPageChange,
+  page = 1,
+  pageSize = 10,
+  total = 0,
+  onPageChange = () => {},
   isLoading = false,
   emptyMessage,
   hasItems,
+  hidePagination = false,
+  compact = true,
   className,
   children,
 }: UcatCatalogListPanelProps) {
@@ -86,7 +90,7 @@ export function UcatCatalogListPanel({
     <div className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
       <div className="shrink-0 pb-2">
         <ListToolbar
-          compact
+          compact={compact}
           search={search}
           onSearchChange={onSearchChange}
           searchPlaceholder={searchPlaceholder}
@@ -128,7 +132,7 @@ export function UcatCatalogListPanel({
         )}
       </div>
 
-      {!isLoading && pageCount > 1 ? (
+      {!hidePagination && !isLoading && pageCount > 1 ? (
         <div className="mt-2 shrink-0 pt-2">
           <UcatCatalogPagination
             page={effectivePage}
