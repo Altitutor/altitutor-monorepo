@@ -22,7 +22,7 @@ import { useCreateUcatSection, useUcatSections, useUpdateUcatSection } from '@/f
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import type { Json } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
@@ -374,7 +374,12 @@ export function UcatSectionsPage() {
   }
 
   const editingCopyIdAction =
-    editing != null ? buildCopyIdRowAction([{ label: 'Section', id: editing.id }], copyId) : null
+    editing != null
+      ? buildCopyIdRowAction(
+          [{ label: 'Section', id: editing.id, description: withCopyIdDescription(editing.name) }],
+          copyId,
+        )
+      : null
 
   return (
     <div className="space-y-6 py-8 md:py-10">

@@ -4,7 +4,7 @@ import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { buildCopyIdRowAction, summarizeLearningModuleBlock, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
@@ -63,10 +63,15 @@ export function UcatLearningModuleDialog({
     moduleId != null
       ? buildCopyIdRowAction(
           [
-            { label: 'Module', id: moduleId },
+            {
+              label: 'Module',
+              id: moduleId,
+              description: withCopyIdDescription(editor.title.trim() || editor.moduleQuery.data?.title),
+            },
             ...editor.draftBlocks.map((block, index) => ({
               label: `Block ${index + 1}`,
               id: block.clientId,
+              description: summarizeLearningModuleBlock(block),
             })),
           ],
           copyId,

@@ -689,10 +689,15 @@ export function UcatClassDialog({
     classId != null
       ? buildCopyIdRowAction(
           [
-            { label: 'Class', id: classId },
+            {
+              label: 'Class',
+              id: classId,
+              description: `${sessions.length} session${sessions.length === 1 ? '' : 's'}`,
+            },
             ...sessions.map((session, index) => ({
               label: sessionTitle(session.start_at) || `Session ${index + 1}`,
               id: session.session_id,
+              description: `${session.resources.length} resource${session.resources.length === 1 ? '' : 's'}`,
             })),
           ],
           copyId,

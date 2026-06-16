@@ -13,7 +13,7 @@ import {
 } from '@/shared/components/segmented-tab-panel'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
@@ -214,7 +214,13 @@ export function UcatQuestionTagDialog({
     onClose()
   }
 
-  const copyIdAction = tag != null ? buildCopyIdRowAction([{ label: 'Tag', id: tag.id }], copyId) : null
+  const copyIdAction =
+    tag != null
+      ? buildCopyIdRowAction(
+          [{ label: 'Tag', id: tag.id, description: withCopyIdDescription(tag.name) }],
+          copyId,
+        )
+      : null
 
   return (
     <UcatDialogShell

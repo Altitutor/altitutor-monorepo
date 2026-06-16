@@ -8,7 +8,8 @@ import { useToast } from '@altitutor/ui'
 import type { UcatSkillTrainerApprovalStatus, UcatSkillTrainerKey } from '@altitutor/shared'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { skillTrainerItemContentSummary } from '@/features/ucat/skill-trainer/lib/content-summary'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { isSnapshotDirty } from '@/features/ucat/shared/lib/dirty-state'
 import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/items'
@@ -169,7 +170,18 @@ export function UcatSkillTrainerItemDialog({
   }
 
   const copyIdAction =
-    initial?.id != null ? buildCopyIdRowAction([{ label: 'Item', id: initial.id }], copyId) : null
+    initial?.id != null
+      ? buildCopyIdRowAction(
+          [
+            {
+              label: 'Item',
+              id: initial.id,
+              description: withCopyIdDescription(skillTrainerItemContentSummary(initial)),
+            },
+          ],
+          copyId,
+        )
+      : null
 
   const headerActions =
     initial?.id != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null

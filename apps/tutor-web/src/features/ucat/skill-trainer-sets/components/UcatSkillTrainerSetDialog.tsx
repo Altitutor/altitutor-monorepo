@@ -4,7 +4,8 @@ import { ExternalLink, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
+import { skillTrainerItemContentSummary } from '@/features/ucat/skill-trainer/lib/content-summary'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSkillTrainerSetEditorShell } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetEditorShell'
 import { useSkillTrainerSetEditor } from '@/features/ucat/skill-trainer-sets/hooks/useSkillTrainerSetEditor'
@@ -63,11 +64,15 @@ export function UcatSkillTrainerSetDialog({
     setId != null
       ? buildCopyIdRowAction(
           [
-            { label: 'Set', id: setId },
-            ...editor.itemIds.map((itemId, index) => ({
-              label: `Item ${index + 1}`,
-              id: itemId,
-            })),
+            { label: 'Set', id: setId, description: withCopyIdDescription(editor.name.trim() || editor.setQuery.data?.name) },
+            ...editor.itemIds.map((itemId, index) => {
+              const item = editor.trainerItems.find((entry) => entry.id === itemId)
+              return {
+                label: `Item ${index + 1}`,
+                id: itemId,
+                description: item ? withCopyIdDescription(skillTrainerItemContentSummary(item)) : undefined,
+              }
+            }),
           ],
           copyId,
         )
