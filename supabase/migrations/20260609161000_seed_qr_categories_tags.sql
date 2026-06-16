@@ -28,9 +28,9 @@ BEGIN
     ('aab95252-6be3-5ca9-9616-aeb5e2a6113f', 'Data Tables', NULL, v_qr_section_id, NULL, NULL, NULL),
     ('afe45c18-2a27-57ad-9a35-a32cb4a286c4', 'Graphs and Charts', NULL, v_qr_section_id, NULL, NULL, NULL),
     ('c83053ac-82d4-50f3-bdaf-a1639075ec55', 'Timetables and Calendars', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('9873278c-4c4d-57eb-b895-35bf8ddd49ad', 'Maps and Diagrams', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('c4ed7537-ad09-5e52-a777-9fd03524a9fc', 'Mixed Data Sources', NULL, v_qr_section_id, NULL, NULL, NULL),
-    ('ba4f0242-b6c7-5134-beb6-fd261095ac4a', 'Text-Only Scenarios', NULL, v_qr_section_id, NULL, NULL, NULL)
+    ('ba4f0242-b6c7-5134-beb6-fd261095ac4a', 'Maps and Diagrams', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('46ca5198-7758-4bb4-bcb9-a4fb46ef6ff1', 'Mixed Data Sources', NULL, v_qr_section_id, NULL, NULL, NULL),
+    ('07afa879-be08-4c45-9f3c-ec67216c7dca', 'Text-Only Scenarios', NULL, v_qr_section_id, NULL, NULL, NULL)
   ON CONFLICT (id) DO UPDATE
   SET
     name = EXCLUDED.name,
@@ -40,13 +40,20 @@ BEGIN
 
   DELETE FROM public.question_stem_categories
   WHERE ucat_section_id = v_qr_section_id
-    AND id NOT IN (
-      'aab95252-6be3-5ca9-9616-aeb5e2a6113f',
-      'afe45c18-2a27-57ad-9a35-a32cb4a286c4',
-      'c83053ac-82d4-50f3-bdaf-a1639075ec55',
+    AND id IN (
+      '263e2492-af9d-5adc-a27c-b87eb1eb4f19',
+      '45266b56-9e78-5239-a6d8-2cef5767cd1e',
+      '598c3e68-5760-5119-84f4-eac48cd556bf',
+      '1a5c7a06-550d-5cb3-9c81-413dc1513e23',
+      'a11fb874-675f-5fc3-b23e-51c9a385f33e',
+      '1c06d50d-295f-52d0-8347-738af21b8dd3',
+      'dbaba388-56e9-5ae8-baed-b1770ee1de40',
+      'd34881b4-cfef-5ccc-98e8-67747ddaa0b3',
+      '34110545-29ce-5952-9ef5-cd786862eb75',
+      'bf87497f-0b75-5cc8-af92-e2bcab739bff',
+      '89cb9609-9be9-5ce6-a4a1-17a6970538a4',
       '9873278c-4c4d-57eb-b895-35bf8ddd49ad',
-      'c4ed7537-ad09-5e52-a777-9fd03524a9fc',
-      'ba4f0242-b6c7-5134-beb6-fd261095ac4a'
+      'c4ed7537-ad09-5e52-a777-9fd03524a9fc'
     );
 
   INSERT INTO public.question_tags (
