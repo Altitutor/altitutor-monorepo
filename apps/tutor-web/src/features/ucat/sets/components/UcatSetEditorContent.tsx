@@ -16,7 +16,7 @@ import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { Info } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
-  UcatStemCatalogAddPanel,
+  UcatStemCatalogListPanel,
   UcatStemCatalogLabel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
@@ -51,6 +51,10 @@ type UcatSetEditorContentProps = {
   filters: Record<string, unknown[]>
   setFilters: (value: Record<string, unknown[]>) => void
   filterDefinitions: DataTableFilterDefinition[]
+  categoryPathLookup?: Map<string, string>
+  filterSearchValues?: Record<string, string>
+  onFilterSearchChange?: (filterKey: string, value: string) => void
+  stemCatalogLoading?: boolean
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
   onChangeDescription: (value: string) => void
@@ -80,6 +84,10 @@ export function UcatSetEditorContent({
   filters,
   setFilters,
   filterDefinitions,
+  categoryPathLookup,
+  filterSearchValues,
+  onFilterSearchChange,
+  stemCatalogLoading = false,
   onEditStem,
   onChangeName,
   onChangeDescription,
@@ -380,9 +388,9 @@ export function UcatSetEditorContent({
           <SegmentedTabPanelContent
             when="add-stems"
             activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-4"
+            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-2"
           >
-            <UcatStemCatalogAddPanel
+            <UcatStemCatalogListPanel
               stems={stemCatalog}
               excludedIds={draftStemIds}
               search={search}
@@ -390,9 +398,13 @@ export function UcatSetEditorContent({
               filters={filters}
               onFiltersChange={setFilters}
               filterDefinitions={filterDefinitions}
+              categoryPathLookup={categoryPathLookup}
+              filterSearchValues={filterSearchValues}
+              onFilterSearchChange={onFilterSearchChange}
+              isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}
-              title="Add stems"
+              searchPlaceholder="Search stems or questions"
               emptyMessage="No stems to add, or all matching stems are already in the set."
             />
           </SegmentedTabPanelContent>

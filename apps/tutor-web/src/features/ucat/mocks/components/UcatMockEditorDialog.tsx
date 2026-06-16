@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useToast } from '@altitutor/ui'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
@@ -15,6 +16,7 @@ import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
+import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
 
 export type SetOption = {
   id: string
@@ -55,46 +57,17 @@ export function UcatMockEditorDialog({
 }) {
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
-  const sections = sectionsQuery.data ?? []
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
-  const setFilterDefinitions: DataTableFilterDefinition[] = useMemo(
-    () => [
-      {
-        key: 'visibility',
-        label: 'Visibility',
-        options: [
-          { label: 'Public', value: 'public' },
-          { label: 'Private', value: 'private' },
-        ],
-      },
-      {
-        key: 'time_limit',
-        label: 'Time limit (s)',
-        type: 'number-range',
-        minKey: 'time_limit_min',
-        maxKey: 'time_limit_max',
-      },
-      {
-        key: 'stem_count',
-        label: 'Question stems',
-        type: 'number-range',
-        minKey: 'stem_count_min',
-        maxKey: 'stem_count_max',
-      },
-      {
-        key: 'question_count',
-        label: 'Questions',
-        type: 'number-range',
-        minKey: 'question_count_min',
-        maxKey: 'question_count_max',
-      },
-    ],
-    []
+  const setFilterDefinitions = useMemo(
+    () => buildSetCatalogFilterDefinitions(sections),
+    [sections],
   )
 
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const {
     name,
     isPrivate,
@@ -143,11 +116,30 @@ export function UcatMockEditorDialog({
     }
   }
 
+  const copyIdAction =
+    mockId != null
+      ? buildCopyIdRowAction(
+          [
+            { label: 'Mock', id: mockId, description: withCopyIdDescription(name) },
+            ...draftSetIds.map((setId, index) => {
+              const set = setCatalog.find((entry) => entry.id === setId)
+              return {
+                label: set?.name ?? `Set ${index + 1}`,
+                id: setId,
+                description: withCopyIdDescription(set?.sectionDisplay),
+              }
+            }),
+          ],
+          copyId,
+        )
+      : null
+
   const headerActions =
     mockId != null
       ? (
           <UcatRowActions
             actions={[
+              ...(copyIdAction ? [copyIdAction] : []),
               {
                 label: 'Open in page',
                 href: `/ucat/mocks/${mockId}`,
@@ -221,6 +213,7 @@ export function UcatMockEditorDialog({
         setFilters={setFilters}
         filterDefinitions={setFilterDefinitions}
         setCatalog={setCatalog}
+        setCatalogLoading={sets.isLoading}
         sections={sections}
         onEditSet={onEditSet}
       />

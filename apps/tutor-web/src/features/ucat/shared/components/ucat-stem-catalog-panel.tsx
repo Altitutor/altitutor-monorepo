@@ -1,52 +1,126 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
-import { Badge, Button, getUcatVisibilityColor, ListToolbar } from '@altitutor/ui'
+import { Badge, Button, getUcatVisibilityColor } from '@altitutor/ui'
 import { Eye, Pencil, Plus } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatCatalogListPanel } from '@/features/ucat/shared/components/ucat-catalog-list-panel'
+import { UcatSearchScopePill } from '@/features/ucat/shared/components/ucat-search-scope-pill'
+import { useUcatCatalogListState } from '@/features/ucat/shared/hooks/useUcatCatalogListState'
 import {
+  resolveCategoryPathLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
+import { paginateCatalogItems } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
+import {
+  defaultStemCatalogSearchScopes,
   filterStemCatalogItems,
+  getDefaultStemCatalogVisibleColumns,
+  sortStemCatalogItems,
   stemCatalogColumnDefinitions,
+  stemCatalogSearchScopeOptions,
+  stemCatalogSortOptions,
+  type StemCatalogSearchScope,
 } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { cn, formatDateTime } from '@/shared/utils'
-import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
+import { tutorBtnIconOutline, tutorBtnPrimary, tutorTransition } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
+
+function stemShowsColumn(visibleColumns: string[], key: string) {
+  return visibleColumns.length === 0 || visibleColumns.includes(key)
+}
+
+export function UcatStemCatalogMetadata({
+  stem,
+  visibleColumns,
+  categoryPathLookup,
+}: {
+  stem: UcatStemCatalogItem
+  visibleColumns: string[]
+  categoryPathLookup?: Map<string, string>
+}) {
+  const categoryLabel = resolveCategoryPathLabel(
+    categoryPathLookup ?? new Map(),
+    stem.categoryId,
+    stem.categoryName,
+  )
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+      {stemShowsColumn(visibleColumns, 'section_name') ? (
+        <span>
+          {stem.sectionNumber}. {stem.sectionName}
+        </span>
+      ) : null}
+      {stemShowsColumn(visibleColumns, 'category_name') && categoryLabel ? (
+        <span>{categoryLabel}</span>
+      ) : null}
+      {stemShowsColumn(visibleColumns, 'visibility') ? (
+        <Badge
+          variant="outline"
+          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
+        >
+          {stem.isPrivate ? 'Private' : 'Public'}
+        </Badge>
+      ) : null}
+      {stemShowsColumn(visibleColumns, 'question_count') ? (
+        <span>
+          · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
+        </span>
+      ) : null}
+      {stemShowsColumn(visibleColumns, 'sets') && stem.setNames !== '—' ? <span>· {stem.setNames}</span> : null}
+      {stemShowsColumn(visibleColumns, 'type_summary') && stem.typeSummary !== '-' ? (
+        <span>· {stem.typeSummary}</span>
+      ) : null}
+      {stemShowsColumn(visibleColumns, 'created_at') ? (
+        <span>· Created {formatDateTime(stem.createdAt ?? '') || '—'}</span>
+      ) : null}
+    </div>
+  )
+}
 
 export function UcatStemCatalogRow({
   stem,
   onAdd,
   onView,
   onEdit,
-  showCreatedAt = false,
+  onOpen,
+  visibleColumns = getDefaultStemCatalogVisibleColumns(),
+  categoryPathLookup,
 }: {
   stem: UcatStemCatalogItem
-  onAdd: () => void
+  onAdd?: () => void
   onView?: () => void
   onEdit?: () => void
-  showCreatedAt?: boolean
+  onOpen?: () => void
+  visibleColumns?: string[]
+  categoryPathLookup?: Map<string, string>
 }) {
+  const title = stem.text || stem.id
+  const titleContent = (
+    <div className="line-clamp-2 break-words text-xs sm:text-sm">{title}</div>
+  )
+
   return (
-    <div className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted">
+    <div
+      className={cn(
+        'flex w-full items-start justify-between gap-2 rounded-xl bg-card px-2 py-2 text-left text-sm shadow-sm ring-1 ring-black/[0.06] hover:bg-muted/40 dark:ring-white/[0.08]',
+        tutorTransition,
+      )}
+    >
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem.text || stem.id}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span>
-            {stem.sectionNumber}. {stem.sectionName}
-          </span>
-          <Badge
-            variant="outline"
-            className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
-          >
-            {stem.isPrivate ? 'Private' : 'Public'}
-          </Badge>
-          <span>
-            · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-          </span>
-          {showCreatedAt ? (
-            <span>· Created {formatDateTime(stem.createdAt ?? '') || '—'}</span>
-          ) : null}
-        </div>
+        {onOpen ? (
+          <button type="button" onClick={onOpen} className="w-full text-left">
+            {titleContent}
+          </button>
+        ) : (
+          titleContent
+        )}
+        <UcatStemCatalogMetadata
+          stem={stem}
+          visibleColumns={visibleColumns}
+          categoryPathLookup={categoryPathLookup}
+        />
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {onView ? (
@@ -56,7 +130,7 @@ export function UcatStemCatalogRow({
             size="icon"
             className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
             onClick={onView}
-            aria-label={`View ${stem.text || stem.id}`}
+            aria-label={`View ${title}`}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -68,20 +142,23 @@ export function UcatStemCatalogRow({
             size="icon"
             className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
             onClick={onEdit}
-            aria-label={`Edit ${stem.text || stem.id}`}
+            aria-label={`Edit ${title}`}
           >
             <Pencil className="h-4 w-4" />
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="default"
-          size="icon"
-          className={cn(tutorBtnPrimary, 'shrink-0')}
-          onClick={onAdd}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        {onAdd ? (
+          <Button
+            type="button"
+            variant="default"
+            size="icon"
+            className={cn(tutorBtnPrimary, 'shrink-0')}
+            onClick={onAdd}
+            aria-label={`Add ${title}`}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        ) : null}
       </div>
     </div>
   )
@@ -101,110 +178,154 @@ export function UcatStemCatalogLabel({
       <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
       <div className="min-w-0">
         <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
-        {stem ? (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span>
-              {stem.sectionNumber}. {stem.sectionName}
-            </span>
-            <Badge
-              variant="outline"
-              className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
-            >
-              {stem.isPrivate ? 'Private' : 'Public'}
-            </Badge>
-            <span>
-              · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-            </span>
-          </div>
-        ) : null}
+        {stem ? <UcatStemCatalogMetadata stem={stem} visibleColumns={getDefaultStemCatalogVisibleColumns()} /> : null}
       </div>
     </div>
   )
 }
 
-type UcatStemCatalogAddPanelProps = {
+type UcatStemCatalogListPanelProps = {
   stems: UcatStemCatalogItem[]
-  excludedIds: string[]
+  excludedIds?: string[]
+  includedIds?: Set<string>
   search: string
   onSearchChange: (value: string) => void
   filters: Record<string, unknown[]>
   onFiltersChange: (value: Record<string, unknown[]>) => void
   filterDefinitions: DataTableFilterDefinition[]
   columnDefinitions?: DataTableColumnDefinition[]
-  onAddStem: (stemId: string) => void
-  onViewStem?: (stemId: string) => void
-  onEditStem?: (stemId: string) => void
-  title?: string
+  categoryPathLookup?: Map<string, string>
+  filterSearchValues?: Record<string, string>
+  onFilterSearchChange?: (filterKey: string, value: string) => void
+  isLoading?: boolean
   emptyMessage?: string
   searchPlaceholder?: string
   className?: string
+  onAddStem?: (stemId: string) => void
+  onViewStem?: (stemId: string) => void
+  onEditStem?: (stemId: string) => void
+  onOpenStem?: (stemId: string) => void
 }
 
-export function UcatStemCatalogAddPanel({
+export function UcatStemCatalogListPanel({
   stems,
-  excludedIds,
+  excludedIds = [],
+  includedIds,
   search,
   onSearchChange,
   filters,
   onFiltersChange,
   filterDefinitions,
   columnDefinitions = stemCatalogColumnDefinitions,
+  categoryPathLookup = new Map(),
+  filterSearchValues,
+  onFilterSearchChange,
+  isLoading = false,
+  emptyMessage = 'No stems match the current filters.',
+  searchPlaceholder = 'Search stems or questions',
+  className,
   onAddStem,
   onViewStem,
   onEditStem,
-  title = 'Add stems',
-  emptyMessage = 'No stems to add, or all matching stems are already selected.',
-  searchPlaceholder = 'Search stems',
-  className,
-}: UcatStemCatalogAddPanelProps) {
-  const [visibleColumns, setVisibleColumns] = useState(() =>
-    columnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key)
-  )
-  const showCreatedAt = visibleColumns.includes('created_at')
+  onOpenStem,
+}: UcatStemCatalogListPanelProps) {
+  const listState = useUcatCatalogListState(getDefaultStemCatalogVisibleColumns())
+  const { setState } = listState
+  const [searchScopes, setSearchScopes] = useState<StemCatalogSearchScope[]>(defaultStemCatalogSearchScopes)
 
-  const availableStems = useMemo(
+  useEffect(() => {
+    setState((prev) => ({ ...prev, page: 1 }))
+  }, [search, filters, excludedIds, includedIds, searchScopes, setState])
+
+  const filteredStems = useMemo(
     () =>
       filterStemCatalogItems({
         stems,
         excludedIds,
+        includedIds,
         search,
         filters,
+        searchScopes,
       }),
-    [stems, excludedIds, search, filters]
+    [stems, excludedIds, includedIds, search, filters, searchScopes],
   )
 
-  return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-hidden', className)}>
-      <h2 className="font-semibold">{title}</h2>
-      <ListToolbar
-        search={search}
-        onSearchChange={onSearchChange}
-        searchPlaceholder={searchPlaceholder}
-        filterDefinitions={filterDefinitions}
-        filters={filters}
-        onFiltersChange={onFiltersChange}
-        columnDefinitions={columnDefinitions}
-        visibleColumns={visibleColumns}
-        onVisibleColumnsChange={setVisibleColumns}
-      />
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-        {availableStems.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-        ) : (
-          availableStems.map((stem) => (
-            <UcatStemCatalogRow
-              key={stem.id}
-              stem={stem}
-              showCreatedAt={showCreatedAt}
-              onAdd={() => onAddStem(stem.id)}
-              onView={onViewStem ? () => onViewStem(stem.id) : undefined}
-              onEdit={onEditStem ? () => onEditStem(stem.id) : undefined}
-            />
-          ))
-        )}
-      </div>
-    </div>
+  const sortedStems = useMemo(
+    () =>
+      sortStemCatalogItems(
+        filteredStems,
+        listState.state.sortBy,
+        listState.state.sortDirection,
+        categoryPathLookup,
+      ),
+    [filteredStems, listState.state.sortBy, listState.state.sortDirection, categoryPathLookup],
   )
+
+  const { items: paginatedStems, total, effectivePage } = useMemo(
+    () =>
+      paginateCatalogItems(sortedStems, listState.state.page, listState.state.pageSize),
+    [sortedStems, listState.state.page, listState.state.pageSize],
+  )
+
+  useEffect(() => {
+    if (effectivePage !== listState.state.page) {
+      setState((prev) => ({ ...prev, page: effectivePage }))
+    }
+  }, [effectivePage, listState.state.page, setState])
+
+  return (
+    <UcatCatalogListPanel
+      search={search}
+      onSearchChange={onSearchChange}
+      searchPlaceholder={searchPlaceholder}
+      searchLeadingAccessory={
+        <UcatSearchScopePill
+          options={stemCatalogSearchScopeOptions}
+          scopes={searchScopes}
+          onScopesChange={setSearchScopes}
+        />
+      }
+      filterDefinitions={filterDefinitions}
+      filters={filters}
+      onFiltersChange={onFiltersChange}
+      filterSearchValues={filterSearchValues}
+      onFilterSearchChange={onFilterSearchChange}
+      sortOptions={stemCatalogSortOptions}
+      sortBy={listState.state.sortBy}
+      sortDirection={listState.state.sortDirection}
+      onSortChange={listState.actions.onSortChange}
+      columnDefinitions={columnDefinitions}
+      visibleColumns={listState.state.visibleColumns}
+      onVisibleColumnsChange={listState.actions.onVisibleColumnsChange}
+      page={listState.state.page}
+      pageSize={listState.state.pageSize}
+      total={total}
+      onPageChange={listState.actions.onPageChange}
+      onPageSizeChange={listState.actions.onPageSizeChange}
+      isLoading={isLoading}
+      emptyMessage={emptyMessage}
+      hasItems={paginatedStems.length > 0}
+      className={className}
+    >
+      {paginatedStems.map((stem) => (
+        <UcatStemCatalogRow
+          key={stem.id}
+          stem={stem}
+          visibleColumns={listState.state.visibleColumns}
+          categoryPathLookup={categoryPathLookup}
+          onAdd={onAddStem ? () => onAddStem(stem.id) : undefined}
+          onView={onViewStem ? () => onViewStem(stem.id) : undefined}
+          onEdit={onEditStem ? () => onEditStem(stem.id) : undefined}
+          onOpen={onOpenStem ? () => onOpenStem(stem.id) : undefined}
+        />
+      ))}
+    </UcatCatalogListPanel>
+  )
+}
+
+/** @deprecated Use `UcatStemCatalogListPanel` */
+export function UcatStemCatalogAddPanel(props: UcatStemCatalogListPanelProps) {
+  return <UcatStemCatalogListPanel {...props} />
 }
 
 export function UcatStemCatalogSidePanel({
@@ -222,7 +343,7 @@ export function UcatStemCatalogSidePanel({
         'flex h-full shrink-0 flex-col overflow-hidden border-l',
         EXPANDABLE_DIALOG_TRANSITION,
         open ? 'w-96 opacity-100' : 'pointer-events-none w-0 border-l-0 opacity-0',
-        className
+        className,
       )}
       aria-hidden={!open}
     >

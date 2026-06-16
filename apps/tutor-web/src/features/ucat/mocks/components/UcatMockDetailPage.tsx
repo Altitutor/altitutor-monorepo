@@ -13,6 +13,7 @@ import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
+import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 
 function formatSectionsDisplay(sections: unknown): string {
@@ -36,8 +37,14 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const access = useUcatAccess()
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
-  const sections = sectionsQuery.data ?? []
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+
+  const setFilterDefinitions = useMemo(
+    () => buildSetCatalogFilterDefinitions(sections),
+    [sections],
+  )
 
   const {
     detail,
@@ -68,6 +75,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
           is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
   }, [sets.data])
@@ -139,7 +147,11 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           setDraftSetIds={setDraftSetIds}
           search={search}
           setSearch={setSearch}
+          filters={filters}
+          setFilters={setFilters}
+          filterDefinitions={setFilterDefinitions}
           setCatalog={setCatalog}
+          setCatalogLoading={sets.isLoading}
           sections={sections}
         />
       </div>

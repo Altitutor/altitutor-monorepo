@@ -11,6 +11,19 @@ import type {
   AiImportSectionKey,
 } from '@/features/ucat/questions/lib/ai-import/schema'
 
+function parseStemCatalogSetIds(value: unknown): string[] {
+  if (value == null || !Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function parseStemCatalogSetNames(value: unknown): string {
+  if (value == null || !Array.isArray(value)) return '—'
+  const names = value
+    .map((item) => proseMirrorToPlainText(item as Json))
+    .filter(Boolean)
+  return names.length > 0 ? names.join(', ') : '—'
+}
+
 export function useUcatQuestions(options?: {
   mode?: UcatQuestionListMode
   sectionId?: string | null
@@ -57,6 +70,13 @@ export function useUcatStemTagIds() {
   })
 }
 
+export function useUcatQuestionSearchTexts() {
+  return useQuery({
+    queryKey: [...ucatKeys.questions('all'), 'search-texts'],
+    queryFn: () => ucatQuestionsApi.getQuestionSearchTexts(),
+  })
+}
+
 export type UcatStemCatalogItem = {
   id: string
   text: string
@@ -70,6 +90,11 @@ export type UcatStemCatalogItem = {
   questionTypes: ('multiple_choice' | 'syllogism')[]
   tagIds: string[]
   createdAt: string | null
+  questionSearchText: string
+  answerOptionSearchText: string
+  setNames: string
+  setIds: string[]
+  typeSummary: string
 }
 
 export type UcatQuestionCatalogItem = {
@@ -129,16 +154,43 @@ export function useUcatStemCatalog(enabled: boolean) {
           ? (row.questions as Array<{
               deleted_at?: string | null
               question_type?: string | null
+              question_text?: Json | null
               tags?: Array<{ id?: string | null }> | null
             }>).filter((q) => !q.deleted_at)
           : []
         const tagIds = new Set<string>()
+        const questionTexts: string[] = []
+        const answerOptionTexts: string[] = []
         for (const question of activeQuestions) {
           const tags = Array.isArray(question.tags) ? question.tags : []
           for (const tag of tags) {
             if (tag.id) tagIds.add(tag.id)
           }
+          const questionText = proseMirrorToPlainText(question.question_text)
+          if (questionText) questionTexts.push(questionText)
+          const answerOptions = Array.isArray(
+            (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+              .answer_options,
+          )
+            ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+                .answer_options
+            : []
+          for (const option of answerOptions) {
+            if (option.deleted_at) continue
+            const answerText = proseMirrorToPlainText(option.answer_text)
+            if (answerText) answerOptionTexts.push(answerText)
+          }
         }
+        const questionTypes = Array.from(
+          new Set(
+            activeQuestions.flatMap((q) =>
+              q.question_type === 'multiple_choice' || q.question_type === 'syllogism' ? [q.question_type] : []
+            )
+          )
+        ) as ('multiple_choice' | 'syllogism')[]
+        const setIds = parseStemCatalogSetIds((row as { set_ids?: unknown }).set_ids)
+        const setNames = parseStemCatalogSetNames((row as { set_names?: unknown }).set_names)
+
         return {
           id: row.id ?? '',
           text: proseMirrorToPlainText(row.stem_text),
@@ -149,15 +201,14 @@ export function useUcatStemCatalog(enabled: boolean) {
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
           isPrivate: !!row.is_private,
-          questionTypes: Array.from(
-            new Set(
-              activeQuestions.flatMap((q) =>
-                q.question_type === 'multiple_choice' || q.question_type === 'syllogism' ? [q.question_type] : []
-              )
-            )
-          ) as ('multiple_choice' | 'syllogism')[],
+          questionTypes,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
+          questionSearchText: questionTexts.join(' '),
+          answerOptionSearchText: answerOptionTexts.join(' '),
+          setIds,
+          setNames,
+          typeSummary: questionTypes.length > 0 ? questionTypes.join(', ') : '-',
         }
       })
     },
