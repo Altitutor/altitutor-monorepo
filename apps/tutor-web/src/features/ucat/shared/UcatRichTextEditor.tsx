@@ -14,6 +14,7 @@ import type { Editor } from '@tiptap/react'
 import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
 import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
+import { docStructureFingerprint } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 import {
   createUcatParseHighlight,
   UCAT_PARSE_DECO_META,
@@ -421,14 +422,25 @@ export function UcatRichTextEditor({
     value && typeof value === 'object' ? (value as Record<string, unknown>) : null
   const { content: refreshedContent, hasImageRefs } = useRefreshedUcatContent(jsonRecord)
 
+  const liveEditorContent = useMemo(() => toJsonContent(value), [value])
+  const liveStructureKey = useMemo(
+    () => docStructureFingerprint(liveEditorContent as Record<string, unknown>),
+    [liveEditorContent]
+  )
+  const refreshedStructureKey = useMemo(
+    () =>
+      refreshedContent != null ? docStructureFingerprint(refreshedContent) : null,
+    [refreshedContent]
+  )
+
   // Match UcatRichContentBlock: never mount TipTap with expired signed URLs — broken
   // images do not recover when src is updated via setContent after the first failed load.
   const waitingForImageRefresh = hasImageRefs && refreshedContent == null
   const editorContent = waitingForImageRefresh
     ? null
-    : refreshedContent != null
+    : refreshedContent != null && refreshedStructureKey === liveStructureKey
       ? (refreshedContent as JSONContent)
-      : toJsonContent(value)
+      : liveEditorContent
 
   const omitTypography =
     forceLightChrome || ucatParseHighlight.mode !== 'off'

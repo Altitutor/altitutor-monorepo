@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   collectUcatImageRefsFromDoc,
+  docStructureFingerprint,
   refreshUcatImageUrls,
 } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 
@@ -37,6 +38,11 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
   const jsonRef = useRef(json)
   jsonRef.current = json
 
+  const docStructureKey = useMemo(() => {
+    if (!hasContent(json)) return ''
+    return docStructureFingerprint(normalizeDoc(json as Record<string, unknown>))
+  }, [json])
+
   const imagePathsKey = useMemo(() => {
     if (!hasContent(json)) return ''
     const doc = normalizeDoc(json as Record<string, unknown>)
@@ -50,20 +56,30 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
   const hasImageRefs = imagePathsKey !== ''
   const prevImagePathsKeyRef = useRef(imagePathsKey)
 
+  // Keep displayed doc structure in sync with live edits (text changes, deletions, reorders).
+  // Without this, a stale refreshed doc can be pushed back into an editable TipTap instance
+  // after deleting pasted images in bulk import.
+  useEffect(() => {
+    const json = jsonRef.current
+    if (!hasContent(json)) {
+      setContent(null)
+      return
+    }
+    setContent(normalizeDoc(json as Record<string, unknown>))
+  }, [docStructureKey])
+
   useEffect(() => {
     const json = jsonRef.current
     const prevKey = prevImagePathsKeyRef.current
     prevImagePathsKeyRef.current = imagePathsKey
 
     if (!hasContent(json)) {
-      setContent(null)
       setIsLoading(false)
       return
     }
 
     const doc = normalizeDoc(json as Record<string, unknown>)
     if (imagePathsKey === '') {
-      setContent(doc)
       setIsLoading(false)
       return
     }

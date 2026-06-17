@@ -124,3 +124,45 @@ export function collectUcatImageRefsFromDoc(doc: Record<string, unknown>): {
 export function collectUcatImagePathsFromDoc(doc: Record<string, unknown>): string[] {
   return collectUcatImageRefsFromDoc(doc).paths
 }
+
+/**
+ * Fingerprint of document structure for comparing TipTap JSON without volatile signed URLs.
+ * Used to detect when refreshed content is stale after edits (e.g. deleting pasted images).
+ */
+export function docStructureFingerprint(
+  doc: Record<string, unknown> | null | undefined
+): string {
+  const parts: string[] = []
+
+  function walk(node: Record<string, unknown>): void {
+    parts.push(String(node.type ?? ''))
+
+    if (node.type === 'image') {
+      const attrs =
+        node.attrs && typeof node.attrs === 'object'
+          ? (node.attrs as Record<string, unknown>)
+          : null
+      parts.push(`img:${String(attrs?.fileId ?? attrs?.alt ?? '')}`)
+      return
+    }
+
+    if (typeof node.text === 'string') {
+      parts.push(`t:${node.text}`)
+    }
+
+    const content = node.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === 'object') {
+          walk(child as Record<string, unknown>)
+        }
+      }
+    }
+  }
+
+  if (doc && typeof doc === 'object') {
+    walk(doc)
+  }
+
+  return parts.join('|')
+}
