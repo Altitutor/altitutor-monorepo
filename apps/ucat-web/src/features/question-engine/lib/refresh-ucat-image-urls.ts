@@ -200,3 +200,83 @@ export function collectUcatImagePathsFromDocs(
 ): string[] {
   return collectUcatImageRefsFromDocs(docs).paths;
 }
+
+/** Collects unique ucat-images storage paths and file IDs from a single Tiptap JSON document. */
+export function collectUcatImageRefsFromDoc(doc: Record<string, unknown>): {
+  paths: string[];
+  fileIds: string[];
+} {
+  return collectUcatImageRefsFromDocs([{ stem: doc }]);
+}
+
+/**
+ * Fingerprint of document structure for comparing TipTap JSON without volatile signed URLs.
+ * Detects text/structure changes when image path keys are unchanged.
+ */
+export function docStructureFingerprint(
+  doc: Record<string, unknown> | null | undefined,
+): string {
+  const parts: string[] = [];
+
+  function walk(node: Record<string, unknown>): void {
+    parts.push(String(node.type ?? ""));
+
+    if (node.type === "image") {
+      const attrs =
+        node.attrs && typeof node.attrs === "object"
+          ? (node.attrs as Record<string, unknown>)
+          : null;
+      parts.push(`img:${String(attrs?.fileId ?? attrs?.alt ?? "")}`);
+      return;
+    }
+
+    if (typeof node.text === "string") {
+      parts.push(`t:${node.text}`);
+    }
+
+    const content = node.content;
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === "object") {
+          walk(child as Record<string, unknown>);
+        }
+      }
+    }
+  }
+
+  if (doc && typeof doc === "object") {
+    walk(doc);
+  }
+
+  return parts.join("|");
+}
+
+const signedUrlByPath = new Map<string, string>();
+const signedUrlByFileId = new Map<string, string>();
+
+export function getCachedSignedUrlForPath(path: string): string | undefined {
+  return signedUrlByPath.get(path);
+}
+
+export function getCachedSignedUrlForFileId(fileId: string): string | undefined {
+  return signedUrlByFileId.get(fileId);
+}
+
+export function cacheSignedUrls(
+  paths: string[],
+  fileIds: string[],
+  signedUrls: string[],
+): void {
+  paths.forEach((path, index) => {
+    const url = signedUrls[index];
+    if (url) {
+      signedUrlByPath.set(path, url);
+    }
+  });
+  fileIds.forEach((fileId, index) => {
+    const url = signedUrls[paths.length + index];
+    if (url) {
+      signedUrlByFileId.set(fileId, url);
+    }
+  });
+}

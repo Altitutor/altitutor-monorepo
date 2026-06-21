@@ -5,9 +5,10 @@ import {
   UCAT_COLORS,
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { AnswerOption, QuestionItem } from "@/features/question-engine/model/types";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { RichContentBlock } from "./rich-content-block";
+import { OptionText } from "./question-content";
 
 export function ResultsQuestionViewer({
   question,
@@ -105,7 +106,7 @@ export function ResultsQuestionViewer({
                     <div className="flex items-center">
                       <div className="flex min-h-[50px] w-full items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
                         <span className="whitespace-pre-wrap">
-                          {option.text}
+                          <OptionText option={option} />
                         </span>
                       </div>
                     </div>
@@ -258,7 +259,7 @@ export function ResultsQuestionViewer({
                       <div className="flex items-center">
                         <div className="flex min-h-[50px] w-full items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
                           <span className="whitespace-pre-wrap">
-                            {option.text}
+                            <OptionText option={option} />
                           </span>
                         </div>
                       </div>
@@ -345,16 +346,7 @@ export function ResultsQuestionViewer({
     );
   }
 
-  const renderOption = (
-    option: {
-      id: string;
-      text: string;
-      answerExplanation?: string;
-      totalAnswered?: number;
-      percentage?: number;
-    },
-    index: number,
-  ) => {
+  const renderOption = (option: AnswerOption, index: number) => {
     const optionIsCorrect = option.id === correctOptionId;
     const optionIsSelected = option.id === selectedOptionId;
     const letter = optionLabel(index);
@@ -384,7 +376,9 @@ export function ResultsQuestionViewer({
             />
             <span className="flex flex-1 min-w-0">
               <span className="inline-block w-8 shrink-0">{letter}.</span>
-              <span className="ml-4 flex-1 min-w-0">{option.text}</span>
+              <span className="ml-4 flex-1 min-w-0">
+                <OptionText option={option} />
+              </span>
             </span>
           </label>
           {label && (

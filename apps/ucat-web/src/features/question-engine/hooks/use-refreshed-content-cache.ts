@@ -4,17 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 import {
   collectUcatImageRefsFromDocs,
+  collectUcatImageRefsFromDoc,
   applySignedUrlsToDoc,
   extractImageUrlsFromDoc,
+  docStructureFingerprint,
+  cacheSignedUrls,
 } from "@/features/question-engine/lib/refresh-ucat-image-urls";
 
 const WINDOW_RADIUS = 4;
-
-function hasContent(json: Record<string, unknown> | null | undefined): boolean {
-  if (!json || typeof json !== "object") return false;
-  const content = json.content;
-  return Array.isArray(content) && content.length > 0;
-}
 
 function normalizeDoc(json: Record<string, unknown>): Record<string, unknown> {
   if (json.type === "doc" && Array.isArray(json.content)) {
@@ -31,6 +28,29 @@ export type CachedContent = {
   question: Record<string, unknown> | null;
 };
 
+function questionContentVersion(q: QuestionItem): string {
+  const parts: string[] = [];
+  if (q.stemJson != null && typeof q.stemJson === "object") {
+    const doc = normalizeDoc(q.stemJson as Record<string, unknown>);
+    parts.push(`s:${docStructureFingerprint(doc)}`);
+    const refs = collectUcatImageRefsFromDoc(doc);
+    parts.push(`si:${refs.paths.join(",")}:${refs.fileIds.join(",")}`);
+  }
+  if (q.questionJson != null && typeof q.questionJson === "object") {
+    const doc = normalizeDoc(q.questionJson as Record<string, unknown>);
+    parts.push(`q:${docStructureFingerprint(doc)}`);
+    const refs = collectUcatImageRefsFromDoc(doc);
+    parts.push(`qi:${refs.paths.join(",")}:${refs.fileIds.join(",")}`);
+  }
+  for (const option of q.options) {
+    if (option.textJson != null && typeof option.textJson === "object") {
+      const doc = normalizeDoc(option.textJson as Record<string, unknown>);
+      parts.push(`o:${option.id}:${docStructureFingerprint(doc)}`);
+    }
+  }
+  return parts.join("|");
+}
+
 /**
  * Preloads refreshed content and images for a rolling window of questions.
  * Uses current ± WINDOW_RADIUS; for small sets (≤15) preloads all.
@@ -41,6 +61,9 @@ export function useRefreshedContentCache(
 ): (questionId: string) => CachedContent | null {
   const [cache, setCache] = useState<Map<string, CachedContent>>(new Map());
   const loadingRef = useRef<Set<string>>(new Set());
+  const cacheRef = useRef(cache);
+  const contentVersionsRef = useRef<Map<string, string>>(new Map());
+  cacheRef.current = cache;
 
   useEffect(() => {
     if (questions.length === 0) return;
@@ -52,12 +75,14 @@ export function useRefreshedContentCache(
       : Math.min(questions.length - 1, currentIndex + WINDOW_RADIUS);
 
     const toLoad = questions.slice(start, end + 1);
-    const alreadyCached = toLoad.filter((q) => cache.has(q.id));
-    if (alreadyCached.length === toLoad.length) return;
-
-    const toFetch = toLoad.filter(
-      (q) => !cache.has(q.id) && !loadingRef.current.has(q.id),
-    );
+    const toFetch = toLoad.filter((q) => {
+      const version = questionContentVersion(q);
+      const cachedVersion = contentVersionsRef.current.get(q.id);
+      if (cachedVersion === version && cacheRef.current.has(q.id)) {
+        return false;
+      }
+      return !loadingRef.current.has(q.id);
+    });
     if (toFetch.length === 0) return;
 
     for (const q of toFetch) {
@@ -65,12 +90,14 @@ export function useRefreshedContentCache(
     }
 
     const docs = toFetch.map((q) => ({
-      stem: hasContent(q.stemJson)
-        ? normalizeDoc(q.stemJson as Record<string, unknown>)
-        : null,
-      question: hasContent(q.questionJson)
-        ? normalizeDoc(q.questionJson as Record<string, unknown>)
-        : null,
+      stem:
+        q.stemJson != null && typeof q.stemJson === "object"
+          ? normalizeDoc(q.stemJson as Record<string, unknown>)
+          : null,
+      question:
+        q.questionJson != null && typeof q.questionJson === "object"
+          ? normalizeDoc(q.questionJson as Record<string, unknown>)
+          : null,
     }));
 
     const { paths, fileIds } = collectUcatImageRefsFromDocs(docs);
@@ -86,6 +113,9 @@ export function useRefreshedContentCache(
         const next = new Map(prev);
         result.forEach((v, k) => next.set(k, v));
         return next;
+      });
+      toFetch.forEach((q) => {
+        contentVersionsRef.current.set(q.id, questionContentVersion(q));
       });
       toFetch.forEach((q) => loadingRef.current.delete(q.id));
       return;
@@ -104,6 +134,7 @@ export function useRefreshedContentCache(
           );
         }
         const { signedUrls } = (await res.json()) as { signedUrls: string[] };
+        cacheSignedUrls(paths, fileIds, signedUrls);
         const pathToUrl = new Map(paths.map((p, i) => [p, signedUrls[i]]));
         const fileIdToUrl = new Map(
           fileIds.map((fileId, i) => [fileId, signedUrls[paths.length + i]]),
@@ -139,6 +170,9 @@ export function useRefreshedContentCache(
           result.forEach((v, k) => next.set(k, v));
           return next;
         });
+        toFetch.forEach((q) => {
+          contentVersionsRef.current.set(q.id, questionContentVersion(q));
+        });
       })
       .catch(() => {
         // On error, don't cache - RichContentBlock will fall back to on-demand refresh
@@ -146,7 +180,7 @@ export function useRefreshedContentCache(
       .finally(() => {
         toFetch.forEach((q) => loadingRef.current.delete(q.id));
       });
-  }, [questions, currentIndex, cache]);
+  }, [questions, currentIndex]);
 
   return (questionId: string) => cache.get(questionId) ?? null;
 }

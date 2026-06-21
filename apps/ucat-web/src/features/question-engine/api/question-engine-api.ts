@@ -119,6 +119,11 @@ function mapSetToQuestions(
             id: option.id,
             index: option.index,
             text: extractTextFromRichJson(option.answer_text as JsonLike),
+            textJson:
+              option.answer_text != null &&
+              typeof option.answer_text === "object"
+                ? (option.answer_text as Record<string, unknown>)
+                : null,
             isAnswer: option.is_answer ?? false,
             answerExplanation: cleanOptionExplanation || undefined,
             selectionCount: option.selection_count,

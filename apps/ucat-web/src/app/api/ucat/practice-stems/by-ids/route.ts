@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import { pickStems } from "../generated-sets/pick-stems";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
   mapStemDetailToQuestionStemWithQuestions,
   type StemDetailRowFromDb,
@@ -24,27 +22,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { input?: SetGeneratorInput };
+  let body: { stemIds?: string[] };
   try {
-    body = (await request.json()) as { input?: SetGeneratorInput };
+    body = (await request.json()) as { stemIds?: string[] };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const input = body.input;
+  const stemIds = Array.isArray(body.stemIds)
+    ? body.stemIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : [];
 
-  if (!input?.section) {
+  if (stemIds.length === 0) {
     return NextResponse.json(
-      { error: "A section must be selected." },
+      { error: "stemIds must be a non-empty array" },
       { status: 400 },
     );
   }
 
-  const result = await pickStems(supabase, input);
-
-  if (result.chosenStemIds.length === 0) {
+  if (stemIds.length > 50) {
     return NextResponse.json(
-      { error: "No question stems match these filters." },
+      { error: "Too many stem IDs (max 50)" },
       { status: 400 },
     );
   }
@@ -52,27 +50,23 @@ export async function POST(request: NextRequest) {
   const { data: stemDetails, error: stemDetailsError } = await supabase
     .from("vstudent_ucat_question_stem_detail")
     .select("id,section_name,display_columns,stem_text,questions")
-    .in("id", result.chosenStemIds);
+    .in("id", stemIds);
 
-  if (stemDetailsError || !stemDetails?.length) {
+  if (stemDetailsError) {
     return NextResponse.json(
-      { error: stemDetailsError?.message ?? "Failed to load stem details" },
+      { error: stemDetailsError.message },
       { status: 500 },
     );
   }
 
-  const stemRows = stemDetails as StemDetailRowFromDb[];
-  const orderedStems = result.chosenStemIds
-    .map((id) => stemRows.find((s) => s.id === id))
-    .filter((s): s is StemDetailRowFromDb => s != null);
-
-  const stems: QuestionStemWithQuestions[] = orderedStems.map((row) =>
-    mapStemDetailToQuestionStemWithQuestions(row),
+  const stemRows = (stemDetails ?? []) as StemDetailRowFromDb[];
+  const byId = new Map(
+    stemRows.map((row) => [row.id, mapStemDetailToQuestionStemWithQuestions(row)]),
   );
 
-  return NextResponse.json({
-    stems,
-    questionCount: result.questionCount,
-    totalMatchingQuestions: result.totalMatchingQuestions,
-  });
+  const stems: QuestionStemWithQuestions[] = stemIds
+    .map((id) => byId.get(id))
+    .filter((stem): stem is QuestionStemWithQuestions => stem != null);
+
+  return NextResponse.json({ stems });
 }

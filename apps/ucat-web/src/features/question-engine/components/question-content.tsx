@@ -1,5 +1,5 @@
 import { useState, type DragEventHandler } from "react";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { AnswerOption, QuestionItem } from "@/features/question-engine/model/types";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
@@ -8,6 +8,16 @@ import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 
 const EXPLANATION_MUTED_STYLE = { color: "#5a6c7d" } as const;
+
+export function OptionText({ option }: { option: AnswerOption }) {
+  return (
+    <RichContentBlock
+      json={option.textJson}
+      plainText={option.text}
+      className="[&_.ProseMirror]:inline"
+    />
+  );
+}
 
 type QuestionContentProps = {
   question: QuestionItem;
@@ -120,7 +130,9 @@ function SyllogismQuestionContent({
               >
                 <div className="flex-1">
                   <div className="flex min-h-[50px] items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
-                    <span className="whitespace-pre-wrap">{option.text}</span>
+                    <span className="whitespace-pre-wrap">
+                      <OptionText option={option} />
+                    </span>
                   </div>
                 </div>
                 <div
@@ -321,7 +333,9 @@ export function QuestionContent({
                       />
                       <span className="flex">
                         <span className="inline-block w-8">{letter}.</span>
-                        <span className="ml-4">{option.text}</span>
+                        <span className="ml-4">
+                          <OptionText option={option} />
+                        </span>
                       </span>
                     </label>
                     {showAnswerExplanations && option.answerExplanation ? (
@@ -385,7 +399,9 @@ export function QuestionContent({
                     />
                     <span className="flex">
                       <span className="inline-block w-8">{letter}.</span>
-                      <span className="ml-4">{option.text}</span>
+                      <span className="ml-4">
+                        <OptionText option={option} />
+                      </span>
                     </span>
                   </label>
                   {showAnswerExplanations && option.answerExplanation ? (
