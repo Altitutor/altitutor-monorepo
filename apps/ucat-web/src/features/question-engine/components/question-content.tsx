@@ -9,6 +9,33 @@ import type { CachedContent } from "@/features/question-engine/hooks/use-refresh
 
 const EXPLANATION_MUTED_STYLE = { color: "#5a6c7d" } as const;
 
+export function hasAnswerExplanation(item: {
+  answerExplanation?: string;
+  answerExplanationJson?: Record<string, unknown> | null;
+}): boolean {
+  return Boolean(item.answerExplanation || item.answerExplanationJson);
+}
+
+export function AnswerExplanation({
+  text,
+  json,
+  className,
+}: {
+  text?: string;
+  json?: Record<string, unknown> | null;
+  className?: string;
+}) {
+  if (!hasAnswerExplanation({ answerExplanation: text, answerExplanationJson: json })) {
+    return null;
+  }
+
+  return (
+    <div className={className} style={EXPLANATION_MUTED_STYLE}>
+      <RichContentBlock json={json} plainText={text ?? ""} />
+    </div>
+  );
+}
+
 export function OptionText({ option }: { option: AnswerOption }) {
   return (
     <RichContentBlock
@@ -169,13 +196,12 @@ function SyllogismQuestionContent({
                   )}
                 </div>
               </div>
-              {showAnswerExplanations && option.answerExplanation ? (
-                <div
+              {showAnswerExplanations && hasAnswerExplanation(option) ? (
+                <AnswerExplanation
+                  text={option.answerExplanation}
+                  json={option.answerExplanationJson}
                   className="pl-1 text-[10pt] leading-relaxed"
-                  style={EXPLANATION_MUTED_STYLE}
-                >
-                  {option.answerExplanation}
-                </div>
+                />
               ) : null}
               </div>
             );
@@ -214,13 +240,12 @@ function SyllogismQuestionContent({
           </div>
         </div>
       </div>
-      {showAnswerExplanations && question.answerExplanation ? (
-        <div
+      {showAnswerExplanations && hasAnswerExplanation(question) ? (
+        <AnswerExplanation
+          text={question.answerExplanation}
+          json={question.answerExplanationJson}
           className="mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-          style={EXPLANATION_MUTED_STYLE}
-        >
-          {question.answerExplanation}
-        </div>
+        />
       ) : null}
     </section>
   );
@@ -338,25 +363,23 @@ export function QuestionContent({
                         </span>
                       </span>
                     </label>
-                    {showAnswerExplanations && option.answerExplanation ? (
-                      <div
+                    {showAnswerExplanations && hasAnswerExplanation(option) ? (
+                      <AnswerExplanation
+                        text={option.answerExplanation}
+                        json={option.answerExplanationJson}
                         className="ml-6 text-[11pt] leading-relaxed"
-                        style={EXPLANATION_MUTED_STYLE}
-                      >
-                        {option.answerExplanation}
-                      </div>
+                      />
                     ) : null}
                   </div>
                 );
               })}
             </div>
-            {showAnswerExplanations && question.answerExplanation ? (
-              <div
+            {showAnswerExplanations && hasAnswerExplanation(question) ? (
+              <AnswerExplanation
+                text={question.answerExplanation}
+                json={question.answerExplanationJson}
                 className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-                style={EXPLANATION_MUTED_STYLE}
-              >
-                {question.answerExplanation}
-              </div>
+              />
             ) : null}
           </div>
         </section>
@@ -404,25 +427,23 @@ export function QuestionContent({
                       </span>
                     </span>
                   </label>
-                  {showAnswerExplanations && option.answerExplanation ? (
-                    <div
+                  {showAnswerExplanations && hasAnswerExplanation(option) ? (
+                    <AnswerExplanation
+                      text={option.answerExplanation}
+                      json={option.answerExplanationJson}
                       className="ml-6 text-[11pt] leading-relaxed"
-                      style={EXPLANATION_MUTED_STYLE}
-                    >
-                      {option.answerExplanation}
-                    </div>
+                    />
                   ) : null}
                 </div>
               );
             })}
           </div>
-          {showAnswerExplanations && question.answerExplanation ? (
-            <div
+          {showAnswerExplanations && hasAnswerExplanation(question) ? (
+            <AnswerExplanation
+              text={question.answerExplanation}
+              json={question.answerExplanationJson}
               className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-              style={EXPLANATION_MUTED_STYLE}
-            >
-              {question.answerExplanation}
-            </div>
+            />
           ) : null}
         </section>
       </div>

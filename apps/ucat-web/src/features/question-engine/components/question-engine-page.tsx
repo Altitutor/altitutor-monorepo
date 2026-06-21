@@ -64,6 +64,7 @@ import { getStemBoundaries } from "@/features/question-engine/lib/practice";
 import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { useHydratedQuestionStems } from "@/features/practice/hooks/use-hydrated-question-stems";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
 
@@ -123,14 +124,20 @@ export function QuestionEnginePage({
     mockId: mode === "mock" ? sourceId : undefined,
   });
 
+  const { stems: hydratedQuestionStems, isLoading: isHydratingQuestionStems } =
+    useHydratedQuestionStems(mode === "questionStem" ? questionStems : undefined);
+
+  const questionStemsForExam =
+    mode === "questionStem" ? hydratedQuestionStems : questionStems;
+
   const exam = useMemo(
     () =>
       mode === "questionStem"
-        ? questionStems && {
+        ? questionStemsForExam && {
             sourceType: mode,
             sourceId: sourceId ?? "question-stem",
             title: "Question Stems",
-            questions: mapQuestionStemsToItems(questionStems),
+            questions: mapQuestionStemsToItems(questionStemsForExam),
             instructionsScreens: [],
             timePerQuestionSeconds: timePerQuestionSeconds ?? null,
           }
@@ -147,7 +154,7 @@ export function QuestionEnginePage({
     [
       mode,
       sourceId,
-      questionStems,
+      questionStemsForExam,
       standaloneQuestions,
       query.data,
       timePerQuestionSeconds,
@@ -401,7 +408,16 @@ export function QuestionEnginePage({
           }
           return state.currentIndex > 0;
         })()
-      : state.currentIndex > 0);
+      : isPracticeMode
+        ? (() => {
+            const { startIndex } = getStemBoundaries(
+              questions,
+              state.currentIndex,
+              mode as "questions" | "questionStem",
+            );
+            return state.currentIndex > startIndex;
+          })()
+        : state.currentIndex > 0);
   const hasPreviousReviewQuestion =
     state.phase === "review" &&
     Boolean(state.reviewFilter) &&
@@ -444,7 +460,7 @@ export function QuestionEnginePage({
           scorePoints: practiceMarkingResult.totalRawScore,
           totalPoints: practiceMarkingResult.maxRawScore,
           questionCount: qs.length,
-          stemsSnapshot: questionStems ?? [],
+          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
           questionScores,
         });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
@@ -848,6 +864,14 @@ export function QuestionEnginePage({
     return (
       <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
         Loading exam...
+      </div>
+    );
+  }
+
+  if (mode === "questionStem" && isHydratingQuestionStems) {
+    return (
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
+        Loading questions...
       </div>
     );
   }

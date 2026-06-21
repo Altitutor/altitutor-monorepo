@@ -3,6 +3,7 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   extractTextFromRichJson,
+  mapRichExplanation,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type {
@@ -105,15 +106,7 @@ function mapSetToQuestions(
 
       const options = (question.answer_options || [])
         .map((option) => {
-          const rawOptionExplanation = option.answer_explanation
-            ? (extractTextFromRichJson(
-                option.answer_explanation as JsonLike,
-              )?.trim() ?? "")
-            : "";
-          const cleanOptionExplanation =
-            rawOptionExplanation.toLowerCase() === "paragraph"
-              ? ""
-              : rawOptionExplanation;
+          const optionExplanation = mapRichExplanation(option.answer_explanation);
 
           return {
             id: option.id,
@@ -125,7 +118,8 @@ function mapSetToQuestions(
                 ? (option.answer_text as Record<string, unknown>)
                 : null,
             isAnswer: option.is_answer ?? false,
-            answerExplanation: cleanOptionExplanation || undefined,
+            answerExplanation: optionExplanation.text,
+            answerExplanationJson: optionExplanation.json,
             selectionCount: option.selection_count,
             totalAnswered: option.total_answered,
             percentage: option.percentage,
@@ -133,16 +127,7 @@ function mapSetToQuestions(
         })
         .sort((a, b) => a.index - b.index);
       const correctOption = options.find((o) => o.isAnswer);
-      const rawQuestionExplanation = question.answer_explanation
-        ? (extractTextFromRichJson(
-            question.answer_explanation as JsonLike,
-          )?.trim() ?? "")
-        : "";
-      const cleanQuestionExplanation =
-        rawQuestionExplanation.toLowerCase() === "paragraph"
-          ? ""
-          : rawQuestionExplanation;
-      const questionAnswerExplanation = cleanQuestionExplanation || undefined;
+      const questionExplanation = mapRichExplanation(question.answer_explanation);
       const stemJson =
         stem.stem_text != null && typeof stem.stem_text === "object"
           ? (stem.stem_text as Record<string, unknown>)
@@ -169,7 +154,8 @@ function mapSetToQuestions(
         questionType: question.question_type,
         options,
         correctOptionId: correctOption?.id,
-        answerExplanation: questionAnswerExplanation,
+        answerExplanation: questionExplanation.text,
+        answerExplanationJson: questionExplanation.json,
       });
     });
   });

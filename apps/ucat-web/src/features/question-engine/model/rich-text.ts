@@ -55,3 +55,36 @@ export function extractTextFromRichJson(value: JsonLike): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+export type MappedRichExplanation = {
+  text?: string;
+  json?: Record<string, unknown> | null;
+};
+
+/** Maps a Tiptap/ProseMirror explanation field to plain text and JSON for rendering. */
+export function mapRichExplanation(value: unknown): MappedRichExplanation {
+  if (value == null) {
+    return {};
+  }
+
+  const json =
+    typeof value === "object" ? (value as Record<string, unknown>) : null;
+  const rawText = extractTextFromRichJson(value as JsonLike)?.trim() ?? "";
+  const text =
+    rawText.toLowerCase() === "paragraph" ? "" : rawText;
+
+  if (!text && !json) {
+    return {};
+  }
+
+  return {
+    text: text || undefined,
+    json,
+  };
+}
+
+export function hasRichExplanation(
+  item: MappedRichExplanation | undefined | null,
+): boolean {
+  return Boolean(item?.text || item?.json);
+}

@@ -1,5 +1,6 @@
 import { Info } from "lucide-react";
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function EndExamDialog({
   onConfirm,
@@ -9,7 +10,7 @@ export function EndExamDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="End Exam"
       icon={<Info className="h-12 w-12" />}
       message={

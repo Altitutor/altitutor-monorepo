@@ -1,6 +1,7 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function EndReviewDialog({
   incompleteCount,
@@ -12,7 +13,7 @@ export function EndReviewDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="End Review"
       message={
         <div className="space-y-3">
