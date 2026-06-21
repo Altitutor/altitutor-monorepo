@@ -31,6 +31,7 @@ function AppShellInner({ children }: AppShellProps) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   const prevIsMobileRef = useRef<boolean | null>(null);
+  const preExamCollapsedRef = useRef<boolean | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebarOverride = useSidebarOverride();
@@ -39,11 +40,24 @@ function AppShellInner({ children }: AppShellProps) {
 
   const isExamRoute = pathname.startsWith("/exam");
 
-  // For exam routes, start with sidebar collapsed (full-screen content) but allow toggling via floating menu.
+  // For exam routes, collapse sidebar for full-screen content but restore the prior state on exit.
+  // Capture collapsed once on entry so toggling during an exam is not overwritten on leave.
   // This effect must be declared before any conditional returns to keep hook order stable.
   useEffect(() => {
     if (isExamRoute) {
-      setCollapsed(true);
+      setCollapsed((current) => {
+        if (preExamCollapsedRef.current === null) {
+          preExamCollapsedRef.current = current;
+        }
+        return true;
+      });
+      return;
+    }
+
+    if (preExamCollapsedRef.current !== null) {
+      const restoreCollapsed = preExamCollapsedRef.current;
+      preExamCollapsedRef.current = null;
+      setCollapsed(restoreCollapsed);
     }
   }, [isExamRoute]);
 
