@@ -24,6 +24,12 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
+function isPracticeEngineRoute(pathname: string): boolean {
+  return (
+    pathname === "/practice/session" || pathname.startsWith("/practice/stem/")
+  );
+}
+
 function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,7 +37,7 @@ function AppShellInner({ children }: AppShellProps) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   const prevIsMobileRef = useRef<boolean | null>(null);
-  const preExamCollapsedRef = useRef<boolean | null>(null);
+  const preImmersiveCollapsedRef = useRef<boolean | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebarOverride = useSidebarOverride();
@@ -39,27 +45,28 @@ function AppShellInner({ children }: AppShellProps) {
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
 
   const isExamRoute = pathname.startsWith("/exam");
+  const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
 
-  // For exam routes, collapse sidebar for full-screen content but restore the prior state on exit.
-  // Capture collapsed once on entry so toggling during an exam is not overwritten on leave.
+  // Collapse sidebar on exam and practice engine routes; restore prior state on exit.
+  // Capture collapsed once on entry so students can still toggle the sidebar during play.
   // This effect must be declared before any conditional returns to keep hook order stable.
   useEffect(() => {
-    if (isExamRoute) {
+    if (isImmersiveRoute) {
       setCollapsed((current) => {
-        if (preExamCollapsedRef.current === null) {
-          preExamCollapsedRef.current = current;
+        if (preImmersiveCollapsedRef.current === null) {
+          preImmersiveCollapsedRef.current = current;
         }
         return true;
       });
       return;
     }
 
-    if (preExamCollapsedRef.current !== null) {
-      const restoreCollapsed = preExamCollapsedRef.current;
-      preExamCollapsedRef.current = null;
+    if (preImmersiveCollapsedRef.current !== null) {
+      const restoreCollapsed = preImmersiveCollapsedRef.current;
+      preImmersiveCollapsedRef.current = null;
       setCollapsed(restoreCollapsed);
     }
-  }, [isExamRoute]);
+  }, [isImmersiveRoute]);
 
   const isSubscribeRoute = pathname.startsWith("/subscribe");
 
