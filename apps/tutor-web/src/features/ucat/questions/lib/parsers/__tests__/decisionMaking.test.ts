@@ -2,7 +2,11 @@
  * Tests for Decision Making parser
  */
 
-import { isSyllogismQuestionText, parseDecisionMakingPlainText } from '../decisionMaking';
+import {
+  getDecisionMakingStemCategoryName,
+  isSyllogismQuestionText,
+  parseDecisionMakingPlainText,
+} from '../decisionMaking';
 
 beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch;
@@ -134,6 +138,63 @@ With Candice in the back row of the other car`;
     expect(stems[0]?.questions[0]?.options).toHaveLength(4);
     expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
       'In the front row of the other car'
+    );
+  });
+});
+
+describe('getDecisionMakingStemCategoryName', () => {
+  it('classifies dice re-roll expected-value questions as probabilistic reasoning', () => {
+    const input = `Damien and Martin are playing a game using a fair six-sided dice. Damien states that he will pay Martin $10 multiplied by the number on the dice that Martin rolls. Martin rolls the dice and it lands on a "three". Damien says that he will let Martin roll the dice once more if he wants to.
+
+Note - if Martin decides to re-roll the dice, it replaces his original roll and is not added on.
+
+In order to make the most amount of money possible, should Martin accept Damien's offer to roll the dice again?
+
+A. Yes, since Martin is highly likely to win more money if he rolls again.
+B. Yes, since there is a 50% probability that Martin will win more money.
+C. No, since Martin is unlikely to win more money if he rolls again.
+D. No, since there is a 50% probability that Martin will not win more money.`;
+
+    const stems = parseDecisionMakingPlainText(input, { answerOptionOnOwnLine: true });
+    expect(stems).toHaveLength(1);
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Probabilistic and Statistical Reasoning'
+    );
+  });
+
+  it('keeps seating-chart logical puzzles as logical puzzles', () => {
+    const input = `5.
+A group of seven friends are going for a road trip to Rockhampton from Brisbane.
+Bob and Alex should not travel in the same car.
+Sangeetha and Joseph sit in the same row of the same car.
+If Ellie and Alex sit in the same car with Ellie in the back row, determine the possible position of Bob?
+A.
+In the front row of the other car
+B.
+In the front row of the same car
+C.
+With Tarek in the back row of the other car
+D.
+With Candice in the back row of the other car`;
+
+    const stems = parseDecisionMakingPlainText(input, {
+      questionNumberPlacement: 'item_stem',
+      answerOptionOnOwnLine: true,
+    });
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Logical Puzzles');
+  });
+
+  it('detects probabilistic reasoning from option text when stem and question lack keywords', () => {
+    const stems = parseDecisionMakingPlainText(
+      `A short scenario with no explicit odds language in the stem.
+
+1. Should the player take the offer?
+a) Yes, because there is a 50% probability of a better outcome.
+b) No.`,
+      { answerOptionIndicator: 'paren' }
+    );
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Probabilistic and Statistical Reasoning'
     );
   });
 });

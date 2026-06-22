@@ -350,6 +350,49 @@ export type DecisionMakingCategoryName =
   | 'Probabilistic and Statistical Reasoning'
   | 'Logical Puzzles'
 
+const PROBABILISTIC_KEYWORDS = [
+  'probability',
+  'probabilistic',
+  'probabilities',
+  'statistical',
+  'statistics',
+  'chance',
+  'odds',
+  'likelihood',
+  'percent',
+  'lottery',
+  'spinner',
+  'randomly',
+] as const
+
+const PROBABILISTIC_PATTERNS = [
+  /\d+\s*%/,
+  /\bfair(?:\s+six-sided)?\s+(?:dice|die|coin)\b/,
+  /\b(?:dice|die)\b.*\b(?:re-?)?rolls?\b/,
+  /\b(?:re-?)?rolls?\b.*\b(?:dice|die)\b/,
+  /\bcoin\b.*\b(?:flip|toss)(?:es|ed|ing)?\b/,
+  /\b(?:flip|toss)(?:es|ed|ing)?\b.*\bcoin\b/,
+] as const
+
+function containsProbabilisticSignals(text: string): boolean {
+  const lower = text.toLowerCase()
+  if (PROBABILISTIC_KEYWORDS.some((keyword) => lower.includes(keyword))) {
+    return true
+  }
+  return PROBABILISTIC_PATTERNS.some((pattern) => pattern.test(lower))
+}
+
+function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
+  if (containsProbabilisticSignals(stem.stemText)) {
+    return true
+  }
+  return stem.questions.some(
+    (q) =>
+      containsProbabilisticSignals(q.text) ||
+      q.options.some((opt) => containsProbabilisticSignals(opt.text))
+  )
+}
+
 /**
  * Get Decision Making category name from stem content.
  * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
@@ -360,7 +403,6 @@ export function getDecisionMakingStemCategoryName(
 ): DecisionMakingCategoryName {
   const stemLower = stem.stemText.toLowerCase()
   const hasDiagramInStem = stemLower.includes('diagram')
-  const hasProbabilityInStem = stemLower.includes('probability')
 
   const containsImage = (text: string): boolean => text.includes('[[IMG:')
 
@@ -385,13 +427,8 @@ export function getDecisionMakingStemCategoryName(
     }
   }
 
-  if (hasProbabilityInStem) {
+  if (stemHasProbabilisticSignals(stem)) {
     return 'Probabilistic and Statistical Reasoning'
-  }
-  for (const q of stem.questions) {
-    if (q.text.toLowerCase().includes('probability')) {
-      return 'Probabilistic and Statistical Reasoning'
-    }
   }
 
   return 'Logical Puzzles'
