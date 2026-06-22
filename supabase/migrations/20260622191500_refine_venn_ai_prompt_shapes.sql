@@ -23,7 +23,7 @@ SELECT
   1,
   true
 FROM category_prompt
-JOIN public.ucat_question_stem_categories category ON category.name = category_prompt.category_name
+JOIN public.question_stem_categories category ON category.name = category_prompt.category_name
 ON CONFLICT (scope_type, scope_id) DO UPDATE
 SET
   prompt_text = EXCLUDED.prompt_text,
