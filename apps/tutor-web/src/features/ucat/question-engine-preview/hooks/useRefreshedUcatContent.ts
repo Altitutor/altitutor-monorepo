@@ -68,26 +68,28 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
       setContent(null)
       return
     }
+    if (imagePathsKey === '') {
+      setContent(null)
+      return
+    }
     const doc = normalizeDoc(currentJson as Record<string, unknown>)
-    if (imagePathsKey !== '') {
-      const refs = collectUcatImageRefsFromDoc(doc)
-      const pathToUrl = new Map<string, string>()
-      for (const path of refs.paths) {
-        const cached = getCachedSignedUrlForPath(path)
-        if (cached) pathToUrl.set(path, cached)
-      }
-      const fileIdToUrl = new Map<string, string>()
-      for (const fileId of refs.fileIds) {
-        const cached = getCachedSignedUrlForFileId(fileId)
-        if (cached) fileIdToUrl.set(fileId, cached)
-      }
-      const allCached =
-        refs.paths.every((path) => pathToUrl.has(path)) &&
-        refs.fileIds.every((fileId) => fileIdToUrl.has(fileId))
-      if (allCached) {
-        setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl))
-        return
-      }
+    const refs = collectUcatImageRefsFromDoc(doc)
+    const pathToUrl = new Map<string, string>()
+    for (const path of refs.paths) {
+      const cached = getCachedSignedUrlForPath(path)
+      if (cached) pathToUrl.set(path, cached)
+    }
+    const fileIdToUrl = new Map<string, string>()
+    for (const fileId of refs.fileIds) {
+      const cached = getCachedSignedUrlForFileId(fileId)
+      if (cached) fileIdToUrl.set(fileId, cached)
+    }
+    const allCached =
+      refs.paths.every((path) => pathToUrl.has(path)) &&
+      refs.fileIds.every((fileId) => fileIdToUrl.has(fileId))
+    if (allCached) {
+      setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl))
+      return
     }
     setContent(doc)
   }, [docStructureKey, imagePathsKey])

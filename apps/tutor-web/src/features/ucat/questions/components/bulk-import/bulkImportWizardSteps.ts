@@ -3,60 +3,60 @@ export type BulkImportStepKind =
   | 'paste_document'
   | 'paste_stems'
   | 'per_stem_questions'
+  | 'syllogism_manual'
   | 'answers'
   | 'stem_categories'
   | 'question_tags'
   | 'review'
   | 'create_set'
 
-export function getBulkImportTotalSteps(separateStemDocument: boolean): number {
-  return separateStemDocument ? 8 : 7
+export function getBulkImportStepSequence(
+  separateStemDocument: boolean,
+  includeSyllogismManual = false
+): BulkImportStepKind[] {
+  const manualStep: BulkImportStepKind[] = includeSyllogismManual ? ['syllogism_manual'] : []
+
+  if (separateStemDocument) {
+    return [
+      'section',
+      'paste_stems',
+      'per_stem_questions',
+      ...manualStep,
+      'answers',
+      'stem_categories',
+      'question_tags',
+      'review',
+      'create_set',
+    ]
+  }
+
+  return [
+    'section',
+    'paste_document',
+    ...manualStep,
+    'answers',
+    'stem_categories',
+    'question_tags',
+    'review',
+    'create_set',
+  ]
+}
+
+export function getBulkImportTotalSteps(
+  separateStemDocument: boolean,
+  includeSyllogismManual = false
+): number {
+  return getBulkImportStepSequence(separateStemDocument, includeSyllogismManual).length
 }
 
 export function getBulkImportStepKind(
   step: number,
-  separateStemDocument: boolean
+  separateStemDocument: boolean,
+  includeSyllogismManual = false
 ): BulkImportStepKind {
-  if (separateStemDocument) {
-    switch (step) {
-      case 0:
-        return 'section'
-      case 1:
-        return 'paste_stems'
-      case 2:
-        return 'per_stem_questions'
-      case 3:
-        return 'answers'
-      case 4:
-        return 'stem_categories'
-      case 5:
-        return 'question_tags'
-      case 6:
-        return 'review'
-      case 7:
-        return 'create_set'
-      default:
-        return 'section'
-    }
-  }
-  switch (step) {
-    case 0:
-      return 'section'
-    case 1:
-      return 'paste_document'
-    case 2:
-      return 'answers'
-    case 3:
-      return 'stem_categories'
-    case 4:
-      return 'question_tags'
-    case 5:
-      return 'review'
-    case 6:
-      return 'create_set'
-    default:
-      return 'section'
-  }
+  return (
+    getBulkImportStepSequence(separateStemDocument, includeSyllogismManual)[step] ?? 'section'
+  )
 }
 
 export function getBulkImportStepTitle(kind: BulkImportStepKind): string {
@@ -69,6 +69,8 @@ export function getBulkImportStepTitle(kind: BulkImportStepKind): string {
       return 'Paste stems'
     case 'per_stem_questions':
       return 'Paste questions per stem'
+    case 'syllogism_manual':
+      return 'Syllogism statements'
     case 'answers':
       return 'Answers'
     case 'stem_categories':
@@ -79,8 +81,10 @@ export function getBulkImportStepTitle(kind: BulkImportStepKind): string {
       return 'Review'
     case 'create_set':
       return 'Create set'
-    default:
-      return 'Bulk import'
+    default: {
+      const unreachable: never = kind
+      return unreachable
+    }
   }
 }
 

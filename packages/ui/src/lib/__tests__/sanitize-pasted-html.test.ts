@@ -51,4 +51,34 @@ describe('sanitizePastedHtml', () => {
     expect(output).toContain('alt="chart"');
     expect(output).toContain('data-file-id="abc-123"');
   });
+
+  it('converts table header cells to data cells without carrying background styles', () => {
+    const input =
+      '<table><tr><th style="background:#d9d9d9;font-weight:bold">Answer</th><th style="background:#d9d9d9;font-weight:bold">Explanation</th></tr><tr><td><p style="margin:0">1</p></td><td><p style="margin:0">B</p></td><td><p style="margin:0">Because</p></td></tr></table>';
+    const output = sanitizePastedHtml(input);
+    expect(output).not.toMatch(/<th\b/i);
+    expect(output).toMatch(/<td><strong>Answer<\/strong><\/td>/);
+    expect(output).not.toMatch(/background/i);
+    expect(output).toMatch(/<td><p>1<\/p><\/td>/);
+    expect(output).not.toMatch(/<strong>1<\/strong>/);
+  });
+
+  it('unwraps semantic bold tags when Word marks them as normal weight', () => {
+    const input =
+      '<table><tr><td><p><b style="font-weight:normal"><span>1</span></b></p></td><td><p><b style="font-weight:normal"><span>B</span></b></p></td></tr></table>';
+    const output = sanitizePastedHtml(input);
+    expect(output).toContain('1');
+    expect(output).not.toMatch(/<strong>/i);
+    expect(output).not.toMatch(/<b>/i);
+  });
+
+  it('preserves ordered and unordered lists', () => {
+    const input =
+      '<ul><li style="margin-left:18pt"><p>First</p></li><li><p>Second</p></li></ul><ol><li><p>One</p></li></ol>';
+    const output = sanitizePastedHtml(input);
+    expect(output).toContain('<ul>');
+    expect(output).toContain('<ol>');
+    expect(output).toContain('<li');
+    expect(output).toContain('margin-left:18pt');
+  });
 });

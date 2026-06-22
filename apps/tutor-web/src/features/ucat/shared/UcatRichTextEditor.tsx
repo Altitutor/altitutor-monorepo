@@ -452,6 +452,11 @@ export function UcatRichTextEditor({
       ? (refreshedContent as JSONContent)
       : liveEditorContent
 
+  const editorMountKey = useMemo(
+    () => (hasImageRefs ? refreshedImageUrlsKey : 'ucat-rte-stable'),
+    [hasImageRefs, refreshedImageUrlsKey]
+  )
+
   const omitTypography =
     forceLightChrome || ucatParseHighlight.mode !== 'off'
 
@@ -482,7 +487,7 @@ export function UcatRichTextEditor({
       ) : null}
       {!waitingForImageRefresh ? (
         <RichTextEditor
-          key={hasImageRefs ? refreshedImageUrlsKey : liveStructureKey}
+          key={editorMountKey}
           ref={editorRef}
           content={editorContent}
           onChange={onChange ? (json) => onChange(fromJsonContent(json)) : undefined}
