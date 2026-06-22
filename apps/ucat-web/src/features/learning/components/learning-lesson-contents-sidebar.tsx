@@ -1,7 +1,8 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { LearningLessonPager } from "@/features/learning/components/learning-lesson-pager";
 import type { LessonNavEntry } from "@/features/learning/lib/flatten-lessons-for-nav";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
@@ -46,7 +47,7 @@ export function LearningLessonContentsSidebar({
   nextLesson,
 }: LearningLessonContentsSidebarProps) {
   return (
-    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
+    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-20 lg:z-10 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto lg:overscroll-y-contain">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Progress</CardTitle>

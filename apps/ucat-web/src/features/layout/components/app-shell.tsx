@@ -17,6 +17,7 @@ import {
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
+import { ExamAttemptResumeBanner } from "@/features/exam-attempts/components/exam-attempt-resume-banner";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -138,6 +139,7 @@ function AppShellInner({ children }: AppShellProps) {
           }}
         >
         <div className="min-h-dvh bg-background" id="ucat-app-shell">
+        <ExamAttemptResumeBanner />
         {isExamRoute ? (
           <UcatLagProvider>
             <UcatFloatingToolbar />
@@ -188,14 +190,14 @@ function AppShellInner({ children }: AppShellProps) {
               <main
                 className={cn(
                   "flex-1 min-h-0 min-w-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  hideTopBar ? "min-h-dvh p-4 overflow-x-hidden" : "min-h-dvh pt-16 p-6 overflow-x-hidden",
+                  hideTopBar ? "min-h-dvh p-4 overflow-x-clip" : "min-h-dvh pt-16 p-6 overflow-x-clip",
                   sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >
                 <motion.div
                   key={pathname}
-                  initial={reduceMotion ? false : { opacity: 0.94, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={reduceMotion ? false : { opacity: 0.94 }}
+                  animate={{ opacity: 1 }}
                   transition={{
                     duration: reduceMotion ? 0 : 0.22,
                     ease: [0.32, 0.72, 0, 1],

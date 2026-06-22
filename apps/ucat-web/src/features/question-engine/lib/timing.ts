@@ -96,12 +96,18 @@ export function getCurrentMockSegment(
 
 /**
  * Remaining seconds for the current segment. Returns 0 if expired or untimed.
+ * When serverSegmentEndsAt is set, uses the authoritative server clock.
  */
 export function getRemainingSeconds(
   exam: QuestionEngineExam,
   state: QuestionEngineState,
   timerStartedAt: number | null,
+  serverSegmentEndsAt?: string | null,
 ): number | null {
+  if (serverSegmentEndsAt) {
+    const ms = new Date(serverSegmentEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 1000));
+  }
   const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
   if (limit == null || limit <= 0 || timerStartedAt == null) return null;
   const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);

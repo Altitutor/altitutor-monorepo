@@ -219,6 +219,11 @@ export function ResultsQuestionViewer({
       };
     });
 
+    const isAttemptReview =
+      variant === "site" && typeof points === "number";
+    const isReviewingSyllogism =
+      isAttemptReview || syllogismSnapshot != null;
+
     const content = (
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
@@ -260,12 +265,19 @@ export function ResultsQuestionViewer({
                   pct,
                   barWidth,
                 }) => {
-                  const isReviewingAnswers = syllogismSnapshot != null;
-                  const rowBgClass = isReviewingAnswers
-                    ? isCorrect
+                  const isStatementCorrect =
+                    studentHasAnswer && studentYes === correctYes;
+                  const rowHighlight = isReviewingSyllogism
+                    ? isStatementCorrect
+                      ? "correct"
+                      : "wrong"
+                    : null;
+                  const rowBgClass =
+                    rowHighlight === "correct"
                       ? theme.correctRowBg
-                      : theme.wrongRowBg
-                    : "";
+                      : rowHighlight === "wrong"
+                        ? theme.wrongRowBg
+                        : "";
 
                   return (
                     <div
@@ -278,8 +290,19 @@ export function ResultsQuestionViewer({
                       <div className="flex items-center">
                         <div
                           className={cn(
-                            theme.statementBox,
-                            rowBgClass && "border-transparent bg-transparent",
+                            "flex min-h-[50px] w-full items-center justify-center rounded-md border px-4 text-center",
+                            theme.site ? "text-sm" : "text-[11pt]",
+                            rowHighlight === "correct"
+                              ? cn(
+                                  theme.correctRowBg,
+                                  "border-green-600/50 dark:border-green-700/50",
+                                )
+                              : rowHighlight === "wrong"
+                                ? cn(
+                                    theme.wrongRowBg,
+                                    "border-red-600/50 dark:border-red-700/50",
+                                  )
+                                : theme.statementBox,
                           )}
                         >
                           <span className="whitespace-pre-wrap">
@@ -292,9 +315,17 @@ export function ResultsQuestionViewer({
                           className={cn(
                             "flex h-9 w-20 items-center justify-center rounded border font-medium",
                             theme.site ? "text-sm" : "text-[11pt]",
-                            !studentHasAnswer || !isCorrect
-                              ? syllogismAnswerWrongClass(theme.site)
-                              : syllogismAnswerCorrectClass(theme.site),
+                            rowHighlight === "correct"
+                              ? syllogismAnswerCorrectClass(theme.site)
+                              : rowHighlight === "wrong"
+                                ? syllogismAnswerWrongClass(theme.site)
+                                : !studentHasAnswer
+                                  ? theme.site
+                                    ? "border-dashed border-muted-foreground/50 text-muted-foreground"
+                                    : "border-dashed border-[#9ca3af] text-[#9ca3af]"
+                                  : isCorrect
+                                    ? syllogismAnswerCorrectClass(theme.site)
+                                    : syllogismAnswerWrongClass(theme.site),
                           )}
                         >
                           {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}

@@ -449,7 +449,7 @@ export const ucatQuestionsApi = {
   async generateDrafts(input: {
     sectionId: string
     categoryId?: string | null
-    profileId?: string | null
+    modelProfileId?: string | null
     sourceMode: 'none' | 'random' | 'selected'
     sourceStemIds?: string[]
     stemCount: number
@@ -508,23 +508,21 @@ export const ucatQuestionsApi = {
     }>
   },
 
-  async getGenerationProfiles() {
-    const response = await fetch('/api/ucat/question-stems/generated/profiles')
+  async getGenerationModelProfiles() {
+    const response = await fetch('/api/ucat/question-stems/generated/model-profiles')
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to load generation profiles')
+      throw new Error(body.error ?? 'Failed to load generation model profiles')
     }
     return response.json() as Promise<{
-      profiles: Array<{
+      modelProfiles: Array<{
         id: string
         name: string
         model: string
         isDefault: boolean
-        candidatesPerStem: number
       }>
       settings: {
         maxRequestedStems: number
-        maxCandidatesPerStem: number
       }
     }>
   },

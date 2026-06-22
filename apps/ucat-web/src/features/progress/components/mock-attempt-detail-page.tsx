@@ -70,6 +70,8 @@ export function MockAttemptDetailPage({
     stemIndex: q.stemIndex,
     timeSpentSeconds: q.timeSpentSeconds,
     result: q.result,
+    score: q.score,
+    questionType: q.questionType,
   }));
 
   return (

@@ -11,6 +11,12 @@ import {
 } from "recharts";
 import { formatTimeSeconds } from "../lib/format-time";
 import {
+  ATTEMPT_CHART_RESULT_COLORS,
+  ATTEMPT_CHART_RESULT_LABELS,
+} from "../lib/attempt-chart-result-colors";
+import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
+import type { QuestionAttemptChartResult } from "../lib/compute-question-attempt-result";
+import {
   ATTEMPT_CHART_LAYOUT,
   ATTEMPT_CHART_TOOLTIP_PROPS,
   computeStemRanges,
@@ -28,7 +34,9 @@ export type QuestionAttemptForChart = {
   /** 1-based stem index within the set */
   stemIndex?: number;
   timeSpentSeconds: number | null;
-  result: "correct" | "partial" | "incorrect" | "not_attempted";
+  result: QuestionAttemptChartResult;
+  score?: number | null;
+  questionType?: "multiple_choice" | "syllogism" | null;
 };
 
 type SetAttemptAnalysisChartProps = {
@@ -40,25 +48,8 @@ type SetAttemptAnalysisChartProps = {
   onBarClick?: (questionIndex: number) => void;
 };
 
-const RESULT_COLORS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "hsl(142 76% 36%)",
-  partial: "hsl(48 96% 53%)",
-  incorrect: "hsl(0 84% 60%)",
-  not_attempted: "hsl(var(--muted-foreground) / 0.3)",
-};
-
-const RESULT_LABELS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "Correct",
-  partial: "Partial",
-  incorrect: "Incorrect",
-  not_attempted: "Not attempted",
-};
+const RESULT_COLORS = ATTEMPT_CHART_RESULT_COLORS;
+const RESULT_LABELS = ATTEMPT_CHART_RESULT_LABELS;
 
 const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
 
@@ -73,10 +64,19 @@ export function SetAttemptAnalysisChart({
   const chartData = data.map((d, i) => {
     const prevStem = data[i - 1]?.stemIndex;
     const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem;
+    const result =
+      d.score != null
+        ? computeQuestionAttemptResult({
+            score: d.score,
+            questionType: d.questionType ?? null,
+            hasAttempt: d.result !== "not_attempted",
+          })
+        : d.result;
+
     return {
       name: String(d.questionNumber),
       value: d.timeSpentSeconds ?? 0,
-      result: d.result,
+      result,
       stemIndex: d.stemIndex,
       isStemStart: !!isStemStart,
     };

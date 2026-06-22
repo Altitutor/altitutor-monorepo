@@ -18,29 +18,31 @@ export type UcatGenerationProvider = {
 
 export type UcatGenerationSettings = {
   id: string;
-  max_candidates_per_stem: number;
   max_requested_stems_per_run: number;
   daily_token_budget: number | null;
   daily_cost_budget_cents: number | null;
   raw_logging_enabled: boolean;
 };
 
-export type UcatGenerationProfile = {
+export type UcatGenerationSystemPrompts = {
+  id: string;
+  base_system_prompt: string;
+  planner_prompt: string;
+  writer_prompt: string;
+  critic_prompt: string;
+  rewriter_prompt: string;
+  prompt_version: number;
+};
+
+export type UcatGenerationModelProfile = {
   id: string;
   name: string;
   provider_id: string;
   model: string;
   is_enabled: boolean;
   is_default: boolean;
-  candidates_per_stem: number;
   temperature: number;
   max_completion_tokens: number;
-  profile_version: number;
-  base_system_prompt: string;
-  planner_prompt: string;
-  writer_prompt: string;
-  critic_prompt: string;
-  rewriter_prompt: string;
 };
 
 export type UcatGenerationPromptLayer = {
@@ -62,12 +64,14 @@ export type UcatGenerationTaxonomyOption = {
 export type UcatGenerationSettingsBundle = {
   settings: UcatGenerationSettings;
   providers: UcatGenerationProvider[];
-  profiles: UcatGenerationProfile[];
+  systemPrompts: UcatGenerationSystemPrompts;
+  modelProfiles: UcatGenerationModelProfile[];
   promptLayers: UcatGenerationPromptLayer[];
   taxonomyOptions: UcatGenerationTaxonomyOption[];
 };
 
 const SETTINGS_ID = 'cc4e8af1-9eca-4e97-a637-f4b87a4ed850';
+const SYSTEM_PROMPTS_ID = 'f2dd1f3c-bf71-46f0-b67c-637226fda8b4';
 
 function client(): SupabaseAny {
   return getSupabaseClient() as SupabaseAny;
@@ -76,23 +80,26 @@ function client(): SupabaseAny {
 export const ucatGenerationSettingsApi = {
   async getBundle(): Promise<UcatGenerationSettingsBundle> {
     const supabase = client();
-    const [settingsRes, providersRes, profilesRes, layersRes, sectionsRes, categoriesRes, tagsRes] =
+    const [settingsRes, providersRes, systemPromptsRes, modelProfilesRes, layersRes, sectionsRes, categoriesRes, tagsRes] =
       await Promise.all([
         supabase.from('ucat_ai_generation_settings').select('*').eq('id', SETTINGS_ID).maybeSingle(),
         supabase.from('ucat_ai_generation_providers').select('*').order('name'),
-        supabase.from('ucat_ai_generation_profiles').select('*').order('is_default', { ascending: false }).order('name'),
+        supabase.from('ucat_ai_generation_system_prompts').select('*').eq('id', SYSTEM_PROMPTS_ID).maybeSingle(),
+        supabase.from('ucat_ai_generation_model_profiles').select('*').order('is_default', { ascending: false }).order('name'),
         supabase.from('ucat_ai_generation_prompt_layers').select('*').order('scope_type').order('updated_at', { ascending: false }),
         supabase.from('ucat_sections').select('id,name').order('section_number'),
         supabase.from('question_stem_categories').select('id,name,ucat_section_id, ucat_sections(name)').order('name'),
         supabase.from('question_tags').select('id,name,ucat_section_id').order('name'),
       ]);
 
-    for (const res of [settingsRes, providersRes, profilesRes, layersRes, sectionsRes, categoriesRes, tagsRes]) {
+    for (const res of [settingsRes, providersRes, systemPromptsRes, modelProfilesRes, layersRes, sectionsRes, categoriesRes, tagsRes]) {
       if (res.error) throw res.error;
     }
 
     const settings = settingsRes.data as UcatGenerationSettings | null;
     if (!settings) throw new Error('No UCAT generation settings row found. Apply migrations first.');
+    const systemPrompts = systemPromptsRes.data as UcatGenerationSystemPrompts | null;
+    if (!systemPrompts) throw new Error('No UCAT generation system prompts row found. Apply migrations first.');
 
     const sections = ((sectionsRes.data ?? []) as Array<{ id: string; name: string | null }>).map((section) => ({
       id: section.id,
@@ -118,7 +125,8 @@ export const ucatGenerationSettingsApi = {
     return {
       settings,
       providers: (providersRes.data ?? []) as UcatGenerationProvider[],
-      profiles: (profilesRes.data ?? []) as UcatGenerationProfile[],
+      systemPrompts,
+      modelProfiles: (modelProfilesRes.data ?? []) as UcatGenerationModelProfile[],
       promptLayers: (layersRes.data ?? []) as UcatGenerationPromptLayer[],
       taxonomyOptions: [...sections, ...categories, ...tags],
     };
@@ -145,25 +153,29 @@ export const ucatGenerationSettingsApi = {
     if (error) throw error;
   },
 
-  async updateProfile(id: string, updates: Partial<UcatGenerationProfile>): Promise<void> {
+  async updateSystemPrompts(updates: Partial<UcatGenerationSystemPrompts>): Promise<void> {
     const { error } = await client()
-      .from('ucat_ai_generation_profiles')
+      .from('ucat_ai_generation_system_prompts')
       .update({
         ...updates,
-        profile_version: updates.profile_version,
         updated_at: new Date().toISOString(),
       })
+      .eq('id', SYSTEM_PROMPTS_ID);
+    if (error) throw error;
+  },
+
+  async updateModelProfile(id: string, updates: Partial<UcatGenerationModelProfile>): Promise<void> {
+    const { error } = await client()
+      .from('ucat_ai_generation_model_profiles')
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
   },
 
-  async createProfile(input: Omit<UcatGenerationProfile, 'id' | 'profile_version'>): Promise<void> {
+  async createModelProfile(input: Omit<UcatGenerationModelProfile, 'id'>): Promise<void> {
     const { error } = await client()
-      .from('ucat_ai_generation_profiles')
-      .insert({
-        ...input,
-        profile_version: 1,
-      });
+      .from('ucat_ai_generation_model_profiles')
+      .insert(input);
     if (error) throw error;
   },
 

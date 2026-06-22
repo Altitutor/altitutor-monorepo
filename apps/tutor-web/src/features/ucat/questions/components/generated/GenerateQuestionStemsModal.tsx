@@ -16,7 +16,7 @@ import {
   useGenerateUcatQuestionDrafts,
   useImportGeneratedUcatQuestionStems,
   useUcatCategories,
-  useUcatGenerationProfiles,
+  useUcatGenerationModelProfiles,
   useUcatQuestionDetail,
   useUcatSections,
   useUcatStemCatalog,
@@ -233,7 +233,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
-  const profilesQuery = useUcatGenerationProfiles(open)
+  const modelProfilesQuery = useUcatGenerationModelProfiles(open)
   const stemCatalogQuery = useUcatStemCatalog(open)
   const generateMutation = useGenerateUcatQuestionDrafts()
   const importMutation = useImportGeneratedUcatQuestionStems()
@@ -241,7 +241,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [step, setStep] = useState<'config' | 'generating' | 'review'>('config')
   const [sectionId, setSectionId] = useState<string>('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [profileId, setProfileId] = useState<string | null>(null)
+  const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>('random')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
@@ -260,9 +260,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
   const tags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data])
-  const profiles = profilesQuery.data?.profiles ?? []
-  const maxRequestedStems = profilesQuery.data?.settings.maxRequestedStems ?? 20
-  const effectiveProfileId = profileId ?? profiles.find((profile) => profile.isDefault)?.id ?? profiles[0]?.id ?? null
+  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+  const maxRequestedStems = modelProfilesQuery.data?.settings.maxRequestedStems ?? 20
+  const effectiveModelProfileId =
+    modelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
   const selectedSection = useMemo(
     () => sections.find((section) => (section.id ?? '') === sectionId) ?? null,
     [sections, sectionId]
@@ -337,7 +338,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   const stepReady =
     sectionId.length > 0 &&
-    !!effectiveProfileId &&
+    !!effectiveModelProfileId &&
     stemCount > 0 &&
     stemCount <= maxRequestedStems &&
     (sourceMode !== 'selected' || selectedSourceIds.length > 0)
@@ -361,7 +362,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setStep('config')
     setSectionId('')
     setCategoryId(null)
-    setProfileId(null)
+    setModelProfileId(null)
     setSourceMode('random')
     setSelectedSourceIds([])
     setTargetTagIds([])
@@ -386,7 +387,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
       const result = await generateMutation.mutateAsync({
         sectionId,
         categoryId,
-        profileId: effectiveProfileId,
+        modelProfileId: effectiveModelProfileId,
         sourceMode,
         sourceStemIds: sourceMode === 'selected' ? selectedSourceIds : [],
         stemCount,
@@ -642,17 +643,17 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Generation profile</Label>
-                    <SearchableSelect<(typeof profiles)[number]>
-                      items={profiles}
-                      value={profiles.find((profile) => profile.id === effectiveProfileId) ?? null}
-                      onValueChange={(profile) => setProfileId(profile?.id ?? null)}
+                    <Label>Model profile</Label>
+                    <SearchableSelect<(typeof modelProfiles)[number]>
+                      items={modelProfiles}
+                      value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
+                      onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
                       getItemId={(profile) => profile.id}
                       getItemLabel={(profile) => `${profile.name} (${profile.model})`}
-                      placeholder={profilesQuery.isLoading ? 'Loading profiles...' : 'Select profile'}
-                      searchPlaceholder="Search profiles..."
-                      emptyMessage="No profiles found"
-                      loading={profilesQuery.isLoading}
+                      placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                      searchPlaceholder="Search models..."
+                      emptyMessage="No model profiles found"
+                      loading={modelProfilesQuery.isLoading}
                     />
                   </div>
                   <div className="space-y-2">

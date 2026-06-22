@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
@@ -9,15 +10,31 @@ import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters"
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
+import {
+  fetchActiveExamAttempt,
+  finalizeExamAttempt,
+} from "@/features/exam-attempts/api/exam-attempts-api";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { Button } from "@/components/ui/button";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function PracticePage() {
   const router = useRouter();
+  const { refresh: refreshActiveAttempt } = useActiveExamAttempt();
   const filters = useStemFilters({
     timeControlType: "perQuestion",
     showUnlimitedOption: true,
   });
+  const [conflictActive, setConflictActive] = useState<ActiveExamAttempt | null>(
+    null,
+  );
+  const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
+  const pendingStartRef = useRef<{
+    payload: SetGeneratorInput & { unlimited?: boolean };
+    ucatSectionId: string;
+  } | null>(null);
 
   const startMutation = useMutation({
     mutationFn: async ({
@@ -124,7 +141,7 @@ export function PracticePage() {
     },
   });
 
-  function handleStart() {
+  async function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
 
@@ -133,7 +150,32 @@ export function PracticePage() {
       ...filters.input,
       unlimited: unlimited || undefined,
     };
+
+    const active = await fetchActiveExamAttempt();
+    if (active) {
+      pendingStartRef.current = { payload, ucatSectionId };
+      setConflictActive(active);
+      return;
+    }
+
     startMutation.mutate({ payload, ucatSectionId });
+  }
+
+  async function handleFinalizeConflictAndStart() {
+    if (!conflictActive || !pendingStartRef.current) return;
+    setIsFinalizingConflict(true);
+    try {
+      await finalizeExamAttempt({
+        kind: conflictActive.kind,
+        attemptId: conflictActive.attemptId,
+      });
+      await refreshActiveAttempt();
+      setConflictActive(null);
+      startMutation.mutate(pendingStartRef.current);
+      pendingStartRef.current = null;
+    } finally {
+      setIsFinalizingConflict(false);
+    }
   }
 
   const actionButton = (
@@ -185,6 +227,17 @@ export function PracticePage() {
         actionButton={actionButton}
       />
       </div>
+      <ExamAttemptConflictDialog
+        open={conflictActive != null}
+        active={conflictActive}
+        pendingLabel="new practice session"
+        isFinalizing={isFinalizingConflict}
+        onFinalizeAndContinue={() => void handleFinalizeConflictAndStart()}
+        onCancel={() => {
+          setConflictActive(null);
+          pendingStartRef.current = null;
+        }}
+      />
     </div>
   );
 }

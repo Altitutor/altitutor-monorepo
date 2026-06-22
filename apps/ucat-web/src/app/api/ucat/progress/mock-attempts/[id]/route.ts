@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
+import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
+import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -258,6 +260,22 @@ export async function GET(
   const setBoundaryIndices: number[] = [];
   let globalQuestionNumber = 0;
 
+  const allStemIds: string[] = [];
+  if (mockSetIds.length > 0) {
+    const { data: allSetDetails } = await supabase
+      .from("vstudent_ucat_question_set_detail")
+      .select("stems")
+      .in("id", mockSetIds);
+    for (const setDetail of allSetDetails ?? []) {
+      const stems = (setDetail.stems ?? []) as StemWithQuestions[];
+      allStemIds.push(...stems.map((s) => s.stem_id).filter(Boolean));
+    }
+  }
+  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
+    supabase,
+    allStemIds,
+  );
+
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
     const questionSetId = mockSetIds[setIndex];
     const setAttempt = setAttemptsBySetId.get(questionSetId);
@@ -307,25 +325,13 @@ export async function GET(
           : undefined;
         const stemCategory = stemCategoryMap.get(stem.stem_id);
 
-        const score = attemptData?.score ?? null;
+        const { score, result } = resolveQuestionAttemptScoreAndResult({
+          questionId,
+          attemptData,
+          syllogismOptionsByQuestionId,
+        });
         const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
         const questionType = attemptData?.questionType ?? null;
-
-        let result: "correct" | "partial" | "incorrect" | "not_attempted";
-        if (attemptData == null) {
-          result = "not_attempted";
-        } else {
-          const maxScore = questionType === "syllogism" ? 2 : 1;
-          if (score == null) {
-            result = "not_attempted";
-          } else if (score >= maxScore) {
-            result = "correct";
-          } else if (score > 0) {
-            result = "partial";
-          } else {
-            result = "incorrect";
-          }
-        }
 
         const categoryName =
           attemptData?.categoryName ?? stemCategory?.categoryName ?? null;

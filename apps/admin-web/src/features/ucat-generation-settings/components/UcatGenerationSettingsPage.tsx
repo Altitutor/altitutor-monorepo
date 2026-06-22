@@ -23,11 +23,12 @@ import {
 } from '@altitutor/ui';
 import {
   ucatGenerationSettingsApi,
-  type UcatGenerationProfile,
+  type UcatGenerationModelProfile,
   type UcatGenerationPromptLayer,
   type UcatGenerationProvider,
   type UcatGenerationSettings,
   type UcatGenerationSettingsBundle,
+  type UcatGenerationSystemPrompts,
 } from '@/features/ucat-generation-settings/api/ucat-generation-settings';
 
 type LoadState =
@@ -57,7 +58,6 @@ function providerName(providers: UcatGenerationProvider[], providerId: string): 
 }
 
 function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings; onSaved: () => void }) {
-  const [maxCandidates, setMaxCandidates] = useState(String(settings.max_candidates_per_stem));
   const [maxStems, setMaxStems] = useState(String(settings.max_requested_stems_per_run));
   const [dailyTokens, setDailyTokens] = useState(settings.daily_token_budget == null ? '' : String(settings.daily_token_budget));
   const [dailyCost, setDailyCost] = useState(
@@ -71,7 +71,6 @@ function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings;
     setError(null);
     try {
       await ucatGenerationSettingsApi.updateSettings({
-        max_candidates_per_stem: Number.parseInt(maxCandidates, 10),
         max_requested_stems_per_run: Number.parseInt(maxStems, 10),
         daily_token_budget: parseNullableInt(dailyTokens),
         daily_cost_budget_cents: dailyCost.trim() ? Math.round(Number.parseFloat(dailyCost) * 100) : null,
@@ -91,11 +90,7 @@ function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings;
         <CardDescription>Global caps used by tutor-web generation runs.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2">
-            <Label>Max candidates per stem</Label>
-            <Input type="number" min={1} max={5} value={maxCandidates} onChange={(e) => setMaxCandidates(e.target.value)} />
-          </div>
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label>Max requested stems</Label>
             <Input type="number" min={1} max={50} value={maxStems} onChange={(e) => setMaxStems(e.target.value)} />
@@ -177,20 +172,18 @@ function ProviderCard({ provider, onSaved }: { provider: UcatGenerationProvider;
   );
 }
 
-function ProfileDialog({
+function ModelProfileDialog({
   profile,
   providers,
-  globalMaxCandidates,
   onOpenChange,
   onSaved,
 }: {
-  profile: UcatGenerationProfile | null;
+  profile: UcatGenerationModelProfile | null;
   providers: UcatGenerationProvider[];
-  globalMaxCandidates: number;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState<UcatGenerationProfile | null>(profile);
+  const [form, setForm] = useState<UcatGenerationModelProfile | null>(profile);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -201,11 +194,7 @@ function ProfileDialog({
     if (!profile || !form) return;
     setSaving(true);
     try {
-      await ucatGenerationSettingsApi.updateProfile(profile.id, {
-        ...form,
-        candidates_per_stem: Math.min(Number(form.candidates_per_stem), globalMaxCandidates),
-        profile_version: profile.profile_version + 1,
-      });
+      await ucatGenerationSettingsApi.updateModelProfile(profile.id, form);
       onSaved();
       onOpenChange(false);
     } finally {
@@ -217,7 +206,7 @@ function ProfileDialog({
     <Dialog open={!!profile} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{profile ? `Edit ${profile.name}` : 'Edit generation profile'}</DialogTitle>
+          <DialogTitle>{profile ? `Edit ${profile.name}` : 'Edit model profile'}</DialogTitle>
         </DialogHeader>
         {form ? (
           <div className="space-y-4">
@@ -244,16 +233,6 @@ function ProfileDialog({
                 <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Candidates per stem</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={globalMaxCandidates}
-                  value={form.candidates_per_stem}
-                  onChange={(e) => setForm({ ...form, candidates_per_stem: Number.parseInt(e.target.value, 10) })}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label>Temperature</Label>
                 <Input
                   type="number"
@@ -273,18 +252,6 @@ function ProfileDialog({
                   onChange={(e) => setForm({ ...form, max_completion_tokens: Number.parseInt(e.target.value, 10) })}
                 />
               </div>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {(['base_system_prompt', 'planner_prompt', 'writer_prompt', 'critic_prompt', 'rewriter_prompt'] as const).map((key) => (
-                <div key={key} className="space-y-2">
-                  <Label>{key.replaceAll('_', ' ')}</Label>
-                  <Textarea
-                    className="min-h-32"
-                    value={form[key]}
-                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                  />
-                </div>
-              ))}
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm">
@@ -306,25 +273,23 @@ function ProfileDialog({
   );
 }
 
-function ProfilesTable({
+function ModelProfilesTable({
   profiles,
   providers,
-  globalMaxCandidates,
   onSaved,
 }: {
-  profiles: UcatGenerationProfile[];
+  profiles: UcatGenerationModelProfile[];
   providers: UcatGenerationProvider[];
-  globalMaxCandidates: number;
   onSaved: () => void;
 }) {
-  const [editingProfile, setEditingProfile] = useState<UcatGenerationProfile | null>(null);
+  const [editingProfile, setEditingProfile] = useState<UcatGenerationModelProfile | null>(null);
 
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Generation profiles</CardTitle>
-          <CardDescription>Click a profile to edit model and prompt settings.</CardDescription>
+          <CardTitle>Model profiles</CardTitle>
+          <CardDescription>Provider and model inference parameters used by generation.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-sm">
@@ -333,10 +298,9 @@ function ProfilesTable({
                 <th className="py-2 pr-3 font-medium">Name</th>
                 <th className="py-2 pr-3 font-medium">Provider</th>
                 <th className="py-2 pr-3 font-medium">Model</th>
-                <th className="py-2 pr-3 font-medium">Candidates</th>
                 <th className="py-2 pr-3 font-medium">Temperature</th>
+                <th className="py-2 pr-3 font-medium">Max tokens</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
-                <th className="py-2 pr-3 font-medium">Version</th>
               </tr>
             </thead>
             <tbody>
@@ -349,28 +313,91 @@ function ProfilesTable({
                   <td className="py-3 pr-3 font-medium">{profile.name}</td>
                   <td className="py-3 pr-3">{providerName(providers, profile.provider_id)}</td>
                   <td className="py-3 pr-3">{profile.model}</td>
-                  <td className="py-3 pr-3">{profile.candidates_per_stem}</td>
                   <td className="py-3 pr-3">{profile.temperature}</td>
+                  <td className="py-3 pr-3">{profile.max_completion_tokens}</td>
                   <td className="py-3 pr-3">
                     {profile.is_default ? 'Default' : profile.is_enabled ? 'Enabled' : 'Disabled'}
                   </td>
-                  <td className="py-3 pr-3">v{profile.profile_version}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </CardContent>
       </Card>
-      <ProfileDialog
+      <ModelProfileDialog
         profile={editingProfile}
         providers={providers}
-        globalMaxCandidates={globalMaxCandidates}
         onSaved={onSaved}
         onOpenChange={(open) => {
           if (!open) setEditingProfile(null);
         }}
       />
     </>
+  );
+}
+
+const SYSTEM_PROMPT_FIELDS: Array<{
+  key: keyof Pick<
+    UcatGenerationSystemPrompts,
+    'base_system_prompt' | 'planner_prompt' | 'writer_prompt' | 'critic_prompt' | 'rewriter_prompt'
+  >;
+  label: string;
+}> = [
+  { key: 'base_system_prompt', label: 'Base system prompt' },
+  { key: 'planner_prompt', label: 'Planner prompt' },
+  { key: 'writer_prompt', label: 'Writer prompt' },
+  { key: 'critic_prompt', label: 'Critic prompt' },
+  { key: 'rewriter_prompt', label: 'Rewriter prompt' },
+];
+
+function SystemPromptsForm({ prompts, onSaved }: { prompts: UcatGenerationSystemPrompts; onSaved: () => void }) {
+  const [form, setForm] = useState(prompts);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setForm(prompts);
+  }, [prompts]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await ucatGenerationSettingsApi.updateSystemPrompts({
+        ...form,
+        prompt_version: prompts.prompt_version + 1,
+      });
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>System prompts</CardTitle>
+        <CardDescription>Model-independent role instructions shared by every UCAT generation model.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-2">
+          {SYSTEM_PROMPT_FIELDS.map(({ key, label }) => (
+            <div key={key} className={key === 'base_system_prompt' ? 'space-y-2 lg:col-span-2' : 'space-y-2'}>
+              <Label>{label}</Label>
+              <Textarea
+                className="min-h-40"
+                value={form[key]}
+                onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-4">
+          <Button type="button" onClick={save} disabled={saving}>
+            {saving ? 'Saving...' : 'Save system prompts'}
+          </Button>
+          <span className="text-sm text-muted-foreground">Version {prompts.prompt_version}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -463,7 +490,7 @@ function PromptLayerForm({
 
 export function UcatGenerationSettingsPage() {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', data: null, error: null });
-  const [creatingProfile, setCreatingProfile] = useState(false);
+  const [creatingModelProfile, setCreatingModelProfile] = useState(false);
 
   async function load() {
     setLoadState({ status: 'loading', data: null, error: null });
@@ -484,30 +511,24 @@ export function UcatGenerationSettingsPage() {
 
   const bundle = loadState.data;
 
-  async function createProfile() {
+  async function createModelProfile() {
     const provider = bundle.providers.find((item) => item.is_enabled) ?? bundle.providers[0];
-    const template = bundle.profiles[0];
-    if (!provider || !template) return;
-    setCreatingProfile(true);
+    const template = bundle.modelProfiles[0];
+    if (!provider) return;
+    setCreatingModelProfile(true);
     try {
-      await ucatGenerationSettingsApi.createProfile({
-        name: `New profile ${bundle.profiles.length + 1}`,
+      await ucatGenerationSettingsApi.createModelProfile({
+        name: `New model ${bundle.modelProfiles.length + 1}`,
         provider_id: provider.id,
-        model: template.model,
+        model: template?.model ?? 'openai/gpt-4o-mini',
         is_enabled: true,
         is_default: false,
-        candidates_per_stem: Math.min(template.candidates_per_stem, bundle.settings.max_candidates_per_stem),
-        temperature: template.temperature,
-        max_completion_tokens: template.max_completion_tokens,
-        base_system_prompt: template.base_system_prompt,
-        planner_prompt: template.planner_prompt,
-        writer_prompt: template.writer_prompt,
-        critic_prompt: template.critic_prompt,
-        rewriter_prompt: template.rewriter_prompt,
+        temperature: template?.temperature ?? 0.8,
+        max_completion_tokens: template?.max_completion_tokens ?? 6000,
       });
       await load();
     } finally {
-      setCreatingProfile(false);
+      setCreatingModelProfile(false);
     }
   }
 
@@ -516,7 +537,7 @@ export function UcatGenerationSettingsPage() {
       <TabsList>
         <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="providers">Providers</TabsTrigger>
-        <TabsTrigger value="profiles">Profiles</TabsTrigger>
+        <TabsTrigger value="models">Models</TabsTrigger>
         <TabsTrigger value="prompts">Prompts</TabsTrigger>
       </TabsList>
 
@@ -530,21 +551,21 @@ export function UcatGenerationSettingsPage() {
         ))}
       </TabsContent>
 
-      <TabsContent value="profiles" className="space-y-4">
+      <TabsContent value="models" className="space-y-4">
         <div className="flex items-center justify-end">
-          <Button type="button" variant="outline" onClick={createProfile} disabled={creatingProfile || bundle.providers.length === 0 || bundle.profiles.length === 0}>
-            {creatingProfile ? 'Creating...' : 'Add profile'}
+          <Button type="button" variant="outline" onClick={createModelProfile} disabled={creatingModelProfile || bundle.providers.length === 0}>
+            {creatingModelProfile ? 'Creating...' : 'Add model profile'}
           </Button>
         </div>
-        <ProfilesTable
-          profiles={bundle.profiles}
+        <ModelProfilesTable
+          profiles={bundle.modelProfiles}
           providers={bundle.providers}
-          globalMaxCandidates={bundle.settings.max_candidates_per_stem}
           onSaved={load}
         />
       </TabsContent>
 
-      <TabsContent value="prompts">
+      <TabsContent value="prompts" className="space-y-6">
+        <SystemPromptsForm prompts={bundle.systemPrompts} onSaved={load} />
         <PromptLayerForm layers={bundle.promptLayers} options={bundle.taxonomyOptions} onSaved={load} />
       </TabsContent>
     </Tabs>

@@ -285,7 +285,7 @@ export function useGenerateUcatQuestionDrafts() {
     mutationFn: (args: {
       sectionId: string
       categoryId?: string | null
-      profileId?: string | null
+      modelProfileId?: string | null
       sourceMode: 'none' | 'random' | 'selected'
       sourceStemIds?: string[]
       stemCount: number
@@ -297,10 +297,10 @@ export function useGenerateUcatQuestionDrafts() {
   })
 }
 
-export function useUcatGenerationProfiles(enabled: boolean) {
+export function useUcatGenerationModelProfiles(enabled: boolean) {
   return useQuery({
-    queryKey: [...ucatKeys.questions(), 'generation-profiles'],
-    queryFn: () => ucatQuestionsApi.getGenerationProfiles(),
+    queryKey: [...ucatKeys.questions(), 'generation-model-profiles'],
+    queryFn: () => ucatQuestionsApi.getGenerationModelProfiles(),
     enabled,
   })
 }

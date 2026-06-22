@@ -484,7 +484,11 @@ export function useQuestionEnginePersistence({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
-      questionAnswerOptionId: isSyllogism ? null : questionAnswerOptionId,
+      questionAnswerOptionId: isSyllogism
+        ? null
+        : questionAnswerOptionId
+          ? questionAnswerOptionId
+          : null,
       answerSnapshot: undefined,
       isFlagged,
     });
@@ -903,5 +907,6 @@ export function useQuestionEnginePersistence({
     handleExamCompleted,
     completePracticeSession,
     attemptIds,
+    attemptStateRef,
   };
 }

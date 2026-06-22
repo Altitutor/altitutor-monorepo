@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import type { Json } from "@altitutor/shared";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import type { UcatBreadcrumbItem } from "@/features/layout/components/ucat-page-header";
@@ -367,7 +369,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-6">
           <UcatPageHeader
             title={lesson.title ?? "Lesson"}
@@ -412,21 +414,26 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
           )}
 
           {displayMode === "stepped" ? (
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-3">
               <Button
+                type="button"
                 variant="outline"
                 disabled={activeIndex === 0}
                 onClick={() => goToBlock(Math.max(0, activeIndex - 1))}
+                className={cn(UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
               >
                 Previous
               </Button>
               <Button
+                type="button"
+                variant="outline"
                 disabled={
                   activeIndex >= blocks.length - 1 || !canAccessBlock(activeIndex + 1)
                 }
                 onClick={() =>
                   goToBlock(Math.min(blocks.length - 1, activeIndex + 1))
                 }
+                className={cn(UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
               >
                 Next
               </Button>
@@ -434,7 +441,8 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
           ) : null}
         </div>
 
-        <LearningLessonContentsSidebar
+        <div className="w-full lg:w-72 lg:shrink-0">
+          <LearningLessonContentsSidebar
           blocks={blocks}
           activeIndex={activeIndex}
           completionPercent={completionPercent}
@@ -446,6 +454,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
           prevLesson={prevLesson}
           nextLesson={nextLesson}
         />
+        </div>
       </div>
     </div>
   );

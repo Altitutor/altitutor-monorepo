@@ -65,6 +65,9 @@ import {
 } from "@/features/question-engine/model/types";
 import { getStemBoundaries } from "@/features/question-engine/lib/practice";
 import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
+import { useExamAttemptLifecycle } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
+import { useExamAttemptLaunchGate } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-gate";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { useHydratedQuestionStems } from "@/features/practice/hooks/use-hydrated-question-stems";
@@ -126,6 +129,12 @@ export function QuestionEnginePage({
     setId: mode === "set" ? sourceId : undefined,
     mockId: mode === "mock" ? sourceId : undefined,
   });
+
+  const launchGateInput =
+    (mode === "set" || mode === "mock") && sourceId
+      ? { kind: mode, resourceId: sourceId }
+      : null;
+  const launchGate = useExamAttemptLaunchGate(launchGateInput);
 
   const { stems: hydratedQuestionStems, isLoading: isHydratingQuestionStems } =
     useHydratedQuestionStems(mode === "questionStem" ? questionStems : undefined);
@@ -210,6 +219,7 @@ export function QuestionEnginePage({
     handleExamCompleted,
     completePracticeSession,
     attemptIds,
+    attemptStateRef,
   } = useQuestionEnginePersistence({
     mode,
     exam,
@@ -217,6 +227,25 @@ export function QuestionEnginePage({
     practiceSessionId,
     learningModuleBlockId,
     onLearnProgress,
+  });
+
+  const examAttemptLifecycleEnabled =
+    !learningModuleBlockId &&
+    Boolean(
+      exam &&
+        (exam.sourceType === "set" ||
+          exam.sourceType === "mock" ||
+          (isPracticeMode && practiceSessionId)),
+    );
+
+  const { serverSegmentEndsAt } = useExamAttemptLifecycle({
+    enabled: examAttemptLifecycleEnabled,
+    exam,
+    state,
+    setState,
+    practice: isPracticeMode,
+    practiceSessionId,
+    attemptStateRef,
   });
 
   const markingOrQuestionIndex =
@@ -278,7 +307,12 @@ export function QuestionEnginePage({
     currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
   const remainingSeconds =
     exam && isTimed
-      ? getRemainingSeconds(exam, state, state.timerStartedAt)
+      ? getRemainingSeconds(
+          exam,
+          state,
+          state.timerStartedAt,
+          serverSegmentEndsAt,
+        )
       : null;
   const segmentKey =
     exam?.sourceType === "mock"
@@ -870,6 +904,31 @@ export function QuestionEnginePage({
     instructionsScreens.length,
     onBack,
   ]);
+
+  if (launchGateInput && launchGate.isCheckingLaunch) {
+    return (
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
+        Checking for in-progress attempts...
+      </div>
+    );
+  }
+
+  if (launchGateInput && !launchGate.launchAllowed) {
+    return (
+      <ExamAttemptConflictDialog
+        open={Boolean(launchGate.conflictActive)}
+        active={launchGate.conflictActive}
+        pendingLabel={
+          mode === "mock" ? "this mock exam" : "this question set"
+        }
+        isFinalizing={launchGate.isFinalizingConflict}
+        onFinalizeAndContinue={() =>
+          void launchGate.finalizeConflictAndContinue()
+        }
+        onCancel={() => router.back()}
+      />
+    );
+  }
 
   if ((mode === "set" || mode === "mock") && query.isLoading) {
     return (
