@@ -502,6 +502,37 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             },
           };
         },
+        addNodeView() {
+          const parent = this.parent?.();
+          if (!parent) {
+            return null;
+          }
+          return (props) => {
+            const nodeView = parent(props);
+            if (!nodeView) {
+              return nodeView;
+            }
+            const dom = nodeView.dom as HTMLElement;
+            const img =
+              dom instanceof HTMLImageElement
+                ? dom
+                : dom.querySelector('img');
+            if (img instanceof HTMLImageElement) {
+              const reveal = () => {
+                dom.style.visibility = '';
+                dom.style.pointerEvents = '';
+              };
+              // TipTap hides until onload; cached/preloaded images may already be complete.
+              if (img.complete) {
+                reveal();
+              } else {
+                img.addEventListener('load', reveal, { once: true });
+                img.addEventListener('error', reveal, { once: true });
+              }
+            }
+            return nodeView;
+          };
+        },
       }).configure({
         inline: false,
         allowBase64: false,

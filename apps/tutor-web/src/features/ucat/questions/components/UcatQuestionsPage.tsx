@@ -128,6 +128,18 @@ const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: str
   { value: 'answer_option_text', label: 'Answer options' },
 ]
 
+const questionSearchFromViewGroups = [
+  {
+    heading: 'Questions & answer options',
+    options: [
+      { value: 'question_text' as const, label: 'Question text' },
+      { value: 'answer_option_text' as const, label: 'Answer options' },
+    ],
+  },
+]
+
+const stemSearchFromViewOptions = [{ value: 'stem_text' as const, label: 'Stem text' }]
+
 const defaultQuestionSearchScopes: QuestionSearchScope[] = [
   'stem_text',
   'question_text',
@@ -168,6 +180,58 @@ type QuestionRow = {
   set_ids: string[]
   deleted_at: string | null
   approval_status: 'approved' | 'pending' | 'rejected'
+}
+
+function collectSetIdsForStems(stemIds: string[], rows: QuestionRow[]): string[] {
+  const setIds = new Set<string>()
+  for (const stemId of stemIds) {
+    const row = rows.find((r) => r.id === stemId)
+    row?.set_ids.forEach((id) => setIds.add(id))
+  }
+  return Array.from(setIds)
+}
+
+function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number {
+  return stemIds.filter((id) => (rows.find((r) => r.id === id)?.set_ids.length ?? 0) > 0).length
+}
+
+async function removeStemsFromSets(
+  stemIds: string[],
+  setIds: string[],
+  updateSet: (args: {
+    setId: string
+    payload: {
+      name: Json
+      description: string
+      timeLimitSeconds: number | null
+      isPrivate: boolean
+      isStudentGenerated: boolean
+      stemIds: string[]
+    }
+  }) => Promise<unknown>,
+): Promise<void> {
+  const removeSet = new Set(stemIds)
+  await Promise.all(
+    setIds.map(async (setId) => {
+      const setDetail = await ucatSetsApi.detail(setId)
+      if (!setDetail) return
+      const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
+      const currentIds = stems.map((s) => s.stem_id)
+      const newStemIds = currentIds.filter((id) => !removeSet.has(id))
+      if (newStemIds.length === currentIds.length) return
+      await updateSet({
+        setId,
+        payload: {
+          name: setDetail.name ?? plainTextToProseMirror(''),
+          description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
+          timeLimitSeconds: setDetail.time_limit_seconds ?? null,
+          isPrivate: !!setDetail.is_private,
+          isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
+          stemIds: newStemIds,
+        },
+      })
+    }),
+  )
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -256,12 +320,17 @@ export function UcatQuestionsPage() {
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkSetsOpen, setBulkSetsOpen] = useState(false)
   const [bulkSetIds, setBulkSetIds] = useState<string[]>([])
+  const [bulkRemoveSetsOpen, setBulkRemoveSetsOpen] = useState(false)
+  const [bulkRemoveSetIds, setBulkRemoveSetIds] = useState<string[]>([])
+  const [removeFromSetsPopoverOpen, setRemoveFromSetsPopoverOpen] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [addToSetsPopoverOpen, setAddToSetsPopoverOpen] = useState(false)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
   const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
   const [bulkSetsPending, setBulkSetsPending] = useState(false)
+  const [bulkRemoveSetsPending, setBulkRemoveSetsPending] = useState(false)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [searchScopes, setSearchScopes] = useState<QuestionSearchScope[]>(defaultQuestionSearchScopes)
   const selectionMode = selectedStemIds.size > 0
@@ -765,14 +834,51 @@ export function UcatQuestionsPage() {
     }
   }
 
+  async function handleBulkRemoveSetsConfirm() {
+    if (bulkRemoveSetIds.length === 0) return
+    setBulkRemoveSetsPending(true)
+    try {
+      const stemIds = Array.from(selectedStemIds)
+      await removeStemsFromSets(stemIds, bulkRemoveSetIds, (args) => updateSetMutation.mutateAsync(args))
+      setBulkRemoveSetsOpen(false)
+      setBulkRemoveSetIds([])
+      setSelectedStemIds(new Set())
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      bulkRemoveSetIds.forEach((setId) => {
+        void queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })
+      })
+    } finally {
+      setBulkRemoveSetsPending(false)
+    }
+  }
+
   const { toast } = useToast()
+
+  async function deleteStemsWithSetRemoval(stemIds: string[]) {
+    const setIds = collectSetIdsForStems(stemIds, rows)
+    if (setIds.length > 0) {
+      await removeStemsFromSets(stemIds, setIds, (args) => updateSetMutation.mutateAsync(args))
+      setIds.forEach((setId) => {
+        void queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })
+      })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+    }
+    if (stemIds.length === 1) {
+      await deleteMutation.mutateAsync(stemIds[0])
+    } else {
+      await ucatQuestionsApi.bulkRemove(stemIds)
+    }
+    await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+    await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+  }
+
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedStemIds)
     setBulkDeletePending(true)
     try {
-      await ucatQuestionsApi.bulkRemove(ids)
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      await deleteStemsWithSetRemoval(ids)
       setBulkDeleteOpen(false)
       setSelectedStemIds(new Set())
     } catch (err) {
@@ -781,10 +887,24 @@ export function UcatQuestionsPage() {
         description: err instanceof Error ? err.message : 'Failed to delete question stems.',
         variant: 'destructive',
       })
+      throw err
     } finally {
       setBulkDeletePending(false)
     }
   }
+
+  const bulkDeleteInSetsCount = countStemsInSets(selectedStemIdsArray, rows)
+  const singleDeleteInSetsCount = deletingStemId
+    ? (rows.find((r) => r.id === deletingStemId)?.set_ids.length ?? 0)
+    : 0
+  const setsContainingSelectedStems = useMemo(() => {
+    const setIdSet = new Set<string>()
+    selectedStemIdsArray.forEach((stemId) => {
+      const row = rows.find((r) => r.id === stemId)
+      row?.set_ids.forEach((id) => setIdSet.add(id))
+    })
+    return setsList.filter((s) => s.id && setIdSet.has(s.id))
+  }, [selectedStemIdsArray, rows, setsList])
 
   const setFilterOptions = useMemo(() => {
     const q = setFilterSearch.trim().toLowerCase()
@@ -921,6 +1041,9 @@ export function UcatQuestionsPage() {
         searchFromOptions={questionSearchScopeOptions}
         searchFromValue={searchScopes}
         onSearchFromChange={(values) => setSearchScopes(values as QuestionSearchScope[])}
+        searchFromInView
+        stemSearchFromOptions={stemSearchFromViewOptions}
+        searchFromViewGroups={questionSearchFromViewGroups}
         filterSearchValues={{ question_set_id: setFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
@@ -1228,6 +1351,65 @@ export function UcatQuestionsPage() {
           align="start"
           side="top"
         />
+        <Popover open={removeFromSetsPopoverOpen} onOpenChange={setRemoveFromSetsPopoverOpen}>
+          <PopoverTrigger
+            type="button"
+            className={cn(
+              tutorBtnOutline,
+              'inline-flex h-9 items-center justify-center gap-2 px-3 text-sm font-medium hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:hover:bg-brand-dark-card/70 dark:text-white',
+            )}
+          >
+            Remove from sets
+          </PopoverTrigger>
+          <PopoverContent className="w-[280px] p-0" align="start" side="top">
+            <Command>
+              <CommandInput placeholder="Search sets..." />
+              <CommandList>
+                <CommandEmpty>No sets contain the selected stems.</CommandEmpty>
+                <CommandGroup>
+                  {setsContainingSelectedStems.map((set) => {
+                    const setId = set.id ?? ''
+                    const isSelected = bulkRemoveSetIds.includes(setId)
+                    const stemsInSet = selectedStemIdsArray.filter((stemId) =>
+                      rows.find((r) => r.id === stemId)?.set_ids.includes(setId),
+                    ).length
+                    const checkboxState =
+                      isSelected ? true : stemsInSet === selectedSize ? true : stemsInSet > 0 ? 'indeterminate' : false
+                    return (
+                      <CommandItem
+                        key={setId}
+                        value={`${setId}-${proseMirrorToPlainText(set.name ?? null)}`}
+                        onSelect={() => {
+                          setBulkRemoveSetIds((prev) =>
+                            isSelected ? prev.filter((id) => id !== setId) : [...prev, setId]
+                          )
+                        }}
+                        className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
+                      >
+                        <Checkbox checked={checkboxState} />
+                        <span>{proseMirrorToPlainText(set.name ?? null) || 'Untitled'}</span>
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+            <div className="border-t p-2">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setRemoveFromSetsPopoverOpen(false)
+                  setBulkRemoveSetsOpen(true)
+                }}
+                disabled={bulkRemoveSetIds.length === 0}
+              >
+                Remove from {bulkRemoveSetIds.length} set(s)
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"
@@ -1338,11 +1520,32 @@ export function UcatQuestionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={bulkRemoveSetsOpen} onOpenChange={setBulkRemoveSetsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove stems from sets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove {selectedStemIds.size} selected stem(s) from {bulkRemoveSetIds.length} set(s)? Stems will remain in
+              your question library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkRemoveSetsPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkRemoveSetsConfirm()} disabled={bulkRemoveSetsPending}>
+              {bulkRemoveSetsPending ? 'Updating...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <UcatDeleteConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
         title={`Delete ${selectedStemIds.size} question stem(s)?`}
-        description="The selected stems will be hidden from students. You can restore them later from the deleted list."
+        description={
+          bulkDeleteInSetsCount > 0
+            ? `${bulkDeleteInSetsCount} of the selected stem(s) are in one or more sets. They will be removed from all sets before deletion. The stems will be hidden from students and can be restored later from the deleted list.`
+            : 'The selected stems will be hidden from students. You can restore them later from the deleted list.'
+        }
         onConfirm={handleBulkDeleteConfirm}
         isPending={bulkDeletePending}
       />
@@ -1390,14 +1593,29 @@ export function UcatQuestionsPage() {
         open={!!deletingStemId}
         onOpenChange={(open) => !open && setDeletingStemId(null)}
         title="Delete question stem?"
-        description="The stem and all its questions will be hidden from students. You can restore them later from the deleted list."
+        description={
+          singleDeleteInSetsCount > 0
+            ? `This question stem is in ${singleDeleteInSetsCount} set(s). It will be removed from all sets before deletion. The stem and all its questions will be hidden from students. You can restore them later from the deleted list.`
+            : 'The stem and all its questions will be hidden from students. You can restore them later from the deleted list.'
+        }
         onConfirm={async () => {
-          if (deletingStemId) {
-            await deleteMutation.mutateAsync(deletingStemId)
+          if (!deletingStemId) return
+          setSingleDeletePending(true)
+          try {
+            await deleteStemsWithSetRemoval([deletingStemId])
             setEditingStemId((prev) => (prev === deletingStemId ? null : prev))
+          } catch (err) {
+            toast({
+              title: 'Cannot delete',
+              description: err instanceof Error ? err.message : 'Failed to delete question stem.',
+              variant: 'destructive',
+            })
+            throw err
+          } finally {
+            setSingleDeletePending(false)
           }
         }}
-        isPending={deleteMutation.isPending}
+        isPending={singleDeletePending}
       />
 
       <BulkImportQuestionStemsModal

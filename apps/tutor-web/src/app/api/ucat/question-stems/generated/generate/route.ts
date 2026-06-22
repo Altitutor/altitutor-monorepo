@@ -7,20 +7,16 @@ import {
   callUcatAiJson,
   getUcatAiPromptLayers,
   resolveUcatAiConfig,
+  UcatAiJsonParseError,
 } from '@/features/ucat/shared/server/ucat-ai-client'
 import {
-  buildCriticPrompt,
-  buildPlanningPrompt,
-  buildRewriterPrompt,
   buildWriterPrompt,
   type AiGenerationBrief,
 } from '@/features/ucat/questions/lib/ai-generation/prompts'
 import {
-  CriticResponseSchema,
   DifficultyTargetSchema,
   GeneratedCandidateResponseSchema,
   TimeBurdenTargetSchema,
-  type CriticIssue,
   type GeneratedStem,
 } from '@/features/ucat/questions/lib/ai-generation/schema'
 import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
@@ -48,6 +44,14 @@ const GenerateBodySchema = z.object({
   runInstructions: z.string().trim().max(2000).nullable().optional(),
 })
 
+const GENERATION_TOKEN_LIMITS = {
+  writer: 3000,
+} as const
+
+const GENERATION_TIMEOUT_MS = {
+  writer: 75_000,
+} as const
+
 type SourceStem = {
   id: string
   stem_text: Json | null
@@ -67,6 +71,43 @@ type SourceStem = {
 type StemCategoryChoice = {
   id: string
   name: string
+}
+
+type GenerationDebugCall = {
+  stemIndex: number
+  categoryName: string | null
+  operation: string
+  model: string | null
+  durationMs: number
+  status: 'ok' | 'error'
+  error?: string
+  request: {
+    systemPrompt: string
+    userPrompt: string
+    maxCompletionTokens: number
+    timeoutMs: number
+  }
+  response?: {
+    content: string
+    finishReason: string | null
+    usage: unknown
+    contentLength: number
+  }
+  parsedSummary?: {
+    stemCount: number
+    categories: Array<string | null>
+    questionCounts: number[]
+  }
+}
+
+type GenerationDebugInfo = {
+  requestedStemCount: number
+  sectionName: string | null
+  selectedCategoryName: string | null
+  sourceSampleIds: string[]
+  promptLayerCount: number
+  calls: GenerationDebugCall[]
+  gateIssues: GenerationGateIssue[]
 }
 
 function asAny(client: SupabaseClient<Database>): SupabaseAny {
@@ -90,19 +131,71 @@ function extractText(value: Json | null | undefined): string {
 function compactStemForPrompt(stem: SourceStem): Record<string, unknown> {
   return {
     id: stem.id,
-    stemText: extractText(stem.stem_text).slice(0, 2200),
-    questions: (stem.questions ?? []).slice(0, 6).map((question) => ({
-      questionText: extractText((question.question_text ?? null) as Json).slice(0, 900),
+    stemText: extractText(stem.stem_text).slice(0, 900),
+    questions: (stem.questions ?? []).slice(0, 4).map((question) => ({
+      questionText: extractText((question.question_text ?? null) as Json).slice(0, 240),
       questionType: question.question_type ?? 'multiple_choice',
-      answerExplanation: extractText((question.answer_explanation ?? null) as Json).slice(0, 600),
       tags: (question.tags ?? []).map((tag) => tag.name).filter(Boolean),
-      options: (question.answer_options ?? []).slice(0, 6).map((option) => ({
-        answerText: extractText((option.answer_text ?? null) as Json).slice(0, 300),
-        answerExplanation: extractText((option.answer_explanation ?? null) as Json).slice(0, 300),
+      options: (question.answer_options ?? []).slice(0, 5).map((option) => ({
+        answerText: extractText((option.answer_text ?? null) as Json).slice(0, 120),
         isAnswer: !!option.is_answer,
       })),
     })),
   }
+}
+
+function buildLocalPlan(brief: AiGenerationBrief): Record<string, unknown> {
+  const categories =
+    brief.categoryName || !brief.availableCategories?.length
+      ? []
+      : brief.availableCategories.map((category) => category.name)
+  return {
+    plans: Array.from({ length: brief.stemCount }, (_, index) => ({
+      stemIndex: index,
+      candidateIndex: 0,
+      categoryName: brief.categoryName ?? categories[index % Math.max(1, categories.length)] ?? null,
+      difficultyTarget: brief.difficultyTarget === 'mixed' ? ['easy', 'medium', 'hard'][index % 3] : brief.difficultyTarget,
+      timeBurdenTarget: brief.timeBurdenTarget === 'mixed' ? ['low', 'medium', 'high'][index % 3] : brief.timeBurdenTarget,
+      notes: 'Create a distinct official-style UCAT item; do not copy source examples.',
+    })),
+  }
+}
+
+function selectCategoryNameForIndex(brief: AiGenerationBrief, index: number): string | null {
+  if (brief.categoryName) return brief.categoryName
+  const categories = brief.availableCategories ?? []
+  if (categories.length === 0) return null
+  return categories[index % categories.length]?.name ?? null
+}
+
+function briefForSingleStem(brief: AiGenerationBrief, index: number): AiGenerationBrief {
+  const categoryName = selectCategoryNameForIndex(brief, index)
+  return {
+    ...brief,
+    categoryName,
+    availableCategories: categoryName ? [] : brief.availableCategories,
+    stemCount: 1,
+    promptLayers: brief.promptLayers.filter((layer) => {
+      if (layer.scopeType === 'stem_category') return layer.name === categoryName
+      return true
+    }),
+  }
+}
+
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<T[]> {
+  const results: T[] = []
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await tasks[currentIndex]()
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
+  return results
 }
 
 function sourcePlainText(stem: SourceStem): string {
@@ -125,20 +218,14 @@ function difficultyToNumber(value: number | null | undefined, target: string | u
   return null
 }
 
-function criticIssuesToGateIssues(issues: CriticIssue[]): GenerationGateIssue[] {
-  return issues.map((issue) => ({
-    severity: issue.severity,
-    code: issue.code,
-    message: issue.message,
-    stemIndex: issue.stemIndex ?? 0,
-    questionIndex: issue.questionIndex ?? undefined,
-  }))
-}
-
 function issueMessages(issues: GenerationGateIssue[]): string[] {
   return issues
     .filter((issue) => issue.severity === 'warning')
     .map((issue) => issue.questionIndex == null ? issue.message : `Q${issue.questionIndex + 1}: ${issue.message}`)
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown generation error'
 }
 
 async function fetchSourceStems(
@@ -169,7 +256,7 @@ async function fetchSourceStems(
   if (error) throw new Error(error.message)
 
   const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
-  const sampleSize = Math.min(6, source.length)
+  const sampleSize = Math.min(2, source.length)
   return [...source].sort(() => Math.random() - 0.5).slice(0, sampleSize)
 }
 
@@ -247,58 +334,6 @@ async function buildPromptLayers(params: {
   })
 }
 
-async function criticPass(params: {
-  client: SupabaseClient<Database>
-  profileId?: string | null
-  systemPrompt: string
-  brief: AiGenerationBrief
-  candidates: GeneratedStem[]
-}): Promise<GenerationGateIssue[]> {
-  const result = await callUcatAiJson({
-    client: params.client,
-    operation: 'generation_critic',
-    profileId: params.profileId,
-    systemPrompt: params.systemPrompt,
-    userPrompt: buildCriticPrompt({ ...params.brief, candidates: params.candidates }),
-    temperature: 0.1,
-    metadata: { section: params.brief.sectionName, category: params.brief.categoryName } as Json,
-  })
-  const parsed = CriticResponseSchema.safeParse(result.parsed)
-  if (!parsed.success) {
-    return [
-      {
-        severity: 'warning',
-        code: 'critic_schema_mismatch',
-        message: 'AI critic output could not be parsed; deterministic gates still passed.',
-        stemIndex: 0,
-      },
-    ]
-  }
-  return criticIssuesToGateIssues(parsed.data.issues)
-}
-
-async function rewriteCandidate(params: {
-  client: SupabaseClient<Database>
-  profileId?: string | null
-  systemPrompt: string
-  brief: AiGenerationBrief
-  candidate: GeneratedStem
-  issues: GenerationGateIssue[]
-}): Promise<GeneratedStem | null> {
-  const result = await callUcatAiJson({
-    client: params.client,
-    operation: 'generation_rewrite',
-    profileId: params.profileId,
-    systemPrompt: params.systemPrompt,
-    userPrompt: buildRewriterPrompt({ ...params.brief, candidate: params.candidate, issues: params.issues }),
-    temperature: 0.3,
-    metadata: { section: params.brief.sectionName, category: params.brief.categoryName } as Json,
-  })
-  const parsed = GeneratedCandidateResponseSchema.safeParse(result.parsed)
-  if (!parsed.success) return null
-  return parsed.data.stems[0] ?? null
-}
-
 function toDraft(params: {
   stem: GeneratedStem
   body: z.infer<typeof GenerateBodySchema>
@@ -374,6 +409,7 @@ export async function POST(request: NextRequest) {
   }
 
   const client = access.userClient as unknown as SupabaseClient<Database>
+  let debug: GenerationDebugInfo | null = null
 
   try {
     const config = await resolveUcatAiConfig(client, body.profileId)
@@ -415,7 +451,7 @@ export async function POST(request: NextRequest) {
       availableCategories: categoryChoices,
       tags: targetTags,
     })
-    const candidateCount = Math.min(config.profile.candidates_per_stem, config.settings.max_candidates_per_stem)
+    const candidateCount = 1
     const examples = sourceSamples.map(compactStemForPrompt)
     const brief: AiGenerationBrief = {
       sectionName: sectionRow.name ?? 'UCAT',
@@ -430,95 +466,124 @@ export async function POST(request: NextRequest) {
       examples,
       promptLayers,
     }
-
-    const planner = await callUcatAiJson({
-      client,
-      operation: 'generation_plan',
-      profileId: body.profileId,
-      systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.planner_prompt}`,
-      userPrompt: buildPlanningPrompt(brief),
-      temperature: Math.max(0.3, Number(config.profile.temperature)),
-      metadata: { section: brief.sectionName, category: brief.categoryName } as Json,
-    })
-
-    const writer = await callUcatAiJson({
-      client,
-      operation: 'generation_write',
-      profileId: body.profileId,
-      systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.writer_prompt}`,
-      userPrompt: buildWriterPrompt({ ...brief, plan: planner.parsed }),
-      temperature: Number(config.profile.temperature),
-      metadata: { section: brief.sectionName, category: brief.categoryName } as Json,
-    })
-
-    const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
-    if (!parsedWriter.success) {
-      return NextResponse.json(
-        { error: 'AI generation output schema mismatch', details: parsedWriter.error.flatten() },
-        { status: 500 }
-      )
+    debug = {
+      requestedStemCount: body.stemCount,
+      sectionName: sectionRow.name ?? null,
+      selectedCategoryName: categoryName,
+      sourceSampleIds: sourceSamples.map((sample) => sample.id),
+      promptLayerCount: promptLayers.length,
+      calls: [],
+      gateIssues: [],
     }
+    const activeDebug = debug
+
+    const generatedResults = await runWithConcurrency(
+      Array.from({ length: body.stemCount }, (_, stemIndex) => async () => {
+        const singleBrief = briefForSingleStem(brief, stemIndex)
+        const systemPrompt = `${config.profile.base_system_prompt}\n\n${config.profile.writer_prompt}`
+        const userPrompt = buildWriterPrompt({ ...singleBrief, plan: buildLocalPlan(singleBrief) })
+        const startedAt = Date.now()
+        const baseDebug = {
+          stemIndex,
+          categoryName: singleBrief.categoryName,
+          operation: 'generation_write',
+          request: {
+            systemPrompt,
+            userPrompt,
+            maxCompletionTokens: GENERATION_TOKEN_LIMITS.writer,
+            timeoutMs: GENERATION_TIMEOUT_MS.writer,
+          },
+        }
+
+        let writer
+        try {
+          writer = await callUcatAiJson({
+            client,
+            operation: 'generation_write',
+            profileId: body.profileId,
+            systemPrompt,
+            userPrompt,
+            temperature: Number(config.profile.temperature),
+            maxCompletionTokens: GENERATION_TOKEN_LIMITS.writer,
+            timeoutMs: GENERATION_TIMEOUT_MS.writer,
+            metadata: { section: singleBrief.sectionName, category: singleBrief.categoryName } as Json,
+          })
+        } catch (error) {
+          activeDebug.calls.push({
+            ...baseDebug,
+            model: error instanceof UcatAiJsonParseError ? error.model : config.profile.model,
+            durationMs: Date.now() - startedAt,
+            status: 'error',
+            error: errorMessage(error),
+            response:
+              error instanceof UcatAiJsonParseError
+                ? {
+                    content: error.content,
+                    finishReason: error.finishReason,
+                    usage: error.usage,
+                    contentLength: error.content.length,
+                  }
+                : undefined,
+          })
+          throw error
+        }
+
+        const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
+        activeDebug.calls.push({
+          ...baseDebug,
+          model: writer.model,
+          durationMs: Date.now() - startedAt,
+          status: parsedWriter.success ? 'ok' : 'error',
+          error: parsedWriter.success ? undefined : 'Generated JSON did not match the expected stem schema.',
+          response: {
+            content: writer.content,
+            finishReason: writer.finishReason,
+            usage: writer.usage,
+            contentLength: writer.content.length,
+          },
+          parsedSummary: parsedWriter.success
+            ? {
+                stemCount: parsedWriter.data.stems.length,
+                categories: parsedWriter.data.stems.map((stem) => stem.categoryName ?? null),
+                questionCounts: parsedWriter.data.stems.map((stem) => stem.questions.length),
+              }
+            : undefined,
+        })
+        if (!parsedWriter.success) {
+          throw new Error(`AI generation output schema mismatch for stem ${stemIndex + 1}`)
+        }
+        return parsedWriter.data.stems[0] ?? null
+      }),
+      2
+    )
+    const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
 
     const sourcePlainTexts = [...sourceSamples.map(sourcePlainText), ...(await fetchBankComparisonTexts(client, body.sectionId))]
     const accepted: Array<{ stem: GeneratedStem; issues: GenerationGateIssue[]; rewritten: boolean }> = []
     const discarded: Array<{ issues: GenerationGateIssue[]; rewritten: boolean }> = []
 
-    for (const [candidateIndex, candidate] of parsedWriter.data.stems.entries()) {
-      let issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
+    for (const [candidateIndex, candidate] of generatedStems.entries()) {
+      const issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
         sectionName: brief.sectionName,
         categoryName,
         sourcePlainTexts,
       })
-      const criticIssues = await criticPass({
-        client,
-        profileId: body.profileId,
-        systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.critic_prompt}`,
-        brief,
-        candidates: [candidate],
-      })
-      issues = [...issues, ...criticIssues]
 
-      let finalStem = candidate
-      let rewritten = false
-      if (hasBlockingIssues(issues)) {
-        const rewrittenStem = await rewriteCandidate({
-          client,
-          profileId: body.profileId,
-          systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.rewriter_prompt}`,
-          brief,
-          candidate,
-          issues,
-        })
-        if (rewrittenStem) {
-          rewritten = true
-          finalStem = rewrittenStem
-          issues = validateGeneratedStemCandidate(finalStem, candidateIndex, {
-            sectionName: brief.sectionName,
-            categoryName,
-            sourcePlainTexts,
-          })
-          const rewrittenCriticIssues = await criticPass({
-            client,
-            profileId: body.profileId,
-            systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.critic_prompt}`,
-            brief,
-            candidates: [finalStem],
-          })
-          issues = [...issues, ...rewrittenCriticIssues]
-        }
-      }
+      activeDebug.gateIssues.push(...issues)
 
-      if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten })
-      else accepted.push({ stem: finalStem, issues, rewritten })
+      if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten: false })
+      else accepted.push({ stem: candidate, issues, rewritten: false })
       if (accepted.length >= body.stemCount) break
     }
 
     if (accepted.length === 0) {
+      const issues = discarded.flatMap((item) => item.issues).slice(0, 10)
       return NextResponse.json(
         {
-          error: 'No generated candidates passed blocking gates.',
+          error: issues[0]?.message ?? 'No generated candidates passed blocking gates.',
           discardedCount: discarded.length,
-          issues: discarded.flatMap((item) => item.issues).slice(0, 10),
+          issues,
+          debug,
         },
         { status: 422 }
       )
@@ -546,10 +611,10 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    return NextResponse.json({ stems, discardedCount: discarded.length })
+    return NextResponse.json({ stems, discardedCount: discarded.length, debug })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate stems' },
+      { error: errorMessage(error), debug },
       { status: 500 }
     )
   }

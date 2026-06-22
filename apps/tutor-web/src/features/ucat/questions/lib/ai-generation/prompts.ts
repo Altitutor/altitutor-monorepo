@@ -235,7 +235,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         stems: [
           {
             stemText: 'string or GeneratedContentBlock[]',
-            categoryName: input.categoryName,
+            categoryName: input.categoryName ?? 'exact available category name',
             difficultyTarget: 'easy|medium|hard|mixed',
             timeBurdenTarget: 'low|medium|high|mixed',
             warnings: [],
@@ -336,7 +336,7 @@ export function buildRewriterPrompt(input: AiGenerationBrief & { candidate: unkn
         stems: [
           {
             stemText: 'string or GeneratedContentBlock[]',
-            categoryName: input.categoryName,
+            categoryName: input.categoryName ?? 'exact available category name',
             questions: [],
           },
         ],

@@ -7,6 +7,59 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 export type UcatQuestionListMode = 'default' | 'generated' | 'all'
 export type UcatApprovalStatus = 'approved' | 'pending' | 'rejected'
 
+export type UcatGenerationDebugCall = {
+  stemIndex: number
+  categoryName: string | null
+  operation: string
+  model: string | null
+  durationMs: number
+  status: 'ok' | 'error'
+  error?: string
+  request: {
+    systemPrompt: string
+    userPrompt: string
+    maxCompletionTokens: number
+    timeoutMs: number
+  }
+  response?: {
+    content: string
+    finishReason: string | null
+    usage: unknown
+    contentLength: number
+  }
+  parsedSummary?: {
+    stemCount: number
+    categories: Array<string | null>
+    questionCounts: number[]
+  }
+}
+
+export type UcatGenerationDebugInfo = {
+  requestedStemCount: number
+  sectionName: string | null
+  selectedCategoryName: string | null
+  sourceSampleIds: string[]
+  promptLayerCount: number
+  calls: UcatGenerationDebugCall[]
+  gateIssues: Array<{
+    severity: string
+    code: string
+    message: string
+    stemIndex: number
+    questionIndex?: number
+  }>
+}
+
+export class UcatGenerationApiError extends Error {
+  debug: UcatGenerationDebugInfo | null
+
+  constructor(message: string, debug: UcatGenerationDebugInfo | null) {
+    super(message)
+    this.name = 'UcatGenerationApiError'
+    this.debug = debug
+  }
+}
+
 export type UcatQuestionStemRow = UcatQuestionStem & {
   is_ai_generated?: boolean | null
   ai_generation_metadata?: Json | null
@@ -405,17 +458,31 @@ export const ucatQuestionsApi = {
     targetTagIds: string[]
     runInstructions?: string | null
   }) {
-    const response = await fetch('/api/ucat/question-stems/generated/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    })
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 180_000)
+    let response: Response
+    try {
+      response = await fetch('/api/ucat/question-stems/generated/generate', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Generation timed out after 180 seconds. Try fewer stems or a faster model.')
+      }
+      throw error
+    } finally {
+      window.clearTimeout(timeout)
+    }
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to generate question drafts')
+      const body = await response.json().catch(() => ({})) as { error?: string; debug?: UcatGenerationDebugInfo | null }
+      throw new UcatGenerationApiError(body.error ?? 'Failed to generate question drafts', body.debug ?? null)
     }
     return response.json() as Promise<{
       discardedCount?: number
+      debug?: UcatGenerationDebugInfo | null
       stems: Array<{
         sectionId: string
         categoryId: string | null

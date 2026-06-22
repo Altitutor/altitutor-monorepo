@@ -23,6 +23,37 @@ export type UcatAiJsonResult = {
   maxCompletionTokens: number | null
 }
 
+export class UcatAiJsonParseError extends Error {
+  content: string
+  finishReason: string | null
+  usage: UcatAiUsage
+  model: string
+  providerId: string | null
+  profileId: string | null
+  maxCompletionTokens: number | null
+
+  constructor(params: {
+    operation: string
+    content: string
+    finishReason: string | null
+    usage: UcatAiUsage
+    model: string
+    providerId: string | null
+    profileId: string | null
+    maxCompletionTokens: number | null
+  }) {
+    super(`UCAT AI ${params.operation} returned invalid JSON: ${params.content.slice(0, 160)}`)
+    this.name = 'UcatAiJsonParseError'
+    this.content = params.content
+    this.finishReason = params.finishReason
+    this.usage = params.usage
+    this.model = params.model
+    this.providerId = params.providerId
+    this.profileId = params.profileId
+    this.maxCompletionTokens = params.maxCompletionTokens
+  }
+}
+
 type ProviderRow = {
   id: string
   name: string
@@ -244,25 +275,35 @@ export async function callUcatAiJson(params: {
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const maxCompletionTokens = params.maxCompletionTokens ?? config.profile.max_completion_tokens
 
-  const response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
-    method: 'POST',
-    signal: controller.signal,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...parseHeaders(config.provider.default_headers),
-    },
-    body: JSON.stringify({
-      model: config.profile.model,
-      temperature: params.temperature ?? Number(config.profile.temperature),
-      response_format: { type: 'json_object' },
-      max_completion_tokens: maxCompletionTokens,
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-    }),
-  }).finally(() => clearTimeout(timeout))
+  let response: Response
+  try {
+    response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...parseHeaders(config.provider.default_headers),
+      },
+      body: JSON.stringify({
+        model: config.profile.model,
+        temperature: params.temperature ?? Number(config.profile.temperature),
+        response_format: { type: 'json_object' },
+        max_completion_tokens: maxCompletionTokens,
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          { role: 'user', content: params.userPrompt },
+        ],
+      }),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
@@ -284,9 +325,25 @@ export async function callUcatAiJson(params: {
     metadata: params.metadata ?? null,
   })
 
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    throw new UcatAiJsonParseError({
+      operation: params.operation,
+      content,
+      model: config.profile.model,
+      providerId: config.provider.id,
+      profileId: config.profile.id,
+      usage: json.usage ?? null,
+      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      maxCompletionTokens,
+    })
+  }
+
   return {
     content,
-    parsed: JSON.parse(content),
+    parsed,
     model: config.profile.model,
     providerId: config.provider.id,
     profileId: config.profile.id,

@@ -18,6 +18,10 @@ type PlanPickerDialogShellProps = {
   title: string;
   description?: string;
   children: ReactNode;
+  /** When false, blocks outside click, escape, and programmatic close via onOpenChange(false). */
+  dismissible?: boolean;
+  hideCloseButton?: boolean;
+  footer?: ReactNode;
 };
 
 export function PlanPickerDialogShell({
@@ -26,12 +30,36 @@ export function PlanPickerDialogShell({
   title,
   description,
   children,
+  dismissible = true,
+  hideCloseButton = false,
+  footer,
 }: PlanPickerDialogShellProps) {
   const reduceMotion = useReducedMotion();
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !dismissible) return;
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={planPickerDialogChrome()}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className={planPickerDialogChrome()}
+        hideCloseButton={hideCloseButton}
+        {...(dismissible
+          ? {}
+          : {
+              onInteractOutside: (event) => {
+                event.preventDefault();
+              },
+              onPointerDownOutside: (event) => {
+                event.preventDefault();
+              },
+              onEscapeKeyDown: (event) => {
+                event.preventDefault();
+              },
+            })}
+      >
         <motion.div
           initial={(reduceMotion ?? false) ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -47,6 +75,7 @@ export function PlanPickerDialogShell({
             ) : null}
           </DialogHeader>
           <div className="mt-4">{children}</div>
+          {footer ? <div className="mt-6">{footer}</div> : null}
         </motion.div>
       </DialogContent>
     </Dialog>

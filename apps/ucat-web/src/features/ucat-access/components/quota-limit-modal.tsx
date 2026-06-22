@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-period";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
@@ -7,6 +10,7 @@ import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-
 import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
 
 export function QuotaLimitModal() {
+  const router = useRouter();
   const { open, payload, closeQuotaLimit } = useQuotaLimitModal();
 
   if (!payload) return null;
@@ -23,21 +27,37 @@ export function QuotaLimitModal() {
     ? `${areaLabel} is not available on UCAT Free. Choose UCAT Unlimited for unlimited access across Learn, Practice, Sets, Mocks, and Skill trainer.`
     : `You've used ${payload.used} of ${payload.limit} ${areaLabel.toLowerCase()} ${periodLabel} on UCAT Free. Upgrade to UCAT Unlimited for unlimited access.`;
 
+  const handleGoBack = () => {
+    closeQuotaLimit();
+    router.back();
+  };
+
   return (
     <PlanPickerDialogShell
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) closeQuotaLimit();
       }}
+      dismissible={false}
+      hideCloseButton
       title={title}
       description={description}
+      footer={
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={handleGoBack}
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Go back
+        </Button>
+      }
     >
       <PlanPicker
         variant="dialog"
         surfaceTheme="app"
-        onContinueFree={closeQuotaLimit}
         onCheckoutStart={closeQuotaLimit}
-        onDowngradeNavigate={closeQuotaLimit}
       />
     </PlanPickerDialogShell>
   );

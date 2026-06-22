@@ -1407,7 +1407,7 @@ export function QuestionEnginePage({
             </button>
           ) : isInstructionsPhase ? null : (
             <>
-              {backHref ? (
+              {backHref && !isPracticeMode ? (
                 <Link
                   href={backHref}
                   className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
