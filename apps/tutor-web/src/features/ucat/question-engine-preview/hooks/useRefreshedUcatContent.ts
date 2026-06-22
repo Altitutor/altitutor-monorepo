@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  applySignedUrlsToDoc,
+  cacheSignedUrls,
   collectUcatImageRefsFromDoc,
   docStructureFingerprint,
+  getCachedSignedUrlForFileId,
+  getCachedSignedUrlForPath,
   refreshUcatImageUrls,
 } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 
@@ -57,28 +61,49 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
   const prevImagePathsKeyRef = useRef(imagePathsKey)
 
   // Keep displayed doc structure in sync with live edits (text changes, deletions, reorders).
-  // Without this, a stale refreshed doc can be pushed back into an editable TipTap instance
-  // after deleting pasted images in bulk import.
+  // Apply cached signed URLs when available so editable editors never mount with expired JWTs.
   useEffect(() => {
-    const json = jsonRef.current
-    if (!hasContent(json)) {
+    const currentJson = jsonRef.current
+    if (!hasContent(currentJson)) {
       setContent(null)
       return
     }
-    setContent(normalizeDoc(json as Record<string, unknown>))
-  }, [docStructureKey])
+    const doc = normalizeDoc(currentJson as Record<string, unknown>)
+    if (imagePathsKey !== '') {
+      const refs = collectUcatImageRefsFromDoc(doc)
+      const pathToUrl = new Map<string, string>()
+      for (const path of refs.paths) {
+        const cached = getCachedSignedUrlForPath(path)
+        if (cached) pathToUrl.set(path, cached)
+      }
+      const fileIdToUrl = new Map<string, string>()
+      for (const fileId of refs.fileIds) {
+        const cached = getCachedSignedUrlForFileId(fileId)
+        if (cached) fileIdToUrl.set(fileId, cached)
+      }
+      const allCached =
+        refs.paths.every((path) => pathToUrl.has(path)) &&
+        refs.fileIds.every((fileId) => fileIdToUrl.has(fileId))
+      if (allCached) {
+        setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl))
+        return
+      }
+    }
+    setContent(doc)
+  }, [docStructureKey, imagePathsKey])
 
   useEffect(() => {
-    const json = jsonRef.current
+    const currentJson = jsonRef.current
     const prevKey = prevImagePathsKeyRef.current
     prevImagePathsKeyRef.current = imagePathsKey
 
-    if (!hasContent(json)) {
+    if (!hasContent(currentJson)) {
+      setContent(null)
       setIsLoading(false)
       return
     }
 
-    const doc = normalizeDoc(json as Record<string, unknown>)
+    const doc = normalizeDoc(currentJson as Record<string, unknown>)
     if (imagePathsKey === '') {
       setIsLoading(false)
       return
@@ -94,6 +119,9 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
     setIsLoading(true)
 
     const createSignedUrl = async (path: string): Promise<string> => {
+      const cached = getCachedSignedUrlForPath(path)
+      if (cached) return cached
+
       const res = await fetch('/api/ucat/images/signed-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,10 +133,14 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
       }
       const { signedUrls } = (await res.json()) as { signedUrls: string[] }
       if (!signedUrls?.[0]) throw new Error('No signed URL returned')
+      cacheSignedUrls([path], [], signedUrls)
       return signedUrls[0]
     }
 
     const createSignedUrlFromFileId = async (fileId: string): Promise<string> => {
+      const cached = getCachedSignedUrlForFileId(fileId)
+      if (cached) return cached
+
       const res = await fetch('/api/ucat/images/signed-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,6 +152,7 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
       }
       const { signedUrls } = (await res.json()) as { signedUrls: string[] }
       if (!signedUrls?.[0]) throw new Error('No signed URL returned')
+      cacheSignedUrls([], [fileId], signedUrls)
       return signedUrls[0]
     }
 
@@ -143,7 +176,7 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
     return () => {
       cancelled = true
     }
-  }, [imagePathsKey])
+  }, [imagePathsKey, docStructureKey])
 
   return { content, isLoading, hasImageRefs }
 }

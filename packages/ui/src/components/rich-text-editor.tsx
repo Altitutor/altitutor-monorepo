@@ -522,12 +522,38 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 dom.style.visibility = '';
                 dom.style.pointerEvents = '';
               };
-              // TipTap hides until onload; cached/preloaded images may already be complete.
-              if (img.complete) {
-                reveal();
-              } else {
-                img.addEventListener('load', reveal, { once: true });
-                img.addEventListener('error', reveal, { once: true });
+              const bindRevealOnLoad = (image: HTMLImageElement) => {
+                // TipTap resize hides the container until onload; also reveal on error so
+                // expired signed URLs do not leave invisible placeholder-sized boxes.
+                if (image.complete) {
+                  reveal();
+                  return;
+                }
+                image.addEventListener('load', reveal, { once: true });
+                image.addEventListener('error', reveal, { once: true });
+              };
+              bindRevealOnLoad(img);
+
+              const parentUpdate = nodeView.update?.bind(nodeView);
+              if (parentUpdate) {
+                nodeView.update = (node, decorations, innerDecorations) => {
+                  const result = parentUpdate(node, decorations, innerDecorations);
+                  if (result === false) {
+                    return false;
+                  }
+                  const nextSrc = node.attrs.src;
+                  if (
+                    typeof nextSrc === 'string' &&
+                    nextSrc.length > 0 &&
+                    img.getAttribute('src') !== nextSrc
+                  ) {
+                    dom.style.visibility = 'hidden';
+                    dom.style.pointerEvents = 'none';
+                    img.src = nextSrc;
+                    bindRevealOnLoad(img);
+                  }
+                  return result;
+                };
               }
             }
             return nodeView;
