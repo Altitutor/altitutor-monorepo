@@ -20718,6 +20718,10 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_remove_sets_from_all_mocks: {
+        Args: { p_set_ids: string[] }
+        Returns: undefined
+      }
       tutor_ucat_remove_stems_from_all_sets: {
         Args: { p_stem_ids: string[] }
         Returns: undefined
