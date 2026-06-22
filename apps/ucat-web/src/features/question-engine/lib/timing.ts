@@ -20,11 +20,20 @@ export function getCurrentSegmentTimeLimitSeconds(
     if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0)
       return null;
     if (state.phase === "instructions") return t.instructionsTimeLimitSeconds;
-    if (state.phase === "question") return t.setTimeLimitSeconds;
+    if (state.phase === "question" || state.phase === "review") {
+      return t.setTimeLimitSeconds;
+    }
     return null;
   }
 
   if (exam.sourceType === "mock" && exam.mockTimingSegments?.length) {
+    if (state.phase === "review") {
+      const setIndex = state.mockCurrentSetIndex ?? 0;
+      const seg = exam.mockTimingSegments.find(
+        (s) => s.type === "questions" && s.setIndex === setIndex,
+      );
+      return seg?.type === "questions" ? (seg.timeLimitSeconds ?? null) : null;
+    }
     const seg = getCurrentMockSegment(exam, state);
     return seg?.timeLimitSeconds ?? null;
   }

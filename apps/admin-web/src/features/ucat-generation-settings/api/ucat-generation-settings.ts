@@ -165,6 +165,13 @@ export const ucatGenerationSettingsApi = {
   },
 
   async updateModelProfile(id: string, updates: Partial<UcatGenerationModelProfile>): Promise<void> {
+    if (updates.is_default) {
+      const { error: clearDefaultError } = await client()
+        .from('ucat_ai_generation_model_profiles')
+        .update({ is_default: false, updated_at: new Date().toISOString() })
+        .neq('id', id);
+      if (clearDefaultError) throw clearDefaultError;
+    }
     const { error } = await client()
       .from('ucat_ai_generation_model_profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -173,6 +180,12 @@ export const ucatGenerationSettingsApi = {
   },
 
   async createModelProfile(input: Omit<UcatGenerationModelProfile, 'id'>): Promise<void> {
+    if (input.is_default) {
+      const { error: clearDefaultError } = await client()
+        .from('ucat_ai_generation_model_profiles')
+        .update({ is_default: false, updated_at: new Date().toISOString() });
+      if (clearDefaultError) throw clearDefaultError;
+    }
     const { error } = await client()
       .from('ucat_ai_generation_model_profiles')
       .insert(input);

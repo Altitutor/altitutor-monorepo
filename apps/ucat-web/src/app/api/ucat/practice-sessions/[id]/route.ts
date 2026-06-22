@@ -216,6 +216,8 @@ export async function PATCH(
       total_points: totalPoints,
       question_count: questionCount,
       stems_snapshot: stemsSnapshot,
+      engine_snapshot: null,
+      current_segment_ends_at: null,
     })
     .eq("id", sessionId)
     .eq("student_id", student.id);

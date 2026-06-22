@@ -23,6 +23,7 @@ import {
   AnimatedInteger,
   ProgressCircular,
 } from "./progress-animated-display";
+import { formatUcatPercentile } from "../lib/percentiles";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
@@ -313,6 +314,7 @@ function SectionProgressContent({
       timedCompleted: timedCompleted.size,
     };
   }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
+  const percentile = formatUcatPercentile(score, "section");
 
   return (
     <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
@@ -357,6 +359,11 @@ function SectionProgressContent({
                   "—"
                 )}
               </div>
+              {percentile ? (
+                <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
+                  {percentile}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>

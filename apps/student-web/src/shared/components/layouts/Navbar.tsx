@@ -6,7 +6,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, User, LayoutDashboard, Settings } from 'lucide-react';
+import { Bug, LifeBuoy, LogOut, User, LayoutDashboard, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -15,6 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  FeedbackDialog,
+  type FeedbackKind,
 } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useProfile } from '@/features/profile';
@@ -33,6 +35,7 @@ export function Navbar() {
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
@@ -156,6 +159,21 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setFeedbackKind('contact')}
+                  className="cursor-pointer"
+                >
+                  <LifeBuoy className="mr-2 h-4 w-4" />
+                  Contact us
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setFeedbackKind('bug')}
+                  className="cursor-pointer"
+                >
+                  <Bug className="mr-2 h-4 w-4" />
+                  Report a bug
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
@@ -179,6 +197,19 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
+      {feedbackKind ? (
+        <FeedbackDialog
+          open
+          onOpenChange={(open) => !open && setFeedbackKind(null)}
+          kind={feedbackKind}
+          appName="student-web"
+          user={{
+            id: user?.id,
+            email: user?.email,
+            name: getFullName(),
+          }}
+        />
+      ) : null}
     </nav>
   );
 } 

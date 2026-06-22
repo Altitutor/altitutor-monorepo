@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  fetchActiveExamAttempt,
-  finalizeExamAttempt,
-} from "@/features/exam-attempts/api/exam-attempts-api";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import type {
   ActiveExamAttempt,
@@ -14,43 +11,38 @@ import type {
 type LaunchGateStatus = "checking" | "allowed" | "blocked";
 
 export function useExamAttemptLaunchGate(
-  input: { kind: ExamAttemptKind; resourceId: string } | null,
+  kind: ExamAttemptKind | null,
+  resourceId: string | undefined,
 ) {
-  const kind = input?.kind;
-  const resourceId = input?.resourceId;
-  const { refresh } = useActiveExamAttempt();
+  const { active, isLoading, refresh } = useActiveExamAttempt();
   const [status, setStatus] = useState<LaunchGateStatus>(
-    input?.resourceId ? "checking" : "allowed",
+    kind && resourceId ? "checking" : "allowed",
   );
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
   useEffect(() => {
-    if (!input || !resourceId || !kind) {
+    if (!kind || !resourceId) {
       setStatus("allowed");
       setConflictActive(null);
       return;
     }
 
-    let cancelled = false;
-    setStatus("checking");
-    void (async () => {
-      const active = await fetchActiveExamAttempt();
-      if (cancelled) return;
-      if (!active || (active.kind === kind && active.resourceId === resourceId)) {
-        setConflictActive(null);
-        setStatus("allowed");
-        return;
-      }
-      setConflictActive(active);
-      setStatus("blocked");
-    })();
+    if (isLoading) {
+      setStatus("checking");
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [input, kind, resourceId]);
+    if (!active || (active.kind === kind && active.resourceId === resourceId)) {
+      setConflictActive(null);
+      setStatus("allowed");
+      return;
+    }
+
+    setConflictActive(active);
+    setStatus("blocked");
+  }, [kind, resourceId, active, isLoading]);
 
   async function finalizeConflictAndContinue() {
     if (!conflictActive) return;
@@ -68,16 +60,11 @@ export function useExamAttemptLaunchGate(
     }
   }
 
-  function cancelConflict() {
-    setConflictActive(null);
-  }
-
   return {
     launchAllowed: status === "allowed",
     isCheckingLaunch: status === "checking",
     conflictActive: status === "blocked" ? conflictActive : null,
     isFinalizingConflict: isFinalizing,
     finalizeConflictAndContinue,
-    cancelConflict,
   };
 }

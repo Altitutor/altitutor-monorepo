@@ -6,6 +6,7 @@ import {
   computeSegmentEndsAt,
   getCurrentSegmentTimeLimitSeconds,
   getNextMockSegment,
+  getNextSetSegmentFromReview,
 } from "@/lib/ucat/exam-attempt/timing";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
 
@@ -43,8 +44,10 @@ function advanceOneSegmentExpiry(
   exam: QuestionEngineExam,
   state: ExamEngineSnapshot,
   practice: boolean,
+  expiredEndsAt: string,
 ): CatchUpResult {
   const working = { ...state, showTimeExpiredDialog: false };
+  const nextSegmentStartsAt = new Date(expiredEndsAt).getTime();
 
   if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
     if (practice) {
@@ -68,27 +71,80 @@ function advanceOneSegmentExpiry(
         phase: "question",
         currentIndex: 0,
       };
-      const limit = getCurrentSegmentTimeLimitSeconds(exam, next as QuestionEngineState);
+      const limit = getCurrentSegmentTimeLimitSeconds(
+        exam,
+        next as QuestionEngineState,
+      );
       return {
         state: next,
-        currentSegmentEndsAt: computeSegmentEndsAt(limit),
+        currentSegmentEndsAt: computeSegmentEndsAt(limit, nextSegmentStartsAt),
         isComplete: false,
+      };
+    }
+    if (working.phase === "question" || working.phase === "review") {
+      return {
+        state: { ...working, phase: "marking" },
+        currentSegmentEndsAt: null,
+        isComplete: true,
       };
     }
     return {
       state: working,
       currentSegmentEndsAt: null,
-      isComplete: true,
+      isComplete: false,
     };
   }
 
   if (exam.sourceType === "mock") {
+    if (working.phase === "review") {
+      const setIndex = working.mockCurrentSetIndex ?? 0;
+      const summaries = exam.mockSetSummaries ?? [];
+      const isLastSet =
+        summaries.length === 0 || setIndex >= summaries.length - 1;
+      if (!isLastSet) {
+        const nextSeg = getNextSetSegmentFromReview(exam, setIndex);
+        if (nextSeg) {
+          const next: ExamEngineSnapshot = {
+            ...working,
+            reviewFilter: null,
+            reviewFilterIndex: 0,
+            reviewFilterIndicesSnapshot: null,
+            mockCurrentSetIndex: setIndex + 1,
+          };
+          if (nextSeg.type === "instructions") {
+            next.phase = "instructions";
+            next.instructionsIndex = nextSeg.instructionsIndex;
+          } else {
+            next.phase = "question";
+            next.currentIndex = nextSeg.questionStartIndex;
+          }
+          const limit = getCurrentSegmentTimeLimitSeconds(
+            exam,
+            next as QuestionEngineState,
+          );
+          return {
+            state: next,
+            currentSegmentEndsAt: computeSegmentEndsAt(
+              limit,
+              nextSegmentStartsAt,
+            ),
+            isComplete: false,
+          };
+        }
+      }
+      return {
+        state: { ...working, phase: "mockScore" },
+        currentSegmentEndsAt: null,
+        isComplete: false,
+      };
+    }
+
     const nextSeg = getNextMockSegment(exam, working as QuestionEngineState);
     if (!nextSeg) {
       return {
         state: { ...working, phase: "mockScore" },
         currentSegmentEndsAt: null,
-        isComplete: true,
+        isComplete: false,
       };
     }
     const next: ExamEngineSnapshot = { ...working };
@@ -99,10 +155,13 @@ function advanceOneSegmentExpiry(
       next.phase = "question";
       next.currentIndex = nextSeg.questionStartIndex;
     }
-    const limit = getCurrentSegmentTimeLimitSeconds(exam, next as QuestionEngineState);
+    const limit = getCurrentSegmentTimeLimitSeconds(
+      exam,
+      next as QuestionEngineState,
+    );
     return {
       state: next,
-      currentSegmentEndsAt: computeSegmentEndsAt(limit),
+      currentSegmentEndsAt: computeSegmentEndsAt(limit, nextSegmentStartsAt),
       isComplete: false,
     };
   }
@@ -126,7 +185,12 @@ export function catchUpExpiredSegments(
   const now = Date.now();
 
   while (endsAt != null && new Date(endsAt).getTime() <= now) {
-    const advanced = advanceOneSegmentExpiry(exam, workingState, practice);
+    const advanced = advanceOneSegmentExpiry(
+      exam,
+      workingState,
+      practice,
+      endsAt,
+    );
     workingState = advanced.state;
     endsAt = advanced.currentSegmentEndsAt;
     if (advanced.isComplete) {

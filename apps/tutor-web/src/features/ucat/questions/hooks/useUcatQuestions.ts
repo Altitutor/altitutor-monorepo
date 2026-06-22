@@ -293,6 +293,7 @@ export function useGenerateUcatQuestionDrafts() {
       timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
       targetTagIds: string[]
       runInstructions?: string | null
+      onProgress?: Parameters<typeof ucatQuestionsApi.generateDrafts>[0]['onProgress']
     }) => ucatQuestionsApi.generateDrafts(args),
   })
 }

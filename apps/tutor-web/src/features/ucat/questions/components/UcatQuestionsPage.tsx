@@ -128,23 +128,33 @@ const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: str
   { value: 'answer_option_text', label: 'Answer options' },
 ]
 
-const questionSearchFromViewGroups = [
-  {
-    heading: 'Questions & answer options',
-    options: [
-      { value: 'question_text' as const, label: 'Question text' },
-      { value: 'answer_option_text' as const, label: 'Answer options' },
-    ],
-  },
-]
-
-const stemSearchFromViewOptions = [{ value: 'stem_text' as const, label: 'Stem text' }]
-
 const defaultQuestionSearchScopes: QuestionSearchScope[] = [
   'stem_text',
   'question_text',
   'answer_option_text',
 ]
+
+const questionColumnDefinitions: DataTableColumnDefinition[] = [
+  { key: 'index', label: 'Index', visibleByDefault: true },
+  { key: 'question_text', label: 'Question text', visibleByDefault: true },
+  { key: 'difficulty', label: 'Difficulty', visibleByDefault: true },
+  { key: 'time_burden', label: 'Time burden', visibleByDefault: true },
+]
+
+const answerOptionColumnDefinitions: DataTableColumnDefinition[] = [
+  { key: 'index', label: 'Index', visibleByDefault: true },
+  { key: 'answer_text', label: 'Answer text', visibleByDefault: true },
+  { key: 'answer_explanation', label: 'Answer explanation', visibleByDefault: true },
+  { key: 'is_answer', label: 'Correct answer', visibleByDefault: true },
+]
+
+const defaultVisibleQuestionColumns = questionColumnDefinitions
+  .filter((c) => c.visibleByDefault)
+  .map((c) => c.key)
+
+const defaultVisibleAnswerOptionColumns = answerOptionColumnDefinitions
+  .filter((c) => c.visibleByDefault)
+  .map((c) => c.key)
 
 function parseQuestionsTab(value: string | null): QuestionsTab {
   return value === 'generated' ? 'generated' : 'questions'
@@ -180,15 +190,6 @@ type QuestionRow = {
   set_ids: string[]
   deleted_at: string | null
   approval_status: 'approved' | 'pending' | 'rejected'
-}
-
-function collectSetIdsForStems(stemIds: string[], rows: QuestionRow[]): string[] {
-  const setIds = new Set<string>()
-  for (const stemId of stemIds) {
-    const row = rows.find((r) => r.id === stemId)
-    row?.set_ids.forEach((id) => setIds.add(id))
-  }
-  return Array.from(setIds)
 }
 
 function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number {
@@ -333,6 +334,10 @@ export function UcatQuestionsPage() {
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [searchScopes, setSearchScopes] = useState<QuestionSearchScope[]>(defaultQuestionSearchScopes)
+  const [visibleQuestionColumns, setVisibleQuestionColumns] = useState(defaultVisibleQuestionColumns)
+  const [visibleAnswerOptionColumns, setVisibleAnswerOptionColumns] = useState(
+    defaultVisibleAnswerOptionColumns,
+  )
   const selectionMode = selectedStemIds.size > 0
 
   const stemTypesQuery = useUcatQuestionStemTypes()
@@ -601,6 +606,44 @@ export function UcatQuestionsPage() {
   }
 
   const visible = (key: string) => tableState.state.visibleColumns.includes(key)
+  const visibleQuestion = (key: string) => visibleQuestionColumns.includes(key)
+  const visibleAnswerOption = (key: string) => visibleAnswerOptionColumns.includes(key)
+
+  const questionColCount =
+    1 + // expand
+    (visibleQuestion('index') ? 1 : 0) +
+    (visibleQuestion('question_text') ? 1 : 0) +
+    (visibleQuestion('difficulty') ? 1 : 0) +
+    (visibleQuestion('time_burden') ? 1 : 0)
+
+  const columnViewGroups = useMemo(
+    () => [
+      {
+        heading: 'Stem columns',
+        columnDefinitions,
+        visibleColumns: tableState.state.visibleColumns,
+        onVisibleColumnsChange: tableState.actions.onVisibleColumnsChange,
+      },
+      {
+        heading: 'Question columns',
+        columnDefinitions: questionColumnDefinitions,
+        visibleColumns: visibleQuestionColumns,
+        onVisibleColumnsChange: setVisibleQuestionColumns,
+      },
+      {
+        heading: 'Answer option columns',
+        columnDefinitions: answerOptionColumnDefinitions,
+        visibleColumns: visibleAnswerOptionColumns,
+        onVisibleColumnsChange: setVisibleAnswerOptionColumns,
+      },
+    ],
+    [
+      tableState.state.visibleColumns,
+      tableState.actions.onVisibleColumnsChange,
+      visibleQuestionColumns,
+      visibleAnswerOptionColumns,
+    ],
+  )
   const colCount =
     2 + // checkbox, expand
     (visible('section_name') ? 1 : 0) +
@@ -856,22 +899,61 @@ export function UcatQuestionsPage() {
 
   const { toast } = useToast()
 
+  async function invalidateQuestionsListQueries() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTypes() }),
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions('all'), 'search-texts'] }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
+    ])
+  }
+
+  function showStemDeleteSuccessToast(stemIds: string[]) {
+    const count = stemIds.length
+    toast({
+      title: count === 1 ? 'Question stem deleted' : `${count} question stems deleted`,
+      description: 'Tap Undo to restore. Restored stems are not re-added to sets they were removed from.',
+      duration: 10_000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          void (async () => {
+            try {
+              await Promise.all(stemIds.map((id) => restoreMutation.mutateAsync(id)))
+              await invalidateQuestionsListQueries()
+              toast({
+                title: count === 1 ? 'Question stem restored' : `${count} question stems restored`,
+              })
+            } catch (err) {
+              toast({
+                title: 'Could not undo',
+                description: err instanceof Error ? err.message : 'Failed to restore question stems.',
+                variant: 'destructive',
+              })
+            }
+          })()
+        },
+      },
+    })
+  }
+
   async function deleteStemsWithSetRemoval(stemIds: string[]) {
-    const setIds = collectSetIdsForStems(stemIds, rows)
-    if (setIds.length > 0) {
-      await removeStemsFromSets(stemIds, setIds, (args) => updateSetMutation.mutateAsync(args))
-      setIds.forEach((setId) => {
-        void queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })
-      })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
-    }
     if (stemIds.length === 1) {
       await deleteMutation.mutateAsync(stemIds[0])
     } else {
       await ucatQuestionsApi.bulkRemove(stemIds)
     }
-    await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-    await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+    await invalidateQuestionsListQueries()
+    await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+    stemIds.forEach((stemId) => {
+      const row = rows.find((r) => r.id === stemId)
+      row?.set_ids.forEach((setId) => {
+        void queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })
+      })
+    })
+    showStemDeleteSuccessToast(stemIds)
   }
 
   async function handleBulkDeleteConfirm() {
@@ -1041,9 +1123,7 @@ export function UcatQuestionsPage() {
         searchFromOptions={questionSearchScopeOptions}
         searchFromValue={searchScopes}
         onSearchFromChange={(values) => setSearchScopes(values as QuestionSearchScope[])}
-        searchFromInView
-        stemSearchFromOptions={stemSearchFromViewOptions}
-        searchFromViewGroups={questionSearchFromViewGroups}
+        columnViewGroups={columnViewGroups}
         filterSearchValues={{ question_set_id: setFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
@@ -1200,10 +1280,18 @@ export function UcatQuestionsPage() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-12 shrink-0" />
-                                <TableHead className="w-16 shrink-0">Index</TableHead>
-                                <TableHead className="min-w-0">Question text</TableHead>
-                                <TableHead className="w-24 shrink-0">Difficulty</TableHead>
-                                <TableHead className="w-24 shrink-0">Time burden</TableHead>
+                                {visibleQuestion('index') && (
+                                  <TableHead className="w-16 shrink-0">Index</TableHead>
+                                )}
+                                {visibleQuestion('question_text') && (
+                                  <TableHead className="min-w-0">Question text</TableHead>
+                                )}
+                                {visibleQuestion('difficulty') && (
+                                  <TableHead className="w-24 shrink-0">Difficulty</TableHead>
+                                )}
+                                {visibleQuestion('time_burden') && (
+                                  <TableHead className="w-24 shrink-0">Time burden</TableHead>
+                                )}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1230,37 +1318,68 @@ export function UcatQuestionsPage() {
                                           </button>
                                         ) : null}
                                       </TableCell>
-                                      <TableCell>{q.index}</TableCell>
-                                      <TableCell className="max-w-[240px]" title={qText}>
-                                        {truncate(qText, 60)}
-                                      </TableCell>
-                                      <TableCell>{q.difficulty ?? '-'}</TableCell>
-                                      <TableCell>{formatSecondsToDuration(q.time_burden_seconds)}</TableCell>
+                                      {visibleQuestion('index') && <TableCell>{q.index}</TableCell>}
+                                      {visibleQuestion('question_text') && (
+                                        <TableCell className="max-w-[240px]" title={qText}>
+                                          {truncate(qText, 60)}
+                                        </TableCell>
+                                      )}
+                                      {visibleQuestion('difficulty') && (
+                                        <TableCell>{q.difficulty ?? '-'}</TableCell>
+                                      )}
+                                      {visibleQuestion('time_burden') && (
+                                        <TableCell>{formatSecondsToDuration(q.time_burden_seconds)}</TableCell>
+                                      )}
                                     </TableRow>
                                     {isQExpanded && q.answer_options && q.answer_options.length > 0 && (
                                       <TableRow>
-                                        <TableCell colSpan={5} className="bg-muted/20 p-0 align-top w-full">
+                                        <TableCell colSpan={questionColCount} className="bg-muted/20 p-0 align-top w-full">
                                           <div className="w-full min-w-0 p-2 pl-14">
                                             <Table className="w-full table-fixed">
                                               <TableHeader>
                                                 <TableRow>
-                                                  <TableHead className="w-16 shrink-0">Index</TableHead>
-                                                  <TableHead className="min-w-0">Answer text</TableHead>
-                                                  <TableHead className="min-w-0">Answer explanation</TableHead>
-                                                  <TableHead className="w-28 shrink-0">Correct answer</TableHead>
+                                                  {visibleAnswerOption('index') && (
+                                                    <TableHead className="w-16 shrink-0">Index</TableHead>
+                                                  )}
+                                                  {visibleAnswerOption('answer_text') && (
+                                                    <TableHead className="min-w-0">Answer text</TableHead>
+                                                  )}
+                                                  {visibleAnswerOption('answer_explanation') && (
+                                                    <TableHead className="min-w-0">Answer explanation</TableHead>
+                                                  )}
+                                                  {visibleAnswerOption('is_answer') && (
+                                                    <TableHead className="w-28 shrink-0">Correct answer</TableHead>
+                                                  )}
                                                 </TableRow>
                                               </TableHeader>
                                               <TableBody>
                                                 {q.answer_options.map((opt) => (
                                                   <TableRow key={opt.id}>
-                                                    <TableCell>{opt.index}</TableCell>
-                                                    <TableCell className="max-w-[200px]" title={proseMirrorToPlainText(opt.answer_text)}>
-                                                      {truncate(proseMirrorToPlainText(opt.answer_text), 50)}
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[200px]" title={proseMirrorToPlainText(opt.answer_explanation)}>
-                                                      {truncate(proseMirrorToPlainText(opt.answer_explanation), 50)}
-                                                    </TableCell>
-                                                    <TableCell>{opt.is_answer ? 'Yes' : 'No'}</TableCell>
+                                                    {visibleAnswerOption('index') && (
+                                                      <TableCell>{opt.index}</TableCell>
+                                                    )}
+                                                    {visibleAnswerOption('answer_text') && (
+                                                      <TableCell
+                                                        className="max-w-[200px]"
+                                                        title={proseMirrorToPlainText(opt.answer_text)}
+                                                      >
+                                                        {truncate(proseMirrorToPlainText(opt.answer_text), 50)}
+                                                      </TableCell>
+                                                    )}
+                                                    {visibleAnswerOption('answer_explanation') && (
+                                                      <TableCell
+                                                        className="max-w-[200px]"
+                                                        title={proseMirrorToPlainText(opt.answer_explanation)}
+                                                      >
+                                                        {truncate(
+                                                          proseMirrorToPlainText(opt.answer_explanation),
+                                                          50,
+                                                        )}
+                                                      </TableCell>
+                                                    )}
+                                                    {visibleAnswerOption('is_answer') && (
+                                                      <TableCell>{opt.is_answer ? 'Yes' : 'No'}</TableCell>
+                                                    )}
                                                   </TableRow>
                                                 ))}
                                               </TableBody>

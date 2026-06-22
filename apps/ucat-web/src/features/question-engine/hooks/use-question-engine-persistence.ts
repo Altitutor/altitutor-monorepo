@@ -147,6 +147,8 @@ export function useQuestionEnginePersistence({
   practiceSessionId,
   learningModuleBlockId,
   onLearnProgress,
+  examAttemptManaged = false,
+  managedExamAttempt = null,
 }: {
   mode: QuestionEngineMode;
   exam: QuestionEngineExam | undefined;
@@ -154,6 +156,16 @@ export function useQuestionEnginePersistence({
   practiceSessionId?: string | null;
   learningModuleBlockId?: string | null;
   onLearnProgress?: () => void;
+  /** When true, set/mock attempts are created by exam-attempt lifecycle only. */
+  examAttemptManaged?: boolean;
+  managedExamAttempt?: {
+    attemptId: string;
+    kind: "set" | "mock" | "practice";
+    resourceId: string;
+    resultsHref: string;
+    setAttemptIdsBySetId: Record<string, string>;
+    mockAttemptId: string | null;
+  } | null;
 }) {
   const isStudentEngine = true;
   const { openQuotaLimit } = useQuotaLimitModal();
@@ -342,7 +354,7 @@ export function useQuestionEnginePersistence({
   });
 
   useEffect(() => {
-    if (!isStudentEngine) return;
+    if (!isStudentEngine || examAttemptManaged) return;
     if (!exam) return;
 
     if (mode === "set") {
@@ -385,6 +397,7 @@ export function useQuestionEnginePersistence({
     examSourceSetId,
     mode,
     isStudentEngine,
+    examAttemptManaged,
     createSetAttempt,
     createMockAttempt,
   ]);
@@ -402,6 +415,7 @@ export function useQuestionEnginePersistence({
       if (mode === "mock") {
         if (!attemptStateRef.current.mockAttemptId) {
           if (
+            !examAttemptManaged &&
             exam.sourceId &&
             !createMockAttempt.isPending &&
             !attemptStateRef.current.mockAttemptId
@@ -432,6 +446,11 @@ export function useQuestionEnginePersistence({
       }
 
       if (mode === "set") {
+        if (examAttemptManaged) {
+          return (
+            attemptStateRef.current.setAttemptIdsBySetId.get(setId) ?? null
+          );
+        }
         if (!createSetAttempt.isPending) {
           const wasTimed = getWasTimedForSetId(mode, exam, setId);
           createSetAttempt.mutate(
@@ -451,7 +470,7 @@ export function useQuestionEnginePersistence({
 
       return null;
     },
-    [exam, isStudentEngine, mode, createSetAttempt, createMockAttempt],
+    [exam, isStudentEngine, mode, createSetAttempt, createMockAttempt, examAttemptManaged],
   );
 
   const withLearnContext = useCallback(
@@ -810,7 +829,7 @@ export function useQuestionEnginePersistence({
 
     for (const setId of setIds) {
       const existing = attemptStateRef.current.setAttemptIdsBySetId.get(setId);
-      if (!existing) {
+      if (!existing && !examAttemptManaged) {
         const wasTimed = getWasTimedForSetId(mode, exam, setId);
         const data = await createSetAttempt.mutateAsync({
           questionSetId: setId,
@@ -819,6 +838,77 @@ export function useQuestionEnginePersistence({
           wasTimed,
         });
         attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id);
+      }
+    }
+
+    if (examAttemptManaged && managedExamAttempt) {
+      if (
+        mode === "set" &&
+        managedExamAttempt.kind === "set" &&
+        managedExamAttempt.resourceId === exam.sourceId
+      ) {
+        attemptStateRef.current.setAttemptIdsBySetId.set(
+          exam.sourceId,
+          managedExamAttempt.attemptId,
+        );
+      }
+      for (const [setId, attemptId] of Object.entries(
+        managedExamAttempt.setAttemptIdsBySetId,
+      )) {
+        if (!attemptStateRef.current.setAttemptIdsBySetId.has(setId)) {
+          attemptStateRef.current.setAttemptIdsBySetId.set(setId, attemptId);
+        }
+      }
+      if (
+        mode === "mock" &&
+        managedExamAttempt.mockAttemptId &&
+        !attemptStateRef.current.mockAttemptId
+      ) {
+        attemptStateRef.current.mockAttemptId = managedExamAttempt.mockAttemptId;
+      }
+    }
+
+    if (mode === "set" || mode === "mock") {
+      for (const question of exam.questions) {
+        const setAttemptId =
+          attemptStateRef.current.setAttemptIdsBySetId.get(
+            question.questionSetId,
+          ) ?? null;
+        if (!setAttemptId) continue;
+
+        const selectedOptionId = state.selectedAnswers[question.id];
+        const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+        const isSyllogism = question.questionType === "syllogism";
+        const hasSyllogismAnswer =
+          isSyllogism &&
+          syllogismSnapshot &&
+          Object.keys(syllogismSnapshot).length > 0;
+        if (!selectedOptionId && !hasSyllogismAnswer) continue;
+
+        const isFlagged = state.flaggedIds.includes(question.id);
+        const wasTimed = getWasTimedForSet(mode, exam, question);
+        const base: UpsertQuestionAttemptInput = {
+          studentQuestionSetAttemptId: setAttemptId,
+          questionId: question.id,
+          questionAnswerOptionId: isSyllogism
+            ? null
+            : (selectedOptionId ?? null),
+          isFlagged,
+          wasTimed,
+          mode: toDbMode(mode),
+        };
+        if (isSyllogism && syllogismSnapshot) {
+          base.answerSnapshot = {
+            type: "syllogism_v1",
+            answers: Object.entries(syllogismSnapshot).map(
+              ([optionId, value]) => ({
+                question_answer_option_id: optionId,
+                answer: value,
+              }),
+            ),
+          };
+        }
+        await upsertQuestionAttempt.mutateAsync(base);
       }
     }
 
@@ -842,8 +932,13 @@ export function useQuestionEnginePersistence({
 
     let redirectHref: string | null = null;
     if (mode === "set") {
-      const setAttemptId =
+      let setAttemptId =
         attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
+      if (!setAttemptId && examAttemptManaged) {
+        setAttemptId =
+          Array.from(attemptStateRef.current.setAttemptIdsBySetId.values())[0] ??
+          null;
+      }
       if (setAttemptId) {
         const sectionName = exam.questions[0]?.sectionName;
         const sectionNumber = sectionName
@@ -856,6 +951,12 @@ export function useQuestionEnginePersistence({
       }
     } else if (mode === "mock" && attemptStateRef.current.mockAttemptId) {
       redirectHref = `/progress/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
+    } else if (
+      practiceSessionId &&
+      examAttemptManaged &&
+      managedExamAttempt?.kind === "practice"
+    ) {
+      redirectHref = managedExamAttempt.resultsHref;
     }
 
     return {

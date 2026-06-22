@@ -29,6 +29,7 @@ export async function PATCH(request: NextRequest) {
 
   const body = (await request.json()) as SyncExamAttemptInput & {
     examMeta?: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamSnapshot["examTiming"];
     mockAttemptId?: string | null;
   };
 
@@ -55,13 +56,14 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  await syncExamAttempt(
+  const currentSegmentEndsAt = await syncExamAttempt(
     supabaseAdmin,
     student.id,
     body,
     body.examMeta,
     body.mockAttemptId,
+    body.examTiming,
   );
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, currentSegmentEndsAt });
 }

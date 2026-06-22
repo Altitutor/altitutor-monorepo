@@ -54,6 +54,35 @@ export class UcatAiJsonParseError extends Error {
   }
 }
 
+export class UcatAiEmptyResponseError extends Error {
+  content = ''
+  finishReason: string | null
+  usage: UcatAiUsage
+  model: string
+  providerId: string | null
+  modelProfileId: string | null
+  maxCompletionTokens: number | null
+
+  constructor(params: {
+    operation: string
+    finishReason: string | null
+    usage: UcatAiUsage
+    model: string
+    providerId: string | null
+    modelProfileId: string | null
+    maxCompletionTokens: number | null
+  }) {
+    super(`UCAT AI ${params.operation} returned empty response`)
+    this.name = 'UcatAiEmptyResponseError'
+    this.finishReason = params.finishReason
+    this.usage = params.usage
+    this.model = params.model
+    this.providerId = params.providerId
+    this.modelProfileId = params.modelProfileId
+    this.maxCompletionTokens = params.maxCompletionTokens
+  }
+}
+
 type ProviderRow = {
   id: string
   name: string
@@ -128,6 +157,23 @@ function parseHeaders(value: unknown): Record<string, string> {
     if (typeof raw === 'string' && raw.trim()) headers[key] = raw
   }
   return headers
+}
+
+export function parseUcatAiJsonContent(content: string): unknown {
+  const trimmed = content.trim()
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu)
+  if (fenced?.[1]) return JSON.parse(fenced[1])
+
+  try {
+    return JSON.parse(trimmed)
+  } catch (directError) {
+    const objectStart = trimmed.indexOf('{')
+    const objectEnd = trimmed.lastIndexOf('}')
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      return JSON.parse(trimmed.slice(objectStart, objectEnd + 1))
+    }
+    throw directError
+  }
 }
 
 async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRow> {
@@ -273,6 +319,8 @@ export async function callUcatAiJson(params: {
   temperature?: number
   maxCompletionTokens?: number
   timeoutMs?: number
+  providerSort?: 'price' | 'throughput' | 'latency'
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   metadata?: Json | null
 }): Promise<UcatAiJsonResult> {
   const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
@@ -303,6 +351,10 @@ export async function callUcatAiJson(params: {
         temperature: params.temperature ?? Number(config.modelProfile.temperature),
         response_format: { type: 'json_object' },
         max_completion_tokens: maxCompletionTokens,
+        provider: params.providerSort ? { sort: params.providerSort } : undefined,
+        reasoning: params.reasoningEffort
+          ? { effort: params.reasoningEffort, exclude: true }
+          : undefined,
         messages: [
           { role: 'system', content: params.systemPrompt },
           { role: 'user', content: params.userPrompt },
@@ -327,7 +379,17 @@ export async function callUcatAiJson(params: {
     usage?: UcatAiUsage
   }
   const content = json.choices?.[0]?.message?.content
-  if (!content) throw new Error(`UCAT AI ${params.operation} returned empty response`)
+  if (!content) {
+    throw new UcatAiEmptyResponseError({
+      operation: params.operation,
+      model: config.modelProfile.model,
+      providerId: config.provider.id,
+      modelProfileId: config.modelProfile.id,
+      usage: json.usage ?? null,
+      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      maxCompletionTokens,
+    })
+  }
 
   await recordUsage({
     client: params.client,
@@ -340,7 +402,7 @@ export async function callUcatAiJson(params: {
 
   let parsed: unknown
   try {
-    parsed = JSON.parse(content)
+    parsed = parseUcatAiJsonContent(content)
   } catch {
     throw new UcatAiJsonParseError({
       operation: params.operation,

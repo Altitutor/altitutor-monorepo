@@ -2,12 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
-import { UCAT_TOUR_REPLAY_OPTIONS, useOnboardingTour } from "@/features/onboarding";
+import { UCAT_PROFILE_QUERY_KEY } from "@/features/layout/hooks/use-ucat-profile";
+import {
+  UCAT_TOUR_REPLAY_OPTIONS,
+  useOnboardingTour,
+} from "@/features/onboarding";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
-import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+} from "@/lib/ucat-surface-motion";
 import { formatTimeZoneWithGmtOffset } from "@/lib/supported-timezones";
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
@@ -28,6 +36,7 @@ const SELECT_TRIGGER =
 const SELECT_CONTENT_WIDTH = "min(100vw - 2rem, 22rem)";
 
 export function SettingsAppPage() {
+  const queryClient = useQueryClient();
   const [timezone, setTimezone] = useState<string>("Australia/Adelaide");
   const [savedTimezone, setSavedTimezone] = useState<string | null>(null);
   const [options, setOptions] = useState<string[]>([]);
@@ -65,7 +74,11 @@ export function SettingsAppPage() {
         const list = data.timezoneOptions ?? [];
         setTimezone(tz);
         setSavedTimezone(tz);
-        setOptions(list.includes(tz) ? list : [...list, tz].sort((a, b) => a.localeCompare(b)));
+        setOptions(
+          list.includes(tz)
+            ? list
+            : [...list, tz].sort((a, b) => a.localeCompare(b)),
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
@@ -89,6 +102,14 @@ export function SettingsAppPage() {
         throw new Error(data.error ?? "Failed to save");
       }
       setSavedTimezone(timezone);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: UCAT_PROFILE_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+        queryClient.invalidateQueries({ queryKey: ["ucat", "activity"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["ucat-practice-discount-dashboard"],
+        }),
+      ]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
@@ -160,14 +181,22 @@ export function SettingsAppPage() {
                 contentWidth={SELECT_CONTENT_WIDTH}
               />
               {error ? (
-                <p className="text-left text-sm text-destructive sm:text-right">{error}</p>
+                <p className="text-left text-sm text-destructive sm:text-right">
+                  {error}
+                </p>
               ) : null}
             </div>
           }
         />
       </div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <div
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <SettingsRow
           title="Theme"
           description="Choose light, dark, or match your device."
@@ -189,19 +218,27 @@ export function SettingsAppPage() {
                 contentWidth={SELECT_CONTENT_WIDTH}
               />
             ) : (
-              <p className="text-sm text-muted-foreground sm:text-right">Loading…</p>
+              <p className="text-sm text-muted-foreground sm:text-right">
+                Loading…
+              </p>
             )
           }
         />
       </div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <div
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <SettingsRow
           title="App tours"
           description={
             <>
-              Replay a guided walkthrough for a specific area. We reset only that tour, then take
-              you to the right page to play it.
+              Replay a guided walkthrough for a specific area. We reset only
+              that tour, then take you to the right page to play it.
               {isMobile ? " Tours are available on desktop-width layouts." : ""}
             </>
           }
@@ -231,7 +268,12 @@ export function SettingsAppPage() {
 
       <AppShellBottomFloatingDock visible={isDirty}>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={handleCancelEdits} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancelEdits}
+            disabled={saving}
+          >
             Cancel
           </Button>
           <Button type="button" onClick={handleSave} disabled={saving}>

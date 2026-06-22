@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
 import type { Json } from "@altitutor/shared";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import type { UcatBreadcrumbItem } from "@/features/layout/components/ucat-page-header";
@@ -16,15 +15,23 @@ import {
   useLearningModules,
   useMarkBlockComplete,
   useMarkLessonComplete,
+  useResetLessonProgress,
   useStartLesson,
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
+import {
+  LearningMarkLessonCompleteDialog,
+  LearningMarkLessonIncompleteDialog,
+} from "@/features/learning/components/learning-lesson-progress-dialogs";
+import { LearningLessonPageSkeleton } from "@/features/learning/components/learning-lesson-page-skeleton";
+import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type LearningLessonPageProps = {
   lessonId: string;
@@ -239,8 +246,12 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const updateProgress = useUpdateBlockProgress(lessonId);
   const markBlockComplete = useMarkBlockComplete(lessonId);
   const markLessonComplete = useMarkLessonComplete(lessonId);
+  const resetLessonProgress = useResetLessonProgress(lessonId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState(1);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
@@ -256,6 +267,8 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const lesson = data?.module;
   const displayMode = lesson?.display_mode ?? "stepped";
   const completionPercent = Number(lesson?.completion_percent ?? 0);
+  const isLessonComplete =
+    lesson?.completed_at != null || completionPercent >= 100;
 
   const { prev: prevLesson, next: nextLesson } = useMemo(
     () => getAdjacentLessons(lessonId, allModules ?? []),
@@ -278,6 +291,23 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const isBlockComplete = useCallback(
     (block: LearningModuleBlockRow) => block.block_completed_at != null,
     [],
+  );
+
+  const incompleteBlocks = useMemo(
+    () => blocks.filter((block) => !isBlockComplete(block)),
+    [blocks, isBlockComplete],
+  );
+
+  const incompleteBlockLabels = useMemo(
+    () =>
+      incompleteBlocks.map((block) => {
+        const index = blocks.findIndex((item) => item.id === block.id);
+        return {
+          id: block.id ?? `block-${index}`,
+          label: formatBlockLabel(block, index >= 0 ? index : 0),
+        };
+      }),
+    [blocks, incompleteBlocks],
   );
 
   const canAccessBlock = useCallback(
@@ -358,8 +388,28 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
     blockRefs.current.delete(blockId);
   }, []);
 
+  const handleConfirmMarkComplete = useCallback(() => {
+    markLessonComplete.mutate(undefined, {
+      onSuccess: () => {
+        setCompleteDialogOpen(false);
+        setActiveIndex(0);
+        setSlideDirection(1);
+      },
+    });
+  }, [markLessonComplete]);
+
+  const handleConfirmMarkIncomplete = useCallback(() => {
+    resetLessonProgress.mutate(undefined, {
+      onSuccess: () => {
+        setIncompleteDialogOpen(false);
+        setActiveIndex(0);
+        setSlideDirection(1);
+      },
+    });
+  }, [resetLessonProgress]);
+
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading lesson...</p>;
+    return <LearningLessonPageSkeleton />;
   }
   if (error || !lesson) {
     return <p className="text-sm text-destructive">Lesson not found.</p>;
@@ -368,9 +418,14 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const activeBlock = blocks[activeIndex];
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1 space-y-6">
+    <motion.div
+      className="mx-auto w-full max-w-7xl"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <motion.div className="min-w-0 flex-1 space-y-6" variants={itemVariants}>
           <UcatPageHeader
             title={lesson.title ?? "Lesson"}
             description={lesson.description ?? undefined}
@@ -412,50 +467,40 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
               )}
             </div>
           )}
+        </motion.div>
 
-          {displayMode === "stepped" ? (
-            <div className="flex justify-between gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={activeIndex === 0}
-                onClick={() => goToBlock(Math.max(0, activeIndex - 1))}
-                className={cn(UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={
-                  activeIndex >= blocks.length - 1 || !canAccessBlock(activeIndex + 1)
-                }
-                onClick={() =>
-                  goToBlock(Math.min(blocks.length - 1, activeIndex + 1))
-                }
-                className={cn(UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
-              >
-                Next
-              </Button>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="w-full lg:w-72 lg:shrink-0">
+        <motion.div variants={itemVariants}>
           <LearningLessonContentsSidebar
-          blocks={blocks}
-          activeIndex={activeIndex}
-          completionPercent={completionPercent}
-          canAccessBlock={canAccessBlock}
-          isBlockComplete={isBlockComplete}
-          onSelectBlock={goToBlock}
-          onMarkBlockComplete={handleMarkBlockComplete}
-          onMarkLessonComplete={() => markLessonComplete.mutate()}
-          prevLesson={prevLesson}
-          nextLesson={nextLesson}
-        />
-        </div>
+            blocks={blocks}
+            activeIndex={activeIndex}
+            completionPercent={completionPercent}
+            isLessonComplete={isLessonComplete}
+            canAccessBlock={canAccessBlock}
+            isBlockComplete={isBlockComplete}
+            onSelectBlock={goToBlock}
+            onMarkBlockComplete={handleMarkBlockComplete}
+            onRequestMarkComplete={() => setCompleteDialogOpen(true)}
+            onRequestMarkIncomplete={() => setIncompleteDialogOpen(true)}
+            isResettingProgress={resetLessonProgress.isPending}
+            prevLesson={prevLesson}
+            nextLesson={nextLesson}
+          />
+        </motion.div>
       </div>
-    </div>
+
+      <LearningMarkLessonCompleteDialog
+        open={completeDialogOpen}
+        onOpenChange={setCompleteDialogOpen}
+        incompleteBlockLabels={incompleteBlockLabels}
+        confirming={markLessonComplete.isPending}
+        onConfirm={handleConfirmMarkComplete}
+      />
+      <LearningMarkLessonIncompleteDialog
+        open={incompleteDialogOpen}
+        onOpenChange={setIncompleteDialogOpen}
+        confirming={resetLessonProgress.isPending}
+        onConfirm={handleConfirmMarkIncomplete}
+      />
+    </motion.div>
   );
 }

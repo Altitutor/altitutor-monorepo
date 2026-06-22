@@ -12,11 +12,20 @@ export function getCurrentSegmentTimeLimitSeconds(
     const t = exam.setModeTiming;
     if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0) return null;
     if (state.phase === "instructions") return t.instructionsTimeLimitSeconds;
-    if (state.phase === "question") return t.setTimeLimitSeconds;
+    if (state.phase === "question" || state.phase === "review") {
+      return t.setTimeLimitSeconds;
+    }
     return null;
   }
 
   if (exam.sourceType === "mock" && exam.mockTimingSegments?.length) {
+    if (state.phase === "review") {
+      const setIndex = state.mockCurrentSetIndex ?? 0;
+      const seg = exam.mockTimingSegments.find(
+        (s) => s.type === "questions" && s.setIndex === setIndex,
+      );
+      return seg?.type === "questions" ? (seg.timeLimitSeconds ?? null) : null;
+    }
     const seg = getCurrentMockSegment(exam, state);
     return seg?.timeLimitSeconds ?? null;
   }
@@ -90,6 +99,24 @@ export function getNextMockSegment(
   }
   const next = segments[current.segmentIndex + 1];
   return { ...next, segmentIndex: current.segmentIndex + 1 };
+}
+
+export function getNextSetSegmentFromReview(
+  exam: QuestionEngineExam,
+  mockCurrentSetIndex: number,
+): (MockTimingSegment & { segmentIndex: number }) | null {
+  const segments = exam.mockTimingSegments;
+  if (!segments?.length) return null;
+  const nextSetIndex = mockCurrentSetIndex + 1;
+  const questionsSegIdx = segments.findIndex(
+    (s) => s.type === "questions" && s.setIndex === nextSetIndex,
+  );
+  if (questionsSegIdx < 0) return null;
+  const prevSeg = segments[questionsSegIdx - 1];
+  if (prevSeg?.type === "instructions") {
+    return { ...prevSeg, segmentIndex: questionsSegIdx - 1 };
+  }
+  return { ...segments[questionsSegIdx], segmentIndex: questionsSegIdx };
 }
 
 export function getRemainingSecondsFromEndsAt(

@@ -54,6 +54,24 @@ function explanationText(value: GeneratedStem['questions'][number]['answerExplan
   return generatedContentToPlainText(value)
 }
 
+function generatedBlocks(stem: GeneratedStem) {
+  const values: unknown[] = [
+    stem.stemText,
+    ...stem.questions.flatMap((question) => [
+      question.questionText,
+      question.answerExplanation,
+      ...question.options.flatMap((option) => [option.answerText, option.answerExplanation]),
+    ]),
+  ]
+  return values.flatMap((value) => Array.isArray(value) ? value : [])
+}
+
+function isShapeBasedSetVisual(block: ReturnType<typeof generatedBlocks>[number]): boolean {
+  if (block.type !== 'visual') return false
+  if (!['venn_diagram', 'set_diagram'].includes(block.visualType)) return false
+  return Array.isArray(block.spec.shapes) && block.spec.shapes.length >= 2
+}
+
 function paragraphCount(text: string): number {
   const blocks = text
     .split(/\n{2,}|\r?\n/u)
@@ -74,6 +92,18 @@ function add(
 }
 
 function validateCommon(stem: GeneratedStem, stemIndex: number, issues: GenerationGateIssue[]) {
+  const candidateText = [
+    stemText(stem),
+    ...stem.questions.flatMap((question) => [
+      generatedContentToPlainText(question.questionText),
+      explanationText(question.answerExplanation),
+      ...question.options.flatMap((option) => [optionText(option), explanationText(option.answerExplanation)]),
+    ]),
+  ].join(' ')
+  if (/\s(?:--|—)\s/u.test(candidateText)) {
+    add(issues, 'warning', 'generic_ai_dash_style', 'Candidate uses generic AI-style dash punctuation.', stemIndex)
+  }
+
   for (let questionIndex = 0; questionIndex < stem.questions.length; questionIndex += 1) {
     const question = stem.questions[questionIndex]
     if (!question) continue
@@ -134,6 +164,10 @@ function validateVr(stem: GeneratedStem, stemIndex: number, categoryName: string
       if (normalized !== ['canttell', 'false', 'true'].sort().join('|')) {
         add(issues, 'blocking', 'vr_tfct_options', "True, False, Can't Tell questions must have exactly True, False, and Can't Tell options.", stemIndex, questionIndex)
       }
+      const text = norm(questionText(stem, questionIndex))
+      if (/\b(?:this statement is (?:true|false)|(?:is|answer is) (?:true|false|can't tell)|cannot be determined from the passage)\b/u.test(text)) {
+        add(issues, 'blocking', 'vr_tfct_answer_leak', "True, False, Can't Tell question text must not reveal or hint at its answer.", stemIndex, questionIndex)
+      }
     }
   }
 }
@@ -162,9 +196,89 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
       add(issues, 'blocking', 'dm_assumption_question_text', 'Recognising Assumptions question text must match the required UCAT instruction.', stemIndex, 0)
     }
   }
+  if (category === 'logical puzzles') {
+    const explanation = norm(explanationText(stem.questions[0]?.answerExplanation))
+    const ambiguityMarkers = [
+      'underspecified',
+      'both orders are possible',
+      'two possibilities',
+      'no direct comparison between',
+      'we missed',
+      're-read',
+      'wait,',
+      'actually,',
+      'let me',
+      "let's",
+      'i need to',
+      're-evaluate',
+      'multiple possibilities',
+      'another option is also',
+    ]
+    if (ambiguityMarkers.some((marker) => explanation.includes(marker))) {
+      add(
+        issues,
+        'blocking',
+        'dm_logical_puzzle_ambiguous_explanation',
+        'Logical Puzzle explanation contains unresolved ambiguity or self-correction.',
+        stemIndex,
+        0
+      )
+    }
+
+    const rawStemText = norm(stemText(stem))
+    const rawQuestionText = norm(questionText(stem, 0))
+    if (rawQuestionText.length >= 24 && rawStemText.includes(rawQuestionText)) {
+      add(
+        issues,
+        'blocking',
+        'dm_logical_question_duplicated_in_stem',
+        'Logical Puzzle question text must not be repeated inside the stem.',
+        stemIndex,
+        0
+      )
+    }
+
+    const unorderedPairKeys = new Set<string>()
+    for (const option of stem.questions[0]?.options ?? []) {
+      const match = optionText(option).match(/^\s*([^,.;]+?)\s+and\s+([^,.;]+?)\s*\.?\s*$/iu)
+      if (!match?.[1] || !match[2]) continue
+      const key = [norm(match[1]), norm(match[2])].sort().join('|')
+      if (unorderedPairKeys.has(key)) {
+        add(
+          issues,
+          'blocking',
+          'dm_logical_duplicate_pair_option',
+          'Logical Puzzle contains duplicate answer options with the pair reversed.',
+          stemIndex,
+          0
+        )
+        break
+      }
+      unorderedPairKeys.add(key)
+    }
+  }
+  if (category === 'venn diagrams') {
+    const blocks = generatedBlocks(stem)
+    const hasVenn = blocks.some(
+      (block) => block.type === 'visual' && ['venn_diagram', 'set_diagram'].includes(block.visualType)
+    )
+    if (!hasVenn) {
+      add(issues, 'blocking', 'dm_venn_visual_required', 'Venn Diagram questions must include a deterministic Venn visual.', stemIndex, 0)
+    }
+    if (hasVenn && !blocks.some(isShapeBasedSetVisual)) {
+      add(
+        issues,
+        'blocking',
+        'dm_venn_shape_spec_required',
+        'Venn Diagram visuals must use the shape-based set_diagram/venn_diagram spec, not the legacy coloured three-circle template.',
+        stemIndex,
+        0
+      )
+    }
+  }
 }
 
-function validateQr(stem: GeneratedStem, stemIndex: number, issues: GenerationGateIssue[]) {
+function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
   if (stem.questions.length < 1 || stem.questions.length > 4) {
     add(issues, 'blocking', 'qr_question_count', 'Quantitative Reasoning stems must have 1 to 4 questions.', stemIndex)
   }
@@ -176,6 +290,31 @@ function validateQr(stem: GeneratedStem, stemIndex: number, issues: GenerationGa
       add(issues, 'blocking', 'qr_option_count', 'Quantitative Reasoning questions must have exactly 5 answer options.', stemIndex, questionIndex)
     }
   })
+
+  const category = norm(categoryName)
+  const blocks = generatedBlocks(stem)
+  const tables = blocks.filter((block) => block.type === 'table').length
+  const visuals = blocks.filter((block) => block.type === 'visual')
+  const hasChart = visuals.some((block) =>
+    block.type === 'visual' &&
+    ['bar_chart', 'stacked_bar_chart', 'line_chart', 'scatter_plot', 'histogram', 'pie_chart'].includes(block.visualType)
+  )
+  const hasMap = visuals.some((block) => block.type === 'visual' && block.visualType === 'schematic_map')
+  if ((category === 'data tables' || category === 'timetables and calendars') && tables === 0) {
+    add(issues, 'blocking', 'qr_table_required', `${categoryName} questions must include a table block.`, stemIndex)
+  }
+  if (category === 'graphs and charts' && !hasChart) {
+    add(issues, 'blocking', 'qr_chart_required', 'Graphs and Charts questions must include a deterministic chart visual.', stemIndex)
+  }
+  if (category === 'maps and diagrams' && !hasMap) {
+    add(issues, 'blocking', 'qr_map_required', 'Maps and Diagrams questions must include a deterministic schematic map.', stemIndex)
+  }
+  if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
+    add(issues, 'blocking', 'qr_mixed_sources_required', 'Mixed Data Sources questions must include a table and a visual source.', stemIndex)
+  }
+  if (category === 'text-only scenarios' && (tables > 0 || visuals.length > 0)) {
+    add(issues, 'blocking', 'qr_text_only_assets', 'Text-Only Scenarios must not include table or visual blocks.', stemIndex)
+  }
 }
 
 function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
@@ -248,7 +387,7 @@ export function validateGeneratedStemCandidate(
 
   if (section === 'verbal reasoning') validateVr(stem, stemIndex, category, issues)
   else if (section === 'decision making') validateDm(stem, stemIndex, category, issues)
-  else if (section === 'quantitative reasoning') validateQr(stem, stemIndex, issues)
+  else if (section === 'quantitative reasoning') validateQr(stem, stemIndex, category, issues)
   else if (section === 'situational judgement') validateSj(stem, stemIndex, category, issues)
   else add(issues, 'warning', 'unknown_section', 'Section-specific generation gates were not applied.', stemIndex)
 

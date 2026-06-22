@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth";
 import { AppSidebar } from "@/features/layout/components/app-sidebar";
 import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
 import { UcatFloatingToolbar } from "@/features/layout/components/ucat-floating-toolbar";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
@@ -17,7 +18,6 @@ import {
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
-import { ExamAttemptResumeBanner } from "@/features/exam-attempts/components/exam-attempt-resume-banner";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -44,13 +44,13 @@ function AppShellInner({ children }: AppShellProps) {
   const sidebarOverride = useSidebarOverride();
   const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
+  const { active: activeExamAttempt } = useActiveExamAttempt();
 
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
+  const showExamAttemptPill =
+    !isImmersiveRoute && activeExamAttempt != null;
 
-  // Collapse sidebar on exam and practice engine routes; restore prior state on exit.
-  // Capture collapsed once on entry so students can still toggle the sidebar during play.
-  // This effect must be declared before any conditional returns to keep hook order stable.
   useEffect(() => {
     if (isImmersiveRoute) {
       setCollapsed((current) => {
@@ -108,7 +108,6 @@ function AppShellInner({ children }: AppShellProps) {
     return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   }
 
-  // Subscribe page gets its own full-page marketing layout — no sidebar/nav shell
   if (isSubscribeRoute) {
     return <>{children}</>;
   }
@@ -120,6 +119,8 @@ function AppShellInner({ children }: AppShellProps) {
     router.replace("/dashboard");
   };
 
+  const mainPaddingClass = hideTopBar ? "p-4" : "pt-16 p-6";
+
   return (
     <ComingSoonProvider
       openOnMount={comingSoonPath}
@@ -127,7 +128,6 @@ function AppShellInner({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
-        {/* nextstepjs portal target: fixed layer so sidebar highlights stay aligned while main content scrolls */}
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"
@@ -138,79 +138,94 @@ function AppShellInner({ children }: AppShellProps) {
             mainContentHasSidebarInset: sidebarExpanded && !isMobile,
           }}
         >
-        <div className="min-h-dvh bg-background" id="ucat-app-shell">
-        <ExamAttemptResumeBanner />
-        {isExamRoute ? (
-          <UcatLagProvider>
-            <UcatFloatingToolbar />
-            <div className={cn("flex", "w-screen")}>
-              <AppSidebar
-                collapsed={effectiveCollapsed}
-                mobileOpen={mobileOpen}
-                isMobile={isMobile}
-                onCloseMobile={() => setMobileOpen(false)}
-              />
-              <main
-                className={cn(
-                  "flex-1 min-h-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  "h-dvh min-h-0 overflow-hidden p-0",
-                  sidebarExpanded ? "md:ml-[240px]" : "ml-0",
-                )}
-              >
-                <motion.div
-                  key={pathname}
-                  initial={reduceMotion ? false : { opacity: 0.94, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: reduceMotion ? 0 : 0.22,
-                    ease: [0.32, 0.72, 0, 1],
-                  }}
-                  className="h-full min-h-0 w-full overflow-hidden"
-                >
-                  {children}
-                </motion.div>
-              </main>
+          <div
+            className={cn(
+              "bg-background",
+              isExamRoute
+                ? "flex min-h-dvh flex-col"
+                : "flex h-dvh min-h-0 flex-col overflow-hidden",
+            )}
+            id="ucat-app-shell"
+          >
+            <div className="flex min-h-0 flex-1 flex-col">
+              {isExamRoute ? (
+                <UcatLagProvider>
+                  <UcatFloatingToolbar />
+                  <div className={cn("flex", "w-screen")}>
+                    <AppSidebar
+                      collapsed={effectiveCollapsed}
+                      mobileOpen={mobileOpen}
+                      isMobile={isMobile}
+                      onCloseMobile={() => setMobileOpen(false)}
+                    />
+                    <main
+                      className={cn(
+                        "flex-1 min-h-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                        "h-dvh min-h-0 overflow-hidden p-0",
+                        sidebarExpanded ? "md:ml-[240px]" : "ml-0",
+                      )}
+                    >
+                      <motion.div
+                        key={pathname}
+                        initial={reduceMotion ? false : { opacity: 0.94, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: reduceMotion ? 0 : 0.22,
+                          ease: [0.32, 0.72, 0, 1],
+                        }}
+                        className="h-full min-h-0 w-full overflow-hidden"
+                      >
+                        {children}
+                      </motion.div>
+                    </main>
+                  </div>
+                </UcatLagProvider>
+              ) : (
+                <>
+                  {!hideTopBar ? (
+                    <FloatingAppActions
+                      onToggleNav={handleToggleNav}
+                      isMenuOpen={sidebarExpanded}
+                      showExamAttemptPill={showExamAttemptPill}
+                    />
+                  ) : null}
+                  <AppSidebar
+                    collapsed={effectiveCollapsed}
+                    mobileOpen={mobileOpen}
+                    isMobile={isMobile}
+                    onCloseMobile={() => setMobileOpen(false)}
+                  />
+                  <main
+                    className={cn(
+                      "ucat-app-scroll min-h-0 min-w-0 flex-1",
+                      "transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      sidebarExpanded ? "md:ml-[240px]" : "ml-0",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "mx-auto w-full min-w-0 max-w-[1400px]",
+                        mainPaddingClass,
+                      )}
+                    >
+                      <motion.div
+                        key={pathname}
+                        initial={reduceMotion ? false : { opacity: 0.94 }}
+                        animate={{ opacity: 1 }}
+                        transition={{
+                          duration: reduceMotion ? 0 : 0.22,
+                          ease: [0.32, 0.72, 0, 1],
+                        }}
+                        className="min-h-0 w-full min-w-0"
+                      >
+                        {children}
+                      </motion.div>
+                    </div>
+                  </main>
+                </>
+              )}
             </div>
-          </UcatLagProvider>
-        ) : (
-          <>
-            {!hideTopBar ? (
-              <FloatingAppActions
-                onToggleNav={handleToggleNav}
-                isMenuOpen={sidebarExpanded}
-              />
-            ) : null}
-            <div className={cn("flex", "mx-auto max-w-[1400px]")}>
-              <AppSidebar
-                collapsed={effectiveCollapsed}
-                mobileOpen={mobileOpen}
-                isMobile={isMobile}
-                onCloseMobile={() => setMobileOpen(false)}
-              />
-              <main
-                className={cn(
-                  "flex-1 min-h-0 min-w-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  hideTopBar ? "min-h-dvh p-4 overflow-x-clip" : "min-h-dvh pt-16 p-6 overflow-x-clip",
-                  sidebarExpanded ? "md:ml-[240px]" : "ml-0",
-                )}
-              >
-                <motion.div
-                  key={pathname}
-                  initial={reduceMotion ? false : { opacity: 0.94 }}
-                  animate={{ opacity: 1 }}
-                  transition={{
-                    duration: reduceMotion ? 0 : 0.22,
-                    ease: [0.32, 0.72, 0, 1],
-                  }}
-                  className="min-h-0 w-full min-w-0"
-                >
-                  {children}
-                </motion.div>
-              </main>
-            </div>
-          </>
-        )}
-        </div>
+          </div>
         </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>

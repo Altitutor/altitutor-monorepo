@@ -13,6 +13,8 @@ const COMMON_TIMEZONES_FALLBACK = [
   "UTC",
 ] as const;
 
+const UNIVERSAL_TIMEZONE_ALIASES = ["UTC"] as const;
+
 /**
  * All IANA time zones supported by the runtime (Node / modern browsers), sorted.
  * Falls back to a short list if `Intl.supportedValuesOf` is unavailable.
@@ -21,7 +23,12 @@ export function getSupportedIanaTimeZones(): string[] {
   try {
     const intl = Intl as { supportedValuesOf?: (key: string) => string[] };
     if (typeof intl.supportedValuesOf === "function") {
-      return intl.supportedValuesOf("timeZone").slice().sort((a, b) => a.localeCompare(b));
+      return Array.from(
+        new Set([
+          ...intl.supportedValuesOf("timeZone"),
+          ...UNIVERSAL_TIMEZONE_ALIASES,
+        ]),
+      ).sort((a, b) => a.localeCompare(b));
     }
   } catch {
     // ignore — use fallback
@@ -30,15 +37,21 @@ export function getSupportedIanaTimeZones(): string[] {
 }
 
 /** Ensures `timeZone` appears in the options list (e.g. legacy DB value). */
-export function mergeTimeZoneIntoOptions(timeZone: string, options: string[]): string[] {
+export function mergeTimeZoneIntoOptions(
+  timeZone: string,
+  options: string[],
+): string[] {
   if (options.includes(timeZone)) return options;
   return [...options, timeZone].sort((a, b) => a.localeCompare(b));
 }
 
-const supportedIanaTimeZoneSet = new Set(getSupportedIanaTimeZones());
-
 export function isSupportedIanaTimeZone(timeZone: string): boolean {
-  return supportedIanaTimeZoneSet.has(timeZone);
+  try {
+    new Intl.DateTimeFormat("en", { timeZone }).format();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const OFFSET_NAME_STYLES = ["longOffset", "shortOffset"] as const;
@@ -57,7 +70,9 @@ export function getTimeZoneGmtOffsetLabel(
         timeZone: ianaTimeZone,
         timeZoneName,
       });
-      const part = formatter.formatToParts(at).find((p) => p.type === "timeZoneName")?.value;
+      const part = formatter
+        .formatToParts(at)
+        .find((p) => p.type === "timeZoneName")?.value;
       if (part) {
         return part.replace(/^UTC/i, "GMT");
       }

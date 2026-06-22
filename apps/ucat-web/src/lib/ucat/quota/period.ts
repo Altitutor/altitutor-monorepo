@@ -45,15 +45,100 @@ function zonedMidnightUtc(
   day: number,
   timezone: string,
 ): Date {
-  const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-  const offsetMs = getTimezoneOffsetMs(guess, timezone);
-  return new Date(guess.getTime() - offsetMs);
+  const targetAsUtc = Date.UTC(year, month - 1, day);
+  let candidateMs =
+    targetAsUtc - getTimezoneOffsetMs(new Date(targetAsUtc), timezone);
+  const seen = new Set<number>();
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (isLocalMidnight(candidateMs, year, month, day, timezone)) {
+      return new Date(candidateMs);
+    }
+
+    seen.add(candidateMs);
+    const nextMs =
+      targetAsUtc - getTimezoneOffsetMs(new Date(candidateMs), timezone);
+    if (nextMs === candidateMs || seen.has(nextMs)) break;
+    candidateMs = nextMs;
+  }
+
+  // Midnight can be skipped when DST starts at 00:00. Match PostgreSQL's
+  // `timestamp AT TIME ZONE` behavior by using the first instant on that date.
+  return new Date(
+    findFirstInstantForLocalDate(year, month, day, timezone, targetAsUtc),
+  );
+}
+
+function isLocalMidnight(
+  instantMs: number,
+  year: number,
+  month: number,
+  day: number,
+  timezone: string,
+): boolean {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(instantMs));
+
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+
+  return (
+    read("year") === year &&
+    read("month") === month &&
+    read("day") === day &&
+    read("hour") === 0 &&
+    read("minute") === 0
+  );
+}
+
+function findFirstInstantForLocalDate(
+  year: number,
+  month: number,
+  day: number,
+  timezone: string,
+  targetAsUtc: number,
+): number {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const targetDateOrdinal = Date.UTC(year, month - 1, day);
+  const localDateOrdinal = (instantMs: number) => {
+    const parts = formatter.formatToParts(new Date(instantMs));
+    const read = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value);
+    return Date.UTC(read("year"), read("month") - 1, read("day"));
+  };
+
+  let low = targetAsUtc - 48 * 60 * 60 * 1000;
+  let high = targetAsUtc + 48 * 60 * 60 * 1000;
+
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (localDateOrdinal(middle) >= targetDateOrdinal) {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+
+  return high;
 }
 
 function getTimezoneOffsetMs(date: Date, timezone: string): number {
   const utc = new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     hour: "numeric",
+    minute: "2-digit",
     hour12: false,
     year: "numeric",
     month: "2-digit",
@@ -62,6 +147,7 @@ function getTimezoneOffsetMs(date: Date, timezone: string): number {
   const local = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     hour: "numeric",
+    minute: "2-digit",
     hour12: false,
     year: "numeric",
     month: "2-digit",
@@ -72,14 +158,20 @@ function getTimezoneOffsetMs(date: Date, timezone: string): number {
     y: Number(parts.find((p) => p.type === "year")?.value),
     m: Number(parts.find((p) => p.type === "month")?.value),
     d: Number(parts.find((p) => p.type === "day")?.value),
-    h: Number(parts.find((p) => p.type === "hour")?.value),
+    // Some locales render midnight as 24:00 for the same calendar date.
+    h: normalizeHour(Number(parts.find((p) => p.type === "hour")?.value)),
+    min: Number(parts.find((p) => p.type === "minute")?.value),
   });
 
   const u = read(utc);
   const l = read(local);
-  const utcMs = Date.UTC(u.y, u.m - 1, u.d, u.h);
-  const localAsUtcMs = Date.UTC(l.y, l.m - 1, l.d, l.h);
+  const utcMs = Date.UTC(u.y, u.m - 1, u.d, u.h, u.min);
+  const localAsUtcMs = Date.UTC(l.y, l.m - 1, l.d, l.h, l.min);
   return localAsUtcMs - utcMs;
+}
+
+function normalizeHour(hour: number): number {
+  return hour === 24 ? 0 : hour;
 }
 
 export function formatQuotaPeriodLabel(period: UcatQuotaPeriod): string {

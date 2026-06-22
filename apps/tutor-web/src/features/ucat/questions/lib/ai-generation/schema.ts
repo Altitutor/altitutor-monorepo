@@ -6,20 +6,62 @@ export const TimeBurdenTargetSchema = z.enum(['low', 'medium', 'high', 'mixed'])
 export type DifficultyTarget = z.infer<typeof DifficultyTargetSchema>
 export type TimeBurdenTarget = z.infer<typeof TimeBurdenTargetSchema>
 
-export const GeneratedContentBlockSchema = z.discriminatedUnion('type', [
+const GeneratedTableBlockSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const table = value as Record<string, unknown>
+  if (table.type !== 'table' || !Array.isArray(table.columns) || !Array.isArray(table.rows)) return value
+  const objectColumns = table.columns.every(
+    (column) => column && typeof column === 'object' && !Array.isArray(column)
+  )
+  if (!objectColumns) return value
+
+  const columns = table.columns.map((column, index) => {
+    const record = column as Record<string, unknown>
+    return {
+      accessor: String(record.accessor ?? record.key ?? index),
+      header: String(record.header ?? record.label ?? record.accessor ?? record.key ?? index),
+    }
+  })
+  return {
+    ...table,
+    columns: columns.map((column) => column.header),
+    rows: table.rows.map((row) => {
+      if (Array.isArray(row)) return row.map((cell) => String(cell))
+      const record = row && typeof row === 'object' ? row as Record<string, unknown> : {}
+      return columns.map((column) => String(record[column.accessor] ?? ''))
+    }),
+  }
+}, z.object({
+  type: z.literal('table'),
+  caption: z.string().trim().optional().nullable(),
+  columns: z.array(z.string().trim().min(1)).min(1).max(10),
+  rows: z.array(z.array(z.string().trim().min(1)).min(1).max(10)).min(1).max(20),
+}))
+
+export const GeneratedContentBlockSchema = z.union([
   z.object({
     type: z.literal('paragraph'),
     text: z.string().trim().min(1),
   }),
   z.object({
-    type: z.literal('table'),
-    caption: z.string().trim().optional().nullable(),
-    columns: z.array(z.string().trim().min(1)).min(1).max(10),
-    rows: z.array(z.array(z.string().trim().min(1)).min(1).max(10)).min(1).max(20),
+    type: z.literal('list'),
+    ordered: z.boolean().optional().default(false),
+    items: z.array(z.string().trim().min(1)).min(1).max(12),
   }),
+  GeneratedTableBlockSchema,
   z.object({
     type: z.literal('visual'),
-    visualType: z.enum(['bar_chart', 'line_chart', 'pie_chart', 'venn_diagram', 'schematic_map']),
+    visualType: z.enum([
+      'bar_chart',
+      'stacked_bar_chart',
+      'line_chart',
+      'scatter_plot',
+      'histogram',
+      'pie_chart',
+      'venn_diagram',
+      'set_diagram',
+      'schematic_map',
+    ]),
     title: z.string().trim().optional().nullable(),
     altText: z.string().trim().min(1),
     spec: z.record(z.unknown()),
@@ -64,13 +106,13 @@ export const GenerationPlanSchema = z.object({
   plans: z.array(
     z.object({
       stemIndex: z.number().int().nonnegative(),
-      candidateIndex: z.number().int().nonnegative(),
       scenarioDomain: z.string().trim().min(1),
       questionArchetype: z.string().trim().min(1),
       distractorPlan: z.string().trim().min(1),
       difficultyTarget: DifficultyTargetSchema,
       timeBurdenTarget: TimeBurdenTargetSchema,
       notes: z.string().trim().optional(),
+      vennVisualFormat: z.string().trim().optional(),
     })
   ),
 })

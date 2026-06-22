@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useRouter } from 'next/navigation';
-import { LogOut, User } from 'lucide-react';
+import { Bug, LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   AnimatedHamburgerIcon,
+  FeedbackDialog,
+  type FeedbackKind,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -35,6 +37,7 @@ export function Navbar() {
   const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(staffRecord?.id ?? '');
@@ -176,6 +179,14 @@ export function Navbar() {
                   System Theme
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setFeedbackKind('bug')}
+                  className="cursor-pointer"
+                >
+                  <Bug className="mr-2 h-4 w-4" />
+                  Report a bug
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
@@ -194,6 +205,19 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
+      {feedbackKind ? (
+        <FeedbackDialog
+          open
+          onOpenChange={(open) => !open && setFeedbackKind(null)}
+          kind={feedbackKind}
+          appName="admin-web"
+          user={{
+            id: user?.id,
+            email: user?.email,
+            name: getFullName(),
+          }}
+        />
+      ) : null}
     </nav>
   );
 } 

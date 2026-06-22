@@ -91,6 +91,15 @@ interface DataTableToolbarProps {
   stemSearchFromOptions?: DataTableSearchFromOption[];
   /** Additional grouped search-from options for the View dropdown (used with searchFromInView) */
   searchFromViewGroups?: Array<{ heading: string; options: DataTableSearchFromOption[] }>;
+  /** Grouped column visibility sections (e.g. stem / question / answer option columns) */
+  columnViewGroups?: DataTableColumnViewGroup[];
+}
+
+export interface DataTableColumnViewGroup {
+  heading: string;
+  columnDefinitions: DataTableColumnDefinition[];
+  visibleColumns: string[];
+  onVisibleColumnsChange: (columns: string[]) => void;
 }
 
 export interface DataTableSearchFromOption {
@@ -135,6 +144,7 @@ export function DataTableToolbar({
   searchFromInView = false,
   stemSearchFromOptions = [],
   searchFromViewGroups,
+  columnViewGroups = [],
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
@@ -300,6 +310,17 @@ export function DataTableToolbar({
       : []
   );
 
+  const toggleColumnVisibility = (
+    group: DataTableColumnViewGroup,
+    columnKey: string,
+    checked: boolean,
+  ) => {
+    const next = checked
+      ? [...group.visibleColumns, columnKey]
+      : group.visibleColumns.filter((key) => key !== columnKey);
+    group.onVisibleColumnsChange(next);
+  };
+
   const searchFromControl = searchFromEnabled && !searchFromInView ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -384,7 +405,8 @@ export function DataTableToolbar({
 
         <div className={cn('flex shrink-0 items-center gap-2', hideSearch && 'w-full')}>
           {/* View Options (Columns + optional search-from groups) */}
-          {(columnDefinitions.length > 0 ||
+          {(columnViewGroups.length > 0 ||
+            columnDefinitions.length > 0 ||
             (searchFromInView &&
               (stemSearchFromOptions.length > 0 || searchFromViewGroupsResolved.length > 0))) && (
             <DropdownMenu>
@@ -395,39 +417,63 @@ export function DataTableToolbar({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[240px] p-0 max-h-[min(70vh,480px)] overflow-y-auto">
-                {columnDefinitions.length > 0 && (
-                  <>
-                    <DropdownMenuLabel className="px-2 py-1.5">
-                      {searchFromInView && searchFromViewGroupsResolved.length > 0
-                        ? 'Question stems'
-                        : 'Show columns'}
-                    </DropdownMenuLabel>
-                    <SearchableSelectInline<DataTableColumnDefinition>
-                      items={columnDefinitions}
-                      value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
-                      onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
-                      getItemId={(c) => c.key}
-                      getItemLabel={(c) => c.label}
-                      searchPlaceholder="Search columns..."
-                      emptyMessage="No columns found"
-                      multiSelect
-                    />
-                    {searchFromInView &&
-                      stemSearchFromOptions.map((option) => (
+                {columnViewGroups.length > 0 ? (
+                  columnViewGroups.map((group, groupIndex) => (
+                    <div key={group.heading}>
+                      {groupIndex > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel className="px-2 py-1.5">{group.heading}</DropdownMenuLabel>
+                      {group.columnDefinitions.map((col) => (
                         <DropdownMenuCheckboxItem
-                          key={option.value}
-                          checked={activeSearchFromValues.includes(option.value)}
-                          onCheckedChange={() => toggleSearchFromValue(option.value)}
+                          key={col.key}
+                          checked={group.visibleColumns.includes(col.key)}
+                          onCheckedChange={(checked) =>
+                            toggleColumnVisibility(group, col.key, checked === true)
+                          }
+                          onSelect={(event) => event.preventDefault()}
                           className="pl-8"
                         >
-                          {option.label}
+                          {col.label}
                         </DropdownMenuCheckboxItem>
                       ))}
-                  </>
+                    </div>
+                  ))
+                ) : (
+                  columnDefinitions.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="px-2 py-1.5">
+                        {searchFromInView && searchFromViewGroupsResolved.length > 0
+                          ? 'Question stems'
+                          : 'Show columns'}
+                      </DropdownMenuLabel>
+                      <SearchableSelectInline<DataTableColumnDefinition>
+                        items={columnDefinitions}
+                        value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
+                        onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
+                        getItemId={(c) => c.key}
+                        getItemLabel={(c) => c.label}
+                        searchPlaceholder="Search columns..."
+                        emptyMessage="No columns found"
+                        multiSelect
+                      />
+                      {searchFromInView &&
+                        stemSearchFromOptions.map((option) => (
+                          <DropdownMenuCheckboxItem
+                            key={option.value}
+                            checked={activeSearchFromValues.includes(option.value)}
+                            onCheckedChange={() => toggleSearchFromValue(option.value)}
+                            className="pl-8"
+                          >
+                            {option.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                    </>
+                  )
                 )}
                 {searchFromInView && searchFromViewGroupsResolved.length > 0 && onSearchFromChange && (
                   <>
-                    {columnDefinitions.length > 0 && <DropdownMenuSeparator />}
+                    {(columnViewGroups.length > 0 || columnDefinitions.length > 0) && (
+                      <DropdownMenuSeparator />
+                    )}
                     {searchFromViewGroupsResolved.map((group, groupIndex) => (
                       <div key={group.heading}>
                         {groupIndex > 0 && <DropdownMenuSeparator />}

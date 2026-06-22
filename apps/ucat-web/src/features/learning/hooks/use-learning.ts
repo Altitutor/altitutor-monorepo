@@ -32,7 +32,7 @@ export function useStartLesson(lessonId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
       queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
-      queryClient.invalidateQueries({ queryKey: ["quota-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
     },
   });
 }
@@ -69,6 +69,17 @@ export function useMarkLessonComplete(lessonId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => learningApi.markLessonComplete(lessonId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+    },
+  });
+}
+
+export function useResetLessonProgress(lessonId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => learningApi.resetLessonProgress(lessonId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
       queryClient.invalidateQueries({ queryKey: learningKeys.modules() });

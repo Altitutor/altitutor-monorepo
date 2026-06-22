@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as BeginExamAttemptInput & {
     examMeta: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamSnapshot["examTiming"];
     resumeOnly?: boolean;
   };
 
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
       student.id,
       body,
       body.examMeta,
+      body.examTiming,
     );
     return NextResponse.json({ attempt: result.attempt, resumed: result.resumed });
   } catch (error) {

@@ -3,6 +3,8 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveExamAttempt } from "@/lib/ucat/exam-attempt/service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const supabase = await getSupabaseServerClient();
   const {
@@ -39,6 +41,8 @@ export async function GET() {
     );
   }
 
-  const active = await getActiveExamAttempt(supabaseAdmin, student.id);
+  const active = await getActiveExamAttempt(supabaseAdmin, student.id, {
+    readerClient: supabase,
+  });
   return NextResponse.json({ active });
 }

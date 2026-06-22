@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { Json } from '@altitutor/shared'
@@ -10,11 +10,17 @@ import {
   AccordionItem,
   AccordionTrigger,
   Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   SearchableSelect,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -29,6 +35,9 @@ import {
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
+import {
+  findMissingExplanations,
+} from '@/features/ucat/questions/lib/ai-tools'
 
 export type StemEditorMode = 'edit' | 'view'
 
@@ -101,8 +110,14 @@ export function UcatStemEditorPropertiesPanel({
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
+  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | null>(null)
+  const [rewritePreview, setRewritePreview] = useState<{
+    stem: UcatQuestionStemFormValues
+    summary: string | null
+  } | null>(null)
 
   const sectionId = form.watch('sectionId')
+  const watchedStem = form.watch()
   const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
     | 'multiple_choice'
     | 'syllogism'
@@ -114,6 +129,77 @@ export function UcatStemEditorPropertiesPanel({
 
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
+  const activeQuestionMissingExplanations = findMissingExplanations(watchedStem, undefined).filter(
+    (target) => target.questionIndex === safeQuestionIndex
+  )
+
+  const handleRewriteStem = async () => {
+    setAiPending('rewrite')
+    try {
+      const response = await fetch('/api/ucat/question-stems/ai-tools/rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stem: form.getValues() }),
+      })
+      const json = (await response.json()) as {
+        rewrittenStem?: UcatQuestionStemFormValues
+        summary?: string | null
+        error?: string
+      }
+      if (!response.ok || !json.rewrittenStem) {
+        throw new Error(json.error ?? 'Question rewrite failed')
+      }
+      setRewritePreview({ stem: json.rewrittenStem, summary: json.summary ?? null })
+    } catch (error) {
+      toast({
+        description: error instanceof Error ? error.message : 'Question rewrite failed',
+        variant: 'destructive',
+      })
+    } finally {
+      setAiPending(null)
+    }
+  }
+
+  const handleApplyRewrite = () => {
+    if (!rewritePreview) return
+    form.setValue('stemText', rewritePreview.stem.stemText, { shouldDirty: true })
+    form.setValue('questions', rewritePreview.stem.questions, { shouldDirty: true })
+    setRewritePreview(null)
+    toast({ description: 'Rewrite applied. Review the updated stem before saving.' })
+  }
+
+  const handleGenerateActiveExplanation = async () => {
+    setAiPending('explanation')
+    try {
+      const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stem: form.getValues(), questionIndexes: [safeQuestionIndex] }),
+      })
+      const json = (await response.json()) as {
+        stem?: UcatQuestionStemFormValues
+        appliedCount?: number
+        error?: string
+      }
+      if (!response.ok || !json.stem) {
+        throw new Error(json.error ?? 'Answer explanation generation failed')
+      }
+      form.setValue('questions', json.stem.questions, { shouldDirty: true })
+      toast({
+        description:
+          (json.appliedCount ?? 0) > 0
+            ? `Generated ${json.appliedCount} missing explanation${json.appliedCount === 1 ? '' : 's'}.`
+            : 'No missing explanations were generated.',
+      })
+    } catch (error) {
+      toast({
+        description: error instanceof Error ? error.message : 'Answer explanation generation failed',
+        variant: 'destructive',
+      })
+    } finally {
+      setAiPending(null)
+    }
+  }
 
   const handleDeleteQuestion = (questionIndex: number) => {
     const questions = form.getValues('questions') ?? []
@@ -216,7 +302,7 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['questions', 'stem', 'question']}
+          defaultValue={['questions', 'ai', 'stem', 'question']}
           className="space-y-4"
         >
           <PropertiesCard value="questions" title="Questions">
@@ -270,6 +356,54 @@ export function UcatStemEditorPropertiesPanel({
                 Add question
               </Button>
             ) : null}
+          </PropertiesCard>
+
+          <PropertiesCard value="ai" title="AI actions">
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => void handleRewriteStem()}
+                disabled={aiPending != null || editorMode !== 'edit'}
+              >
+                {aiPending === 'rewrite' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                Rewrite source wording
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => void handleGenerateActiveExplanation()}
+                disabled={
+                  aiPending != null ||
+                  editorMode !== 'edit' ||
+                  activeQuestionMissingExplanations.length === 0
+                }
+              >
+                {aiPending === 'explanation' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Generate explanation
+              </Button>
+              {activeQuestionMissingExplanations.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Fills missing explanation fields for question {safeQuestionIndex + 1}.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Question {safeQuestionIndex + 1} already has the required explanation fields.
+                </p>
+              )}
+            </div>
           </PropertiesCard>
 
           <PropertiesCard value="stem" title="Stem properties">
@@ -395,6 +529,81 @@ export function UcatStemEditorPropertiesPanel({
           ) : null}
         </Accordion>
       </div>
+      <RewritePreviewDialog
+        open={rewritePreview != null}
+        currentStem={watchedStem}
+        rewrittenStem={rewritePreview?.stem ?? null}
+        summary={rewritePreview?.summary ?? null}
+        onOpenChange={(open) => {
+          if (!open) setRewritePreview(null)
+        }}
+        onApply={handleApplyRewrite}
+      />
     </aside>
   )
+}
+
+function RewritePreviewDialog({
+  open,
+  currentStem,
+  rewrittenStem,
+  summary,
+  onOpenChange,
+  onApply,
+}: {
+  open: boolean
+  currentStem: UcatQuestionStemFormValues
+  rewrittenStem: UcatQuestionStemFormValues | null
+  summary: string | null
+  onOpenChange: (open: boolean) => void
+  onApply: () => void
+}) {
+  const before = formatStemForRewritePreview(currentStem)
+  const after = rewrittenStem ? formatStemForRewritePreview(rewrittenStem) : ''
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Review rewritten wording</DialogTitle>
+          <DialogDescription>
+            Apply only after checking the answer logic and wording. This reduces source similarity for
+            tutor review; it does not certify copyright status.
+          </DialogDescription>
+        </DialogHeader>
+        {summary ? <p className="text-sm text-muted-foreground">{summary}</p> : null}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="min-w-0 rounded-md border p-3">
+            <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">Current stem</div>
+            <pre className="max-h-80 whitespace-pre-wrap text-xs leading-relaxed">{before}</pre>
+          </div>
+          <div className="min-w-0 rounded-md border p-3">
+            <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">Rewritten stem</div>
+            <pre className="max-h-80 whitespace-pre-wrap text-xs leading-relaxed">{after}</pre>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={onApply} disabled={!rewrittenStem}>
+            Apply rewrite
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function formatStemForRewritePreview(stem: UcatQuestionStemFormValues): string {
+  const lines = [`Stem:\n${proseMirrorToPlainText(stem.stemText as Json)}`]
+  stem.questions.forEach((question, questionIndex) => {
+    lines.push(`\nQuestion ${questionIndex + 1}:\n${proseMirrorToPlainText(question.questionText as Json)}`)
+    question.options.forEach((option, optionIndex) => {
+      lines.push(
+        `${String.fromCharCode(65 + optionIndex)}. ${proseMirrorToPlainText(option.answerText as Json)}`
+      )
+    })
+  })
+  return lines.join('\n')
 }

@@ -65,10 +65,18 @@ export function SignupCompleteDetailsStep({
       firstName: string;
       lastName: string;
       phone?: string | null;
+      timezone?: string;
     } = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
     };
+
+    const detectedTimezone = Intl.DateTimeFormat()
+      .resolvedOptions()
+      .timeZone?.trim();
+    if (detectedTimezone) {
+      payload.timezone = detectedTimezone;
+    }
 
     const trimmedPhone = phone.trim();
     if (trimmedPhone && !isPhoneCountryCodeOnly(trimmedPhone)) {
@@ -98,7 +106,10 @@ export function SignupCompleteDetailsStep({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm"
+    >
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label
@@ -178,7 +189,9 @@ export function SignupCompleteDetailsStep({
       </div>
 
       {error ? (
-        <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
+        <p
+          className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}
+        >
           {error}
         </p>
       ) : null}

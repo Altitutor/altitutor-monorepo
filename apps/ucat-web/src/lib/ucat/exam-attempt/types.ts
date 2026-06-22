@@ -32,6 +32,7 @@ export type ActiveExamAttempt = {
   resourceId: string;
   label: string;
   resumeHref: string;
+  resultsHref: string;
   currentSegmentEndsAt: string | null;
   engineSnapshot: ExamEngineSnapshot;
   mockAttemptId: string | null;
@@ -55,6 +56,8 @@ export type SyncExamAttemptInput = {
   attemptId: string;
   engineSnapshot: ExamEngineSnapshot;
   currentSegmentEndsAt: string | null;
+  /** When present, the server starts a new segment using its own clock. */
+  startSegmentTimeLimitSeconds?: number | null;
   setAttemptIdsBySetId?: Record<string, string>;
 };
 

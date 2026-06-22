@@ -12,6 +12,7 @@ import {
   AnimatedInteger,
 } from "./progress-animated-display";
 import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
+import { formatUcatPercentile } from "../lib/percentiles";
 
 type AttemptReviewSummaryGridProps = {
   points: number;
@@ -33,6 +34,7 @@ export function AttemptReviewSummaryGrid({
   onBarClick,
 }: AttemptReviewSummaryGridProps) {
   const showScaledScore = scaledScore !== undefined;
+  const percentile = formatUcatPercentile(scaledScore, "section");
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr]">
@@ -58,6 +60,11 @@ export function AttemptReviewSummaryGrid({
                   "—"
                 )}
               </div>
+              {percentile ? (
+                <div className="mt-1 text-xs font-medium text-muted-foreground">
+                  {percentile}
+                </div>
+              ) : null}
             </div>
           ) : null}
           <div>

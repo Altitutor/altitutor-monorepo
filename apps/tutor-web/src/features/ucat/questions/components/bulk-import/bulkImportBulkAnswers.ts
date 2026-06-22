@@ -225,16 +225,6 @@ export function validateBulkAnswersDocument(
         message: `Expected ${totalQuestions} answers but found ${parsed.length}.`,
       }
     }
-    const missingExplanation = parsed.some((row, i) => {
-      const isSyllogism = flat[i]?.questionType === 'syllogism'
-      if (isSyllogism) {
-        return !(row.optionExplanations ?? []).some((e) => (e ?? '').trim().length > 0)
-      }
-      return !(row.explanation ?? '').trim()
-    })
-    if (missingExplanation) {
-      return { ok: false, message: 'Every question must have an explanation in the answers document.' }
-    }
     return { ok: true }
   }
 
@@ -244,10 +234,6 @@ export function validateBulkAnswersDocument(
       ok: false,
       message: `Expected ${totalQuestions} answers but found ${parsed.length}.`,
     }
-  }
-  const missingExplanation = parsed.some((row) => !row.explanation.trim())
-  if (missingExplanation) {
-    return { ok: false, message: 'Every question must have an explanation in the answers document.' }
   }
   return { ok: true }
 }
@@ -299,6 +285,7 @@ export function applyBulkAnswersToStems(
           isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
           answerExplanation:
             answer.optionExplanationDocs?.[j] ??
+            opt.answerExplanation ??
             null,
         }))
         questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
@@ -311,7 +298,7 @@ export function applyBulkAnswersToStems(
         questions[questionIndex] = {
           ...q,
           options,
-          answerExplanation: answer.explanationDoc ?? null,
+          answerExplanation: answer.explanationDoc ?? q.answerExplanation ?? null,
         }
       }
       nextValues = { ...nextValues, questions }
@@ -337,7 +324,7 @@ export function applyBulkAnswersToStems(
       questions[questionIndex] = {
         ...q,
         options,
-        answerExplanation: row.explanationDoc ?? null,
+        answerExplanation: row.explanationDoc ?? q.answerExplanation ?? null,
       }
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)

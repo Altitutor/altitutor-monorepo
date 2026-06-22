@@ -3,6 +3,7 @@ import type { Database } from "@altitutor/shared";
 import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isSupportedIanaTimeZone } from "@/lib/supported-timezones";
 
 type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
@@ -69,7 +70,9 @@ async function insertStudentWithSignupStepFallback(
     result.error.message.includes("ucat_signup_step") &&
     result.error.message.includes("does not exist")
   ) {
-    result = await supabaseAdmin!.from("students").insert(omitSignupStep(payload));
+    result = await supabaseAdmin!
+      .from("students")
+      .insert(omitSignupStep(payload));
   }
 
   return { error: result.error };
@@ -82,7 +85,10 @@ async function insertStudentWithSignupStepFallback(
  */
 export async function POST(request: NextRequest) {
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 500 },
+    );
   }
 
   const supabase = await getSupabaseServerClient();
@@ -96,7 +102,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { firstName: string; lastName: string; phone?: string };
+  let body: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    timezone?: string;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -105,6 +116,7 @@ export async function POST(request: NextRequest) {
 
   const firstName = body.firstName?.trim();
   const lastName = body.lastName?.trim();
+  const timezone = body.timezone?.trim();
   const hasPhoneField = Object.prototype.hasOwnProperty.call(body, "phone");
 
   if (!firstName || !lastName) {
@@ -112,6 +124,10 @@ export async function POST(request: NextRequest) {
       { error: "First name and last name are required" },
       { status: 400 },
     );
+  }
+
+  if (timezone && !isSupportedIanaTimeZone(timezone)) {
+    return NextResponse.json({ error: "Invalid timezone" }, { status: 400 });
   }
 
   let normalizedPhone: string | null | undefined;
@@ -133,6 +149,7 @@ export async function POST(request: NextRequest) {
     last_name: string;
     updated_at: string;
     phone?: string | null;
+    timezone?: string;
   } = {
     first_name: firstName,
     last_name: lastName,
@@ -141,6 +158,9 @@ export async function POST(request: NextRequest) {
 
   if (hasPhoneField) {
     profileUpdate.phone = normalizedPhone ?? null;
+  }
+  if (timezone) {
+    profileUpdate.timezone = timezone;
   }
 
   // Check if a student record already exists for this user
@@ -201,12 +221,15 @@ export async function POST(request: NextRequest) {
         last_name: lastName,
         phone: hasPhoneField ? (normalizedPhone ?? null) : null,
         status: "ACTIVE",
-        timezone: "Australia/Adelaide",
+        timezone: timezone ?? "Australia/Adelaide",
         ucat_signup_step: 2,
       });
 
       if (insertError) {
-        console.error("[signup complete] Failed to create student:", insertError);
+        console.error(
+          "[signup complete] Failed to create student:",
+          insertError,
+        );
         return NextResponse.json(
           { error: dbErrorMessage(insertError.message) },
           { status: 400 },

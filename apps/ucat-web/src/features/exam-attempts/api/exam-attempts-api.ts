@@ -8,7 +8,9 @@ import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 
 export async function fetchActiveExamAttempt(): Promise<ActiveExamAttempt | null> {
-  const response = await fetch("/api/ucat/exam-attempts/active");
+  const response = await fetch("/api/ucat/exam-attempts/active", {
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error("Failed to load active exam attempt");
   }
@@ -19,6 +21,7 @@ export async function fetchActiveExamAttempt(): Promise<ActiveExamAttempt | null
 export async function beginExamAttempt(
   input: BeginExamAttemptInput & {
     examMeta: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamSnapshot["examTiming"];
     resumeOnly?: boolean;
   },
 ): Promise<{ attempt: ActiveExamAttempt; resumed: boolean }> {
@@ -46,9 +49,10 @@ export async function beginExamAttempt(
 export async function syncExamAttempt(
   input: SyncExamAttemptInput & {
     examMeta?: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamSnapshot["examTiming"];
     mockAttemptId?: string | null;
   },
-): Promise<void> {
+): Promise<{ currentSegmentEndsAt: string | null }> {
   const response = await fetch("/api/ucat/exam-attempts/sync", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -57,6 +61,24 @@ export async function syncExamAttempt(
   if (!response.ok) {
     throw new Error("Failed to sync exam attempt");
   }
+  return response.json();
+}
+
+export function syncExamAttemptKeepalive(
+  input: SyncExamAttemptInput & {
+    examMeta?: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamSnapshot["examTiming"];
+    mockAttemptId?: string | null;
+  },
+): void {
+  void fetch("/api/ucat/exam-attempts/sync", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    keepalive: true,
+  }).catch(() => {
+    // Navigation must not be blocked if the final best-effort flush fails.
+  });
 }
 
 export async function finalizeExamAttempt(input: {

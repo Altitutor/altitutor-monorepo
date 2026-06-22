@@ -4,14 +4,11 @@ import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { LearningLessonPager } from "@/features/learning/components/learning-lesson-pager";
+import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import type { LessonNavEntry } from "@/features/learning/lib/flatten-lessons-for-nav";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
+import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-
-function formatBlockLabel(block: LearningModuleBlockRow, index: number): string {
-  const typeLabel = block.block_type?.replace(/_/g, " ") ?? "Block";
-  return `${index + 1}. ${typeLabel}`;
-}
 
 function canManuallyCompleteBlock(block: LearningModuleBlockRow): boolean {
   return (
@@ -25,11 +22,14 @@ type LearningLessonContentsSidebarProps = {
   blocks: LearningModuleBlockRow[];
   activeIndex: number;
   completionPercent: number;
+  isLessonComplete: boolean;
   canAccessBlock: (index: number) => boolean;
   isBlockComplete: (block: LearningModuleBlockRow) => boolean;
   onSelectBlock: (index: number) => void;
   onMarkBlockComplete: (blockId: string) => void;
-  onMarkLessonComplete: () => void;
+  onRequestMarkComplete: () => void;
+  onRequestMarkIncomplete: () => void;
+  isResettingProgress?: boolean;
   prevLesson: LessonNavEntry | null;
   nextLesson: LessonNavEntry | null;
 };
@@ -38,16 +38,19 @@ export function LearningLessonContentsSidebar({
   blocks,
   activeIndex,
   completionPercent,
+  isLessonComplete,
   canAccessBlock,
   isBlockComplete,
   onSelectBlock,
   onMarkBlockComplete,
-  onMarkLessonComplete,
+  onRequestMarkComplete,
+  onRequestMarkIncomplete,
+  isResettingProgress = false,
   prevLesson,
   nextLesson,
 }: LearningLessonContentsSidebarProps) {
   return (
-    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-20 lg:z-10 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto lg:overscroll-y-contain">
+    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Progress</CardTitle>
@@ -60,9 +63,21 @@ export function LearningLessonContentsSidebar({
             />
           </div>
           <p className="text-sm text-muted-foreground">{completionPercent}% complete</p>
-          <Button className="w-full" onClick={onMarkLessonComplete}>
-            Mark lesson complete
-          </Button>
+          {isLessonComplete ? (
+            <Button
+              type="button"
+              variant="outline"
+              className={cn("w-full", UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
+              disabled={isResettingProgress}
+              onClick={onRequestMarkIncomplete}
+            >
+              Mark incomplete
+            </Button>
+          ) : (
+            <Button type="button" className="w-full" onClick={onRequestMarkComplete}>
+              Mark lesson complete
+            </Button>
+          )}
         </CardContent>
       </Card>
 

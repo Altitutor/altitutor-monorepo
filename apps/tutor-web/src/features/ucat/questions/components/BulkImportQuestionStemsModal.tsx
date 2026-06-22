@@ -73,6 +73,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
   StepStemCategories,
   everyStemHasCategory,
@@ -101,6 +102,15 @@ type PendingConfirm =
   | { type: 'back_to_stems' }
   | { type: 'close_modal' }
   | null
+
+function summarizeBulkImportMissingExplanations(stems: BulkImportStemDraft[]) {
+  const targets = stems.flatMap((stem, stemIndex) => findMissingExplanations(stem.values, stemIndex))
+  if (targets.length === 0) return null
+  const questions = new Set(targets.map((target) => `${target.stemIndex ?? 0}-${target.questionIndex}`))
+  return `${questions.size} question${questions.size === 1 ? '' : 's'} still ${
+    questions.size === 1 ? 'needs' : 'need'
+  } explanation text before you can continue. Multiple-choice questions need a question-level explanation; syllogism questions need every answer option explained. Use "Generate missing explanations" or expand the row and type the missing explanation.`
+}
 
 export function BulkImportQuestionStemsModal({
   open,
@@ -541,6 +551,15 @@ export function BulkImportQuestionStemsModal({
         wizard.updateStemForm,
         answerParseOptions
       )
+      setParseError(null)
+    }
+
+    if (stepKind === 'review') {
+      const missingExplanationMessage = summarizeBulkImportMissingExplanations(wizard.state.stems)
+      if (missingExplanationMessage) {
+        setParseError(missingExplanationMessage)
+        return
+      }
       setParseError(null)
     }
 

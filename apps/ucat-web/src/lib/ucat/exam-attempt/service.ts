@@ -2,7 +2,13 @@ import type { Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import { catchUpExpiredSegments } from "@/lib/ucat/exam-attempt/segment-catch-up";
+import { resolveExamForCatchUp, toStoredExamTiming } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
+import {
+  finalizeExamAttemptOnServer,
+  isExamAttemptAtResults,
+} from "@/lib/ucat/exam-attempt/finalize-attempt";
 import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
+import { mergeQuestionAttemptRowsIntoState } from "@/lib/ucat/exam-attempt/resume-state";
 import type {
   ActiveExamAttempt,
   BeginExamAttemptInput,
@@ -16,6 +22,13 @@ import {
 
 type AdminClient = SupabaseClient;
 
+export type StoredExamTiming = {
+  setModeTiming?: QuestionEngineExam["setModeTiming"];
+  mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
+  mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
+  timePerQuestionSeconds?: number | null;
+};
+
 export type StoredExamSnapshot = {
   v: 1;
   state: ExamEngineSnapshot;
@@ -24,6 +37,7 @@ export type StoredExamSnapshot = {
     sourceId: string;
     practice: boolean;
   };
+  examTiming?: StoredExamTiming;
   setAttemptIdsBySetId: Record<string, string>;
   mockAttemptId: string | null;
 };
@@ -38,6 +52,7 @@ type AttemptRowBase = {
 export function wrapStoredSnapshot(input: {
   state: ExamEngineSnapshot;
   exam: StoredExamSnapshot["exam"];
+  examTiming?: StoredExamTiming;
   setAttemptIdsBySetId: Record<string, string>;
   mockAttemptId: string | null;
 }): StoredExamSnapshot {
@@ -45,6 +60,7 @@ export function wrapStoredSnapshot(input: {
     v: 1,
     state: input.state,
     exam: input.exam,
+    examTiming: input.examTiming,
     setAttemptIdsBySetId: input.setAttemptIdsBySetId,
     mockAttemptId: input.mockAttemptId,
   };
@@ -60,9 +76,109 @@ export function parseStoredSnapshot(
     v: 1,
     state: obj.state,
     exam: obj.exam,
+    examTiming: obj.examTiming,
     setAttemptIdsBySetId: obj.setAttemptIdsBySetId ?? {},
     mockAttemptId: obj.mockAttemptId ?? null,
   };
+}
+
+function enrichStoredSnapshotForAttempt(
+  kind: ExamAttemptKind,
+  attemptId: string,
+  resourceId: string,
+  stored: StoredExamSnapshot,
+): StoredExamSnapshot {
+  if (kind === "set") {
+    return {
+      ...stored,
+      setAttemptIdsBySetId: {
+        ...stored.setAttemptIdsBySetId,
+        [resourceId]: stored.setAttemptIdsBySetId[resourceId] ?? attemptId,
+      },
+    };
+  }
+  if (kind === "mock") {
+    return {
+      ...stored,
+      mockAttemptId: stored.mockAttemptId ?? attemptId,
+    };
+  }
+  return stored;
+}
+
+async function reconcileSetSnapshotFromQuestionAttempts(
+  admin: AdminClient,
+  studentId: string,
+  attemptId: string,
+  questionSetId: string,
+  stored: StoredExamSnapshot,
+): Promise<StoredExamSnapshot> {
+  const [attemptsResult, stemsResult] = await Promise.all([
+    admin
+      .from("student_question_attempts")
+      .select(
+        "question_id, question_answer_option_id, answer_snapshot, is_flagged",
+      )
+      .eq("student_id", studentId)
+      .eq("student_question_set_attempt_id", attemptId),
+    admin
+      .from("question_stems_question_sets")
+      .select("question_stem_id")
+      .eq("question_set_id", questionSetId)
+      .order("index"),
+  ]);
+
+  if (attemptsResult.error || !attemptsResult.data?.length) return stored;
+
+  const orderedStemIds = (stemsResult.data ?? []).map(
+    (row) => row.question_stem_id,
+  );
+  let questionIdsInOrder: string[] = [];
+  if (!stemsResult.error && orderedStemIds.length > 0) {
+    const { data: questions } = await admin
+      .from("ucat_questions")
+      .select("id, question_stem_id, index")
+      .in("question_stem_id", orderedStemIds)
+      .is("deleted_at", null);
+    const stemIndexById = new Map(
+      orderedStemIds.map((stemId, index) => [stemId, index]),
+    );
+    questionIdsInOrder = [...(questions ?? [])]
+      .sort(
+        (a, b) =>
+          (stemIndexById.get(a.question_stem_id) ?? Number.MAX_SAFE_INTEGER) -
+            (stemIndexById.get(b.question_stem_id) ??
+              Number.MAX_SAFE_INTEGER) ||
+          a.index - b.index,
+      )
+      .map((question) => question.id);
+  }
+
+  return {
+    ...stored,
+    state: mergeQuestionAttemptRowsIntoState(
+      stored.state,
+      attemptsResult.data,
+      questionIdsInOrder,
+    ),
+  };
+}
+
+async function maybeFinalizeResultsAttempt(
+  admin: AdminClient,
+  studentId: string,
+  attempt: ActiveExamAttempt,
+): Promise<boolean> {
+  if (!isExamAttemptAtResults(attempt.kind, attempt.engineSnapshot.phase)) {
+    return false;
+  }
+  await finalizeExamAttemptOnServer(
+    admin,
+    studentId,
+    attempt.kind,
+    attempt.attemptId,
+  );
+  return true;
 }
 
 function resumeHref(kind: ExamAttemptKind, resourceId: string): string {
@@ -73,6 +189,69 @@ function resumeHref(kind: ExamAttemptKind, resourceId: string): string {
       return `/exam/mocks?id=${encodeURIComponent(resourceId)}`;
     case "practice":
       return "/practice/session";
+  }
+}
+
+async function loadSetSectionNumber(
+  admin: AdminClient,
+  questionSetId: string,
+): Promise<number | null> {
+  const { data: link } = await admin
+    .from("question_stems_question_sets")
+    .select("question_stem_id")
+    .eq("question_set_id", questionSetId)
+    .order("index")
+    .limit(1)
+    .maybeSingle();
+
+  if (!link?.question_stem_id) return null;
+
+  const { data: stem } = await admin
+    .from("question_stems")
+    .select("section_id")
+    .eq("id", link.question_stem_id)
+    .maybeSingle();
+
+  if (!stem?.section_id) return null;
+
+  const { data: section } = await admin
+    .from("ucat_sections")
+    .select("name")
+    .eq("id", stem.section_id)
+    .maybeSingle();
+
+  if (!section?.name) return null;
+
+  const sectionNumbers: Record<string, number> = {
+    "Verbal Reasoning": 1,
+    "Decision Making": 2,
+    "Quantitative Reasoning": 3,
+    "Situational Judgement": 4,
+  };
+  return sectionNumbers[section.name] ?? null;
+}
+
+async function buildResultsHref(
+  admin: AdminClient,
+  kind: ExamAttemptKind,
+  attemptId: string,
+  resourceId: string,
+): Promise<string> {
+  switch (kind) {
+    case "set": {
+      const sectionNumber = await loadSetSectionNumber(admin, resourceId);
+      return sectionNumber != null
+        ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
+        : `/progress/set-attempts/${attemptId}`;
+    }
+    case "mock":
+      return `/progress/mock-attempts/${attemptId}`;
+    case "practice":
+      return `/progress/practice-sessions/${attemptId}`;
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
   }
 }
 
@@ -119,6 +298,7 @@ function rowToActiveAttempt(
     wasTimed?: boolean;
     mockAttemptId?: string | null;
     practiceSessionId?: string | null;
+    resultsHref: string;
   },
   stored: StoredExamSnapshot,
 ): ActiveExamAttempt {
@@ -128,6 +308,7 @@ function rowToActiveAttempt(
     resourceId: row.resourceId,
     label: row.label,
     resumeHref: resumeHref(kind, row.resourceId),
+    resultsHref: row.resultsHref,
     currentSegmentEndsAt: row.current_segment_ends_at,
     engineSnapshot: stored.state,
     mockAttemptId: stored.mockAttemptId,
@@ -137,11 +318,22 @@ function rowToActiveAttempt(
   };
 }
 
+export type GetActiveExamAttemptOptions = {
+  exam?: QuestionEngineExam | null;
+  readerClient?: SupabaseClient;
+};
+
 export async function getActiveExamAttempt(
   admin: AdminClient,
   studentId: string,
-  exam?: QuestionEngineExam | null,
+  options?: QuestionEngineExam | null | GetActiveExamAttemptOptions,
 ): Promise<ActiveExamAttempt | null> {
+  const resolvedOptions: GetActiveExamAttemptOptions =
+    options != null &&
+    typeof options === "object" &&
+    ("readerClient" in options || "exam" in options)
+      ? options
+      : { exam: options as QuestionEngineExam | null | undefined };
   const [setRes, mockRes, practiceRes] = await Promise.all([
     admin
       .from("student_question_set_attempts")
@@ -152,6 +344,8 @@ export async function getActiveExamAttempt(
       .is("completed_at", null)
       .not("engine_snapshot", "is", null)
       .is("student_ucat_mock_attempt_id", null)
+      .order("attempted_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     admin
       .from("student_ucat_mock_attempts")
@@ -161,6 +355,8 @@ export async function getActiveExamAttempt(
       .eq("student_id", studentId)
       .is("completed_at", null)
       .not("engine_snapshot", "is", null)
+      .order("attempted_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     admin
       .from("student_practice_sessions")
@@ -170,13 +366,34 @@ export async function getActiveExamAttempt(
       .eq("student_id", studentId)
       .is("completed_at", null)
       .not("engine_snapshot", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 
   if (setRes.data) {
-    const stored = parseStoredSnapshot(setRes.data.engine_snapshot);
-    if (stored) {
+    const parsed = parseStoredSnapshot(setRes.data.engine_snapshot);
+    if (parsed) {
+      let stored = enrichStoredSnapshotForAttempt(
+        "set",
+        setRes.data.id,
+        setRes.data.question_set_id,
+        parsed,
+      );
+      stored = await reconcileSetSnapshotFromQuestionAttempts(
+        admin,
+        studentId,
+        setRes.data.id,
+        setRes.data.question_set_id,
+        stored,
+      );
       const label = await loadSetLabel(admin, setRes.data.question_set_id);
+      const resultsHref = await buildResultsHref(
+        admin,
+        "set",
+        setRes.data.id,
+        setRes.data.question_set_id,
+      );
       let attempt = rowToActiveAttempt(
         "set",
         {
@@ -187,17 +404,38 @@ export async function getActiveExamAttempt(
           resourceId: setRes.data.question_set_id,
           label,
           wasTimed: setRes.data.was_timed,
+          resultsHref,
         },
         stored,
       );
-      attempt = await maybeCatchUp(admin, studentId, attempt, exam);
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
+      const caughtAttempt = await maybeCatchUp(
+        admin,
+        studentId,
+        attempt,
+        stored,
+        resolvedOptions,
+      );
+      if (!caughtAttempt) return null;
+      attempt = caughtAttempt;
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
       return attempt;
     }
   }
 
   if (mockRes.data) {
-    const stored = parseStoredSnapshot(mockRes.data.engine_snapshot);
-    if (stored) {
+    const parsed = parseStoredSnapshot(mockRes.data.engine_snapshot);
+    if (parsed) {
+      const stored = enrichStoredSnapshotForAttempt(
+        "mock",
+        mockRes.data.id,
+        mockRes.data.ucat_mock_id,
+        parsed,
+      );
       const label = await loadMockLabel(admin, mockRes.data.ucat_mock_id);
       const setAttempts = await admin
         .from("student_question_set_attempts")
@@ -213,6 +451,12 @@ export async function getActiveExamAttempt(
         }
       }
       stored.setAttemptIdsBySetId = setAttemptIdsBySetId;
+      const resultsHref = await buildResultsHref(
+        admin,
+        "mock",
+        mockRes.data.id,
+        mockRes.data.ucat_mock_id,
+      );
       let attempt = rowToActiveAttempt(
         "mock",
         {
@@ -223,17 +467,33 @@ export async function getActiveExamAttempt(
           resourceId: mockRes.data.ucat_mock_id,
           label,
           mockAttemptId: mockRes.data.id,
+          resultsHref,
         },
         stored,
       );
-      attempt = await maybeCatchUp(admin, studentId, attempt, exam);
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
+      const caughtAttempt = await maybeCatchUp(
+        admin,
+        studentId,
+        attempt,
+        stored,
+        resolvedOptions,
+      );
+      if (!caughtAttempt) return null;
+      attempt = caughtAttempt;
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
       return attempt;
     }
   }
 
   if (practiceRes.data) {
-    const stored = parseStoredSnapshot(practiceRes.data.engine_snapshot);
-    if (stored) {
+    const parsed = parseStoredSnapshot(practiceRes.data.engine_snapshot);
+    if (parsed) {
+      const stored = parsed;
       const { data: section } = await admin
         .from("ucat_sections")
         .select("name")
@@ -243,6 +503,12 @@ export async function getActiveExamAttempt(
         admin,
         practiceRes.data.section_key,
         section?.name ?? null,
+      );
+      const resultsHref = await buildResultsHref(
+        admin,
+        "practice",
+        practiceRes.data.id,
+        practiceRes.data.id,
       );
       let attempt = rowToActiveAttempt(
         "practice",
@@ -254,10 +520,25 @@ export async function getActiveExamAttempt(
           resourceId: practiceRes.data.id,
           label,
           practiceSessionId: practiceRes.data.id,
+          resultsHref,
         },
         stored,
       );
-      attempt = await maybeCatchUp(admin, studentId, attempt, exam);
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
+      const caughtAttempt = await maybeCatchUp(
+        admin,
+        studentId,
+        attempt,
+        stored,
+        resolvedOptions,
+      );
+      if (!caughtAttempt) return null;
+      attempt = caughtAttempt;
+      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+        return attempt;
+      }
       return attempt;
     }
   }
@@ -269,27 +550,29 @@ async function maybeCatchUp(
   admin: AdminClient,
   studentId: string,
   attempt: ActiveExamAttempt,
-  exam?: QuestionEngineExam | null,
-): Promise<ActiveExamAttempt> {
-  if (!exam || !attempt.currentSegmentEndsAt) return attempt;
-  const stored = wrapStoredSnapshot({
-    state: attempt.engineSnapshot,
-    exam: {
-      sourceType: exam.sourceType,
-      sourceId: exam.sourceId,
-      practice: attempt.kind === "practice",
-    },
-    setAttemptIdsBySetId: attempt.setAttemptIdsBySetId,
-    mockAttemptId: attempt.mockAttemptId,
+  stored: StoredExamSnapshot,
+  options: GetActiveExamAttemptOptions = {},
+): Promise<ActiveExamAttempt | null> {
+  if (!attempt.currentSegmentEndsAt) return attempt;
+
+  const endsAtMs = new Date(attempt.currentSegmentEndsAt).getTime();
+  if (endsAtMs > Date.now()) return attempt;
+
+  const examForCatchUp = await resolveExamForCatchUp(attempt, {
+    exam: options.exam,
+    stored,
+    readerClient: options.readerClient,
   });
+  if (!examForCatchUp) return attempt;
+
   const caught = catchUpExpiredSegments(
-    exam,
-    stored.state,
+    examForCatchUp,
+    attempt.engineSnapshot,
     attempt.currentSegmentEndsAt,
     { practice: attempt.kind === "practice" },
   );
   if (
-    caught.state === attempt.engineSnapshot &&
+    caught.state.phase === attempt.engineSnapshot.phase &&
     caught.currentSegmentEndsAt === attempt.currentSegmentEndsAt
   ) {
     return attempt;
@@ -300,12 +583,62 @@ async function maybeCatchUp(
     engineSnapshot: caught.state,
     currentSegmentEndsAt: caught.currentSegmentEndsAt,
     setAttemptIdsBySetId: attempt.setAttemptIdsBySetId,
+    exam: {
+      sourceType: examForCatchUp.sourceType,
+      sourceId: examForCatchUp.sourceId,
+      practice: attempt.kind === "practice",
+    },
+    examTiming: stored.examTiming ?? toStoredExamTiming(examForCatchUp),
+    mockAttemptId: attempt.mockAttemptId,
   });
-  return {
+  const updated: ActiveExamAttempt = {
     ...attempt,
     engineSnapshot: caught.state,
     currentSegmentEndsAt: caught.currentSegmentEndsAt,
   };
+  if (isExamAttemptAtResults(attempt.kind, caught.state.phase)) {
+    await finalizeExamAttemptOnServer(
+      admin,
+      studentId,
+      attempt.kind,
+      attempt.attemptId,
+    );
+    return updated;
+  }
+  return updated;
+}
+
+async function isAttemptInProgress(
+  admin: AdminClient,
+  studentId: string,
+  kind: ExamAttemptKind,
+  attemptId: string,
+): Promise<boolean> {
+  if (kind === "set") {
+    const { data } = await admin
+      .from("student_question_set_attempts")
+      .select("completed_at")
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    return data != null && data.completed_at == null;
+  }
+  if (kind === "mock") {
+    const { data } = await admin
+      .from("student_ucat_mock_attempts")
+      .select("completed_at")
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    return data != null && data.completed_at == null;
+  }
+  const { data } = await admin
+    .from("student_practice_sessions")
+    .select("completed_at")
+    .eq("id", attemptId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return data != null && data.completed_at == null;
 }
 
 async function persistSnapshot(
@@ -315,9 +648,33 @@ async function persistSnapshot(
   attemptId: string,
   input: SyncExamAttemptInput & {
     exam?: StoredExamSnapshot["exam"];
+    examTiming?: StoredExamTiming;
     mockAttemptId?: string | null;
   },
 ): Promise<void> {
+  const inProgress = await isAttemptInProgress(
+    admin,
+    studentId,
+    kind,
+    attemptId,
+  );
+  if (!inProgress) {
+    return;
+  }
+
+  let setAttemptIdsBySetId = input.setAttemptIdsBySetId ?? {};
+  let mockAttemptId = input.mockAttemptId ?? null;
+  if (kind === "set" && input.exam?.sourceId) {
+    setAttemptIdsBySetId = {
+      ...setAttemptIdsBySetId,
+      [input.exam.sourceId]:
+        setAttemptIdsBySetId[input.exam.sourceId] ?? attemptId,
+    };
+  }
+  if (kind === "mock") {
+    mockAttemptId = mockAttemptId ?? attemptId;
+  }
+
   const stored = wrapStoredSnapshot({
     state: input.engineSnapshot,
     exam: input.exam ?? {
@@ -325,8 +682,9 @@ async function persistSnapshot(
       sourceId: attemptId,
       practice: kind === "practice",
     },
-    setAttemptIdsBySetId: input.setAttemptIdsBySetId ?? {},
-    mockAttemptId: input.mockAttemptId ?? null,
+    examTiming: input.examTiming,
+    setAttemptIdsBySetId,
+    mockAttemptId,
   });
 
   const payload = {
@@ -374,6 +732,7 @@ export async function beginExamAttempt(
   studentId: string,
   input: BeginExamAttemptInput,
   examMeta: StoredExamSnapshot["exam"],
+  examTiming?: StoredExamTiming,
 ): Promise<{ attempt: ActiveExamAttempt; resumed: boolean }> {
   const existing = await resumeExistingExamAttempt(
     admin,
@@ -399,6 +758,7 @@ export async function beginExamAttempt(
   const stored = wrapStoredSnapshot({
     state: input.engineSnapshot,
     exam: examMeta,
+    examTiming,
     setAttemptIdsBySetId: {},
     mockAttemptId: null,
   });
@@ -420,7 +780,27 @@ export async function beginExamAttempt(
       .select("id, question_set_id, was_timed")
       .maybeSingle();
     if (error || !data) throw new Error(error?.message ?? "Failed to begin set");
+    const enrichedStored = enrichStoredSnapshotForAttempt(
+      "set",
+      data.id,
+      data.question_set_id,
+      {
+        ...stored,
+        setAttemptIdsBySetId: { [data.question_set_id]: data.id },
+      },
+    );
+    await admin
+      .from("student_question_set_attempts")
+      .update({ engine_snapshot: enrichedStored as unknown as Json })
+      .eq("id", data.id)
+      .eq("student_id", studentId);
     const label = await loadSetLabel(admin, data.question_set_id);
+    const resultsHref = await buildResultsHref(
+      admin,
+      "set",
+      data.id,
+      data.question_set_id,
+    );
     return {
       attempt: {
         kind: "set",
@@ -428,6 +808,7 @@ export async function beginExamAttempt(
         resourceId: data.question_set_id,
         label,
         resumeHref: resumeHref("set", data.question_set_id),
+        resultsHref,
         currentSegmentEndsAt: endsAt,
         engineSnapshot: input.engineSnapshot,
         mockAttemptId: null,
@@ -481,6 +862,12 @@ export async function beginExamAttempt(
     }
 
     const label = await loadMockLabel(admin, data.ucat_mock_id);
+    const resultsHref = await buildResultsHref(
+      admin,
+      "mock",
+      data.id,
+      data.ucat_mock_id,
+    );
     return {
       attempt: {
         kind: "mock",
@@ -488,6 +875,7 @@ export async function beginExamAttempt(
         resourceId: data.ucat_mock_id,
         label,
         resumeHref: resumeHref("mock", data.ucat_mock_id),
+        resultsHref,
         currentSegmentEndsAt: endsAt,
         engineSnapshot: input.engineSnapshot,
         mockAttemptId: data.id,
@@ -524,6 +912,12 @@ export async function beginExamAttempt(
     session.section_key,
     section?.name ?? null,
   );
+  const resultsHref = await buildResultsHref(
+    admin,
+    "practice",
+    session.id,
+    session.id,
+  );
   return {
     attempt: {
       kind: "practice",
@@ -531,6 +925,7 @@ export async function beginExamAttempt(
       resourceId: session.id,
       label,
       resumeHref: resumeHref("practice", session.id),
+      resultsHref,
       currentSegmentEndsAt: endsAt,
       engineSnapshot: input.engineSnapshot,
       mockAttemptId: null,
@@ -562,12 +957,20 @@ export async function syncExamAttempt(
   input: SyncExamAttemptInput,
   examMeta?: StoredExamSnapshot["exam"],
   mockAttemptId?: string | null,
-): Promise<void> {
+  examTiming?: StoredExamTiming,
+): Promise<string | null> {
+  const currentSegmentEndsAt =
+    input.startSegmentTimeLimitSeconds !== undefined
+      ? computeSegmentEndsAt(input.startSegmentTimeLimitSeconds)
+      : input.currentSegmentEndsAt;
   await persistSnapshot(admin, studentId, input.kind, input.attemptId, {
     ...input,
+    currentSegmentEndsAt,
     exam: examMeta,
+    examTiming,
     mockAttemptId,
   });
+  return currentSegmentEndsAt;
 }
 
 export async function clearExamAttemptProgress(

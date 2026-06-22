@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { AnimatedInteger } from "./progress-animated-display";
+import { formatUcatPercentile } from "../lib/percentiles";
 
 type MockAttemptScaledScoreCardProps = {
   scaledScore: number | null;
@@ -12,6 +13,8 @@ type MockAttemptScaledScoreCardProps = {
 export function MockAttemptScaledScoreCard({
   scaledScore,
 }: MockAttemptScaledScoreCardProps) {
+  const percentile = formatUcatPercentile(scaledScore, "mock");
+
   return (
     <div className="flex justify-center">
       <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
@@ -33,6 +36,11 @@ export function MockAttemptScaledScoreCard({
               "—"
             )}
           </div>
+          {percentile ? (
+            <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
+              {percentile}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
