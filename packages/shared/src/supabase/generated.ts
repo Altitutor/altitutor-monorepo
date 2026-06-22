@@ -9796,6 +9796,163 @@ export type Database = {
           },
         ]
       }
+      ucat_ai_generation_runs: {
+        Row: {
+          accepted_stem_count: number
+          created_at: string
+          created_by: string | null
+          debug_payload: Json | null
+          discarded_stem_count: number
+          error_message: string | null
+          id: string
+          model_profile_id: string | null
+          question_stem_category_id: string | null
+          requested_stem_count: number
+          section_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accepted_stem_count?: number
+          created_at?: string
+          created_by?: string | null
+          debug_payload?: Json | null
+          discarded_stem_count?: number
+          error_message?: string | null
+          id?: string
+          model_profile_id?: string | null
+          question_stem_category_id?: string | null
+          requested_stem_count: number
+          section_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accepted_stem_count?: number
+          created_at?: string
+          created_by?: string | null
+          debug_payload?: Json | null
+          discarded_stem_count?: number
+          error_message?: string | null
+          id?: string
+          model_profile_id?: string | null
+          question_stem_category_id?: string | null
+          requested_stem_count?: number
+          section_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_ai_generation_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_model_profile_id_fkey"
+            columns: ["model_profile_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_model_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ucat_ai_generation_settings: {
         Row: {
           created_at: string
