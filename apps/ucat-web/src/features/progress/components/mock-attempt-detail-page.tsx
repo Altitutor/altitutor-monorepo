@@ -1,16 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { UcatPageHeader } from "@/features/layout";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
-import { MockAttemptAnalysisChart } from "./mock-attempt-analysis-chart";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
-import {
-  AnimatedFraction,
-  AnimatedInteger,
-} from "./progress-animated-display";
+import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
+import { MockAttemptSummaryGrid } from "./mock-attempt-summary-grid";
+import { SetAnswersCard } from "./set-answers-card";
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;
@@ -20,6 +14,9 @@ export function MockAttemptDetailPage({
   mockAttemptId,
 }: MockAttemptDetailPageProps) {
   const { data, isLoading, error } = useMockAttemptDetail(mockAttemptId);
+  const questionCount = data?.questionAttempts.length ?? 0;
+  const { selectedQuestionIndex, setSelectedQuestionIndex } =
+    useAttemptReviewQuestionIndex(questionCount);
 
   if (isLoading) {
     return (
@@ -66,6 +63,13 @@ export function MockAttemptDetailPage({
 
   const attemptedDate = new Date(data.attemptedAt).toLocaleDateString();
 
+  const chartData = data.questionAttempts.map((q) => ({
+    questionNumber: q.questionNumber,
+    stemIndex: q.stemIndex,
+    timeSpentSeconds: q.timeSpentSeconds,
+    result: q.result,
+  }));
+
   return (
     <div className="min-w-0 max-w-full space-y-6">
       <UcatPageHeader
@@ -76,132 +80,24 @@ export function MockAttemptDetailPage({
         breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
       />
 
-      <Card className={cn(UCAT_CARD_CHROME, "max-w-sm")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">
-            Overall scaled score
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={cn(
-              "text-3xl font-bold tabular-nums",
-              data.scaledScore == null && "text-muted-foreground",
-            )}
-          >
-            {data.scaledScore != null && data.scaledScoreMax != null ? (
-              <AnimatedFraction
-                numerator={Math.round(data.scaledScore)}
-                denominator={data.scaledScoreMax}
-              />
-            ) : data.scaledScore != null ? (
-              <AnimatedInteger value={Math.round(data.scaledScore)} />
-            ) : (
-              "—"
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <MockAttemptSummaryGrid
+        scaledScore={data.scaledScore}
+        scaledScoreMax={data.scaledScoreMax}
+        sets={data.sets}
+        mockAttemptId={mockAttemptId}
+        chartData={chartData}
+        setBoundaryIndices={data.setBoundaryIndices}
+        selectedQuestionIndex={selectedQuestionIndex}
+        onBarClick={setSelectedQuestionIndex}
+      />
 
-      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">
-            Question attempts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="min-w-0 overflow-hidden">
-          <MockAttemptAnalysisChart
-            data={data.questionAttempts.map((q) => ({
-              questionNumber: q.questionNumber,
-              timeSpentSeconds: q.timeSpentSeconds,
-              result: q.result,
-            }))}
-            setBoundaryIndices={data.setBoundaryIndices}
-            sets={data.sets.map((s) => ({
-              questionSetName: s.questionSetName,
-            }))}
-          />
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3">
-        <h4 className="text-sm font-medium">Sets</h4>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.sets.map((set) => {
-            const total = set.totalPoints ?? 0;
-            const points = set.scorePoints ?? 0;
-            const href = set.setAttemptId
-              ? `/progress/mock-attempts/${mockAttemptId}/sets/${set.setAttemptId}`
-              : null;
-
-            const content = (
-              <Card
-                className={cn(
-                  UCAT_CARD_CHROME,
-                  href && cn("cursor-pointer", UCAT_CARD_RAISED_HOVER),
-                )}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium">
-                    {set.questionSetName ?? "Set"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Points
-                    </div>
-                    <div className="text-xl font-semibold tabular-nums">
-                      {total > 0 ? (
-                        <AnimatedFraction
-                          numerator={points}
-                          denominator={total}
-                        />
-                      ) : (
-                        "—"
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Scaled score
-                    </div>
-                    <div
-                      className={cn(
-                        "text-lg font-semibold tabular-nums",
-                        set.scaledScore == null && "text-muted-foreground",
-                      )}
-                    >
-                      {set.scaledScore != null ? (
-                        <>
-                          <AnimatedInteger
-                            value={Math.round(set.scaledScore)}
-                          />{" "}
-                          / 900
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-
-            if (href) {
-              return (
-                <Link key={set.setAttemptId || set.questionSetId} href={href}>
-                  {content}
-                </Link>
-              );
-            }
-
-            return (
-              <div key={set.setAttemptId || set.questionSetId}>{content}</div>
-            );
-          })}
-        </div>
-      </div>
+      <SetAnswersCard
+        mockId={data.ucatMockId}
+        questionAttempts={data.questionAttempts}
+        initialQuestionIndex={selectedQuestionIndex}
+        onQuestionIndexChange={setSelectedQuestionIndex}
+        attemptReview
+      />
     </div>
   );
 }

@@ -10,6 +10,16 @@ import {
   YAxis,
 } from "recharts";
 import { formatTimeSeconds } from "../lib/format-time";
+import {
+  ATTEMPT_CHART_LAYOUT,
+  computeStemRanges,
+  getAnnotationBaselineY,
+  getChartBottomMargin,
+  getDividerEndY,
+  getStemLabelY,
+  shouldRenderStemDivider,
+  shouldRenderStemLabel,
+} from "../lib/attempt-analysis-chart-layout";
 import { cn } from "@/lib/utils";
 
 export type QuestionAttemptForChart = {
@@ -49,6 +59,8 @@ const RESULT_LABELS: Record<
   not_attempted: "Not attempted",
 };
 
+const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
+
 export function SetAttemptAnalysisChart({
   data,
   className,
@@ -69,38 +81,11 @@ export function SetAttemptAnalysisChart({
     };
   });
 
-  // Compute stem ranges for centred labels and divider lines
-  const stemRanges = (() => {
-    const ranges: {
-      stemIndex: number;
-      startIndex: number;
-      endIndex: number;
-    }[] = [];
-    let currentStem: number | null = null;
-    let startIndex = 0;
-    chartData.forEach((entry, i) => {
-      if (entry.stemIndex != null && entry.stemIndex !== currentStem) {
-        if (currentStem != null) {
-          ranges.push({ stemIndex: currentStem, startIndex, endIndex: i - 1 });
-        }
-        currentStem = entry.stemIndex;
-        startIndex = i;
-      }
-    });
-    if (currentStem != null) {
-      ranges.push({
-        stemIndex: currentStem,
-        startIndex,
-        endIndex: chartData.length - 1,
-      });
-    }
-    return ranges;
-  })();
+  const stemRanges = computeStemRanges(chartData);
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1);
   const chartWidth = Math.max(600, chartData.length * 24);
-  const marginHorizontal = 10; // left 5 + right 5
-  // Use full category width so bars touch with no gaps
+  const marginHorizontal = 10;
   const barWidth =
     chartData.length > 0
       ? (chartWidth - marginHorizontal) / chartData.length
@@ -111,7 +96,6 @@ export function SetAttemptAnalysisChart({
     Math.round(t * maxTime * 1.1),
   );
 
-  // Auto-scroll chart so selected column is visible
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || selectedQuestionIndex < 0 || chartData.length === 0)
@@ -140,44 +124,44 @@ export function SetAttemptAnalysisChart({
     const chartHeight = parentViewBox?.height ?? 300;
     const isSelected = index === selectedQuestionIndex;
     const fill = RESULT_COLORS[payload.result];
-    const entry = chartData[index];
-    const showStemDivider = entry?.isStemStart && (entry?.stemIndex ?? 1) > 1;
+    const barBottom = y + height;
+    const baselineY = getAnnotationBaselineY(chartHeight, CHART_BOTTOM_MARGIN);
+    const stemLabelY = getStemLabelY(baselineY);
+    const dividerEndY = getDividerEndY(baselineY);
 
-    // Render stem label when this is the first bar of a stem (avoids Customized timing issues)
     const stemRange = stemRanges.find((r) => r.startIndex === index);
-    const showStemLabel = stemRange != null;
+    const showStemLabel =
+      stemRange != null && shouldRenderStemLabel(stemRange, index);
     const stemLabelCenterX = showStemLabel
       ? x + ((stemRange.endIndex - stemRange.startIndex + 1) * width) / 2
       : 0;
-    const stemLabelY = y + height + 36;
+    const showStemDivider =
+      stemRange != null && shouldRenderStemDivider(stemRange, index);
 
     return (
       <g key={index}>
-        {/* Stem divider line - vertical line at left edge of first bar of new stem, only below x-axis */}
         {showStemDivider && (
           <line
             x1={x}
-            y1={y + height}
+            y1={barBottom}
             x2={x}
-            y2={chartHeight}
+            y2={dividerEndY}
             stroke="hsl(var(--muted-foreground) / 0.8)"
             strokeWidth={1}
             strokeDasharray="2 2"
           />
         )}
-        {/* Stem label - rendered from first bar of each stem */}
         {showStemLabel && stemRange && (
           <text
             x={stemLabelCenterX}
             y={stemLabelY}
             textAnchor="middle"
-            fontSize={10}
+            fontSize={ATTEMPT_CHART_LAYOUT.stemLabelFontSize}
             fill="hsl(var(--muted-foreground) / 0.8)"
           >
             Stem {stemRange.stemIndex}
           </text>
         )}
-        {/* Full-height transparent clickable area */}
         <rect
           x={x}
           y={0}
@@ -201,7 +185,6 @@ export function SetAttemptAnalysisChart({
               : "transparent";
           }}
         />
-        {/* Visible bar with rounded top corners */}
         {height > 0 && (
           <path
             d={(() => {
@@ -261,7 +244,7 @@ export function SetAttemptAnalysisChart({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: 36 }}
+                margin={{ top: 5, right: 5, left: 5, bottom: CHART_BOTTOM_MARGIN }}
                 barCategoryGap={0}
                 barGap={0}
               >
@@ -278,7 +261,7 @@ export function SetAttemptAnalysisChart({
                         <text
                           x={0}
                           y={0}
-                          dy={8}
+                          dy={ATTEMPT_CHART_LAYOUT.questionNumberOffset}
                           textAnchor="middle"
                           fontSize={11}
                           fill="hsl(var(--muted-foreground))"

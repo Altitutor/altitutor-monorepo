@@ -26,10 +26,14 @@ export type MockAttemptDetailResponse = {
     questionNumber: number;
     questionId: string;
     setIndex: number;
+    /** 1-based stem index within the set */
+    stemIndex: number;
     score: number | null;
     timeSpentSeconds: number | null;
     questionType: "multiple_choice" | "syllogism" | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
+    questionAnswerOptionId: string | null;
+    answerSnapshot: Record<string, boolean> | null;
   }[];
   /** Indices (0-based) after which to draw set divider (last question index of each set except final) */
   setBoundaryIndices: number[];
@@ -48,15 +52,21 @@ type MockSetFromDetail = {
   time_limit_seconds?: number | null;
 };
 
-function getOrderedQuestionIds(stems: StemWithQuestions[]): string[] {
-  const ids: string[] = [];
-  for (const stem of stems) {
-    const questions = stem.questions_meta ?? [];
-    for (const q of questions.sort((a, b) => a.index - b.index)) {
-      ids.push(q.id);
-    }
+function parseAnswerSnapshot(
+  snapshot: unknown,
+): Record<string, boolean> | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const obj = snapshot as Record<string, unknown>;
+  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
+  const answers = obj.answers as Array<{
+    question_answer_option_id: string;
+    answer: boolean;
+  }>;
+  const result: Record<string, boolean> = {};
+  for (const a of answers) {
+    result[a.question_answer_option_id] = a.answer;
   }
-  return ids;
+  return result;
 }
 
 export async function GET(
@@ -159,7 +169,7 @@ export async function GET(
   const { data: allQuestionAttempts, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, question_type, student_question_set_attempt_id",
+      "question_id, score, time_spent_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot",
     )
     .in(
       "student_question_set_attempt_id",
@@ -177,6 +187,8 @@ export async function GET(
       score: number | null;
       timeSpentSeconds: number | null;
       questionType: "multiple_choice" | "syllogism" | null;
+      questionAnswerOptionId: string | null;
+      answerSnapshot: Record<string, boolean> | null;
     }
   >();
   for (const qa of allQuestionAttempts ?? []) {
@@ -185,6 +197,8 @@ export async function GET(
       score: qa.score,
       timeSpentSeconds: qa.time_spent_seconds,
       questionType: qa.question_type as "multiple_choice" | "syllogism" | null,
+      questionAnswerOptionId: qa.question_answer_option_id ?? null,
+      answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
     });
   }
 
@@ -220,47 +234,62 @@ export async function GET(
       .maybeSingle();
 
     const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
-    const orderedQuestionIds = getOrderedQuestionIds(stems);
+    let currentStemId: string | null = null;
+    let stemIndex = 0;
 
-    for (let i = 0; i < orderedQuestionIds.length; i++) {
-      globalQuestionNumber++;
-      const questionId = orderedQuestionIds[i];
-      const attemptData = setAttempt
-        ? attemptsBySetAndQuestion.get(`${setAttempt.id}:${questionId}`)
-        : undefined;
-
-      const score = attemptData?.score ?? null;
-      const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
-      const questionType = attemptData?.questionType ?? null;
-
-      let result: "correct" | "partial" | "incorrect" | "not_attempted";
-      if (attemptData == null) {
-        result = "not_attempted";
-      } else {
-        const maxScore = questionType === "syllogism" ? 2 : 1;
-        if (score == null) {
-          result = "not_attempted";
-        } else if (score >= maxScore) {
-          result = "correct";
-        } else if (score > 0) {
-          result = "partial";
-        } else {
-          result = "incorrect";
-        }
+    for (const stem of stems) {
+      const questions = (stem.questions_meta ?? []).sort(
+        (a, b) => a.index - b.index,
+      );
+      if (stem.stem_id !== currentStemId) {
+        currentStemId = stem.stem_id;
+        stemIndex += 1;
       }
 
-      questionAttempts.push({
-        questionNumber: globalQuestionNumber,
-        questionId,
-        setIndex,
-        score,
-        timeSpentSeconds,
-        questionType,
-        result,
-      });
+      for (const q of questions) {
+        globalQuestionNumber++;
+        const questionId = q.id;
+        const attemptData = setAttempt
+          ? attemptsBySetAndQuestion.get(`${setAttempt.id}:${questionId}`)
+          : undefined;
+
+        const score = attemptData?.score ?? null;
+        const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
+        const questionType = attemptData?.questionType ?? null;
+
+        let result: "correct" | "partial" | "incorrect" | "not_attempted";
+        if (attemptData == null) {
+          result = "not_attempted";
+        } else {
+          const maxScore = questionType === "syllogism" ? 2 : 1;
+          if (score == null) {
+            result = "not_attempted";
+          } else if (score >= maxScore) {
+            result = "correct";
+          } else if (score > 0) {
+            result = "partial";
+          } else {
+            result = "incorrect";
+          }
+        }
+
+        questionAttempts.push({
+          questionNumber: globalQuestionNumber,
+          questionId,
+          setIndex,
+          stemIndex,
+          score,
+          timeSpentSeconds,
+          questionType,
+          result,
+          questionAnswerOptionId:
+            attemptData?.questionAnswerOptionId ?? null,
+          answerSnapshot: attemptData?.answerSnapshot ?? null,
+        });
+      }
     }
 
-    if (setIndex < mockSetIds.length - 1 && orderedQuestionIds.length > 0) {
+    if (setIndex < mockSetIds.length - 1 && stems.length > 0) {
       setBoundaryIndices.push(globalQuestionNumber - 1);
     }
   }
