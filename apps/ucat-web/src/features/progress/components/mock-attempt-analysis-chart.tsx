@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   Bar,
   BarChart,
@@ -12,7 +12,9 @@ import {
 import { AttemptChartSetLabelsRow } from "./attempt-chart-set-labels-row";
 import { formatTimeSeconds } from "../lib/format-time";
 import {
+  ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
   ATTEMPT_CHART_LAYOUT,
+  ATTEMPT_CHART_TOOLTIP_PROPS,
   computeSetRanges,
   computeStemRanges,
   getAnnotationBaselineY,
@@ -70,6 +72,10 @@ const RESULT_LABELS: Record<
 const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
 const CHART_MARGIN_LEFT = 5;
 const PLOT_HEIGHT = 300;
+const CHART_AREA_HEIGHT =
+  PLOT_HEIGHT +
+  ATTEMPT_CHART_LAYOUT.setLabelRowHeight +
+  ATTEMPT_CHART_LAYOUT.scrollbarTrackHeight;
 
 export function MockAttemptAnalysisChart({
   data,
@@ -79,7 +85,29 @@ export function MockAttemptAnalysisChart({
   selectedQuestionIndex = -1,
   onBarClick,
 }: MockAttemptAnalysisChartProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const chartScrollRef = useRef<HTMLDivElement>(null);
+  const labelScrollRef = useRef<HTMLDivElement>(null);
+  const scrollbarTrackRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef(false);
+
+  const syncScrollFrom = useCallback((source: HTMLDivElement) => {
+    if (isSyncingScrollRef.current) return;
+    isSyncingScrollRef.current = true;
+    const { scrollLeft } = source;
+    for (const ref of [chartScrollRef, labelScrollRef, scrollbarTrackRef]) {
+      const el = ref.current;
+      if (el != null && el !== source) {
+        el.scrollLeft = scrollLeft;
+      }
+    }
+    isSyncingScrollRef.current = false;
+  }, []);
+
+  const scrollAllTo = useCallback((left: number) => {
+    for (const ref of [chartScrollRef, labelScrollRef, scrollbarTrackRef]) {
+      ref.current?.scrollTo({ left, behavior: "auto" });
+    }
+  }, []);
 
   const chartData = data.map((d, i) => {
     const prevStem = data[i - 1]?.stemIndex;
@@ -115,7 +143,7 @@ export function MockAttemptAnalysisChart({
   );
 
   useEffect(() => {
-    const container = scrollContainerRef.current;
+    const container = chartScrollRef.current;
     if (!container || selectedQuestionIndex < 0 || chartData.length === 0)
       return;
     const colWidth = chartWidth / chartData.length;
@@ -123,11 +151,8 @@ export function MockAttemptAnalysisChart({
       selectedQuestionIndex * colWidth -
       container.clientWidth / 2 +
       colWidth / 2;
-    container.scrollTo({
-      left: Math.max(0, targetScroll),
-      behavior: "smooth",
-    });
-  }, [selectedQuestionIndex, chartData.length, chartWidth]);
+    scrollAllTo(Math.max(0, targetScroll));
+  }, [selectedQuestionIndex, chartData.length, chartWidth, scrollAllTo]);
 
   const renderBarShape = (props: {
     x: number;
@@ -254,13 +279,16 @@ export function MockAttemptAnalysisChart({
           ),
         )}
       </div>
-      <div className="flex min-h-0 pt-6" style={{ height: PLOT_HEIGHT + ATTEMPT_CHART_LAYOUT.setLabelRowHeight + 24 }}>
+      <div
+        className="flex min-h-0 pt-6"
+        style={{ height: CHART_AREA_HEIGHT + 28 }}
+      >
         <div
-          className="flex shrink-0 flex-col justify-between border-r border-border bg-card pr-2 pt-1 text-right text-xs text-muted-foreground"
+          className="flex shrink-0 flex-col justify-between self-start border-r border-border bg-card pr-2 pt-1 text-right text-xs text-muted-foreground"
           style={{
             width: yAxisWidth,
-            paddingBottom:
-              ATTEMPT_CHART_LAYOUT.setLabelRowHeight + CHART_BOTTOM_MARGIN,
+            height: PLOT_HEIGHT,
+            paddingBottom: CHART_BOTTOM_MARGIN,
           }}
         >
           {yAxisTicks.map((t) => (
@@ -269,12 +297,19 @@ export function MockAttemptAnalysisChart({
             </span>
           ))}
         </div>
-        <div
-          ref={scrollContainerRef}
-          className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
-        >
-          <div style={{ width: chartWidth, minWidth: chartWidth }}>
-            <div style={{ height: PLOT_HEIGHT }}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            ref={chartScrollRef}
+            className={cn(
+              "min-h-0 shrink-0 overflow-x-auto overflow-y-hidden",
+              ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
+            )}
+            style={{ height: PLOT_HEIGHT }}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
+          >
+            <div
+              style={{ width: chartWidth, minWidth: chartWidth, height: PLOT_HEIGHT }}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
@@ -318,11 +353,7 @@ export function MockAttemptAnalysisChart({
                     axisLine={false}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
+                    {...ATTEMPT_CHART_TOOLTIP_PROPS}
                     formatter={(value: number | undefined, _name, props) => {
                       const tooltipProps = props as {
                         index?: number;
@@ -368,10 +399,37 @@ export function MockAttemptAnalysisChart({
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <AttemptChartSetLabelsRow
-              setRanges={setRanges}
-              barWidth={barWidth}
-              marginLeft={CHART_MARGIN_LEFT}
+          </div>
+          <div
+            ref={labelScrollRef}
+            className={cn(
+              "shrink-0 overflow-x-auto overflow-y-hidden",
+              ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
+            )}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
+          >
+            <div style={{ width: chartWidth, minWidth: chartWidth }}>
+              <AttemptChartSetLabelsRow
+                setRanges={setRanges}
+                barWidth={barWidth}
+                marginLeft={CHART_MARGIN_LEFT}
+                showDividers
+              />
+            </div>
+          </div>
+          <div
+            ref={scrollbarTrackRef}
+            className="shrink-0 overflow-x-auto overflow-y-hidden"
+            style={{ height: ATTEMPT_CHART_LAYOUT.scrollbarTrackHeight }}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
+            aria-hidden
+          >
+            <div
+              style={{
+                width: chartWidth,
+                minWidth: chartWidth,
+                height: 1,
+              }}
             />
           </div>
         </div>

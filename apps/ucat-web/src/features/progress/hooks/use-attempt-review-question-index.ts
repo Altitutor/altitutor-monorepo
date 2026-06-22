@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const QUESTION_PARAM = "q";
@@ -22,10 +22,17 @@ export function useAttemptReviewQuestionIndex(questionCount: number) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const selectedQuestionIndex = useMemo(
+  const indexFromUrl = useMemo(
     () => parseQuestionIndex(searchParams.get(QUESTION_PARAM), questionCount),
     [searchParams, questionCount],
   );
+
+  const [selectedQuestionIndex, setSelectedQuestionIndexState] =
+    useState(indexFromUrl);
+
+  useEffect(() => {
+    setSelectedQuestionIndexState(indexFromUrl);
+  }, [indexFromUrl]);
 
   const setSelectedQuestionIndex = useCallback(
     (index: number) => {
@@ -33,8 +40,10 @@ export function useAttemptReviewQuestionIndex(questionCount: number) {
         0,
         Math.min(index, Math.max(0, questionCount - 1)),
       );
-      const params = new URLSearchParams(searchParams.toString());
 
+      setSelectedQuestionIndexState(clamped);
+
+      const params = new URLSearchParams(searchParams.toString());
       if (clamped <= 0) {
         params.delete(QUESTION_PARAM);
       } else {

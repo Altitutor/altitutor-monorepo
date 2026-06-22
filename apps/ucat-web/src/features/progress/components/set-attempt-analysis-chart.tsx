@@ -12,6 +12,7 @@ import {
 import { formatTimeSeconds } from "../lib/format-time";
 import {
   ATTEMPT_CHART_LAYOUT,
+  ATTEMPT_CHART_TOOLTIP_PROPS,
   computeStemRanges,
   getAnnotationBaselineY,
   getChartBottomMargin,
@@ -107,7 +108,7 @@ export function SetAttemptAnalysisChart({
       colWidth / 2;
     container.scrollTo({
       left: Math.max(0, targetScroll),
-      behavior: "smooth",
+      behavior: "auto",
     });
   }, [selectedQuestionIndex, chartData.length, chartWidth]);
 
@@ -279,11 +280,7 @@ export function SetAttemptAnalysisChart({
                   axisLine={false}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
+                  {...ATTEMPT_CHART_TOOLTIP_PROPS}
                   formatter={(value: number | undefined, _name, props) => {
                     const payload = props.payload as {
                       name: string;

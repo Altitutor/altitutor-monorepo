@@ -44,3 +44,42 @@ export function EndReviewDialog({
     />
   );
 }
+
+export function SubmitSetDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <QuestionEngineDialog
+      title="Submit Set"
+      message={
+        <div className="space-y-3">
+          <p>You have answered all questions in this set.</p>
+          <p>
+            If you click Yes, you will submit this set and will NOT be able to
+            return to this review.
+          </p>
+          <p>Are you sure you want to submit this set?</p>
+        </div>
+      }
+      actions={
+        <>
+          <UcatExamActionButton borders="all" onClick={onConfirm}>
+            <span>
+              <span className="underline">Y</span>es
+            </span>
+          </UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onCancel}>
+            <span>
+              <span className="underline">N</span>o
+            </span>
+          </UcatExamActionButton>
+        </>
+      }
+      className="max-w-lg"
+    />
+  );
+}

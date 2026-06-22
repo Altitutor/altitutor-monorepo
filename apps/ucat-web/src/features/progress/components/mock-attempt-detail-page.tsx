@@ -3,7 +3,9 @@
 import { UcatPageHeader } from "@/features/layout";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
-import { MockAttemptSummaryGrid } from "./mock-attempt-summary-grid";
+import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempts-card";
+import { MockAttemptScaledScoreCard } from "./mock-attempt-scaled-score-card";
+import { MockAttemptSetCards } from "./mock-attempt-set-cards";
 import { SetAnswersCard } from "./set-answers-card";
 
 type MockAttemptDetailPageProps = {
@@ -80,13 +82,22 @@ export function MockAttemptDetailPage({
         breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
       />
 
-      <MockAttemptSummaryGrid
-        scaledScore={data.scaledScore}
-        scaledScoreMax={data.scaledScoreMax}
-        sets={data.sets}
-        mockAttemptId={mockAttemptId}
+      <div className="flex flex-col gap-4">
+        <MockAttemptScaledScoreCard scaledScore={data.scaledScore} />
+
+        <MockAttemptSetCards
+          sets={data.sets}
+          mockAttemptId={mockAttemptId}
+          questionAttempts={data.questionAttempts}
+        />
+      </div>
+
+      <MockAttemptQuestionAttemptsCard
         chartData={chartData}
         setBoundaryIndices={data.setBoundaryIndices}
+        sets={data.sets.map((s) => ({
+          questionSetName: s.questionSetName,
+        }))}
         selectedQuestionIndex={selectedQuestionIndex}
         onBarClick={setSelectedQuestionIndex}
       />

@@ -26,7 +26,10 @@ import {
   ConfirmNextStemDialog,
   ConfirmSubmitDialog,
 } from "@/features/question-engine/components/confirm-practice-transition-dialog";
-import { EndReviewDialog } from "@/features/question-engine/components/end-review-dialog";
+import {
+  EndReviewDialog,
+  SubmitSetDialog,
+} from "@/features/question-engine/components/end-review-dialog";
 import { ExitResultsDialog } from "@/features/question-engine/components/exit-results-dialog";
 import { EngineIntroDialog } from "@/features/question-engine/components/engine-intro-dialog";
 import { InstructionsContent } from "@/features/question-engine/components/instructions-content";
@@ -198,6 +201,7 @@ export function QuestionEnginePage({
     useState(false);
   const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
     useState(false);
+  const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
   const timeExpiredFiredRef = useRef<string | null>(null);
 
   const {
@@ -544,7 +548,8 @@ export function QuestionEnginePage({
         state.showReviewInstructionsDialog ||
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
-        showConfirmFinishPracticeDialog;
+        showConfirmFinishPracticeDialog ||
+        showSubmitSetDialog;
       const isQuestionView =
         (state.phase === "question" ||
           (state.phase === "review" && state.reviewFilter)) &&
@@ -583,7 +588,8 @@ export function QuestionEnginePage({
       if (
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
-        showConfirmFinishPracticeDialog
+        showConfirmFinishPracticeDialog ||
+        showSubmitSetDialog
       ) {
         if (shortcutKey === "alt+y") {
           event.preventDefault();
@@ -599,6 +605,9 @@ export function QuestionEnginePage({
           } else if (showConfirmFinishPracticeDialog) {
             setShowConfirmFinishPracticeDialog(false);
             void handleFinishPractice();
+          } else if (showSubmitSetDialog) {
+            setShowSubmitSetDialog(false);
+            void handleEndReview();
           } else {
             goNext();
             setShowConfirmNextStemDialog(false);
@@ -610,6 +619,7 @@ export function QuestionEnginePage({
           setShowConfirmSubmitDialog(false);
           setShowConfirmNextStemDialog(false);
           setShowConfirmFinishPracticeDialog(false);
+          setShowSubmitSetDialog(false);
           return;
         }
       }
@@ -849,6 +859,7 @@ export function QuestionEnginePage({
     showConfirmSubmitDialog,
     showConfirmNextStemDialog,
     showConfirmFinishPracticeDialog,
+    showSubmitSetDialog,
     handleFinishPractice,
     hasPreviousQuestion,
     hasPreviousReviewQuestion,
@@ -970,7 +981,8 @@ export function QuestionEnginePage({
     state.showReviewInstructionsDialog ||
     showConfirmSubmitDialog ||
     showConfirmNextStemDialog ||
-    showConfirmFinishPracticeDialog;
+    showConfirmFinishPracticeDialog ||
+    showSubmitSetDialog;
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
@@ -1053,6 +1065,7 @@ export function QuestionEnginePage({
       reviewFilterIndicesSnapshot: null,
       viewingQuestionIndex: null,
     }));
+    setShowSubmitSetDialog(false);
   }
 
   function handleTimeExpiredOk() {
@@ -1300,6 +1313,20 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
+        {showSubmitSetDialog ? (
+          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
+            <SubmitSetDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  setShowSubmitSetDialog(false);
+                  void handleEndReview();
+                })
+              }
+              onCancel={() => void runWithLag(() => setShowSubmitSetDialog(false))}
+            />
+          </div>
+        ) : null}
+
         {state.showNoFlaggedDialog ? (
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <NoFlaggedDialog
@@ -1513,6 +1540,8 @@ export function QuestionEnginePage({
                       ...current,
                       showEndReviewDialog: true,
                     }));
+                  } else if (exam?.sourceType === "set") {
+                    setShowSubmitSetDialog(true);
                   } else {
                     void runWithLag(handleEndReview);
                   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { SetRange } from "../lib/attempt-analysis-chart-layout";
 import { ATTEMPT_CHART_LAYOUT } from "../lib/attempt-analysis-chart-layout";
 
@@ -7,6 +8,8 @@ type AttemptChartSetLabelsRowProps = {
   setRanges: SetRange[];
   barWidth: number;
   marginLeft?: number;
+  /** Draw vertical dividers between set segments */
+  showDividers?: boolean;
 };
 
 /**
@@ -17,12 +20,13 @@ export function AttemptChartSetLabelsRow({
   setRanges,
   barWidth,
   marginLeft = 5,
+  showDividers = false,
 }: AttemptChartSetLabelsRowProps) {
   if (setRanges.length === 0) return null;
 
   return (
     <div
-      className="flex shrink-0 items-start"
+      className="flex shrink-0 items-center border-t border-border"
       style={{
         height: ATTEMPT_CHART_LAYOUT.setLabelRowHeight,
         marginLeft,
@@ -34,7 +38,12 @@ export function AttemptChartSetLabelsRow({
         return (
           <div
             key={range.setIndex}
-            className="shrink-0"
+            className={cn(
+              "relative flex h-full shrink-0 items-center justify-center",
+              showDividers &&
+                range.setIndex > 0 &&
+                "border-l-2 border-dashed border-border",
+            )}
             style={{ width }}
           >
             <div

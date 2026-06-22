@@ -123,6 +123,45 @@ function StudentStatsBar({
   );
 }
 
+function getQuestionMaxPoints(question: QuestionItem): number {
+  return question.questionType === "syllogism" ? 2 : 1;
+}
+
+function getPointsColorClass(scored: number, maxPoints: number): string {
+  if (scored <= 0) return "text-red-700 dark:text-red-400";
+  if (scored >= maxPoints) return "text-green-700 dark:text-green-400";
+  return "text-amber-700 dark:text-amber-400";
+}
+
+function QuestionPointsFooter({
+  points,
+  question,
+}: {
+  points: number;
+  question: QuestionItem;
+}) {
+  const maxPoints = getQuestionMaxPoints(question);
+  const scored = Math.round(points);
+
+  return (
+    <div className="font-medium">
+      <span className={getPointsColorClass(scored, maxPoints)}>
+        Points: {scored} / {maxPoints}
+      </span>
+    </div>
+  );
+}
+
+const syllogismAnswerWrongClass = (site: boolean) =>
+  site
+    ? "border-red-700 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
+    : "border-red-700 bg-red-50 text-red-800";
+
+const syllogismAnswerCorrectClass = (site: boolean) =>
+  site
+    ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
+    : "border-green-700 bg-green-50 text-green-800";
+
 export function ResultsQuestionViewer({
   question,
   selectedOptionId,
@@ -220,76 +259,79 @@ export function ResultsQuestionViewer({
                   hasStats,
                   pct,
                   barWidth,
-                }) => (
-                  <div
-                    key={option.id}
-                    className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch"
-                  >
-                    <div className="flex items-center">
-                      <div className={theme.statementBox}>
-                        <span className="whitespace-pre-wrap">
-                          <OptionText option={option} />
-                        </span>
+                }) => {
+                  const isReviewingAnswers = syllogismSnapshot != null;
+                  const rowBgClass = isReviewingAnswers
+                    ? isCorrect
+                      ? theme.correctRowBg
+                      : theme.wrongRowBg
+                    : "";
+
+                  return (
+                    <div
+                      key={option.id}
+                      className={cn(
+                        "grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch rounded py-0.5",
+                        rowBgClass,
+                      )}
+                    >
+                      <div className="flex items-center">
+                        <div
+                          className={cn(
+                            theme.statementBox,
+                            rowBgClass && "border-transparent bg-transparent",
+                          )}
+                        >
+                          <span className="whitespace-pre-wrap">
+                            <OptionText option={option} />
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <div
-                        className={cn(
-                          "flex h-9 w-20 items-center justify-center rounded border font-medium",
-                          theme.site ? "text-sm" : "text-[11pt]",
-                          !studentHasAnswer
-                            ? theme.site
-                              ? "border-dashed border-muted-foreground/50 text-muted-foreground"
-                              : "border-dashed border-[#9ca3af] text-[#9ca3af]"
-                            : isCorrect
-                              ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
-                              : "border-red-700 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300",
-                        )}
-                      >
-                        {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
+                      <div className="flex items-center justify-center">
+                        <div
+                          className={cn(
+                            "flex h-9 w-20 items-center justify-center rounded border font-medium",
+                            theme.site ? "text-sm" : "text-[11pt]",
+                            !studentHasAnswer || !isCorrect
+                              ? syllogismAnswerWrongClass(theme.site)
+                              : syllogismAnswerCorrectClass(theme.site),
+                          )}
+                        >
+                          {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <div className={theme.correctAnswerBox}>
-                        {correctYes ? "Yes" : "No"}
+                      <div className="flex items-center justify-center">
+                        <div className={theme.correctAnswerBox}>
+                          {correctYes ? "Yes" : "No"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <StudentStatsBar
-                        pct={pct}
-                        barWidth={barWidth}
-                        hasStats={hasStats}
-                        variant={variant}
-                      />
-                    </div>
-                    {hasAnswerExplanation(option) ? (
-                      <div className={cn("col-span-4 pl-1", theme.explanationText)}>
-                        <AnswerExplanation
-                          text={option.answerExplanation}
-                          json={option.answerExplanationJson}
+                      <div className="flex items-center justify-center">
+                        <StudentStatsBar
+                          pct={pct}
+                          barWidth={barWidth}
+                          hasStats={hasStats}
+                          variant={variant}
                         />
                       </div>
-                    ) : null}
-                  </div>
-                ),
+                      {hasAnswerExplanation(option) ? (
+                        <div
+                          className={cn("col-span-4 pl-1", theme.explanationText)}
+                        >
+                          <AnswerExplanation
+                            text={option.answerExplanation}
+                            json={option.answerExplanationJson}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                },
               )}
             </div>
           </div>
           <div className={theme.footer} style={theme.footerStyle}>
             {typeof points === "number" ? (
-              <div className="font-medium">
-                <span
-                  className={
-                    points === 0
-                      ? "text-red-700 dark:text-red-400"
-                      : points > 0
-                        ? "text-green-700 dark:text-green-400"
-                        : "text-amber-700 dark:text-amber-400"
-                  }
-                >
-                  Points: {points.toFixed(1)}
-                </span>
-              </div>
+              <QuestionPointsFooter points={points} question={question} />
             ) : null}
             {hasAnswerExplanation(question) ? (
               <AnswerExplanation
@@ -431,19 +473,7 @@ export function ResultsQuestionViewer({
       </div>
       <div className={cn(theme.footer, "mt-3 pt-3")} style={theme.footerStyle}>
         {typeof points === "number" ? (
-          <div className="font-medium">
-            <span
-              className={
-                points === 0
-                  ? "text-red-700 dark:text-red-400"
-                  : points > 0 && selectedOptionId === correctOptionId
-                    ? "text-green-700 dark:text-green-400"
-                    : "text-amber-700 dark:text-amber-400"
-              }
-            >
-              Points: {points.toFixed(1)}
-            </span>
-          </div>
+          <QuestionPointsFooter points={points} question={question} />
         ) : null}
         {hasAnswerExplanation(question) ? (
           <AnswerExplanation

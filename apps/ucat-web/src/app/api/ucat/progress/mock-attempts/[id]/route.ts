@@ -34,6 +34,8 @@ export type MockAttemptDetailResponse = {
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     questionAnswerOptionId: string | null;
     answerSnapshot: Record<string, boolean> | null;
+    categoryName: string | null;
+    questionStemCategoryId: string | null;
   }[];
   /** Indices (0-based) after which to draw set divider (last question index of each set except final) */
   setBoundaryIndices: number[];
@@ -67,6 +69,51 @@ function parseAnswerSnapshot(
     result[a.question_answer_option_id] = a.answer;
   }
   return result;
+}
+
+async function buildStemCategoryMap(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  stemIds: string[],
+) {
+  const stemCategoryMap = new Map<
+    string,
+    { categoryId: string; categoryName: string }
+  >();
+  if (stemIds.length === 0) return stemCategoryMap;
+
+  const { data: stemCategories } = await supabase
+    .from("vstudent_ucat_question_stems")
+    .select("id, question_stem_category_id")
+    .in("id", stemIds);
+
+  const categoryIds = [
+    ...new Set(
+      (stemCategories ?? [])
+        .map((s) => s.question_stem_category_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+
+  if (categoryIds.length > 0) {
+    const { data: categories } = await supabase
+      .from("vstudent_ucat_question_stem_categories")
+      .select("id, name")
+      .in("id", categoryIds);
+    const categoryByName = new Map(
+      (categories ?? []).map((c) => [c.id, c.name ?? "Unknown"]),
+    );
+    for (const s of stemCategories ?? []) {
+      const catId = s.question_stem_category_id;
+      if (catId && s.id) {
+        stemCategoryMap.set(s.id, {
+          categoryId: catId,
+          categoryName: categoryByName.get(catId) ?? "Unknown",
+        });
+      }
+    }
+  }
+
+  return stemCategoryMap;
 }
 
 export async function GET(
@@ -169,7 +216,7 @@ export async function GET(
   const { data: allQuestionAttempts, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot",
+      "question_id, score, time_spent_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot, category_name, question_stem_category_id",
     )
     .in(
       "student_question_set_attempt_id",
@@ -189,6 +236,8 @@ export async function GET(
       questionType: "multiple_choice" | "syllogism" | null;
       questionAnswerOptionId: string | null;
       answerSnapshot: Record<string, boolean> | null;
+      categoryName: string | null;
+      questionStemCategoryId: string | null;
     }
   >();
   for (const qa of allQuestionAttempts ?? []) {
@@ -199,6 +248,8 @@ export async function GET(
       questionType: qa.question_type as "multiple_choice" | "syllogism" | null,
       questionAnswerOptionId: qa.question_answer_option_id ?? null,
       answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+      categoryName: qa.category_name ?? null,
+      questionStemCategoryId: qa.question_stem_category_id ?? null,
     });
   }
 
@@ -234,6 +285,8 @@ export async function GET(
       .maybeSingle();
 
     const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
+    const stemIds = stems.map((s) => s.stem_id).filter(Boolean);
+    const stemCategoryMap = await buildStemCategoryMap(supabase, stemIds);
     let currentStemId: string | null = null;
     let stemIndex = 0;
 
@@ -252,6 +305,7 @@ export async function GET(
         const attemptData = setAttempt
           ? attemptsBySetAndQuestion.get(`${setAttempt.id}:${questionId}`)
           : undefined;
+        const stemCategory = stemCategoryMap.get(stem.stem_id);
 
         const score = attemptData?.score ?? null;
         const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
@@ -273,6 +327,11 @@ export async function GET(
           }
         }
 
+        const categoryName =
+          attemptData?.categoryName ?? stemCategory?.categoryName ?? null;
+        const questionStemCategoryId =
+          attemptData?.questionStemCategoryId ?? stemCategory?.categoryId ?? null;
+
         questionAttempts.push({
           questionNumber: globalQuestionNumber,
           questionId,
@@ -285,6 +344,8 @@ export async function GET(
           questionAnswerOptionId:
             attemptData?.questionAnswerOptionId ?? null,
           answerSnapshot: attemptData?.answerSnapshot ?? null,
+          categoryName,
+          questionStemCategoryId,
         });
       }
     }

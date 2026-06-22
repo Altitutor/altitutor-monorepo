@@ -20,7 +20,29 @@ export const ATTEMPT_CHART_LAYOUT = {
   setLabelOffset: 46,
   stemLabelFontSize: 10,
   setLabelFontSize: 11,
-  setLabelRowHeight: 20,
+  setLabelRowHeight: 24,
+  /** Dedicated row for the visible horizontal scrollbar (keeps set labels above it). */
+  scrollbarTrackHeight: 14,
+} as const;
+
+/** Hide native scrollbars while keeping overflow scroll (wheel / touch). */
+export const ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS =
+  "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+
+/** Theme-aware Recharts tooltip styles (default tooltip text is black). */
+export const ATTEMPT_CHART_TOOLTIP_PROPS = {
+  contentStyle: {
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    color: "hsl(var(--foreground))",
+  },
+  itemStyle: {
+    color: "hsl(var(--foreground))",
+  },
+  labelStyle: {
+    color: "hsl(var(--muted-foreground))",
+  },
 } as const;
 
 export function computeStemRanges(

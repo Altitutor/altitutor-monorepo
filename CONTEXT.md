@@ -12,6 +12,42 @@
 
 - **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
 
+- **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.
+  _Avoid_: Launch click, first answer, session created
+
+- **Incomplete UCAT exam attempt** — A started set attempt, mock attempt, or practice session that has no `completed_at` yet. Remains incomplete until the student explicitly submits or a timed segment expires and the attempt is finalized. Visible in progress as in-progress, not only after submission.
+  _Avoid_: Unsubmitted answers, draft session
+
+- **UCAT exam timing segment** — One timed or untimed portion of an exam attempt with its own rules and optional server countdown. Examples: set instructions, set questions, one mock set’s instructions, one mock set’s questions, one practice question unit (single question or whole stem). Timed segments store a server `ends_at` while active; untimed segments have no countdown. The server clock applies to the **current segment only**, not the whole mock or practice session in one lump.
+  _Avoid_: Whole-exam timer, session timeout
+
+- **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **finalize** it (submit scoring with answers so far) and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
+  _Avoid_: Multiple drafts, parallel mocks
+
+- **UCAT exam attempt finalization** — Closing out an incomplete attempt by setting `completed_at` and scoring all questions with current answers (unanswered = 0). Applies equally to: explicit submit, timer expiry, and choosing **finalize** from the in-progress dialog when starting a new exam. Finalized attempts appear in progress with a real score; they are not silently discarded.
+  _Avoid_: Abandon without record, discard draft
+
+- **UCAT exam segment catch-up** — When a student returns after being away, the server replays any timing segments whose `ends_at` has already passed: each expired segment is finalized the same way as in-session time expiry (unanswered in that segment score 0; mocks advance to the next segment). Catch-up runs until the current segment still has time remaining or the whole attempt is complete. The student then resumes at that computed position.
+  _Avoid_: Pause timer, single-segment-only expiry
+
+- **UCAT exam attempt resume snapshot** — Server-persisted JSON of question-engine state for an incomplete attempt: phase, segment position, question index, visited and flagged questions, selected answers, syllogism snapshots, practice-specific position, and current segment `ends_at` when timed. Updated as the student works so reload, new device, or explicit resume restores the same screen. Answer rows in `student_question_attempts` are kept in sync for scoring; the snapshot is the source of truth for UI position.
+  _Avoid_: Session storage only, client-only state
+
+- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, timer catch-up forces finalization on the current stem, or they choose **finalize** from the in-progress dialog. Submitting individual stems (answer + feedback) does not complete the session; the student may continue or resume the same session across visits.
+  _Avoid_: Per-stem session, practice attempt per question
+
+- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a *different* set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
+  _Avoid_: In progress tab, session storage resume
+
+- **UCAT exam attempt lifecycle (scope)** — The hardened attempt model (start at Ready to Begin, server segment clock, resume snapshot, one in-progress slot, site banner, finalization rules) applies to **sets**, **mocks**, and **practice** only. Session-linked sets and mocks follow the same rules. **Learn** lesson question blocks and **skill trainer** are out of scope for this shared in-progress slot; skill trainer keeps its own attempt rules.
+  _Avoid_: Lesson practice as full exam, global attempt for drills
+
+- **Mock set attempt** — For each set within a UCAT mock, a `student_question_set_attempts` row is created when the mock **enters that set’s first timing segment** (instructions if configured, otherwise questions). Not at mock launch screen, not on first answer. Linked to the parent mock attempt. Holds per-set question attempts for scoring when that set’s segments end or the mock is finalized.
+  _Avoid_: Lazy set attempt on first answer, all sets upfront at intro
+
+- **In-progress question attempt sync** — During an incomplete set, mock, or practice session, each answer selection and flag toggle is upserted to `student_question_attempts` promptly (debounced), with `is_submitted: false` until attempt finalization. The resume snapshot and question rows are kept aligned so partial work survives reload and device changes.
+  _Avoid_: Answers only on submit, snapshot-only persistence
+
 - **UCAT section** — One of the canonical UCAT areas, such as Verbal Reasoning, Decision Making, Quantitative Reasoning, or Situational Judgement.
 
 - **Learning module** — A node in the UCAT Learn catalog tree. Two mutually exclusive kinds: **folder** (organizes child modules) or **lesson** (delivers ordered content blocks). A module is exactly one kind — never both. May optionally belong to one UCAT section for grouping on `/learn`. Tutors manage the catalog in tutor-web; students browse the tree on `/learn` and open lessons at `/learn/{id}`.
