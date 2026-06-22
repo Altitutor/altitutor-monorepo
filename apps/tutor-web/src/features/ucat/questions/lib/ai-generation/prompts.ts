@@ -17,6 +17,7 @@ Avoid image-dependent questions unless the selected category warrants a determin
 const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
   verbal_reasoning: `Verbal Reasoning rules:
 - Each stem must be a passage of 2-6 paragraphs, written like a compact factual article or commentary excerpt.
+- Match passage length to time burden: usually 250-350 words for low, 350-450 for medium, and 450-550 for high.
 - Generate exactly 4 questions per stem.
 - Keep the passage self-contained and neutral. Do not require outside knowledge, specialist facts, or moral judgement.
 - Use dense but readable prose with enough detail for inference, author attitude, purpose, exact wording, and not-given distinctions.
@@ -28,7 +29,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Do not write comprehension questions that can be answered by keyword matching alone.
 - Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.`,
   decision_making: `Decision Making rules:
-- Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Drawing Conclusions, Probabilistic and Statistical Reasoning, Logical Puzzles.
+- Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical Reasoning, Logical Puzzles.
 - Generate exactly 1 question per stem.
 - For multiple-choice questions, include 4-5 options and exactly one correct answer.
 - For syllogism questions, each option is a statement and isAnswer means Yes/No truth value.
@@ -138,7 +139,6 @@ export type AiGenerationBrief = {
   categoryName: string | null
   availableCategories?: Array<{ id: string; name: string }>
   stemCount: number
-  candidateCount: number
   difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
   timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
   targetTags: Array<{ id: string; name: string }>
@@ -160,7 +160,6 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
         category: input.categoryName,
         availableCategories: input.availableCategories ?? [],
         requestedStemCount: input.stemCount,
-        candidatesPerStem: input.candidateCount,
         difficultyTarget: input.difficultyTarget,
         timeBurdenTarget: input.timeBurdenTarget,
         targetTags: input.targetTags,
@@ -169,7 +168,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
       sectionRules: getAiGenerationSectionPrompt(sectionNameToAiGenerationKey(input.sectionName)),
       layeredInstructions: layeredInstructions(input),
       requirements: [
-        'Create exactly requestedStemCount * candidatesPerStem plan rows.',
+        'Create exactly requestedStemCount plan rows.',
         'For mixed difficulty/time burden, distribute targets across the batch like real UCAT question spread.',
         'If no category is selected, distribute planned stems evenly across availableCategories and name the selected category exactly.',
         'Vary scenario domains, question archetypes, distractor plans, wording patterns, names, and data relationships.',
@@ -179,7 +178,6 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
         plans: [
           {
             stemIndex: 0,
-            candidateIndex: 0,
             scenarioDomain: 'string',
             questionArchetype: 'string',
             categoryName: input.categoryName ?? 'exact available category name',
@@ -205,7 +203,6 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         category: input.categoryName,
         availableCategories: input.availableCategories ?? [],
         requestedStemCount: input.stemCount,
-        candidatesPerStem: input.candidateCount,
         difficultyTarget: input.difficultyTarget,
         timeBurdenTarget: input.timeBurdenTarget,
         targetTags: input.targetTags,
@@ -226,6 +223,9 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Return JSON only.',
         'Return candidates for the full plan.',
         'Set each stem categoryName exactly to the selected category. If the brief category is null, choose only from availableCategories.',
+        'For Verbal Reasoning, return stemText as 2-6 paragraph content blocks, not one unbroken string.',
+        'For Verbal Reasoning, follow the planned passage length/time burden and test four distinct reading skills rather than four direct retrieval questions.',
+        'Follow the plan correctAnswerPattern exactly so correct answers are not concentrated in one option position.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
         'Every multiple_choice question must have exactly one isAnswer=true option and a question-level explanation.',
         'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
@@ -262,8 +262,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         ],
       },
     },
-    null,
-    2
+    null
   )
 }
 

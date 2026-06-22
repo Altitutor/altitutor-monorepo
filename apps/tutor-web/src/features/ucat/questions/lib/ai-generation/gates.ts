@@ -18,7 +18,6 @@ export type GenerationContext = {
 }
 
 const DM_CATEGORIES = new Set([
-  'drawing conclusions',
   'logical puzzles',
   'probabilistic and statistical reasoning',
   'recognising assumptions',
