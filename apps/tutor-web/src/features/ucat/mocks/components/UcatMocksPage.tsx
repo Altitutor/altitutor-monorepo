@@ -112,6 +112,7 @@ export function UcatMocksPage() {
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [singleDeletePending, setSingleDeletePending] = useState(false)
   const selectionMode = selectedMockIds.size > 0
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
@@ -307,12 +308,59 @@ export function UcatMocksPage() {
   }
 
   const { toast } = useToast()
+
+  async function invalidateMocksListQueries(mockIds: string[] = []) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+      ...mockIds.map((mockId) => queryClient.invalidateQueries({ queryKey: ucatKeys.mock(mockId) })),
+    ])
+  }
+
+  function showMockDeleteSuccessToast(mockIds: string[]) {
+    const count = mockIds.length
+    toast({
+      title: count === 1 ? 'Mock deleted' : `${count} mocks deleted`,
+      description: 'Tap Undo to restore.',
+      duration: 10_000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          void (async () => {
+            try {
+              await Promise.all(mockIds.map((id) => restoreMock.mutateAsync(id)))
+              await invalidateMocksListQueries(mockIds)
+              toast({
+                title: count === 1 ? 'Mock restored' : `${count} mocks restored`,
+              })
+            } catch (err) {
+              toast({
+                title: 'Could not undo',
+                description: err instanceof Error ? err.message : 'Failed to restore mocks.',
+                variant: 'destructive',
+              })
+            }
+          })()
+        },
+      },
+    })
+  }
+
+  async function deleteMocksWithToast(mockIds: string[]) {
+    if (mockIds.length === 1) {
+      await deleteMock.mutateAsync(mockIds[0])
+    } else {
+      await ucatMocksApi.bulkRemove(mockIds)
+    }
+    await invalidateMocksListQueries(mockIds)
+    showMockDeleteSuccessToast(mockIds)
+  }
+
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedMockIds)
     setBulkDeletePending(true)
     try {
-      await ucatMocksApi.bulkRemove(ids)
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+      await deleteMocksWithToast(ids)
       setBulkDeleteOpen(false)
       setSelectedMockIds(new Set())
     } catch (err) {
@@ -321,6 +369,7 @@ export function UcatMocksPage() {
         description: err instanceof Error ? err.message : 'Failed to delete mocks.',
         variant: 'destructive',
       })
+      throw err
     } finally {
       setBulkDeletePending(false)
     }
@@ -545,12 +594,23 @@ export function UcatMocksPage() {
         title="Delete mock?"
         description="The mock will be hidden from students. You can restore it later from the deleted list."
         onConfirm={async () => {
-          if (deletingMockId) {
-            await deleteMock.mutateAsync(deletingMockId)
+          if (!deletingMockId) return
+          setSingleDeletePending(true)
+          try {
+            await deleteMocksWithToast([deletingMockId])
             setEditingMockId((prev) => (prev === deletingMockId ? null : prev))
+          } catch (err) {
+            toast({
+              title: 'Cannot delete',
+              description: err instanceof Error ? err.message : 'Failed to delete mock.',
+              variant: 'destructive',
+            })
+            throw err
+          } finally {
+            setSingleDeletePending(false)
           }
         }}
-        isPending={deleteMock.isPending}
+        isPending={singleDeletePending}
       />
     </div>
   )
