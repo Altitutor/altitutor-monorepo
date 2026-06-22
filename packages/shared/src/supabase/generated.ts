@@ -6800,6 +6800,8 @@ export type Database = {
       student_practice_sessions: {
         Row: {
           completed_at: string | null
+          current_segment_ends_at: string | null
+          engine_snapshot: Json | null
           filters_snapshot: Json | null
           id: string
           question_count: number | null
@@ -6814,6 +6816,8 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           filters_snapshot?: Json | null
           id?: string
           question_count?: number | null
@@ -6828,6 +6832,8 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           filters_snapshot?: Json | null
           id?: string
           question_count?: number | null
@@ -7087,6 +7093,8 @@ export type Database = {
         Row: {
           attempted_at: string
           completed_at: string | null
+          current_segment_ends_at: string | null
+          engine_snapshot: Json | null
           id: string
           question_set_id: string
           scaled_score: number | null
@@ -7105,6 +7113,8 @@ export type Database = {
         Insert: {
           attempted_at?: string
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           id?: string
           question_set_id: string
           scaled_score?: number | null
@@ -7123,6 +7133,8 @@ export type Database = {
         Update: {
           attempted_at?: string
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           id?: string
           question_set_id?: string
           scaled_score?: number | null
@@ -7673,6 +7685,8 @@ export type Database = {
         Row: {
           attempted_at: string
           completed_at: string | null
+          current_segment_ends_at: string | null
+          engine_snapshot: Json | null
           id: string
           mock_time_limit_at_exam_speed_seconds: number | null
           mock_time_limit_seconds: number | null
@@ -7687,6 +7701,8 @@ export type Database = {
         Insert: {
           attempted_at?: string
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           id?: string
           mock_time_limit_at_exam_speed_seconds?: number | null
           mock_time_limit_seconds?: number | null
@@ -7701,6 +7717,8 @@ export type Database = {
         Update: {
           attempted_at?: string
           completed_at?: string | null
+          current_segment_ends_at?: string | null
+          engine_snapshot?: Json | null
           id?: string
           mock_time_limit_at_exam_speed_seconds?: number | null
           mock_time_limit_seconds?: number | null
