@@ -1,6 +1,6 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import { applyExplanationUpdates, findMissingExplanations } from '../ai-tools'
+import { applyExplanationUpdates, findMissingExplanations, summarizeStemForAi } from '../ai-tools'
 
 function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionStemFormValues {
   return {
@@ -57,6 +57,7 @@ describe('AI tools explanation helpers', () => {
         optionExplanations: ['Replace attempt', 'Generated B', 'Generated C', null, 'Generated E'],
         confidence: 0.9,
         unresolved: false,
+        reviewRequired: false,
         rationale: 'test',
       },
     ])
@@ -68,5 +69,39 @@ describe('AI tools explanation helpers', () => {
     expect(result.stem.questions[0]!.options[1]!.answerExplanation).toEqual(
       plainTextToProseMirror('Generated B')
     )
+  })
+
+  it('does not insert explanations for updates flagged for tutor review', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyExplanationUpdates(stem, [
+      {
+        questionIndex: 0,
+        answerExplanation: 'Do not insert this',
+        confidence: 0.9,
+        unresolved: false,
+        rationale: 'selected answer appears incorrect',
+        reviewRequired: true,
+        reviewMessage: 'Option B is more likely correct.',
+        suggestedCorrectOptionIndex: 1,
+        suggestedChanges: 'Change the selected answer to B.',
+      },
+    ])
+
+    expect(result.appliedCount).toBe(0)
+    expect(result.stem.questions[0]!.answerExplanation).toBeNull()
+  })
+
+  it('summarizes selected correct options for the model', () => {
+    const stem = baseStem('multiple_choice')
+
+    expect(summarizeStemForAi(stem).questions[0]?.selectedCorrectOptions).toEqual([
+      {
+        optionIndex: 0,
+        label: 'A',
+        answerText: 'Option 1',
+        isAnswer: true,
+      },
+    ])
   })
 })

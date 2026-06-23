@@ -12,6 +12,7 @@ import {
 } from '@/features/ucat/question-engine-preview/mapStemFormToEnginePreview'
 import {
   UcatStemEditorPropertiesPanel,
+  type StemEditorFocusTarget,
   type StemEditorMode,
 } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatStemEngineInlineEditor } from '@/features/ucat/questions/components/stem-editor/UcatStemEngineInlineEditor'
@@ -44,6 +45,9 @@ type UcatStemEditorShellProps = {
   initialEditorMode?: StemEditorMode
   /** Reports the focused TipTap editor for dialog footer or floating toolbar placement. */
   onActiveTextEditorChange?: (editor: Editor | null) => void
+  onCurrentQuestionIndexChange?: (index: number) => void
+  focusTarget?: StemEditorFocusTarget | null
+  focusMessage?: string | null
 }
 
 export function UcatStemEditorShell({
@@ -62,6 +66,9 @@ export function UcatStemEditorShell({
   showQuestionNavigator = false,
   initialEditorMode = 'edit',
   onActiveTextEditorChange,
+  onCurrentQuestionIndexChange,
+  focusTarget = null,
+  focusMessage = null,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
@@ -72,6 +79,14 @@ export function UcatStemEditorShell({
       onActiveTextEditorChange?.(textEditor)
     },
     [onActiveTextEditorChange],
+  )
+
+  const handleQuestionIndexChange = useCallback(
+    (nextIndex: number) => {
+      setCurrentQuestionIndex(nextIndex)
+      onCurrentQuestionIndexChange?.(nextIndex)
+    },
+    [onCurrentQuestionIndexChange],
   )
 
   const watchedValues = form.watch()
@@ -106,13 +121,19 @@ export function UcatStemEditorShell({
 
   useEffect(() => {
     if (questionCount === 0) return
-    setCurrentQuestionIndex((idx) => Math.min(idx, questionCount - 1))
-  }, [questionCount])
+    setCurrentQuestionIndex((idx) => {
+      const next = Math.min(idx, questionCount - 1)
+      if (next !== idx) onCurrentQuestionIndexChange?.(next)
+      return next
+    })
+  }, [questionCount, onCurrentQuestionIndexChange])
 
   useEffect(() => {
     if (initialQuestionIndex == null) return
-    setCurrentQuestionIndex(Math.min(initialQuestionIndex, Math.max(questionCount - 1, 0)))
-  }, [initialQuestionIndex, questionCount])
+    const next = Math.min(initialQuestionIndex, Math.max(questionCount - 1, 0))
+    setCurrentQuestionIndex(next)
+    onCurrentQuestionIndexChange?.(next)
+  }, [initialQuestionIndex, questionCount, onCurrentQuestionIndexChange])
 
   useEffect(() => {
     setEditorMode(initialEditorMode)
@@ -138,7 +159,7 @@ export function UcatStemEditorShell({
             sectionTitle={previewSectionTitle}
             questionCount={questionCount}
             currentQuestionIndex={safeQuestionIndex}
-            onQuestionIndexChange={setCurrentQuestionIndex}
+            onQuestionIndexChange={handleQuestionIndexChange}
             showNavigator={showQuestionNavigator}
           >
             {editorMode === 'edit' ? (
@@ -166,12 +187,15 @@ export function UcatStemEditorShell({
         sections={sections}
         categories={categories}
         tags={tags}
+        stemId={stemId}
         currentQuestionIndex={safeQuestionIndex}
-        onQuestionIndexChange={setCurrentQuestionIndex}
+        onQuestionIndexChange={handleQuestionIndexChange}
         editorMode={editorMode}
         onEditorModeChange={setEditorMode}
         showAnswer={showAnswer}
         onShowAnswerChange={setShowAnswer}
+        focusTarget={focusTarget}
+        focusMessage={focusMessage}
       />
     </div>
   )

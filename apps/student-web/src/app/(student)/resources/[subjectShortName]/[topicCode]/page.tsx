@@ -18,6 +18,7 @@ import {
   useResourceTopicFiles,
   useResourceTopics,
 } from '@/features/resources';
+import { FlashcardCollectionsList, useFlashcardCollections } from '@/features/flashcards';
 import {
   buildTopicTree,
   findTopicNodeInTree,
@@ -35,6 +36,7 @@ export default function ResourceTopicDetailPage() {
   const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
   const { data: topicFiles, isLoading: filesLoading } = useResourceTopicFiles(topic?.id ?? null);
+  const { data: flashcardCollections, isLoading: flashcardsLoading } = useFlashcardCollections(topic?.id ?? null);
   const { data: subjectTopics } = useResourceTopics(subject?.id ?? null);
   const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
   const { data: accessBySubject } = useResourceAccessBySubject();
@@ -139,12 +141,22 @@ export default function ResourceTopicDetailPage() {
               <div className="h-14 rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
             </div>
           ) : (
-            <TopicFilesList
-              files={topicFiles ?? []}
-              getFileHref={(fileCode) =>
-                `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(fileCode.toLowerCase())}`
-              }
-            />
+            <div className="space-y-6">
+              <TopicFilesList
+                files={topicFiles ?? []}
+                getFileHref={(fileCode) =>
+                  `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(fileCode.toLowerCase())}`
+                }
+              />
+              {!flashcardsLoading ? (
+                <FlashcardCollectionsList
+                  collections={flashcardCollections ?? []}
+                  getCollectionHref={(collectionId) =>
+                    `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards/${encodeURIComponent(collectionId)}`
+                  }
+                />
+              ) : null}
+            </div>
           )}
 
           {subtopicNodes.length > 0 ? (

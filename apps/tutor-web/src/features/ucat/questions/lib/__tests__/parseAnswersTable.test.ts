@@ -36,6 +36,15 @@ describe('parseAnswersTable', () => {
     ]);
   });
 
+  it('parses numbered rows without explanation cells', () => {
+    const input = '1\tA\t\n2\tB';
+    const result = parseAnswersTable(input);
+    expect(result).toEqual([
+      { letter: 'A', explanation: '' },
+      { letter: 'B', explanation: '' },
+    ]);
+  });
+
   it('parses loose Google Docs/PDF solution copy with answer and explanation columns on separate lines', () => {
     const input = `* Solutions
 Answer

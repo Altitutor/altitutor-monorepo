@@ -110,6 +110,23 @@ export const ucatSetsApi = {
     }
     return this.update(setId, payload)
   },
+
+  async removeStemsFromSet(setId: string, stemIds: string[]) {
+    const detail = await this.detail(setId)
+    if (!detail) throw new Error('Set not found')
+    const stems = (detail.stems as Array<{ stem_id: string }> | null) ?? []
+    const removeIds = new Set(stemIds)
+    const nextStemIds = stems.map((s) => s.stem_id).filter((stemId) => !removeIds.has(stemId))
+    const payload: UcatQuestionSetPayload = {
+      name: detail.name,
+      description: proseMirrorToPlainText(detail.description) ?? '',
+      timeLimitSeconds: detail.time_limit_seconds ?? null,
+      isPrivate: !!detail.is_private,
+      isStudentGenerated: !!detail.is_student_generated,
+      stemIds: nextStemIds,
+    }
+    return this.update(setId, payload)
+  },
 }
 
 function serialize(payload: UcatQuestionSetPayload) {

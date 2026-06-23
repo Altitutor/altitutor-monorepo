@@ -15,6 +15,7 @@ export function useReconciliationTabCounts() {
     const data = query.data
     return {
       questions:
+        data.pendingGeneratedStems.length +
         data.stemsWithNoCategory.length +
         data.questionsWithNoExplanation.length +
         data.untaggedQuestions.length +

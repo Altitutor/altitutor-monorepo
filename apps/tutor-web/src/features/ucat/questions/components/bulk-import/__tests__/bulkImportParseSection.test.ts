@@ -1,4 +1,7 @@
-import { parseCombinedDocumentForSection } from '../bulkImportParseSection'
+import {
+  mapParsedStemsToFormValues,
+  parseCombinedDocumentForSection,
+} from '../bulkImportParseSection'
 
 const parsingOptions = {
   questionIndicator: 'dot' as const,
@@ -171,5 +174,51 @@ describe('parseCombinedDocumentForSection', () => {
     expect(stems[0]?.stemText).toContain('The table below depicts income')
     expect(stems[0]?.questions).toHaveLength(2)
     expect(stems[0]?.questions.map((q) => q.number)).toEqual([1, 2])
+  })
+
+  it('auto-selects Situational Judgement categories from question wording', () => {
+    const sectionId = 'sj-section'
+    const categories = [
+      { id: 'cat-appropriate', ucat_section_id: sectionId, name: 'How Appropriate' },
+      { id: 'cat-important', ucat_section_id: sectionId, name: 'How Important' },
+    ]
+
+    const forms = mapParsedStemsToFormValues(
+      [
+        {
+          stemText:
+            'A junior doctor notices a colleague documenting care late. How appropriate are each of these responses to the situation?',
+          questions: [
+            {
+              number: 1,
+              text: 'Speak with the colleague privately.',
+              options: [
+                { label: 'a', text: 'A very appropriate thing to do' },
+                { label: 'b', text: 'Appropriate, but not ideal' },
+              ],
+            },
+          ],
+        },
+        {
+          stemText:
+            'A patient asks for advice before discharge. How important are each of the following considerations?',
+          questions: [
+            {
+              number: 2,
+              text: 'Escalating a safety concern.',
+              options: [
+                { label: 'a', text: 'Very important' },
+                { label: 'b', text: 'Important' },
+              ],
+            },
+          ],
+        },
+      ],
+      'situational_judgement',
+      sectionId,
+      categories
+    )
+
+    expect(forms.map((form) => form.categoryId)).toEqual(['cat-appropriate', 'cat-important'])
   })
 })

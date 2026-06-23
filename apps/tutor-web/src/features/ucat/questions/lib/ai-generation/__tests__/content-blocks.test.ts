@@ -75,10 +75,12 @@ describe('generated content blocks', () => {
         ],
         regions: { aOnly: 2, bOnly: 3, cOnly: 4, abOnly: 5, acOnly: 6, bcOnly: 7, abc: 8, outside: 9 },
       },
-    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+    }]) as { content?: Array<{ attrs?: { src?: string; alt?: string }, content?: unknown[] }> }
 
     const src = doc.content?.[0]?.attrs?.src ?? ''
     expect(src).toContain('data:image/svg+xml')
+    expect(doc.content?.[0]?.attrs?.alt).toBe('')
+    expect(doc.content).toHaveLength(1)
     expect(decodeURIComponent(src)).toContain('Chess')
     expect(decodeURIComponent(src)).toContain('>8<')
     expect(decodeURIComponent(src)).not.toContain('#93c5fd')
@@ -182,7 +184,7 @@ describe('generated content blocks', () => {
             { shape: 'pentagon', label: 'French', cx: 455, cy: 185, r: 72 },
             { shape: 'hexagon', label: 'History', cx: 250, cy: 265, r: 78 },
           ],
-          labels: [{ text: 15, x: 310, y: 220, bold: true }],
+          regionLabels: [{ text: 15, x: 310, y: 220, bold: true }],
         },
       },
     ]) as { content?: Array<{ attrs?: { src?: string } }> }
@@ -200,5 +202,125 @@ describe('generated content blocks', () => {
     expect(svgs[4]).toContain('French')
     expect(svgs[4]).toContain('History')
     expect(svgs[4]).toContain('>15<')
+  })
+
+  it('renders set diagram legends as shape swatches', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Subjects',
+      altText: 'Mixed set diagram.',
+      spec: {
+        shapes: [
+          { shape: 'triangle', label: 'Biology', x: 120, y: 70, width: 210, height: 220 },
+          { shape: 'pentagon', label: 'Chemistry', cx: 300, cy: 210, r: 80 },
+          { shape: 'circle', label: 'Maths', cx: 410, cy: 210, r: 92 },
+        ],
+        regionLabels: [{ text: 28, x: 318, y: 168 }],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('Biology')
+    expect(svg).toContain('Chemistry')
+    expect(svg).toContain('height="520"')
+    expect(svg).toContain('<polygon points="107,436')
+    expect(svg).toContain('<circle cx="107" cy="483"')
+    expect(svg).not.toContain('x1="585"')
+  })
+
+  it('keeps labels on repeated same-shape diagrams instead of using an ambiguous legend', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Fruit packs',
+      altText: 'Three-circle answer option.',
+      spec: {
+        shapes: [
+          { shape: 'circle', label: 'Raisins', cx: 230, cy: 180, r: 92 },
+          { shape: 'circle', label: 'Sultanas', cx: 330, cy: 180, r: 92 },
+          { shape: 'circle', label: 'Chocolate', cx: 280, cy: 260, r: 92 },
+        ],
+        regionLabels: [{ text: 12, x: 205, y: 165 }],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('Raisins')
+    expect(svg).toContain('Sultanas')
+    expect(svg).toContain('Chocolate')
+    expect(svg).not.toContain('x="625"')
+  })
+
+  it('moves crowded set diagram labels away from each other and shape boundaries', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Crowded sets',
+      altText: 'Crowded set diagram.',
+      spec: {
+        shapes: [
+          { shape: 'ellipse', label: 'Cycling', cx: 220, cy: 190, rx: 170, ry: 105 },
+          { shape: 'ellipse', label: 'Swimming', cx: 250, cy: 190, rx: 85, ry: 56 },
+          { shape: 'diamond', label: 'Volunteering', cx: 410, cy: 190, width: 185, height: 170 },
+        ],
+        regionLabels: [
+          { text: 4, x: 250, y: 86 },
+          { text: 7, x: 315, y: 145 },
+          { text: 5, x: 410, y: 106 },
+          { text: 6, x: 505, y: 190 },
+          { text: 11, x: 505, y: 190 },
+        ],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    const eleven = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>11<\/text>/)
+    const six = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>6<\/text>/)
+    const cycling = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>Cycling<\/text>/)
+    const swimming = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>Swimming<\/text>/)
+
+    expect(eleven).not.toBeNull()
+    expect(six).not.toBeNull()
+    expect(cycling).not.toBeNull()
+    expect(swimming).not.toBeNull()
+    expect(eleven?.slice(1, 3)).not.toEqual(six?.slice(1, 3))
+    expect(cycling?.slice(1, 3)).not.toEqual(swimming?.slice(1, 3))
+  })
+
+  it('converts accidental region-label legends into shape-swatch legends', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Cinema purchases',
+      altText: 'Set diagram.',
+      spec: {
+        shapes: [
+          { shape: 'triangle', x: 160, y: 80, width: 210, height: 220 },
+          { shape: 'circle', cx: 300, cy: 150, r: 95 },
+          { shape: 'pentagon', cx: 395, cy: 205, r: 105 },
+          { shape: 'diamond', cx: 285, cy: 260, width: 170, height: 170 },
+        ],
+        regionLabels: [
+          { text: 'Legend', x: 500, y: 70, bold: true },
+          { text: 'Triangle = Popcorn', x: 500, y: 112 },
+          { text: 'Circle = Drink', x: 500, y: 151 },
+          { text: 'Pentagon = Sweets', x: 500, y: 192 },
+          { text: 'Diamond = Nachos', x: 500, y: 235 },
+          { text: 14, x: 115, y: 120 },
+        ],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('Popcorn')
+    expect(svg).toContain('Drink')
+    expect(svg).toContain('Sweets')
+    expect(svg).toContain('Nachos')
+    expect(svg).toContain('height="520"')
+    expect(svg).toContain('<polygon points="107,436')
+    expect(svg).toContain('<circle cx="407"')
+    expect(svg).not.toContain('Triangle = Popcorn')
+    expect(svg).not.toContain('>Legend<')
   })
 })

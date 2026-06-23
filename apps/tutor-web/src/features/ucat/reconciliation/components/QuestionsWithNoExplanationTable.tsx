@@ -11,6 +11,10 @@ import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/fea
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import {
+  UcatQuestionStemApprovalQueueDialog,
+  type UcatApprovalQueueEntry,
+} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 
 const TRUNCATE_LEN = 80
 
@@ -27,6 +31,7 @@ export function QuestionsWithNoExplanationTable({
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
+  const [queueOpen, setQueueOpen] = useState(false)
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -81,6 +86,18 @@ export function QuestionsWithNoExplanationTable({
     return result
   }, [data?.questionsWithNoExplanation, tableState.state, questionAccessors, searchScopes])
 
+  const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
+    () =>
+      filteredQuestions.map((question) => ({
+        stemId: question.stemId,
+        mode: 'reconciliation' as const,
+        issueType: 'missing_explanation' as const,
+        questionId: question.questionId,
+        questionIndex: Math.max(0, question.questionIndex - 1),
+      })),
+    [filteredQuestions],
+  )
+
   const toolbar = (
     <DataTableToolbar
       state={tableState.state}
@@ -107,14 +124,20 @@ export function QuestionsWithNoExplanationTable({
   )
 
   return (
-    <ReconciliationTable<QuestionWithNoExplanation>
-      title="Questions with no explanation"
-      items={filteredQuestions}
-      isLoading={isLoading}
-      columnDefinitions={columnDefinitions}
-      visibleColumnKeys={tableState.state.visibleColumns}
-      toolbar={toolbar}
-      renderRow={(item, _index, visibleColumnKeys) => {
+    <>
+      <ReconciliationTable<QuestionWithNoExplanation>
+        title="Questions with no explanation"
+        items={filteredQuestions}
+        isLoading={isLoading}
+        columnDefinitions={columnDefinitions}
+        visibleColumnKeys={tableState.state.visibleColumns}
+        toolbar={toolbar}
+        headerActions={
+          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+            Begin reconciling
+          </Button>
+        }
+        renderRow={(item, _index, visibleColumnKeys) => {
         const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
         const questionText = proseMirrorToPlainText(item.questionText as import('@altitutor/shared').Json) ?? ''
         const cells: Record<string, React.ReactNode> = {
@@ -144,7 +167,14 @@ export function QuestionsWithNoExplanationTable({
             </TableCell>
           </TableRow>
         )
-      }}
-    />
+        }}
+      />
+      <UcatQuestionStemApprovalQueueDialog
+        open={queueOpen}
+        title="Reconcile missing explanations"
+        entries={queueEntries}
+        onClose={() => setQueueOpen(false)}
+      />
+    </>
   )
 }

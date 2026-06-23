@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { Json } from '@altitutor/shared'
@@ -37,9 +37,12 @@ import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
 import {
   findMissingExplanations,
+  type AiToolReviewFlag,
 } from '@/features/ucat/questions/lib/ai-tools'
+import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
 
 export type StemEditorMode = 'edit' | 'view'
+export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
 
 type UcatStemEditorPropertiesPanelProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -52,6 +55,9 @@ type UcatStemEditorPropertiesPanelProps = {
   onEditorModeChange: (mode: StemEditorMode) => void
   showAnswer: boolean
   onShowAnswerChange: (show: boolean) => void
+  stemId?: string | null
+  focusTarget?: StemEditorFocusTarget | null
+  focusMessage?: string | null
 }
 
 function trimTextParagraphs(text: string): string {
@@ -107,6 +113,9 @@ export function UcatStemEditorPropertiesPanel({
   onEditorModeChange,
   showAnswer,
   onShowAnswerChange,
+  stemId,
+  focusTarget,
+  focusMessage,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -115,6 +124,7 @@ export function UcatStemEditorPropertiesPanel({
     stem: UcatQuestionStemFormValues
     summary: string | null
   } | null>(null)
+  const [explanationReviewFlags, setExplanationReviewFlags] = useState<AiToolReviewFlag[]>([])
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
@@ -160,10 +170,9 @@ export function UcatStemEditorPropertiesPanel({
     }
   }
 
-  const handleApplyRewrite = () => {
-    if (!rewritePreview) return
-    form.setValue('stemText', rewritePreview.stem.stemText, { shouldDirty: true })
-    form.setValue('questions', rewritePreview.stem.questions, { shouldDirty: true })
+  const handleApplyRewrite = (acceptedStem: UcatQuestionStemFormValues) => {
+    form.setValue('stemText', acceptedStem.stemText, { shouldDirty: true })
+    form.setValue('questions', acceptedStem.questions, { shouldDirty: true })
     setRewritePreview(null)
     toast({ description: 'Rewrite applied. Review the updated stem before saving.' })
   }
@@ -179,17 +188,21 @@ export function UcatStemEditorPropertiesPanel({
       const json = (await response.json()) as {
         stem?: UcatQuestionStemFormValues
         appliedCount?: number
+        reviewFlags?: AiToolReviewFlag[]
         error?: string
       }
       if (!response.ok || !json.stem) {
         throw new Error(json.error ?? 'Answer explanation generation failed')
       }
+      setExplanationReviewFlags(json.reviewFlags ?? [])
       form.setValue('questions', json.stem.questions, { shouldDirty: true })
       toast({
-        description:
-          (json.appliedCount ?? 0) > 0
+        description: (json.reviewFlags?.length ?? 0) > 0
+          ? `${json.reviewFlags?.length} question${json.reviewFlags?.length === 1 ? '' : 's'} flagged for tutor review.`
+          : (json.appliedCount ?? 0) > 0
             ? `Generated ${json.appliedCount} missing explanation${json.appliedCount === 1 ? '' : 's'}.`
             : 'No missing explanations were generated.',
+        variant: (json.reviewFlags?.length ?? 0) > 0 ? 'destructive' : undefined,
       })
     } catch (error) {
       toast({
@@ -300,9 +313,15 @@ export function UcatStemEditorPropertiesPanel({
           ) : null}
         </div>
 
+        {focusMessage ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            {focusMessage}
+          </div>
+        ) : null}
+
         <Accordion
           type="multiple"
-          defaultValue={['questions', 'ai', 'stem', 'question']}
+          defaultValue={['questions', 'ai', 'stem', 'sets', 'question']}
           className="space-y-4"
         >
           <PropertiesCard value="questions" title="Questions">
@@ -403,6 +422,22 @@ export function UcatStemEditorPropertiesPanel({
                   Question {safeQuestionIndex + 1} already has the required explanation fields.
                 </p>
               )}
+              {explanationReviewFlags.length > 0 ? (
+                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                  <div className="font-medium">Review flagged</div>
+                  {explanationReviewFlags.map((flag) => (
+                    <div key={`${flag.questionIndex}-${flag.message}`} className="space-y-1">
+                      <p>
+                        Question {flag.questionIndex + 1}: {flag.message}
+                      </p>
+                      {flag.suggestedCorrectOptionIndex != null ? (
+                        <p>Suggested correct option: {String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}</p>
+                      ) : null}
+                      {flag.suggestedChanges ? <p>Suggested change: {flag.suggestedChanges}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </PropertiesCard>
 
@@ -425,41 +460,43 @@ export function UcatStemEditorPropertiesPanel({
               />
             </PropertyRow>
             <PropertyRow label="Category">
-              <SearchableSelect<{ id: string; name: string; label: string }>
-                items={[
-                  { id: 'none', name: 'No category', label: 'No category' },
-                  ...categoriesFiltered.map((c) => ({
-                    id: c.id ?? 'none',
-                    name: c.name ?? 'Untitled',
-                    label: taxonomyDisplayLabel(c),
-                  })),
-                ]}
-                value={(() => {
-                  const categoryId = form.watch('categoryId')
-                  const opts = [
+              <div className={cn(focusTarget === 'category' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
+                <SearchableSelect<{ id: string; name: string; label: string }>
+                  items={[
                     { id: 'none', name: 'No category', label: 'No category' },
                     ...categoriesFiltered.map((c) => ({
                       id: c.id ?? 'none',
                       name: c.name ?? 'Untitled',
                       label: taxonomyDisplayLabel(c),
                     })),
-                  ]
-                  return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
-                })()}
-                onValueChange={(item) => {
-                  if (isSyllogism) {
-                    toast({ description: 'Category is locked for syllogism stems.', variant: 'destructive' })
-                    return
-                  }
-                  form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, {
-                    shouldDirty: true,
-                  })
-                }}
-                getItemLabel={(c) => taxonomyDisplayLabel(c)}
-                getItemId={(c) => c.id}
-                placeholder={!sectionId ? 'Select section first' : 'Select category'}
-                disabled={!sectionId}
-              />
+                  ]}
+                  value={(() => {
+                    const categoryId = form.watch('categoryId')
+                    const opts = [
+                      { id: 'none', name: 'No category', label: 'No category' },
+                      ...categoriesFiltered.map((c) => ({
+                        id: c.id ?? 'none',
+                        name: c.name ?? 'Untitled',
+                        label: taxonomyDisplayLabel(c),
+                      })),
+                    ]
+                    return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
+                  })()}
+                  onValueChange={(item) => {
+                    if (isSyllogism) {
+                      toast({ description: 'Category is locked for syllogism stems.', variant: 'destructive' })
+                      return
+                    }
+                    form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, {
+                      shouldDirty: true,
+                    })
+                  }}
+                  getItemLabel={(c) => taxonomyDisplayLabel(c)}
+                  getItemId={(c) => c.id}
+                  placeholder={!sectionId ? 'Select section first' : 'Select category'}
+                  disabled={!sectionId}
+                />
+              </div>
             </PropertyRow>
             <PropertyRow label="Visibility">
               <SearchableSelect<{ value: 'public' | 'private'; label: string }>
@@ -504,11 +541,22 @@ export function UcatStemEditorPropertiesPanel({
             </PropertyRow>
           </PropertiesCard>
 
+          <PropertiesCard value="sets" title="Set membership">
+            <UcatStemSetMembershipCard stemId={stemId} highlighted={focusTarget === 'sets'} />
+          </PropertiesCard>
+
           {fields.length > 0 ? (
             <PropertiesCard value="question" title={`Question ${safeQuestionIndex + 1} properties`}>
               <PropertyRow label="Tags">
-                <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
+                <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
+                  <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
+                </div>
               </PropertyRow>
+              {focusTarget === 'explanation' ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                  Add the missing explanation in the question editor on the left.
+                </div>
+              ) : null}
               <PropertyRow label="Difficulty">
                 <Input
                   type="number"
@@ -556,38 +604,89 @@ function RewritePreviewDialog({
   rewrittenStem: UcatQuestionStemFormValues | null
   summary: string | null
   onOpenChange: (open: boolean) => void
-  onApply: () => void
+  onApply: (acceptedStem: UcatQuestionStemFormValues) => void
 }) {
-  const before = formatStemForRewritePreview(currentStem)
-  const after = rewrittenStem ? formatStemForRewritePreview(rewrittenStem) : ''
+  const segments = rewrittenStem ? buildRewriteSegments(currentStem, rewrittenStem) : []
+  const [accepted, setAccepted] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (!rewrittenStem) {
+      setAccepted({})
+      return
+    }
+    setAccepted(Object.fromEntries(buildRewriteSegments(currentStem, rewrittenStem).map((segment) => [segment.key, true])))
+  }, [currentStem, rewrittenStem])
+
+  const acceptedCount = Object.values(accepted).filter(Boolean).length
+  const handleApplyAccepted = () => {
+    if (!rewrittenStem) return
+    onApply(buildAcceptedRewriteStem(currentStem, rewrittenStem, accepted))
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Review rewritten wording</DialogTitle>
           <DialogDescription>
-            Apply only after checking the answer logic and wording. This reduces source similarity for
-            tutor review; it does not certify copyright status.
+            Accept or reject each rewritten part before applying. This reduces source similarity for tutor
+            review; it does not certify copyright status.
           </DialogDescription>
         </DialogHeader>
         {summary ? <p className="text-sm text-muted-foreground">{summary}</p> : null}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="min-w-0 rounded-md border p-3">
-            <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">Current stem</div>
-            <pre className="max-h-80 whitespace-pre-wrap text-xs leading-relaxed">{before}</pre>
-          </div>
-          <div className="min-w-0 rounded-md border p-3">
-            <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">Rewritten stem</div>
-            <pre className="max-h-80 whitespace-pre-wrap text-xs leading-relaxed">{after}</pre>
-          </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border bg-muted/20 p-3">
+          {segments.map((segment) => {
+            const isAccepted = accepted[segment.key] ?? false
+            return (
+              <div
+                key={segment.key}
+                className="overflow-hidden rounded-md border bg-background"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+                  <div className="text-sm font-medium">{segment.label}</div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isAccepted ? 'default' : 'outline'}
+                      onClick={() => setAccepted((current) => ({ ...current, [segment.key]: true }))}
+                    >
+                      Apply
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={!isAccepted ? 'default' : 'outline'}
+                      onClick={() => setAccepted((current) => ({ ...current, [segment.key]: false }))}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid min-w-0 md:grid-cols-2">
+                  <div className="min-w-0 border-b p-3 md:border-b-0 md:border-r">
+                    <div className="mb-2 text-[11px] font-medium uppercase text-muted-foreground">Current</div>
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
+                      {segment.currentText}
+                    </pre>
+                  </div>
+                  <div className="min-w-0 p-3">
+                    <div className="mb-2 text-[11px] font-medium uppercase text-muted-foreground">Rewritten</div>
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
+                      {segment.rewrittenText}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onApply} disabled={!rewrittenStem}>
-            Apply rewrite
+          <Button type="button" onClick={handleApplyAccepted} disabled={!rewrittenStem || acceptedCount === 0}>
+            Apply accepted changes ({acceptedCount})
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -595,15 +694,72 @@ function RewritePreviewDialog({
   )
 }
 
-function formatStemForRewritePreview(stem: UcatQuestionStemFormValues): string {
-  const lines = [`Stem:\n${proseMirrorToPlainText(stem.stemText as Json)}`]
-  stem.questions.forEach((question, questionIndex) => {
-    lines.push(`\nQuestion ${questionIndex + 1}:\n${proseMirrorToPlainText(question.questionText as Json)}`)
+type RewriteSegment = {
+  key: string
+  label: string
+  currentText: string
+  rewrittenText: string
+}
+
+function buildRewriteSegments(currentStem: UcatQuestionStemFormValues, rewrittenStem: UcatQuestionStemFormValues): RewriteSegment[] {
+  const segments: RewriteSegment[] = [
+    {
+      key: 'stem',
+      label: 'Stem',
+      currentText: proseMirrorToPlainText(currentStem.stemText as Json),
+      rewrittenText: proseMirrorToPlainText(rewrittenStem.stemText as Json),
+    },
+  ]
+  currentStem.questions.forEach((question, questionIndex) => {
+    const rewrittenQuestion = rewrittenStem.questions[questionIndex]
+    if (!rewrittenQuestion) return
+    segments.push({
+      key: `question-${questionIndex}`,
+      label: `Question ${questionIndex + 1}`,
+      currentText: proseMirrorToPlainText(question.questionText as Json),
+      rewrittenText: proseMirrorToPlainText(rewrittenQuestion.questionText as Json),
+    })
     question.options.forEach((option, optionIndex) => {
-      lines.push(
-        `${String.fromCharCode(65 + optionIndex)}. ${proseMirrorToPlainText(option.answerText as Json)}`
-      )
+      const rewrittenOption = rewrittenQuestion.options[optionIndex]
+      if (!rewrittenOption) return
+      segments.push({
+        key: `question-${questionIndex}-option-${optionIndex}`,
+        label: `Question ${questionIndex + 1} option ${String.fromCharCode(65 + optionIndex)}`,
+        currentText: proseMirrorToPlainText(option.answerText as Json),
+        rewrittenText: proseMirrorToPlainText(rewrittenOption.answerText as Json),
+      })
     })
   })
-  return lines.join('\n')
+  return segments
+}
+
+function buildAcceptedRewriteStem(
+  currentStem: UcatQuestionStemFormValues,
+  rewrittenStem: UcatQuestionStemFormValues,
+  accepted: Record<string, boolean>
+): UcatQuestionStemFormValues {
+  return {
+    ...currentStem,
+    stemText: accepted.stem ? rewrittenStem.stemText : currentStem.stemText,
+    questions: currentStem.questions.map((question, questionIndex) => {
+      const rewrittenQuestion = rewrittenStem.questions[questionIndex]
+      if (!rewrittenQuestion) return question
+      return {
+        ...question,
+        questionText: accepted[`question-${questionIndex}`]
+          ? rewrittenQuestion.questionText
+          : question.questionText,
+        options: question.options.map((option, optionIndex) => {
+          const rewrittenOption = rewrittenQuestion.options[optionIndex]
+          if (!rewrittenOption) return option
+          return {
+            ...option,
+            answerText: accepted[`question-${questionIndex}-option-${optionIndex}`]
+              ? rewrittenOption.answerText
+              : option.answerText,
+          }
+        }),
+      }
+    }),
+  }
 }

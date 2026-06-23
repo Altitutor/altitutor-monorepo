@@ -26,7 +26,10 @@ import {
 
 /** TipTap reads `text-foreground`; pin dark body text on white UCAT engine shells when app theme is dark. */
 const UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME =
-  '[&_.tiptap]:!text-neutral-950 [&_.tiptap]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror]:!text-neutral-950 [&_.tiptap_.ProseMirror]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror_li]:marker:!text-neutral-600 [&_.tiptap_.ProseMirror_li]:marker:dark:!text-neutral-600 [&_p.is-empty.is-editor-empty:first-child:before]:!text-neutral-400'
+  '[&_.tiptap]:!text-neutral-950 [&_.tiptap]:dark:!text-neutral-950 [&_.tiptap.ProseMirror]:!text-neutral-950 [&_.tiptap.ProseMirror]:dark:!text-neutral-950 [&_p.is-empty.is-editor-empty:first-child:before]:!text-neutral-400'
+
+const UCAT_RTE_LIST_MARKER_CLASSNAME =
+  '[&_ol]:!list-decimal [&_ol]:!pl-[1.625em] [&_ol]:[list-style-position:outside] [&_ul]:!list-disc [&_ul]:!pl-[1.625em] [&_ul]:[list-style-position:outside] [&_li]:!list-item [&_li]:marker:!text-neutral-600'
 
 /**
  * Table borders on the TipTap root (className is merged onto view.dom / `.tiptap.ProseMirror`).
@@ -49,6 +52,7 @@ export const UCAT_ENGINE_READONLY_EDITOR_CLASSNAME = cn(
   'h-auto min-h-0 text-black',
   '[&]:min-h-0 [&]:p-0 [&]:pl-0',
   UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME,
+  UCAT_RTE_LIST_MARKER_CLASSNAME,
   UCAT_ENGINE_TABLE_ROOT_CLASSNAME,
   '[&_strong]:font-bold [&_b]:font-bold',
   '[&_em]:italic',
@@ -466,6 +470,7 @@ export function UcatRichTextEditor({
         'relative',
         className,
         forceLightChrome && UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME,
+        forceLightChrome && UCAT_RTE_LIST_MARKER_CLASSNAME,
         forceLightChrome && UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
       )}
       style={{ minHeight }}
@@ -514,4 +519,3 @@ export function UcatRichTextEditor({
     </div>
   )
 }
-

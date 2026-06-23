@@ -25,6 +25,7 @@ import type {
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import {
   findMissingExplanations,
+  type AiToolReviewFlag,
   type MissingExplanationTarget,
 } from '@/features/ucat/questions/lib/ai-tools'
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
@@ -131,6 +132,9 @@ export function Step3SetAnswers({
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
   const [isGeneratingExplanations, setIsGeneratingExplanations] = useState(false)
+  const [explanationReviewFlags, setExplanationReviewFlags] = useState<
+    Array<AiToolReviewFlag & { stemIndex: number }>
+  >([])
   const missingExplanationTargets = useMemo(
     () =>
       stems.flatMap((stem, stemIndex) =>
@@ -178,7 +182,9 @@ export function Step3SetAnswers({
     setIsGeneratingExplanations(true)
     try {
       let appliedTotal = 0
-      for (const stem of stems) {
+      const reviewFlags: Array<AiToolReviewFlag & { stemIndex: number }> = []
+      setExplanationReviewFlags([])
+      for (const [stemIndex, stem] of stems.entries()) {
         const stemTargets = missingExplanationTargets.filter((target) => target.stemId === stem.id)
         if (stemTargets.length === 0) continue
         const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
@@ -192,19 +198,26 @@ export function Step3SetAnswers({
         const json = (await response.json()) as {
           stem?: UcatQuestionStemFormValues
           appliedCount?: number
+          reviewFlags?: AiToolReviewFlag[]
           error?: string
         }
         if (!response.ok || !json.stem) {
           throw new Error(json.error ?? 'Failed to generate missing explanations.')
         }
         appliedTotal += json.appliedCount ?? 0
+        if (json.reviewFlags?.length) {
+          reviewFlags.push(...json.reviewFlags.map((flag) => ({ ...flag, stemIndex })))
+        }
         onUpdateStem(stem.id, json.stem)
       }
+      setExplanationReviewFlags(reviewFlags)
       toast({
-        description:
-          appliedTotal > 0
+        description: reviewFlags.length > 0
+          ? `${reviewFlags.length} question${reviewFlags.length === 1 ? '' : 's'} flagged for tutor review.`
+          : appliedTotal > 0
             ? `Generated ${appliedTotal} missing explanation${appliedTotal === 1 ? '' : 's'}.`
             : 'No missing explanations were generated.',
+        variant: reviewFlags.length > 0 ? 'destructive' : undefined,
       })
     } catch (error) {
       toast({
@@ -241,6 +254,20 @@ export function Step3SetAnswers({
               All questions have the required explanation fields.
             </p>
           )}
+          {explanationReviewFlags.length > 0 ? (
+            <div className="mt-2 space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+              <div className="font-medium">AI flagged questions for tutor review</div>
+              {explanationReviewFlags.map((flag) => (
+                <div key={`${flag.stemIndex}-${flag.questionIndex}-${flag.message}`}>
+                  Stem {flag.stemIndex + 1}, question {flag.questionIndex + 1}: {flag.message}
+                  {flag.suggestedCorrectOptionIndex != null
+                    ? ` Suggested correct option: ${String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}.`
+                    : ''}
+                  {flag.suggestedChanges ? ` Suggested change: ${flag.suggestedChanges}` : ''}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         {missingExplanationTargets.length > 0 && onUpdateStem ? (
           <Button

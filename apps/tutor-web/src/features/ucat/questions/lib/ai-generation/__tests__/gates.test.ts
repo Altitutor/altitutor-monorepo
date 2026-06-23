@@ -144,7 +144,11 @@ describe('validateGeneratedStemCandidate', () => {
                       { shape: 'ellipse', label: 'A', cx: 260, cy: 190, rx: 120, ry: 80 },
                       { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
                     ],
-                    labels: [{ text: 'x', x: 310, y: 190 }],
+                    regionLabels: [
+                      { text: 4, x: 185, y: 190 },
+                      { text: 3, x: 310, y: 190 },
+                      { text: 5, x: 435, y: 190 },
+                    ],
                   },
                 }],
                 isAnswer: true,
@@ -166,6 +170,152 @@ describe('validateGeneratedStemCandidate', () => {
 
     expect(issues.some((issue) => issue.code === 'dm_venn_visual_required')).toBe(false)
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_spec_required')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_numeric_regions_required')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_label_boundary_overlap')).toBe(false)
+  })
+
+  it('blocks Venn diagrams without numeric region labels', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Staff sets',
+          altText: 'Set diagram with set labels only.',
+          spec: {
+            shapes: [
+              { shape: 'ellipse', label: 'R', cx: 250, cy: 180, rx: 170, ry: 110 },
+              { shape: 'circle', label: 'S', cx: 285, cy: 180, r: 55 },
+              { shape: 'diamond', label: 'T', cx: 395, cy: 180, width: 210, height: 180 },
+            ],
+            labels: [
+              { text: 'R', x: 155, y: 95 },
+              { text: 'S', x: 280, y: 145 },
+              { text: 'T', x: 455, y: 105 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_numeric_regions_required')).toBe(true)
+  })
+
+  it('blocks Venn diagrams without a shape-to-set mapping', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Workshop attendance',
+          altText: 'Unlabelled set diagram.',
+          spec: {
+            shapes: [
+              { shape: 'triangle', x: 160, y: 80, width: 210, height: 220 },
+              { shape: 'circle', cx: 335, cy: 125, r: 85 },
+              { shape: 'diamond', cx: 430, cy: 220, width: 170, height: 170 },
+            ],
+            regionLabels: [
+              { text: 6, x: 120, y: 105 },
+              { text: 5, x: 315, y: 80 },
+              { text: 4, x: 116, y: 305 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(true)
+  })
+
+  it('accepts parseable Venn shape legends in region labels', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Cinema purchases',
+          altText: 'Set diagram with parseable legend.',
+          spec: {
+            shapes: [
+              { shape: 'triangle', x: 160, y: 80, width: 210, height: 220 },
+              { shape: 'circle', cx: 300, cy: 150, r: 95 },
+              { shape: 'pentagon', cx: 395, cy: 205, r: 105 },
+            ],
+            regionLabels: [
+              { text: 'Triangle = Popcorn', x: 500, y: 112 },
+              { text: 'Circle = Drink', x: 500, y: 151 },
+              { text: 'Pentagon = Sweets', x: 500, y: 192 },
+              { text: 14, x: 115, y: 120 },
+              { text: 9, x: 188, y: 95 },
+              { text: 7, x: 330, y: 110 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(false)
+  })
+
+  it('warns when Venn numeric labels are placed close to shape boundaries', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Activities',
+          altText: 'Set diagram with an ambiguous boundary label.',
+          spec: {
+            shapes: [
+              { shape: 'ellipse', label: 'A', cx: 260, cy: 190, rx: 120, ry: 80 },
+              { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
+            ],
+            regionLabels: [
+              { text: 4, x: 220, y: 190 },
+              { text: 3, x: 380, y: 190 },
+              { text: 5, x: 400, y: 190 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(
+      issues.some(
+        (issue) =>
+          issue.code === 'dm_venn_region_label_boundary_overlap' &&
+          issue.severity === 'warning'
+      )
+    ).toBe(true)
   })
 
   it('blocks legacy coloured Venn templates in Decision Making Venn diagrams', () => {

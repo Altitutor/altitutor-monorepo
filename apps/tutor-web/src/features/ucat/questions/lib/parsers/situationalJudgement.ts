@@ -16,20 +16,21 @@ export { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parser
 
 export type SituationalJudgementParserConfig = ParserConfig
 
-export type SituationalJudgementCategoryName = 'How important' | 'How appropriate'
+export type SituationalJudgementCategoryName = 'How Important' | 'How Appropriate'
 
 /**
- * Get Situational Judgement category name from stem content.
- * Rules: "How important" if question text contains it; "How appropriate" if question text contains it.
+ * Get Situational Judgement category name from parsed stem content.
+ * Rules: "How Important" if question text contains it; "How Appropriate" if question text contains it.
  * Case insensitive. First match wins. Returns null if neither matches.
  */
 export function getSituationalJudgementStemCategoryName(
   stem: ParsedStem
 ): SituationalJudgementCategoryName | null {
-  for (const q of stem.questions) {
-    const qLower = q.text.toLowerCase()
-    if (qLower.includes('how important')) return 'How important'
-    if (qLower.includes('how appropriate')) return 'How appropriate'
+  const textParts = [stem.stemText, ...stem.questions.map((q) => q.text)]
+  for (const text of textParts) {
+    const lower = text.toLowerCase()
+    if (lower.includes('how important')) return 'How Important'
+    if (lower.includes('how appropriate')) return 'How Appropriate'
   }
   return null
 }

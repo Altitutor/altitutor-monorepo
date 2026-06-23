@@ -22,10 +22,13 @@ const SYSTEM_PROMPT = `You rewrite UCAT ANZ question stems to reduce source-text
 Rules:
 1. Preserve the tested skill, answer logic, correct answer positions, explanation meaning, section fit, difficulty, and time burden.
 2. Rewrite the shared stem text, each question text, and each answer option text.
-3. Do not add or remove questions.
-4. Do not add, remove, reorder, or relabel answer options.
-5. Keep numbers, units, names, and logical relationships consistent unless rewording requires harmless equivalent wording.
-6. Return JSON only.`
+3. Reword substantially: change sentence structure, phrasing, ordering of non-logical exposition, and surface vocabulary while keeping the same meaning and answer logic.
+4. Change personal names and named entities that are incidental to the logic. Keep renamed entities consistent across the stem, questions, and answer options.
+5. Do not change numbers, units, dates, quantities, logical relationships, answer positions, or any detail that determines the correct answer.
+6. Do not add or remove questions.
+7. Do not add, remove, reorder, or relabel answer options.
+8. The goal is strong source-similarity reduction for tutor review, but do not claim legal/copyright clearance.
+9. Return JSON only.`
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()

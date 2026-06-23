@@ -8,6 +8,35 @@
 - **Product app** — A user-facing application that owns an authenticated or transactional product workflow, such as the student portal or UCAT practice app. Product apps may have public entry pages, but their product workflows are separate from the Marketing site.
   _Avoid_: Landing site, marketing app
 
+## Subject resources
+
+- **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
+  _Avoid_: Learning module, UCAT module
+
+- **Topic resource** — A student-facing study item attached to one topic, such as a file or flashcard collection. Topic resources belong to the general student resource experience, not the UCAT Learn catalog.
+  _Avoid_: Learning module block, lesson content
+
+- **Flashcard collection** — A topic resource that groups ordered cloze flashcards for student study. A collection belongs to exactly one topic and is the unit students open from Resources.
+  _Avoid_: Deck, learning module, file
+
+- **Flashcard** — One cloze-deletion study prompt inside a flashcard collection. Flashcards use cloze markers in the prompt itself and do not have separate front/back sides.
+  _Avoid_: Basic card, note, question
+
+- **Flashcard review card** — One reviewable cloze marker generated from a flashcard. A flashcard with multiple cloze markers creates one review card per marker, and each review card has its own spaced-repetition state.
+  _Avoid_: Flashcard side, front/back card, note
+
+- **Due flashcard review** — A student study mode that shows only flashcard review cards whose spaced-repetition state is due. Student ratings update the review card's next due date and scheduling state.
+  _Avoid_: Quizlet mode, browse mode
+
+- **Free flashcard study** — A student study mode that shows all flashcard review cards in a selected topic or flashcard collection without changing spaced-repetition state.
+  _Avoid_: Due review, scheduled review
+
+- **Anki flashcard import** — A staff workflow for bringing existing Anki cloze material into a flashcard collection from a text export such as CSV. The import accepts cloze cards only; front/back cards and `.apkg` package parsing are not part of the first flashcard import scope.
+  _Avoid_: Mobile sync, push reminder setup, basic-card import
+
+- **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
+  _Avoid_: Anki note model, front/back row
+
 ## UCAT content
 
 - **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
@@ -142,13 +171,19 @@
 - **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
   _Avoid_: Approval status, published status
 
+- **Question stem approval queue** — A tutor workflow for reviewing a filtered sequence of question stems, applying small edits or reconciliation fixes, then advancing to the next stem. For AI-generated question stems, approval makes the stem available for student-facing use; for reconciliation, saving advances the tutor through unresolved content gaps without necessarily changing approval status.
+  _Avoid_: Bulk approval, generation gate, question list
+
+- **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
+  _Avoid_: Approval status, generation warning, validation error
+
 - **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
   _Avoid_: Auto-published question, synthetic question
 
-- **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while reducing source-text similarity for tutor review. It returns a preview that the tutor must explicitly apply, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+- **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Regeneration, new question generation, answer-key generation
 
-- **AI answer explanation** — A tutor-requested, fill-missing-by-default explanation for a UCAT question that already has answer choices and a selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. Generated missing explanations are written directly into empty explanation fields for tutor review and editing, and the tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue and suggested correction. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Answer generation, solution key parsing, question rewrite
 
 - **Generation brief** — The structured intent for producing AI-generated UCAT content, including section, stem category, target skill tags, difficulty, time burden, format constraints, and optional calibration examples. A generation brief defines what should be created; source examples are optional style calibration and should not be required or copied.

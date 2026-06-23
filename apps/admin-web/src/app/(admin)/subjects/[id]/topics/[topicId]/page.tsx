@@ -42,6 +42,7 @@ import { buildTopicTree } from '@/features/topics/utils/codes';
 import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useTopicActions } from '@/features/topics/hooks/useTopicActions';
+import { FlashcardManager } from '@/features/flashcards';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -490,6 +491,10 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   </div>
                 )}
               </div>
+
+              <Separator className="my-4" />
+
+              <FlashcardManager topicId={topicId} />
 
               <Separator className="my-4" />
 

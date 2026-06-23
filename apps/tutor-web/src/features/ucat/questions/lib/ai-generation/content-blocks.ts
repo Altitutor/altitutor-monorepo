@@ -287,33 +287,30 @@ function renderPieChart(spec: Record<string, unknown>, title: string | null | un
   return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? 'Pie chart', 40, 34)}${slices}${legend}</svg>`
 }
 
-function renderSetShape(shape: Record<string, unknown>, index: number, drawLabel = true): string {
-  const type = String(shape.shape ?? shape.type ?? 'ellipse')
-  const label = String(shape.label ?? '')
+function renderSetShape(shape: Record<string, unknown>, index: number): string {
+  const type = setShapeType(shape)
   const stroke = String(shape.stroke ?? '#111')
   const fill = String(shape.fill ?? 'none')
   const common = `fill="${fill}" fill-opacity="0.08" stroke="${stroke}" stroke-width="2.5"`
-  const hasExplicitLabelPosition = shape.labelX != null || shape.labelY != null
-  const shouldDrawLabel = drawLabel || hasExplicitLabelPosition
   if (type === 'circle') {
-    return `<circle cx="${Number(shape.cx ?? 180 + index * 90)}" cy="${Number(shape.cy ?? 190)}" r="${Number(shape.r ?? 95)}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? Number(shape.cx ?? 180 + index * 90) - 28)}" y="${Number(shape.labelY ?? Number(shape.cy ?? 190) - 105)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+    return `<circle cx="${Number(shape.cx ?? 180 + index * 90)}" cy="${Number(shape.cy ?? 190)}" r="${Number(shape.r ?? 95)}" ${common}/>`
   }
   if (type === 'rect') {
-    return `<rect x="${Number(shape.x ?? 120 + index * 70)}" y="${Number(shape.y ?? 115)}" width="${Number(shape.width ?? 170)}" height="${Number(shape.height ?? 160)}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? Number(shape.x ?? 120 + index * 70) + 8)}" y="${Number(shape.labelY ?? Number(shape.y ?? 115) - 10)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+    return `<rect x="${Number(shape.x ?? 120 + index * 70)}" y="${Number(shape.y ?? 115)}" width="${Number(shape.width ?? 170)}" height="${Number(shape.height ?? 160)}" ${common}/>`
   }
   if (type === 'triangle') {
     const x = Number(shape.x ?? 160 + index * 80)
     const y = Number(shape.y ?? 80)
     const w = Number(shape.width ?? 210)
     const h = Number(shape.height ?? 220)
-    return `<polygon points="${x + w / 2},${y} ${x},${y + h} ${x + w},${y + h}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? x + w / 2 - 30)}" y="${Number(shape.labelY ?? y - 10)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+    return `<polygon points="${x + w / 2},${y} ${x},${y + h} ${x + w},${y + h}" ${common}/>`
   }
   if (type === 'diamond') {
     const cx = Number(shape.cx ?? 260 + index * 60)
     const cy = Number(shape.cy ?? 190)
     const w = Number(shape.width ?? 170)
     const h = Number(shape.height ?? 170)
-    return `<polygon points="${cx},${cy - h / 2} ${cx + w / 2},${cy} ${cx},${cy + h / 2} ${cx - w / 2},${cy}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? cx - 32)}" y="${Number(shape.labelY ?? cy - h / 2 - 10)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+    return `<polygon points="${cx},${cy - h / 2} ${cx + w / 2},${cy} ${cx},${cy + h / 2} ${cx - w / 2},${cy}" ${common}/>`
   }
   if (type === 'pentagon' || type === 'hexagon') {
     const cx = Number(shape.cx ?? 250 + index * 70)
@@ -325,34 +322,366 @@ function renderSetShape(shape: Record<string, unknown>, index: number, drawLabel
       const angle = rotation + (pointIndex / sides) * Math.PI * 2
       return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`
     }).join(' ')
-    return `<polygon points="${points}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? cx - 34)}" y="${Number(shape.labelY ?? cy - radius - 10)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+    return `<polygon points="${points}" ${common}/>`
   }
-  return `<ellipse cx="${Number(shape.cx ?? 210 + index * 95)}" cy="${Number(shape.cy ?? 190)}" rx="${Number(shape.rx ?? 120)}" ry="${Number(shape.ry ?? 82)}" ${common}/>${shouldDrawLabel && label ? `<text x="${Number(shape.labelX ?? Number(shape.cx ?? 210 + index * 95) - 36)}" y="${Number(shape.labelY ?? Number(shape.cy ?? 190) - 95)}" font-size="15" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>` : ''}`
+  return `<ellipse cx="${Number(shape.cx ?? 210 + index * 95)}" cy="${Number(shape.cy ?? 190)}" rx="${Number(shape.rx ?? 120)}" ry="${Number(shape.ry ?? 82)}" ${common}/>`
+}
+
+type SvgPoint = { x: number; y: number }
+type SvgLabelBox = SvgPoint & { width: number; height: number; fontSize: number; text: string }
+
+function finiteNumber(value: unknown, fallback: number): number {
+  const number = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(number) ? number : fallback
+}
+
+function setShapeType(shape: Record<string, unknown>): string {
+  const type = String(shape.shape ?? shape.type ?? 'ellipse')
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(type)
+    ? type
+    : 'ellipse'
+}
+
+function polygonPoints(shape: Record<string, unknown>, index: number): SvgPoint[] {
+  const type = setShapeType(shape)
+  if (type === 'triangle') {
+    const x = finiteNumber(shape.x, 160 + index * 80)
+    const y = finiteNumber(shape.y, 80)
+    const width = finiteNumber(shape.width, 210)
+    const height = finiteNumber(shape.height, 220)
+    return [
+      { x: x + width / 2, y },
+      { x, y: y + height },
+      { x: x + width, y: y + height },
+    ]
+  }
+  if (type === 'rect') {
+    const x = finiteNumber(shape.x, 120 + index * 70)
+    const y = finiteNumber(shape.y, 115)
+    const width = finiteNumber(shape.width, 170)
+    const height = finiteNumber(shape.height, 160)
+    return [
+      { x, y },
+      { x: x + width, y },
+      { x: x + width, y: y + height },
+      { x, y: y + height },
+    ]
+  }
+  if (type === 'diamond') {
+    const cx = finiteNumber(shape.cx, 260 + index * 60)
+    const cy = finiteNumber(shape.cy, 190)
+    const width = finiteNumber(shape.width, 170)
+    const height = finiteNumber(shape.height, 170)
+    return [
+      { x: cx, y: cy - height / 2 },
+      { x: cx + width / 2, y: cy },
+      { x: cx, y: cy + height / 2 },
+      { x: cx - width / 2, y: cy },
+    ]
+  }
+  if (type === 'pentagon' || type === 'hexagon') {
+    const cx = finiteNumber(shape.cx, 250 + index * 70)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r ?? shape.radius, 95)
+    const sides = type === 'pentagon' ? 5 : 6
+    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
+    return Array.from({ length: sides }, (_, pointIndex) => {
+      const angle = rotation + (pointIndex / sides) * Math.PI * 2
+      return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius }
+    })
+  }
+  return []
+}
+
+function distanceToSegment(point: SvgPoint, a: SvgPoint, b: SvgPoint): number {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  if (dx === 0 && dy === 0) return Math.hypot(point.x - a.x, point.y - a.y)
+  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy)))
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
+}
+
+function pointNearSetBoundary(point: SvgPoint, shape: Record<string, unknown>, index: number, tolerance = 34): boolean {
+  const type = setShapeType(shape)
+  if (type === 'circle') {
+    const cx = finiteNumber(shape.cx, 180 + index * 90)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r, 95)
+    return Math.abs(Math.hypot(point.x - cx, point.y - cy) - radius) < tolerance
+  }
+  if (type === 'ellipse') {
+    const cx = finiteNumber(shape.cx, 210 + index * 95)
+    const cy = finiteNumber(shape.cy, 190)
+    const rx = finiteNumber(shape.rx, 120)
+    const ry = finiteNumber(shape.ry, 82)
+    const value = Math.sqrt(((point.x - cx) / rx) ** 2 + ((point.y - cy) / ry) ** 2)
+    return Math.abs(value - 1) < tolerance / Math.max(rx, ry)
+  }
+  const points = polygonPoints(shape, index)
+  return points.some((a, pointIndex) => distanceToSegment(point, a, points[(pointIndex + 1) % points.length] ?? a) < tolerance)
+}
+
+function labelWidth(text: string, fontSize: number): number {
+  return Math.max(18, text.length * fontSize * 0.58 + 10)
+}
+
+function labelBox(point: SvgPoint, text: string, fontSize: number): SvgLabelBox {
+  return { ...point, width: labelWidth(text, fontSize), height: fontSize + 8, fontSize, text }
+}
+
+function labelsOverlap(a: SvgLabelBox, b: SvgLabelBox): boolean {
+  const horizontal = Math.abs(a.x - b.x) < (a.width + b.width) / 2 + 8
+  const vertical = Math.abs((a.y - a.fontSize / 2) - (b.y - b.fontSize / 2)) < (a.height + b.height) / 2 + 6
+  return horizontal && vertical
+}
+
+function labelBoundaryProbePoints(box: SvgLabelBox): SvgPoint[] {
+  const halfWidth = box.width / 2
+  const top = box.y - box.fontSize
+  const bottom = box.y + 4
+  return [
+    { x: box.x, y: box.y - box.fontSize / 2 },
+    { x: box.x - halfWidth, y: box.y - box.fontSize / 2 },
+    { x: box.x + halfWidth, y: box.y - box.fontSize / 2 },
+    { x: box.x, y: top },
+    { x: box.x, y: bottom },
+  ]
+}
+
+function setShapeRecords(shapes: unknown[]): Array<{ raw: Record<string, unknown>; index: number }> {
+  return shapes
+    .map((raw, index) => ({ raw, index }))
+    .filter((item): item is { raw: Record<string, unknown>; index: number } => item.raw != null && typeof item.raw === 'object')
+}
+
+function candidatePoints(origin: SvgPoint): SvgPoint[] {
+  const candidates: SvgPoint[] = [origin]
+  const radii = [20, 32, 46, 62, 80, 104]
+  const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI, -Math.PI / 4, Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4]
+  for (const radius of radii) {
+    for (const angle of angles) {
+      candidates.push({ x: origin.x + Math.cos(angle) * radius, y: origin.y + Math.sin(angle) * radius })
+    }
+  }
+  return candidates
+}
+
+function placeSetLabel(
+  origin: SvgPoint,
+  text: string,
+  fontSize: number,
+  shapes: unknown[],
+  placed: SvgLabelBox[],
+  options: { avoidBoundaries: boolean; minX?: number; maxX?: number; minY?: number; maxY?: number }
+): SvgLabelBox {
+  const shapeRecords = setShapeRecords(shapes)
+  const minX = options.minX ?? 42
+  const maxX = options.maxX ?? 665
+  const minY = options.minY ?? 28
+  const maxY = options.maxY ?? 380
+  let best: { box: SvgLabelBox; score: number } | null = null
+
+  for (const point of candidatePoints(origin)) {
+    const box = labelBox(point, text, fontSize)
+    const outOfBounds = box.x - box.width / 2 < minX || box.x + box.width / 2 > maxX || box.y - box.fontSize < minY || box.y > maxY
+    const overlaps = placed.some((item) => labelsOverlap(box, item))
+    const nearBoundary = options.avoidBoundaries && labelBoundaryProbePoints(box).some((probe) =>
+      shapeRecords.some((item) => pointNearSetBoundary(probe, item.raw, item.index))
+    )
+    const hardPenalty = (outOfBounds ? 10000 : 0) + (overlaps ? 6000 : 0) + (nearBoundary ? 3000 : 0)
+    const distance = Math.hypot(point.x - origin.x, point.y - origin.y)
+    const score = hardPenalty + distance
+    if (!best || score < best.score) best = { box, score }
+    if (!outOfBounds && !overlaps && !nearBoundary) return box
+  }
+
+  return best?.box ?? labelBox(origin, text, fontSize)
+}
+
+function defaultShapeLabelOrigin(shape: Record<string, unknown>, index: number): SvgPoint {
+  const type = setShapeType(shape)
+  if (shape.labelX != null || shape.labelY != null) {
+    return {
+      x: finiteNumber(shape.labelX, 320),
+      y: finiteNumber(shape.labelY, 80),
+    }
+  }
+  if (type === 'circle') {
+    const cx = finiteNumber(shape.cx, 180 + index * 90)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r, 95)
+    return { x: cx, y: cy - radius - 12 }
+  }
+  if (type === 'ellipse') {
+    const cx = finiteNumber(shape.cx, 210 + index * 95)
+    const cy = finiteNumber(shape.cy, 190)
+    const ry = finiteNumber(shape.ry, 82)
+    return { x: cx, y: cy - ry - 12 }
+  }
+  if (type === 'rect') {
+    return { x: finiteNumber(shape.x, 120 + index * 70) + 46, y: finiteNumber(shape.y, 115) - 12 }
+  }
+  if (type === 'triangle') {
+    const x = finiteNumber(shape.x, 160 + index * 80)
+    const y = finiteNumber(shape.y, 80)
+    const width = finiteNumber(shape.width, 210)
+    return { x: x + width / 2, y: y - 12 }
+  }
+  if (type === 'diamond') {
+    const cx = finiteNumber(shape.cx, 260 + index * 60)
+    const cy = finiteNumber(shape.cy, 190)
+    const height = finiteNumber(shape.height, 170)
+    return { x: cx, y: cy - height / 2 - 12 }
+  }
+  const cx = finiteNumber(shape.cx, 250 + index * 70)
+  const cy = finiteNumber(shape.cy, 190)
+  const radius = finiteNumber(shape.r ?? shape.radius, 95)
+  return { x: cx, y: cy - radius - 12 }
+}
+
+function renderSetNameLabels(
+  labelledShapes: Array<{ record: Record<string, unknown>; index: number }>,
+  shapes: unknown[],
+  placed: SvgLabelBox[]
+): string {
+  return labelledShapes.map(({ record, index }) => {
+    const text = String(record.label ?? '')
+    const fontSize = 15
+    const box = placeSetLabel(defaultShapeLabelOrigin(record, index), text, fontSize, shapes, placed, {
+      avoidBoundaries: false,
+      maxX: 560,
+      minY: 34,
+    })
+    placed.push(box)
+    const rect = `<rect x="${box.x - box.width / 2}" y="${box.y - fontSize}" width="${box.width}" height="${box.height}" rx="3" fill="white" fill-opacity="0.9"/>`
+    return `${rect}<text x="${box.x}" y="${box.y}" font-size="${fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="600">${escapeXml(text)}</text>`
+  }).join('')
+}
+
+function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: number, y: number): string {
+  const type = setShapeType(shape)
+  const common = 'fill="none" stroke="#111" stroke-width="2"'
+  if (type === 'circle') return `<circle cx="${x + 15}" cy="${y - 5}" r="11" ${common}/>`
+  if (type === 'ellipse') return `<ellipse cx="${x + 15}" cy="${y - 5}" rx="15" ry="10" ${common}/>`
+  if (type === 'rect') return `<rect x="${x + 3}" y="${y - 16}" width="24" height="20" ${common}/>`
+  if (type === 'triangle') return `<polygon points="${x + 15},${y - 18} ${x + 2},${y + 5} ${x + 28},${y + 5}" ${common}/>`
+  if (type === 'diamond') return `<polygon points="${x + 15},${y - 19} ${x + 30},${y - 5} ${x + 15},${y + 9} ${x},${y - 5}" ${common}/>`
+  const sides = type === 'pentagon' ? 5 : 6
+  const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
+  const points = Array.from({ length: sides }, (_, pointIndex) => {
+    const angle = rotation + (pointIndex / sides) * Math.PI * 2
+    return `${x + 15 + Math.cos(angle) * 13},${y - 5 + Math.sin(angle) * 13}`
+  }).join(' ')
+  return `<polygon points="${points}" ${common}/>`
+}
+
+function renderSetLegend(labelledShapes: Array<{ record: Record<string, unknown>; index: number }>): string {
+  return labelledShapes.map(({ record, index }, legendIndex) => {
+    const column = legendIndex % 2
+    const row = Math.floor(legendIndex / 2)
+    const x = 92 + column * 300
+    const y = 454 + row * 34
+    return `${renderLegendSwatch(record, index, x, y)}<text x="${x + 42}" y="${y}" font-size="16" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
+  }).join('')
+}
+
+function legendShapeType(value: string): string | null {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'rectangle') return 'rect'
+  if (normalized === 'oval') return 'ellipse'
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(normalized)
+    ? normalized
+    : null
+}
+
+function parseRegionLegendText(value: unknown): { shape: string; label: string } | null {
+  const text = String(value ?? '').trim()
+  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon)\s*=\s*(.+)$/iu)
+  if (!match?.[1] || !match[2]) return null
+  const shape = legendShapeType(match[1])
+  const label = match[2].trim()
+  return shape && label ? { shape, label } : null
+}
+
+function isNumericRegionLabel(value: unknown): boolean {
+  return /^-?\d+(?:\.\d+)?$/u.test(String(value ?? '').trim())
+}
+
+function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
+  shapes: Array<Record<string, unknown>>
+  values: unknown[]
+} {
+  const normalizedShapes = shapes
+    .map((raw) => raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : null)
+    .filter((shape): shape is Record<string, unknown> => Boolean(shape))
+  const numericValues: unknown[] = []
+  const legendEntries: Array<{ shape: string; label: string }> = []
+
+  for (const raw of values) {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const text = record.text ?? record.value ?? ''
+    const legendEntry = parseRegionLegendText(text)
+    if (legendEntry) {
+      legendEntries.push(legendEntry)
+      continue
+    }
+    if (String(text).trim().toLowerCase() === 'legend') continue
+    if (isNumericRegionLabel(text)) numericValues.push(raw)
+  }
+
+  for (const entry of legendEntries) {
+    const candidates = normalizedShapes.filter((shape) => setShapeType(shape) === entry.shape)
+    if (candidates.length === 1 && !candidates[0]?.label) candidates[0].label = entry.label
+  }
+
+  return { shapes: normalizedShapes, values: numericValues }
 }
 
 function renderSetDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const shapes = Array.isArray(spec.shapes) ? spec.shapes : []
-  const values = Array.isArray(spec.labels) ? spec.labels : Array.isArray(spec.regions) ? spec.regions : []
-  const useLegend = shapes.some((raw) => {
-    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    return record.label && record.labelX == null && record.labelY == null
-  })
+  const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
+  const rawValues = Array.isArray(spec.regionLabels)
+    ? spec.regionLabels
+    : Array.isArray(spec.labels)
+      ? spec.labels
+      : Array.isArray(spec.regions)
+        ? spec.regions
+        : []
+  const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
+  const labelledShapes = shapes
+    .map((record, index) => ({ record, index }))
+    .filter((item): item is { record: Record<string, unknown>; index: number } => Boolean(item.record?.label))
+  const shapeTypeCounts = new Map<string, number>()
+  labelledShapes.forEach(({ record }) => shapeTypeCounts.set(setShapeType(record), (shapeTypeCounts.get(setShapeType(record)) ?? 0) + 1))
+  const hasDuplicateLegendShape = labelledShapes.some(({ record }) => (shapeTypeCounts.get(setShapeType(record)) ?? 0) > 1)
+  const useLegend = labelledShapes.length > 0 && !hasDuplicateLegendShape
   const shapeNodes = shapes
-    .map((raw, index) => raw && typeof raw === 'object' ? renderSetShape(raw as Record<string, unknown>, index, !useLegend) : '')
+    .map((raw, index) => renderSetShape(raw, index))
     .join('')
-  const legend = useLegend
-    ? shapes.map((raw, index) => {
-        const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-        if (!record.label) return ''
-        const y = 96 + index * 28
-        return `<line x1="585" y1="${y - 5}" x2="615" y2="${y - 5}" stroke="#111" stroke-width="2"/><text x="625" y="${y}" font-size="14" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
-      }).join('')
-    : ''
+  const placedLabels: SvgLabelBox[] = []
+  const shapeLabelNodes = useLegend ? '' : renderSetNameLabels(labelledShapes, shapes, placedLabels)
+  const legend = useLegend ? renderSetLegend(labelledShapes) : ''
   const labelNodes = values.map((raw) => {
     const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    return `<text x="${Number(record.x ?? 320)}" y="${Number(record.y ?? 220)}" font-size="${Number(record.fontSize ?? 17)}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 400}">${escapeXml(String(record.text ?? record.value ?? ''))}</text>`
+    const text = String(record.text ?? record.value ?? '')
+    const fontSize = Number(record.fontSize ?? 18)
+    const box = placeSetLabel(
+      { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) },
+      text,
+      fontSize,
+      shapes,
+      placedLabels,
+      { avoidBoundaries: /\d/u.test(text), maxX: useLegend ? 540 : 665, minY: 46 }
+    )
+    placedLabels.push(box)
+    const paddingX = 5
+    const width = Math.max(18, box.width + paddingX * 2)
+    const height = fontSize + 8
+    const rect = `<rect x="${box.x - width / 2}" y="${box.y - fontSize}" width="${width}" height="${height}" rx="3" fill="white" fill-opacity="0.9"/>`
+    const label = `<text x="${box.x}" y="${box.y}" font-size="${fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
+    return `${rect}${label}`
   }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="430" viewBox="0 0 720 430"><rect width="100%" height="100%" fill="white"/>${title ? renderSvgTitle(title, 40, 34) : ''}<g transform="translate(0 ${title ? 34 : 0})">${shapeNodes}${labelNodes}</g>${legend}</svg>`
+  const height = useLegend ? 520 : 430
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="${height}" viewBox="0 0 720 ${height}"><rect width="100%" height="100%" fill="white"/>${title ? renderSvgTitle(title, 40, 34) : ''}<g transform="translate(0 ${title ? 34 : 0})">${shapeNodes}${shapeLabelNodes}${labelNodes}</g>${legend}</svg>`
 }
 
 function renderVennDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
@@ -442,7 +771,7 @@ function visualNode(block: Extract<GeneratedContentBlock, { type: 'visual' }>): 
     type: 'image',
     attrs: {
       src: svgDataUri(svg),
-      alt: block.altText,
+      alt: '',
     },
   }
 }
@@ -458,7 +787,6 @@ export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): J
     }
     if (block.type === 'visual') {
       content.push(visualNode(block))
-      content.push(paragraph(block.altText))
     }
   }
   return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }

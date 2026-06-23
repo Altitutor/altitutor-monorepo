@@ -12,6 +12,10 @@ import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/fea
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import {
+  UcatQuestionStemApprovalQueueDialog,
+  type UcatApprovalQueueEntry,
+} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 
 const TRUNCATE_LEN = 80
 
@@ -31,6 +35,7 @@ export function UntaggedQuestionsTable({
   const tagsQuery = useUcatTags()
   const addTagMutation = useAddQuestionTag()
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
+  const [queueOpen, setQueueOpen] = useState(false)
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -84,6 +89,18 @@ export function UntaggedQuestionsTable({
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, questionAccessors)
     return result
   }, [data?.untaggedQuestions, tableState.state, questionAccessors, searchScopes])
+
+  const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
+    () =>
+      filteredQuestions.map((question) => ({
+        stemId: question.stemId,
+        mode: 'reconciliation' as const,
+        issueType: 'missing_tags' as const,
+        questionId: question.questionId,
+        questionIndex: Math.max(0, question.questionIndex - 1),
+      })),
+    [filteredQuestions],
+  )
 
   const handleAddTag = useCallback(
     async (item: UntaggedQuestion, tagId: string) => {
@@ -143,14 +160,20 @@ export function UntaggedQuestionsTable({
   )
 
   return (
-    <ReconciliationTable<UntaggedQuestion>
-      title="Untagged questions"
-      items={filteredQuestions}
-      isLoading={isLoading}
-      columnDefinitions={columnDefinitions}
-      visibleColumnKeys={tableState.state.visibleColumns}
-      toolbar={toolbar}
-      renderRow={(item, _index, visibleColumnKeys) => {
+    <>
+      <ReconciliationTable<UntaggedQuestion>
+        title="Untagged questions"
+        items={filteredQuestions}
+        isLoading={isLoading}
+        columnDefinitions={columnDefinitions}
+        visibleColumnKeys={tableState.state.visibleColumns}
+        toolbar={toolbar}
+        headerActions={
+          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+            Begin reconciling
+          </Button>
+        }
+        renderRow={(item, _index, visibleColumnKeys) => {
         const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
         const questionText = proseMirrorToPlainText(item.questionText as import('@altitutor/shared').Json) ?? ''
         const cells: Record<string, React.ReactNode> = {
@@ -198,7 +221,14 @@ export function UntaggedQuestionsTable({
             </TableCell>
           </TableRow>
         )
-      }}
-    />
+        }}
+      />
+      <UcatQuestionStemApprovalQueueDialog
+        open={queueOpen}
+        title="Reconcile missing tags"
+        entries={queueEntries}
+        onClose={() => setQueueOpen(false)}
+      />
+    </>
   )
 }

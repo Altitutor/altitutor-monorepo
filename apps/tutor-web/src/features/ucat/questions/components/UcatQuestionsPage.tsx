@@ -67,8 +67,11 @@ import {
   BulkImportQuestionStemsModal,
   type BulkImportSubmitArgs,
 } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
-import { AiImportQuestionStemsModal } from '@/features/ucat/questions/components/ai-import/AiImportQuestionStemsModal'
 import { GenerateQuestionStemsModal } from '@/features/ucat/questions/components/generated/GenerateQuestionStemsModal'
+import {
+  UcatQuestionStemApprovalQueueDialog,
+  type UcatApprovalQueueEntry,
+} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import {
@@ -308,7 +311,7 @@ export function UcatQuestionsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
-  const [aiImportOpen, setAiImportOpen] = useState(false)
+  const [approvalQueueOpen, setApprovalQueueOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
@@ -585,6 +588,27 @@ export function UcatQuestionsPage() {
     const start = (effectivePage - 1) * pageSize
     return sortedRows.slice(start, start + pageSize)
   }, [sortedRows, effectivePage, pageSize])
+
+  const generatedApprovalQueueEntries = useMemo<UcatApprovalQueueEntry[]>(() => {
+    if (mode !== 'generated') return []
+    const selectedApprovalStatuses = getFilterValues(tableState.state, 'approval_status').map(String)
+    const rowsForApproval =
+      selectedApprovalStatuses.length > 0
+        ? sortedRows.filter((row) => row.approval_status === 'pending')
+        : sortedRows.filter((row) => row.approval_status === 'pending')
+    return rowsForApproval.map((row) => ({ stemId: row.id, mode: 'ai_approval' as const }))
+  }, [mode, sortedRows, tableState.state])
+
+  function handleBeginGeneratedApprovals() {
+    if (generatedApprovalQueueEntries.length === 0) {
+      toast({
+        title: 'No pending generated stems',
+        description: 'No pending AI-generated stems match these filters.',
+      })
+      return
+    }
+    setApprovalQueueOpen(true)
+  }
 
   const toggleStemExpanded = (stemId: string) => {
     setExpandedStemIds((prev) => {
@@ -1074,8 +1098,8 @@ export function UcatQuestionsPage() {
           <div className="flex items-center gap-2">
             {mode === 'generated' ? (
               <>
-                <Button variant="outline" className={tutorBtnOutline} onClick={() => setAiImportOpen(true)}>
-                  AI Import
+                <Button variant="outline" className={tutorBtnOutline} onClick={handleBeginGeneratedApprovals}>
+                  Begin approvals
                 </Button>
                 <Button className={tutorBtnPrimary} onClick={() => setGenerateOpen(true)}>
                   Generate questions
@@ -1744,7 +1768,12 @@ export function UcatQuestionsPage() {
         onEditSet={(setId) => setEditingSetId(setId)}
       />
       <GenerateQuestionStemsModal open={generateOpen} onClose={() => setGenerateOpen(false)} />
-      <AiImportQuestionStemsModal open={aiImportOpen} onClose={() => setAiImportOpen(false)} />
+      <UcatQuestionStemApprovalQueueDialog
+        open={approvalQueueOpen}
+        title="Approve generated question stems"
+        entries={generatedApprovalQueueEntries}
+        onClose={() => setApprovalQueueOpen(false)}
+      />
 
       <UcatSetEditorDialog
         open={!!editingSetId}

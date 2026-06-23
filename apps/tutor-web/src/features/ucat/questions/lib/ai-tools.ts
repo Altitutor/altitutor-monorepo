@@ -51,6 +51,10 @@ export const AiToolExplanationUpdateSchema = z.object({
   confidence: z.number().min(0).max(1).default(0.5),
   unresolved: z.boolean().default(false),
   rationale: z.string().nullable().optional(),
+  reviewRequired: z.boolean().default(false),
+  reviewMessage: z.string().nullable().optional(),
+  suggestedCorrectOptionIndex: z.number().int().nonnegative().nullable().optional(),
+  suggestedChanges: z.string().nullable().optional(),
 })
 
 export const AiToolExplanationResponseSchema = z.object({
@@ -59,6 +63,13 @@ export const AiToolExplanationResponseSchema = z.object({
 
 export type AiToolQuestionStemPayload = z.infer<typeof AiToolQuestionStemPayloadSchema>
 export type AiToolExplanationUpdate = z.infer<typeof AiToolExplanationUpdateSchema>
+
+export type AiToolReviewFlag = {
+  questionIndex: number
+  message: string
+  suggestedCorrectOptionIndex?: number | null
+  suggestedChanges?: string | null
+}
 
 export type MissingExplanationTarget = {
   stemIndex?: number
@@ -106,8 +117,17 @@ export function summarizeStemForAi(stem: AiToolQuestionStemPayload) {
       questionText: proseMirrorToPlainText(asJson(question.questionText)) ?? '',
       questionType: question.questionType,
       answerExplanation: proseMirrorToPlainText(asJson(question.answerExplanation)) ?? '',
+      selectedCorrectOptions: question.options
+        .map((option, optionIndex) => ({
+          optionIndex,
+          label: String.fromCharCode(65 + optionIndex),
+          answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
+          isAnswer: option.isAnswer,
+        }))
+        .filter((option) => option.isAnswer),
       options: question.options.map((option, optionIndex) => ({
         optionIndex,
+        label: String.fromCharCode(65 + optionIndex),
         answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
         isAnswer: option.isAnswer,
         answerExplanation: proseMirrorToPlainText(asJson(option.answerExplanation)) ?? '',
@@ -176,7 +196,9 @@ export function applyExplanationUpdates(
   const next: UcatQuestionStemFormValues = {
     ...stem,
     questions: stem.questions.map((question, questionIndex) => {
-      const update = updates.find((item) => item.questionIndex === questionIndex && !item.unresolved)
+      const update = updates.find(
+        (item) => item.questionIndex === questionIndex && !item.unresolved && !item.reviewRequired
+      )
       if (!update) return question
       if (question.questionType === 'syllogism') {
         return {
@@ -198,4 +220,18 @@ export function applyExplanationUpdates(
     }),
   }
   return { stem: next, appliedCount }
+}
+
+export function collectExplanationReviewFlags(updates: AiToolExplanationUpdate[]): AiToolReviewFlag[] {
+  return updates
+    .filter((update) => update.reviewRequired)
+    .map((update) => ({
+      questionIndex: update.questionIndex,
+      message:
+        update.reviewMessage?.trim() ||
+        update.rationale?.trim() ||
+        'The selected answer or question may need tutor review.',
+      suggestedCorrectOptionIndex: update.suggestedCorrectOptionIndex ?? null,
+      suggestedChanges: update.suggestedChanges ?? null,
+    }))
 }

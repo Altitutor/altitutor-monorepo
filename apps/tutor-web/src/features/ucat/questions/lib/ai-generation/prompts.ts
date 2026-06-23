@@ -153,8 +153,19 @@ export type AiGenerationBrief = {
   promptLayers: AiGenerationPromptLayer[]
 }
 
+function normalizedPromptLayerText(layer: AiGenerationPromptLayer): string {
+  if (layer.scopeType !== 'stem_category' || layer.name !== 'Venn Diagrams') return layer.promptText
+  return layer.promptText
+    .replace(/spec\.labels/gu, 'spec.regionLabels')
+    .replace(/spec\.shapes and spec\.regionLabels/gu, 'spec.shapes and spec.regionLabels')
+    .replace(
+      /Use visualType "set_diagram" or shape-based "venn_diagram" with spec\.shapes and spec\.regionLabels\./u,
+      'Use visualType "set_diagram" or shape-based "venn_diagram" with spec.shapes and spec.regionLabels. Use shapes[].label only for set names; use regionLabels only for numeric region values.'
+    )
+}
+
 function layeredInstructions(input: Pick<AiGenerationBrief, 'promptLayers'>): string[] {
-  return input.promptLayers.map((layer) => `${layer.scopeType}:${layer.name} v${layer.version}\n${layer.promptText}`)
+  return input.promptLayers.map((layer) => `${layer.scopeType}:${layer.name} v${layer.version}\n${normalizedPromptLayerText(layer)}`)
 }
 
 export function buildPlanningPrompt(input: AiGenerationBrief): string {
@@ -227,9 +238,13 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Chart visualTypes: bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart. Use bar_chart for grouped bars with spec {labels:string[], series:[{name:string,values:number[]}]}; stacked_bar_chart uses the same spec but stacked; line_chart may use one values array or series arrays; scatter_plot uses {points:[{x:number,y:number,label?:string}]}; histogram uses {labels:string[],values:number[]}; pie_chart uses {labels:string[],values:number[]}.',
         'For charts, prefer official-style clean axes, monochrome or restrained palettes, and real units. You may include style:{palette:"default"|"teal_amber"|"indigo_rose"|"slate_green"}.',
         'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
-        'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], labels:[{text:string|number,x:number,y:number,bold?:boolean,fontSize?:number}]}.',
+        'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,x:number,y:number,bold?:boolean,fontSize?:number}]}.',
+        'Use shapes[].label only for set names. Use regionLabels only for examinable region values such as 0, 3, 12, or 45. Do not put set names such as R/S/T or Biology/Chemistry in regionLabels.',
+        'For mixed-shape set diagrams, labels may be shown by a single visual legend. Do not also write a sentence in the stem that repeats the same shape-to-set mapping unless it contains extra examinable information.',
+        'If two or more sets use the same shape type, provide clear shape labels or labelX/labelY positions on the diagram instead of relying on a legend.',
+        'Keep visual altText short and accessibility-oriented only. Do not write a visible caption or prose description after the visual unless it contains extra examinable information.',
         'Do not use the old coloured three-overlapping-circle Venn template for DM Venn Diagrams. If you need a conventional three-circle answer option, still encode it as shapes with three circle entries, monochrome strokes, and no coloured fills.',
-        'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed inside regions and a separate legend for set names. Use overlapping/nested shapes where useful.',
+        'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed clearly inside regions and a separate legend for set names. Do not place numbers on shape outlines, intersections, or ambiguous boundary areas. Use overlapping/nested shapes where useful.',
         'schematic_map spec: {points:[{id:string,label:string,x:number,y:number}], lines:[{from:string,to:string,label?:string}]}. Use coordinates within a 640 by 360 canvas.',
         'Do not output ProseMirror JSON.',
       ],
@@ -260,7 +275,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Do not generate the legacy three coloured overlapping circles. Three-circle diagrams are allowed only as monochrome boxed answer options when the planned format asks for answer option diagrams.',
               'Vary Venn formats in official style: two-set, three-set, four-shape diagrams, nested ellipses, overlapping ellipses, rectangles with circles, triangles/pentagons/hexagons/diamonds/circles, unlabeled or lightly labeled regions, and answer options that are themselves diagrams when appropriate.',
               'When answer options are diagrams, each option answerText must be a visual block. Use the same canvas scale and shape layout across options, changing only the region values or membership relationship needed for the option.',
-              'Every displayed region value or diagram relationship must be sufficient to solve the question. Use monochrome or very lightly filled shapes unless colour is part of the data.',
+              'Every displayed region value or diagram relationship must be sufficient to solve the question. Include at least three numeric regionLabels across the Venn/set visual(s). Place each numeric regionLabel comfortably inside a region, not between shapes or on a boundary. Use monochrome or very lightly filled shapes unless colour is part of the data.',
             ]
           : []),
         ...(input.categoryName === 'Recognising Assumptions'

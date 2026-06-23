@@ -218,8 +218,11 @@ export function UcatQuestionStemDialog({
 
 
   async function handleSave() {
-    // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
-    form.handleSubmit(
+    const submit = form.handleSubmit as unknown as (
+      onValid: (values: UcatQuestionStemFormValues) => Promise<void>,
+      onInvalid: (errors: Record<string, unknown>) => void,
+    ) => () => Promise<void>
+    submit(
       async (values) => {
         try {
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call

@@ -61,6 +61,9 @@ type StemDetailRow = {
   section_name: string
   stem_text: unknown
   question_stem_category_id: string | null
+  category_name?: string | null
+  is_ai_generated?: boolean | null
+  approval_status?: 'approved' | 'pending' | 'rejected' | null
   deleted_at: string | null
   questions: QuestionRow[]
 }
@@ -71,7 +74,7 @@ export async function GET() {
 
   const { data: stems, error } = await access.userClient
     .from('vtutor_ucat_question_stem_detail')
-    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,deleted_at,questions')
+    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,is_ai_generated,approval_status,deleted_at,questions')
     .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -157,7 +160,18 @@ export async function GET() {
     }
   }
 
-  type StemDetailWithCategory = StemDetailRow & { category_name?: string | null }
+  const pendingGeneratedStems = rows
+    .filter((r) => r.is_ai_generated === true && r.approval_status === 'pending')
+    .map((r) => ({
+      id: r.id,
+      sectionId: r.section_id,
+      sectionName: r.section_name ?? '',
+      categoryId: r.question_stem_category_id,
+      categoryName: r.category_name ?? null,
+      stemText: r.stem_text,
+      questions: (r.questions ?? []) as QuestionRow[],
+    }))
+
   const privateStemsNotInSet = rows
     .filter((r) => privateStemIdsNotInSet.has(r.id))
     .map((r) => ({
@@ -165,7 +179,7 @@ export async function GET() {
       sectionId: r.section_id,
       sectionName: r.section_name ?? '',
       categoryId: r.question_stem_category_id,
-      categoryName: (r as StemDetailWithCategory).category_name ?? null,
+      categoryName: r.category_name ?? null,
       stemText: r.stem_text,
       questions: (r.questions ?? []) as QuestionRow[],
     }))
@@ -294,6 +308,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    pendingGeneratedStems,
     stemsWithNoCategory,
     questionsWithNoExplanation,
     untaggedQuestions,
