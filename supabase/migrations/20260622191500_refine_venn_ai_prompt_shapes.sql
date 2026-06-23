@@ -5,9 +5,9 @@ WITH category_prompt AS (
     'Venn Diagrams'::text AS category_name,
     $prompt$Generate Decision Making Venn/set items using deterministic shape-based visuals, not the legacy coloured three-overlapping-circle template.
 
-Use official-style set diagrams when appropriate: two-set or three-set diagrams, nested ellipses, rectangles with circles, triangles, pentagons, hexagons, diamonds, mixed overlapping shapes, or answer options that are diagrams. Region values must be sufficient to solve the question and should be placed inside the relevant regions.
+Use official-style set diagrams when appropriate: two-set or three-set diagrams, nested ellipses, rectangles with circles, triangles, pentagons, hexagons, diamonds, mixed overlapping shapes, or answer options that are diagrams. Region values must be sufficient to solve the question and should be placed clearly inside the relevant regions, not on shape outlines or ambiguous boundary areas.
 
-Use visualType "set_diagram" or shape-based "venn_diagram" with spec.shapes and spec.labels. Keep diagrams monochrome or very lightly filled, with a separate legend for set names where labels would clutter the overlaps. If the question asks which diagram represents a scenario, put a visual block in each answer option.$prompt$ AS prompt_text
+Use visualType "set_diagram" or shape-based "venn_diagram" with spec.shapes and spec.regionLabels. Use shapes[].label only for set names, and use regionLabels only for numeric examinable values such as 0, 3, 12, or 45. Keep diagrams monochrome or very lightly filled, with a separate legend for set names where labels would clutter the overlaps. If the question asks which diagram represents a scenario, put a visual block in each answer option.$prompt$ AS prompt_text
 )
 INSERT INTO public.ucat_ai_generation_prompt_layers (
   scope_type,
