@@ -26,6 +26,9 @@ DROP POLICY IF EXISTS "Students read accessible flashcard review cards" ON publi
 ALTER TABLE public.flashcards
   DROP COLUMN IF EXISTS collection_id;
 
+ALTER TABLE public.flashcards
+  DROP COLUMN IF EXISTS title;
+
 DROP TABLE IF EXISTS public.flashcard_collections CASCADE;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_flashcards_topic_index
@@ -348,7 +351,6 @@ SELECT
   rc.flashcard_id,
   rc.cloze_index,
   f.topic_id,
-  f.title,
   f.cloze_text,
   f.extra,
   f.index AS flashcard_index,
