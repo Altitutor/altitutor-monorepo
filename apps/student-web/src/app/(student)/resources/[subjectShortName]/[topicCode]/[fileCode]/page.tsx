@@ -8,11 +8,9 @@ import { Button } from '@altitutor/ui';
 import {
   ResourceAccessDenied,
   ResourceFileViewer,
-  ResourcesBackLink,
   ResourcesBreadcrumb,
-  ResourcesPager,
-  type ResourceSidebarItem,
-  ResourcesSidebar,
+  TopicResourceSidebar,
+  buildTopicResourceSidebarItems,
   useResourceAccessBySubject,
   useResourceSubject,
   useResourceTopic,
@@ -20,12 +18,10 @@ import {
   useResourceTopicFiles,
   useResourceSignedFileUrl,
 } from '@/features/resources';
+import { useFlashcardTopic } from '@/features/flashcards';
 import {
   buildResourceFileTitle,
   flattenTopicFilesForNav,
-  formatResourceTypeLabel,
-  groupFilesByType,
-  pairFilesWithSolutions,
 } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { studentBtnOutline } from '@/shared/lib/student-visual';
@@ -41,45 +37,25 @@ export default function ResourceFileDetailPage() {
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
   const { data: file, isLoading: fileLoading } = useResourceTopicFile(topic?.id ?? null, fileCode);
   const { data: topicFiles } = useResourceTopicFiles(topic?.id ?? null);
+  const { data: flashcardTopic } = useFlashcardTopic(topic?.id ?? null);
   const { data: signedUrl } = useResourceSignedFileUrl(topic?.id ?? null, fileCode);
   const { data: accessBySubject } = useResourceAccessBySubject();
 
   const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
 
-  const sidebarItems = useMemo((): ResourceSidebarItem[] => {
-    if (!topicFiles?.length) return [];
-    const fileHref = (code: string) =>
-      `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(code.toLowerCase())}`;
-
-    const grouped = groupFilesByType(topicFiles);
-    return Object.entries(grouped).flatMap(([type, typeFiles]) => {
-      const pairs = pairFilesWithSolutions(typeFiles);
-      const items: ResourceSidebarItem[] = pairs.map(({ primary, solution }) => ({
-        key: primary.id,
-        label: `${primary.code} · ${primary.filename}`,
-        href: fileHref(primary.code),
-        active: primary.id === file?.id,
-        children: solution
-          ? [
-              {
-                key: solution.id,
-                label: `${solution.code} · ${solution.filename}`,
-                href: fileHref(solution.code),
-                active: solution.id === file?.id,
-              },
-            ]
-          : undefined,
-      }));
-
-      return [
-        {
-          key: `type-${type}`,
-          label: formatResourceTypeLabel(type),
-          children: items,
-        },
-      ];
-    });
-  }, [topicFiles, file?.id, subjectShortName, topicCode]);
+  const flashcardsHref = `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards`;
+  const sidebarItems = useMemo(
+    () =>
+      buildTopicResourceSidebarItems({
+        topicFiles: topicFiles ?? [],
+        activeFileId: file?.id ?? null,
+        subjectShortName,
+        topicCode,
+        flashcardsHref,
+        showFlashcards: Boolean(flashcardTopic?.review_card_count),
+      }),
+    [flashcardTopic?.review_card_count, flashcardsHref, file?.id, subjectShortName, topicCode, topicFiles],
+  );
 
   const fileTitle = useMemo(() => {
     if (!file) return null;
@@ -194,15 +170,14 @@ export default function ResourceFileDetailPage() {
           ) : null}
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
-          <ResourcesBackLink
-            href={topicHref}
-            label={`Back to ${topicLabel}`}
-            className="hidden lg:inline-flex"
-          />
-          <ResourcesSidebar title="Files in this topic" items={sidebarItems} className="hidden lg:block" />
-          <ResourcesPager prev={prev} next={next} ariaLabel="File navigation" />
-        </div>
+        <TopicResourceSidebar
+          topicHref={topicHref}
+          topicLabel={topicLabel}
+          items={sidebarItems}
+          prev={prev}
+          next={next}
+          pagerLabel="File navigation"
+        />
       </div>
     </StudentPageContainer>
   );

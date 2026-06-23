@@ -1,4 +1,4 @@
-import type { Flashcard, FlashcardCollection } from '@altitutor/shared';
+import type { Flashcard } from '@altitutor/shared';
 
 async function readJson<T>(response: Response): Promise<T> {
   const json = await response.json();
@@ -7,60 +7,53 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export const flashcardsApi = {
-  async listCollections(topicId: string): Promise<FlashcardCollection[]> {
-    const res = await fetch(`/api/flashcards/collections?topicId=${encodeURIComponent(topicId)}`);
-    return readJson<FlashcardCollection[]>(res);
-  },
-  async createCollection(input: { topicId: string; title: string; description?: string }): Promise<FlashcardCollection> {
-    const res = await fetch('/api/flashcards/collections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic_id: input.topicId, title: input.title, description: input.description }),
-    });
-    return readJson<FlashcardCollection>(res);
-  },
-  async deleteCollection(collectionId: string): Promise<void> {
-    const res = await fetch(`/api/flashcards/collections/${encodeURIComponent(collectionId)}`, { method: 'DELETE' });
-    await readJson<unknown>(res);
-  },
-  async updateCollection(input: { collectionId: string; title: string; description?: string }): Promise<FlashcardCollection> {
-    const res = await fetch(`/api/flashcards/collections/${encodeURIComponent(input.collectionId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: input.title, description: input.description }),
-    });
-    return readJson<FlashcardCollection>(res);
-  },
-  async listCards(collectionId: string): Promise<Flashcard[]> {
-    const res = await fetch(`/api/flashcards/collections/${encodeURIComponent(collectionId)}/cards`);
+  async listCards(topicId: string): Promise<Flashcard[]> {
+    const res = await fetch(`/api/flashcards?topicId=${encodeURIComponent(topicId)}`);
     return readJson<Flashcard[]>(res);
   },
-  async createCard(input: { collectionId: string; title?: string; clozeText: string; extra?: string }): Promise<Flashcard> {
-    const res = await fetch(`/api/flashcards/collections/${encodeURIComponent(input.collectionId)}/cards`, {
+
+  async createCard(input: {
+    topicId: string;
+    clozeText: string;
+    extra?: string;
+  }): Promise<Flashcard> {
+    const res = await fetch('/api/flashcards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: input.title, cloze_text: input.clozeText, extra: input.extra }),
+      body: JSON.stringify({
+        topic_id: input.topicId,
+        cloze_text: input.clozeText,
+        extra: input.extra,
+      }),
     });
     return readJson<Flashcard>(res);
   },
+
   async deleteCard(cardId: string): Promise<void> {
     const res = await fetch(`/api/flashcards/cards/${encodeURIComponent(cardId)}`, { method: 'DELETE' });
     await readJson<unknown>(res);
   },
-  async updateCard(input: { cardId: string; title?: string; clozeText: string; extra?: string }): Promise<Flashcard> {
+
+  async updateCard(input: {
+    cardId: string;
+    clozeText: string;
+    extra?: string;
+  }): Promise<Flashcard> {
     const res = await fetch(`/api/flashcards/cards/${encodeURIComponent(input.cardId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: input.title, cloze_text: input.clozeText, extra: input.extra }),
+      body: JSON.stringify({ cloze_text: input.clozeText, extra: input.extra }),
     });
     return readJson<Flashcard>(res);
   },
-  async importCsv(collectionId: string, csv: string): Promise<{ inserted: number; rejected: Array<{ row: number; reason: string }> }> {
-    const res = await fetch(`/api/flashcards/collections/${encodeURIComponent(collectionId)}/import`, {
+
+  async importCsv(topicId: string, csv: string): Promise<{ inserted: number; rejected: Array<{ row: number; reason: string }> }> {
+    const res = await fetch('/api/flashcards/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ csv }),
+      body: JSON.stringify({ topic_id: topicId, csv }),
     });
     return readJson<{ inserted: number; rejected: Array<{ row: number; reason: string }> }>(res);
   },
+
 };

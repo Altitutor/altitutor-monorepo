@@ -1,163 +1,249 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { ColumnDef, Row } from '@tanstack/react-table';
+import {
+  DataTable,
+  DataTableToolbar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  SearchableSelect,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import type { DataTableState, Flashcard } from '@altitutor/shared';
 import { getClozeIndexes, renderClozeQuestionText } from '@altitutor/shared';
-import { useFlashcardCollections, useFlashcardMutations, useFlashcards } from '../hooks/useFlashcards';
+import { EditFlashcardDialog } from './EditFlashcardDialog';
+import { ImportFlashcardsDialog } from './ImportFlashcardsDialog';
+import { useFlashcardMutations, useFlashcards } from '../hooks/useFlashcards';
+
+type FlashcardAction = {
+  key: 'import';
+  label: string;
+  icon: typeof Upload;
+};
+
+const actionItems: FlashcardAction[] = [
+  { key: 'import', label: 'Import CSV/TSV', icon: Upload },
+];
+
+function toPlainText(value: string | null | undefined): string {
+  return (value ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function FlashcardManager({ topicId }: { topicId: string }) {
-  const { data: collections = [] } = useFlashcardCollections(topicId);
-  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
-  const selectedCollectionId = activeCollectionId ?? collections[0]?.id ?? null;
-  const selectedCollection = useMemo(
-    () => collections.find((collection) => collection.id === selectedCollectionId) ?? null,
-    [collections, selectedCollectionId],
+  const { data: cards = [] } = useFlashcards(topicId);
+  const mutations = useFlashcardMutations(topicId);
+  const [search, setSearch] = useState('');
+  const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(['preview', 'clozes', 'extra', 'actions']);
+
+  const toolbarState: DataTableState = useMemo(
+    () => ({
+      search,
+      filters: {},
+      sortBy: null,
+      sortDirection: 'asc',
+      groupBy: null,
+      visibleColumns,
+      page: 1,
+      pageSize: 10,
+    }),
+    [search, visibleColumns],
   );
-  const { data: cards = [] } = useFlashcards(selectedCollectionId);
-  const mutations = useFlashcardMutations(topicId, selectedCollectionId);
-  const [collectionTitle, setCollectionTitle] = useState('');
-  const [collectionDescription, setCollectionDescription] = useState('');
-  const [cardTitle, setCardTitle] = useState('');
-  const [clozeText, setClozeText] = useState('');
-  const [extra, setExtra] = useState('');
-  const [csv, setCsv] = useState('');
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+
+  const filteredCards = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return cards;
+    return cards.filter((card) =>
+      [card.cloze_text, card.extra]
+        .filter(Boolean)
+        .some((value) => toPlainText(String(value)).toLowerCase().includes(needle)),
+    );
+  }, [cards, search]);
+
+  const openAddDialog = () => {
+    setEditingCard(null);
+    setIsEditOpen(true);
+  };
+
+  const openEditDialog = (card: Flashcard) => {
+    setEditingCard(card);
+    setIsEditOpen(true);
+  };
+
+  type FlashcardRow = { row: Row<Flashcard> };
+
+  const columns = useMemo<ColumnDef<Flashcard>[]>(
+    () =>
+      [
+        visibleColumns.includes('preview')
+          ? {
+              id: 'preview',
+              header: 'Preview',
+              cell: ({ row }: FlashcardRow) => (
+                <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {toPlainText(renderClozeQuestionText(row.original.cloze_text, getClozeIndexes(row.original.cloze_text)[0] ?? 1))}
+                </p>
+              ),
+            }
+          : null,
+        visibleColumns.includes('clozes')
+          ? {
+              id: 'clozes',
+              header: 'Clozes',
+              cell: ({ row }: FlashcardRow) => row.original.review_card_count ?? getClozeIndexes(row.original.cloze_text).length,
+            }
+          : null,
+        visibleColumns.includes('extra')
+          ? {
+              id: 'extra',
+              header: 'Extra',
+              cell: ({ row }: FlashcardRow) => (
+                <span className="line-clamp-1 text-sm text-muted-foreground">
+                  {toPlainText(row.original.extra) || 'None'}
+                </span>
+              ),
+            }
+          : null,
+        visibleColumns.includes('actions')
+          ? {
+              id: 'actions',
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: FlashcardRow) => (
+                <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" aria-label="Flashcard actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem className="gap-2" onSelect={() => openEditDialog(row.original)}>
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 text-destructive"
+                        onSelect={() => mutations.deleteCard.mutate(row.original.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ),
+            }
+          : null,
+      ].filter(Boolean) as ColumnDef<Flashcard>[],
+    [mutations.deleteCard, visibleColumns],
+  );
 
   return (
-    <section className="space-y-5 rounded-lg border bg-card p-5" aria-labelledby="flashcards-heading">
-      <div>
-        <h2 id="flashcards-heading" className="text-2xl font-semibold">
+    <section className="space-y-3" aria-labelledby="flashcards-heading">
+      <div className="flex items-center justify-between gap-3">
+        <h3 id="flashcards-heading" className="text-lg font-semibold">
           Flashcards
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">Cloze-only cards linked to this topic.</p>
+        </h3>
+        <div className="flex items-center gap-2">
+          <SearchableSelect<FlashcardAction>
+            items={actionItems}
+            value={null}
+            onValueChange={(item) => {
+              if (!item) return;
+              if (item.key === 'import') setIsImportOpen(true);
+            }}
+            getItemId={(item) => item.key}
+            getItemLabel={(item) => item.label}
+            searchPlaceholder="Search actions..."
+            emptyMessage="No actions found"
+            showChevron={false}
+            trigger={
+              <Button variant="outline" size="icon" aria-label="Flashcard actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            }
+            renderItem={(item) => {
+              const Icon = item.icon;
+              return (
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </div>
+              );
+            }}
+          />
+          <Button size="sm" className="gap-1.5" onClick={openAddDialog}>
+            <Plus className="h-4 w-4" />
+            Add Flashcard
+          </Button>
+        </div>
       </div>
 
-      <form
-        className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const created = await mutations.createCollection.mutateAsync({
+      <DataTableToolbar
+        state={toolbarState}
+        onSearchChange={setSearch}
+        onFiltersChange={() => {}}
+        onSortChange={() => {}}
+        onGroupByChange={() => {}}
+        onVisibleColumnsChange={setVisibleColumns}
+        onQuickFilterApply={() => {}}
+        onReset={() => setSearch('')}
+        columnDefinitions={[
+          { key: 'preview', label: 'Preview' },
+          { key: 'clozes', label: 'Clozes' },
+          { key: 'extra', label: 'Extra' },
+          { key: 'actions', label: 'Actions' },
+        ]}
+        searchPlaceholder="Search flashcards..."
+      />
+
+      <DataTable
+        columns={columns}
+        data={filteredCards}
+        pageSizeOptions={[10, 20, 50]}
+        onRowClick={openEditDialog}
+      />
+
+      <EditFlashcardDialog
+        open={isEditOpen}
+        topicId={topicId}
+        flashcard={editingCard}
+        isSaving={mutations.createCard.isPending || mutations.updateCard.isPending}
+        onOpenChange={setIsEditOpen}
+        onSave={async (input) => {
+          if (input.cardId) {
+            await mutations.updateCard.mutateAsync({
+              cardId: input.cardId,
+              clozeText: input.clozeText,
+              extra: input.extra,
+            });
+            return;
+          }
+          await mutations.createCard.mutateAsync({
             topicId,
-            title: collectionTitle,
-            description: collectionDescription,
+            clozeText: input.clozeText,
+            extra: input.extra,
           });
-          setActiveCollectionId(created.id);
-          setCollectionTitle('');
-          setCollectionDescription('');
         }}
-      >
-        <input value={collectionTitle} onChange={(event) => setCollectionTitle(event.target.value)} placeholder="Collection title" className="h-10 rounded-md border bg-background px-3 text-sm" required />
-        <input value={collectionDescription} onChange={(event) => setCollectionDescription(event.target.value)} placeholder="Description" className="h-10 rounded-md border bg-background px-3 text-sm" />
-        <Button type="submit" disabled={mutations.createCollection.isPending}>Add collection</Button>
-      </form>
+      />
 
-      {collections.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {collections.map((collection) => (
-            <Button key={collection.id} type="button" variant={collection.id === selectedCollectionId ? 'default' : 'outline'} onClick={() => setActiveCollectionId(collection.id)}>
-              {collection.title} ({collection.review_card_count ?? 0})
-            </Button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">No flashcard collections yet.</p>
-      )}
+      <ImportFlashcardsDialog
+        open={isImportOpen}
+        isImporting={mutations.importCsv.isPending}
+        onOpenChange={setIsImportOpen}
+        onImport={(csv) => mutations.importCsv.mutateAsync({ id: topicId, csv })}
+      />
 
-      {selectedCollection ? (
-        <div className="space-y-5 rounded-lg border p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">{selectedCollection.title}</h3>
-              {selectedCollection.description ? <p className="text-sm text-muted-foreground">{selectedCollection.description}</p> : null}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                const title = window.prompt('Collection title', selectedCollection.title);
-                if (title == null || !title.trim()) return;
-                const description = window.prompt('Description', selectedCollection.description ?? '') ?? '';
-                mutations.updateCollection.mutate({ collectionId: selectedCollection.id, title, description });
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-              Edit
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-destructive" onClick={() => mutations.deleteCollection.mutate(selectedCollection.id)}>
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          </div>
-
-          <form
-            className="space-y-3"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              await mutations.createCard.mutateAsync({ collectionId: selectedCollection.id, title: cardTitle, clozeText, extra });
-              setCardTitle('');
-              setClozeText('');
-              setExtra('');
-            }}
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              <input value={cardTitle} onChange={(event) => setCardTitle(event.target.value)} placeholder="Card title" className="h-10 rounded-md border bg-background px-3 text-sm" />
-              <input value={extra} onChange={(event) => setExtra(event.target.value)} placeholder="Extra context shown after reveal" className="h-10 rounded-md border bg-background px-3 text-sm" />
-            </div>
-            <textarea value={clozeText} onChange={(event) => setClozeText(event.target.value)} placeholder="The {{c1::mitochondria}} is the powerhouse of the cell." className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" required />
-            <Button type="submit" disabled={mutations.createCard.isPending}>Add cloze card</Button>
-          </form>
-
-          <form
-            className="space-y-3"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const result = await mutations.importCsv.mutateAsync({ id: selectedCollection.id, csv });
-              setImportMessage(`Imported ${result.inserted} cards${result.rejected.length ? `; rejected ${result.rejected.length} rows` : ''}`);
-              setCsv('');
-            }}
-          >
-            <textarea value={csv} onChange={(event) => setCsv(event.target.value)} placeholder={'text,title,order,extra\n"{{c1::Cell membrane}} controls movement",Biology,1,"Remember selective permeability"'} className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" />
-            <div className="flex items-center gap-3">
-              <Button type="submit" variant="outline" disabled={!csv.trim() || mutations.importCsv.isPending}>Import CSV</Button>
-              {importMessage ? <p className="text-sm text-muted-foreground">{importMessage}</p> : null}
-            </div>
-          </form>
-
-          <div className="space-y-2">
-            {cards.map((card) => (
-              <div key={card.id} className="rounded-lg border p-3 text-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
-                    {card.title ? <p className="font-medium">{card.title}</p> : null}
-                    <p className="whitespace-pre-wrap text-muted-foreground">{renderClozeQuestionText(card.cloze_text, getClozeIndexes(card.cloze_text)[0] ?? 1)}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const title = window.prompt('Card title', card.title ?? '') ?? '';
-                      const cloze = window.prompt('Cloze text', card.cloze_text);
-                      if (cloze == null || !cloze.trim()) return;
-                      const nextExtra = window.prompt('Extra context', card.extra ?? '') ?? '';
-                      mutations.updateCard.mutate({ cardId: card.id, title, clozeText: cloze, extra: nextExtra });
-                    }}
-                    aria-label="Edit flashcard"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => mutations.deleteCard.mutate(card.id)} aria-label="Delete flashcard">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

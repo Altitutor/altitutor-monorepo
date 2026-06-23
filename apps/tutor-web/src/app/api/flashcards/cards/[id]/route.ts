@@ -4,7 +4,7 @@ import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { hasClozeMarker } from '@altitutor/shared';
 
 async function assertCardAccess(cardId: string) {
-  const userClient = createClient() as any;
+  const userClient = createClient();
   const { data } = await userClient
     .from('vstaff_flashcards')
     .select('id')
@@ -23,18 +23,17 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'Flashcard text must contain a cloze marker' }, { status: 400 });
   }
 
-  const userClient = createClient() as any;
+  const userClient = createClient();
   const { data: staffId } = await userClient.rpc('current_tutor_id');
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
     updated_by: staffId ?? null,
   };
-  if (body.title !== undefined) updates.title = body.title || null;
   if (body.cloze_text !== undefined) updates.cloze_text = body.cloze_text;
   if (body.extra !== undefined) updates.extra = body.extra || null;
   if (body.index !== undefined) updates.index = body.index;
 
-  const serviceClient = getServiceRoleClient() as any;
+  const serviceClient = getServiceRoleClient();
   const { data, error } = await serviceClient
     .from('flashcards')
     .update(updates)
@@ -51,9 +50,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const userClient = createClient() as any;
+  const userClient = createClient();
   const { data: staffId } = await userClient.rpc('current_tutor_id');
-  const serviceClient = getServiceRoleClient() as any;
+  const serviceClient = getServiceRoleClient();
   const { error } = await serviceClient
     .from('flashcards')
     .update({ deleted_at: new Date().toISOString(), deleted_by: staffId ?? null })

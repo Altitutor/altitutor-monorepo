@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { hasClozeMarker } from '@altitutor/shared';
 
 async function assertCardAccess(cardId: string) {
-  const userClient = createClient() as any;
+  const userClient = createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return false;
   const { data } = await userClient
@@ -27,12 +27,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.title !== undefined) updates.title = body.title || null;
   if (body.cloze_text !== undefined) updates.cloze_text = body.cloze_text;
   if (body.extra !== undefined) updates.extra = body.extra || null;
   if (body.index !== undefined) updates.index = body.index;
 
-  const { data, error } = await (supabaseAdmin as any)
+  const { data, error } = await supabaseAdmin
     .from('flashcards')
     .update(updates)
     .eq('id', params.id)
@@ -49,7 +48,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const { error } = await (supabaseAdmin as any)
+  const { error } = await supabaseAdmin
     .from('flashcards')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', params.id);

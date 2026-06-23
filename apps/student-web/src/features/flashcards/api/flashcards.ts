@@ -1,4 +1,4 @@
-import type { FlashcardCollection, FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
+import type { FlashcardRating, FlashcardReviewCard, FlashcardTopic } from '@altitutor/shared';
 
 async function readJson<T>(response: Response): Promise<T> {
   const json = await response.json();
@@ -7,15 +7,18 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export const flashcardsApi = {
-  async listCollections(topicId: string): Promise<FlashcardCollection[]> {
-    const res = await fetch(`/api/flashcards/collections?topicId=${encodeURIComponent(topicId)}`);
-    return readJson<FlashcardCollection[]>(res);
+  async getTopic(topicId: string): Promise<FlashcardTopic | null> {
+    const res = await fetch(`/api/flashcards?topicId=${encodeURIComponent(topicId)}`);
+    return readJson<FlashcardTopic | null>(res);
   },
 
-  async listReviewCards(collectionId: string, mode: 'due' | 'all'): Promise<FlashcardReviewCard[]> {
-    const res = await fetch(
-      `/api/flashcards/collections/${encodeURIComponent(collectionId)}/review-cards?mode=${mode}`,
-    );
+  async listReviewCards(topicId: string, mode: 'due' | 'all'): Promise<FlashcardReviewCard[]> {
+    const res = await fetch(`/api/flashcards/review-cards?topicId=${encodeURIComponent(topicId)}&mode=${mode}`);
+    return readJson<FlashcardReviewCard[]>(res);
+  },
+
+  async listDueReviewCards(): Promise<FlashcardReviewCard[]> {
+    const res = await fetch('/api/flashcards/review-cards?mode=due');
     return readJson<FlashcardReviewCard[]>(res);
   },
 

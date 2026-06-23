@@ -1,4 +1,4 @@
-export type FlashcardCollection = {
+export type FlashcardTopic = {
   id: string;
   topic_id: string;
   title: string;
@@ -11,8 +11,7 @@ export type FlashcardCollection = {
 
 export type Flashcard = {
   id: string;
-  collection_id: string;
-  title: string | null;
+  topic_id: string;
   cloze_text: string;
   extra: string | null;
   index: number;
@@ -23,16 +22,18 @@ export type FlashcardReviewCard = {
   id: string;
   flashcard_id: string;
   cloze_index: number;
-  collection_id: string;
-  title: string | null;
+  topic_id: string;
   cloze_text: string;
   extra: string | null;
   flashcard_index: number;
   due_at: string;
-  interval_days: number;
-  ease_factor: number;
-  repetitions: number;
+  stability: number | null;
+  difficulty: number | null;
+  scheduled_days: number;
+  learning_steps: number;
+  reps: number;
   lapses: number;
+  state: 'New' | 'Learning' | 'Review' | 'Relearning';
   last_reviewed_at: string | null;
   last_rating: FlashcardRating | null;
 };
@@ -40,7 +41,6 @@ export type FlashcardReviewCard = {
 export type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
 
 export type FlashcardImportRow = {
-  title: string | null;
   clozeText: string;
   extra: string | null;
   order: number | null;

@@ -1,7 +1,7 @@
 import { hasClozeMarker } from './cloze';
 import type { FlashcardImportResult, FlashcardImportRow } from './types';
 
-function parseCsvLine(line: string): string[] {
+function parseDelimitedLine(line: string, delimiter: ',' | '\t'): string[] {
   const cells: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -21,7 +21,7 @@ function parseCsvLine(line: string): string[] {
       continue;
     }
 
-    if (char === ',' && !inQuotes) {
+    if (char === delimiter && !inQuotes) {
       cells.push(current);
       current = '';
       continue;
@@ -34,14 +34,14 @@ function parseCsvLine(line: string): string[] {
   return cells.map((cell) => cell.trim());
 }
 
-function parseCsvRows(csv: string): string[][] {
+function parseDelimitedRows(input: string, delimiter: ',' | '\t'): string[][] {
   const rows: string[][] = [];
   let current = '';
   let inQuotes = false;
 
-  for (let i = 0; i < csv.length; i += 1) {
-    const char = csv[i];
-    const next = csv[i + 1];
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    const next = input[i + 1];
 
     if (char === '"' && inQuotes && next === '"') {
       current += '""';
@@ -57,7 +57,7 @@ function parseCsvRows(csv: string): string[][] {
 
     if ((char === '\n' || char === '\r') && !inQuotes) {
       if (char === '\r' && next === '\n') i += 1;
-      if (current.trim()) rows.push(parseCsvLine(current));
+      if (current.trim()) rows.push(parseDelimitedLine(current, delimiter));
       current = '';
       continue;
     }
@@ -65,7 +65,7 @@ function parseCsvRows(csv: string): string[][] {
     current += char;
   }
 
-  if (current.trim()) rows.push(parseCsvLine(current));
+  if (current.trim()) rows.push(parseDelimitedLine(current, delimiter));
   return rows;
 }
 
@@ -74,25 +74,33 @@ function normalizeHeader(header: string): string {
 }
 
 export function parseFlashcardCsv(csv: string): FlashcardImportResult {
-  const rows = parseCsvRows(csv);
+  const lines = csv.split(/\r?\n/);
+  const metadataLines = lines.filter((line) => line.startsWith('#'));
+  const separatorLine = metadataLines.find((line) => line.toLowerCase().startsWith('#separator:'));
+  const delimiter: ',' | '\t' = separatorLine?.toLowerCase().includes('tab') || csv.includes('\t') ? '\t' : ',';
+  const content = lines.filter((line) => !line.startsWith('#')).join('\n');
+  const rows = parseDelimitedRows(content, delimiter);
   const result: FlashcardImportResult = { rows: [], rejected: [] };
   if (rows.length === 0) return result;
 
   const headers = rows[0].map(normalizeHeader);
-  const textIndex = headers.indexOf('text');
-  const titleIndex = headers.indexOf('title');
-  const orderIndex = headers.indexOf('order');
-  const extraIndex = headers.indexOf('extra');
+  const hasHeader = headers.includes('text') || headers.includes('cloze_text');
+  const canUseAnkiShape = !hasHeader && delimiter === '\t';
+  const textIndex = hasHeader ? Math.max(headers.indexOf('text'), headers.indexOf('cloze_text')) : 0;
+  const orderIndex = hasHeader ? headers.indexOf('order') : -1;
+  const extraIndex = hasHeader ? headers.indexOf('extra') : 1;
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const firstDataRowNumber = hasHeader ? 2 : metadataLines.length + 1;
 
-  if (textIndex === -1) {
+  if (textIndex === -1 || (!hasHeader && !canUseAnkiShape)) {
     return {
       rows: [],
       rejected: [{ row: 1, reason: 'Missing required text column' }],
     };
   }
 
-  rows.slice(1).forEach((row, offset) => {
-    const rowNumber = offset + 2;
+  dataRows.forEach((row, offset) => {
+    const rowNumber = offset + firstDataRowNumber;
     const clozeText = row[textIndex]?.trim() ?? '';
     if (!clozeText) {
       result.rejected.push({ row: rowNumber, reason: 'Missing cloze text' });
@@ -105,7 +113,6 @@ export function parseFlashcardCsv(csv: string): FlashcardImportResult {
 
     const orderValue = orderIndex >= 0 ? Number(row[orderIndex]) : NaN;
     const importRow: FlashcardImportRow = {
-      title: titleIndex >= 0 && row[titleIndex]?.trim() ? row[titleIndex].trim() : null,
       clozeText,
       extra: extraIndex >= 0 && row[extraIndex]?.trim() ? row[extraIndex].trim() : null,
       order: Number.isFinite(orderValue) ? orderValue : null,

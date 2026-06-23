@@ -18,7 +18,7 @@ import {
   useResourceTopicFiles,
   useResourceTopics,
 } from '@/features/resources';
-import { FlashcardCollectionsList, useFlashcardCollections } from '@/features/flashcards';
+import { FlashcardTopicCard, useFlashcardTopic } from '@/features/flashcards';
 import {
   buildTopicTree,
   findTopicNodeInTree,
@@ -36,7 +36,7 @@ export default function ResourceTopicDetailPage() {
   const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
   const { data: topicFiles, isLoading: filesLoading } = useResourceTopicFiles(topic?.id ?? null);
-  const { data: flashcardCollections, isLoading: flashcardsLoading } = useFlashcardCollections(topic?.id ?? null);
+  const { data: flashcardTopic, isLoading: flashcardsLoading } = useFlashcardTopic(topic?.id ?? null);
   const { data: subjectTopics } = useResourceTopics(subject?.id ?? null);
   const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
   const { data: accessBySubject } = useResourceAccessBySubject();
@@ -149,11 +149,9 @@ export default function ResourceTopicDetailPage() {
                 }
               />
               {!flashcardsLoading ? (
-                <FlashcardCollectionsList
-                  collections={flashcardCollections ?? []}
-                  getCollectionHref={(collectionId) =>
-                    `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards/${encodeURIComponent(collectionId)}`
-                  }
+                <FlashcardTopicCard
+                  topic={flashcardTopic ?? null}
+                  href={`/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards`}
                 />
               ) : null}
             </div>

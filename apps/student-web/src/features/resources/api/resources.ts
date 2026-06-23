@@ -18,6 +18,12 @@ type SubjectImageRow = {
   mimetype: string | null;
 };
 
+type FlashcardTopicCountRow = {
+  topic_id: string | null;
+  flashcard_count: number | null;
+  review_card_count: number | null;
+};
+
 function castAccessSource(value: string | null): ResourceAccessSource | null {
   if (value === 'class_enrollment' || value === 'subscription' || value === 'manual') return value;
   return null;
@@ -137,7 +143,20 @@ export const resourcesApi = {
       .in('topic_id', topicIds);
 
     if (error) throw error;
-    return buildFileCountByTopic((data ?? []) as Pick<StudentTopicFileRow, 'topic_id'>[]);
+    const counts = buildFileCountByTopic((data ?? []) as Pick<StudentTopicFileRow, 'topic_id'>[]);
+    const { data: flashcardTopics, error: flashcardError } = await supabase
+      .from('vstudent_flashcard_topics')
+      .select('topic_id, flashcard_count, review_card_count')
+      .in('topic_id', topicIds);
+
+    if (flashcardError) throw flashcardError;
+    for (const row of (flashcardTopics ?? []) as FlashcardTopicCountRow[]) {
+      if (!row.topic_id) continue;
+      if ((row.flashcard_count ?? 0) <= 0 && (row.review_card_count ?? 0) <= 0) continue;
+      counts.set(row.topic_id, (counts.get(row.topic_id) ?? 0) + 1);
+    }
+
+    return counts;
   },
 
   async getTopicFiles(topicId: string): Promise<ResourceFile[]> {

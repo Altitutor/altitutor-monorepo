@@ -13,13 +13,13 @@
 - **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
   _Avoid_: Learning module, UCAT module
 
-- **Topic resource** — A student-facing study item attached to one topic, such as a file or flashcard collection. Topic resources belong to the general student resource experience, not the UCAT Learn catalog.
+- **Topic resource** — A student-facing study item attached to one topic, such as a file or topic flashcards. Topic resources belong to the general student resource experience, not the UCAT Learn catalog.
   _Avoid_: Learning module block, lesson content
 
-- **Flashcard collection** — A topic resource that groups ordered cloze flashcards for student study. A collection belongs to exactly one topic and is the unit students open from Resources.
-  _Avoid_: Deck, learning module, file
+- **Topic flashcards** — The ordered cloze flashcards attached directly to one topic. The topic itself is the collection boundary students open from Resources.
+  _Avoid_: Deck, learning module, file, flashcard collection
 
-- **Flashcard** — One cloze-deletion study prompt inside a flashcard collection. Flashcards use cloze markers in the prompt itself and do not have separate front/back sides.
+- **Flashcard** — One cloze-deletion study prompt attached to a topic. Flashcards use cloze markers in the prompt itself and do not have separate front/back sides.
   _Avoid_: Basic card, note, question
 
 - **Flashcard review card** — One reviewable cloze marker generated from a flashcard. A flashcard with multiple cloze markers creates one review card per marker, and each review card has its own spaced-repetition state.
@@ -28,10 +28,10 @@
 - **Due flashcard review** — A student study mode that shows only flashcard review cards whose spaced-repetition state is due. Student ratings update the review card's next due date and scheduling state.
   _Avoid_: Quizlet mode, browse mode
 
-- **Free flashcard study** — A student study mode that shows all flashcard review cards in a selected topic or flashcard collection without changing spaced-repetition state.
+- **Free flashcard study** — A student study mode that shows all flashcard review cards in a selected topic without changing spaced-repetition state.
   _Avoid_: Due review, scheduled review
 
-- **Anki flashcard import** — A staff workflow for bringing existing Anki cloze material into a flashcard collection from a text export such as CSV. The import accepts cloze cards only; front/back cards and `.apkg` package parsing are not part of the first flashcard import scope.
+- **Anki flashcard import** — A staff workflow for bringing existing Anki cloze material into a topic from a text export such as CSV. The import accepts cloze cards only; front/back cards and `.apkg` package parsing are not part of the first flashcard import scope.
   _Avoid_: Mobile sync, push reminder setup, basic-card import
 
 - **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
