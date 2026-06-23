@@ -177,6 +177,17 @@ deploy_tutor_web_server_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_TUTOR_PROJECT" "$environment"
 }
 
+deploy_all_web_server_secret() {
+    local secret_name=$1
+    local secret_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_ADMIN_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_STUDENT_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_TUTOR_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
@@ -201,6 +212,9 @@ while IFS='=' read -r key value; do
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "preview"
+    # Deploy server-side email secrets used by app API routes
+    elif [[ "$key" == "RESEND_API_KEY" ]]; then
+        deploy_all_web_server_secret "$key" "$value" "preview"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.development"
@@ -234,6 +248,9 @@ while IFS='=' read -r key value; do
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "production"
+    # Deploy server-side email secrets used by app API routes
+    elif [[ "$key" == "RESEND_API_KEY" ]]; then
+        deploy_all_web_server_secret "$key" "$value" "production"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.production"
@@ -247,6 +264,5 @@ echo ""
 print_summary
 
 exit $?
-
 
 

@@ -90,13 +90,26 @@ function hasSyllogismOptionEvidenceAfter(lines: string[], index: number): boolea
   return nonBlank.length >= 5
 }
 
-const SYLLOGISM_IMAGE_PLACEHOLDER_LINES = [
+export const SYLLOGISM_IMAGE_PLACEHOLDER_LINES = [
   '[Syllogism image statement 1 pending OCR]',
   '[Syllogism image statement 2 pending OCR]',
   '[Syllogism image statement 3 pending OCR]',
   '[Syllogism image statement 4 pending OCR]',
   '[Syllogism image statement 5 pending OCR]',
-]
+] as const
+
+export function isSyllogismManualEntryPlaceholder(text: string): boolean {
+  const trimmed = text.trim()
+  return SYLLOGISM_IMAGE_PLACEHOLDER_LINES.some((placeholder) => placeholder === trimmed)
+}
+
+export function questionNeedsSyllogismManualEntry(
+  question: Pick<ParsedDecisionMakingQuestion, 'questionType' | 'options'>
+): boolean {
+  if (question.questionType !== 'syllogism') return false
+  if (question.options.length !== 5) return true
+  return question.options.some((option) => isSyllogismManualEntryPlaceholder(option.text))
+}
 
 function stripQuestionNumber(line: string, config: Partial<ParserConfig>): string {
   const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
@@ -334,21 +347,62 @@ export type DecisionMakingCategoryName =
   | 'Syllogisms'
   | 'Recognising Assumptions'
   | 'Venn Diagrams'
-  | 'Drawing Conclusions'
   | 'Probabilistic and Statistical Reasoning'
   | 'Logical Puzzles'
+
+const PROBABILISTIC_KEYWORDS = [
+  'probability',
+  'probabilistic',
+  'probabilities',
+  'statistical',
+  'statistics',
+  'chance',
+  'odds',
+  'likelihood',
+  'percent',
+  'lottery',
+  'spinner',
+  'randomly',
+] as const
+
+const PROBABILISTIC_PATTERNS = [
+  /\d+\s*%/,
+  /\bfair(?:\s+six-sided)?\s+(?:dice|die|coin)\b/,
+  /\b(?:dice|die)\b.*\b(?:re-?)?rolls?\b/,
+  /\b(?:re-?)?rolls?\b.*\b(?:dice|die)\b/,
+  /\bcoin\b.*\b(?:flip|toss)(?:es|ed|ing)?\b/,
+  /\b(?:flip|toss)(?:es|ed|ing)?\b.*\bcoin\b/,
+] as const
+
+function containsProbabilisticSignals(text: string): boolean {
+  const lower = text.toLowerCase()
+  if (PROBABILISTIC_KEYWORDS.some((keyword) => lower.includes(keyword))) {
+    return true
+  }
+  return PROBABILISTIC_PATTERNS.some((pattern) => pattern.test(lower))
+}
+
+function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
+  if (containsProbabilisticSignals(stem.stemText)) {
+    return true
+  }
+  return stem.questions.some(
+    (q) =>
+      containsProbabilisticSignals(q.text) ||
+      q.options.some((opt) => containsProbabilisticSignals(opt.text))
+  )
+}
 
 /**
  * Get Decision Making category name from stem content.
  * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
- * Drawing Conclusions, Probabilistic and Statistical Reasoning, Logical Puzzles.
+ * Probabilistic and Statistical Reasoning, Logical Puzzles.
  */
 export function getDecisionMakingStemCategoryName(
   stem: ParsedDecisionMakingStem
 ): DecisionMakingCategoryName {
   const stemLower = stem.stemText.toLowerCase()
   const hasDiagramInStem = stemLower.includes('diagram')
-  const hasProbabilityInStem = stemLower.includes('probability')
 
   const containsImage = (text: string): boolean => text.includes('[[IMG:')
 
@@ -371,18 +425,10 @@ export function getDecisionMakingStemCategoryName(
     ) {
       return 'Venn Diagrams'
     }
-    if (qLower.includes('concluded') || qLower.includes('conclusion')) {
-      return 'Drawing Conclusions'
-    }
   }
 
-  if (hasProbabilityInStem) {
+  if (stemHasProbabilisticSignals(stem)) {
     return 'Probabilistic and Statistical Reasoning'
-  }
-  for (const q of stem.questions) {
-    if (q.text.toLowerCase().includes('probability')) {
-      return 'Probabilistic and Statistical Reasoning'
-    }
   }
 
   return 'Logical Puzzles'

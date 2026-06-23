@@ -5,9 +5,162 @@ import {
   UCAT_COLORS,
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { AnswerOption, QuestionItem } from "@/features/question-engine/model/types";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { cn } from "@/lib/utils";
 import { RichContentBlock } from "./rich-content-block";
+import {
+  AnswerExplanation,
+  hasAnswerExplanation,
+  OptionText,
+} from "./question-content";
+
+type ResultsViewerVariant = "ucat" | "site";
+
+function getResultsViewerTheme(variant: ResultsViewerVariant) {
+  const site = variant === "site";
+  return {
+    site,
+    body: site
+      ? "text-sm leading-relaxed"
+      : `font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`,
+    scrollRoot: site ? "" : "h-full overflow-auto",
+    twoColumnRoot: cn(
+      "flex gap-4",
+      site ? "sm:gap-6" : "h-full min-h-0",
+      site ? "text-sm leading-relaxed" : `font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`,
+    ),
+    stemColumn: cn(
+      "flex-[3] min-w-0 pr-4 py-4 sm:py-5",
+      site
+        ? "border-r border-border"
+        : "h-full overflow-y-auto border-r-[6px]",
+    ),
+    questionColumn: cn(
+      "flex-[2] min-w-0 pl-2 pr-1 py-4 sm:py-5",
+      !site && "h-full overflow-y-auto",
+    ),
+    gridHeader: site
+      ? "text-xs font-medium text-muted-foreground"
+      : "text-[10pt] font-medium text-[#4b5563]",
+    statementBox: site
+      ? "flex min-h-[50px] w-full items-center justify-center rounded-md border border-border bg-card px-4 text-center"
+      : "flex min-h-[50px] w-full items-center justify-center rounded border border-[#000000] bg-white px-4 text-center",
+    correctAnswerBox: site
+      ? "flex h-9 w-20 items-center justify-center rounded-md border border-border bg-card text-sm font-medium"
+      : "flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium",
+    explanationText: site
+      ? "text-xs leading-relaxed text-muted-foreground"
+      : "text-[10pt] leading-relaxed text-[#5a6c7d]",
+    footer: site
+      ? "mt-3 space-y-1 border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground"
+      : "mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed",
+    footerStyle: site ? undefined : ({ color: "#5a6c7d" } as const),
+    questionPrompt: site ? "font-medium text-base" : "font-medium text-[12pt]",
+    correctRowBg: site ? "bg-green-500/10" : "bg-green-100",
+    wrongRowBg: site ? "bg-red-500/10" : "bg-red-100",
+    optionExplanation: site
+      ? "text-sm leading-relaxed text-muted-foreground"
+      : "text-[11pt] leading-relaxed text-[#5a6c7d]",
+    optionExplanationStyle: site ? undefined : ({ color: "#5a6c7d" } as const),
+    statsBarBg: site ? "bg-muted" : "bg-[#e8ecf0]",
+    labelSize: site ? "text-xs" : "text-[10pt]",
+  };
+}
+
+function StudentStatsBar({
+  pct,
+  barWidth,
+  hasStats,
+  variant,
+}: {
+  pct: number;
+  barWidth: number;
+  hasStats: boolean;
+  variant: ResultsViewerVariant;
+}) {
+  const site = variant === "site";
+  return (
+    <div
+      className={cn(
+        "relative flex h-5 w-20 shrink-0 items-center justify-center overflow-hidden rounded",
+        site ? "bg-muted" : "bg-[#e8ecf0]",
+      )}
+      title={hasStats ? `${pct.toFixed(1)}%` : "No data yet"}
+    >
+      <div
+        className={cn(
+          "absolute inset-y-0 left-0 rounded transition-all",
+          site && "bg-primary",
+        )}
+        style={{
+          width: `${barWidth}%`,
+          ...(site ? {} : { backgroundColor: UCAT_COLORS.toolbarBlue }),
+        }}
+      />
+      <span
+        className={cn(
+          "relative z-10 font-medium tabular-nums",
+          site ? "text-xs" : "text-[10pt]",
+          site
+            ? pct > 50
+              ? "text-primary-foreground"
+              : "text-muted-foreground"
+            : undefined,
+        )}
+        style={
+          site
+            ? undefined
+            : {
+                color: pct > 50 ? "white" : "#5a6c7d",
+                textShadow: pct > 50 ? "0 0 1px rgba(0,0,0,0.3)" : "none",
+              }
+        }
+      >
+        {hasStats ? `${pct.toFixed(1)}%` : "—"}
+      </span>
+    </div>
+  );
+}
+
+function getQuestionMaxPoints(question: QuestionItem): number {
+  return question.questionType === "syllogism" ? 2 : 1;
+}
+
+function getPointsColorClass(scored: number, maxPoints: number): string {
+  if (scored <= 0) return "text-red-700 dark:text-red-400";
+  if (scored >= maxPoints) return "text-green-700 dark:text-green-400";
+  return "text-amber-700 dark:text-amber-400";
+}
+
+function QuestionPointsFooter({
+  points,
+  question,
+}: {
+  points: number;
+  question: QuestionItem;
+}) {
+  const maxPoints = getQuestionMaxPoints(question);
+  const scored = Math.round(points);
+
+  return (
+    <div className="font-medium">
+      <span className={getPointsColorClass(scored, maxPoints)}>
+        Points: {scored} / {maxPoints}
+      </span>
+    </div>
+  );
+}
+
+const syllogismAnswerWrongClass = (site: boolean) =>
+  site
+    ? "border-red-700 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
+    : "border-red-700 bg-red-50 text-red-800";
+
+const syllogismAnswerCorrectClass = (site: boolean) =>
+  site
+    ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
+    : "border-green-700 bg-green-50 text-green-800";
 
 export function ResultsQuestionViewer({
   question,
@@ -16,6 +169,7 @@ export function ResultsQuestionViewer({
   points,
   syllogismSnapshot,
   preloadedContent,
+  variant = "ucat",
 }: {
   question: QuestionItem;
   selectedOptionId?: string;
@@ -24,7 +178,10 @@ export function ResultsQuestionViewer({
   syllogismSnapshot?: Record<string, boolean>;
   /** Pre-refreshed stem/question content for instant image display. */
   preloadedContent?: CachedContent | null;
+  /** `site` uses app theme (progress attempt review); `ucat` matches exam engine styling. */
+  variant?: ResultsViewerVariant;
 }) {
+  const theme = getResultsViewerTheme(variant);
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
   const optionLabel = (index: number) => String.fromCharCode(65 + index);
@@ -62,6 +219,11 @@ export function ResultsQuestionViewer({
       };
     });
 
+    const isAttemptReview =
+      variant === "site" && typeof points === "number";
+    const isReviewingSyllogism =
+      isAttemptReview || syllogismSnapshot != null;
+
     const content = (
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
@@ -72,7 +234,7 @@ export function ResultsQuestionViewer({
           />
         </article>
         <section className="space-y-3">
-          <div className="font-medium text-[12pt]">
+          <div className={theme.questionPrompt}>
             <RichContentBlock
               json={question.questionJson}
               plainText={question.questionText}
@@ -80,7 +242,12 @@ export function ResultsQuestionViewer({
             />
           </div>
           <div className="mt-3 space-y-1.5">
-            <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-0.5 pl-4 pr-3 text-[10pt] font-medium text-[#4b5563]">
+            <div
+              className={cn(
+                "grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-0.5 pl-4 pr-3",
+                theme.gridHeader,
+              )}
+            >
               <div>Statement</div>
               <div className="text-center">Your answers</div>
               <div className="text-center">Correct answers</div>
@@ -97,91 +264,111 @@ export function ResultsQuestionViewer({
                   hasStats,
                   pct,
                   barWidth,
-                }) => (
-                  <div
-                    key={option.id}
-                    className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch"
-                  >
-                    <div className="flex items-center">
-                      <div className="flex min-h-[50px] w-full items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
-                        <span className="whitespace-pre-wrap">
-                          {option.text}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <div
-                        className={`flex h-9 w-20 items-center justify-center rounded border text-[11pt] font-medium ${
-                          !studentHasAnswer
-                            ? "border-dashed border-[#9ca3af] text-[#9ca3af]"
-                            : isCorrect
-                              ? "border-green-700 bg-green-50 text-green-800"
-                              : "border-red-700 bg-red-50 text-red-800"
-                        }`}
-                      >
-                        {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <div className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium">
-                        {correctYes ? "Yes" : "No"}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <div
-                        className="relative flex h-5 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-[#e8ecf0]"
-                        title={hasStats ? `${pct.toFixed(1)}%` : "No data yet"}
-                      >
+                }) => {
+                  const isStatementCorrect =
+                    studentHasAnswer && studentYes === correctYes;
+                  const rowHighlight = isReviewingSyllogism
+                    ? isStatementCorrect
+                      ? "correct"
+                      : "wrong"
+                    : null;
+                  const rowBgClass =
+                    rowHighlight === "correct"
+                      ? theme.correctRowBg
+                      : rowHighlight === "wrong"
+                        ? theme.wrongRowBg
+                        : "";
+
+                  return (
+                    <div
+                      key={option.id}
+                      className={cn(
+                        "grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch rounded py-0.5",
+                        rowBgClass,
+                      )}
+                    >
+                      <div className="flex items-center">
                         <div
-                          className="absolute inset-y-0 left-0 rounded transition-all"
-                          style={{
-                            width: `${barWidth}%`,
-                            backgroundColor: UCAT_COLORS.toolbarBlue,
-                          }}
-                        />
-                        <span
-                          className="relative z-10 text-[10pt] font-medium tabular-nums"
-                          style={{
-                            color: pct > 50 ? "white" : "#5a6c7d",
-                            textShadow:
-                              pct > 50 ? "0 0 1px rgba(0,0,0,0.3)" : "none",
-                          }}
+                          className={cn(
+                            "flex min-h-[50px] w-full items-center justify-center rounded-md border px-4 text-center",
+                            theme.site ? "text-sm" : "text-[11pt]",
+                            rowHighlight === "correct"
+                              ? cn(
+                                  theme.correctRowBg,
+                                  "border-green-600/50 dark:border-green-700/50",
+                                )
+                              : rowHighlight === "wrong"
+                                ? cn(
+                                    theme.wrongRowBg,
+                                    "border-red-600/50 dark:border-red-700/50",
+                                  )
+                                : theme.statementBox,
+                          )}
                         >
-                          {hasStats ? `${pct.toFixed(1)}%` : "—"}
-                        </span>
+                          <span className="whitespace-pre-wrap">
+                            <OptionText option={option} />
+                          </span>
+                        </div>
                       </div>
+                      <div className="flex items-center justify-center">
+                        <div
+                          className={cn(
+                            "flex h-9 w-20 items-center justify-center rounded border font-medium",
+                            theme.site ? "text-sm" : "text-[11pt]",
+                            rowHighlight === "correct"
+                              ? syllogismAnswerCorrectClass(theme.site)
+                              : rowHighlight === "wrong"
+                                ? syllogismAnswerWrongClass(theme.site)
+                                : !studentHasAnswer
+                                  ? theme.site
+                                    ? "border-dashed border-muted-foreground/50 text-muted-foreground"
+                                    : "border-dashed border-[#9ca3af] text-[#9ca3af]"
+                                  : isCorrect
+                                    ? syllogismAnswerCorrectClass(theme.site)
+                                    : syllogismAnswerWrongClass(theme.site),
+                          )}
+                        >
+                          {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className={theme.correctAnswerBox}>
+                          {correctYes ? "Yes" : "No"}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <StudentStatsBar
+                          pct={pct}
+                          barWidth={barWidth}
+                          hasStats={hasStats}
+                          variant={variant}
+                        />
+                      </div>
+                      {hasAnswerExplanation(option) ? (
+                        <div
+                          className={cn("col-span-4 pl-1", theme.explanationText)}
+                        >
+                          <AnswerExplanation
+                            text={option.answerExplanation}
+                            json={option.answerExplanationJson}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    {option.answerExplanation ? (
-                      <div className="col-span-4 pl-1 text-[10pt] leading-relaxed text-[#5a6c7d]">
-                        {option.answerExplanation}
-                      </div>
-                    ) : null}
-                  </div>
-                ),
+                  );
+                },
               )}
             </div>
           </div>
-          <div
-            className="mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-            style={{ color: "#5a6c7d" }}
-          >
+          <div className={theme.footer} style={theme.footerStyle}>
             {typeof points === "number" ? (
-              <div className="font-medium">
-                <span
-                  className={
-                    points === 0
-                      ? "text-red-700"
-                      : points > 0
-                        ? "text-green-700"
-                        : "text-amber-700"
-                  }
-                >
-                  Points: {points.toFixed(1)}
-                </span>
-              </div>
+              <QuestionPointsFooter points={points} question={question} />
             ) : null}
-            {question.answerExplanation ? (
-              <div>{question.answerExplanation}</div>
+            {hasAnswerExplanation(question) ? (
+              <AnswerExplanation
+                text={question.answerExplanation}
+                json={question.answerExplanationJson}
+              />
             ) : null}
           </div>
         </section>
@@ -190,12 +377,14 @@ export function ResultsQuestionViewer({
 
     if (isTwoColumn) {
       return (
-        <div
-          className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-        >
+        <div className={theme.twoColumnRoot}>
           <article
-            className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
-            style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
+            className={theme.stemColumn}
+            style={
+              theme.site
+                ? undefined
+                : { borderRightColor: UCAT_COLORS.primaryBlue }
+            }
           >
             <div className="space-y-3">
               <RichContentBlock
@@ -205,225 +394,97 @@ export function ResultsQuestionViewer({
               />
             </div>
           </article>
-          <section className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
-            {content}
-          </section>
+          <section className={theme.questionColumn}>{content}</section>
         </div>
       );
     }
 
     return (
-      <div
-        className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-      >
-        <div className="space-y-4 py-4 sm:py-5">
-          <article className="space-y-3">
-            <RichContentBlock
-              json={question.stemJson}
-              plainText={question.stemText}
-              preloadedContent={preloadedContent?.stem}
-            />
-          </article>
-          <section className="space-y-3">
-            <div className="font-medium text-[12pt]">
-              <RichContentBlock
-                json={question.questionJson}
-                plainText={question.questionText}
-                preloadedContent={preloadedContent?.question}
-              />
-            </div>
-            <div className="mt-3 space-y-1.5">
-              <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-0.5 pl-4 pr-3 text-[10pt] font-medium text-[#4b5563]">
-                <div>Statement</div>
-                <div className="text-center">Your answers</div>
-                <div className="text-center">Correct answers</div>
-                <div className="text-center">Students</div>
-              </div>
-              <div className="space-y-1">
-                {rows.map(
-                  ({
-                    option,
-                    studentYes,
-                    studentHasAnswer,
-                    correctYes,
-                    isCorrect,
-                    hasStats,
-                    pct,
-                    barWidth,
-                  }) => (
-                    <div
-                      key={option.id}
-                      className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch"
-                    >
-                      <div className="flex items-center">
-                        <div className="flex min-h-[50px] w-full items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
-                          <span className="whitespace-pre-wrap">
-                            {option.text}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <div
-                          className={`flex h-9 w-20 items-center justify-center rounded border text-[11pt] font-medium ${
-                            !studentHasAnswer
-                              ? "border-dashed border-[#9ca3af] text-[#9ca3af]"
-                              : isCorrect
-                                ? "border-green-700 bg-green-50 text-green-800"
-                                : "border-red-700 bg-red-50 text-red-800"
-                          }`}
-                        >
-                          {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <div className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium">
-                          {correctYes ? "Yes" : "No"}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <div
-                          className="relative flex h-5 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-[#e8ecf0]"
-                          title={
-                            hasStats ? `${pct.toFixed(1)}%` : "No data yet"
-                          }
-                        >
-                          <div
-                            className="absolute inset-y-0 left-0 rounded transition-all"
-                            style={{
-                              width: `${barWidth}%`,
-                              backgroundColor: UCAT_COLORS.toolbarBlue,
-                            }}
-                          />
-                          <span
-                            className="relative z-10 text-[10pt] font-medium tabular-nums"
-                            style={{
-                              color: pct > 50 ? "white" : "#5a6c7d",
-                              textShadow:
-                                pct > 50 ? "0 0 1px rgba(0,0,0,0.3)" : "none",
-                            }}
-                          >
-                            {hasStats ? `${pct.toFixed(1)}%` : "—"}
-                          </span>
-                        </div>
-                      </div>
-                      {option.answerExplanation ? (
-                        <div className="col-span-4 pl-1 text-[10pt] leading-relaxed text-[#5a6c7d]">
-                          {option.answerExplanation}
-                        </div>
-                      ) : null}
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-            <div
-              className="mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-              style={{ color: "#5a6c7d" }}
-            >
-              {typeof points === "number" ? (
-                <div className="font-medium">
-                  <span
-                    className={
-                      points === 0
-                        ? "text-red-700"
-                        : points > 0
-                          ? "text-green-700"
-                          : "text-amber-700"
-                    }
-                  >
-                    Points: {points.toFixed(1)}
-                  </span>
-                </div>
-              ) : null}
-              {question.answerExplanation ? (
-                <div>{question.answerExplanation}</div>
-              ) : null}
-            </div>
-          </section>
-        </div>
-      </div>
+      <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>
     );
   }
 
-  const renderOption = (
-    option: {
-      id: string;
-      text: string;
-      answerExplanation?: string;
-      totalAnswered?: number;
-      percentage?: number;
-    },
-    index: number,
-  ) => {
+  const answeredIncorrectly =
+    correctOptionId != null && selectedOptionId !== correctOptionId;
+
+  const renderOption = (option: AnswerOption, index: number) => {
     const optionIsCorrect = option.id === correctOptionId;
     const optionIsSelected = option.id === selectedOptionId;
+    const optionIsWrongSelection =
+      answeredIncorrectly && optionIsSelected && !optionIsCorrect;
     const letter = optionLabel(index);
     const hasStats = option.totalAnswered != null && option.totalAnswered > 0;
     const pct = hasStats ? Math.max(0, option.percentage ?? 0) : 0;
     const barWidth = animateBars ? Math.min(100, pct) : 0;
 
-    const bgClass = optionIsCorrect ? "bg-green-100" : "";
+    const bgClass = optionIsCorrect
+      ? theme.correctRowBg
+      : optionIsWrongSelection
+        ? theme.wrongRowBg
+        : "";
 
     const label = optionIsCorrect
-      ? { text: "Correct", color: "text-green-700" }
-      : null;
+      ? {
+          text: answeredIncorrectly ? "Correct answer" : "Correct",
+          color: "text-green-700 dark:text-green-400",
+        }
+      : optionIsWrongSelection
+        ? {
+            text: "Your answer",
+            color: "text-red-700 dark:text-red-400",
+          }
+        : null;
 
     return (
       <div key={option.id} className="space-y-0.5">
         <div
-          className={`flex items-center gap-2 pl-6 pr-3 ${bgClass} rounded py-1`}
+          className={cn(
+            "flex flex-wrap items-start gap-x-2 gap-y-1 rounded py-1 pl-6 pr-3",
+            bgClass,
+          )}
         >
-          <label className="flex items-start gap-2 flex-1 min-w-0 cursor-default">
+          <label className="flex min-w-0 flex-[1_1_12rem] cursor-default items-start gap-2">
             <input
               type="radio"
               name={question.id}
               checked={optionIsSelected}
               readOnly
               disabled
-              className="mt-1 h-4 w-4"
+              className="mt-1 h-4 w-4 shrink-0"
             />
-            <span className="flex flex-1 min-w-0">
+            <span className="flex min-w-0 flex-1">
               <span className="inline-block w-8 shrink-0">{letter}.</span>
-              <span className="ml-4 flex-1 min-w-0">{option.text}</span>
+              <span className="ml-4 min-w-0 flex-1">
+                <OptionText option={option} />
+              </span>
             </span>
           </label>
-          {label && (
-            <span
-              className={`font-medium shrink-0 pr-2 ${label.color}`}
-              style={{ fontSize: "10pt" }}
-            >
-              {label.text}
-            </span>
-          )}
-          <div
-            className="relative flex shrink-0 items-center justify-center h-5 w-20 rounded overflow-hidden bg-[#e8ecf0]"
-            title={hasStats ? `${pct.toFixed(1)}%` : "No data yet"}
-          >
-            <div
-              className="absolute inset-y-0 left-0 rounded transition-all"
-              style={{
-                width: `${barWidth}%`,
-                backgroundColor: UCAT_COLORS.toolbarBlue,
-              }}
+          <div className="ml-auto flex w-24 shrink-0 flex-col items-center gap-0.5">
+            {label ? (
+              <span
+                className={cn(
+                  "text-center font-medium leading-tight",
+                  label.color,
+                  theme.labelSize,
+                )}
+              >
+                {label.text}
+              </span>
+            ) : null}
+            <StudentStatsBar
+              pct={pct}
+              barWidth={barWidth}
+              hasStats={hasStats}
+              variant={variant}
             />
-            <span
-              className="relative z-10 text-[10pt] tabular-nums font-medium"
-              style={{
-                color: pct > 50 ? "white" : "#5a6c7d",
-                textShadow: pct > 50 ? "0 0 1px rgba(0,0,0,0.3)" : "none",
-              }}
-            >
-              {hasStats ? `${pct.toFixed(1)}%` : "—"}
-            </span>
           </div>
         </div>
-        {option.answerExplanation ? (
-          <div
-            className="text-[11pt] leading-relaxed"
-            style={{ color: "#5a6c7d" }}
-          >
-            {option.answerExplanation}
-          </div>
+        {hasAnswerExplanation(option) ? (
+          <AnswerExplanation
+            text={option.answerExplanation}
+            json={option.answerExplanationJson}
+            className={cn("pl-14", theme.optionExplanation)}
+          />
         ) : null}
       </div>
     );
@@ -431,7 +492,7 @@ export function ResultsQuestionViewer({
 
   const optionsContent = (
     <div className="space-y-3">
-      <div className="font-medium text-[12pt]">
+      <div className={theme.questionPrompt}>
         <RichContentBlock
           json={question.questionJson}
           plainText={question.questionText}
@@ -441,27 +502,15 @@ export function ResultsQuestionViewer({
       <div className="space-y-2">
         {question.options.map((opt, i) => renderOption(opt, i))}
       </div>
-      <div
-        className="mt-3 pt-3 border-t border-[#9ba9bd] text-[11pt] leading-relaxed space-y-1"
-        style={{ color: "#5a6c7d" }}
-      >
+      <div className={cn(theme.footer, "mt-3 pt-3")} style={theme.footerStyle}>
         {typeof points === "number" ? (
-          <div className="font-medium">
-            <span
-              className={
-                points === 0
-                  ? "text-red-700"
-                  : points > 0 && selectedOptionId === correctOptionId
-                    ? "text-green-700"
-                    : "text-amber-700"
-              }
-            >
-              Points: {points.toFixed(1)}
-            </span>
-          </div>
+          <QuestionPointsFooter points={points} question={question} />
         ) : null}
-        {question.answerExplanation ? (
-          <div>{question.answerExplanation}</div>
+        {hasAnswerExplanation(question) ? (
+          <AnswerExplanation
+            text={question.answerExplanation}
+            json={question.answerExplanationJson}
+          />
         ) : null}
       </div>
     </div>
@@ -469,12 +518,14 @@ export function ResultsQuestionViewer({
 
   if (isTwoColumn) {
     return (
-      <div
-        className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-      >
+      <div className={theme.twoColumnRoot}>
         <article
-          className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
-          style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
+          className={theme.stemColumn}
+          style={
+            theme.site
+              ? undefined
+              : { borderRightColor: UCAT_COLORS.primaryBlue }
+          }
         >
           <div className="space-y-3">
             <RichContentBlock
@@ -484,17 +535,13 @@ export function ResultsQuestionViewer({
             />
           </div>
         </article>
-        <section className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
-          {optionsContent}
-        </section>
+        <section className={theme.questionColumn}>{optionsContent}</section>
       </div>
     );
   }
 
   return (
-    <div
-      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-    >
+    <div className={cn(theme.body, theme.scrollRoot)}>
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
           <RichContentBlock

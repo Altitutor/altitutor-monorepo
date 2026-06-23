@@ -26,7 +26,10 @@ import {
   ConfirmNextStemDialog,
   ConfirmSubmitDialog,
 } from "@/features/question-engine/components/confirm-practice-transition-dialog";
-import { EndReviewDialog } from "@/features/question-engine/components/end-review-dialog";
+import {
+  EndReviewDialog,
+  SubmitSetDialog,
+} from "@/features/question-engine/components/end-review-dialog";
 import { ExitResultsDialog } from "@/features/question-engine/components/exit-results-dialog";
 import { EngineIntroDialog } from "@/features/question-engine/components/engine-intro-dialog";
 import { InstructionsContent } from "@/features/question-engine/components/instructions-content";
@@ -51,6 +54,7 @@ import {
   getNextSetSegmentFromReview,
   getRemainingSeconds,
 } from "@/features/question-engine/lib/timing";
+import { getTimedSegmentKey } from "@/features/question-engine/lib/timed-segment-key";
 import type {
   QuestionEngineMode,
   QuestionEngineQuestion,
@@ -62,8 +66,14 @@ import {
 } from "@/features/question-engine/model/types";
 import { getStemBoundaries } from "@/features/question-engine/lib/practice";
 import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
+import { useExamAttemptLifecycle } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { useExamAttemptLaunchGate } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-gate";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { useHydratedQuestionStems } from "@/features/practice/hooks/use-hydrated-question-stems";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
 
@@ -123,14 +133,24 @@ export function QuestionEnginePage({
     mockId: mode === "mock" ? sourceId : undefined,
   });
 
+  const launchGateKind =
+    (mode === "set" || mode === "mock") && sourceId ? mode : null;
+  const launchGate = useExamAttemptLaunchGate(launchGateKind, sourceId);
+
+  const { stems: hydratedQuestionStems, isLoading: isHydratingQuestionStems } =
+    useHydratedQuestionStems(mode === "questionStem" ? questionStems : undefined);
+
+  const questionStemsForExam =
+    mode === "questionStem" ? hydratedQuestionStems : questionStems;
+
   const exam = useMemo(
     () =>
       mode === "questionStem"
-        ? questionStems && {
+        ? questionStemsForExam && {
             sourceType: mode,
             sourceId: sourceId ?? "question-stem",
             title: "Question Stems",
-            questions: mapQuestionStemsToItems(questionStems),
+            questions: mapQuestionStemsToItems(questionStemsForExam),
             instructionsScreens: [],
             timePerQuestionSeconds: timePerQuestionSeconds ?? null,
           }
@@ -147,7 +167,7 @@ export function QuestionEnginePage({
     [
       mode,
       sourceId,
-      questionStems,
+      questionStemsForExam,
       standaloneQuestions,
       query.data,
       timePerQuestionSeconds,
@@ -182,6 +202,11 @@ export function QuestionEnginePage({
   } = useQuestionEngineState(exam, { practice, onNeedMoreStems });
   const router = useRouter();
   const { toast } = useToast();
+  const {
+    active: activeExamAttempt,
+    refresh: refreshActiveExamAttempt,
+    clearLocal: clearActiveExamAttempt,
+  } = useActiveExamAttempt();
   const { isLagging, runWithLag } = useUcatLag();
   const { display: calculatorDisplay, onKey: calculatorOnKey } =
     useUcatCalculator();
@@ -191,7 +216,37 @@ export function QuestionEnginePage({
     useState(false);
   const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
     useState(false);
+  const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
   const timeExpiredFiredRef = useRef<string | null>(null);
+
+  const examAttemptManaged =
+    !learningModuleBlockId &&
+    (mode === "set" ||
+      mode === "mock" ||
+      (practice && practiceSessionId != null));
+
+  const managedResourceId =
+    practice && practiceSessionId != null ? practiceSessionId : exam?.sourceId;
+
+  const managedExamAttempt = useMemo(() => {
+    if (
+      !examAttemptManaged ||
+      !activeExamAttempt ||
+      managedResourceId == null ||
+      activeExamAttempt.resourceId !== managedResourceId
+    ) {
+      return null;
+    }
+
+    return {
+      attemptId: activeExamAttempt.attemptId,
+      kind: activeExamAttempt.kind,
+      resourceId: activeExamAttempt.resourceId,
+      resultsHref: activeExamAttempt.resultsHref,
+      setAttemptIdsBySetId: activeExamAttempt.setAttemptIdsBySetId,
+      mockAttemptId: activeExamAttempt.mockAttemptId,
+    };
+  }, [examAttemptManaged, activeExamAttempt, managedResourceId]);
 
   const {
     recordAnswer,
@@ -199,6 +254,7 @@ export function QuestionEnginePage({
     handleExamCompleted,
     completePracticeSession,
     attemptIds,
+    attemptStateRef,
   } = useQuestionEnginePersistence({
     mode,
     exam,
@@ -206,6 +262,21 @@ export function QuestionEnginePage({
     practiceSessionId,
     learningModuleBlockId,
     onLearnProgress,
+    examAttemptManaged,
+    managedExamAttempt,
+  });
+
+  const examAttemptLifecycleEnabled = examAttemptManaged;
+
+  const { serverSegmentEndsAt, isHydrating: isHydratingExamAttempt } =
+    useExamAttemptLifecycle({
+    enabled: examAttemptLifecycleEnabled,
+    exam,
+    state,
+    setState,
+    practice: isPracticeMode,
+    practiceSessionId,
+    attemptStateRef,
   });
 
   const markingOrQuestionIndex =
@@ -264,16 +335,21 @@ export function QuestionEnginePage({
       ? getCurrentSegmentTimeLimitSeconds(exam, state)
       : null;
   const isTimed =
-    currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
+    (currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0) ||
+    serverSegmentEndsAt != null;
   const remainingSeconds =
     exam && isTimed
-      ? getRemainingSeconds(exam, state, state.timerStartedAt)
+      ? examAttemptManaged && !serverSegmentEndsAt
+        ? null
+        : getRemainingSeconds(
+            exam,
+            state,
+            state.timerStartedAt,
+            serverSegmentEndsAt,
+          )
       : null;
-  const segmentKey =
-    exam?.sourceType === "mock"
-      ? (getCurrentMockSegment(exam, state)?.segmentIndex ??
-        `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`)
-      : `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`;
+  const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
+  const reviewTimedExpiryRef = useRef(false);
 
   useEffect(() => {
     if (!isTimed) return;
@@ -321,6 +397,18 @@ export function QuestionEnginePage({
       return;
     }
 
+    if (state.phase === "question" && exam.sourceType === "set") {
+      setState((prev) => ({
+        ...prev,
+        showTimeExpiredDialog: true,
+        showNavigator: false,
+      }));
+      void handleExamCompleted().catch(() => {
+        // The OK action retries completion before redirecting.
+      });
+      return;
+    }
+
     const now = Date.now();
     setState((prev) => {
       const next = { ...prev, showTimeExpiredDialog: true };
@@ -329,7 +417,14 @@ export function QuestionEnginePage({
       }
       return next;
     });
-  }, [exam, remainingSeconds, segmentKey, state.phase, setState]);
+  }, [
+    exam,
+    remainingSeconds,
+    segmentKey,
+    state.phase,
+    setState,
+    handleExamCompleted,
+  ]);
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   const skipBeforeUnloadRef = useRef(false);
@@ -374,9 +469,42 @@ export function QuestionEnginePage({
     };
   }, [embeddedInLesson]);
 
+  const redirectToManagedResults = useCallback(
+    async (href: string) => {
+      if (managedExamAttempt) {
+        try {
+          await finalizeExamAttempt({
+            kind: managedExamAttempt.kind,
+            attemptId: managedExamAttempt.attemptId,
+          });
+        } catch {
+          // Server may have already finalized during active fetch.
+        }
+      }
+      clearActiveExamAttempt();
+      skipBeforeUnloadRef.current = true;
+      router.push(href);
+    },
+    [managedExamAttempt, clearActiveExamAttempt, router],
+  );
+
   const completeExamAndMaybeRedirect = useCallback(async () => {
     const { earnedDiscount, discountCents, redirectHref } =
       await handleExamCompleted();
+    if (examAttemptManaged) {
+      if (managedExamAttempt) {
+        try {
+          await finalizeExamAttempt({
+            kind: managedExamAttempt.kind,
+            attemptId: managedExamAttempt.attemptId,
+          });
+        } catch {
+          // Completion may already be persisted via handleExamCompleted.
+        }
+      }
+      clearActiveExamAttempt();
+      await refreshActiveExamAttempt();
+    }
     if (earnedDiscount && discountCents > 0) {
       toast({
         title: "Practice day discount earned!",
@@ -385,11 +513,137 @@ export function QuestionEnginePage({
     }
     if (redirectHref) {
       skipBeforeUnloadRef.current = true;
+      clearActiveExamAttempt();
       router.push(redirectHref);
       return true;
     }
     return false;
-  }, [handleExamCompleted, toast, router]);
+  }, [
+    handleExamCompleted,
+    examAttemptManaged,
+    managedExamAttempt,
+    clearActiveExamAttempt,
+    refreshActiveExamAttempt,
+    toast,
+    router,
+  ]);
+
+  const handleEndReview = useCallback(async () => {
+    if (!exam) return;
+    if (
+      exam.sourceType === "mock" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const isLastSet =
+        state.mockCurrentSetIndex >= exam.mockSetSummaries.length - 1;
+      const nextSeg = getNextSetSegmentFromReview(
+        exam,
+        state.mockCurrentSetIndex,
+      );
+      if (!isLastSet && nextSeg) {
+        setState((current) => {
+          const next = {
+            ...current,
+            showEndReviewDialog: false,
+            reviewFilter: null,
+            reviewFilterIndex: 0,
+            reviewFilterIndicesSnapshot: null,
+            mockCurrentSetIndex: current.mockCurrentSetIndex! + 1,
+          };
+          if (nextSeg.type === "instructions") {
+            next.phase = "instructions";
+            next.instructionsIndex = nextSeg.instructionsIndex;
+            const timeLimit = nextSeg.timeLimitSeconds ?? 0;
+            next.timerStartedAt = timeLimit > 0 ? Date.now() : null;
+          } else {
+            next.phase = "question";
+            next.currentIndex = nextSeg.questionStartIndex;
+            next.timerStartedAt =
+              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
+          }
+          return next;
+        });
+        return;
+      }
+    }
+    const redirected = await completeExamAndMaybeRedirect();
+    if (redirected) return;
+
+    if (examAttemptManaged && managedExamAttempt?.resultsHref) {
+      await redirectToManagedResults(managedExamAttempt.resultsHref);
+      return;
+    }
+
+    if (exam.sourceType === "set" || exam.sourceType === "mock") {
+      const setAttemptId =
+        attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ??
+        Array.from(attemptStateRef.current.setAttemptIdsBySetId.values())[0] ??
+        null;
+      let href: string | null = null;
+      if (exam.sourceType === "set" && setAttemptId) {
+        const sectionName = exam.questions[0]?.sectionName;
+        const sectionNumber = sectionName
+          ? SECTION_NAME_TO_NUMBER[sectionName]
+          : undefined;
+        href =
+          sectionNumber != null
+            ? `/progress/sections/${sectionNumber}/set-attempts/${setAttemptId}`
+            : `/progress/set-attempts/${setAttemptId}`;
+      } else if (
+        exam.sourceType === "mock" &&
+        attemptStateRef.current.mockAttemptId
+      ) {
+        href = `/progress/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
+      }
+      if (href) {
+        skipBeforeUnloadRef.current = true;
+        router.push(href);
+        return;
+      }
+    }
+
+    setState((current) => ({
+      ...current,
+      phase: exam.sourceType === "mock" ? "mockScore" : "marking",
+      showEndReviewDialog: false,
+      reviewFilter: null,
+      reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: null,
+      viewingQuestionIndex: null,
+    }));
+    setShowSubmitSetDialog(false);
+  }, [
+    exam,
+    state.mockCurrentSetIndex,
+    completeExamAndMaybeRedirect,
+    examAttemptManaged,
+    managedExamAttempt,
+    redirectToManagedResults,
+    router,
+    setState,
+    attemptStateRef,
+  ]);
+
+  useEffect(() => {
+    if (!exam || remainingSeconds !== 0) {
+      reviewTimedExpiryRef.current = false;
+      return;
+    }
+    if (state.phase !== "review" || state.reviewFilter) return;
+    if (!isTimed) return;
+    if (exam.sourceType !== "set" && exam.sourceType !== "mock") return;
+    if (reviewTimedExpiryRef.current) return;
+    reviewTimedExpiryRef.current = true;
+    void handleEndReview();
+  }, [
+    exam,
+    remainingSeconds,
+    state.phase,
+    state.reviewFilter,
+    isTimed,
+    handleEndReview,
+  ]);
 
   const hasPreviousQuestion =
     state.phase === "question" &&
@@ -401,7 +655,16 @@ export function QuestionEnginePage({
           }
           return state.currentIndex > 0;
         })()
-      : state.currentIndex > 0);
+      : isPracticeMode
+        ? (() => {
+            const { startIndex } = getStemBoundaries(
+              questions,
+              state.currentIndex,
+              mode as "questions" | "questionStem",
+            );
+            return state.currentIndex > startIndex;
+          })()
+        : state.currentIndex > 0);
   const hasPreviousReviewQuestion =
     state.phase === "review" &&
     Boolean(state.reviewFilter) &&
@@ -444,7 +707,7 @@ export function QuestionEnginePage({
           scorePoints: practiceMarkingResult.totalRawScore,
           totalPoints: practiceMarkingResult.maxRawScore,
           questionCount: qs.length,
-          stemsSnapshot: questionStems ?? [],
+          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
           questionScores,
         });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
@@ -456,9 +719,11 @@ export function QuestionEnginePage({
       } catch {
         // Session complete may fail; still navigate to session when we have an id
       }
+      await refreshActiveExamAttempt();
     }
 
     if (practiceSessionId) {
+      clearActiveExamAttempt();
       skipBeforeUnloadRef.current = true;
       router.push(`/progress/practice-sessions/${practiceSessionId}`);
       return;
@@ -482,9 +747,12 @@ export function QuestionEnginePage({
     practiceMarkingResult,
     completePracticeSession,
     questionStems,
+    questionStemsForExam,
     setState,
     toast,
     router,
+    refreshActiveExamAttempt,
+    clearActiveExamAttempt,
   ]);
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
@@ -496,9 +764,18 @@ export function QuestionEnginePage({
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
+      const inputType =
+        target instanceof HTMLInputElement ? target.type : null;
+      const isTextInput =
+        tagName === "INPUT" &&
+        inputType !== "button" &&
+        inputType !== "checkbox" &&
+        inputType !== "radio" &&
+        inputType !== "reset" &&
+        inputType !== "submit";
       const isEditable =
         target?.isContentEditable ||
-        tagName === "INPUT" ||
+        isTextInput ||
         tagName === "TEXTAREA" ||
         tagName === "SELECT";
 
@@ -528,7 +805,8 @@ export function QuestionEnginePage({
         state.showReviewInstructionsDialog ||
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
-        showConfirmFinishPracticeDialog;
+        showConfirmFinishPracticeDialog ||
+        showSubmitSetDialog;
       const isQuestionView =
         (state.phase === "question" ||
           (state.phase === "review" && state.reviewFilter)) &&
@@ -567,7 +845,8 @@ export function QuestionEnginePage({
       if (
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
-        showConfirmFinishPracticeDialog
+        showConfirmFinishPracticeDialog ||
+        showSubmitSetDialog
       ) {
         if (shortcutKey === "alt+y") {
           event.preventDefault();
@@ -583,6 +862,9 @@ export function QuestionEnginePage({
           } else if (showConfirmFinishPracticeDialog) {
             setShowConfirmFinishPracticeDialog(false);
             void handleFinishPractice();
+          } else if (showSubmitSetDialog) {
+            setShowSubmitSetDialog(false);
+            void handleEndReview();
           } else {
             goNext();
             setShowConfirmNextStemDialog(false);
@@ -594,6 +876,7 @@ export function QuestionEnginePage({
           setShowConfirmSubmitDialog(false);
           setShowConfirmNextStemDialog(false);
           setShowConfirmFinishPracticeDialog(false);
+          setShowSubmitSetDialog(false);
           return;
         }
       }
@@ -833,7 +1116,9 @@ export function QuestionEnginePage({
     showConfirmSubmitDialog,
     showConfirmNextStemDialog,
     showConfirmFinishPracticeDialog,
+    showSubmitSetDialog,
     handleFinishPractice,
+    handleEndReview,
     hasPreviousQuestion,
     hasPreviousReviewQuestion,
     questions,
@@ -844,10 +1129,51 @@ export function QuestionEnginePage({
     onBack,
   ]);
 
+  if (launchGateKind && launchGate.isCheckingLaunch) {
+    return (
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
+        Checking for in-progress attempts...
+      </div>
+    );
+  }
+
+  if (launchGateKind && !launchGate.launchAllowed) {
+    return (
+      <ExamAttemptConflictDialog
+        open={Boolean(launchGate.conflictActive)}
+        active={launchGate.conflictActive}
+        pendingLabel={
+          mode === "mock" ? "this mock exam" : "this question set"
+        }
+        isFinalizing={launchGate.isFinalizingConflict}
+        onFinalizeAndContinue={() =>
+          void launchGate.finalizeConflictAndContinue()
+        }
+        onCancel={() => router.back()}
+      />
+    );
+  }
+
   if ((mode === "set" || mode === "mock") && query.isLoading) {
     return (
       <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
         Loading exam...
+      </div>
+    );
+  }
+
+  if (isHydratingExamAttempt) {
+    return (
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
+        Resuming attempt...
+      </div>
+    );
+  }
+
+  if (mode === "questionStem" && isHydratingQuestionStems) {
+    return (
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
+        Loading questions...
       </div>
     );
   }
@@ -946,7 +1272,8 @@ export function QuestionEnginePage({
     state.showReviewInstructionsDialog ||
     showConfirmSubmitDialog ||
     showConfirmNextStemDialog ||
-    showConfirmFinishPracticeDialog;
+    showConfirmFinishPracticeDialog ||
+    showSubmitSetDialog;
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
@@ -978,59 +1305,6 @@ export function QuestionEnginePage({
     return count;
   })();
 
-  async function handleEndReview() {
-    if (!exam) return;
-    if (
-      exam.sourceType === "mock" &&
-      state.mockCurrentSetIndex != null &&
-      exam.mockSetSummaries
-    ) {
-      const isLastSet =
-        state.mockCurrentSetIndex >= exam.mockSetSummaries.length - 1;
-      const nextSeg = getNextSetSegmentFromReview(
-        exam,
-        state.mockCurrentSetIndex,
-      );
-      if (!isLastSet && nextSeg) {
-        setState((current) => {
-          const next = {
-            ...current,
-            showEndReviewDialog: false,
-            reviewFilter: null,
-            reviewFilterIndex: 0,
-            reviewFilterIndicesSnapshot: null,
-            mockCurrentSetIndex: current.mockCurrentSetIndex! + 1,
-          };
-          if (nextSeg.type === "instructions") {
-            next.phase = "instructions";
-            next.instructionsIndex = nextSeg.instructionsIndex;
-            const timeLimit = nextSeg.timeLimitSeconds ?? 0;
-            next.timerStartedAt = timeLimit > 0 ? Date.now() : null;
-          } else {
-            next.phase = "question";
-            next.currentIndex = nextSeg.questionStartIndex;
-            next.timerStartedAt =
-              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
-          }
-          return next;
-        });
-        return;
-      }
-    }
-    const redirected = await completeExamAndMaybeRedirect();
-    if (redirected) return;
-
-    setState((current) => ({
-      ...current,
-      phase: exam.sourceType === "mock" ? "mockScore" : "marking",
-      showEndReviewDialog: false,
-      reviewFilter: null,
-      reviewFilterIndex: 0,
-      reviewFilterIndicesSnapshot: null,
-      viewingQuestionIndex: null,
-    }));
-  }
-
   function handleTimeExpiredOk() {
     if (!exam) return;
 
@@ -1060,6 +1334,10 @@ export function QuestionEnginePage({
       void runWithLag(async () => {
         const redirected = await completeExamAndMaybeRedirect();
         if (redirected) return;
+        if (examAttemptManaged && managedExamAttempt?.resultsHref) {
+          await redirectToManagedResults(managedExamAttempt.resultsHref);
+          return;
+        }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1078,6 +1356,10 @@ export function QuestionEnginePage({
       void runWithLag(async () => {
         const redirected = await completeExamAndMaybeRedirect();
         if (redirected) return;
+        if (examAttemptManaged && managedExamAttempt?.resultsHref) {
+          await redirectToManagedResults(managedExamAttempt.resultsHref);
+          return;
+        }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1276,6 +1558,20 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
+        {showSubmitSetDialog ? (
+          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
+            <SubmitSetDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  setShowSubmitSetDialog(false);
+                  void handleEndReview();
+                })
+              }
+              onCancel={() => void runWithLag(() => setShowSubmitSetDialog(false))}
+            />
+          </div>
+        ) : null}
+
         {state.showNoFlaggedDialog ? (
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <NoFlaggedDialog
@@ -1383,7 +1679,7 @@ export function QuestionEnginePage({
             </button>
           ) : isInstructionsPhase ? null : (
             <>
-              {backHref ? (
+              {backHref && !isPracticeMode ? (
                 <Link
                   href={backHref}
                   className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -1489,6 +1785,8 @@ export function QuestionEnginePage({
                       ...current,
                       showEndReviewDialog: true,
                     }));
+                  } else if (exam?.sourceType === "set") {
+                    setShowSubmitSetDialog(true);
                   } else {
                     void runWithLag(handleEndReview);
                   }

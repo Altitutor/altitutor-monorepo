@@ -134,9 +134,70 @@ describe('collectDecisionMakingLinesWithSyllogismImageOcr', () => {
 
     expect(result.imageCount).toBe(1)
     expect(result.extractedImageCount).toBe(0)
+    expect(result.failures).toHaveLength(1)
     expect(result.warnings).toEqual([
       'A syllogism image could not be OCR parsed because it has no readable image URL.',
     ])
+    expect(result.lines).toEqual([
+      'Stem text.',
+      "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+      '[Syllogism image statement 1 pending OCR]',
+      '[Syllogism image statement 2 pending OCR]',
+      '[Syllogism image statement 3 pending OCR]',
+      '[Syllogism image statement 4 pending OCR]',
+      '[Syllogism image statement 5 pending OCR]',
+    ])
     expect(createWorker).toHaveBeenCalled()
+  })
+
+  it('inserts manual-entry placeholders when OCR does not return five statements', async () => {
+    recognize.mockResolvedValue({
+      data: {
+        blocks: [
+          {
+            paragraphs: [
+              {
+                lines: [
+                  { text: 'Only one line.', confidence: 96 },
+                  { text: 'Second line.', confidence: 94 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    const result = await collectDecisionMakingLinesWithSyllogismImageOcr({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Stem text.' }] },
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text:
+                "1. Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'image',
+              attrs: { src: 'https://example.com/syllogism.png', fileId: 'img-1' },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(result.extractedImageCount).toBe(0)
+    expect(result.failures).toHaveLength(1)
+    expect(result.warnings[0]).toContain('produced 2 OCR line(s)')
+    expect(result.lines).toContain('[Syllogism image statement 1 pending OCR]')
+    expect(result.lines).toContain('[Syllogism image statement 5 pending OCR]')
   })
 })

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { refreshUcatImageUrls } from "@/features/question-engine/lib/refresh-ucat-image-urls";
-
-function hasContent(json: Record<string, unknown> | null | undefined): boolean {
-  if (!json || typeof json !== "object") return false;
-  const content = json.content;
-  return Array.isArray(content) && content.length > 0;
-}
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  collectUcatImageRefsFromDoc,
+  docStructureFingerprint,
+  getCachedSignedUrlForFileId,
+  getCachedSignedUrlForPath,
+  cacheSignedUrls,
+  applySignedUrlsToDoc,
+  refreshUcatImageUrls,
+} from "@/features/question-engine/lib/refresh-ucat-image-urls";
 
 function normalizeDoc(json: Record<string, unknown>): Record<string, unknown> {
   if (json.type === "doc" && Array.isArray(json.content)) {
@@ -28,23 +30,90 @@ export function useRefreshedUcatContent(
 ): {
   content: Record<string, unknown> | null;
   isLoading: boolean;
+  hasImageRefs: boolean;
 } {
   const [content, setContent] = useState<Record<string, unknown> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const jsonRef = useRef(json);
+  jsonRef.current = json;
+
+  const docStructureKey = useMemo(() => {
+    if (!json || typeof json !== "object") return "";
+    return docStructureFingerprint(normalizeDoc(json as Record<string, unknown>));
+  }, [json]);
+
+  const imagePathsKey = useMemo(() => {
+    if (!json || typeof json !== "object") return "";
+    const doc = normalizeDoc(json as Record<string, unknown>);
+    const refs = collectUcatImageRefsFromDoc(doc);
+    return [
+      ...refs.paths.sort().map((path) => `p:${path}`),
+      ...refs.fileIds.sort().map((fileId) => `f:${fileId}`),
+    ].join("\0");
+  }, [json]);
+
+  const hasImageRefs = imagePathsKey !== "";
+  const prevImagePathsKeyRef = useRef(imagePathsKey);
+
+  // Keep displayed doc in sync when question/stem text changes (imagePathsKey alone is insufficient).
+  useEffect(() => {
+    const currentJson = jsonRef.current;
+    if (!currentJson || typeof currentJson !== "object") {
+      setContent(null);
+      return;
+    }
+    const doc = normalizeDoc(currentJson as Record<string, unknown>);
+    if (imagePathsKey !== "") {
+      const refs = collectUcatImageRefsFromDoc(doc);
+      const pathToUrl = new Map<string, string>();
+      for (const path of refs.paths) {
+        const cached = getCachedSignedUrlForPath(path);
+        if (cached) pathToUrl.set(path, cached);
+      }
+      const fileIdToUrl = new Map<string, string>();
+      for (const fileId of refs.fileIds) {
+        const cached = getCachedSignedUrlForFileId(fileId);
+        if (cached) fileIdToUrl.set(fileId, cached);
+      }
+      const allCached =
+        refs.paths.every((path) => pathToUrl.has(path)) &&
+        refs.fileIds.every((fileId) => fileIdToUrl.has(fileId));
+      if (allCached) {
+        setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl));
+        return;
+      }
+    }
+    setContent(doc);
+  }, [docStructureKey, imagePathsKey]);
 
   useEffect(() => {
-    if (!hasContent(json)) {
+    const currentJson = jsonRef.current;
+    const prevKey = prevImagePathsKeyRef.current;
+    prevImagePathsKeyRef.current = imagePathsKey;
+
+    if (!currentJson || typeof currentJson !== "object") {
       setContent(null);
       setIsLoading(false);
       return;
     }
 
+    const doc = normalizeDoc(currentJson as Record<string, unknown>);
+    if (imagePathsKey === "") {
+      setIsLoading(false);
+      return;
+    }
+
+    if (prevKey === "" && imagePathsKey !== "") {
+      setContent(null);
+    }
+
     let cancelled = false;
     setIsLoading(true);
 
-    const doc = normalizeDoc(json as Record<string, unknown>);
-
     const createSignedUrl = async (path: string): Promise<string> => {
+      const cached = getCachedSignedUrlForPath(path);
+      if (cached) return cached;
+
       const res = await fetch("/api/ucat/images/signed-urls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,10 +127,16 @@ export function useRefreshedUcatContent(
       }
       const { signedUrls } = (await res.json()) as { signedUrls: string[] };
       if (!signedUrls?.[0]) throw new Error("No signed URL returned");
+      cacheSignedUrls([path], [], signedUrls);
       return signedUrls[0];
     };
 
-    const createSignedUrlFromFileId = async (fileId: string): Promise<string> => {
+    const createSignedUrlFromFileId = async (
+      fileId: string,
+    ): Promise<string> => {
+      const cached = getCachedSignedUrlForFileId(fileId);
+      if (cached) return cached;
+
       const res = await fetch("/api/ucat/images/signed-urls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,6 +150,7 @@ export function useRefreshedUcatContent(
       }
       const { signedUrls } = (await res.json()) as { signedUrls: string[] };
       if (!signedUrls?.[0]) throw new Error("No signed URL returned");
+      cacheSignedUrls([], [fileId], signedUrls);
       return signedUrls[0];
     };
 
@@ -98,7 +174,7 @@ export function useRefreshedUcatContent(
     return () => {
       cancelled = true;
     };
-  }, [json]);
+  }, [imagePathsKey, docStructureKey]);
 
-  return { content, isLoading };
+  return { content, isLoading, hasImageRefs };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
+import { ActiveExamAttemptProvider } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 import { InPersonUpsellDialog } from "@/features/ucat-access/components/in-person-upsell-dialog";
 import { PlanPickerDialog } from "@/features/ucat-access/components/plan-picker-dialog";
@@ -17,14 +18,16 @@ export function UcatAccessShell({ children }: UcatAccessShellProps) {
   return (
     <QuotaLimitProvider>
       <UpsellDialogProvider>
-        <OnboardingGateRedirect />
-        <Suspense fallback={null}>
-          <UpsellQueryParamSync />
-        </Suspense>
-        {children}
-        <QuotaLimitModal />
-        <PlanPickerDialog />
-        <InPersonUpsellDialog />
+        <ActiveExamAttemptProvider>
+          <OnboardingGateRedirect />
+          <Suspense fallback={null}>
+            <UpsellQueryParamSync />
+          </Suspense>
+          {children}
+          <QuotaLimitModal />
+          <PlanPickerDialog />
+          <InPersonUpsellDialog />
+        </ActiveExamAttemptProvider>
       </UpsellDialogProvider>
     </QuotaLimitProvider>
   );

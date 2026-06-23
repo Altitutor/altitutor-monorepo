@@ -8,6 +8,7 @@ import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-mot
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
 import type { ProgressMode } from "../lib/progress-mode";
+import { formatUcatPercentile } from "../lib/percentiles";
 import {
   AnimatedInteger,
   ProgressCircular,
@@ -45,6 +46,7 @@ export function SectionProgressCards({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => {
           const score = getScaledScore(section);
+          const percentile = formatUcatPercentile(score, "section");
           const card = (
             <Card
               className={cn(
@@ -84,6 +86,11 @@ export function SectionProgressCards({
                       "—"
                     )}
                   </div>
+                  {percentile ? (
+                    <div className="mt-1 text-xs font-medium text-muted-foreground">
+                      {percentile}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">

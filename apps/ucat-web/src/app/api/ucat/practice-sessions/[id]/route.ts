@@ -3,6 +3,74 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) {
+    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+  }
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: "Server write client not configured" },
+      { status: 500 },
+    );
+  }
+
+  const { data: student, error: studentError } = await supabaseAdmin
+    .from("students")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (studentError) {
+    return NextResponse.json({ error: studentError.message }, { status: 500 });
+  }
+  if (!student) {
+    return NextResponse.json(
+      { error: "No student profile found" },
+      { status: 404 },
+    );
+  }
+
+  const { data: session, error } = await supabaseAdmin
+    .from("student_practice_sessions")
+    .select(
+      "id, stems_snapshot, filters_snapshot, unlimited, completed_at",
+    )
+    .eq("id", params.id)
+    .eq("student_id", student.id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!session) {
+    return NextResponse.json(
+      { error: "Practice session not found" },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({
+    id: session.id,
+    stemsSnapshot: session.stems_snapshot,
+    filtersSnapshot: session.filters_snapshot,
+    unlimited: session.unlimited,
+    completedAt: session.completed_at,
+  });
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
@@ -148,6 +216,8 @@ export async function PATCH(
       total_points: totalPoints,
       question_count: questionCount,
       stems_snapshot: stemsSnapshot,
+      engine_snapshot: null,
+      current_segment_ends_at: null,
     })
     .eq("id", sessionId)
     .eq("student_id", student.id);

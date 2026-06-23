@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { AnimatedInteger } from "./progress-animated-display";
+import { formatUcatPercentile } from "../lib/percentiles";
 
 export function MocksProgressPage() {
   const { data, isLoading, error } = useProgress();
@@ -59,6 +60,7 @@ export function MocksProgressPage() {
     const sum = withScore.reduce((s, a) => s + (a.scaledScore ?? 0), 0);
     return Math.round(sum / withScore.length);
   }, [filteredMockAttempts]);
+  const averageMockPercentile = formatUcatPercentile(averageMockScore, "mock");
 
   if (isLoading) {
     return (
@@ -130,6 +132,11 @@ export function MocksProgressPage() {
                 "—"
               )}
             </div>
+            {averageMockPercentile ? (
+              <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
+                {averageMockPercentile}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

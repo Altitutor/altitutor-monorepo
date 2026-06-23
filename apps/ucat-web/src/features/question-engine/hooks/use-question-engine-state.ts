@@ -350,6 +350,20 @@ export function useQuestionEngineState(
       }
       return;
     }
+    if (isPracticeMode && state.phase === "question") {
+      const { startIndex } = getStemBoundaries(
+        questions,
+        state.currentIndex,
+        mode as "questions" | "questionStem",
+      );
+      if (state.currentIndex > startIndex) {
+        setState((current) => ({
+          ...current,
+          currentIndex: current.currentIndex - 1,
+        }));
+      }
+      return;
+    }
     setState((current) => ({
       ...current,
       currentIndex: Math.max(0, current.currentIndex - 1),

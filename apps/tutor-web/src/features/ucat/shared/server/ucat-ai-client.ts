@@ -17,10 +17,70 @@ export type UcatAiJsonResult = {
   parsed: unknown
   model: string
   providerId: string | null
-  profileId: string | null
+  modelProfileId: string | null
   usage: UcatAiUsage
   finishReason: string | null
   maxCompletionTokens: number | null
+}
+
+export class UcatAiJsonParseError extends Error {
+  content: string
+  finishReason: string | null
+  usage: UcatAiUsage
+  model: string
+  providerId: string | null
+  modelProfileId: string | null
+  maxCompletionTokens: number | null
+
+  constructor(params: {
+    operation: string
+    content: string
+    finishReason: string | null
+    usage: UcatAiUsage
+    model: string
+    providerId: string | null
+    modelProfileId: string | null
+    maxCompletionTokens: number | null
+  }) {
+    super(`UCAT AI ${params.operation} returned invalid JSON: ${params.content.slice(0, 160)}`)
+    this.name = 'UcatAiJsonParseError'
+    this.content = params.content
+    this.finishReason = params.finishReason
+    this.usage = params.usage
+    this.model = params.model
+    this.providerId = params.providerId
+    this.modelProfileId = params.modelProfileId
+    this.maxCompletionTokens = params.maxCompletionTokens
+  }
+}
+
+export class UcatAiEmptyResponseError extends Error {
+  content = ''
+  finishReason: string | null
+  usage: UcatAiUsage
+  model: string
+  providerId: string | null
+  modelProfileId: string | null
+  maxCompletionTokens: number | null
+
+  constructor(params: {
+    operation: string
+    finishReason: string | null
+    usage: UcatAiUsage
+    model: string
+    providerId: string | null
+    modelProfileId: string | null
+    maxCompletionTokens: number | null
+  }) {
+    super(`UCAT AI ${params.operation} returned empty response`)
+    this.name = 'UcatAiEmptyResponseError'
+    this.finishReason = params.finishReason
+    this.usage = params.usage
+    this.model = params.model
+    this.providerId = params.providerId
+    this.modelProfileId = params.modelProfileId
+    this.maxCompletionTokens = params.maxCompletionTokens
+  }
 }
 
 type ProviderRow = {
@@ -33,27 +93,29 @@ type ProviderRow = {
   is_enabled: boolean
 }
 
-type ProfileRow = {
+type ModelProfileRow = {
   id: string
   name: string
   provider_id: string
   model: string
   is_enabled: boolean
   is_default: boolean
-  candidates_per_stem: number
   temperature: number
   max_completion_tokens: number
-  profile_version: number
+}
+
+type SystemPromptsRow = {
+  id: string
   base_system_prompt: string
   planner_prompt: string
   writer_prompt: string
   critic_prompt: string
   rewriter_prompt: string
+  prompt_version: number
 }
 
 type SettingsRow = {
   id: string
-  max_candidates_per_stem: number
   max_requested_stems_per_run: number
   daily_token_budget: number | null
   daily_cost_budget_cents: number | null
@@ -71,13 +133,13 @@ type PromptLayerRow = {
 
 export type UcatAiResolvedConfig = {
   provider: ProviderRow
-  profile: ProfileRow
+  modelProfile: ModelProfileRow
+  systemPrompts: SystemPromptsRow
   settings: SettingsRow
 }
 
 const FALLBACK_SETTINGS: SettingsRow = {
   id: 'fallback',
-  max_candidates_per_stem: 2,
   max_requested_stems_per_run: 20,
   daily_token_budget: null,
   daily_cost_budget_cents: null,
@@ -97,6 +159,23 @@ function parseHeaders(value: unknown): Record<string, string> {
   return headers
 }
 
+export function parseUcatAiJsonContent(content: string): unknown {
+  const trimmed = content.trim()
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu)
+  if (fenced?.[1]) return JSON.parse(fenced[1])
+
+  try {
+    return JSON.parse(trimmed)
+  } catch (directError) {
+    const objectStart = trimmed.indexOf('{')
+    const objectEnd = trimmed.lastIndexOf('}')
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      return JSON.parse(trimmed.slice(objectStart, objectEnd + 1))
+    }
+    throw directError
+  }
+}
+
 async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRow> {
   const { data, error } = await asAny(client)
     .from('ucat_ai_generation_settings')
@@ -108,35 +187,35 @@ async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRo
   return data as unknown as SettingsRow
 }
 
-export async function getEnabledUcatAiProfiles(client: SupabaseClient<Database>): Promise<ProfileRow[]> {
+export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Database>): Promise<ModelProfileRow[]> {
   const { data, error } = await asAny(client)
-    .from('ucat_ai_generation_profiles')
+    .from('ucat_ai_generation_model_profiles')
     .select('*')
     .eq('is_enabled', true)
     .order('is_default', { ascending: false })
     .order('name')
   if (error) return []
-  return (data ?? []) as unknown as ProfileRow[]
+  return (data ?? []) as unknown as ModelProfileRow[]
 }
 
 export async function resolveUcatAiConfig(
   client: SupabaseClient<Database>,
-  profileId?: string | null
+  modelProfileId?: string | null
 ): Promise<UcatAiResolvedConfig> {
   const settings = await getSettings(client)
-  let profileQuery = asAny(client).from('ucat_ai_generation_profiles').select('*').eq('is_enabled', true)
-  profileQuery = profileId ? profileQuery.eq('id', profileId) : profileQuery.eq('is_default', true)
+  let profileQuery = asAny(client).from('ucat_ai_generation_model_profiles').select('*').eq('is_enabled', true)
+  profileQuery = modelProfileId ? profileQuery.eq('id', modelProfileId) : profileQuery.eq('is_default', true)
   const { data: profileData, error: profileError } = await profileQuery.maybeSingle()
 
   if (profileError || !profileData) {
-    throw new Error(profileId ? 'Selected UCAT generation profile is not available' : 'No default UCAT generation profile is configured')
+    throw new Error(modelProfileId ? 'Selected UCAT model profile is not available' : 'No default UCAT model profile is configured')
   }
 
-  const profile = profileData as unknown as ProfileRow
+  const modelProfile = profileData as unknown as ModelProfileRow
   const { data: providerData, error: providerError } = await asAny(client)
     .from('ucat_ai_generation_providers')
     .select('*')
-    .eq('id', profile.provider_id)
+    .eq('id', modelProfile.provider_id)
     .eq('is_enabled', true)
     .maybeSingle()
 
@@ -144,9 +223,20 @@ export async function resolveUcatAiConfig(
     throw new Error('UCAT generation provider is not available')
   }
 
+  const { data: systemPromptsData, error: systemPromptsError } = await asAny(client)
+    .from('ucat_ai_generation_system_prompts')
+    .select('*')
+    .limit(1)
+    .maybeSingle()
+
+  if (systemPromptsError || !systemPromptsData) {
+    throw new Error('UCAT generation system prompts are not configured')
+  }
+
   return {
     provider: providerData as unknown as ProviderRow,
-    profile,
+    modelProfile,
+    systemPrompts: systemPromptsData as unknown as SystemPromptsRow,
     settings,
   }
 }
@@ -208,7 +298,7 @@ async function recordUsage(params: {
   await asAny(params.client)
     .from('ucat_ai_generation_usage')
     .insert({
-      profile_id: params.config.profile.id,
+      model_profile_id: params.config.modelProfile.id,
       provider_id: params.config.provider.id,
       model: params.model,
       operation: params.operation,
@@ -223,15 +313,17 @@ async function recordUsage(params: {
 export async function callUcatAiJson(params: {
   client: SupabaseClient<Database>
   operation: string
-  profileId?: string | null
+  modelProfileId?: string | null
   systemPrompt: string
   userPrompt: string
   temperature?: number
   maxCompletionTokens?: number
   timeoutMs?: number
+  providerSort?: 'price' | 'throughput' | 'latency'
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   metadata?: Json | null
 }): Promise<UcatAiJsonResult> {
-  const config = await resolveUcatAiConfig(params.client, params.profileId)
+  const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
   await assertBudget(params.client, config.settings)
 
   const apiKey = process.env[config.provider.secret_env_var_name]
@@ -242,27 +334,41 @@ export async function callUcatAiJson(params: {
   const controller = new AbortController()
   const timeoutMs = params.timeoutMs ?? 120000
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  const maxCompletionTokens = params.maxCompletionTokens ?? config.profile.max_completion_tokens
+  const maxCompletionTokens = params.maxCompletionTokens ?? config.modelProfile.max_completion_tokens
 
-  const response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
-    method: 'POST',
-    signal: controller.signal,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...parseHeaders(config.provider.default_headers),
-    },
-    body: JSON.stringify({
-      model: config.profile.model,
-      temperature: params.temperature ?? Number(config.profile.temperature),
-      response_format: { type: 'json_object' },
-      max_completion_tokens: maxCompletionTokens,
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-    }),
-  }).finally(() => clearTimeout(timeout))
+  let response: Response
+  try {
+    response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...parseHeaders(config.provider.default_headers),
+      },
+      body: JSON.stringify({
+        model: config.modelProfile.model,
+        temperature: params.temperature ?? Number(config.modelProfile.temperature),
+        response_format: { type: 'json_object' },
+        max_completion_tokens: maxCompletionTokens,
+        provider: params.providerSort ? { sort: params.providerSort } : undefined,
+        reasoning: params.reasoningEffort
+          ? { effort: params.reasoningEffort, exclude: true }
+          : undefined,
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          { role: 'user', content: params.userPrompt },
+        ],
+      }),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
@@ -273,23 +379,49 @@ export async function callUcatAiJson(params: {
     usage?: UcatAiUsage
   }
   const content = json.choices?.[0]?.message?.content
-  if (!content) throw new Error(`UCAT AI ${params.operation} returned empty response`)
+  if (!content) {
+    throw new UcatAiEmptyResponseError({
+      operation: params.operation,
+      model: config.modelProfile.model,
+      providerId: config.provider.id,
+      modelProfileId: config.modelProfile.id,
+      usage: json.usage ?? null,
+      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      maxCompletionTokens,
+    })
+  }
 
   await recordUsage({
     client: params.client,
     config,
     operation: params.operation,
-    model: config.profile.model,
+    model: config.modelProfile.model,
     usage: json.usage ?? null,
     metadata: params.metadata ?? null,
   })
 
+  let parsed: unknown
+  try {
+    parsed = parseUcatAiJsonContent(content)
+  } catch {
+    throw new UcatAiJsonParseError({
+      operation: params.operation,
+      content,
+      model: config.modelProfile.model,
+      providerId: config.provider.id,
+      modelProfileId: config.modelProfile.id,
+      usage: json.usage ?? null,
+      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      maxCompletionTokens,
+    })
+  }
+
   return {
     content,
-    parsed: JSON.parse(content),
-    model: config.profile.model,
+    parsed,
+    model: config.modelProfile.model,
     providerId: config.provider.id,
-    profileId: config.profile.id,
+    modelProfileId: config.modelProfile.id,
     usage: json.usage ?? null,
     finishReason: json.choices?.[0]?.finish_reason ?? null,
     maxCompletionTokens,

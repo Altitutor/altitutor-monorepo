@@ -1,5 +1,6 @@
 import { HelpCircle } from "lucide-react";
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function EngineIntroDialog({
   title,
@@ -13,7 +14,7 @@ export function EngineIntroDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title={title}
       icon={<HelpCircle className="h-12 w-12" />}
       message={<p>{description}</p>}

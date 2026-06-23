@@ -15,5 +15,6 @@ export function useQuotaUsage() {
     queryFn: fetchQuotaUsage,
     enabled: Boolean(user),
     staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }

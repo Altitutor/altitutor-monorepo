@@ -1,6 +1,7 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function ExitResultsDialog({
   onConfirm,
@@ -10,7 +11,7 @@ export function ExitResultsDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Exit Results"
       message={
         <p>

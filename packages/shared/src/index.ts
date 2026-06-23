@@ -12,7 +12,7 @@ export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./external-url/embed";
 export * from "./resources";
+export * from "./flashcards";
 // Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
-
 

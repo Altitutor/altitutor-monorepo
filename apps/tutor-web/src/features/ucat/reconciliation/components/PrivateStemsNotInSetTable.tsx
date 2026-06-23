@@ -39,6 +39,10 @@ import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableU
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
 import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import {
+  UcatQuestionStemApprovalQueueDialog,
+  type UcatApprovalQueueEntry,
+} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 
 const TRUNCATE_LEN = 80
 
@@ -77,6 +81,7 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetId, setBulkSetId] = useState<string | null>(null)
   const [bulkSetPending, setBulkSetPending] = useState(false)
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'category_name', 'section_name'])
+  const [queueOpen, setQueueOpen] = useState(false)
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'category_name', label: 'Category', visibleByDefault: true },
@@ -138,6 +143,16 @@ export function PrivateStemsNotInSetTable({
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
     return result
   }, [data?.privateStemsNotInSet, tableState.state, stemAccessors, categoryPathLookup, searchScopes])
+
+  const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
+    () =>
+      filteredStems.map((stem) => ({
+        stemId: stem.id,
+        mode: 'reconciliation' as const,
+        issueType: 'missing_set' as const,
+      })),
+    [filteredStems],
+  )
 
   const handleAddToSet = useCallback(
     async (item: PrivateStemNotInSet, setId: string) => {
@@ -272,6 +287,11 @@ export function PrivateStemsNotInSetTable({
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
+        headerActions={
+          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+            Begin reconciling
+          </Button>
+        }
         selection={{
           getItemId: (s) => s.id,
           selectedIds: selectedStemIds,
@@ -341,6 +361,12 @@ export function PrivateStemsNotInSetTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <UcatQuestionStemApprovalQueueDialog
+        open={queueOpen}
+        title="Reconcile set membership"
+        entries={queueEntries}
+        onClose={() => setQueueOpen(false)}
+      />
     </>
   )
 }

@@ -7,20 +7,21 @@ import {
   callUcatAiJson,
   getUcatAiPromptLayers,
   resolveUcatAiConfig,
+  UcatAiEmptyResponseError,
+  UcatAiJsonParseError,
 } from '@/features/ucat/shared/server/ucat-ai-client'
 import {
-  buildCriticPrompt,
-  buildPlanningPrompt,
-  buildRewriterPrompt,
   buildWriterPrompt,
   type AiGenerationBrief,
 } from '@/features/ucat/questions/lib/ai-generation/prompts'
 import {
-  CriticResponseSchema,
+  buildLocalPlan,
+  correctAnswerPattern,
+} from '@/features/ucat/questions/lib/ai-generation/local-plan'
+import {
   DifficultyTargetSchema,
   GeneratedCandidateResponseSchema,
   TimeBurdenTargetSchema,
-  type CriticIssue,
   type GeneratedStem,
 } from '@/features/ucat/questions/lib/ai-generation/schema'
 import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
@@ -38,7 +39,7 @@ type SupabaseAny = SupabaseClient<Database> & {
 const GenerateBodySchema = z.object({
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  modelProfileId: z.string().uuid().nullable().optional(),
   sourceMode: z.enum(['none', 'random', 'selected']).default('none'),
   sourceStemIds: z.array(z.string().uuid()).optional(),
   stemCount: z.number().int().min(1).max(50),
@@ -48,8 +49,18 @@ const GenerateBodySchema = z.object({
   runInstructions: z.string().trim().max(2000).nullable().optional(),
 })
 
+const GENERATION_TOKEN_LIMITS = {
+  writer: 3000,
+} as const
+
+const GENERATION_TIMEOUT_MS = {
+  writer: 75_000,
+} as const
+
 type SourceStem = {
   id: string
+  question_stem_category_id?: string | null
+  category_name?: string | null
   stem_text: Json | null
   questions: Array<{
     question_text?: Json | null
@@ -67,6 +78,63 @@ type SourceStem = {
 type StemCategoryChoice = {
   id: string
   name: string
+}
+
+type GenerationDebugCall = {
+  stemIndex: number
+  categoryName: string | null
+  operation: string
+  model: string | null
+  durationMs: number
+  status: 'ok' | 'error'
+  error?: string
+  request: {
+    systemPrompt: string
+    userPrompt: string
+    maxCompletionTokens: number
+    timeoutMs: number
+    providerSort: 'throughput'
+  }
+  response?: {
+    content: string
+    finishReason: string | null
+    usage: unknown
+    contentLength: number
+  }
+  parsedSummary?: {
+    stemCount: number
+    categories: Array<string | null>
+    questionCounts: number[]
+  }
+}
+
+type GenerationDebugInfo = {
+  runId?: string | null
+  requestedStemCount: number
+  sectionName: string | null
+  selectedCategoryName: string | null
+  sourceSampleIds: string[]
+  promptLayerCount: number
+  calls: GenerationDebugCall[]
+  gateIssues: GenerationGateIssue[]
+}
+
+type GenerateBody = z.infer<typeof GenerateBodySchema>
+
+type GenerationProgressEvent = {
+  type: 'progress'
+  step: 'setup' | 'sources' | 'generating' | 'gates' | 'drafts'
+  message: string
+  completedStems?: number
+  totalStems?: number
+  runId?: string | null
+}
+
+type EmitProgress = (event: GenerationProgressEvent) => void
+
+type GenerationResult = {
+  status: number
+  payload: Record<string, unknown>
 }
 
 function asAny(client: SupabaseClient<Database>): SupabaseAny {
@@ -90,19 +158,126 @@ function extractText(value: Json | null | undefined): string {
 function compactStemForPrompt(stem: SourceStem): Record<string, unknown> {
   return {
     id: stem.id,
-    stemText: extractText(stem.stem_text).slice(0, 2200),
-    questions: (stem.questions ?? []).slice(0, 6).map((question) => ({
-      questionText: extractText((question.question_text ?? null) as Json).slice(0, 900),
+    categoryName: stem.category_name ?? null,
+    stemText: extractText(stem.stem_text).slice(0, 2400),
+    questions: (stem.questions ?? []).slice(0, 4).map((question) => ({
+      questionText: extractText((question.question_text ?? null) as Json).slice(0, 220),
       questionType: question.question_type ?? 'multiple_choice',
-      answerExplanation: extractText((question.answer_explanation ?? null) as Json).slice(0, 600),
+      answerExplanation: extractText((question.answer_explanation ?? null) as Json).slice(0, 700),
       tags: (question.tags ?? []).map((tag) => tag.name).filter(Boolean),
-      options: (question.answer_options ?? []).slice(0, 6).map((option) => ({
-        answerText: extractText((option.answer_text ?? null) as Json).slice(0, 300),
-        answerExplanation: extractText((option.answer_explanation ?? null) as Json).slice(0, 300),
+      options: (question.answer_options ?? []).slice(0, 5).map((option) => ({
+        answerText: extractText((option.answer_text ?? null) as Json).slice(0, 100),
+        ...(question.question_type === 'syllogism'
+          ? { answerExplanation: extractText((option.answer_explanation ?? null) as Json).slice(0, 240) }
+          : {}),
         isAnswer: !!option.is_answer,
       })),
     })),
   }
+}
+
+function normalizeVrParagraphs(stem: GeneratedStem, sectionName: string): GeneratedStem {
+  if (sectionName !== 'Verbal Reasoning') return stem
+
+  const existingParagraphs =
+    typeof stem.stemText === 'string'
+      ? stem.stemText
+          .split(/\n{2,}|\r?\n/u)
+          .map((paragraph) => paragraph.trim())
+          .filter(Boolean)
+      : stem.stemText
+          .filter((block) => block.type === 'paragraph')
+          .map((block) => block.type === 'paragraph' ? block.text.trim() : '')
+          .filter(Boolean)
+  if (existingParagraphs.length >= 2 && existingParagraphs.length <= 6) return stem
+  if (existingParagraphs.length !== 1) return stem
+
+  const sentences = existingParagraphs[0]
+    .match(/[^.!?]+(?:[.!?]+["')\]]*|$)/gu)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) ?? []
+  if (sentences.length < 4) return stem
+
+  const targetParagraphCount = sentences.length >= 9 ? 3 : 2
+  const paragraphSize = Math.ceil(sentences.length / targetParagraphCount)
+  const paragraphs = Array.from({ length: targetParagraphCount }, (_, index) =>
+    sentences.slice(index * paragraphSize, (index + 1) * paragraphSize).join(' ')
+  ).filter(Boolean)
+
+  return {
+    ...stem,
+    stemText: paragraphs.map((text) => ({ type: 'paragraph' as const, text })),
+    warnings: [...stem.warnings, 'Passage paragraph breaks were normalized after generation.'],
+  }
+}
+
+function normalizePlannedAnswerPositions(stem: GeneratedStem, runIndex: number): GeneratedStem {
+  const category = normalizeLabel(stem.categoryName)
+  if (category !== 'reading comprehension' && category !== 'logical puzzles') return stem
+  const desiredPositions = correctAnswerPattern(stem.categoryName ?? null, runIndex)
+  return {
+    ...stem,
+    questions: stem.questions.map((question, questionIndex) => {
+      const correctIndex = question.options.findIndex((option) => option.isAnswer)
+      const desiredLabel = desiredPositions[questionIndex] ?? 'A'
+      const desiredIndex = Math.max(0, Math.min(question.options.length - 1, desiredLabel.charCodeAt(0) - 65))
+      if (correctIndex < 0 || correctIndex === desiredIndex) return question
+      const options = [...question.options]
+      const [correctOption] = options.splice(correctIndex, 1)
+      if (!correctOption) return question
+      options.splice(desiredIndex, 0, correctOption)
+      return { ...question, options }
+    }),
+  }
+}
+
+function selectCategoryNameForIndex(brief: AiGenerationBrief, index: number): string | null {
+  if (brief.categoryName) return brief.categoryName
+  const categories = brief.availableCategories ?? []
+  if (categories.length === 0) return null
+  return categories[index % categories.length]?.name ?? null
+}
+
+function briefForSingleStem(brief: AiGenerationBrief, index: number): AiGenerationBrief {
+  const categoryName = selectCategoryNameForIndex(brief, index)
+  const matchingExamples = brief.examples.filter((example) => {
+    if (example.categoryName !== categoryName) return false
+    if (normalizeLabel(categoryName) !== 'logical puzzles') return true
+    const text = JSON.stringify(example).toLowerCase()
+    return !/(?:probability|chance|likelihood|\d+%)/u.test(text)
+  })
+  const exampleStart = matchingExamples.length > 0 ? (index * 2) % matchingExamples.length : 0
+  const examples = Array.from(
+    { length: Math.min(2, matchingExamples.length) },
+    (_, offset) => matchingExamples[(exampleStart + offset) % matchingExamples.length]
+  ).filter((example): example is Record<string, unknown> => !!example)
+  return {
+    ...brief,
+    categoryName,
+    availableCategories: categoryName ? [] : brief.availableCategories,
+    stemCount: 1,
+    examples,
+    promptLayers: brief.promptLayers.filter((layer) => {
+      if (layer.scopeType === 'stem_category') return layer.name === categoryName
+      return true
+    }),
+  }
+}
+
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<T[]> {
+  const results: T[] = []
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await tasks[currentIndex]()
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
+  return results
 }
 
 function sourcePlainText(stem: SourceStem): string {
@@ -125,20 +300,78 @@ function difficultyToNumber(value: number | null | undefined, target: string | u
   return null
 }
 
-function criticIssuesToGateIssues(issues: CriticIssue[]): GenerationGateIssue[] {
-  return issues.map((issue) => ({
-    severity: issue.severity,
-    code: issue.code,
-    message: issue.message,
-    stemIndex: issue.stemIndex ?? 0,
-    questionIndex: issue.questionIndex ?? undefined,
-  }))
-}
-
 function issueMessages(issues: GenerationGateIssue[]): string[] {
   return issues
     .filter((issue) => issue.severity === 'warning')
     .map((issue) => issue.questionIndex == null ? issue.message : `Q${issue.questionIndex + 1}: ${issue.message}`)
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown generation error'
+}
+
+function isCapturedAiResponseError(
+  error: unknown
+): error is UcatAiJsonParseError | UcatAiEmptyResponseError {
+  return error instanceof UcatAiJsonParseError || error instanceof UcatAiEmptyResponseError
+}
+
+async function currentTutorId(client: SupabaseClient<Database>): Promise<string | null> {
+  const { data, error } = await asAny(client).rpc('current_tutor_id')
+  if (error || typeof data !== 'string') return null
+  return data
+}
+
+async function createGenerationRun(params: {
+  client: SupabaseClient<Database>
+  body: GenerateBody
+  modelProfileId: string | null
+}): Promise<string | null> {
+  const staffId = await currentTutorId(params.client)
+  if (!staffId) return null
+
+  const { data, error } = await asAny(params.client)
+    .from('ucat_ai_generation_runs')
+    .insert({
+      section_id: params.body.sectionId,
+      question_stem_category_id: params.body.categoryId ?? null,
+      model_profile_id: params.modelProfileId,
+      status: 'running',
+      requested_stem_count: params.body.stemCount,
+      created_by: staffId,
+      updated_by: staffId,
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (error || !data?.id) return null
+  return data.id as string
+}
+
+async function updateGenerationRun(params: {
+  client: SupabaseClient<Database>
+  runId: string | null | undefined
+  status: 'completed' | 'failed'
+  acceptedStemCount?: number
+  discardedStemCount?: number
+  errorMessage?: string | null
+  debug: GenerationDebugInfo | null
+}) {
+  if (!params.runId) return
+  const staffId = await currentTutorId(params.client)
+  const payload: Record<string, unknown> = {
+    status: params.status,
+    accepted_stem_count: params.acceptedStemCount ?? 0,
+    discarded_stem_count: params.discardedStemCount ?? 0,
+    error_message: params.errorMessage ?? null,
+    debug_payload: params.debug ?? null,
+  }
+  if (staffId) payload.updated_by = staffId
+
+  await asAny(params.client)
+    .from('ucat_ai_generation_runs')
+    .update(payload)
+    .eq('id', params.runId)
 }
 
 async function fetchSourceStems(
@@ -149,7 +382,7 @@ async function fetchSourceStems(
 
   let query = asAny(client)
     .from('vtutor_ucat_question_stem_detail')
-    .select('id,stem_text,questions')
+    .select('id,question_stem_category_id,category_name,stem_text,questions')
     .eq('section_id', body.sectionId)
     .filter('approval_status', 'eq', 'approved')
     .is('deleted_at', null)
@@ -169,8 +402,17 @@ async function fetchSourceStems(
   if (error) throw new Error(error.message)
 
   const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
-  const sampleSize = Math.min(6, source.length)
-  return [...source].sort(() => Math.random() - 0.5).slice(0, sampleSize)
+  const shuffled = [...source].sort(() => Math.random() - 0.5)
+  if (body.sourceMode === 'selected') return shuffled.slice(0, 4)
+
+  const samplesByCategory = new Map<string, SourceStem[]>()
+  for (const stem of shuffled) {
+    const key = stem.category_name ?? stem.question_stem_category_id ?? 'uncategorized'
+    const samples = samplesByCategory.get(key) ?? []
+    if (samples.length < 6) samples.push(stem)
+    samplesByCategory.set(key, samples)
+  }
+  return Array.from(samplesByCategory.values()).flat()
 }
 
 async function fetchTargetTags(client: SupabaseClient<Database>, tagIds: string[]) {
@@ -247,64 +489,12 @@ async function buildPromptLayers(params: {
   })
 }
 
-async function criticPass(params: {
-  client: SupabaseClient<Database>
-  profileId?: string | null
-  systemPrompt: string
-  brief: AiGenerationBrief
-  candidates: GeneratedStem[]
-}): Promise<GenerationGateIssue[]> {
-  const result = await callUcatAiJson({
-    client: params.client,
-    operation: 'generation_critic',
-    profileId: params.profileId,
-    systemPrompt: params.systemPrompt,
-    userPrompt: buildCriticPrompt({ ...params.brief, candidates: params.candidates }),
-    temperature: 0.1,
-    metadata: { section: params.brief.sectionName, category: params.brief.categoryName } as Json,
-  })
-  const parsed = CriticResponseSchema.safeParse(result.parsed)
-  if (!parsed.success) {
-    return [
-      {
-        severity: 'warning',
-        code: 'critic_schema_mismatch',
-        message: 'AI critic output could not be parsed; deterministic gates still passed.',
-        stemIndex: 0,
-      },
-    ]
-  }
-  return criticIssuesToGateIssues(parsed.data.issues)
-}
-
-async function rewriteCandidate(params: {
-  client: SupabaseClient<Database>
-  profileId?: string | null
-  systemPrompt: string
-  brief: AiGenerationBrief
-  candidate: GeneratedStem
-  issues: GenerationGateIssue[]
-}): Promise<GeneratedStem | null> {
-  const result = await callUcatAiJson({
-    client: params.client,
-    operation: 'generation_rewrite',
-    profileId: params.profileId,
-    systemPrompt: params.systemPrompt,
-    userPrompt: buildRewriterPrompt({ ...params.brief, candidate: params.candidate, issues: params.issues }),
-    temperature: 0.3,
-    metadata: { section: params.brief.sectionName, category: params.brief.categoryName } as Json,
-  })
-  const parsed = GeneratedCandidateResponseSchema.safeParse(result.parsed)
-  if (!parsed.success) return null
-  return parsed.data.stems[0] ?? null
-}
-
 function toDraft(params: {
   stem: GeneratedStem
   body: z.infer<typeof GenerateBodySchema>
   warnings: string[]
   sampleStemIds: string[]
-  profileId: string | null
+  modelProfileId: string | null
   providerId: string | null
   model: string
   metadata: Record<string, unknown>
@@ -340,7 +530,7 @@ function toDraft(params: {
       source: 'ucat-ai-generation',
       generatedAt: new Date().toISOString(),
       sampleStemIds: params.sampleStemIds,
-      profileId: params.profileId,
+      modelProfileId: params.modelProfileId,
       providerId: params.providerId,
       model: params.model,
       generationBrief: {
@@ -353,35 +543,52 @@ function toDraft(params: {
         targetTagIds: params.body.targetTagIds,
         runInstructions: params.body.runInstructions ?? null,
       },
-      warnings: params.warnings,
+      warnings: [...params.stem.warnings, ...params.warnings],
       ...params.metadata,
     } as Json,
   }
 }
 
-export async function POST(request: NextRequest) {
-  const access = await requireUcatTutor()
-  if (!access.ok) return access.response
-
-  let body: z.infer<typeof GenerateBodySchema>
-  try {
-    body = GenerateBodySchema.parse(await request.json())
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Invalid generation payload', details: error instanceof Error ? error.message : undefined },
-      { status: 400 }
-    )
-  }
-
-  const client = access.userClient as unknown as SupabaseClient<Database>
+async function executeGeneration(
+  client: SupabaseClient<Database>,
+  body: GenerateBody,
+  emitProgress: EmitProgress = () => undefined
+): Promise<GenerationResult> {
+  let debug: GenerationDebugInfo | null = null
 
   try {
-    const config = await resolveUcatAiConfig(client, body.profileId)
+    emitProgress({
+      type: 'progress',
+      step: 'setup',
+      message: 'Loading model profile and generation settings',
+      completedStems: 0,
+      totalStems: body.stemCount,
+    })
+    const config = await resolveUcatAiConfig(client, body.modelProfileId)
+    const runId = await createGenerationRun({
+      client,
+      body,
+      modelProfileId: config.modelProfile.id,
+    })
+    emitProgress({
+      type: 'progress',
+      step: 'setup',
+      message: runId ? 'Generation run created' : 'Generation run started',
+      completedStems: 0,
+      totalStems: body.stemCount,
+      runId,
+    })
+
     if (body.stemCount > config.settings.max_requested_stems_per_run) {
-      return NextResponse.json(
-        { error: `Generation runs are capped at ${config.settings.max_requested_stems_per_run} requested stems.` },
-        { status: 400 }
-      )
+      const message = `Generation runs are capped at ${config.settings.max_requested_stems_per_run} requested stems.`
+      await updateGenerationRun({
+        client,
+        runId,
+        status: 'failed',
+        errorMessage: message,
+        debug,
+      })
+      return { status: 400, payload: { error: message, debugRunId: runId } }
     }
 
     const { data: section, error: sectionError } = await asAny(client)
@@ -390,7 +597,16 @@ export async function POST(request: NextRequest) {
       .eq('id', body.sectionId)
       .maybeSingle()
     const sectionRow = section as { id: string; name: string | null } | null
-    if (sectionError || !sectionRow) return NextResponse.json({ error: 'Section not found' }, { status: 400 })
+    if (sectionError || !sectionRow) {
+      await updateGenerationRun({
+        client,
+        runId,
+        status: 'failed',
+        errorMessage: 'Section not found',
+        debug,
+      })
+      return { status: 400, payload: { error: 'Section not found', debugRunId: runId } }
+    }
 
     const categoryChoices = await fetchSectionCategories(client, body.sectionId)
     const categoryIdByName = new Map(categoryChoices.map((category) => [normalizeLabel(category.name), category.id]))
@@ -399,11 +615,26 @@ export async function POST(request: NextRequest) {
     if (body.categoryId) {
       const categoryRow = categoryChoices.find((category) => category.id === body.categoryId) ?? null
       if (!categoryRow) {
-        return NextResponse.json({ error: 'Invalid category for selected section' }, { status: 400 })
+        await updateGenerationRun({
+          client,
+          runId,
+          status: 'failed',
+          errorMessage: 'Invalid category for selected section',
+          debug,
+        })
+        return { status: 400, payload: { error: 'Invalid category for selected section', debugRunId: runId } }
       }
       categoryName = categoryRow.name
     }
 
+    emitProgress({
+      type: 'progress',
+      step: 'sources',
+      message: 'Selecting source examples and prompt layers',
+      completedStems: 0,
+      totalStems: body.stemCount,
+      runId,
+    })
     const sourceSamples = await fetchSourceStems(client, body)
     const targetTags = await fetchTargetTags(client, body.targetTagIds)
     const promptLayers = await buildPromptLayers({
@@ -415,14 +646,12 @@ export async function POST(request: NextRequest) {
       availableCategories: categoryChoices,
       tags: targetTags,
     })
-    const candidateCount = Math.min(config.profile.candidates_per_stem, config.settings.max_candidates_per_stem)
     const examples = sourceSamples.map(compactStemForPrompt)
     const brief: AiGenerationBrief = {
       sectionName: sectionRow.name ?? 'UCAT',
       categoryName,
       availableCategories: body.categoryId ? [] : categoryChoices,
       stemCount: body.stemCount,
-      candidateCount,
       difficultyTarget: body.difficultyTarget,
       timeBurdenTarget: body.timeBurdenTarget,
       targetTags,
@@ -430,127 +659,295 @@ export async function POST(request: NextRequest) {
       examples,
       promptLayers,
     }
-
-    const planner = await callUcatAiJson({
-      client,
-      operation: 'generation_plan',
-      profileId: body.profileId,
-      systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.planner_prompt}`,
-      userPrompt: buildPlanningPrompt(brief),
-      temperature: Math.max(0.3, Number(config.profile.temperature)),
-      metadata: { section: brief.sectionName, category: brief.categoryName } as Json,
-    })
-
-    const writer = await callUcatAiJson({
-      client,
-      operation: 'generation_write',
-      profileId: body.profileId,
-      systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.writer_prompt}`,
-      userPrompt: buildWriterPrompt({ ...brief, plan: planner.parsed }),
-      temperature: Number(config.profile.temperature),
-      metadata: { section: brief.sectionName, category: brief.categoryName } as Json,
-    })
-
-    const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
-    if (!parsedWriter.success) {
-      return NextResponse.json(
-        { error: 'AI generation output schema mismatch', details: parsedWriter.error.flatten() },
-        { status: 500 }
-      )
+    debug = {
+      runId,
+      requestedStemCount: body.stemCount,
+      sectionName: sectionRow.name ?? null,
+      selectedCategoryName: categoryName,
+      sourceSampleIds: sourceSamples.map((sample) => sample.id),
+      promptLayerCount: promptLayers.length,
+      calls: [],
+      gateIssues: [],
     }
+    const activeDebug = debug
 
+    let completedStemCalls = 0
+    emitProgress({
+      type: 'progress',
+      step: 'generating',
+      message: `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`,
+      completedStems: completedStemCalls,
+      totalStems: body.stemCount,
+      runId,
+    })
+
+    const generatedResults = await runWithConcurrency(
+      Array.from({ length: body.stemCount }, (_, stemIndex) => async () => {
+        const singleBrief = briefForSingleStem(brief, stemIndex)
+        const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
+        const userPrompt = buildWriterPrompt({ ...singleBrief, plan: buildLocalPlan(singleBrief, stemIndex) })
+        const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
+          ? 10_000
+          : GENERATION_TOKEN_LIMITS.writer
+        const maxCompletionTokens = Math.max(
+          sectionMinimumTokens,
+          config.modelProfile.max_completion_tokens
+        )
+        const startedAt = Date.now()
+        const baseDebug = {
+          stemIndex,
+          categoryName: singleBrief.categoryName,
+          operation: 'generation_write',
+          request: {
+            systemPrompt,
+            userPrompt,
+            maxCompletionTokens,
+            timeoutMs: GENERATION_TIMEOUT_MS.writer,
+            providerSort: 'throughput' as const,
+          },
+        }
+
+        let writer
+        try {
+          writer = await callUcatAiJson({
+            client,
+            operation: 'generation_write',
+            modelProfileId: body.modelProfileId,
+            systemPrompt,
+            userPrompt,
+            temperature: Number(config.modelProfile.temperature),
+            maxCompletionTokens,
+            timeoutMs: GENERATION_TIMEOUT_MS.writer,
+            providerSort: 'throughput',
+            metadata: { section: singleBrief.sectionName, category: singleBrief.categoryName } as Json,
+          })
+        } catch (error) {
+          activeDebug.calls.push({
+            ...baseDebug,
+            model: isCapturedAiResponseError(error) ? error.model : config.modelProfile.model,
+            durationMs: Date.now() - startedAt,
+            status: 'error',
+            error: errorMessage(error),
+            response:
+              isCapturedAiResponseError(error)
+                ? {
+                    content: error.content,
+                    finishReason: error.finishReason,
+                    usage: error.usage,
+                    contentLength: error.content.length,
+                  }
+                : undefined,
+          })
+          completedStemCalls += 1
+          emitProgress({
+            type: 'progress',
+            step: 'generating',
+            message: `Stem ${stemIndex + 1} failed during model generation`,
+            completedStems: completedStemCalls,
+            totalStems: body.stemCount,
+            runId,
+          })
+          return null
+        }
+
+        const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
+        activeDebug.calls.push({
+          ...baseDebug,
+          model: writer.model,
+          durationMs: Date.now() - startedAt,
+          status: parsedWriter.success ? 'ok' : 'error',
+          error: parsedWriter.success ? undefined : 'Generated JSON did not match the expected stem schema.',
+          response: {
+            content: writer.content,
+            finishReason: writer.finishReason,
+            usage: writer.usage,
+            contentLength: writer.content.length,
+          },
+          parsedSummary: parsedWriter.success
+            ? {
+                stemCount: parsedWriter.data.stems.length,
+                categories: parsedWriter.data.stems.map((stem) => stem.categoryName ?? null),
+                questionCounts: parsedWriter.data.stems.map((stem) => stem.questions.length),
+              }
+            : undefined,
+        })
+        completedStemCalls += 1
+        emitProgress({
+          type: 'progress',
+          step: 'generating',
+          message: parsedWriter.success
+            ? `Stem ${stemIndex + 1} returned and matched the schema`
+            : `Stem ${stemIndex + 1} returned but did not match the schema`,
+          completedStems: completedStemCalls,
+          totalStems: body.stemCount,
+          runId,
+        })
+        if (!parsedWriter.success) {
+          return null
+        }
+        const stem = parsedWriter.data.stems[0] ?? null
+        if (!stem) return null
+        return normalizePlannedAnswerPositions(
+          normalizeVrParagraphs(stem, singleBrief.sectionName),
+          stemIndex
+        )
+      }),
+      body.stemCount
+    )
+    const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
+    const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length
+
+    emitProgress({
+      type: 'progress',
+      step: 'gates',
+      message: 'Running deterministic quality and structure gates',
+      completedStems: generatedStems.length,
+      totalStems: body.stemCount,
+      runId,
+    })
     const sourcePlainTexts = [...sourceSamples.map(sourcePlainText), ...(await fetchBankComparisonTexts(client, body.sectionId))]
     const accepted: Array<{ stem: GeneratedStem; issues: GenerationGateIssue[]; rewritten: boolean }> = []
     const discarded: Array<{ issues: GenerationGateIssue[]; rewritten: boolean }> = []
 
-    for (const [candidateIndex, candidate] of parsedWriter.data.stems.entries()) {
-      let issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
+    for (const [candidateIndex, candidate] of generatedStems.entries()) {
+      const issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
         sectionName: brief.sectionName,
         categoryName,
         sourcePlainTexts,
       })
-      const criticIssues = await criticPass({
-        client,
-        profileId: body.profileId,
-        systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.critic_prompt}`,
-        brief,
-        candidates: [candidate],
-      })
-      issues = [...issues, ...criticIssues]
 
-      let finalStem = candidate
-      let rewritten = false
-      if (hasBlockingIssues(issues)) {
-        const rewrittenStem = await rewriteCandidate({
-          client,
-          profileId: body.profileId,
-          systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.rewriter_prompt}`,
-          brief,
-          candidate,
-          issues,
-        })
-        if (rewrittenStem) {
-          rewritten = true
-          finalStem = rewrittenStem
-          issues = validateGeneratedStemCandidate(finalStem, candidateIndex, {
-            sectionName: brief.sectionName,
-            categoryName,
-            sourcePlainTexts,
-          })
-          const rewrittenCriticIssues = await criticPass({
-            client,
-            profileId: body.profileId,
-            systemPrompt: `${config.profile.base_system_prompt}\n\n${config.profile.critic_prompt}`,
-            brief,
-            candidates: [finalStem],
-          })
-          issues = [...issues, ...rewrittenCriticIssues]
-        }
-      }
+      activeDebug.gateIssues.push(...issues)
 
-      if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten })
-      else accepted.push({ stem: finalStem, issues, rewritten })
+      if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten: false })
+      else accepted.push({ stem: candidate, issues, rewritten: false })
       if (accepted.length >= body.stemCount) break
     }
 
     if (accepted.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'No generated candidates passed blocking gates.',
-          discardedCount: discarded.length,
-          issues: discarded.flatMap((item) => item.issues).slice(0, 10),
+      const issues = discarded.flatMap((item) => item.issues).slice(0, 10)
+      const firstCallError = activeDebug.calls.find((call) => call.status === 'error')?.error
+      const message = issues[0]?.message ?? firstCallError ?? 'No generated candidates passed blocking gates.'
+      await updateGenerationRun({
+        client,
+        runId,
+        status: 'failed',
+        discardedStemCount: discarded.length + failedCallCount,
+        errorMessage: message,
+        debug,
+      })
+      return {
+        status: 422,
+        payload: {
+          error: message,
+          discardedCount: discarded.length + failedCallCount,
+          issues,
+          debug,
+          debugRunId: runId,
         },
-        { status: 422 }
-      )
+      }
     }
 
+    emitProgress({
+      type: 'progress',
+      step: 'drafts',
+      message: 'Preparing accepted stems for tutor review',
+      completedStems: accepted.length,
+      totalStems: body.stemCount,
+      runId,
+    })
     const stems = accepted.slice(0, body.stemCount).map((item, outputIndex) =>
       toDraft({
         stem: item.stem,
         body,
         warnings: issueMessages(item.issues),
         sampleStemIds: sourceSamples.map((sample) => sample.id),
-        profileId: config.profile.id,
+        modelProfileId: config.modelProfile.id,
         providerId: config.provider.id,
-        model: config.profile.model,
+        model: config.modelProfile.model,
         metadata: {
           outputIndex,
+          debugRunId: runId,
           requestedStemCount: body.stemCount,
-          candidatesPerStem: candidateCount,
-          discardedCount: discarded.length,
+          discardedCount: discarded.length + failedCallCount,
           rewritten: item.rewritten,
           gateIssues: item.issues,
-          profileVersion: config.profile.profile_version,
+          systemPromptVersion: config.systemPrompts.prompt_version,
         },
         categoryIdByName,
       })
     )
 
-    return NextResponse.json({ stems, discardedCount: discarded.length })
+    await updateGenerationRun({
+      client,
+      runId,
+      status: 'completed',
+      acceptedStemCount: stems.length,
+      discardedStemCount: discarded.length + failedCallCount,
+      debug,
+    })
+    return { status: 200, payload: { stems, discardedCount: discarded.length + failedCallCount, debug, debugRunId: runId } }
+  } catch (error) {
+    await updateGenerationRun({
+      client,
+      runId: debug?.runId,
+      status: 'failed',
+      errorMessage: errorMessage(error),
+      debug,
+    })
+    return { status: 500, payload: { error: errorMessage(error), debug, debugRunId: debug?.runId ?? null } }
+  }
+}
+
+function streamGenerationResponse(
+  client: SupabaseClient<Database>,
+  body: GenerateBody
+): Response {
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const emit = (event: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
+      }
+
+      void executeGeneration(client, body, emit).then((result) => {
+        emit({ type: result.status >= 400 ? 'error' : 'complete', status: result.status, ...result.payload })
+        controller.close()
+      }).catch((error) => {
+        emit({ type: 'error', status: 500, error: errorMessage(error) })
+        controller.close()
+      })
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+    },
+  })
+}
+
+export async function POST(request: NextRequest) {
+  const access = await requireUcatTutor()
+  if (!access.ok) return access.response
+
+  let body: GenerateBody
+  try {
+    body = GenerateBodySchema.parse(await request.json())
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate stems' },
-      { status: 500 }
+      { error: 'Invalid generation payload', details: error instanceof Error ? error.message : undefined },
+      { status: 400 }
     )
   }
+
+  const client = access.userClient as unknown as SupabaseClient<Database>
+  if (request.headers.get('accept')?.includes('application/x-ndjson')) {
+    return streamGenerationResponse(client, body)
+  }
+
+  const result = await executeGeneration(client, body)
+  return NextResponse.json(result.payload, { status: result.status })
 }

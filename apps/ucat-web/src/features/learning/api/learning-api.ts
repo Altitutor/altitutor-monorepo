@@ -66,4 +66,11 @@ export const learningApi = {
     });
     await parseJson(response);
   },
+
+  async resetLessonProgress(lessonId: string): Promise<void> {
+    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/complete`, {
+      method: "DELETE",
+    });
+    await parseJson(response);
+  },
 };

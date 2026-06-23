@@ -18,6 +18,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
+    "benchmark:ucat-generation": "tsx scripts/benchmark-ucat-generation.ts",
+    "benchmark:ucat-render-assets": "tsx scripts/render-ucat-benchmark-assets.ts",
     "test:ui": "vitest --ui",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",

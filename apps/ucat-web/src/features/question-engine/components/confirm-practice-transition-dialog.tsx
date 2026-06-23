@@ -1,6 +1,7 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function ConfirmSubmitDialog({
   onConfirm,
@@ -10,7 +11,7 @@ export function ConfirmSubmitDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Submit"
       message={<p>Submit your answer and view the correct answer?</p>}
       actions={
@@ -40,7 +41,7 @@ export function ConfirmNextStemDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Next question"
       message={<p>Go to the next question?</p>}
       actions={
@@ -70,7 +71,7 @@ export function ConfirmFinishPracticeDialog({
   onCancel: () => void;
 }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Finish practice"
       message={<p>Are you sure you want to finish this practice session?</p>}
       actions={

@@ -34,6 +34,10 @@ import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import {
+  UcatQuestionStemApprovalQueueDialog,
+  type UcatApprovalQueueEntry,
+} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 
 const TRUNCATE_LEN = 80
 
@@ -59,6 +63,7 @@ export function StemsWithNoCategoryTable({
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'section_id'])
+  const [queueOpen, setQueueOpen] = useState(false)
 
   const categories = useMemo(
     () => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[],
@@ -123,6 +128,16 @@ export function StemsWithNoCategoryTable({
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
     return result
   }, [data?.stemsWithNoCategory, tableState.state, stemAccessors, searchScopes])
+
+  const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
+    () =>
+      filteredStems.map((stem) => ({
+        stemId: stem.id,
+        mode: 'reconciliation' as const,
+        issueType: 'missing_category' as const,
+      })),
+    [filteredStems],
+  )
 
   const handleSetCategory = useCallback(
     async (item: StemWithNoCategory, categoryId: string) => {
@@ -253,6 +268,11 @@ export function StemsWithNoCategoryTable({
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
+        headerActions={
+          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+            Begin reconciling
+          </Button>
+        }
         selection={{
           getItemId: (s) => s.id,
           selectedIds: selectedStemIds,
@@ -323,6 +343,12 @@ export function StemsWithNoCategoryTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <UcatQuestionStemApprovalQueueDialog
+        open={queueOpen}
+        title="Reconcile missing categories"
+        entries={queueEntries}
+        onClose={() => setQueueOpen(false)}
+      />
     </>
   )
 }

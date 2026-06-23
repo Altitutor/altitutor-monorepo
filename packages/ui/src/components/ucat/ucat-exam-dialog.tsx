@@ -7,16 +7,19 @@ export function UcatExamDialog({
   message,
   actions,
   className,
+  squareCorners = false,
 }: {
   title: string
   icon?: ReactNode
   message: ReactNode
   actions: ReactNode
   className?: string
+  /** When true, renders with square corners instead of rounded-md. */
+  squareCorners?: boolean
 }) {
   return (
     <section
-      className={`w-full rounded-md border-2 text-white shadow-2xl ${className ?? ''}`}
+      className={`w-full border-2 text-white shadow-2xl ${squareCorners ? 'rounded-none' : 'rounded-md'} ${className ?? ''}`}
       style={{ borderColor: UCAT_COLORS.primaryBlueDark, backgroundColor: UCAT_COLORS.primaryBlue }}
     >
       <header

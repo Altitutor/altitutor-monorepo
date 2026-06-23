@@ -190,6 +190,45 @@ export async function markAllLessonBlocksComplete(
   await recalculateLessonProgress(supabase, studentId, lessonId);
 }
 
+export async function resetLessonProgress(
+  supabase: AdminClient,
+  studentId: string,
+  lessonId: string,
+): Promise<void> {
+  const blockIds = await loadLessonBlockIds(supabase, lessonId);
+
+  if (blockIds.length > 0) {
+    const { error } = await supabase
+      .from("ucat_student_learning_module_block_progress")
+      .delete()
+      .eq("student_id", studentId)
+      .in("learning_module_block_id", blockIds);
+
+    if (error) throw new Error(error.message);
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("ucat_student_learning_module_progress")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("learning_module_id", lessonId)
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
+
+  if (existing) {
+    const { error } = await supabase
+      .from("ucat_student_learning_module_progress")
+      .update({
+        completion_percent: 0,
+        completed_at: null,
+      })
+      .eq("id", existing.id);
+
+    if (error) throw new Error(error.message);
+  }
+}
+
 export async function isBlockCompleteForStudent(
   supabase: AdminClient,
   studentId: string,

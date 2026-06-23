@@ -1,10 +1,11 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function NoFlaggedDialog({ onClose }: { onClose: () => void }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="No Flagged Questions"
       message="There are no flagged questions."
       actions={

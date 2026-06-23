@@ -22,6 +22,7 @@ import {
   findTopicNodeInTree,
   flattenTopicsDfs,
 } from '@/features/resources/lib/helpers';
+import { FlashcardsTopicLink } from '@/features/flashcards';
 import { TutorPageContainer } from '@/shared/components/layouts';
 import { tutorCardCn } from '@/shared/lib/tutor-visual';
 import type { ResourceTopicNode } from '@/features/resources/lib/types';
@@ -134,6 +135,13 @@ export default function TutorResourceTopicPage() {
               }
             />
           )}
+
+          {topic?.id ? (
+            <FlashcardsTopicLink
+              topicId={topic.id}
+              href={`/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards`}
+            />
+          ) : null}
 
           {subtopicNodes.length > 0 ? (
             <section className={tutorCardCn('p-5 sm:p-6')} aria-labelledby="subtopics-heading">

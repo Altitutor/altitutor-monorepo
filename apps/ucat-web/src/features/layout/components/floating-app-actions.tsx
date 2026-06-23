@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { ExamAttemptHeaderPill } from "@/features/exam-attempts/components/exam-attempt-header-pill";
 import { ProfileDropdown } from "@/features/layout/components/profile-dropdown";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -11,17 +12,19 @@ type FloatingAppActionsProps = {
   onToggleNav: () => void;
   isMenuOpen: boolean;
   className?: string;
+  showExamAttemptPill?: boolean;
 };
 
 export function FloatingAppActions({
   onToggleNav,
   isMenuOpen,
   className,
+  showExamAttemptPill = false,
 }: FloatingAppActionsProps) {
   return (
     <div
       className={cn(
-        "fixed top-4 left-4 right-4 z-50 flex items-center justify-between gap-2",
+        "fixed top-4 left-4 right-4 z-50 flex items-center gap-2",
         className,
       )}
     >
@@ -42,7 +45,14 @@ export function FloatingAppActions({
           <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />
         </Button>
       </div>
-      <div className="flex items-center gap-2">
+      {showExamAttemptPill ? (
+        <div className="flex min-w-0 flex-1 justify-center px-2">
+          <ExamAttemptHeaderPill />
+        </div>
+      ) : (
+        <div className="flex-1" aria-hidden />
+      )}
+      <div className="flex shrink-0 items-center gap-2">
         <ThemeToggle />
         <ProfileDropdown />
       </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function ReviewInstructionsDialog({ onClose }: { onClose: () => void }) {
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Review Instructions"
       message={
         <div className="space-y-3 text-left">

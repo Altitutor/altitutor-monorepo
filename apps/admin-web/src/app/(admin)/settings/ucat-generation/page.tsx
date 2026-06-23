@@ -12,7 +12,7 @@ export default function UcatGenerationSettingsRoute() {
         </Link>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">UCAT generation</h1>
         <p className="mt-1 text-muted-foreground">
-          Configure UCAT AI providers, generation profiles, prompt layers, budgets, and gates.
+          Configure UCAT AI providers, model profiles, system prompts, scoped prompts, budgets, and run limits.
         </p>
       </div>
       <UcatGenerationSettingsPage />

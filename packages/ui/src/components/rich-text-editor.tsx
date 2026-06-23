@@ -502,6 +502,63 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             },
           };
         },
+        addNodeView() {
+          const parent = this.parent?.();
+          if (!parent) {
+            return null;
+          }
+          return (props) => {
+            const nodeView = parent(props);
+            if (!nodeView) {
+              return nodeView;
+            }
+            const dom = nodeView.dom as HTMLElement;
+            const img =
+              dom instanceof HTMLImageElement
+                ? dom
+                : dom.querySelector('img');
+            if (img instanceof HTMLImageElement) {
+              const reveal = () => {
+                dom.style.visibility = '';
+                dom.style.pointerEvents = '';
+              };
+              const bindRevealOnLoad = (image: HTMLImageElement) => {
+                // TipTap resize hides the container until onload; also reveal on error so
+                // expired signed URLs do not leave invisible placeholder-sized boxes.
+                if (image.complete) {
+                  reveal();
+                  return;
+                }
+                image.addEventListener('load', reveal, { once: true });
+                image.addEventListener('error', reveal, { once: true });
+              };
+              bindRevealOnLoad(img);
+
+              const parentUpdate = nodeView.update?.bind(nodeView);
+              if (parentUpdate) {
+                nodeView.update = (node, decorations, innerDecorations) => {
+                  const result = parentUpdate(node, decorations, innerDecorations);
+                  if (result === false) {
+                    return false;
+                  }
+                  const nextSrc = node.attrs.src;
+                  if (
+                    typeof nextSrc === 'string' &&
+                    nextSrc.length > 0 &&
+                    img.getAttribute('src') !== nextSrc
+                  ) {
+                    dom.style.visibility = 'hidden';
+                    dom.style.pointerEvents = 'none';
+                    img.src = nextSrc;
+                    bindRevealOnLoad(img);
+                  }
+                  return result;
+                };
+              }
+            }
+            return nodeView;
+          };
+        },
       }).configure({
         inline: false,
         allowBase64: false,

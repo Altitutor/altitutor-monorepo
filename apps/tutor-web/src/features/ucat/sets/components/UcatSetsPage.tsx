@@ -67,6 +67,10 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'created_by', label: 'Created by' },
 ]
 
+function countSetsInMocks(setIds: string[], rows: SetRow[]): number {
+  return setIds.filter((id) => (rows.find((r) => r.id === id)?.ucat_mock_ids.length ?? 0) > 0).length
+}
+
 export function UcatSetsPage() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
@@ -94,6 +98,7 @@ export function UcatSetsPage() {
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [mockFilterSearch, setMockFilterSearch] = useState('')
   const selectionMode = selectedSetIds.size > 0
   const updateSetMutation = useUpdateUcatSet()
@@ -239,12 +244,71 @@ export function UcatSetsPage() {
   }
 
   const { toast } = useToast()
+
+  const selectedSetIdsArray = useMemo(() => Array.from(selectedSetIds), [selectedSetIds])
+  const bulkDeleteInMocksCount = countSetsInMocks(selectedSetIdsArray, rows)
+  const singleDeleteInMocksCount = deletingSetId
+    ? (rows.find((r) => r.id === deletingSetId)?.ucat_mock_ids.length ?? 0)
+    : 0
+
+  async function invalidateSetsListQueries(setIds: string[] = []) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() }),
+      ...setIds.map((setId) => queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })),
+      ...setIds.flatMap((setId) => {
+        const row = rows.find((r) => r.id === setId)
+        return (row?.ucat_mock_ids ?? []).map((mockId) =>
+          queryClient.invalidateQueries({ queryKey: ucatKeys.mock(mockId) }),
+        )
+      }),
+    ])
+  }
+
+  function showSetDeleteSuccessToast(setIds: string[]) {
+    const count = setIds.length
+    toast({
+      title: count === 1 ? 'Set deleted' : `${count} sets deleted`,
+      description: 'Tap Undo to restore. Restored sets are not re-added to mocks they were removed from.',
+      duration: 10_000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          void (async () => {
+            try {
+              await Promise.all(setIds.map((id) => restoreSet.mutateAsync(id)))
+              await invalidateSetsListQueries(setIds)
+              toast({
+                title: count === 1 ? 'Set restored' : `${count} sets restored`,
+              })
+            } catch (err) {
+              toast({
+                title: 'Could not undo',
+                description: err instanceof Error ? err.message : 'Failed to restore sets.',
+                variant: 'destructive',
+              })
+            }
+          })()
+        },
+      },
+    })
+  }
+
+  async function deleteSetsWithMockRemoval(setIds: string[]) {
+    if (setIds.length === 1) {
+      await deleteSet.mutateAsync(setIds[0])
+    } else {
+      await ucatSetsApi.bulkRemove(setIds)
+    }
+    await invalidateSetsListQueries(setIds)
+    showSetDeleteSuccessToast(setIds)
+  }
+
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedSetIds)
     setBulkDeletePending(true)
     try {
-      await ucatSetsApi.bulkRemove(ids)
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      await deleteSetsWithMockRemoval(ids)
       setBulkDeleteOpen(false)
       setSelectedSetIds(new Set())
     } catch (err) {
@@ -253,6 +317,7 @@ export function UcatSetsPage() {
         description: err instanceof Error ? err.message : 'Failed to delete sets.',
         variant: 'destructive',
       })
+      throw err
     } finally {
       setBulkDeletePending(false)
     }
@@ -504,7 +569,11 @@ export function UcatSetsPage() {
         open={bulkDeleteOpen}
         onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
         title={`Delete ${selectedSetIds.size} set(s)?`}
-        description="The selected sets will be hidden from students. You can restore them later from the deleted list."
+        description={
+          bulkDeleteInMocksCount > 0
+            ? `${bulkDeleteInMocksCount} of the selected set(s) are in one or more mocks. They will be removed from all mocks before deletion. The sets will be hidden from students and can be restored later from the deleted list.`
+            : 'The selected sets will be hidden from students. You can restore them later from the deleted list.'
+        }
         onConfirm={handleBulkDeleteConfirm}
         isPending={bulkDeletePending}
       />
@@ -606,14 +675,29 @@ export function UcatSetsPage() {
         open={!!deletingSetId}
         onOpenChange={(open) => !open && setDeletingSetId(null)}
         title="Delete set?"
-        description="The set will be hidden from students. You can restore it later from the deleted list."
+        description={
+          singleDeleteInMocksCount > 0
+            ? `This set is in ${singleDeleteInMocksCount} mock(s). It will be removed from all mocks before deletion. The set will be hidden from students. You can restore it later from the deleted list.`
+            : 'The set will be hidden from students. You can restore it later from the deleted list.'
+        }
         onConfirm={async () => {
-          if (deletingSetId) {
-            await deleteSet.mutateAsync(deletingSetId)
+          if (!deletingSetId) return
+          setSingleDeletePending(true)
+          try {
+            await deleteSetsWithMockRemoval([deletingSetId])
             setEditingSetId((prev) => (prev === deletingSetId ? null : prev))
+          } catch (err) {
+            toast({
+              title: 'Cannot delete',
+              description: err instanceof Error ? err.message : 'Failed to delete set.',
+              variant: 'destructive',
+            })
+            throw err
+          } finally {
+            setSingleDeletePending(false)
           }
         }}
-        isPending={deleteSet.isPending}
+        isPending={singleDeletePending}
       />
     </div>
   )

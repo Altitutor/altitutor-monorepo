@@ -6,4 +6,4 @@ export {
 } from './components/UcatReconciliationTabViews'
 export { useReconciliationData, useSetStemCategory } from './hooks/useReconciliation'
 export { useReconciliationTabCounts } from './hooks/useReconciliationTabCounts'
-export type { ReconciliationData, StemWithNoCategory, QuestionWithNoExplanation } from './api/reconciliation'
+export type { ReconciliationData, StemWithNoCategory, QuestionWithNoExplanation, PendingGeneratedStem } from './api/reconciliation'

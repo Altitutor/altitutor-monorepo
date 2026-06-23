@@ -1,6 +1,7 @@
 "use client";
 
-import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
+import { UcatExamActionButton } from "@altitutor/ui";
+import { QuestionEngineDialog } from "@/features/question-engine/components/question-engine-dialog";
 
 export function TimeExpiredDialog({
   onOk,
@@ -19,7 +20,7 @@ export function TimeExpiredDialog({
       : "Your time on this section has expired. Timing has begun on the next section. Click OK to continue.";
 
   return (
-    <UcatExamDialog
+    <QuestionEngineDialog
       title="Time Expired"
       message={<p>{message}</p>}
       actions={

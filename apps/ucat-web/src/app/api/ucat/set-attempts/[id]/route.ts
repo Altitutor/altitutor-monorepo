@@ -339,6 +339,8 @@ export async function PATCH(
       score_points: totalQuestions === 0 ? null : rawScore,
       total_points: totalQuestions === 0 ? null : totalQuestions,
       scaled_score: scaledScore,
+      engine_snapshot: null,
+      current_segment_ends_at: null,
     })
     .eq("id", attemptId)
     .eq("student_id", student.id);

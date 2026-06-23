@@ -1,22 +1,45 @@
 "use client";
 
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   Bar,
   BarChart,
-  Cell,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { AttemptChartSetLabelsRow } from "./attempt-chart-set-labels-row";
 import { formatTimeSeconds } from "../lib/format-time";
+import {
+  ATTEMPT_CHART_RESULT_COLORS,
+  ATTEMPT_CHART_RESULT_LABELS,
+} from "../lib/attempt-chart-result-colors";
+import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
+import type { QuestionAttemptChartResult } from "../lib/compute-question-attempt-result";
+import {
+  ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
+  ATTEMPT_CHART_LAYOUT,
+  ATTEMPT_CHART_TOOLTIP_PROPS,
+  computeSetRanges,
+  computeStemRanges,
+  getAnnotationBaselineY,
+  getChartBottomMargin,
+  getDividerEndY,
+  getStemLabelY,
+  shouldRenderStemDivider,
+  shouldRenderStemLabel,
+} from "../lib/attempt-analysis-chart-layout";
 import { cn } from "@/lib/utils";
 
-export type QuestionAttemptForChart = {
+export type MockQuestionAttemptForChart = {
   questionNumber: number;
+  /** 1-based stem index within the set */
+  stemIndex?: number;
   timeSpentSeconds: number | null;
-  result: "correct" | "partial" | "incorrect" | "not_attempted";
+  result: QuestionAttemptChartResult;
+  score?: number | null;
+  questionType?: "multiple_choice" | "syllogism" | null;
 };
 
 export type SetInfoForChart = {
@@ -24,131 +47,215 @@ export type SetInfoForChart = {
 };
 
 type MockAttemptAnalysisChartProps = {
-  data: QuestionAttemptForChart[];
+  data: MockQuestionAttemptForChart[];
   /** 0-based indices after which to draw set divider (last question index of each set except final) */
   setBoundaryIndices: number[];
   /** Set names for section labels (one per set, in order) */
   sets: SetInfoForChart[];
   className?: string;
+  selectedQuestionIndex?: number;
+  onBarClick?: (questionIndex: number) => void;
 };
 
-const RESULT_COLORS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "hsl(142 76% 36%)",
-  partial: "hsl(48 96% 53%)",
-  incorrect: "hsl(0 84% 60%)",
-  not_attempted: "hsl(var(--muted-foreground) / 0.3)",
-};
+const RESULT_COLORS = ATTEMPT_CHART_RESULT_COLORS;
+const RESULT_LABELS = ATTEMPT_CHART_RESULT_LABELS;
 
-const RESULT_LABELS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "Correct",
-  partial: "Partial",
-  incorrect: "Incorrect",
-  not_attempted: "Not attempted",
-};
-
-function getSetIndexForQuestion(
-  questionIndex: number,
-  setBoundaryIndices: number[],
-): number {
-  for (let i = 0; i < setBoundaryIndices.length; i++) {
-    if (questionIndex <= setBoundaryIndices[i]) return i;
-  }
-  return setBoundaryIndices.length;
-}
-
-function getLocalQuestionNumber(
-  questionIndex: number,
-  setBoundaryIndices: number[],
-): number {
-  const setIndex = getSetIndexForQuestion(questionIndex, setBoundaryIndices);
-  const startOfSet = setIndex === 0 ? 0 : setBoundaryIndices[setIndex - 1] + 1;
-  return questionIndex - startOfSet + 1;
-}
-
-function isFirstQuestionOfSet(
-  questionIndex: number,
-  setBoundaryIndices: number[],
-): boolean {
-  if (questionIndex === 0) return true;
-  return setBoundaryIndices.includes(questionIndex - 1);
-}
+const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
+const CHART_MARGIN_LEFT = 5;
+const PLOT_HEIGHT = 300;
+const CHART_AREA_HEIGHT =
+  PLOT_HEIGHT +
+  ATTEMPT_CHART_LAYOUT.setLabelRowHeight +
+  ATTEMPT_CHART_LAYOUT.scrollbarTrackHeight;
 
 export function MockAttemptAnalysisChart({
   data,
   setBoundaryIndices,
   sets,
   className,
+  selectedQuestionIndex = -1,
+  onBarClick,
 }: MockAttemptAnalysisChartProps) {
+  const chartScrollRef = useRef<HTMLDivElement>(null);
+  const labelScrollRef = useRef<HTMLDivElement>(null);
+  const scrollbarTrackRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef(false);
+
+  const syncScrollFrom = useCallback((source: HTMLDivElement) => {
+    if (isSyncingScrollRef.current) return;
+    isSyncingScrollRef.current = true;
+    const { scrollLeft } = source;
+    for (const ref of [chartScrollRef, labelScrollRef, scrollbarTrackRef]) {
+      const el = ref.current;
+      if (el != null && el !== source) {
+        el.scrollLeft = scrollLeft;
+      }
+    }
+    isSyncingScrollRef.current = false;
+  }, []);
+
+  const scrollAllTo = useCallback((left: number) => {
+    for (const ref of [chartScrollRef, labelScrollRef, scrollbarTrackRef]) {
+      ref.current?.scrollTo({ left, behavior: "auto" });
+    }
+  }, []);
+
   const chartData = data.map((d, i) => {
-    const setIndex = getSetIndexForQuestion(i, setBoundaryIndices);
-    const sectionName =
-      sets[setIndex]?.questionSetName ?? `Set ${setIndex + 1}`;
+    const prevStem = data[i - 1]?.stemIndex;
+    const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem;
+    const result =
+      d.score != null
+        ? computeQuestionAttemptResult({
+            score: d.score,
+            questionType: d.questionType ?? null,
+            hasAttempt: d.result !== "not_attempted",
+          })
+        : d.result;
+
     return {
       index: i,
-      name: String(i),
+      name: String(d.questionNumber),
       value: d.timeSpentSeconds ?? 0,
-      result: d.result,
-      localQuestionNumber: getLocalQuestionNumber(i, setBoundaryIndices),
-      sectionName,
-      isFirstOfSet: isFirstQuestionOfSet(i, setBoundaryIndices),
+      result,
+      stemIndex: d.stemIndex,
+      isStemStart: !!isStemStart,
     };
   });
 
+  const stemRanges = computeStemRanges(chartData);
+  const setRanges = computeSetRanges(
+    chartData.length,
+    setBoundaryIndices,
+    sets.map((s) => s.questionSetName),
+  );
+
   const maxTime = Math.max(...chartData.map((d) => d.value), 1);
   const chartWidth = Math.max(600, chartData.length * 24);
+  const marginHorizontal = 10;
+  const barWidth =
+    chartData.length > 0
+      ? (chartWidth - marginHorizontal) / chartData.length
+      : 24;
   const yAxisWidth = 52;
 
   const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
     Math.round(t * maxTime * 1.1),
   );
 
-  const renderXAxisTick = (props: {
-    x?: string | number;
-    y?: string | number;
-    payload?: { value: string };
+  useEffect(() => {
+    const container = chartScrollRef.current;
+    if (!container || selectedQuestionIndex < 0 || chartData.length === 0)
+      return;
+    const colWidth = chartWidth / chartData.length;
+    const targetScroll =
+      selectedQuestionIndex * colWidth -
+      container.clientWidth / 2 +
+      colWidth / 2;
+    scrollAllTo(Math.max(0, targetScroll));
+  }, [selectedQuestionIndex, chartData.length, chartWidth, scrollAllTo]);
+
+  const renderBarShape = (props: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    payload: { result: "correct" | "partial" | "incorrect" | "not_attempted" };
+    index: number;
+    parentViewBox?: { height?: number };
   }) => {
-    const { x = 0, y = 0, payload: p } = props;
-    if (!p) return null;
-    const idx = parseInt(p.value, 10);
-    const entry = chartData[idx];
-    if (!entry) return null;
-    const showTick =
-      entry.localQuestionNumber % 5 === 1 ||
-      entry.isFirstOfSet ||
-      (entry.localQuestionNumber % 5 === 0 && entry.localQuestionNumber > 0);
-    if (!showTick) return null;
-    const xNum = typeof x === "number" ? x : parseFloat(String(x));
-    const yNum = typeof y === "number" ? y : parseFloat(String(y));
+    const { x, y, width, height, payload, index, parentViewBox } = props;
+    const chartHeight = parentViewBox?.height ?? PLOT_HEIGHT;
+    const isSelected = index === selectedQuestionIndex;
+    const fill = RESULT_COLORS[payload.result];
+    const barBottom = y + height;
+    const baselineY = getAnnotationBaselineY(chartHeight, CHART_BOTTOM_MARGIN);
+    const stemLabelY = getStemLabelY(baselineY);
+    const dividerEndY = getDividerEndY(baselineY);
+
+    const stemRange = stemRanges.find((r) => r.startIndex === index);
+    const showStemLabel =
+      stemRange != null && shouldRenderStemLabel(stemRange, index);
+    const stemLabelCenterX = showStemLabel
+      ? x + ((stemRange.endIndex - stemRange.startIndex + 1) * width) / 2
+      : 0;
+    const showStemDivider =
+      stemRange != null && shouldRenderStemDivider(stemRange, index);
+
+    const setRange = setRanges.find((r) => r.startIndex === index);
+    const showSetDivider = setRange != null && setRange.setIndex > 0;
+
     return (
-      <g transform={`translate(${xNum},${yNum})`}>
-        <text
-          x={0}
-          y={0}
-          dy={8}
-          textAnchor="middle"
-          fill="hsl(var(--muted-foreground))"
-          fontSize={11}
-        >
-          {entry.localQuestionNumber}
-        </text>
-        {entry.isFirstOfSet && (
+      <g key={index}>
+        {showSetDivider && (
+          <line
+            x1={x}
+            y1={barBottom}
+            x2={x}
+            y2={dividerEndY}
+            stroke="hsl(var(--border))"
+            strokeWidth={2}
+            strokeDasharray="4 2"
+          />
+        )}
+        {showStemDivider && (
+          <line
+            x1={x}
+            y1={barBottom}
+            x2={x}
+            y2={dividerEndY}
+            stroke="hsl(var(--muted-foreground) / 0.8)"
+            strokeWidth={1}
+            strokeDasharray="2 2"
+          />
+        )}
+        {showStemLabel && stemRange && (
           <text
-            x={0}
-            y={0}
-            dy={22}
+            x={stemLabelCenterX}
+            y={stemLabelY}
             textAnchor="middle"
-            fill="hsl(var(--muted-foreground))"
-            fontSize={14}
-            fontWeight={500}
+            fontSize={ATTEMPT_CHART_LAYOUT.stemLabelFontSize}
+            fill="hsl(var(--muted-foreground) / 0.8)"
           >
-            {entry.sectionName}
+            Stem {stemRange.stemIndex}
           </text>
+        )}
+        <rect
+          x={x}
+          y={0}
+          width={width}
+          height={chartHeight}
+          fill="transparent"
+          className={onBarClick ? "cursor-pointer" : ""}
+          style={
+            isSelected ? { fill: "hsl(var(--primary) / 0.15)" } : undefined
+          }
+          onClick={() => onBarClick?.(index)}
+          onMouseEnter={(e) => {
+            if (onBarClick) {
+              e.currentTarget.style.fill =
+                "hsl(var(--muted-foreground) / 0.08)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.fill = isSelected
+              ? "hsl(var(--primary) / 0.15)"
+              : "transparent";
+          }}
+        />
+        {height > 0 && (
+          <path
+            d={(() => {
+              const r = Math.min(4, width / 2, height / 2);
+              const x0 = x;
+              const y0 = y;
+              const x1 = x + width;
+              const y1 = y + height;
+              return `M ${x0} ${y1} L ${x1} ${y1} L ${x1} ${y0 + r} Q ${x1} ${y0} ${x1 - r} ${y0} L ${x0 + r} ${y0} Q ${x0} ${y0} ${x0} ${y0 + r} Z`;
+            })()}
+            fill={fill}
+            className={onBarClick ? "cursor-pointer" : ""}
+            onClick={() => onBarClick?.(index)}
+          />
         )}
       </g>
     );
@@ -172,10 +279,17 @@ export function MockAttemptAnalysisChart({
           ),
         )}
       </div>
-      <div className="flex h-[320px] min-h-0 pt-6">
+      <div
+        className="flex min-h-0 pt-6"
+        style={{ height: CHART_AREA_HEIGHT + 28 }}
+      >
         <div
-          className="flex shrink-0 flex-col justify-between border-r border-border bg-card pr-2 pt-1 pb-8 text-right text-xs text-muted-foreground"
-          style={{ width: yAxisWidth }}
+          className="flex shrink-0 flex-col justify-between self-start border-r border-border bg-card pr-2 pt-1 text-right text-xs text-muted-foreground"
+          style={{
+            width: yAxisWidth,
+            height: PLOT_HEIGHT,
+            paddingBottom: CHART_BOTTOM_MARGIN,
+          }}
         >
           {yAxisTicks.map((t) => (
             <span key={t} className="tabular-nums">
@@ -183,80 +297,150 @@ export function MockAttemptAnalysisChart({
             </span>
           ))}
         </div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div
-            style={{ width: chartWidth, minWidth: chartWidth }}
-            className="h-full"
+            ref={chartScrollRef}
+            className={cn(
+              "min-h-0 shrink-0 overflow-x-auto overflow-y-hidden",
+              ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
+            )}
+            style={{ height: PLOT_HEIGHT }}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                barCategoryGap={0}
-                barGap={0}
-              >
-                <XAxis
-                  dataKey="name"
-                  stroke="currentColor"
-                  className="text-muted-foreground"
-                  interval={0}
-                  // Custom tick render for section labels; Recharts tick prop types are strict
-                  tick={renderXAxisTick as never}
-                />
-                <YAxis
-                  domain={[0, maxTime * 1.1]}
-                  width={0}
-                  tick={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
+            <div
+              style={{ width: chartWidth, minWidth: chartWidth, height: PLOT_HEIGHT }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{
+                    top: 5,
+                    right: 5,
+                    left: CHART_MARGIN_LEFT,
+                    bottom: CHART_BOTTOM_MARGIN,
                   }}
-                  formatter={(value: number | undefined, _name, props) => {
-                    const payload = props.payload as {
-                      localQuestionNumber: number;
-                      sectionName: string;
-                      result:
-                        | "correct"
-                        | "partial"
-                        | "incorrect"
-                        | "not_attempted";
-                    };
-                    return [
-                      `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
-                      `${payload.sectionName} Q${payload.localQuestionNumber}`,
-                    ];
-                  }}
-                  labelFormatter={() => ""}
-                />
-                {setBoundaryIndices.map((idx) => (
-                  <ReferenceLine
-                    key={idx}
-                    x={idx + 0.5}
-                    stroke="hsl(var(--border))"
-                    strokeWidth={2}
-                    strokeDasharray="4 2"
-                  />
-                ))}
-                <Bar
-                  dataKey="value"
-                  radius={[4, 4, 0, 0]}
-                  isAnimationActive
-                  animationDuration={850}
-                  animationEasing="ease-out"
+                  barCategoryGap={0}
+                  barGap={0}
                 >
-                  {chartData.map((entry, index) => (
-                    <Cell key={index} fill={RESULT_COLORS[entry.result]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <XAxis
+                    dataKey="name"
+                    stroke="currentColor"
+                    className="text-muted-foreground"
+                    interval={0}
+                    tick={({ x, y, index }) => {
+                      const entry = chartData[index];
+                      if (!entry) return null;
+                      return (
+                        <g transform={`translate(${x}, ${y})`}>
+                          <text
+                            x={0}
+                            y={0}
+                            dy={ATTEMPT_CHART_LAYOUT.questionNumberOffset}
+                            textAnchor="middle"
+                            fontSize={11}
+                            fill="hsl(var(--muted-foreground))"
+                          >
+                            {entry.name}
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
+                  <YAxis
+                    domain={[0, maxTime * 1.1]}
+                    width={0}
+                    tick={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    {...ATTEMPT_CHART_TOOLTIP_PROPS}
+                    formatter={(value: number | undefined, _name, props) => {
+                      const tooltipProps = props as {
+                        index?: number;
+                        payload?: {
+                          name: string;
+                          stemIndex?: number;
+                          result:
+                            | "correct"
+                            | "partial"
+                            | "incorrect"
+                            | "not_attempted";
+                        };
+                      };
+                      const barIndex = tooltipProps.index ?? 0;
+                      const payload = tooltipProps.payload;
+                      if (!payload) {
+                        return [formatTimeSeconds(value ?? 0), ""];
+                      }
+                      const setRange = setRanges.find((r) =>
+                        indexInRange(barIndex, r),
+                      );
+                      const stemLabel =
+                        payload.stemIndex != null
+                          ? ` · Stem ${payload.stemIndex}`
+                          : "";
+                      return [
+                        `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
+                        `${setRange?.name ?? "Set"} Q${payload.name}${stemLabel}`,
+                      ];
+                    }}
+                    labelFormatter={() => ""}
+                  />
+                  <Bar
+                    dataKey="value"
+                    barSize={barWidth}
+                    isAnimationActive
+                    animationDuration={850}
+                    animationEasing="ease-out"
+                    shape={
+                      renderBarShape as React.ComponentProps<typeof Bar>["shape"]
+                    }
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div
+            ref={labelScrollRef}
+            className={cn(
+              "shrink-0 overflow-x-auto overflow-y-hidden",
+              ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
+            )}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
+          >
+            <div style={{ width: chartWidth, minWidth: chartWidth }}>
+              <AttemptChartSetLabelsRow
+                setRanges={setRanges}
+                barWidth={barWidth}
+                marginLeft={CHART_MARGIN_LEFT}
+                showDividers
+              />
+            </div>
+          </div>
+          <div
+            ref={scrollbarTrackRef}
+            className="shrink-0 overflow-x-auto overflow-y-hidden"
+            style={{ height: ATTEMPT_CHART_LAYOUT.scrollbarTrackHeight }}
+            onScroll={(e) => syncScrollFrom(e.currentTarget)}
+            aria-hidden
+          >
+            <div
+              style={{
+                width: chartWidth,
+                minWidth: chartWidth,
+                height: 1,
+              }}
+            />
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function indexInRange(
+  index: number,
+  range: { startIndex: number; endIndex: number },
+) {
+  return index >= range.startIndex && index <= range.endIndex;
 }

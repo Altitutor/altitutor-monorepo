@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, BookOpen, CreditCard, User, Settings } from 'lucide-react';
+import { Home, Calendar, BookOpen, Brain, CreditCard, User, Settings } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
@@ -23,6 +23,7 @@ const primaryNavItems: NavLinkItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
   { title: 'Classes', href: '/classes', icon: Calendar },
   { title: 'Resources', href: '/resources', icon: BookOpen },
+  { title: 'Flashcards', href: '/resources/flashcards', icon: Brain },
   { title: 'Billing', href: '/billing', icon: CreditCard },
   { title: 'My Profile', href: '/my-profile', icon: User },
 ];
@@ -36,6 +37,7 @@ const navHoverStyles =
 function isNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === '/') return false;
+  if (href === '/resources' && pathname.startsWith('/resources/flashcards')) return false;
   return pathname.startsWith(`${href}/`);
 }
 

@@ -4,10 +4,14 @@ export type AnswerOption = {
   id: string;
   index: number;
   text: string;
+  /** Rich JSON for option text (Tiptap). When present, use for rendering images/formatting. */
+  textJson?: Record<string, unknown> | null;
   /** True if this option is the correct answer. Used for marking display. */
   isAnswer?: boolean;
   /** Option-level answer explanation (shown in results review). */
   answerExplanation?: string;
+  /** Rich JSON for option answer explanation (Tiptap). */
+  answerExplanationJson?: Record<string, unknown> | null;
   /** Number of students who selected this option. From DB aggregation. */
   selectionCount?: number;
   /** Total students who answered this question. From DB aggregation. */
@@ -35,6 +39,8 @@ export type QuestionItem = {
   correctOptionId?: string;
   /** Question-level answer explanation (shown below options in results review). */
   answerExplanation?: string;
+  /** Rich JSON for question answer explanation (Tiptap). */
+  answerExplanationJson?: Record<string, unknown> | null;
 };
 
 /** One screen of instructions (tiptap/prosemirror JSON). Shown before questions when applicable. */
@@ -93,14 +99,19 @@ export type QuestionStemWithQuestions = {
   sectionName: string;
   sectionDisplayColumns: 1 | 2;
   stemText: string;
+  /** Rich JSON for stem (Tiptap). Required for image rendering in practice mode. */
+  stemJson?: Record<string, unknown> | null;
   questions: {
     id: string;
     index: number;
     questionText: string;
+    /** Rich JSON for question text (Tiptap). */
+    questionJson?: Record<string, unknown> | null;
     questionType: "multiple_choice" | "syllogism";
     options: AnswerOption[];
     /** Question-level explanation (shown in review when present). */
     answerExplanation?: string;
+    answerExplanationJson?: Record<string, unknown> | null;
   }[];
 };
 
@@ -129,11 +140,14 @@ export function mapQuestionStemsToItems(
         sectionName: stem.sectionName,
         sectionDisplayColumns: stem.sectionDisplayColumns,
         stemText: stem.stemText,
+        stemJson: stem.stemJson,
         questionText: question.questionText,
+        questionJson: question.questionJson,
         questionType: question.questionType,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
         answerExplanation: question.answerExplanation,
+        answerExplanationJson: question.answerExplanationJson,
       });
     }
   }
@@ -152,6 +166,7 @@ export type QuestionEngineQuestion = {
   options: AnswerOption[];
   /** Question-level explanation (shown in review when present). */
   answerExplanation?: string;
+  answerExplanationJson?: Record<string, unknown> | null;
 };
 
 export function mapQuestionsToItems(
@@ -175,6 +190,7 @@ export function mapQuestionsToItems(
       options: sortedOptions,
       correctOptionId: correctOption?.id,
       answerExplanation: question.answerExplanation,
+      answerExplanationJson: question.answerExplanationJson,
     };
   });
 }

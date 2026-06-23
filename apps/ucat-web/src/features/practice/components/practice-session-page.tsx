@@ -8,8 +8,10 @@ import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-con
 import {
   clearPracticeSession,
   getPracticeSession,
+  setPracticeSession,
   type PracticeSessionData,
 } from "@/features/practice/lib/session-storage";
+import { fetchActiveExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 
 async function fetchNextStem(
@@ -38,16 +40,49 @@ export function PracticeSessionPage() {
   >("loading");
 
   useEffect(() => {
-    const data = getPracticeSession();
-    if (!data) {
-      router.replace("/practice");
-      return;
-    }
-    if (data.mode === "set" && (!data.stems || data.stems.length === 0)) {
-      router.replace("/practice");
-      return;
-    }
-    setSession(data);
+    void (async () => {
+      let data = getPracticeSession();
+      if (!data) {
+        const active = await fetchActiveExamAttempt();
+        if (active?.kind === "practice" && active.practiceSessionId) {
+          const stemsRes = await fetch(
+            `/api/ucat/practice-sessions/${active.practiceSessionId}`,
+          );
+          if (stemsRes.ok) {
+            const detail = (await stemsRes.json()) as {
+              stemsSnapshot?: QuestionStemWithQuestions[];
+              filtersSnapshot?: SetGeneratorInput;
+              unlimited?: boolean;
+            };
+            if (detail.unlimited && detail.filtersSnapshot) {
+              data = {
+                mode: "unlimited",
+                sessionId: active.practiceSessionId,
+                filters: detail.filtersSnapshot,
+                timePerQuestionSeconds: null,
+              };
+            } else if (detail.stemsSnapshot?.length) {
+              data = {
+                mode: "set",
+                sessionId: active.practiceSessionId,
+                stems: detail.stemsSnapshot,
+                timePerQuestionSeconds: null,
+              };
+            }
+            if (data) setPracticeSession(data);
+          }
+        }
+      }
+      if (!data) {
+        router.replace("/practice");
+        return;
+      }
+      if (data.mode === "set" && (!data.stems || data.stems.length === 0)) {
+        router.replace("/practice");
+        return;
+      }
+      setSession(data);
+    })();
   }, [router]);
 
   const handleDone = useCallback(() => {

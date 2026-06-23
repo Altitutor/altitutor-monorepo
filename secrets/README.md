@@ -165,14 +165,16 @@ Vercel runtime-only secrets such as `OPENROUTER_API_KEY` are intentionally skipp
 - **Preview environment**: Client-side vars from `.env.development` (`NEXT_PUBLIC_*`)
 - **Production environment**: Client-side vars from `.env.production` (`NEXT_PUBLIC_*`)
 - **Tutor-web server routes**: `OPENROUTER_API_KEY` from the matching environment file, deployed only to `altitutor-tutor-web`
+- **Feedback email API routes**: `RESEND_API_KEY` from `.env.shared`, deployed to all web apps
 
 **Apps deployed:**
 - `altitutor-admin-web` (apps/admin-web)
 - `altitutor-student-web` (apps/student-web)
 - `altitutor-tutor-web` (apps/tutor-web)
+- `altitutor-ucat-web` (apps/ucat-web)
 
 **Why:** Vercel needs client-side environment variables at build time. Only `NEXT_PUBLIC_*` variables are exposed to the browser.
-Server-side API routes also need selected encrypted secrets, such as `OPENROUTER_API_KEY` for tutor-web UCAT AI generation.
+Server-side API routes also need selected encrypted secrets, such as `OPENROUTER_API_KEY` for tutor-web UCAT AI generation and `RESEND_API_KEY` for feedback emails.
 
 ### EAS (Expo student-app)
 - **Development + preview environments**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.development`
@@ -276,6 +278,11 @@ fi
 # Tutor-web-only server secrets
 if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
     deploy_tutor_web_server_secret "$key" "$value" "preview"
+fi
+
+# Web app server email secrets
+if [[ "$key" == "RESEND_API_KEY" ]]; then
+    deploy_all_web_server_secret "$key" "$value" "preview"
 fi
 ```
 

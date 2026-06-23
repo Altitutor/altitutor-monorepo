@@ -10,6 +10,23 @@ import {
   YAxis,
 } from "recharts";
 import { formatTimeSeconds } from "../lib/format-time";
+import {
+  ATTEMPT_CHART_RESULT_COLORS,
+  ATTEMPT_CHART_RESULT_LABELS,
+} from "../lib/attempt-chart-result-colors";
+import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
+import type { QuestionAttemptChartResult } from "../lib/compute-question-attempt-result";
+import {
+  ATTEMPT_CHART_LAYOUT,
+  ATTEMPT_CHART_TOOLTIP_PROPS,
+  computeStemRanges,
+  getAnnotationBaselineY,
+  getChartBottomMargin,
+  getDividerEndY,
+  getStemLabelY,
+  shouldRenderStemDivider,
+  shouldRenderStemLabel,
+} from "../lib/attempt-analysis-chart-layout";
 import { cn } from "@/lib/utils";
 
 export type QuestionAttemptForChart = {
@@ -17,7 +34,9 @@ export type QuestionAttemptForChart = {
   /** 1-based stem index within the set */
   stemIndex?: number;
   timeSpentSeconds: number | null;
-  result: "correct" | "partial" | "incorrect" | "not_attempted";
+  result: QuestionAttemptChartResult;
+  score?: number | null;
+  questionType?: "multiple_choice" | "syllogism" | null;
 };
 
 type SetAttemptAnalysisChartProps = {
@@ -29,25 +48,10 @@ type SetAttemptAnalysisChartProps = {
   onBarClick?: (questionIndex: number) => void;
 };
 
-const RESULT_COLORS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "hsl(142 76% 36%)",
-  partial: "hsl(48 96% 53%)",
-  incorrect: "hsl(0 84% 60%)",
-  not_attempted: "hsl(var(--muted-foreground) / 0.3)",
-};
+const RESULT_COLORS = ATTEMPT_CHART_RESULT_COLORS;
+const RESULT_LABELS = ATTEMPT_CHART_RESULT_LABELS;
 
-const RESULT_LABELS: Record<
-  "correct" | "partial" | "incorrect" | "not_attempted",
-  string
-> = {
-  correct: "Correct",
-  partial: "Partial",
-  incorrect: "Incorrect",
-  not_attempted: "Not attempted",
-};
+const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
 
 export function SetAttemptAnalysisChart({
   data,
@@ -60,47 +64,29 @@ export function SetAttemptAnalysisChart({
   const chartData = data.map((d, i) => {
     const prevStem = data[i - 1]?.stemIndex;
     const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem;
+    const result =
+      d.score != null
+        ? computeQuestionAttemptResult({
+            score: d.score,
+            questionType: d.questionType ?? null,
+            hasAttempt: d.result !== "not_attempted",
+          })
+        : d.result;
+
     return {
       name: String(d.questionNumber),
       value: d.timeSpentSeconds ?? 0,
-      result: d.result,
+      result,
       stemIndex: d.stemIndex,
       isStemStart: !!isStemStart,
     };
   });
 
-  // Compute stem ranges for centred labels and divider lines
-  const stemRanges = (() => {
-    const ranges: {
-      stemIndex: number;
-      startIndex: number;
-      endIndex: number;
-    }[] = [];
-    let currentStem: number | null = null;
-    let startIndex = 0;
-    chartData.forEach((entry, i) => {
-      if (entry.stemIndex != null && entry.stemIndex !== currentStem) {
-        if (currentStem != null) {
-          ranges.push({ stemIndex: currentStem, startIndex, endIndex: i - 1 });
-        }
-        currentStem = entry.stemIndex;
-        startIndex = i;
-      }
-    });
-    if (currentStem != null) {
-      ranges.push({
-        stemIndex: currentStem,
-        startIndex,
-        endIndex: chartData.length - 1,
-      });
-    }
-    return ranges;
-  })();
+  const stemRanges = computeStemRanges(chartData);
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1);
   const chartWidth = Math.max(600, chartData.length * 24);
-  const marginHorizontal = 10; // left 5 + right 5
-  // Use full category width so bars touch with no gaps
+  const marginHorizontal = 10;
   const barWidth =
     chartData.length > 0
       ? (chartWidth - marginHorizontal) / chartData.length
@@ -111,7 +97,6 @@ export function SetAttemptAnalysisChart({
     Math.round(t * maxTime * 1.1),
   );
 
-  // Auto-scroll chart so selected column is visible
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || selectedQuestionIndex < 0 || chartData.length === 0)
@@ -123,7 +108,7 @@ export function SetAttemptAnalysisChart({
       colWidth / 2;
     container.scrollTo({
       left: Math.max(0, targetScroll),
-      behavior: "smooth",
+      behavior: "auto",
     });
   }, [selectedQuestionIndex, chartData.length, chartWidth]);
 
@@ -140,44 +125,44 @@ export function SetAttemptAnalysisChart({
     const chartHeight = parentViewBox?.height ?? 300;
     const isSelected = index === selectedQuestionIndex;
     const fill = RESULT_COLORS[payload.result];
-    const entry = chartData[index];
-    const showStemDivider = entry?.isStemStart && (entry?.stemIndex ?? 1) > 1;
+    const barBottom = y + height;
+    const baselineY = getAnnotationBaselineY(chartHeight, CHART_BOTTOM_MARGIN);
+    const stemLabelY = getStemLabelY(baselineY);
+    const dividerEndY = getDividerEndY(baselineY);
 
-    // Render stem label when this is the first bar of a stem (avoids Customized timing issues)
     const stemRange = stemRanges.find((r) => r.startIndex === index);
-    const showStemLabel = stemRange != null;
+    const showStemLabel =
+      stemRange != null && shouldRenderStemLabel(stemRange, index);
     const stemLabelCenterX = showStemLabel
       ? x + ((stemRange.endIndex - stemRange.startIndex + 1) * width) / 2
       : 0;
-    const stemLabelY = y + height + 36;
+    const showStemDivider =
+      stemRange != null && shouldRenderStemDivider(stemRange, index);
 
     return (
       <g key={index}>
-        {/* Stem divider line - vertical line at left edge of first bar of new stem, only below x-axis */}
         {showStemDivider && (
           <line
             x1={x}
-            y1={y + height}
+            y1={barBottom}
             x2={x}
-            y2={chartHeight}
+            y2={dividerEndY}
             stroke="hsl(var(--muted-foreground) / 0.8)"
             strokeWidth={1}
             strokeDasharray="2 2"
           />
         )}
-        {/* Stem label - rendered from first bar of each stem */}
         {showStemLabel && stemRange && (
           <text
             x={stemLabelCenterX}
             y={stemLabelY}
             textAnchor="middle"
-            fontSize={10}
+            fontSize={ATTEMPT_CHART_LAYOUT.stemLabelFontSize}
             fill="hsl(var(--muted-foreground) / 0.8)"
           >
             Stem {stemRange.stemIndex}
           </text>
         )}
-        {/* Full-height transparent clickable area */}
         <rect
           x={x}
           y={0}
@@ -201,7 +186,6 @@ export function SetAttemptAnalysisChart({
               : "transparent";
           }}
         />
-        {/* Visible bar with rounded top corners */}
         {height > 0 && (
           <path
             d={(() => {
@@ -261,7 +245,7 @@ export function SetAttemptAnalysisChart({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: 36 }}
+                margin={{ top: 5, right: 5, left: 5, bottom: CHART_BOTTOM_MARGIN }}
                 barCategoryGap={0}
                 barGap={0}
               >
@@ -278,7 +262,7 @@ export function SetAttemptAnalysisChart({
                         <text
                           x={0}
                           y={0}
-                          dy={8}
+                          dy={ATTEMPT_CHART_LAYOUT.questionNumberOffset}
                           textAnchor="middle"
                           fontSize={11}
                           fill="hsl(var(--muted-foreground))"
@@ -296,11 +280,7 @@ export function SetAttemptAnalysisChart({
                   axisLine={false}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
+                  {...ATTEMPT_CHART_TOOLTIP_PROPS}
                   formatter={(value: number | undefined, _name, props) => {
                     const payload = props.payload as {
                       name: string;

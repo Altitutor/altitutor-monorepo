@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { SetAttemptDetailPage } from "@/features/progress";
+import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
 
 type PageProps = {
   params: Promise<{ sectionNumber: string; id: string }>;
@@ -7,10 +9,19 @@ type PageProps = {
 export default async function Page({ params }: PageProps) {
   const { sectionNumber, id } = await params;
   return (
-    <SetAttemptDetailPage
-      attemptId={id}
-      backHref={`/progress/sections/${sectionNumber}`}
-      backLabel="Back to section"
-    />
+    <Suspense
+      fallback={
+        <AttemptReviewPageFallback
+          backHref={`/progress/sections/${sectionNumber}`}
+          backLabel="Back to section"
+        />
+      }
+    >
+      <SetAttemptDetailPage
+        attemptId={id}
+        backHref={`/progress/sections/${sectionNumber}`}
+        backLabel="Back to section"
+      />
+    </Suspense>
   );
 }

@@ -58,10 +58,20 @@ export function NavbarV2() {
           </button>
         ))}
       </div>
-      <div className="flex gap-4">
+      <div className="ml-auto flex items-center justify-end gap-2 sm:gap-3">
+        <Link
+          href="/login"
+          className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-transform hover:-translate-y-[1px] ${
+            scrolled
+              ? "text-[#1A1A1A] hover:bg-black/5"
+              : "text-[#F2F0E9] hover:bg-white/10"
+          }`}
+        >
+          Login
+        </Link>
         <Link href="/booking/trial-session">
           <MagneticButton
-            className={`px-6 py-2 text-sm font-medium ${
+            className={`px-4 py-2 text-sm font-medium sm:px-6 ${
               scrolled
                 ? "bg-[#92b9c6] text-[#1A1A1A]"
                 : "bg-white text-[#1A1A1A] backdrop-blur-md"

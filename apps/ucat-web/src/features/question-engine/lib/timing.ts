@@ -20,11 +20,20 @@ export function getCurrentSegmentTimeLimitSeconds(
     if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0)
       return null;
     if (state.phase === "instructions") return t.instructionsTimeLimitSeconds;
-    if (state.phase === "question") return t.setTimeLimitSeconds;
+    if (state.phase === "question" || state.phase === "review") {
+      return t.setTimeLimitSeconds;
+    }
     return null;
   }
 
   if (exam.sourceType === "mock" && exam.mockTimingSegments?.length) {
+    if (state.phase === "review") {
+      const setIndex = state.mockCurrentSetIndex ?? 0;
+      const seg = exam.mockTimingSegments.find(
+        (s) => s.type === "questions" && s.setIndex === setIndex,
+      );
+      return seg?.type === "questions" ? (seg.timeLimitSeconds ?? null) : null;
+    }
     const seg = getCurrentMockSegment(exam, state);
     return seg?.timeLimitSeconds ?? null;
   }
@@ -96,12 +105,18 @@ export function getCurrentMockSegment(
 
 /**
  * Remaining seconds for the current segment. Returns 0 if expired or untimed.
+ * When serverSegmentEndsAt is set, uses the authoritative server clock.
  */
 export function getRemainingSeconds(
   exam: QuestionEngineExam,
   state: QuestionEngineState,
   timerStartedAt: number | null,
+  serverSegmentEndsAt?: string | null,
 ): number | null {
+  if (serverSegmentEndsAt) {
+    const ms = new Date(serverSegmentEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 1000));
+  }
   const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
   if (limit == null || limit <= 0 || timerStartedAt == null) return null;
   const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);

@@ -96,7 +96,7 @@ export function AppSidebar({
             />
           </div>
           <nav className="flex min-h-0 flex-1 flex-col p-3">
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            <div className="ucat-app-scroll min-h-0 flex-1 space-y-1">
               {appNavigation.map((section, sectionIndex) => (
                 <div
                   key={section.title ?? `section-${sectionIndex}`}

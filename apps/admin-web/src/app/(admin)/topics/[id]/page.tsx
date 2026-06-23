@@ -40,6 +40,7 @@ import { AddResourceFileModal } from '@/features/topics/components/AddResourceFi
 import { EditTopicFileModal } from '@/features/topics/components/EditTopicFileModal';
 import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 import { buildTopicTree } from '@/features/topics/utils/codes';
+import { FlashcardManager } from '@/features/flashcards';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -454,6 +455,10 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                   </div>
                 )}
               </div>
+
+              <Separator className="my-4" />
+
+              <FlashcardManager topicId={id} />
 
               <Separator className="my-4" />
 

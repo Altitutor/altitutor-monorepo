@@ -87,6 +87,15 @@ function isHeaderRow(cells: string[]): boolean {
 
 function parseRowToAnswer(cells: string[], joinChar = '\t'): ParsedAnswerRow | null {
   const trimmed = cells.map((c) => c.trim())
+  if (trimmed.length === 2) {
+    const [first, second] = trimmed
+    const num = first ? Number.parseInt(first, 10) : NaN
+    if (!Number.isNaN(num) && num >= 1 && num <= 999) {
+      const letter = (second ?? '').charAt(0).toUpperCase()
+      if (OPTION_LETTER.test(letter)) return { letter, explanation: '' }
+      return null
+    }
+  }
   if (trimmed.length >= 3) {
     const [first, second, ...rest] = trimmed
     const num = first ? Number.parseInt(first, 10) : NaN
@@ -476,7 +485,7 @@ export function buildAnswerPasteSpansForLine(
   if (parsed) {
     const trimmed = cellTexts.map((c) => c.trim())
     if (
-      trimmed.length >= 3 &&
+      trimmed.length >= 2 &&
       trimmed[0] != null &&
       !Number.isNaN(Number.parseInt(trimmed[0], 10)) &&
       Number.parseInt(trimmed[0], 10) >= 1 &&

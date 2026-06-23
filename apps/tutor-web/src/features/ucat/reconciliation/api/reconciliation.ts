@@ -36,6 +36,16 @@ export type PrivateStemNotInSet = {
   questions: Array<{ id: string; question_text: unknown; index: number }>
 }
 
+export type PendingGeneratedStem = {
+  id: string
+  sectionId: string
+  sectionName: string
+  categoryId: string | null
+  categoryName: string | null
+  stemText: unknown
+  questions: Array<{ id: string; question_text: unknown; index: number }>
+}
+
 export type SetReconciliationRow = {
   id: string
   name: string
@@ -59,6 +69,7 @@ export type MockWithIncorrectSets = {
 }
 
 export type ReconciliationData = {
+  pendingGeneratedStems: PendingGeneratedStem[]
   stemsWithNoCategory: StemWithNoCategory[]
   questionsWithNoExplanation: QuestionWithNoExplanation[]
   untaggedQuestions: UntaggedQuestion[]

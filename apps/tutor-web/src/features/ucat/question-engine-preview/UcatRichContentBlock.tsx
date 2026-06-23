@@ -1,8 +1,14 @@
 'use client'
 
+import { useMemo } from 'react'
 import { RichTextEditor } from '@altitutor/ui'
 import type { Json } from '@altitutor/shared'
 import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
+import {
+  collectUcatImageRefsFromDoc,
+  docStructureFingerprint,
+  extractImageUrlsFromDoc,
+} from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 import {
   UCAT_ENGINE_READONLY_EDITOR_CLASSNAME,
   UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME,
@@ -50,8 +56,39 @@ export function UcatRichContentBlock({
   const richJson = json as Json | null | undefined
   const toneClass = textTone === 'theme' ? THEME_RICH_TEXT : ENGINE_RICH_TEXT
 
+  const hasImageRefs = useMemo(() => {
+    if (!json || typeof json !== 'object') return false
+    const doc =
+      json.type === 'doc' && Array.isArray(json.content)
+        ? json
+        : { type: 'doc', content: Array.isArray(json.content) ? json.content : [json] }
+    const refs = collectUcatImageRefsFromDoc(doc as Record<string, unknown>)
+    return refs.paths.length > 0 || refs.fileIds.length > 0
+  }, [json])
+
+  const waitingForImageRefresh =
+    hasImageRefs &&
+    displayContent == null &&
+    preloadedContent == null &&
+    isLoading
+
+  const editorKey = useMemo(() => {
+    if (!displayContent || !hasRichTextContent(richJson)) return plainText
+    if (hasImageRefs) {
+      return extractImageUrlsFromDoc(displayContent as Record<string, unknown>).join('\0')
+    }
+    return docStructureFingerprint(displayContent as Record<string, unknown>)
+  }, [displayContent, hasImageRefs, plainText, richJson])
+
   if (hasRichTextContent(richJson)) {
-    if (displayContent == null || (preloadedContent == null && isLoading)) {
+    if (waitingForImageRefresh) {
+      return (
+        <p className={cn('whitespace-pre-line', toneClass, className)}>
+          {plainText || '\u00A0'}
+        </p>
+      )
+    }
+    if (displayContent == null) {
       return (
         <p className={cn('whitespace-pre-line', toneClass, className)}>
           {plainText || '\u00A0'}
@@ -61,6 +98,7 @@ export function UcatRichContentBlock({
     return (
       <div className={cn(toneClass, className)}>
         <RichTextEditor
+          key={editorKey}
           content={displayContent}
           editable={false}
           omitTypography

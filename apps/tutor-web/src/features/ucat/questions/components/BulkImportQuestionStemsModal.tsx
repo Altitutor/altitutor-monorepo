@@ -50,6 +50,13 @@ import {
   isBulkImportFullHeightPasteStep,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportWizardSteps'
 import {
+  applySyllogismManualEntryTargets,
+  collectSyllogismManualEntryTargets,
+  syllogismManualEntryIsComplete,
+  type SyllogismManualEntryTarget,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportSyllogismManual'
+import { StepSyllogismManualEntry } from '@/features/ucat/questions/components/bulk-import/StepSyllogismManualEntry'
+import {
   buildFormValuesFromSeparateStemDocuments,
   parseCombinedDocumentResultForSectionWithOcr,
   parseQuestionsOnlyForSection,
@@ -66,6 +73,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
   StepStemCategories,
   everyStemHasCategory,
@@ -94,6 +102,15 @@ type PendingConfirm =
   | { type: 'back_to_stems' }
   | { type: 'close_modal' }
   | null
+
+function summarizeBulkImportMissingExplanations(stems: BulkImportStemDraft[]) {
+  const targets = stems.flatMap((stem, stemIndex) => findMissingExplanations(stem.values, stemIndex))
+  if (targets.length === 0) return null
+  const questions = new Set(targets.map((target) => `${target.stemIndex ?? 0}-${target.questionIndex}`))
+  return `${questions.size} question${questions.size === 1 ? '' : 's'} still ${
+    questions.size === 1 ? 'needs' : 'need'
+  } explanation text before you can continue. Multiple-choice questions need a question-level explanation; syllogism questions need every answer option explained. Use "Generate missing explanations" or expand the row and type the missing explanation.`
+}
 
 export function BulkImportQuestionStemsModal({
   open,
@@ -137,6 +154,10 @@ export function BulkImportQuestionStemsModal({
     quantitativeReasoningQuestionNumberPlacement: 'question',
   })
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null)
+  const [syllogismManualTargets, setSyllogismManualTargets] = useState<SyllogismManualEntryTarget[]>(
+    []
+  )
+  const [syllogismManualStepIncluded, setSyllogismManualStepIncluded] = useState(false)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
   /** Blocks parent Dialog close while a nested confirm is opening/open (Radix races onOpenChange). */
   const suppressDialogCloseRef = useRef(false)
@@ -185,13 +206,19 @@ export function BulkImportQuestionStemsModal({
   const isDecisionMakingSection = resolvedBulkImportSection === 'decision_making'
   const isBulkParseSection = resolvedBulkImportSection != null
 
-  const totalStepsResolved = getBulkImportTotalSteps(separateStemDocument)
-  const stepKind = getBulkImportStepKind(step, separateStemDocument)
+  const includeSyllogismManualStep =
+    isDecisionMakingSection &&
+    (syllogismManualStepIncluded || syllogismManualTargets.length > 0)
+
+  const totalStepsResolved = getBulkImportTotalSteps(separateStemDocument, includeSyllogismManualStep)
+  const stepKind = getBulkImportStepKind(step, separateStemDocument, includeSyllogismManualStep)
 
   const wipeDownstreamFromStems = useCallback(() => {
     setParsedStemTexts([])
     setPerStemQuestionDocs([])
     setPastedAnswersJson(null)
+    setSyllogismManualTargets([])
+    setSyllogismManualStepIncluded(false)
     wizard.reset()
   }, [wizard])
 
@@ -234,6 +261,8 @@ export function BulkImportQuestionStemsModal({
     })
     suppressDialogCloseRef.current = false
     setPendingConfirm(null)
+    setSyllogismManualTargets([])
+    setSyllogismManualStepIncluded(false)
     step2NewImageFileIdsRef.current = new Set()
     wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
@@ -300,6 +329,7 @@ export function BulkImportQuestionStemsModal({
     }
     if (stepKind === 'per_stem_questions') return allPerStemQuestionsParsed
     if (stepKind === 'paste_document') return true
+    if (stepKind === 'syllogism_manual') return syllogismManualEntryIsComplete(syllogismManualTargets)
     if (stepKind === 'answers') {
       if (wizard.state.stems.length === 0) return false
       const validation = validateBulkAnswersDocument(
@@ -322,6 +352,7 @@ export function BulkImportQuestionStemsModal({
     pastedStemDoc,
     stemSplitOptions,
     allPerStemQuestionsParsed,
+    syllogismManualTargets,
     wizard.state.stems,
     pastedAnswersJson,
     isDecisionMakingSection,
@@ -406,15 +437,22 @@ export function BulkImportQuestionStemsModal({
           `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
         )
         wizard.setStems([])
-        return { ok: false }
-      }
-      if (ocr != null && ocr.warnings.length > 0) {
-        setParseError(ocr.warnings.join(' '))
-        wizard.setStems([])
+        setSyllogismManualTargets([])
         return { ok: false }
       }
       const drafts = wizard.setStems(forms)
-      setParseError(null)
+      const manualTargets = collectSyllogismManualEntryTargets(drafts)
+      setSyllogismManualTargets(manualTargets)
+      setSyllogismManualStepIncluded(manualTargets.length > 0)
+      if (manualTargets.length > 0) {
+        setParseError(
+          `OCR could not read ${manualTargets.length} syllogism image(s). Enter the statements on the next step to continue.`
+        )
+      } else if (ocr != null && ocr.warnings.length > 0) {
+        setParseError(ocr.warnings.join(' '))
+      } else {
+        setParseError(null)
+      }
       return { ok: true, drafts }
     } catch (error) {
       setParseError(
@@ -481,6 +519,19 @@ export function BulkImportQuestionStemsModal({
       if (!result.ok) return
     }
 
+    if (stepKind === 'syllogism_manual') {
+      const updatedValues = applySyllogismManualEntryTargets(
+        wizard.state.stems,
+        syllogismManualTargets
+      )
+      updatedValues.forEach((values, index) => {
+        const stem = wizard.state.stems[index]
+        if (stem) wizard.updateStemForm(stem.id, values)
+      })
+      setSyllogismManualTargets([])
+      setParseError(null)
+    }
+
     if (stepKind === 'answers') {
       const stems = wizard.state.stems
       const validation = validateBulkAnswersDocument(
@@ -500,6 +551,15 @@ export function BulkImportQuestionStemsModal({
         wizard.updateStemForm,
         answerParseOptions
       )
+      setParseError(null)
+    }
+
+    if (stepKind === 'review') {
+      const missingExplanationMessage = summarizeBulkImportMissingExplanations(wizard.state.stems)
+      if (missingExplanationMessage) {
+        setParseError(missingExplanationMessage)
+        return
+      }
       setParseError(null)
     }
 
@@ -694,6 +754,8 @@ export function BulkImportQuestionStemsModal({
           onChange={(value) => {
             setPastedContent(value)
             setParseError(null)
+            setSyllogismManualTargets([])
+            setSyllogismManualStepIncluded(false)
           }}
           onImageFileIdsChange={handleStep2ImageFileIds}
           parsingOptions={parsingOptions}
@@ -701,6 +763,15 @@ export function BulkImportQuestionStemsModal({
           pasteTableBehavior={pasteTableBehavior}
           onPasteTableBehaviorChange={setPasteTableBehavior}
           liveParseSection={resolvedBulkImportSection}
+        />
+      )
+    }
+
+    if (stepKind === 'syllogism_manual') {
+      return (
+        <StepSyllogismManualEntry
+          targets={syllogismManualTargets}
+          onTargetsChange={setSyllogismManualTargets}
         />
       )
     }

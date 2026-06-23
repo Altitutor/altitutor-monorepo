@@ -55,6 +55,7 @@ import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useTopicActions } from '../hooks/useTopicActions';
+import { FlashcardManager } from '@/features/flashcards';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -223,7 +224,7 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
@@ -557,6 +558,10 @@ export function ViewTopicModal({
                       </div>
                     )}
                   </div>
+
+                  <Separator className="my-4" />
+
+                  {topicId ? <FlashcardManager topicId={topicId} /> : null}
 
                   <Separator className="my-4" />
 

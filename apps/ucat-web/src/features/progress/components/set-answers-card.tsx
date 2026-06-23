@@ -1,44 +1,54 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ClipboardEvent } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
 import { computeMarkingResult } from "@/features/question-engine/components/marking-body";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
-import type { SetAttemptDetailResponse } from "@/app/api/ucat/progress/set-attempts/[id]/route";
 
-type QuestionAttemptForCard =
-  SetAttemptDetailResponse["questionAttempts"][number];
+type QuestionAttemptForCard = {
+  questionId: string;
+  questionAnswerOptionId?: string | null;
+  answerSnapshot?: Record<string, boolean> | null;
+};
 
 type SetAnswersCardProps = {
   questionSetId?: string;
+  /** Mock template id — loads all mock questions for review. */
+  mockId?: string;
   questionAttempts: QuestionAttemptForCard[];
   initialQuestionIndex?: number;
   onQuestionIndexChange?: (index: number) => void;
   /** When provided, use this exam instead of fetching by questionSetId. For practice review. */
   exam?: QuestionEngineExam | null;
+  /** Attempt review (set/mock/practice): site-themed viewer, natural height, no copy/paste. */
+  attemptReview?: boolean;
 };
 
 export function SetAnswersCard({
   questionSetId,
+  mockId,
   questionAttempts,
   initialQuestionIndex = 0,
   onQuestionIndexChange,
   exam: examProp,
+  attemptReview = false,
 }: SetAnswersCardProps) {
   const {
     data: examFromQuery,
     isLoading,
     error,
   } = useQuestionEngineData({
-    mode: "set",
+    mode: mockId ? "mock" : "set",
     setId: questionSetId ?? "",
-    enabled: !examProp && Boolean(questionSetId),
+    mockId,
+    enabled: !examProp && Boolean(mockId || questionSetId),
   });
 
   const exam = examProp ?? examFromQuery;
@@ -151,36 +161,52 @@ export function SetAnswersCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-medium">Questions</CardTitle>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={handlePrev}
             disabled={viewingIndex <= 0}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+            className={UCAT_HEADER_ICON_BUTTON}
             aria-label="Previous question"
           >
             <ArrowLeft className="h-4 w-4" />
-          </button>
+          </Button>
           <span className="min-w-[80px] text-center text-sm tabular-nums text-muted-foreground">
             {viewingIndex + 1} / {questions.length}
           </span>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={handleNext}
             disabled={viewingIndex >= questions.length - 1}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+            className={UCAT_HEADER_ICON_BUTTON}
             aria-label="Next question"
           >
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div
-          className="flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-ucatControl bg-muted/40 p-4 dark:bg-muted/25"
-          onCopy={(e) => e.preventDefault()}
+          className={cn(
+            attemptReview
+              ? "select-none"
+              : "flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-ucatControl bg-muted/40 p-4 dark:bg-muted/25",
+          )}
+          {...(attemptReview
+            ? {
+                onCopy: (e: ClipboardEvent) => e.preventDefault(),
+                onCut: (e: ClipboardEvent) => e.preventDefault(),
+                onPaste: (e: ClipboardEvent) => e.preventDefault(),
+              }
+            : {})}
         >
           {currentQuestion && (
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <div
+              className={attemptReview ? undefined : "min-h-0 flex-1 overflow-hidden"}
+            >
               <ResultsQuestionViewer
                 question={currentQuestion}
                 selectedOptionId={selectedAnswers[currentQuestion.id]}
@@ -188,6 +214,7 @@ export function SetAnswersCard({
                 points={points}
                 syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
                 preloadedContent={getCachedContent(currentQuestion.id)}
+                variant={attemptReview ? "site" : "ucat"}
               />
             </div>
           )}

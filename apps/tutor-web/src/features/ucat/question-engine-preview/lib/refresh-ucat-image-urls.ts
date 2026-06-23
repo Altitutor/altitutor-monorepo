@@ -124,3 +124,135 @@ export function collectUcatImageRefsFromDoc(doc: Record<string, unknown>): {
 export function collectUcatImagePathsFromDoc(doc: Record<string, unknown>): string[] {
   return collectUcatImageRefsFromDoc(doc).paths
 }
+
+/**
+ * Applies a path->URL map to a doc (replaces image srcs). Returns a deep clone.
+ * Paths not in the map are left unchanged (e.g. non-ucat URLs).
+ */
+export function applySignedUrlsToDoc(
+  doc: Record<string, unknown>,
+  pathToUrl: Map<string, string>,
+  fileIdToUrl: Map<string, string> = new Map()
+): Record<string, unknown> {
+  const result = JSON.parse(JSON.stringify(doc)) as Record<string, unknown>
+  function walk(node: Record<string, unknown>): void {
+    if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
+      const attrs = node.attrs as Record<string, unknown>
+      const src = attrs.src
+      if (typeof src === 'string') {
+        const path = extractUcatImagePathFromSignedUrl(src)
+        const url = path ? pathToUrl.get(path) : undefined
+        if (url) attrs.src = url
+      }
+      if (typeof attrs.fileId === 'string') {
+        const url = fileIdToUrl.get(attrs.fileId)
+        if (url) attrs.src = url
+      }
+    }
+    const content = node.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === 'object') {
+          walk(child as Record<string, unknown>)
+        }
+      }
+    }
+  }
+  walk(result)
+  return result
+}
+
+/** Extracts image URLs from a refreshed doc (walks and collects attrs.src from image nodes). */
+export function extractImageUrlsFromDoc(doc: Record<string, unknown>): string[] {
+  const urls: string[] = []
+  function walk(node: Record<string, unknown>): void {
+    if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
+      const src = (node.attrs as Record<string, unknown>).src
+      if (typeof src === 'string' && src.startsWith('http')) {
+        urls.push(src)
+      }
+    }
+    const content = node.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === 'object') {
+          walk(child as Record<string, unknown>)
+        }
+      }
+    }
+  }
+  walk(doc)
+  return urls
+}
+
+const signedUrlByPath = new Map<string, string>()
+const signedUrlByFileId = new Map<string, string>()
+
+export function getCachedSignedUrlForPath(path: string): string | undefined {
+  return signedUrlByPath.get(path)
+}
+
+export function getCachedSignedUrlForFileId(fileId: string): string | undefined {
+  return signedUrlByFileId.get(fileId)
+}
+
+export function cacheSignedUrls(
+  paths: string[],
+  fileIds: string[],
+  signedUrls: string[]
+): void {
+  paths.forEach((path, index) => {
+    const url = signedUrls[index]
+    if (url) {
+      signedUrlByPath.set(path, url)
+    }
+  })
+  fileIds.forEach((fileId, index) => {
+    const url = signedUrls[paths.length + index]
+    if (url) {
+      signedUrlByFileId.set(fileId, url)
+    }
+  })
+}
+
+/**
+ * Fingerprint of document structure for comparing TipTap JSON without volatile signed URLs.
+ * Used to detect when refreshed content is stale after edits (e.g. deleting pasted images).
+ */
+export function docStructureFingerprint(
+  doc: Record<string, unknown> | null | undefined
+): string {
+  const parts: string[] = []
+
+  function walk(node: Record<string, unknown>): void {
+    parts.push(String(node.type ?? ''))
+
+    if (node.type === 'image') {
+      const attrs =
+        node.attrs && typeof node.attrs === 'object'
+          ? (node.attrs as Record<string, unknown>)
+          : null
+      parts.push(`img:${String(attrs?.fileId ?? attrs?.alt ?? '')}`)
+      return
+    }
+
+    if (typeof node.text === 'string') {
+      parts.push(`t:${node.text}`)
+    }
+
+    const content = node.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (child && typeof child === 'object') {
+          walk(child as Record<string, unknown>)
+        }
+      }
+    }
+  }
+
+  if (doc && typeof doc === 'object') {
+    walk(doc)
+  }
+
+  return parts.join('|')
+}

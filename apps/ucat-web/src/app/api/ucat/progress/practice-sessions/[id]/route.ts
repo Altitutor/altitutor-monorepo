@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
+import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -148,6 +150,12 @@ export async function GET(
     ]),
   );
 
+  const stemIds = orderedQuestions.map((q) => q.stemId);
+  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
+    supabase,
+    stemIds,
+  );
+
   let currentStemId: string | null = null;
   let stemIndex = 0;
   const questionAttempts = orderedQuestions.map(
@@ -158,25 +166,13 @@ export async function GET(
       }
       const attemptData = attemptsByQuestionId.get(questionId);
       const questionNumber = index + 1;
-      const score = attemptData?.score ?? null;
+      const { score, result } = resolveQuestionAttemptScoreAndResult({
+        questionId,
+        attemptData,
+        syllogismOptionsByQuestionId,
+      });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
       const questionType = attemptData?.questionType ?? null;
-
-      let result: "correct" | "partial" | "incorrect" | "not_attempted";
-      if (attemptData == null) {
-        result = "not_attempted";
-      } else {
-        const maxScore = questionType === "syllogism" ? 2 : 1;
-        if (score == null) {
-          result = "not_attempted";
-        } else if (score >= maxScore) {
-          result = "correct";
-        } else if (score > 0) {
-          result = "partial";
-        } else {
-          result = "incorrect";
-        }
-      }
 
       return {
         questionNumber,

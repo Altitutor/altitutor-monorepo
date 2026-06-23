@@ -167,6 +167,8 @@ export async function PATCH(
           ? mockTimeLimitAtExamSpeedSeconds
           : null,
       student_mock_speed: studentMockSpeed,
+      engine_snapshot: null,
+      current_segment_ends_at: null,
     })
     .eq("id", attemptId)
     .eq("student_id", student.id);

@@ -8,9 +8,74 @@
 - **Product app** — A user-facing application that owns an authenticated or transactional product workflow, such as the student portal or UCAT practice app. Product apps may have public entry pages, but their product workflows are separate from the Marketing site.
   _Avoid_: Landing site, marketing app
 
+## Subject resources
+
+- **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
+  _Avoid_: Learning module, UCAT module
+
+- **Topic resource** — A student-facing study item attached to one topic, such as a file or topic flashcards. Topic resources belong to the general student resource experience, not the UCAT Learn catalog.
+  _Avoid_: Learning module block, lesson content
+
+- **Topic flashcards** — The ordered cloze flashcards attached directly to one topic. The topic itself is the collection boundary students open from Resources.
+  _Avoid_: Deck, learning module, file, flashcard collection
+
+- **Flashcard** — One cloze-deletion study prompt attached to a topic. Flashcards use cloze markers in the prompt itself and do not have separate front/back sides.
+  _Avoid_: Basic card, note, question
+
+- **Flashcard review card** — One reviewable cloze marker generated from a flashcard. A flashcard with multiple cloze markers creates one review card per marker, and each review card has its own spaced-repetition state.
+  _Avoid_: Flashcard side, front/back card, note
+
+- **Due flashcard review** — A student study mode that shows only flashcard review cards whose spaced-repetition state is due. Student ratings update the review card's next due date and scheduling state.
+  _Avoid_: Quizlet mode, browse mode
+
+- **Free flashcard study** — A student study mode that shows all flashcard review cards in a selected topic without changing spaced-repetition state.
+  _Avoid_: Due review, scheduled review
+
+- **Anki flashcard import** — A staff workflow for bringing existing Anki cloze material into a topic from a text export such as CSV. The import accepts cloze cards only; front/back cards and `.apkg` package parsing are not part of the first flashcard import scope.
+  _Avoid_: Mobile sync, push reminder setup, basic-card import
+
+- **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
+  _Avoid_: Anki note model, front/back row
+
 ## UCAT content
 
 - **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
+
+- **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.
+  _Avoid_: Launch click, first answer, session created
+
+- **Incomplete UCAT exam attempt** — A started set attempt, mock attempt, or practice session that has no `completed_at` yet. Remains incomplete until the student explicitly submits or a timed segment expires and the attempt is finalized. Visible in progress as in-progress, not only after submission.
+  _Avoid_: Unsubmitted answers, draft session
+
+- **UCAT exam timing segment** — One timed or untimed portion of an exam attempt with its own rules and optional server countdown. Examples: set instructions, set questions, one mock set’s instructions, one mock set’s questions, one practice question unit (single question or whole stem). Timed segments store a server `ends_at` while active; untimed segments have no countdown. The server clock applies to the **current segment only**, not the whole mock or practice session in one lump.
+  _Avoid_: Whole-exam timer, session timeout
+
+- **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **finalize** it (submit scoring with answers so far) and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
+  _Avoid_: Multiple drafts, parallel mocks
+
+- **UCAT exam attempt finalization** — Closing out an incomplete attempt by setting `completed_at` and scoring all questions with current answers (unanswered = 0). Applies equally to: explicit submit, timer expiry, and choosing **finalize** from the in-progress dialog when starting a new exam. Finalized attempts appear in progress with a real score; they are not silently discarded.
+  _Avoid_: Abandon without record, discard draft
+
+- **UCAT exam segment catch-up** — When a student returns after being away, the server replays any timing segments whose `ends_at` has already passed: each expired segment is finalized the same way as in-session time expiry (unanswered in that segment score 0; mocks advance to the next segment). Catch-up runs until the current segment still has time remaining or the whole attempt is complete. The student then resumes at that computed position.
+  _Avoid_: Pause timer, single-segment-only expiry
+
+- **UCAT exam attempt resume snapshot** — Server-persisted JSON of question-engine state for an incomplete attempt: phase, segment position, question index, visited and flagged questions, selected answers, syllogism snapshots, practice-specific position, and current segment `ends_at` when timed. Updated as the student works so reload, new device, or explicit resume restores the same screen. Answer rows in `student_question_attempts` are kept in sync for scoring; the snapshot is the source of truth for UI position.
+  _Avoid_: Session storage only, client-only state
+
+- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, timer catch-up forces finalization on the current stem, or they choose **finalize** from the in-progress dialog. Submitting individual stems (answer + feedback) does not complete the session; the student may continue or resume the same session across visits.
+  _Avoid_: Per-stem session, practice attempt per question
+
+- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a *different* set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
+  _Avoid_: In progress tab, session storage resume
+
+- **UCAT exam attempt lifecycle (scope)** — The hardened attempt model (start at Ready to Begin, server segment clock, resume snapshot, one in-progress slot, site banner, finalization rules) applies to **sets**, **mocks**, and **practice** only. Session-linked sets and mocks follow the same rules. **Learn** lesson question blocks and **skill trainer** are out of scope for this shared in-progress slot; skill trainer keeps its own attempt rules.
+  _Avoid_: Lesson practice as full exam, global attempt for drills
+
+- **Mock set attempt** — For each set within a UCAT mock, a `student_question_set_attempts` row is created when the mock **enters that set’s first timing segment** (instructions if configured, otherwise questions). Not at mock launch screen, not on first answer. Linked to the parent mock attempt. Holds per-set question attempts for scoring when that set’s segments end or the mock is finalized.
+  _Avoid_: Lazy set attempt on first answer, all sets upfront at intro
+
+- **In-progress question attempt sync** — During an incomplete set, mock, or practice session, each answer selection and flag toggle is upserted to `student_question_attempts` promptly (debounced), with `is_submitted: false` until attempt finalization. The resume snapshot and question rows are kept aligned so partial work survives reload and device changes.
+  _Avoid_: Answers only on submit, snapshot-only persistence
 
 - **UCAT section** — One of the canonical UCAT areas, such as Verbal Reasoning, Decision Making, Quantitative Reasoning, or Situational Judgement.
 
@@ -106,22 +171,37 @@
 - **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
   _Avoid_: Approval status, published status
 
+- **Question stem approval queue** — A tutor workflow for reviewing a filtered sequence of question stems, applying small edits or reconciliation fixes, then advancing to the next stem. For AI-generated question stems, approval makes the stem available for student-facing use; for reconciliation, saving advances the tutor through unresolved content gaps without necessarily changing approval status.
+  _Avoid_: Bulk approval, generation gate, question list
+
+- **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
+  _Avoid_: Approval status, generation warning, validation error
+
 - **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
   _Avoid_: Auto-published question, synthetic question
+
+- **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+  _Avoid_: Regeneration, new question generation, answer-key generation
+
+- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue and suggested correction. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+  _Avoid_: Answer generation, solution key parsing, question rewrite
 
 - **Generation brief** — The structured intent for producing AI-generated UCAT content, including section, stem category, target skill tags, difficulty, time burden, format constraints, and optional calibration examples. A generation brief defines what should be created; source examples are optional style calibration and should not be required or copied.
   _Avoid_: Prompt, source stem selection
 
-- **Generation profile** — An admin-managed configuration that controls which AI provider/model and prompt instructions may be used for UCAT generation. Tutors may choose among approved generation profiles when creating generation candidates.
-  _Avoid_: UCAT model config, API key setting
+- **Generation model profile** — An admin-managed UCAT generation model configuration containing only provider/model inference settings such as model ID, temperature, and maximum completion tokens. Tutors may choose among enabled model profiles. Prompt instructions and candidate counts do not belong to a model profile.
+  _Avoid_: Generation profile, prompt profile, UCAT model config
+
+- **Generation system prompts** — The model-independent base and role instructions used by UCAT generation, such as writer, planner, critic, and rewriter instructions. They are edited independently from generation model profiles and shared across enabled models.
+  _Avoid_: Model prompt, prompt profile
 
 - **AI generation provider** — An admin-approved OpenAI-compatible model provider used by UCAT generation, defined by endpoint, secret reference, and allowed model IDs. OpenRouter may be the default provider, but generation should not be coupled to one provider.
   _Avoid_: OpenRouter-only integration, hard-coded model
 
-- **UCAT generation settings** — The admin-web settings area for managing AI generation profiles, prompt layers, allowed models, generation budgets, and gate configuration. This is separate from UCAT model config, which controls score prediction constants.
+- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from UCAT model config, which controls score prediction constants.
   _Avoid_: UCAT model config, tutor prompt settings
 
-- **Layered generation prompt** — The combined prompt instructions used for AI generation, assembled from the generation profile, UCAT section, stem category, question tags, and optional run instructions. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
+- **Layered generation prompt** — The combined instructions used for AI generation, assembled from generation system prompts, UCAT section, stem category, question tags, and optional run instructions. Model selection is independent. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
   _Avoid_: One big prompt, tutor system prompt
 
 - **Generated content block** — A structured content unit returned by AI generation before conversion into the editor format, such as a paragraph, table, or image request. Generated content blocks are validated and converted by the app instead of asking the AI model to produce raw editor JSON.
@@ -133,7 +213,7 @@
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
 
-- **Generation candidate** — One AI-produced answer to a generation brief. The workflow may create multiple generation candidates per requested question stem, silently discard candidates that fail blocking gates, then keep only the strongest passing candidates for tutor review.
+- **Generation candidate** — One AI-produced answer to a generation brief. The current synchronous workflow generates one candidate for each requested question stem and applies deterministic gates before tutor review.
   _Avoid_: Final generated question, published generated question
 
 - **Generation gate** — A validation check applied to generation candidates before tutor review. Blocking gates reject candidates that break hard UCAT format or answer-validity rules; warning gates surface likely quality issues while still allowing tutor review.
@@ -142,13 +222,13 @@
 - **Generation warning** — A non-blocking quality issue shown during tutor review of an AI-generated question stem. Warnings should appear as lightweight summary and inline badges, with detail available on demand.
   _Avoid_: Rejection reason, validation error
 
-- **Generation metadata** — Audit information stored with an AI-generated question stem, such as generation profile version, provider/model, generation brief, source stem IDs, candidate counts, gate results, warnings, solver scores, usage, generated-at time, and generated-by tutor. Raw prompts, discarded candidates, and provider responses are not retained by default.
+- **Generation metadata** — Audit information stored with an AI-generated question stem, such as generation model profile, system-prompt version, provider/model, generation brief, source stem IDs, gate results, warnings, usage, generated-at time, and generated-by tutor. Raw prompts and provider responses are not retained by default.
   _Avoid_: Full prompt log, provider transcript
 
 - **Generation solver check** — A generation gate where a separate solver or critic attempts the generated UCAT question independently of the writer's rationale. Solver disagreement blocks high-confidence objective errors, such as QR arithmetic or DM logic mistakes, and warns on plausible ambiguity in more subjective areas such as Situational Judgement or some Verbal Reasoning items.
   _Avoid_: Answer key generation, tutor review
 
-- **Generation budget** — An admin-managed limit on UCAT AI generation cost or volume, such as daily spend, token usage, requested stems per run, or internal candidates per requested stem. Generation budgets protect the organisation's API usage without treating ordinary tutor use as abuse.
+- **Generation budget** — An admin-managed limit on UCAT AI generation cost or volume, such as daily spend, token usage, or requested stems per run. Generation budgets protect the organisation's API usage without treating ordinary tutor use as abuse.
   _Avoid_: Tutor quota, student quota
 
 - **Generation similarity gate** — A generation gate that rejects disguised clones of selected source examples or existing UCAT content, such as reused scenario premises, near-identical data relationships, near-identical question wording, or high text overlap. Shared UCAT archetypes, broad topics, calculation skills, passage genres, generic table/chart dimensions, incidental answer-key patterns, and repeated ordinary names or places are acceptable and should not be rejected by themselves.
@@ -179,11 +259,11 @@
 
 - **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields are strict by question type: multiple-choice uses question-level explanation only; syllogism uses per–answer-option explanations only (no scope toggle, unlike bulk import). The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
   Used in the stem dialog and the full-page stem detail route (`/ucat/questions/[id]`) with the same layout. Opens in **edit mode** by default. **View mode** is read-only engine preview with an optional show/hide-answer toggle in the right column; **edit mode** always shows answers. View/edit and show/hide-answer controls live in the right column, not the dialog header.
-  Switching stem type to syllogism still requires confirmation and resets questions to the syllogism template (single question, five statements); section and category are locked for syllogism stems. Switching to multiple choice updates question type on existing questions without a full reset. The right column is ordered top-to-bottom: view/edit toggle, show/hide answer (view only), question navigation card, stem properties, question properties (active question).
+  Switching stem type to syllogism still requires confirmation and resets questions to the syllogism template (single question, five statements); section and category are locked for syllogism stems. Switching to multiple choice updates question type on existing questions without a full reset. The right column is ordered top-to-bottom: view/edit toggle, show/hide answer (view only), question navigation card, AI actions, stem properties, question properties (active question).
   The right-column **question navigation card** lists all questions in the stem, supports jump navigation (synced with the exam chrome footer), and hosts add/delete question actions (minimum one question). Multiple-choice answer options are added or removed inline on the left in edit mode (minimum one). Syllogism stems keep five statements with no add/remove.
   _Avoid_: Question editor, stem dialog form
 
-- **Bulk import** — A tutor workflow for turning pasted source exam content into UCAT question stems, questions, answer options, and answer metadata for review and import. Explanations are always required on import. The answers step supports either a bulk answers document (auto-parsed) or per-question entry in global question order. Multiple-choice: correct answer via option radio; default explanation scope is question-level (toggleable per question to per-option). Syllogism: per-option Yes/No; default explanation scope is per-option. Rich text in all explanation fields.
+- **Bulk import** — A tutor workflow for turning pasted source exam content into UCAT question stems, questions, answer options, and answer metadata for review and import. Correct answers are required before leaving the answers step; explanations may be missing until the review step, where the tutor must type or generate them before moving on. The review step is the explanation completion gate and should clearly explain any missing-explanation blocker: multiple-choice questions need a question-level explanation, and syllogism questions need every answer option explained. It supports a whole-import action for generating all missing explanations, plus targeted per-stem or per-question explanation generation from the expanded editor. The answers step supports either a bulk answers document (auto-parsed) or per-question entry in global question order. Multiple-choice: correct answer via option radio; default explanation scope is question-level (toggleable per question to per-option). Syllogism: per-option Yes/No; default explanation scope is per-option. Rich text in all explanation fields.
 
 - **Syllogism image options table** — A Decision Making syllogism source format where the five conclusion statements are supplied as text inside an image of a five-row table rather than as selectable text. The five statements are still answer options for one syllogism question; the image is not a separate question stem or diagram.
   _Avoid_: Syllogism diagram, image question

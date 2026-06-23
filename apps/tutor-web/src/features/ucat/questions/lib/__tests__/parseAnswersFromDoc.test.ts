@@ -78,6 +78,38 @@ describe('parseAnswersTableFromDoc', () => {
     expect(paragraph?.content?.[1]?.marks?.[0]?.type).toBe('italic')
   })
 
+  it('parses a final numbered answer row without a trailing explanation cell', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '68' },
+            { type: 'text', text: '\t' },
+            { type: 'text', text: 'D' },
+            { type: 'text', text: '\t' },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '69' },
+            { type: 'text', text: '\t' },
+            { type: 'text', text: 'B' },
+          ],
+        },
+      ],
+    }
+
+    const parsed = parseAnswersTableFromDoc(doc)
+
+    expect(parsed).toEqual([
+      { letter: 'D', explanation: '', explanationDoc: null },
+      { letter: 'B', explanation: '', explanationDoc: null },
+    ])
+  })
+
   it('preserves nested tables in explanation cells', () => {
     const doc = {
       type: 'doc',

@@ -6,7 +6,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter } from 'next/navigation';
-import { LogOut, Settings, User } from 'lucide-react';
+import { Bug, LogOut, Settings, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -15,6 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  FeedbackDialog,
+  type FeedbackKind,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -33,6 +35,7 @@ export function Navbar() {
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(staffRecord?.id ?? '');
@@ -123,6 +126,14 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setFeedbackKind('bug')}
+                  className="cursor-pointer"
+                >
+                  <Bug className="mr-2 h-4 w-4" />
+                  Report a bug
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
@@ -141,6 +152,19 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
+      {feedbackKind ? (
+        <FeedbackDialog
+          open
+          onOpenChange={(open) => !open && setFeedbackKind(null)}
+          kind={feedbackKind}
+          appName="tutor-web"
+          user={{
+            id: user?.id,
+            email: user?.email,
+            name: getFullName(),
+          }}
+        />
+      ) : null}
     </nav>
   );
-} 
+}

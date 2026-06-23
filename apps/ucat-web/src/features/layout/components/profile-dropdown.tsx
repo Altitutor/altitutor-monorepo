@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, LayoutDashboard, User } from "lucide-react";
+import { useState } from "react";
+import { Bug, LifeBuoy, LogOut, LayoutDashboard, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@altitutor/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  FeedbackDialog,
+  type FeedbackKind,
+} from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
@@ -14,6 +23,7 @@ export function ProfileDropdown() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { data: profile } = useUcatProfile(!!user);
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
   if (!user) return null;
 
@@ -42,45 +52,75 @@ export function ProfileDropdown() {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            UCAT_HEADER_BTN_OUTLINE,
-            "flex h-9 items-center gap-2 px-3 active:scale-[0.98]",
-          )}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              UCAT_HEADER_BTN_OUTLINE,
+              "flex h-9 items-center gap-2 px-3 active:scale-[0.98]",
+            )}
+          >
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar text-xs font-medium text-sidebar-foreground">
+              {getInitials()}
+            </div>
+            <span className="hidden max-w-[10rem] truncate text-sm sm:inline">
+              {getFullName()}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-48 rounded-lg border-0 bg-card text-card-foreground shadow-lg"
         >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar text-xs font-medium text-sidebar-foreground">
-            {getInitials()}
-          </div>
-          <span className="hidden max-w-[10rem] truncate text-sm sm:inline">
-            {getFullName()}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-48 rounded-lg border-0 bg-card text-card-foreground shadow-lg"
-      >
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard" className="flex cursor-pointer items-center">
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/settings" className="flex cursor-pointer items-center">
-            <User className="mr-2 h-4 w-4" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard" className="flex cursor-pointer items-center">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Dashboard
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings" className="flex cursor-pointer items-center">
+              <User className="mr-2 h-4 w-4" />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setFeedbackKind("contact")}
+            className="cursor-pointer"
+          >
+            <LifeBuoy className="mr-2 h-4 w-4" />
+            Contact us
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => setFeedbackKind("bug")}
+            className="cursor-pointer"
+          >
+            <Bug className="mr-2 h-4 w-4" />
+            Report a bug
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {feedbackKind ? (
+        <FeedbackDialog
+          open
+          onOpenChange={(open) => !open && setFeedbackKind(null)}
+          kind={feedbackKind}
+          appName="ucat-web"
+          user={{
+            id: user.id,
+            email: user.email,
+            name: getFullName(),
+          }}
+        />
+      ) : null}
+    </>
   );
 }

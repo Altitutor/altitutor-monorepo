@@ -85,6 +85,21 @@ interface DataTableToolbarProps {
   searchAccessory?: React.ReactNode;
   /** Icon-only controls for narrow panels (e.g. editor sidebars). */
   compact?: boolean;
+  /** When true, search-from toggles appear in the View dropdown instead of beside the search field */
+  searchFromInView?: boolean;
+  /** Search-from options shown under the Question stems heading (after columns) */
+  stemSearchFromOptions?: DataTableSearchFromOption[];
+  /** Additional grouped search-from options for the View dropdown (used with searchFromInView) */
+  searchFromViewGroups?: Array<{ heading: string; options: DataTableSearchFromOption[] }>;
+  /** Grouped column visibility sections (e.g. stem / question / answer option columns) */
+  columnViewGroups?: DataTableColumnViewGroup[];
+}
+
+export interface DataTableColumnViewGroup {
+  heading: string;
+  columnDefinitions: DataTableColumnDefinition[];
+  visibleColumns: string[];
+  onVisibleColumnsChange: (columns: string[]) => void;
 }
 
 export interface DataTableSearchFromOption {
@@ -126,6 +141,10 @@ export function DataTableToolbar({
   searchLeadingAccessory,
   searchAccessory,
   compact = false,
+  searchFromInView = false,
+  stemSearchFromOptions = [],
+  searchFromViewGroups,
+  columnViewGroups = [],
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
@@ -285,7 +304,24 @@ export function DataTableToolbar({
   const controlBtnClass = (extra?: string) => cn(compact ? 'h-9 px-2' : 'h-10', controlClassName, extra);
   const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'mr-2', extra);
 
-  const searchFromControl = searchFromEnabled ? (
+  const searchFromViewGroupsResolved = searchFromViewGroups ?? (
+    searchFromOptions.length > 0
+      ? [{ heading: 'Search in', options: searchFromOptions }]
+      : []
+  );
+
+  const toggleColumnVisibility = (
+    group: DataTableColumnViewGroup,
+    columnKey: string,
+    checked: boolean,
+  ) => {
+    const next = checked
+      ? [...group.visibleColumns, columnKey]
+      : group.visibleColumns.filter((key) => key !== columnKey);
+    group.onVisibleColumnsChange(next);
+  };
+
+  const searchFromControl = searchFromEnabled && !searchFromInView ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -368,28 +404,94 @@ export function DataTableToolbar({
         {!hideSearch && searchAccessory}
 
         <div className={cn('flex shrink-0 items-center gap-2', hideSearch && 'w-full')}>
-          {/* View Options (Columns) */}
-          {columnDefinitions.length > 0 && (
+          {/* View Options (Columns + optional search-from groups) */}
+          {(columnViewGroups.length > 0 ||
+            columnDefinitions.length > 0 ||
+            (searchFromInView &&
+              (stemSearchFromOptions.length > 0 || searchFromViewGroupsResolved.length > 0))) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={controlBtnClass()} aria-label="View columns">
+                <Button variant="outline" size="sm" className={controlBtnClass()} aria-label="View options">
                   <LayoutGrid className={iconClass()} />
                   <span className={labelClass}>View</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] p-0">
-                <DropdownMenuLabel className="px-2 py-1.5">Show columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <SearchableSelectInline<DataTableColumnDefinition>
-                  items={columnDefinitions}
-                  value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
-                  onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
-                  getItemId={(c) => c.key}
-                  getItemLabel={(c) => c.label}
-                  searchPlaceholder="Search columns..."
-                  emptyMessage="No columns found"
-                  multiSelect
-                />
+              <DropdownMenuContent align="end" className="w-[240px] p-0 max-h-[min(70vh,480px)] overflow-y-auto">
+                {columnViewGroups.length > 0 ? (
+                  columnViewGroups.map((group, groupIndex) => (
+                    <div key={group.heading}>
+                      {groupIndex > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel className="px-2 py-1.5">{group.heading}</DropdownMenuLabel>
+                      {group.columnDefinitions.map((col) => (
+                        <DropdownMenuCheckboxItem
+                          key={col.key}
+                          checked={group.visibleColumns.includes(col.key)}
+                          onCheckedChange={(checked) =>
+                            toggleColumnVisibility(group, col.key, checked === true)
+                          }
+                          onSelect={(event) => event.preventDefault()}
+                          className="pl-8"
+                        >
+                          {col.label}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  columnDefinitions.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="px-2 py-1.5">
+                        {searchFromInView && searchFromViewGroupsResolved.length > 0
+                          ? 'Question stems'
+                          : 'Show columns'}
+                      </DropdownMenuLabel>
+                      <SearchableSelectInline<DataTableColumnDefinition>
+                        items={columnDefinitions}
+                        value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
+                        onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
+                        getItemId={(c) => c.key}
+                        getItemLabel={(c) => c.label}
+                        searchPlaceholder="Search columns..."
+                        emptyMessage="No columns found"
+                        multiSelect
+                      />
+                      {searchFromInView &&
+                        stemSearchFromOptions.map((option) => (
+                          <DropdownMenuCheckboxItem
+                            key={option.value}
+                            checked={activeSearchFromValues.includes(option.value)}
+                            onCheckedChange={() => toggleSearchFromValue(option.value)}
+                            className="pl-8"
+                          >
+                            {option.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                    </>
+                  )
+                )}
+                {searchFromInView && searchFromViewGroupsResolved.length > 0 && onSearchFromChange && (
+                  <>
+                    {(columnViewGroups.length > 0 || columnDefinitions.length > 0) && (
+                      <DropdownMenuSeparator />
+                    )}
+                    {searchFromViewGroupsResolved.map((group, groupIndex) => (
+                      <div key={group.heading}>
+                        {groupIndex > 0 && <DropdownMenuSeparator />}
+                        <DropdownMenuLabel className="px-2 py-1.5">{group.heading}</DropdownMenuLabel>
+                        {group.options.map((option) => (
+                          <DropdownMenuCheckboxItem
+                            key={option.value}
+                            checked={activeSearchFromValues.includes(option.value)}
+                            onCheckedChange={() => toggleSearchFromValue(option.value)}
+                            className="pl-8"
+                          >
+                            {option.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </div>
+                    ))}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

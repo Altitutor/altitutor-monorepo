@@ -41,9 +41,11 @@ function isTableCellNode(node: PMNode): boolean {
 
 function explanationCellStartIndex(cells: string[]): number {
   const trimmed = cells.map((c) => c.trim())
-  if (trimmed.length >= 3) {
-    const num = Number.parseInt(trimmed[0] ?? '', 10)
-    if (!Number.isNaN(num) && num >= 1 && num <= 999) return 2
+  const num = Number.parseInt(trimmed[0] ?? '', 10)
+  const startsWithQuestionNumber = !Number.isNaN(num) && num >= 1 && num <= 999
+  if (startsWithQuestionNumber) {
+    if (trimmed.length >= 3) return 2
+    return -1
   }
   if (trimmed.length >= 2) return 1
   return -1

@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Json } from '@altitutor/shared'
+import { Copy } from 'lucide-react'
 import {
   Button,
   Input,
@@ -16,13 +17,18 @@ import {
   useGenerateUcatQuestionDrafts,
   useImportGeneratedUcatQuestionStems,
   useUcatCategories,
-  useUcatGenerationProfiles,
+  useUcatGenerationModelProfiles,
   useUcatQuestionDetail,
   useUcatSections,
   useUcatStemCatalog,
   useUcatTags,
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  UcatGenerationApiError,
+  type UcatGenerationDebugInfo,
+  type UcatGenerationProgress,
+} from '@/features/ucat/questions/api/questions'
 import {
   UcatQuestionStemDialog,
   type CategoryOption,
@@ -153,14 +159,177 @@ function metadataWarnings(metadata: Json | null): string[] {
   return Array.isArray(warnings) ? warnings.filter((item): item is string => typeof item === 'string') : []
 }
 
+function formatDebugJson(value: unknown): string {
+  return JSON.stringify(value, null, 2)
+}
+
 const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility', 'question_type'])
+const GENERATION_STEP_LABELS: Record<UcatGenerationProgress['step'], string> = {
+  setup: 'Setup',
+  sources: 'Sources',
+  generating: 'Model calls',
+  gates: 'Validation',
+  drafts: 'Drafts',
+}
+const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'drafts']
+
+function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null }) {
+  if (!debug) return null
+
+  const rawDebug = formatDebugJson(debug)
+
+  return (
+    <details className="rounded-md border p-4">
+      <summary className="cursor-pointer list-none">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Generation debug</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Saved to the database{debug.runId ? ` as run ${debug.runId}` : ''}. Expand to inspect prompts, raw responses, timings, and gate failures.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.preventDefault()
+              void navigator.clipboard.writeText(rawDebug)
+            }}
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Copy raw
+          </Button>
+        </div>
+      </summary>
+      <div className="mt-4 space-y-3">
+      <div className="grid gap-3 text-sm md:grid-cols-2">
+        <div>Requested stems: {debug.requestedStemCount}</div>
+        <div>Section: {debug.sectionName ?? '-'}</div>
+        <div>Selected category: {debug.selectedCategoryName ?? 'Spread across categories'}</div>
+        <div>Prompt layers: {debug.promptLayerCount}</div>
+        <div className="md:col-span-2">Source sample IDs: {debug.sourceSampleIds.join(', ') || '-'}</div>
+      </div>
+      {debug.gateIssues.length > 0 ? (
+        <details className="rounded-md border p-3 text-sm" open>
+          <summary className="cursor-pointer font-medium">Gate issues ({debug.gateIssues.length})</summary>
+          <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs">{formatDebugJson(debug.gateIssues)}</pre>
+        </details>
+      ) : null}
+      <div className="space-y-3">
+        {debug.calls.map((call) => (
+          <details key={`${call.operation}-${call.stemIndex}-${call.durationMs}`} className="rounded-md border p-3 text-sm">
+            <summary className="cursor-pointer font-medium">
+              Stem {call.stemIndex + 1} · {call.status} · {Math.round(call.durationMs / 1000)}s · {call.categoryName ?? 'no category'}
+            </summary>
+            <div className="mt-3 space-y-3">
+              {call.error ? <div className="text-destructive">{call.error}</div> : null}
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>Model: {call.model ?? '-'}</div>
+                <div>Finish reason: {call.response?.finishReason ?? '-'}</div>
+                <div>Max tokens: {call.request.maxCompletionTokens}</div>
+                <div>Timeout: {Math.round(call.request.timeoutMs / 1000)}s</div>
+                <div>Provider sort: {call.request.providerSort ?? 'default'}</div>
+                <div>Reasoning effort: {call.request.reasoningEffort ?? 'default'}</div>
+                <div>Response chars: {call.response?.contentLength ?? 0}</div>
+              </div>
+              {call.parsedSummary ? (
+                <pre className="max-h-40 overflow-auto rounded bg-muted p-2 text-xs">{formatDebugJson(call.parsedSummary)}</pre>
+              ) : null}
+              <details>
+                <summary className="cursor-pointer">System prompt</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">{call.request.systemPrompt}</pre>
+              </details>
+              <details>
+                <summary className="cursor-pointer">User prompt</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">{call.request.userPrompt}</pre>
+              </details>
+              <details>
+                <summary className="cursor-pointer">Raw model response</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">
+                  {call.response?.content ?? 'No response captured'}
+                </pre>
+              </details>
+              <details>
+                <summary className="cursor-pointer">Usage</summary>
+                <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-2 text-xs">{formatDebugJson(call.response?.usage ?? null)}</pre>
+              </details>
+            </div>
+          </details>
+        ))}
+      </div>
+      </div>
+    </details>
+  )
+}
+
+function GenerationProgressPanel({
+  progress,
+  elapsedSeconds,
+  stemCount,
+}: {
+  progress: UcatGenerationProgress | null
+  elapsedSeconds: number
+  stemCount: number
+}) {
+  const activeStep = progress?.step ?? 'setup'
+  const activeIndex = GENERATION_STEP_ORDER.indexOf(activeStep)
+  const completed = progress?.completedStems ?? 0
+  const total = progress?.totalStems ?? stemCount
+  const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
+
+  return (
+    <div className="w-full max-w-xl space-y-6 rounded-md border p-6">
+      <div className="flex items-center gap-3">
+        <Spinner size="md" />
+        <div>
+          <h2 className="font-semibold">Generating tutor-review drafts</h2>
+          <p className="text-sm text-muted-foreground">
+            {progress?.message ?? 'Starting generation run'}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+        </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>{completed} of {total} model call{total === 1 ? '' : 's'} finished</span>
+          <span>Elapsed: {elapsedSeconds}s</span>
+        </div>
+      </div>
+      <ol className="grid gap-2 text-sm">
+        {GENERATION_STEP_ORDER.map((stepKey, index) => {
+          const done = index < activeIndex
+          const active = stepKey === activeStep
+          return (
+            <li
+              key={stepKey}
+              className={cn(
+                'flex items-center justify-between rounded-md border px-3 py-2',
+                done && 'bg-muted text-muted-foreground',
+                active && 'border-primary'
+              )}
+            >
+              <span>{GENERATION_STEP_LABELS[stepKey]}</span>
+              <span className="text-xs text-muted-foreground">{done ? 'Done' : active ? 'Running' : 'Queued'}</span>
+            </li>
+          )
+        })}
+      </ol>
+      {progress?.runId ? (
+        <p className="text-xs text-muted-foreground">Debug run: {progress.runId}</p>
+      ) : null}
+    </div>
+  )
+}
 
 export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionStemsModalProps) {
   const { toast } = useToast()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
-  const profilesQuery = useUcatGenerationProfiles(open)
+  const modelProfilesQuery = useUcatGenerationModelProfiles(open)
   const stemCatalogQuery = useUcatStemCatalog(open)
   const generateMutation = useGenerateUcatQuestionDrafts()
   const importMutation = useImportGeneratedUcatQuestionStems()
@@ -168,7 +337,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [step, setStep] = useState<'config' | 'generating' | 'review'>('config')
   const [sectionId, setSectionId] = useState<string>('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [profileId, setProfileId] = useState<string | null>(null)
+  const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>('random')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
@@ -180,13 +349,18 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [stemSearch, setStemSearch] = useState('')
   const [stemFilters, setStemFilters] = useState<Record<string, unknown[]>>({})
   const [viewingStemId, setViewingStemId] = useState<string | null>(null)
+  const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+  const [generationDebug, setGenerationDebug] = useState<UcatGenerationDebugInfo | null>(null)
+  const [generationProgress, setGenerationProgress] = useState<UcatGenerationProgress | null>(null)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
   const tags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data])
-  const profiles = profilesQuery.data?.profiles ?? []
-  const maxRequestedStems = profilesQuery.data?.settings.maxRequestedStems ?? 20
-  const effectiveProfileId = profileId ?? profiles.find((profile) => profile.isDefault)?.id ?? profiles[0]?.id ?? null
+  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+  const maxRequestedStems = modelProfilesQuery.data?.settings.maxRequestedStems ?? 20
+  const effectiveModelProfileId =
+    modelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
   const selectedSection = useMemo(
     () => sections.find((section) => (section.id ?? '') === sectionId) ?? null,
     [sections, sectionId]
@@ -261,7 +435,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   const stepReady =
     sectionId.length > 0 &&
-    !!effectiveProfileId &&
+    !!effectiveModelProfileId &&
     stemCount > 0 &&
     stemCount <= maxRequestedStems &&
     (sourceMode !== 'selected' || selectedSourceIds.length > 0)
@@ -269,11 +443,23 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const isBusy = generateMutation.isPending || importMutation.isPending
   const showSourceStemPicker = step === 'config' && sourceMode === 'selected'
 
+  useEffect(() => {
+    if (step !== 'generating') {
+      setGenerationElapsedSeconds(0)
+      return undefined
+    }
+    const startedAt = Date.now()
+    const interval = window.setInterval(() => {
+      setGenerationElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [step])
+
   function resetState() {
     setStep('config')
     setSectionId('')
     setCategoryId(null)
-    setProfileId(null)
+    setModelProfileId(null)
     setSourceMode('random')
     setSelectedSourceIds([])
     setTargetTagIds([])
@@ -285,16 +471,27 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setStemSearch('')
     setStemFilters({})
     setViewingStemId(null)
+    setGenerationError(null)
+    setGenerationDebug(null)
+    setGenerationProgress(null)
   }
 
   async function handleGenerate() {
     if (!stepReady) return
+    setGenerationError(null)
+    setGenerationDebug(null)
+    setGenerationProgress({
+      step: 'setup',
+      message: 'Preparing generation request',
+      completedStems: 0,
+      totalStems: stemCount,
+    })
     setStep('generating')
     try {
       const result = await generateMutation.mutateAsync({
         sectionId,
         categoryId,
-        profileId: effectiveProfileId,
+        modelProfileId: effectiveModelProfileId,
         sourceMode,
         sourceStemIds: sourceMode === 'selected' ? selectedSourceIds : [],
         stemCount,
@@ -302,6 +499,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         timeBurdenTarget,
         targetTagIds,
         runInstructions: runInstructions.trim() || null,
+        onProgress: setGenerationProgress,
       })
       const nextDrafts: DraftWithMetadata[] = result.stems.map((stem, index) => ({
         id:
@@ -311,6 +509,14 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         values: toFormValues(stem),
         aiGenerationMetadata: stem.aiGenerationMetadata,
       }))
+      setGenerationDebug(result.debug ?? null)
+      setGenerationProgress({
+        step: 'drafts',
+        message: 'Generation complete',
+        completedStems: result.stems.length,
+        totalStems: stemCount,
+        runId: result.debug?.runId ?? result.debugRunId ?? null,
+      })
       setDrafts(nextDrafts)
       setStep('review')
       if (result.discardedCount && result.discardedCount > 0) {
@@ -320,10 +526,13 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         })
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to generate question stems'
+      if (error instanceof UcatGenerationApiError) setGenerationDebug(error.debug)
+      setGenerationError(message)
       setStep('config')
       toast({
         title: 'Generation failed',
-        description: error instanceof Error ? error.message : 'Unable to generate question stems',
+        description: message,
         variant: 'destructive',
       })
     }
@@ -419,6 +628,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 <div>
                   <h2 className="font-semibold">Question settings</h2>
                 </div>
+                {generationError ? (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                    {generationError}
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Section</Label>
@@ -540,17 +754,17 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Generation profile</Label>
-                    <SearchableSelect<(typeof profiles)[number]>
-                      items={profiles}
-                      value={profiles.find((profile) => profile.id === effectiveProfileId) ?? null}
-                      onValueChange={(profile) => setProfileId(profile?.id ?? null)}
+                    <Label>Model profile</Label>
+                    <SearchableSelect<(typeof modelProfiles)[number]>
+                      items={modelProfiles}
+                      value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
+                      onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
                       getItemId={(profile) => profile.id}
                       getItemLabel={(profile) => `${profile.name} (${profile.model})`}
-                      placeholder={profilesQuery.isLoading ? 'Loading profiles...' : 'Select profile'}
-                      searchPlaceholder="Search profiles..."
-                      emptyMessage="No profiles found"
-                      loading={profilesQuery.isLoading}
+                      placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                      searchPlaceholder="Search models..."
+                      emptyMessage="No model profiles found"
+                      loading={modelProfilesQuery.isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -605,6 +819,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                   />
                 </div>
               </section>
+              <GenerationDebugPanel debug={generationDebug} />
             </section>
 
             <UcatStemCatalogSidePanel open={showSourceStemPicker}>
@@ -632,37 +847,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
           </div>
         ) : step === 'generating' ? (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-10">
-            <div className="w-full max-w-lg space-y-6 rounded-md border p-6">
-              <div className="flex items-center gap-3">
-                <Spinner size="md" />
-                <div>
-                  <h2 className="font-semibold">Generating tutor-review drafts</h2>
-                  <p className="text-sm text-muted-foreground">
-                    This can take a little while because candidates are planned, written, checked, and rewritten if needed.
-                  </p>
-                </div>
-              </div>
-              <ol className="space-y-3 text-sm">
-                {[
-                  'Planning category mix and candidate targets',
-                  'Writing stems, questions, answers, and explanations',
-                  'Running deterministic gates and similarity checks',
-                  'Critiquing and preparing editable drafts',
-                ].map((label, index) => (
-                  <li key={label} className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs',
-                        index === 0 ? 'border-primary text-primary' : 'border-muted-foreground/30 text-muted-foreground'
-                      )}
-                    >
-                      {index + 1}
-                    </span>
-                    <span>{label}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <GenerationProgressPanel
+              progress={generationProgress}
+              elapsedSeconds={generationElapsedSeconds}
+              stemCount={stemCount}
+            />
           </div>
         ) : (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
@@ -686,6 +875,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 )
               }
             />
+            <GenerationDebugPanel debug={generationDebug} />
           </div>
         )}
       </UcatDialogShell>

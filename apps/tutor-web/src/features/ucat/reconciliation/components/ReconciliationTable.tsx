@@ -25,6 +25,7 @@ interface ReconciliationTableProps<T> {
   columnDefinitions: Array<{ key: string; label: string }>
   visibleColumnKeys: string[]
   toolbar?: React.ReactNode
+  headerActions?: React.ReactNode
   /** Selection support - when provided, shows checkbox column and enables row selection */
   selection?: {
     getItemId: (item: T) => string
@@ -44,6 +45,7 @@ export function ReconciliationTable<T>({
   columnDefinitions,
   visibleColumnKeys,
   toolbar,
+  headerActions,
   selection,
 }: ReconciliationTableProps<T>) {
   const columns = columnDefinitions
@@ -70,7 +72,7 @@ export function ReconciliationTable<T>({
 
   return (
     <div className={cn('space-y-4', selectionMode && 'pb-24')}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -94,6 +96,7 @@ export function ReconciliationTable<T>({
             {items.length}
           </Badge>
         </div>
+        {headerActions ? <div className="flex shrink-0 items-center gap-2">{headerActions}</div> : null}
       </div>
 
       <div

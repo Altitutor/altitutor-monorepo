@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   extractTextFromRichJson,
+  mapRichExplanation,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type {
@@ -110,16 +111,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const options: AnswerOption[] = (question.answer_options ?? [])
-    .map((opt) => ({
-      id: opt.id,
-      index: opt.index,
-      text: extractTextFromRichJson(opt.answer_text as JsonLike),
-      isAnswer: opt.is_answer ?? false,
-      answerExplanation: opt.answer_explanation
-        ? extractTextFromRichJson(opt.answer_explanation as JsonLike)
-        : undefined,
-    }))
+    .map((opt) => {
+      const optionExplanation = mapRichExplanation(opt.answer_explanation);
+      return {
+        id: opt.id,
+        index: opt.index,
+        text: extractTextFromRichJson(opt.answer_text as JsonLike),
+        isAnswer: opt.is_answer ?? false,
+        answerExplanation: optionExplanation.text,
+        answerExplanationJson: optionExplanation.json,
+      };
+    })
     .sort((a, b) => a.index - b.index);
+
+  const questionExplanation = mapRichExplanation(question.answer_explanation);
 
   const payload: QuestionEngineQuestion = {
     id: question.id,
@@ -130,9 +135,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     questionText: extractTextFromRichJson(question.question_text as JsonLike),
     questionType: question.question_type,
     options,
-    answerExplanation: question.answer_explanation
-      ? extractTextFromRichJson(question.answer_explanation as JsonLike)
-      : undefined,
+    answerExplanation: questionExplanation.text,
+    answerExplanationJson: questionExplanation.json,
   };
 
   return NextResponse.json(payload);

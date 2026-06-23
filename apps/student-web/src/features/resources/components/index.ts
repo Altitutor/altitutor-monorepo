@@ -5,4 +5,5 @@ export * from './topic-tree';
 export * from './resources-sidebar';
 export * from './resources-nav';
 export * from './topic-files-list';
+export * from './topic-resource-sidebar';
 export * from './resource-file-viewer';
