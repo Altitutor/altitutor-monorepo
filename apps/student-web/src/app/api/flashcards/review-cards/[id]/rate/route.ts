@@ -1,56 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
-import { createEmptyCard, fsrs, Rating, State, type Card, type CardInput } from 'ts-fsrs';
+import type { FlashcardRating } from '@altitutor/shared';
+import { ratingMap, scheduler, stateName, toFsrsCard, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 
-const scheduler = fsrs();
-
-const ratingMap: Record<string, Rating.Again | Rating.Hard | Rating.Good | Rating.Easy> = {
-  again: Rating.Again,
-  hard: Rating.Hard,
-  good: Rating.Good,
-  easy: Rating.Easy,
-};
-
-type ReviewStateRow = {
-  due_at: string;
-  stability: number | null;
-  difficulty: number | null;
-  scheduled_days: number;
-  learning_steps: number;
-  reps: number;
-  lapses: number;
-  state: 'New' | 'Learning' | 'Review' | 'Relearning';
-  last_reviewed_at: string | null;
-};
-
-function stateName(state: State): ReviewStateRow['state'] {
-  return State[state] as ReviewStateRow['state'];
-}
-
-function toFsrsCard(state: ReviewStateRow | null, now: Date): CardInput | Card {
-  if (!state) return createEmptyCard(now);
-  if (state.state === 'New' && state.stability == null && state.difficulty == null) {
-    return createEmptyCard(now);
-  }
-  return {
-    due: state.due_at,
-    stability: Number(state.stability ?? 0),
-    difficulty: Number(state.difficulty ?? 0),
-    elapsed_days: 0,
-    scheduled_days: state.scheduled_days ?? 0,
-    learning_steps: state.learning_steps ?? 0,
-    reps: state.reps ?? 0,
-    lapses: state.lapses ?? 0,
-    state: state.state,
-    last_review: state.last_reviewed_at,
-  };
+function isFlashcardRating(value: unknown): value is FlashcardRating {
+  return typeof value === 'string' && value in ratingMap;
 }
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const body = (await request.json()) as { rating?: unknown };
   const rating = body.rating;
-  if (typeof rating !== 'string' || !ratingMap[rating]) {
+  if (!isFlashcardRating(rating)) {
     return NextResponse.json({ error: 'Invalid rating' }, { status: 400 });
   }
 

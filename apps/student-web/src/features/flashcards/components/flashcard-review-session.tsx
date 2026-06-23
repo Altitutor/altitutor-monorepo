@@ -217,6 +217,9 @@ export function FlashcardReviewSession({
                 {rating.label}
                 <KeyBadge className="ml-0 border-white/30 bg-white/20 text-white">{rating.key}</KeyBadge>
               </span>
+              {card.rating_previews?.[rating.value]?.label ? (
+                <span className="text-xs font-medium text-white/85">{card.rating_previews[rating.value].label}</span>
+              ) : null}
             </Button>
           ))}
         </div>

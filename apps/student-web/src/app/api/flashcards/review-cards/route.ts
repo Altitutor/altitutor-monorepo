@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { buildRatingPreviews, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
+import type { FlashcardReviewCard } from '@altitutor/shared';
 
 export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
@@ -24,5 +26,10 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+  const now = new Date();
+  const rows = ((data ?? []) as FlashcardReviewCard[]).map((row) => ({
+    ...row,
+    rating_previews: buildRatingPreviews(row as ReviewStateRow, now),
+  }));
+  return NextResponse.json({ data: rows });
 }

@@ -36,9 +36,15 @@ export type FlashcardReviewCard = {
   state: 'New' | 'Learning' | 'Review' | 'Relearning';
   last_reviewed_at: string | null;
   last_rating: FlashcardRating | null;
+  rating_previews?: Record<FlashcardRating, FlashcardRatingPreview>;
 };
 
 export type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
+
+export type FlashcardRatingPreview = {
+  due_at: string;
+  label: string;
+};
 
 export type FlashcardImportRow = {
   clozeText: string;
