@@ -2336,7 +2336,6 @@ export type Database = {
           extra: string | null
           id: string
           index: number
-          title: string | null
           topic_id: string
           updated_at: string
           updated_by: string | null
@@ -2350,7 +2349,6 @@ export type Database = {
           extra?: string | null
           id?: string
           index: number
-          title?: string | null
           topic_id: string
           updated_at?: string
           updated_by?: string | null
@@ -2364,7 +2362,6 @@ export type Database = {
           extra?: string | null
           id?: string
           index?: number
-          title?: string | null
           topic_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -2431,13 +2428,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "flashcards_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -6926,43 +6916,52 @@ export type Database = {
       student_flashcard_review_states: {
         Row: {
           created_at: string
+          difficulty: number | null
           due_at: string
-          ease_factor: number
           id: string
-          interval_days: number
           lapses: number
           last_rating: string | null
           last_reviewed_at: string | null
-          repetitions: number
+          learning_steps: number
+          reps: number
           review_card_id: string
+          scheduled_days: number
+          stability: number | null
+          state: string
           student_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          difficulty?: number | null
           due_at?: string
-          ease_factor?: number
           id?: string
-          interval_days?: number
           lapses?: number
           last_rating?: string | null
           last_reviewed_at?: string | null
-          repetitions?: number
+          learning_steps?: number
+          reps?: number
           review_card_id: string
+          scheduled_days?: number
+          stability?: number | null
+          state?: string
           student_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          difficulty?: number | null
           due_at?: string
-          ease_factor?: number
           id?: string
-          interval_days?: number
           lapses?: number
           last_rating?: string | null
           last_reviewed_at?: string | null
-          repetitions?: number
+          learning_steps?: number
+          reps?: number
           review_card_id?: string
+          scheduled_days?: number
+          stability?: number | null
+          state?: string
           student_id?: string
           updated_at?: string
         }
@@ -8877,138 +8876,6 @@ export type Database = {
           },
         ]
       }
-      topic_flashcard_settings: {
-        Row: {
-          again_ease_delta: number
-          again_interval_days: number
-          created_at: string
-          ease_min: number
-          easy_ease_delta: number
-          easy_first_interval_days: number
-          easy_multiplier: number
-          easy_second_interval_days: number
-          good_first_interval_days: number
-          good_second_interval_days: number
-          hard_ease_delta: number
-          hard_multiplier: number
-          topic_id: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          again_ease_delta?: number
-          again_interval_days?: number
-          created_at?: string
-          ease_min?: number
-          easy_ease_delta?: number
-          easy_first_interval_days?: number
-          easy_multiplier?: number
-          easy_second_interval_days?: number
-          good_first_interval_days?: number
-          good_second_interval_days?: number
-          hard_ease_delta?: number
-          hard_multiplier?: number
-          topic_id: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          again_ease_delta?: number
-          again_interval_days?: number
-          created_at?: string
-          ease_min?: number
-          easy_ease_delta?: number
-          easy_first_interval_days?: number
-          easy_multiplier?: number
-          easy_second_interval_days?: number
-          good_first_interval_days?: number
-          good_second_interval_days?: number
-          hard_ease_delta?: number
-          hard_multiplier?: number
-          topic_id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstaff_topic_flashcard_settings"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstudent_flashcard_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstudent_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vstudent_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: true
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "topic_flashcard_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       topics: {
         Row: {
           code: string
@@ -9084,13 +8951,6 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -9267,13 +9127,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -9737,13 +9590,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -13046,7 +12892,6 @@ export type Database = {
           id: string | null
           index: number | null
           review_card_count: number | null
-          title: string | null
           topic_id: string | null
           updated_at: string | null
           updated_by: string | null
@@ -13061,7 +12906,6 @@ export type Database = {
           id?: string | null
           index?: number | null
           review_card_count?: never
-          title?: string | null
           topic_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -13076,7 +12920,6 @@ export type Database = {
           id?: string | null
           index?: number | null
           review_card_count?: never
-          title?: string | null
           topic_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -13149,13 +12992,6 @@ export type Database = {
             foreignKeyName: "flashcards_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "flashcards_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_flashcard_topics"
             referencedColumns: ["id"]
           },
@@ -13202,23 +13038,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      vstaff_topic_flashcard_settings: {
-        Row: {
-          again_ease_delta: number | null
-          again_interval_days: number | null
-          ease_min: number | null
-          easy_ease_delta: number | null
-          easy_first_interval_days: number | null
-          easy_multiplier: number | null
-          easy_second_interval_days: number | null
-          good_first_interval_days: number | null
-          good_second_interval_days: number | null
-          hard_ease_delta: number | null
-          hard_multiplier: number | null
-          topic_id: string | null
-        }
-        Relationships: []
       }
       vstudent_billing: {
         Row: {
@@ -13499,18 +13318,20 @@ export type Database = {
         Row: {
           cloze_index: number | null
           cloze_text: string | null
+          difficulty: number | null
           due_at: string | null
-          ease_factor: number | null
           extra: string | null
           flashcard_id: string | null
           flashcard_index: number | null
           id: string | null
-          interval_days: number | null
           lapses: number | null
           last_rating: string | null
           last_reviewed_at: string | null
-          repetitions: number | null
-          title: string | null
+          learning_steps: number | null
+          reps: number | null
+          scheduled_days: number | null
+          stability: number | null
+          state: string | null
           topic_id: string | null
         }
         Relationships: [
@@ -13547,13 +13368,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "flashcards_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -14667,13 +14481,6 @@ export type Database = {
             foreignKeyName: "topics_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_flashcard_topics"
             referencedColumns: ["id"]
           },
@@ -14827,13 +14634,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -17786,13 +17586,6 @@ export type Database = {
             foreignKeyName: "topics_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_flashcard_topics"
             referencedColumns: ["id"]
           },
@@ -17946,13 +17739,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vstaff_flashcard_topics"
-            referencedColumns: ["topic_id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstaff_topic_flashcard_settings"
             referencedColumns: ["topic_id"]
           },
           {
@@ -21858,29 +21644,6 @@ export type Database = {
       student_has_ucat_pro_subscription: {
         Args: { p_student_id: string }
         Returns: boolean
-      }
-      student_rate_flashcard_review_card: {
-        Args: { p_rating: string; p_review_card_id: string }
-        Returns: {
-          created_at: string
-          due_at: string
-          ease_factor: number
-          id: string
-          interval_days: number
-          lapses: number
-          last_rating: string | null
-          last_reviewed_at: string | null
-          repetitions: number
-          review_card_id: string
-          student_id: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "student_flashcard_review_states"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       student_reset_onboarding_progress: { Args: never; Returns: Json }
       student_reset_onboarding_tour: {
