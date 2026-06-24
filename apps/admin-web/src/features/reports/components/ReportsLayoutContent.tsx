@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Button,
   DropdownMenu,
@@ -10,10 +9,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
   Input,
+  SegmentedControl,
 } from '@altitutor/ui';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useReportsContext } from '../context/ReportsContext';
-import { cn } from '@/shared/utils';
 import {
   REPORTS_SECTION_KEYS,
   REPORTS_SECTION_LABELS,
@@ -25,32 +24,25 @@ const TODAY = new Date().toISOString().slice(0, 10);
 
 function ReportsTabs() {
   const pathname = usePathname();
+  const router = useRouter();
   const base = '/reports';
+  const activeSection =
+    REPORTS_SECTION_KEYS.find((key) => {
+      const href = `${base}/${key}`;
+      return pathname === href || pathname?.startsWith(`${href}/`);
+    }) ?? REPORTS_SECTION_KEYS[0];
 
   return (
-    <nav
-      className="grid w-full max-w-3xl grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
-      aria-label="Reports sections"
-    >
-      {REPORTS_SECTION_KEYS.map((key) => {
-        const href = `${base}/${key}`;
-        const isActive = pathname === href || pathname?.startsWith(`${href}/`);
-        return (
-          <Link
-            key={key}
-            href={href}
-            className={cn(
-              'inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all',
-              isActive
-                ? 'bg-background text-foreground shadow-sm'
-                : 'hover:bg-background/60 hover:text-foreground'
-            )}
-          >
-            {REPORTS_SECTION_LABELS[key]}
-          </Link>
-        );
-      })}
-    </nav>
+    <SegmentedControl
+      className="w-full max-w-3xl"
+      fullWidth
+      value={activeSection}
+      onValueChange={(key) => router.push(`${base}/${key}`)}
+      options={REPORTS_SECTION_KEYS.map((key) => ({
+        value: key,
+        label: REPORTS_SECTION_LABELS[key],
+      }))}
+    />
   );
 }
 

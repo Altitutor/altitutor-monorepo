@@ -108,6 +108,7 @@ function getNextAvailableClozeIndex(clozeText: string): number {
 export function EditFlashcardDialog({
   open,
   topicId,
+  defaultIndex = 1,
   flashcard,
   isSaving,
   onOpenChange,
@@ -118,6 +119,7 @@ export function EditFlashcardDialog({
 }: {
   open: boolean;
   topicId: string;
+  defaultIndex?: number;
   flashcard: Flashcard | null;
   isSaving: boolean;
   onOpenChange: (open: boolean) => void;
@@ -147,11 +149,11 @@ export function EditFlashcardDialog({
       clozeText: flashcard?.cloze_text ?? '',
       extra: flashcard?.extra ?? '',
       topicId: flashcard?.topic_id ?? topicId,
-      index: flashcard?.index ?? 1,
+      index: flashcard?.index ?? defaultIndex,
     });
     setEditorVersion((value) => value + 1);
     setLastClozeIndex(indexes.at(-1) ?? 1);
-  }, [flashcard, open, topicId]);
+  }, [defaultIndex, flashcard, open, topicId]);
 
   const syncEditorHtml = useCallback(() => {
     const clozeHtml = clozeEditorRef.current?.getEditor()?.getHTML() ?? form.clozeText;
@@ -171,9 +173,8 @@ export function EditFlashcardDialog({
     const prefix = `{{c${index}::`;
     const replacement = `${prefix}${selected}}}`;
     editor.chain().focus().insertContent(replacement).run();
-    if (!selected) {
-      editor.chain().focus().setTextSelection(from + prefix.length).run();
-    }
+    const answerStart = from + prefix.length;
+    editor.chain().focus().setTextSelection(selected ? { from: answerStart, to: answerStart + selected.length } : answerStart).run();
     setLastClozeIndex(index);
     requestAnimationFrame(syncEditorHtml);
   }, [syncEditorHtml]);

@@ -55,9 +55,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           existingCard.topic_id,
           oldTopicCards.map((card) => card.id),
         );
+        const moveIndex = Math.max(0, ...newTopicCards.map((card) => card.index ?? 0)) + 1;
         const { error: moveError } = await serviceClient
           .from('flashcards')
-          .update({ topic_id: targetTopicId, index: -(newTopicCards.length + 1) })
+          .update({ topic_id: targetTopicId, index: moveIndex })
           .eq('id', params.id);
         if (moveError) throw moveError;
 

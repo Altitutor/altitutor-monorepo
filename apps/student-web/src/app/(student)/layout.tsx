@@ -195,7 +195,7 @@ export default function StudentLayout({
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       <div className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 overflow-hidden bg-background md:gap-3 md:p-3">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl bg-card/45 ring-1 ring-black/[0.04] [scrollbar-gutter:stable] dark:bg-brand-dark-card/25 dark:ring-white/[0.06]">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl bg-card/45 ring-1 ring-black/[0.04] dark:bg-brand-dark-card/25 dark:ring-white/[0.06]">
           <div
             className={cn(
               'mx-auto min-h-min w-full min-w-0',

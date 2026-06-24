@@ -54,6 +54,7 @@ export const AiToolExplanationUpdateSchema = z.object({
   reviewRequired: z.boolean().default(false),
   reviewMessage: z.string().nullable().optional(),
   suggestedCorrectOptionIndex: z.number().int().nonnegative().nullable().optional(),
+  suggestedAnswerExplanation: z.string().nullable().optional(),
   suggestedChanges: z.string().nullable().optional(),
 })
 
@@ -80,6 +81,7 @@ export type AiToolReviewFlag = {
   questionIndex: number
   message: string
   suggestedCorrectOptionIndex?: number | null
+  suggestedAnswerExplanation?: string | null
   suggestedChanges?: string | null
 }
 
@@ -263,6 +265,36 @@ export function collectExplanationReviewFlags(updates: AiToolExplanationUpdate[]
         update.rationale?.trim() ||
         'The selected answer or question may need tutor review.',
       suggestedCorrectOptionIndex: update.suggestedCorrectOptionIndex ?? null,
+      suggestedAnswerExplanation: update.suggestedAnswerExplanation ?? null,
       suggestedChanges: update.suggestedChanges ?? null,
     }))
+}
+
+export function applyReviewFlagSuggestion(
+  stem: UcatQuestionStemFormValues,
+  flag: AiToolReviewFlag
+): UcatQuestionStemFormValues {
+  const question = stem.questions[flag.questionIndex]
+  if (!question || question.questionType === 'syllogism' || flag.suggestedCorrectOptionIndex == null) {
+    return stem
+  }
+  const suggestedOption = question.options[flag.suggestedCorrectOptionIndex]
+  if (!suggestedOption) return stem
+
+  return {
+    ...stem,
+    questions: stem.questions.map((item, questionIndex) => {
+      if (questionIndex !== flag.questionIndex) return item
+      return {
+        ...item,
+        answerExplanation: flag.suggestedAnswerExplanation?.trim()
+          ? plainTextToProseMirror(flag.suggestedAnswerExplanation.trim())
+          : item.answerExplanation ?? null,
+        options: item.options.map((option, optionIndex) => ({
+          ...option,
+          isAnswer: optionIndex === flag.suggestedCorrectOptionIndex,
+        })),
+      }
+    }),
+  }
 }

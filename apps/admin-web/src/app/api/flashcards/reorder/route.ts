@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
+import { persistTopicFlashcardOrder } from '../_lib';
 
 async function assertTopicAccess(topicId: string) {
   const userClient = createClient();
@@ -37,13 +38,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'card_ids must include every flashcard in the topic exactly once' }, { status: 400 });
   }
 
-  for (const [idx, id] of uniqueOrderedIds.entries()) {
-    const { error } = await supabaseAdmin
-      .from('flashcards')
-      .update({ index: idx + 1, updated_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await persistTopicFlashcardOrder(supabaseAdmin, topicId, uniqueOrderedIds);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to reorder flashcards';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json({ data: { updated: uniqueOrderedIds.length } });

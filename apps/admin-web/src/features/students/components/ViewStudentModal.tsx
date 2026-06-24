@@ -308,6 +308,7 @@ export function ViewStudentModal({
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
+    onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
       ? () =>
           openCheckInModal({
@@ -570,6 +571,20 @@ export function ViewStudentModal({
           initialStudentId={studentId}
           onBookingCreated={() => {
             modals.closeBookDraftingSession();
+            onStudentUpdated();
+          }}
+        />
+      )}
+
+      {/* Book Subsidy Interview Modal */}
+      {studentId && (
+        <BookSessionModal
+          isOpen={modals.isBookSubsidyInterviewModalOpen}
+          onClose={modals.closeBookSubsidyInterview}
+          sessionType="SUBSIDY_INTERVIEW"
+          initialStudentId={studentId}
+          onBookingCreated={() => {
+            modals.closeBookSubsidyInterview();
             onStudentUpdated();
           }}
         />

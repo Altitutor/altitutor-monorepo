@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { hasClozeMarker } from '@altitutor/shared';
+import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from './_lib';
 
 async function assertTopicAccess(topicId: string) {
   const userClient = createClient();
@@ -42,9 +43,11 @@ export async function POST(request: NextRequest) {
     .from('flashcards')
     .select('id,index')
     .eq('topic_id', body.topic_id)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .order('index', { ascending: true });
 
   const nextIndex = Math.max(0, ...(siblings ?? []).map((row: { index: number }) => row.index)) + 1;
+  const requestedIndex = body.index == null ? (siblings?.length ?? 0) + 1 : clampIndex(body.index, (siblings?.length ?? 0) + 1);
   const { data, error } = await supabaseAdmin
     .from('flashcards')
     .insert({
@@ -59,22 +62,15 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (body.index !== undefined) {
-    const targetIndexRaw = Number(body.index);
-    const targetIndex = Math.min(
-      Math.max(Number.isFinite(targetIndexRaw) ? Math.trunc(targetIndexRaw) : nextIndex, 1),
-      nextIndex,
-    );
-    const ordered = [...(siblings ?? []).sort((a, b) => a.index - b.index), data];
-    const withoutNew = ordered.filter((card) => card.id !== data.id);
-    withoutNew.splice(targetIndex - 1, 0, data);
-
-    for (const [idx, card] of withoutNew.entries()) {
-      const { error: updateError } = await supabaseAdmin
-        .from('flashcards')
-        .update({ index: idx + 1, updated_at: new Date().toISOString() })
-        .eq('id', card.id);
-
-      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    try {
+      await persistTopicFlashcardOrder(
+        supabaseAdmin,
+        body.topic_id,
+        insertIdAtIndex((siblings ?? []).map((card) => card.id), data.id, requestedIndex),
+      );
+    } catch (orderError) {
+      const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     const { data: reordered, error: reorderFetchError } = await supabaseAdmin

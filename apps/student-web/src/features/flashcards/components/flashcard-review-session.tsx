@@ -8,7 +8,7 @@ import { Check, Info, RotateCcw, X } from 'lucide-react';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { useRateFlashcardReviewCard } from '../hooks/useFlashcards';
-import { refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
+import { preloadFlashcardImages, refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
 const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string }> = [
   { value: 'again', label: 'Again', key: '1', className: 'bg-red-600 text-white hover:bg-red-700' },
@@ -18,6 +18,13 @@ const ratings: Array<{ value: FlashcardRating; label: string; key: string; class
 ];
 
 const maxSessionRequeueDelayMs = 60 * 60 * 1000;
+const preloadCardCount = 4;
+
+type FeedbackState = {
+  id: number;
+  kind: 'correct' | 'incorrect';
+  className: string;
+};
 
 function KeyBadge({ children, className }: { children: string; className?: string }) {
   return (
@@ -58,13 +65,24 @@ export function FlashcardReviewSession({
   const [reviewedDueCount, setReviewedDueCount] = useState(0);
   const reviewedDueIdsRef = useRef<Set<string>>(new Set());
   const dueTimersRef = useRef<Map<string, number>>(new Map());
+  const feedbackTimerRef = useRef<number | null>(null);
   const sessionKey = `${topicId}:${mode}`;
   const sessionKeyRef = useRef(sessionKey);
   const rateMutation = useRateFlashcardReviewCard(topicId, mode);
   const { mutateAsync: rateReviewCard } = rateMutation;
   const card = mode === 'all' ? studyQueue[0] ?? null : dueQueue[0] ?? null;
   const [displayCard, setDisplayCard] = useState<FlashcardReviewCard | null>(card);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const freeStudyComplete = mode === 'all' && cards.length > 0 && studyQueue.length === 0;
+
+  const showFeedback = useCallback((kind: FeedbackState['kind'], className: string) => {
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    setFeedback({ id: Date.now(), kind, className });
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 650);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +114,19 @@ export function FlashcardReviewSession({
   }, [card]);
 
   useEffect(() => {
+    const queue = mode === 'all' ? studyQueue : dueQueue;
+    const upcomingCards = queue.slice(1, preloadCardCount + 1);
+    if (!upcomingCards.length) return;
+
+    void Promise.allSettled(
+      upcomingCards.flatMap((upcomingCard) => [
+        preloadFlashcardImages(upcomingCard.cloze_text),
+        preloadFlashcardImages(upcomingCard.extra),
+      ]),
+    );
+  }, [dueQueue, mode, studyQueue]);
+
+  useEffect(() => {
     const sessionChanged = sessionKeyRef.current !== sessionKey;
     if (sessionChanged) {
       sessionKeyRef.current = sessionKey;
@@ -116,6 +147,7 @@ export function FlashcardReviewSession({
   useEffect(() => () => {
     dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     dueTimersRef.current.clear();
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
   }, []);
 
   const enqueueDueCard = useCallback((nextCard: FlashcardReviewCard) => {
@@ -147,23 +179,34 @@ export function FlashcardReviewSession({
 
   const rateDueCard = useCallback((rating: FlashcardRating) => {
     if (!card || mode !== 'due') return;
+    const feedbackClassName =
+      rating === 'again'
+        ? 'bg-red-600 text-white'
+        : rating === 'hard'
+          ? 'bg-amber-600 text-white'
+          : rating === 'good'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-blue-600 text-white';
+    showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
     const reviewCardId = card.id;
     reviewedDueIdsRef.current.add(reviewCardId);
     setReviewedDueCount((current) => current + 1);
     setShowAnswer(false);
     setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
     void rateReviewCard({ reviewCardId, rating }).then(scheduleDueCard);
-  }, [card, mode, rateReviewCard, scheduleDueCard]);
+  }, [card, mode, rateReviewCard, scheduleDueCard, showFeedback]);
 
   const markFreeStudyCorrect = useCallback(() => {
+    showFeedback('correct', 'bg-emerald-600 text-white');
     setShowAnswer(false);
     setStudyQueue((current) => current.slice(1));
-  }, []);
+  }, [showFeedback]);
 
   const markFreeStudyIncorrect = useCallback(() => {
+    showFeedback('incorrect', 'bg-red-600 text-white');
     setShowAnswer(false);
     setStudyQueue((current) => (current.length > 1 ? [...current.slice(1), current[0]] : current));
-  }, []);
+  }, [showFeedback]);
 
   const restartFreeStudy = useCallback(() => {
     setShowAnswer(false);
@@ -190,6 +233,8 @@ export function FlashcardReviewSession({
         }
         if (mode === 'due') {
           rateDueCard('good');
+        } else {
+          markFreeStudyCorrect();
         }
         return;
       }
@@ -245,7 +290,20 @@ export function FlashcardReviewSession({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {feedback ? (
+        <div
+          key={feedback.id}
+          className={cn(
+            'pointer-events-none fixed left-1/2 top-1/2 z-50 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-2xl animate-in fade-in-0 zoom-in-75 duration-150',
+            feedback.className,
+          )}
+          aria-hidden="true"
+        >
+          {feedback.kind === 'correct' ? <Check className="h-14 w-14" /> : <X className="h-14 w-14" />}
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
           {mode === 'all'
@@ -310,15 +368,16 @@ export function FlashcardReviewSession({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 border-red-200 text-red-700 hover:bg-red-50">
+          <Button onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 bg-red-600 text-white hover:bg-red-700">
             <X className="h-4 w-4" />
             Incorrect
-            <KeyBadge>1</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">1</KeyBadge>
           </Button>
-          <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5">
+          <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
             <Check className="h-4 w-4" />
             Correct
-            <KeyBadge>2</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">2</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">Space</KeyBadge>
           </Button>
         </div>
       )}

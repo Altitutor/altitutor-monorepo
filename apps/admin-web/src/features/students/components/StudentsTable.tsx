@@ -115,6 +115,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [actionStudentId, setActionStudentId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
+  const [isBookSubsidyInterviewModalOpen, setIsBookSubsidyInterviewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -582,6 +583,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                           setActionStudentId(student.id);
                           setIsBookDraftingSessionModalOpen(true);
                         }}
+                        onBookSubsidyInterview={() => {
+                          setActionStudentId(student.id);
+                          setIsBookSubsidyInterviewModalOpen(true);
+                        }}
                         onBookCheckIn={() =>
                           openCheckInModal({
                             students: [
@@ -674,6 +679,23 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           initialStudentId={actionStudentId}
           onBookingCreated={() => {
             setIsBookDraftingSessionModalOpen(false);
+            setActionStudentId(null);
+            handleStudentUpdated();
+          }}
+        />
+      )}
+
+      {actionStudentId && (
+        <BookSessionModal
+          isOpen={isBookSubsidyInterviewModalOpen}
+          onClose={() => {
+            setIsBookSubsidyInterviewModalOpen(false);
+            setActionStudentId(null);
+          }}
+          sessionType="SUBSIDY_INTERVIEW"
+          initialStudentId={actionStudentId}
+          onBookingCreated={() => {
+            setIsBookSubsidyInterviewModalOpen(false);
             setActionStudentId(null);
             handleStudentUpdated();
           }}

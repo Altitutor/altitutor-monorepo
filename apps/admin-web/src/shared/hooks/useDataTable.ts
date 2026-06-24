@@ -342,10 +342,24 @@ export function useDataTable({
   }, [setFilters]);
 
   const resetFilters = useCallback(() => {
+    if (skipUrlSync) {
+      updateState({
+        search: '',
+        filters: defaultFilters,
+        sortBy: defaultSort.field,
+        sortDirection: defaultSort.direction,
+        groupBy: null,
+        page: 1,
+        pageSize: initialPageSize,
+        visibleColumns: defaultVisibleColumns,
+      });
+      return;
+    }
+
     // Clear everything explicitly in the URL
     const params = new URLSearchParams();
     router.push(`${pathname}?${params.toString()}`);
-  }, [router, pathname]);
+  }, [defaultFilters, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, pathname, router, skipUrlSync, updateState]);
 
   return {
     state,

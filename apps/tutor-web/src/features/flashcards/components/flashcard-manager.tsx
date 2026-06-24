@@ -244,9 +244,8 @@ function FlashcardDialog({
     const selected = editor.state.doc.textBetween(from, to);
     const prefix = `{{c${index}::`;
     editor.chain().focus().insertContent(`${prefix}${selected}}}`).run();
-    if (!selected) {
-      editor.chain().focus().setTextSelection(from + prefix.length).run();
-    }
+    const answerStart = from + prefix.length;
+    editor.chain().focus().setTextSelection(selected ? { from: answerStart, to: answerStart + selected.length } : answerStart).run();
     setLastClozeIndex(index);
     requestAnimationFrame(syncEditorHtml);
   }, [syncEditorHtml]);

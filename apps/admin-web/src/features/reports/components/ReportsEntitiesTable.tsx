@@ -129,6 +129,7 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'amount', header: 'Amount' },
   ],
   billingErrors: [
+    { key: 'student', header: 'Student' },
     { key: 'type', header: 'Type' },
     { key: 'invoice', header: 'Invoice' },
     { key: 'amount', header: 'Amount' },
@@ -294,4 +295,3 @@ export function ReportsEntitiesTable({ entities, variant, onEntityClick }: Repor
     </div>
   );
 }
-

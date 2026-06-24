@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: { inserted: 0, rejected: parsed.rejected } }, { status: 400 });
   }
 
-  const startIndex = siblings.length + 1;
+  const startIndex = Math.max(0, ...siblings.map((card) => card.index ?? 0)) + 1;
 
   const rows = parsed.rows
     .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER))

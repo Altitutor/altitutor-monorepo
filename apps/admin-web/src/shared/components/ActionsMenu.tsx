@@ -35,6 +35,7 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   passwordResetLabel: string;
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
+  onBookSubsidyInterview?: () => void;
   /** Opens global book check-in with this student pre-selected */
   onBookCheckIn?: () => void;
   onDiscontinue?: () => void;
@@ -238,6 +239,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <FileText className="h-4 w-4 mr-2" />
               Book drafting session
             </DropdownMenuItem>
+            {props.onBookSubsidyInterview && (
+              <DropdownMenuItem onClick={props.onBookSubsidyInterview}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Book subsidy interview
+              </DropdownMenuItem>
+            )}
             {props.onBookCheckIn && (
               <DropdownMenuItem onClick={props.onBookCheckIn}>
                 <ClipboardCheck className="h-4 w-4 mr-2" />

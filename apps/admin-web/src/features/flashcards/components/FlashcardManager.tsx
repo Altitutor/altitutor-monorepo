@@ -494,6 +494,7 @@ export function FlashcardManager({
       <EditFlashcardDialog
         open={isEditOpen}
         topicId={topicId}
+        defaultIndex={cards.length + 1}
         flashcard={editingCard}
         isSaving={mutations.createCard.isPending || mutations.updateCard.isPending}
         onOpenChange={setIsEditOpen}

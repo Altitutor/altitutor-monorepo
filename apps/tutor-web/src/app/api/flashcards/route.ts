@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
   const siblings = await listAccessibleFlashcards(body.topic_id);
   const nextIndex = siblings.length + 1;
   const requestedIndex = body.index == null ? nextIndex : clampIndex(body.index, nextIndex);
+  const insertIndex = Math.max(0, ...siblings.map((card) => card.index ?? 0)) + 1;
   const serviceClient = getServiceRoleClient();
   const { data, error } = await serviceClient
     .from('flashcards')
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       topic_id: body.topic_id,
       cloze_text: body.cloze_text,
       extra: body.extra || null,
-      index: -(siblings.length + 1),
+      index: insertIndex,
       created_by: (await userClient.rpc('current_tutor_id')).data ?? null,
     })
     .select('*')

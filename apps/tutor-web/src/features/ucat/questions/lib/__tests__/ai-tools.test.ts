@@ -1,6 +1,7 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import {
+  applyReviewFlagSuggestion,
   applyExplanationUpdates,
   findMissingExplanations,
   summarizeStemForAi,
@@ -89,12 +90,30 @@ describe('AI tools explanation helpers', () => {
         reviewRequired: true,
         reviewMessage: 'Option B is more likely correct.',
         suggestedCorrectOptionIndex: 1,
+        suggestedAnswerExplanation: 'B follows from the passage.',
         suggestedChanges: 'Change the selected answer to B.',
       },
     ])
 
     expect(result.appliedCount).toBe(0)
     expect(result.stem.questions[0]!.answerExplanation).toBeNull()
+  })
+
+  it('accepts a review flag suggestion by changing the selected answer and explanation', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyReviewFlagSuggestion(stem, {
+      questionIndex: 0,
+      message: 'Option B is correct.',
+      suggestedCorrectOptionIndex: 1,
+      suggestedAnswerExplanation: 'B is correct because it is directly supported.',
+      suggestedChanges: 'Change answer to B.',
+    })
+
+    expect(result.questions[0]!.options.map((option) => option.isAnswer)).toEqual([false, true, false, false])
+    expect(result.questions[0]!.answerExplanation).toEqual(
+      plainTextToProseMirror('B is correct because it is directly supported.')
+    )
   })
 
   it('summarizes selected correct options for the model', () => {

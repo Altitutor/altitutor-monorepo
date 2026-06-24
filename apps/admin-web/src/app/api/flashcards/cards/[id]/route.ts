@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { hasClozeMarker } from '@altitutor/shared';
+import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from '../../_lib';
 
 async function assertCardAccess(cardId: string) {
   const userClient = createClient();
@@ -54,11 +55,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const targetTopicId = String(body.topic_id ?? current.topic_id);
-    const targetIndexRaw = Number(body.index ?? current.index);
 
     const { data: siblings, error: siblingsError } = await supabaseAdmin
       .from('flashcards')
-      .select('*')
+      .select('id,index')
       .eq('topic_id', targetTopicId)
       .is('deleted_at', null)
       .neq('id', params.id)
@@ -66,51 +66,46 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     if (siblingsError) return NextResponse.json({ error: siblingsError.message }, { status: 500 });
 
-    const targetIndex = Math.min(
-      Math.max(Number.isFinite(targetIndexRaw) ? Math.trunc(targetIndexRaw) : current.index, 1),
-      (siblings?.length ?? 0) + 1,
-    );
-    const moved = { ...current, ...updates, topic_id: targetTopicId, index: targetIndex };
-    const ordered = [...(siblings ?? [])];
-    ordered.splice(targetIndex - 1, 0, moved);
+    const targetIndex = clampIndex(body.index ?? current.index, (siblings?.length ?? 0) + 1);
+    const orderedTargetIds = insertIdAtIndex((siblings ?? []).map((card) => card.id), params.id, targetIndex);
 
-    for (const [idx, card] of ordered.entries()) {
-      const cardUpdates: Record<string, unknown> = {
-        updated_at: card.id === params.id ? updates.updated_at : new Date().toISOString(),
-        index: idx + 1,
-      };
-      if (card.id === params.id) {
-        Object.assign(cardUpdates, updates);
-        cardUpdates.topic_id = targetTopicId;
+    try {
+      if (targetTopicId !== current.topic_id) {
+        const moveIndex = Math.max(0, ...(siblings ?? []).map((card) => card.index ?? 0)) + 1;
+        const { error: moveError } = await supabaseAdmin
+          .from('flashcards')
+          .update({ ...updates, topic_id: targetTopicId, index: moveIndex })
+          .eq('id', params.id);
+        if (moveError) throw moveError;
+
+        const { data: previousSiblings, error: previousSiblingsError } = await supabaseAdmin
+          .from('flashcards')
+          .select('id')
+          .eq('topic_id', current.topic_id)
+          .is('deleted_at', null)
+          .order('index', { ascending: true });
+        if (previousSiblingsError) throw previousSiblingsError;
+
+        await persistTopicFlashcardOrder(
+          supabaseAdmin,
+          current.topic_id,
+          (previousSiblings ?? []).map((card) => card.id),
+        );
       }
 
-      const { error: updateError } = await supabaseAdmin
-        .from('flashcards')
-        .update(cardUpdates)
-        .eq('id', card.id);
-
-      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      await persistTopicFlashcardOrder(supabaseAdmin, targetTopicId, orderedTargetIds);
+    } catch (orderError) {
+      const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    if (targetTopicId !== current.topic_id) {
-      const { data: previousSiblings, error: previousSiblingsError } = await supabaseAdmin
+    if (targetTopicId === current.topic_id && Object.keys(updates).length > 1) {
+      const { error: updateError } = await supabaseAdmin
         .from('flashcards')
-        .select('id')
-        .eq('topic_id', current.topic_id)
-        .is('deleted_at', null)
-        .neq('id', params.id)
-        .order('index', { ascending: true });
+        .update(updates)
+        .eq('id', params.id);
 
-      if (previousSiblingsError) return NextResponse.json({ error: previousSiblingsError.message }, { status: 500 });
-
-      for (const [idx, card] of (previousSiblings ?? []).entries()) {
-        const { error: updateError } = await supabaseAdmin
-          .from('flashcards')
-          .update({ index: idx + 1, updated_at: new Date().toISOString() })
-          .eq('id', card.id);
-
-        if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
-      }
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     const { data, error } = await supabaseAdmin
