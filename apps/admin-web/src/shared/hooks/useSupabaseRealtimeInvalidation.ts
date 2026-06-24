@@ -5,9 +5,13 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 
 type RealtimeRow = {
+  date?: string | null;
+  folder_id?: string | null;
   id?: string | null;
   issue_id?: string | null;
   project_id?: string | null;
+  target_id?: string | null;
+  target_type?: string | null;
 };
 
 type RealtimeInvalidationOptions = {
@@ -16,6 +20,7 @@ type RealtimeInvalidationOptions = {
   detailKey?: (id: string) => QueryKey;
   getRelatedKeys?: (row: RealtimeRow) => QueryKey[];
   extraQueryKeys?: QueryKey[];
+  debounceMs?: number;
 };
 
 export function useSupabaseRealtimeInvalidation({
@@ -24,6 +29,7 @@ export function useSupabaseRealtimeInvalidation({
   detailKey,
   getRelatedKeys,
   extraQueryKeys = [],
+  debounceMs = 0,
 }: RealtimeInvalidationOptions) {
   const queryClient = useQueryClient();
   const supabase = useSupabaseClient();
@@ -37,8 +43,24 @@ export function useSupabaseRealtimeInvalidation({
   );
 
   useEffect(() => {
+    const pendingKeys = new Map<string, QueryKey>();
+    let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const invalidateKey = (key: QueryKey) => {
-      void queryClient.invalidateQueries({ queryKey: key });
+      if (debounceMs <= 0) {
+        void queryClient.invalidateQueries({ queryKey: key });
+        return;
+      }
+
+      pendingKeys.set(JSON.stringify(key), key);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        pendingKeys.forEach((pendingKey) => {
+          void queryClient.invalidateQueries({ queryKey: pendingKey });
+        });
+        pendingKeys.clear();
+        debounceTimeout = null;
+      }, debounceMs);
     };
 
     const channel = supabase
@@ -69,9 +91,11 @@ export function useSupabaseRealtimeInvalidation({
       .subscribe();
 
     return () => {
+      if (debounceTimeout) clearTimeout(debounceTimeout);
       void supabase.removeChannel(channel);
     };
   }, [
+    debounceMs,
     detailKey,
     getRelatedKeys,
     instanceId,

@@ -70,6 +70,8 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const editorInstanceRef = useRef<Editor | null>(null);
 
   const currentNoteIdRef = useRef<string | null>(null);
+  const lastAppliedServerValuesRef = useRef<NoteFormData | null>(null);
+  const lastAppliedServerUpdatedAtRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
@@ -108,26 +110,43 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       setIsInitialized(false);
       setInitialFocusDone(false);
       lastBlurSavedTitleRef.current = null;
+      lastAppliedServerValuesRef.current = null;
+      lastAppliedServerUpdatedAtRef.current = null;
       currentNoteIdRef.current = noteId;
     }
 
-    if (note && !isInitialized) {
+    if (!note) return;
+
+    const nextValues: NoteFormData = {
+      title: note.title,
+      content: (note.content as unknown as JSONContent) || '',
+      folder_id: note.folder_id,
+      project_id: (note as { project_id?: string | null }).project_id ?? null,
+    };
+    const currentValues = form.getValues();
+    const lastAppliedValues = lastAppliedServerValuesRef.current;
+    const hasLocalChanges =
+      !!lastAppliedValues && JSON.stringify(currentValues) !== JSON.stringify(lastAppliedValues);
+    const hasServerChange = note.updated_at !== lastAppliedServerUpdatedAtRef.current;
+
+    if (!isInitialized || (hasServerChange && !hasLocalChanges && !updateNote.isPending)) {
       isUpdatingFromServerRef.current = true;
-      form.reset({
-        title: note.title,
-        content: (note.content as unknown as JSONContent) || '',
-        folder_id: note.folder_id,
-        project_id: (note as { project_id?: string | null }).project_id ?? null,
-      });
+      form.reset(nextValues);
       lastBlurSavedTitleRef.current = note.title;
+      lastAppliedServerValuesRef.current = nextValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
       setIsInitialized(true);
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
-    } else if (note && isInitialized && note.title !== lastBlurSavedTitleRef.current) {
+    } else if (JSON.stringify(currentValues) === JSON.stringify(nextValues)) {
+      lastAppliedServerValuesRef.current = nextValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      lastBlurSavedTitleRef.current = note.title;
+    } else if (isInitialized && note.title !== lastBlurSavedTitleRef.current) {
       lastBlurSavedTitleRef.current = note.title;
     }
-  }, [note, noteId, form, isInitialized]);
+  }, [note, noteId, form, isInitialized, updateNote.isPending]);
 
   useEffect(() => {
     if (note && titleFieldRef.current && !initialFocusDone) {

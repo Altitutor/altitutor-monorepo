@@ -69,6 +69,8 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const lastResetNoteIdRef = useRef<string | null>(null);
+  const lastAppliedServerValuesRef = useRef<NoteFormData | null>(null);
+  const lastAppliedServerUpdatedAtRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
@@ -133,29 +135,48 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
       !note ||
       !isOpen ||
       isLoading ||
-      note.id !== noteId ||
-      note.id === lastResetNoteIdRef.current
+      note.id !== noteId
     ) {
       return;
     }
-    setEditorInstance(null);
-    isUpdatingFromServerRef.current = true;
-    form.reset({
+    const nextValues: NoteFormData = {
       title: note.title,
       content: (note.content as JSONContent) || '',
       folder_id: note.folder_id,
       project_id: (note as { project_id?: string | null }).project_id ?? null,
-    });
+    };
+    const isInitialLoad = note.id !== lastResetNoteIdRef.current;
+    const currentValues = form.getValues();
+    const lastAppliedValues = lastAppliedServerValuesRef.current;
+    const hasLocalChanges =
+      !!lastAppliedValues && JSON.stringify(currentValues) !== JSON.stringify(lastAppliedValues);
+    const hasServerChange = note.updated_at !== lastAppliedServerUpdatedAtRef.current;
+
+    if (!isInitialLoad && (!hasServerChange || hasLocalChanges || updateNote.isPending)) {
+      if (JSON.stringify(currentValues) === JSON.stringify(nextValues)) {
+        lastAppliedServerValuesRef.current = nextValues;
+        lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      }
+      return;
+    }
+
+    setEditorInstance(null);
+    isUpdatingFromServerRef.current = true;
+    form.reset(nextValues);
     lastResetNoteIdRef.current = note.id;
+    lastAppliedServerValuesRef.current = nextValues;
+    lastAppliedServerUpdatedAtRef.current = note.updated_at;
     setIsInitialized(true);
     queueMicrotask(() => {
       isUpdatingFromServerRef.current = false;
     });
-  }, [note, isOpen, isLoading, noteId, form]);
+  }, [note, isOpen, isLoading, noteId, form, updateNote.isPending]);
 
   useEffect(() => {
     if (!isOpen) {
       lastResetNoteIdRef.current = null;
+      lastAppliedServerValuesRef.current = null;
+      lastAppliedServerUpdatedAtRef.current = null;
       setIsInitialized(false);
       setEditorInstance(null);
     }
