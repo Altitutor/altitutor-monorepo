@@ -28,6 +28,7 @@ import { useSubjectSearch } from '@/features/subjects/hooks';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useFlashcards } from '@/features/flashcards';
 
 interface TopicsTableProps {
   onRefresh?: number;
@@ -415,7 +416,9 @@ function TopicRow({
   onViewTopic,
   visibleColumns,
 }: TopicRowProps) {
+  const router = useRouter();
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
+  const { data: flashcards = [] } = useFlashcards(topic.id);
   const { data: childTopics = [] } = useChildTopics(isExpanded && hasChildren ? topic.id : null);
   
   // Get subject info for child topics
@@ -507,7 +510,19 @@ function TopicRow({
                     </div>
                   );
                 })}
-                {topicFiles.length === 0 && (
+                {flashcards.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-muted/50">
+                    <button
+                      onClick={() => router.push(`/topics/${topic.id}/flashcards`)}
+                      className="flex-1 text-left min-w-0 truncate text-sm"
+                    >
+                      <span className="font-mono">F</span>{' '}
+                      <span className="text-muted-foreground">Flashcards</span>{' '}
+                      <span className="text-muted-foreground">({flashcards.length})</span>
+                    </button>
+                  </div>
+                )}
+                {topicFiles.length === 0 && flashcards.length === 0 && (
                   <span className="text-sm text-muted-foreground">No files</span>
                 )}
               </div>

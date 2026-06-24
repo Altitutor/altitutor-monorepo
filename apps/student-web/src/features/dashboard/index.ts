@@ -1,1 +1,1 @@
-export { StudentDashboardHome } from './components';
+export { StudentDashboardHome, StudentDashboardPageSkeleton } from './components';

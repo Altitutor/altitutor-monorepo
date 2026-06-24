@@ -27,13 +27,20 @@ export function useNoteAutoSave({
   isUpdatingFromServer,
   onSave,
 }: UseNoteAutoSaveOptions): void {
-  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null; project_id?: string | null }>({});
+  const lastSavedValuesRef = useRef<{
+    title?: string;
+    contentJson?: string;
+    folder_id?: string | null;
+    project_id?: string | null;
+    is_tutor_documentation?: boolean;
+  }>({});
 
   // Watch form values (drives debounce timers only; expensive work runs off debounced snapshots below.)
   const title = form.watch('title');
   const content = form.watch('content');
   const folderId = form.watch('folder_id');
   const projectId = form.watch('project_id');
+  const isTutorDocumentation = form.watch('is_tutor_documentation');
 
   const debouncedTitleTrigger = useDebounce(title, 300);
   const debouncedContentTrigger = useDebounce(content, 300);
@@ -91,6 +98,19 @@ export function useNoteAutoSave({
     }
   }, [projectId, note, isInitialized, isUpdatingFromServer, onSave]);
 
+  // Auto-save for tutor documentation visibility (immediate, no debounce)
+  useEffect(() => {
+    const isUpdating = typeof isUpdatingFromServer === 'function'
+      ? isUpdatingFromServer()
+      : isUpdatingFromServer;
+    if (!isInitialized || isUpdating) return;
+    const value = Boolean(isTutorDocumentation);
+    if (note && value !== lastSavedValuesRef.current.is_tutor_documentation) {
+      lastSavedValuesRef.current.is_tutor_documentation = value;
+      onSave({ is_tutor_documentation: value });
+    }
+  }, [isTutorDocumentation, note, isInitialized, isUpdatingFromServer, onSave]);
+
   // Baseline lastSavedValues when a note is opened — not on every edit (avoids wasted work and wrong refs).
   useEffect(() => {
     if (!note?.id || !isInitialized) return;
@@ -100,6 +120,7 @@ export function useNoteAutoSave({
       contentJson: JSON.stringify(values.content),
       folder_id: values.folder_id ?? null,
       project_id: values.project_id ?? null,
+      is_tutor_documentation: Boolean(values.is_tutor_documentation),
     };
   }, [note?.id, isInitialized, form]);
 }

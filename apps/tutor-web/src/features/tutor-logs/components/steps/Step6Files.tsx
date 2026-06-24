@@ -2,6 +2,7 @@
 
 import { Checkbox } from '@altitutor/ui';
 import { useTutorLogStep6Data } from '../../hooks/useTutorLogStep6Data';
+import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
   topicId: string;
@@ -54,7 +55,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
           if (files.length === 0) return null;
 
           return (
-            <div key={topic.topicId} className="border rounded-md p-4">
+            <div key={topic.topicId} className={tutorCardCn('p-4')}>
               <div className="font-medium mb-3">{topicData?.name}</div>
               <div className="space-y-2">
                 {files.map((file) => {

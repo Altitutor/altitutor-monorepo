@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { JSONContent } from '@tiptap/core';
 import { notesApi } from '@/shared/api/notes';
+import { useSupabaseRealtimeInvalidation } from './useSupabaseRealtimeInvalidation';
 
 export const notesKeys = {
   all: ['notes'] as const,
@@ -8,10 +9,21 @@ export const notesKeys = {
     [...notesKeys.all, targetType, targetId] as const,
 };
 
+const getNoteTargetKeys = (row: { target_type?: string | null; target_id?: string | null }) =>
+  row.target_type && row.target_id
+    ? [notesKeys.forTarget(row.target_type, row.target_id)]
+    : [];
+
 /**
  * Get notes for a specific target
  */
 export function useNotes(targetType: string, targetId: string, enabled = true) {
+  useSupabaseRealtimeInvalidation({
+    table: 'notes',
+    queryKey: notesKeys.all,
+    getRelatedKeys: getNoteTargetKeys,
+  });
+
   return useQuery({
     queryKey: notesKeys.forTarget(targetType, targetId),
     queryFn: () => notesApi.getNotesWithStaff({ targetType, targetId }),
@@ -99,9 +111,6 @@ export function useDeleteNote() {
     },
   });
 }
-
-
-
 
 
 

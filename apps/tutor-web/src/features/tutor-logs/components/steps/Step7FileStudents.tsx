@@ -5,6 +5,8 @@ import { X, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { useTutorLogStep7Data } from '../../hooks/useTutorLogStep7Data';
+import { cn } from '@/shared/utils';
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
   topicId: string;
@@ -102,7 +104,7 @@ export function Step7FileStudents({
           const availableStudents = getAvailableStudents(file.topicId);
 
           return (
-            <div key={file.topicsFilesId} className="border rounded-md p-4">
+            <div key={file.topicsFilesId} className={tutorCardCn('p-4')}>
               <div className="font-medium font-mono text-sm mb-3">{fileCode}</div>
               <div className="flex flex-wrap gap-2">
                 {file.studentIds.map((studentId) => {
@@ -149,7 +151,7 @@ export function Step7FileStudents({
                       searchPlaceholder="Find student..."
                       emptyMessage="All students for this topic are assigned to this file"
                       trigger={
-                        <Button variant="outline" size="sm" className="border-dashed">
+                        <Button variant="outline" size="sm" className={cn(tutorBtnOutline, 'border-dashed')}>
                           <Plus className="h-3 w-3 mr-1" />
                           Add student
                         </Button>

@@ -500,6 +500,18 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               renderHTML: (attrs) =>
                 attrs.fileId ? { 'data-file-id': attrs.fileId } : {},
             },
+            storageBucket: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-storage-bucket'),
+              renderHTML: (attrs) =>
+                attrs.storageBucket ? { 'data-storage-bucket': attrs.storageBucket } : {},
+            },
+            storagePath: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-storage-path'),
+              renderHTML: (attrs) =>
+                attrs.storagePath ? { 'data-storage-path': attrs.storagePath } : {},
+            },
           };
         },
         addNodeView() {

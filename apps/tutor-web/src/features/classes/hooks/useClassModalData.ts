@@ -1,21 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
 import { classesApi } from '../api';
 import { useToast } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 
-interface TutorClassDetailView {
-  class_id: string | null;
-  day_of_week: number | null;
-  start_time: string | null;
-  end_time: string | null;
-  room: string | null;
-  level: string | null;
-  class_status: string | null;
-  subject_id: string | null;
-  subject_name: string | null;
-  subject_color: string | null;
-  students?: unknown;
-  staff?: unknown;
+type VtutorClassDetailRow = Database['public']['Views']['vtutor_class_detail']['Row'];
+
+function buildSubjectFromClassDetail(detail: VtutorClassDetailRow): Tables<'subjects'> | null {
+  if (!detail.subject_id) return null;
+
+  const displayParts: string[] = [];
+  if (detail.subject_curriculum) displayParts.push(detail.subject_curriculum);
+  if (detail.subject_year_level != null) displayParts.push(String(detail.subject_year_level));
+  if (detail.subject_name) displayParts.push(detail.subject_name);
+  if (detail.subject_level) displayParts.push(detail.subject_level);
+
+  return {
+    id: detail.subject_id,
+    name: detail.subject_name ?? '',
+    long_name: displayParts.join(' ') || detail.subject_name || '',
+    short_name: null,
+    curriculum: detail.subject_curriculum,
+    discipline: detail.subject_discipline,
+    level: detail.subject_level,
+    color: detail.subject_color,
+    year_level: detail.subject_year_level,
+    created_at: null,
+    updated_at: null,
+  };
+}
+
+function buildClassFromClassDetail(detail: VtutorClassDetailRow): Tables<'classes'> | null {
+  if (!detail.class_id) return null;
+
+  return {
+    id: detail.class_id,
+    day_of_week: detail.day_of_week ?? 0,
+    start_time: detail.start_time ?? '',
+    end_time: detail.end_time ?? '',
+    room: detail.room,
+    level: detail.class_level,
+    status: detail.class_status ?? 'ACTIVE',
+    subject_id: detail.subject_id,
+    created_at: detail.created_at,
+    updated_at: detail.updated_at,
+    created_by: null,
+    session_start_date: null,
+    session_end_date: null,
+    short_name: detail.short_name,
+    long_name: detail.long_name,
+  };
 }
 
 export interface UseClassModalDataProps {
@@ -24,17 +57,12 @@ export interface UseClassModalDataProps {
 }
 
 export interface UseClassModalDataReturn {
-  // Data
-  classDetail: TutorClassDetailView | null;
+  classDetail: VtutorClassDetailRow | null;
   students: Tables<'students'>[];
   staff: Tables<'staff'>[];
   classData: Tables<'classes'> | null;
   subject: Tables<'subjects'> | null;
-  
-  // State
   isLoading: boolean;
-  
-  // Actions
   refresh: () => Promise<void>;
 }
 
@@ -46,24 +74,23 @@ export function useClassModalData({
   isOpen,
   classId,
 }: UseClassModalDataProps): UseClassModalDataReturn {
-  const [classDetail, setClassDetail] = useState<TutorClassDetailView | null>(null);
+  const [classDetail, setClassDetail] = useState<VtutorClassDetailRow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchClassData = useCallback(async () => {
     if (!classId) return;
-    
+
     try {
       setIsLoading(true);
-      
-      // Get class details from vtutor_class_detail view
+
       const detail = await classesApi.getClassWithDetails(classId);
-      
+
       if (!detail) {
         throw new Error('Class not found or you do not have access to it');
       }
-      
-      setClassDetail(detail as unknown as TutorClassDetailView);
+
+      setClassDetail(detail);
     } catch (err) {
       console.error('Failed to fetch class:', err);
       toast({
@@ -78,9 +105,8 @@ export function useClassModalData({
 
   useEffect(() => {
     if (isOpen && classId) {
-      fetchClassData();
+      void fetchClassData();
     } else {
-      // Reset state when closing
       setClassDetail(null);
     }
   }, [isOpen, classId, fetchClassData]);
@@ -89,48 +115,18 @@ export function useClassModalData({
     await fetchClassData();
   };
 
-  // Parse students and staff from JSON arrays
-  const students: Tables<'students'>[] = classDetail?.students && Array.isArray(classDetail.students)
-    ? classDetail.students
-    : [];
-  
-  const staff: Tables<'staff'>[] = classDetail?.staff && Array.isArray(classDetail.staff)
-    ? classDetail.staff
-    : [];
+  const students: Tables<'students'>[] =
+    classDetail?.students && Array.isArray(classDetail.students)
+      ? (classDetail.students as Tables<'students'>[])
+      : [];
 
-  // Build class object for compatibility
-  const classData: Tables<'classes'> | null = classDetail && classDetail.class_id
-    ? {
-        id: classDetail.class_id,
-        day_of_week: classDetail.day_of_week ?? 0,
-        start_time: classDetail.start_time ?? '',
-        end_time: classDetail.end_time ?? '',
-        room: classDetail.room,
-        level: classDetail.level,
-        status: classDetail.class_status ?? 'ACTIVE',
-        subject_id: classDetail.subject_id,
-        created_at: null,
-        updated_at: null,
-        created_by: null,
-        session_start_date: null,
-        session_end_date: null,
-        short_name: (classDetail as { short_name?: string | null }).short_name ?? null,
-        long_name: (classDetail as { long_name?: string | null }).long_name ?? null,
-      }
-    : null;
+  const staff: Tables<'staff'>[] =
+    classDetail?.staff && Array.isArray(classDetail.staff)
+      ? (classDetail.staff as Tables<'staff'>[])
+      : [];
 
-  // Build subject object from flattened fields
-  const subject: Tables<'subjects'> | null = classDetail?.subject_id
-    ? {
-        id: classDetail.subject_id,
-        name: classDetail.subject_name ?? '',
-        curriculum: null,
-        discipline: null,
-        level: null,
-        color: classDetail.subject_color ?? null,
-        year_level: null,
-      } as Tables<'subjects'>
-    : null;
+  const classData = classDetail ? buildClassFromClassDetail(classDetail) : null;
+  const subject = classDetail ? buildSubjectFromClassDetail(classDetail) : null;
 
   return {
     classDetail,

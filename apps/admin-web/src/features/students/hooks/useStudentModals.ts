@@ -4,6 +4,7 @@ interface UseStudentModalsReturn {
   // Modal states
   isLogAbsenceDialogOpen: boolean;
   isBookDraftingSessionModalOpen: boolean;
+  isBookSubsidyInterviewModalOpen: boolean;
   isDeleteDialogOpen: boolean;
   parentModalOpen: boolean;
   selectedParentId: string | null;
@@ -16,6 +17,8 @@ interface UseStudentModalsReturn {
   closeLogAbsence: () => void;
   openBookDraftingSession: () => void;
   closeBookDraftingSession: () => void;
+  openBookSubsidyInterview: () => void;
+  closeBookSubsidyInterview: () => void;
   openDeleteDialog: () => void;
   closeDeleteDialog: () => void;
   openParentModal: (parentId: string, defaultTab?: string) => void;
@@ -31,6 +34,7 @@ interface UseStudentModalsReturn {
 export function useStudentModals(): UseStudentModalsReturn {
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
+  const [isBookSubsidyInterviewModalOpen, setIsBookSubsidyInterviewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [parentModalOpen, setParentModalOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -52,6 +56,14 @@ export function useStudentModals(): UseStudentModalsReturn {
 
   const closeBookDraftingSession = useCallback(() => {
     setIsBookDraftingSessionModalOpen(false);
+  }, []);
+
+  const openBookSubsidyInterview = useCallback(() => {
+    setIsBookSubsidyInterviewModalOpen(true);
+  }, []);
+
+  const closeBookSubsidyInterview = useCallback(() => {
+    setIsBookSubsidyInterviewModalOpen(false);
   }, []);
 
   const openDeleteDialog = useCallback(() => {
@@ -87,6 +99,7 @@ export function useStudentModals(): UseStudentModalsReturn {
   const reset = useCallback(() => {
     setIsLogAbsenceDialogOpen(false);
     setIsBookDraftingSessionModalOpen(false);
+    setIsBookSubsidyInterviewModalOpen(false);
     setIsDeleteDialogOpen(false);
     setParentModalOpen(false);
     setSelectedParentId(null);
@@ -98,6 +111,7 @@ export function useStudentModals(): UseStudentModalsReturn {
   return {
     isLogAbsenceDialogOpen,
     isBookDraftingSessionModalOpen,
+    isBookSubsidyInterviewModalOpen,
     isDeleteDialogOpen,
     parentModalOpen,
     selectedParentId,
@@ -108,6 +122,8 @@ export function useStudentModals(): UseStudentModalsReturn {
     closeLogAbsence,
     openBookDraftingSession,
     closeBookDraftingSession,
+    openBookSubsidyInterview,
+    closeBookSubsidyInterview,
     openDeleteDialog,
     closeDeleteDialog,
     openParentModal,

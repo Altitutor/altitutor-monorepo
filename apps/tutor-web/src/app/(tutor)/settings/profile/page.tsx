@@ -3,9 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Button } from '@altitutor/ui';
+import {
+  Button,
+  SkeletonFormFields,
+  SkeletonPageHeader,
+  SkeletonSegmentedTabs,
+} from '@altitutor/ui';
 import { useProfile } from '@/features/profile';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
@@ -47,9 +52,11 @@ export default function SettingsProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <TutorPageContainer className="space-y-6">
+        <SkeletonPageHeader showBack />
+        <SkeletonSegmentedTabs />
+        <SkeletonFormFields fields={6} columns={2} />
+      </TutorPageContainer>
     );
   }
 

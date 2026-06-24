@@ -354,6 +354,7 @@ export function DataTableToolbar({
             key={option.value}
             checked={activeSearchFromValues.includes(option.value)}
             onCheckedChange={() => toggleSearchFromValue(option.value)}
+            onSelect={(event) => event.preventDefault()}
           >
             {option.label}
           </DropdownMenuCheckboxItem>

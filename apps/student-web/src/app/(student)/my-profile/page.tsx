@@ -1,98 +1,16 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@altitutor/ui';
-import { useProfile } from '@/features/profile';
-import { Loader2 } from 'lucide-react';
-import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
-import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
-import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
-import { StudentPageContainer } from '@/shared/components/layouts';
+type MyProfileRedirectPageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
 
-const VALID_TABS = ['details', 'availability', 'account'] as const;
-type TabValue = typeof VALID_TABS[number];
+export default async function MyProfileRedirectPage({ searchParams }: MyProfileRedirectPageProps) {
+  const params = await searchParams;
+  const tab = params.tab?.trim();
 
-export default function MyProfilePage() {
-  const { data: profile, isLoading } = useProfile();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  
-  // Get tab from query params, default to 'details'
-  const tabFromQuery = searchParams.get('tab') as TabValue | null;
-  const initialTab = tabFromQuery && VALID_TABS.includes(tabFromQuery) ? tabFromQuery : 'details';
-  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
-
-  // Update URL when tab changes
-  const handleTabChange = (value: string) => {
-    const newTab = value as TabValue;
-    setActiveTab(newTab);
-    const params = new URLSearchParams(searchParams.toString());
-    if (newTab === 'details') {
-      params.delete('tab'); // Remove param for default tab
-    } else {
-      params.set('tab', newTab);
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
-
-  // Sync with URL on mount/query param change
-  useEffect(() => {
-    const tabFromQuery = searchParams.get('tab') as TabValue | null;
-    const validTab = tabFromQuery && VALID_TABS.includes(tabFromQuery) ? tabFromQuery : 'details';
-    setActiveTab(validTab);
-  }, [searchParams]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-dvh">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+  if (tab) {
+    redirect(`/settings/profile?tab=${encodeURIComponent(tab)}`);
   }
 
-  if (!profile) {
-    return (
-      <StudentPageContainer>
-        <p className="text-muted-foreground">Profile not found</p>
-      </StudentPageContainer>
-    );
-  }
-
-  return (
-    <StudentPageContainer className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
-        <p className="mt-1 text-muted-foreground">
-          Update your personal information and preferences
-        </p>
-      </div>
-
-      <SegmentedTabPanel
-        value={activeTab}
-        onValueChange={handleTabChange}
-        className="w-full"
-        options={[
-          { value: 'details', label: 'Details' },
-          { value: 'availability', label: 'Availability' },
-          { value: 'account', label: 'Account' },
-        ]}
-      >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-8">
-          <DetailsTab profile={profile} />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="availability" activeTab={activeTab} className="mt-8">
-          <AvailabilityTab profile={profile} />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="account" activeTab={activeTab} className="mt-8">
-          <AccountTab profile={profile} />
-        </SegmentedTabPanelContent>
-      </SegmentedTabPanel>
-    </StudentPageContainer>
-  );
+  redirect('/settings/profile');
 }

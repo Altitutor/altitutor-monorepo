@@ -16,7 +16,8 @@ interface UseCommandPaletteFilteringOptions {
   pages: CommandPalettePage[];
   entityResults: CommandPaletteEntityResult[];
   searchQuery: string;
-  selectedFilter: FilterType | null;
+  selectedFilters: FilterType[];
+  allFilterTypes: FilterType[];
   entityTypeMapping: Record<string, string>;
   entityTypes: Record<string, { label: string }>;
 }
@@ -26,7 +27,8 @@ export function useCommandPaletteFiltering({
   pages,
   entityResults,
   searchQuery,
-  selectedFilter,
+  selectedFilters,
+  allFilterTypes,
   entityTypeMapping,
   entityTypes,
 }: UseCommandPaletteFilteringOptions) {
@@ -66,8 +68,8 @@ export function useCommandPaletteFiltering({
 
   // Filter items by selected filter type
   const filteredItems = useMemo(
-    () => filterItemsByType(allItems, selectedFilter),
-    [allItems, selectedFilter]
+    () => filterItemsByType(allItems, selectedFilters, allFilterTypes),
+    [allItems, selectedFilters, allFilterTypes],
   );
 
   // Group items by type for display

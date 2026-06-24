@@ -24,6 +24,7 @@ import type {
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import {
+  applyReviewFlagSuggestion,
   findMissingExplanations,
   type AiToolReviewFlag,
   type MissingExplanationTarget,
@@ -181,12 +182,12 @@ export function Step3SetAnswers({
     if (!onUpdateStem || missingExplanationTargets.length === 0) return
     setIsGeneratingExplanations(true)
     try {
-      let appliedTotal = 0
-      const reviewFlags: Array<AiToolReviewFlag & { stemIndex: number }> = []
       setExplanationReviewFlags([])
-      for (const [stemIndex, stem] of stems.entries()) {
+      const results = await Promise.all(stems.map(async (stem, stemIndex) => {
         const stemTargets = missingExplanationTargets.filter((target) => target.stemId === stem.id)
-        if (stemTargets.length === 0) continue
+        if (stemTargets.length === 0) {
+          return { stemId: stem.id, stem: null, appliedCount: 0, reviewFlags: [] as Array<AiToolReviewFlag & { stemIndex: number }> }
+        }
         const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -204,12 +205,18 @@ export function Step3SetAnswers({
         if (!response.ok || !json.stem) {
           throw new Error(json.error ?? 'Failed to generate missing explanations.')
         }
-        appliedTotal += json.appliedCount ?? 0
-        if (json.reviewFlags?.length) {
-          reviewFlags.push(...json.reviewFlags.map((flag) => ({ ...flag, stemIndex })))
+        return {
+          stemId: stem.id,
+          stem: json.stem,
+          appliedCount: json.appliedCount ?? 0,
+          reviewFlags: (json.reviewFlags ?? []).map((flag) => ({ ...flag, stemIndex })),
         }
-        onUpdateStem(stem.id, json.stem)
-      }
+      }))
+      const appliedTotal = results.reduce((sum, result) => sum + result.appliedCount, 0)
+      const reviewFlags = results.flatMap((result) => result.reviewFlags)
+      results.forEach((result) => {
+        if (result.stem) onUpdateStem(result.stemId, result.stem)
+      })
       setExplanationReviewFlags(reviewFlags)
       toast({
         description: reviewFlags.length > 0
@@ -228,6 +235,23 @@ export function Step3SetAnswers({
       setIsGeneratingExplanations(false)
     }
   }, [missingExplanationTargets, onUpdateStem, stems, toast])
+
+  const handleAcceptExplanationSuggestion = useCallback(
+    (flag: AiToolReviewFlag & { stemIndex: number }) => {
+      const stem = stems[flag.stemIndex]
+      if (!stem || !onUpdateStem) return
+      onUpdateStem(stem.id, applyReviewFlagSuggestion(stem.values, flag))
+      setExplanationReviewFlags((current) =>
+        current.filter(
+          (item) => !(item.stemIndex === flag.stemIndex && item.questionIndex === flag.questionIndex)
+        )
+      )
+      toast({
+        description: `Updated stem ${flag.stemIndex + 1}, question ${flag.questionIndex + 1}. Review before continuing.`,
+      })
+    },
+    [onUpdateStem, stems, toast]
+  )
 
   if (stems.length === 0 || rows.length === 0) {
     return (
@@ -258,12 +282,25 @@ export function Step3SetAnswers({
             <div className="mt-2 space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
               <div className="font-medium">AI flagged questions for tutor review</div>
               {explanationReviewFlags.map((flag) => (
-                <div key={`${flag.stemIndex}-${flag.questionIndex}-${flag.message}`}>
-                  Stem {flag.stemIndex + 1}, question {flag.questionIndex + 1}: {flag.message}
-                  {flag.suggestedCorrectOptionIndex != null
-                    ? ` Suggested correct option: ${String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}.`
-                    : ''}
-                  {flag.suggestedChanges ? ` Suggested change: ${flag.suggestedChanges}` : ''}
+                <div key={`${flag.stemIndex}-${flag.questionIndex}-${flag.message}`} className="space-y-1">
+                  <p>
+                    Stem {flag.stemIndex + 1}, question {flag.questionIndex + 1}: {flag.message}
+                    {flag.suggestedCorrectOptionIndex != null
+                      ? ` Suggested correct option: ${String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}.`
+                      : ''}
+                    {flag.suggestedChanges ? ` Suggested change: ${flag.suggestedChanges}` : ''}
+                  </p>
+                  {flag.suggestedCorrectOptionIndex != null && flag.suggestedAnswerExplanation && onUpdateStem ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handleAcceptExplanationSuggestion(flag)}
+                    >
+                      Accept change
+                    </Button>
+                  ) : null}
                 </div>
               ))}
             </div>

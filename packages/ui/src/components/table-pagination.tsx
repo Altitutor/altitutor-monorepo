@@ -5,6 +5,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
 import { SearchableSelect } from './searchable-select';
 import { cn } from '../lib/cn';
+import {
+  paginationPageActiveStyles,
+  paginationPageInactiveStyles,
+} from '../lib/styles';
 
 export interface TablePaginationProps {
   page: number;
@@ -15,7 +19,7 @@ export interface TablePaginationProps {
   onPageSizeChange: (pageSize: number) => void;
   pageSizeOptions?: number[];
   className?: string;
-  /** When set, current page uses `outline` plus these classes (e.g. app chrome color). Otherwise active page uses `default` (primary). */
+  /** @deprecated Use default nav-style active page. Override only for exceptional theming. */
   activePageButtonClassName?: string;
 }
 
@@ -119,16 +123,15 @@ export function TablePagination({
               ) : (
                 <Button
                   key={item}
-                  variant={
-                    item === currentPage && !activePageButtonClassName
-                      ? 'default'
-                      : 'outline'
-                  }
+                  variant="ghost"
                   size="sm"
                   onClick={() => handlePageChange(item)}
+                  aria-current={item === currentPage ? 'page' : undefined}
                   className={cn(
-                    'min-w-[36px]',
-                    item === currentPage && activePageButtonClassName,
+                    'min-w-[36px] tabular-nums',
+                    item === currentPage
+                      ? (activePageButtonClassName ?? paginationPageActiveStyles)
+                      : paginationPageInactiveStyles,
                   )}
                 >
                   {item}

@@ -63,9 +63,15 @@ interface FolderSearchSelectProps {
   form: UseFormReturn<NoteFormData>;
   folders?: FolderInput[];
   variant?: 'default' | 'pill';
+  editable?: boolean;
 }
 
-export function FolderSearchSelect({ form, folders = [], variant = 'default' }: FolderSearchSelectProps) {
+export function FolderSearchSelect({
+  form,
+  folders = [],
+  variant = 'default',
+  editable = true,
+}: FolderSearchSelectProps) {
   const folderRows = useMemo(() => flattenFoldersForSelect(folders), [folders]);
 
   return (
@@ -79,6 +85,7 @@ export function FolderSearchSelect({ form, folders = [], variant = 'default' }: 
           <FormControl>
             <button
               type="button"
+              disabled={!editable}
               className={cn(
                 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2',
                 'justify-start',
@@ -104,6 +111,7 @@ export function FolderSearchSelect({ form, folders = [], variant = 'default' }: 
           <FormItem>
             <SearchableSelect<FolderRowItem>
               items={folderRows}
+              disabled={!editable}
               value={
                 selected
                   ? folderRows.find((r) => r.id === selected.id) ?? {

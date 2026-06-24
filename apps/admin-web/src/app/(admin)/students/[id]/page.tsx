@@ -263,6 +263,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
+    onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
       ? () =>
           openCheckInModal({
@@ -487,6 +488,18 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         initialStudentId={id}
         onBookingCreated={() => {
           modals.closeBookDraftingSession();
+          handleStudentUpdated();
+        }}
+      />
+
+      {/* Book Subsidy Interview Modal */}
+      <BookSessionModal
+        isOpen={modals.isBookSubsidyInterviewModalOpen}
+        onClose={modals.closeBookSubsidyInterview}
+        sessionType="SUBSIDY_INTERVIEW"
+        initialStudentId={id}
+        onBookingCreated={() => {
+          modals.closeBookSubsidyInterview();
           handleStudentUpdated();
         }}
       />

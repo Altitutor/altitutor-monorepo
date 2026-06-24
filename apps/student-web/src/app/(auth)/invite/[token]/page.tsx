@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { Loader2 } from 'lucide-react';
+import { SkeletonAuthCard } from '@altitutor/ui';
 import { AcceptInviteForm } from '@/features/auth/components/AcceptInviteForm';
 
 interface InvitePageProps {
@@ -25,7 +25,7 @@ export default function InvitePage({ params }: InvitePageProps) {
   return (
     <Suspense fallback={
       <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue" />
+        <SkeletonAuthCard />
       </div>
     }>
       <InvitePageContent token={params.token} />

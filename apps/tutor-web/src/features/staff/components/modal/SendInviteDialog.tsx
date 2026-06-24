@@ -11,6 +11,7 @@ import {
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
+import { SkeletonInviteUrl } from '@altitutor/ui';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -189,10 +190,7 @@ export function SendInviteDialog({
         <div className="space-y-4 py-4">
           {/* Invite URL Display */}
           {isGenerating ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Generating invite link...</span>
-            </div>
+            <SkeletonInviteUrl />
           ) : inviteUrl && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Invite Link</label>

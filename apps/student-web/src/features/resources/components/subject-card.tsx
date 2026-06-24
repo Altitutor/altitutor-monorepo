@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Card, CardContent, Skeleton } from '@altitutor/ui';
+import { Card, CardContent, Skeleton, ClickableCardRevealChevron, clickableCardHoverCn } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { ResourceSubject } from '../lib/types';
 import { studentCardCn } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 function SubjectCoverPlaceholder() {
   return (
@@ -75,8 +76,8 @@ export function SubjectCard({ subject, href }: { subject: ResourceSubject; href:
   const showPlaceholder = !signedImageUrl && !isSigningUrl;
 
   return (
-    <Link href={href} className="block">
-      <Card className={studentCardCn('overflow-hidden p-0 hover:-translate-y-0.5 hover:shadow-[0_14px_44px_rgb(0,0,0,0.09)]')}>
+    <Link href={href} className="group block">
+      <Card className={cn(studentCardCn('group overflow-hidden p-0'), clickableCardHoverCn)}>
         <div className="relative h-36 w-full overflow-hidden bg-muted">
           {showSkeleton ? (
             <Skeleton className="absolute inset-0 z-10 h-full w-full rounded-none" />
@@ -96,8 +97,9 @@ export function SubjectCard({ subject, href }: { subject: ResourceSubject; href:
           ) : null}
           {showPlaceholder ? <SubjectCoverPlaceholder /> : null}
         </div>
-        <CardContent className="p-4">
+        <CardContent className="flex items-start justify-between gap-3 p-4">
           <h3 className="text-lg font-semibold">{title}</h3>
+          <ClickableCardRevealChevron size="sm" className="mt-0.5" />
         </CardContent>
       </Card>
     </Link>

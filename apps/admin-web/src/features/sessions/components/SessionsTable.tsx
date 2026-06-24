@@ -59,6 +59,7 @@ type SessionsTableProps = {
   hideClassColumn?: boolean; // Hide Class column
   hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
+  skipUrlSync?: boolean; // Keep table state local when embedded in modals
   attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
@@ -100,6 +101,7 @@ export function SessionsTable({
   hideClassColumn = false,
   hideStudentsColumn = false,
   initialStudentFilters = [],
+  skipUrlSync = false,
   attendanceView,
   onUndoLogAbsenceStudent,
   onUndoLogAbsenceStaff,
@@ -142,6 +144,7 @@ export function SessionsTable({
     defaultSort,
     defaultVisibleColumns,
     filterKeys: ['type', 'subject', 'student', 'staff', 'tutor_log', 'from', 'to'],
+    skipUrlSync,
   });
 
   // Use the main hook for all business logic

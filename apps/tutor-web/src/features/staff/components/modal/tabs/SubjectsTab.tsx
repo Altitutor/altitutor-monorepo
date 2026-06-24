@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button, SearchableSelect, ScrollArea } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea, SkeletonListRows } from "@altitutor/ui";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { cn } from "@/shared/utils";
@@ -119,9 +119,7 @@ export function SubjectsTab({
       </div>
 
       {loadingSubjects ? (
-        <div className="flex-1 flex justify-center items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonListRows rows={5} />
       ) : staffSubjects.length === 0 && assigningSubjects.size === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-2" />

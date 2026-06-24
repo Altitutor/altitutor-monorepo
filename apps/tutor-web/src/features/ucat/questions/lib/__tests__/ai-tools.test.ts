@@ -1,6 +1,12 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import { applyExplanationUpdates, findMissingExplanations, summarizeStemForAi } from '../ai-tools'
+import {
+  applyReviewFlagSuggestion,
+  applyExplanationUpdates,
+  findMissingExplanations,
+  summarizeStemForAi,
+  writtenQuestionToFormValue,
+} from '../ai-tools'
 
 function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionStemFormValues {
   return {
@@ -84,12 +90,30 @@ describe('AI tools explanation helpers', () => {
         reviewRequired: true,
         reviewMessage: 'Option B is more likely correct.',
         suggestedCorrectOptionIndex: 1,
+        suggestedAnswerExplanation: 'B follows from the passage.',
         suggestedChanges: 'Change the selected answer to B.',
       },
     ])
 
     expect(result.appliedCount).toBe(0)
     expect(result.stem.questions[0]!.answerExplanation).toBeNull()
+  })
+
+  it('accepts a review flag suggestion by changing the selected answer and explanation', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyReviewFlagSuggestion(stem, {
+      questionIndex: 0,
+      message: 'Option B is correct.',
+      suggestedCorrectOptionIndex: 1,
+      suggestedAnswerExplanation: 'B is correct because it is directly supported.',
+      suggestedChanges: 'Change answer to B.',
+    })
+
+    expect(result.questions[0]!.options.map((option) => option.isAnswer)).toEqual([false, true, false, false])
+    expect(result.questions[0]!.answerExplanation).toEqual(
+      plainTextToProseMirror('B is correct because it is directly supported.')
+    )
   })
 
   it('summarizes selected correct options for the model', () => {
@@ -103,5 +127,27 @@ describe('AI tools explanation helpers', () => {
         isAnswer: true,
       },
     ])
+  })
+
+  it('converts a written question response into form values', () => {
+    const question = writtenQuestionToFormValue(
+      {
+        questionText: 'Which statement follows?',
+        answerExplanation: 'Use the final sentence to eliminate the distractors.',
+        options: [
+          { answerText: 'A follows', isAnswer: true },
+          { answerText: 'B follows', isAnswer: false },
+        ],
+        rationale: 'Tests inference.',
+      },
+      ['00000000-0000-0000-0000-000000000010']
+    )
+
+    expect(question.questionType).toBe('multiple_choice')
+    expect(question.tagIds).toEqual(['00000000-0000-0000-0000-000000000010'])
+    expect(question.options.map((option) => option.isAnswer)).toEqual([true, false])
+    expect(question.answerExplanation).toEqual(
+      plainTextToProseMirror('Use the final sentence to eliminate the distractors.')
+    )
   })
 })

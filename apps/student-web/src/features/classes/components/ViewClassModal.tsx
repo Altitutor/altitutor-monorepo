@@ -7,8 +7,8 @@ import {
   SegmentedTabPanelContent,
 } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
-import { Loader2, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SkeletonListRows, SkeletonSheetDetail } from '@altitutor/ui';
+import { Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useClassDetails, useClassSessions } from '../hooks';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { formatDateTime } from '@/shared/utils';
@@ -37,9 +37,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         {isLoadingDetails ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          <SkeletonSheetDetail />
         ) : classDetails ? (
           <>
             <SheetHeader>
@@ -192,9 +190,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                   </CardHeader>
                   <CardContent>
                     {isLoadingSessions ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
+                      <SkeletonListRows rows={4} showSubtitle={false} />
                     ) : sessions && sessions.length > 0 ? (
                       <div className="space-y-3">
                         {(sessions as ClassSession[]).map((session) => (

@@ -10,6 +10,7 @@ import {
 } from '@altitutor/ui';
 import { Button, SearchableSelect, useToast } from '@altitutor/ui';
 import { Loader2, Check } from 'lucide-react';
+import { SkeletonFormFields } from '@altitutor/ui';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { BookingConfirmationCalendar } from './BookingConfirmationCalendar';
 import { useStudentSubjects } from '../hooks/useStudentSubjects';
@@ -313,9 +314,7 @@ export function BookDraftingSessionModal({
               Choose the subject for your drafting session
             </p>
             {subjectsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <SkeletonFormFields fields={1} columns={1} />
             ) : !subjects || subjects.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p>No subjects found. Please contact support to add subjects to your account.</p>

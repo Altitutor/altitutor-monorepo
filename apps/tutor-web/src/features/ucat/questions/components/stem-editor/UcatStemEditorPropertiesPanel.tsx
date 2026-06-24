@@ -18,9 +18,13 @@ import {
   DialogTitle,
   Input,
   SearchableSelect,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { Eye, EyeOff, FilePlus2, Info, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -36,6 +40,7 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
 import {
+  applyReviewFlagSuggestion,
   findMissingExplanations,
   type AiToolReviewFlag,
 } from '@/features/ucat/questions/lib/ai-tools'
@@ -102,6 +107,52 @@ function PropertiesCard({
   )
 }
 
+function AiActionButton({
+  label,
+  description,
+  icon,
+  onClick,
+  disabled,
+}: {
+  label: string
+  description: string
+  icon: ReactNode
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-w-0 flex-1 justify-start gap-2"
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {icon}
+        {label}
+      </Button>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={`${label} info`}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+            {description}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  )
+}
+
 export function UcatStemEditorPropertiesPanel({
   form,
   sections,
@@ -119,7 +170,7 @@ export function UcatStemEditorPropertiesPanel({
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | null>(null)
+  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | 'write' | null>(null)
   const [rewritePreview, setRewritePreview] = useState<{
     stem: UcatQuestionStemFormValues
     summary: string | null
@@ -207,6 +258,47 @@ export function UcatStemEditorPropertiesPanel({
     } catch (error) {
       toast({
         description: error instanceof Error ? error.message : 'Answer explanation generation failed',
+        variant: 'destructive',
+      })
+    } finally {
+      setAiPending(null)
+    }
+  }
+
+  const handleAcceptExplanationSuggestion = (flag: AiToolReviewFlag) => {
+    const nextStem = applyReviewFlagSuggestion(form.getValues(), flag)
+    form.setValue('questions', nextStem.questions, { shouldDirty: true })
+    setExplanationReviewFlags((current) =>
+      current.filter((item) => item.questionIndex !== flag.questionIndex)
+    )
+    toast({ description: `Updated question ${flag.questionIndex + 1}. Review the explanation before saving.` })
+  }
+
+  const handleWriteQuestion = async () => {
+    setAiPending('write')
+    try {
+      const response = await fetch('/api/ucat/question-stems/ai-tools/write-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stem: form.getValues() }),
+      })
+      const json = (await response.json()) as {
+        question?: UcatQuestionStemFormValues['questions'][number]
+        rationale?: string | null
+        promptLayerCount?: number
+        error?: string
+      }
+      if (!response.ok || !json.question) {
+        throw new Error(json.error ?? 'Question writing failed')
+      }
+      append(json.question)
+      onQuestionIndexChange(fields.length)
+      toast({
+        description: `Question added.${json.promptLayerCount ? ` Used ${json.promptLayerCount} prompt layer${json.promptLayerCount === 1 ? '' : 's'}.` : ''}`,
+      })
+    } catch (error) {
+      toast({
+        description: error instanceof Error ? error.message : 'Question writing failed',
         variant: 'destructive',
       })
     } finally {
@@ -379,43 +471,38 @@ export function UcatStemEditorPropertiesPanel({
 
           <PropertiesCard value="ai" title="AI actions">
             <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-2"
+              <AiActionButton
+                label="Rewrite source wording"
+                description="Rewords the current stem, questions, and answer options to reduce source similarity. You review and apply each changed part before it updates the form."
+                icon={aiPending === 'rewrite' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                 onClick={() => void handleRewriteStem()}
                 disabled={aiPending != null || editorMode !== 'edit'}
-              >
-                {aiPending === 'rewrite' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                Rewrite source wording
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-2"
+              />
+              <AiActionButton
+                label="Write question"
+                description="Adds one new multiple-choice question for this stem, using the stem facts plus the section, category, tag, and generation prompt-layer guidance."
+                icon={aiPending === 'write' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
+                onClick={() => void handleWriteQuestion()}
+                disabled={aiPending != null || editorMode !== 'edit' || isSyllogism}
+              />
+              <AiActionButton
+                label="Generate explanation"
+                description="Fills missing answer explanations for the active question. If the selected answer looks wrong, it flags the issue instead of inserting text."
+                icon={aiPending === 'explanation' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 onClick={() => void handleGenerateActiveExplanation()}
                 disabled={
                   aiPending != null ||
                   editorMode !== 'edit' ||
                   activeQuestionMissingExplanations.length === 0
                 }
-              >
-                {aiPending === 'explanation' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Generate explanation
-              </Button>
+              />
               {activeQuestionMissingExplanations.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Fills missing explanation fields for question {safeQuestionIndex + 1}.
+                </p>
+              ) : isSyllogism ? (
+                <p className="text-xs text-muted-foreground">
+                  Writing extra questions is disabled for syllogism stems.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -434,6 +521,17 @@ export function UcatStemEditorPropertiesPanel({
                         <p>Suggested correct option: {String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}</p>
                       ) : null}
                       {flag.suggestedChanges ? <p>Suggested change: {flag.suggestedChanges}</p> : null}
+                      {flag.suggestedCorrectOptionIndex != null && flag.suggestedAnswerExplanation ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-1 h-7 text-xs"
+                          onClick={() => handleAcceptExplanationSuggestion(flag)}
+                        >
+                          Accept change
+                        </Button>
+                      ) : null}
                     </div>
                   ))}
                 </div>

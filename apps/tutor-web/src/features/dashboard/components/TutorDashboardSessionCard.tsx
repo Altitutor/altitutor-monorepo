@@ -3,10 +3,18 @@
 import type { KeyboardEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import {
+  ClickableCardIcon,
+  ClickableCardRevealChevron,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  clickableCardHoverCn,
+} from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatSessionDate } from '@altitutor/shared';
-import { getIconStrokeColor, getSubjectColorHex, formatSessionType, cn } from '@/shared/utils';
+import { getSubjectColorHex, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 type TutorSessionShape = {
@@ -124,8 +132,6 @@ export function TutorDashboardSessionCard({
   const defaultBorderClass = !subjectColorHex
     ? 'ring-1 ring-black/[0.06] dark:ring-white/10'
     : '';
-  const iconBackgroundColor = subjectColorHex ? { backgroundColor: subjectColorHex } : undefined;
-  const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   const dateLabel = session.start_at ? formatSessionDate(session.start_at) : '';
 
@@ -141,11 +147,14 @@ export function TutorDashboardSessionCard({
     <div
       ref={cardRef}
       className={cn(
-        'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-colors duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
+        'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-all duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
         onOpen
-          ? 'cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          ? cn(
+              'group cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              clickableCardHoverCn,
+            )
           : '',
       )}
       style={{
@@ -160,22 +169,7 @@ export function TutorDashboardSessionCard({
       onKeyDown={handleKeyDown}
     >
       <div className={cn('flex items-start', shouldUseCompact ? 'gap-1.5' : 'gap-3')}>
-        {iconVisible && (
-          <div className="flex-shrink-0">
-            <div
-              className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg',
-                iconBackgroundColor ? '' : 'bg-muted text-muted-foreground',
-              )}
-              style={iconBackgroundColor}
-            >
-              <Users
-                className="h-5 w-5"
-                style={iconBackgroundColor ? { stroke: iconStrokeColor } : undefined}
-              />
-            </div>
-          </div>
-        )}
+        {iconVisible ? <ClickableCardIcon icon={Users} size="sm" className="rounded-lg" /> : null}
 
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-start justify-between gap-2">
@@ -204,6 +198,7 @@ export function TutorDashboardSessionCard({
                 {session.session_type ? ` • ${formatSessionType(session.session_type)}` : ''}
               </p>
             </div>
+            {onOpen && !shouldUseCompact ? <ClickableCardRevealChevron size="sm" /> : null}
           </div>
 
           {staff.length > 0 ? (

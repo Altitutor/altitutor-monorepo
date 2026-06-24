@@ -5,7 +5,7 @@ import { FlashcardReviewSession, useDueFlashcardReviewCards } from '@/features/f
 import { StudentPageContainer } from '@/shared/components/layouts';
 
 export default function DueFlashcardsPage() {
-  const { data: cards, isLoading } = useDueFlashcardReviewCards();
+  const { data: cards, isLoading: cardsLoading } = useDueFlashcardReviewCards();
 
   return (
     <StudentPageContainer className="space-y-8">
@@ -16,16 +16,21 @@ export default function DueFlashcardsPage() {
         ]}
       />
 
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Flashcards</h1>
-          <p className="mt-1 text-muted-foreground">{cards?.length ?? 0} due today</p>
+          <p className="mt-1 text-muted-foreground">{cards?.length ?? 0} due now</p>
         </div>
 
-        {isLoading ? (
+        {cardsLoading ? (
           <div className="h-64 rounded-2xl bg-muted/50" />
         ) : (
-          <FlashcardReviewSession topicId="due-all" mode="due" cards={cards ?? []} />
+          <FlashcardReviewSession
+            topicId="due-all"
+            mode="due"
+            cards={cards ?? []}
+            emptyDescription="There are no due flashcards right now."
+          />
         )}
       </div>
     </StudentPageContainer>

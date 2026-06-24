@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban, Layers } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
-import { cn, navHoverStyles } from '@/shared/utils/index';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -260,10 +260,10 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                     key={item.href} 
                     href={itemHref}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                       isNavItemActive(pathname, item)
-                        ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                        : navHoverStyles
+                        ? navLinkActiveStyles
+                        : navLinkInactiveStyles
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -278,10 +278,10 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             <Link 
               href="/settings"
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                 pathname === '/settings'
-                  ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                  : navHoverStyles
+                  ? navLinkActiveStyles
+                  : navLinkInactiveStyles
               )}
             >
               <Settings className="h-5 w-5" />
@@ -349,10 +349,10 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                 key={item.href} 
                 href={itemHref}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                   isNavItemActive(pathname, item)
-                    ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                    : navHoverStyles,
+                    ? navLinkActiveStyles
+                    : navLinkInactiveStyles,
                   collapsed && "justify-center px-0"
                 )}
               >
@@ -370,10 +370,10 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
         <Link 
           href="/settings"
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
             pathname === '/settings'
-              ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-              : navHoverStyles,
+              ? navLinkActiveStyles
+              : navLinkInactiveStyles,
             collapsed && "justify-center px-0"
           )}
         >

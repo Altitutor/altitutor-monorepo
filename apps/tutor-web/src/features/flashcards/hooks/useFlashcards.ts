@@ -20,6 +20,10 @@ export function useFlashcardMutations(topicId: string | null) {
     createCard: useMutation({ mutationFn: flashcardsApi.createCard, onSuccess: invalidateCards }),
     deleteCard: useMutation({ mutationFn: flashcardsApi.deleteCard, onSuccess: invalidateCards }),
     updateCard: useMutation({ mutationFn: flashcardsApi.updateCard, onSuccess: invalidateCards }),
+    reorderCards: useMutation({
+      mutationFn: ({ id, cardIds }: { id: string; cardIds: string[] }) => flashcardsApi.reorderCards(id, cardIds),
+      onSuccess: invalidateCards,
+    }),
     importCsv: useMutation({
       mutationFn: ({ id, csv }: { id: string; csv: string }) => flashcardsApi.importCsv(id, csv),
       onSuccess: invalidateCards,

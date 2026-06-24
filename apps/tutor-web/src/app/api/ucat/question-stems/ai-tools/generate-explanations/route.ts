@@ -29,10 +29,11 @@ Rules:
 5. Do not change stem text, question text, answer options, or correct answers.
 6. Multiple-choice questions need one question-level explanation.
 7. Syllogism questions need one explanation for each listed statement option.
-8. If the selected correct answer appears wrong, no answer appears correct, multiple answers appear correct, or the question itself has an error, set reviewRequired=true, do not provide an insertable explanation, and explain the issue to the tutor in reviewMessage.
-9. When reviewRequired=true, include suggestedCorrectOptionIndex when there is a better option and suggestedChanges when the question or answer options should be edited.
-10. If an explanation cannot be generated confidently from the supplied text, mark it unresolved.
-11. Return JSON only.`
+8. If the selected correct answer appears wrong, no answer appears correct, multiple answers appear correct, or the question itself has an error, set reviewRequired=true, do not provide answerExplanation/optionExplanations for direct insertion, and explain the issue to the tutor in reviewMessage.
+9. When reviewRequired=true and there is a better correct option, include suggestedCorrectOptionIndex and suggestedAnswerExplanation. The suggestedAnswerExplanation should be student-facing and explain why that suggested option is correct.
+10. When reviewRequired=true and the question or answer options should be edited, include suggestedChanges.
+11. If an explanation cannot be generated confidently from the supplied text, mark it unresolved.
+12. Return JSON only.`
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
             reviewRequired: false,
             reviewMessage: 'tutor-facing issue explanation or null',
             suggestedCorrectOptionIndex: 1,
+            suggestedAnswerExplanation: 'student-facing explanation for the suggested correct answer or null',
             suggestedChanges: 'suggested tutor edit or null',
           },
         ],
