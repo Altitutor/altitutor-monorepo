@@ -3507,6 +3507,56 @@ export type Database = {
           },
         ]
       }
+      note_document_edit_locks: {
+        Row: {
+          lock_token: string
+          locked_by: string
+          note_id: string
+          updated_at: string
+        }
+        Insert: {
+          lock_token: string
+          locked_by: string
+          note_id: string
+          updated_at?: string
+        }
+        Update: {
+          lock_token?: string
+          locked_by?: string
+          note_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_document_edit_locks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_document_edit_locks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "note_document_edit_locks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_document_edit_locks_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "notes_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           created_at: string
@@ -3615,6 +3665,7 @@ export type Database = {
           created_by: string
           folder_id: string | null
           id: string
+          is_tutor_documentation: boolean
           project_id: string | null
           search_vector: unknown
           title: string
@@ -3627,6 +3678,7 @@ export type Database = {
           created_by: string
           folder_id?: string | null
           id?: string
+          is_tutor_documentation?: boolean
           project_id?: string | null
           search_vector?: unknown
           title: string
@@ -3639,6 +3691,7 @@ export type Database = {
           created_by?: string
           folder_id?: string | null
           id?: string
+          is_tutor_documentation?: boolean
           project_id?: string | null
           search_vector?: unknown
           title?: string
@@ -21357,6 +21410,10 @@ export type Database = {
       }
       is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_notes_folder_tutor_documentation_ancestor: {
+        Args: { folder_id: string }
+        Returns: boolean
+      }
       is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
