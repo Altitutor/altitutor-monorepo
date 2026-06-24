@@ -21,7 +21,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Check, ExternalLink, EyeOff, Loader2, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, ExternalLink, Eye, EyeOff, Loader2, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import type { Flashcard } from '@altitutor/shared';
 import type { Tables } from '@altitutor/shared';
 import { getClozeIndexes, parseClozeParts } from '@altitutor/shared';

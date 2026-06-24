@@ -168,8 +168,11 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
-- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly.
+- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
   _Avoid_: Individual question playlist, skill trainer set
+
+- **Stem not in another set** — A question stem that is not included in any other non-deleted, staff-authored UCAT question set. Student-generated sets do not count; private staff-authored sets do count.
+  _Avoid_: Unused question, not attempted, public-only set membership
 
 - **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
   _Avoid_: Approval status, published status
