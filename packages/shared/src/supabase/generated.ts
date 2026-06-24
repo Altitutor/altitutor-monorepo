@@ -21003,6 +21003,10 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: boolean
       }
+      can_student_access_flashcard_image: {
+        Args: { p_topic_id: string }
+        Returns: boolean
+      }
       can_student_access_session_file: {
         Args: { session_id: string }
         Returns: boolean
@@ -21338,6 +21342,10 @@ export type Database = {
         }
       }
       get_supabase_url: { Args: never; Returns: string }
+      get_topic_id_from_flashcard_image_path: {
+        Args: { file_path: string }
+        Returns: string
+      }
       get_ucat_stem_id_from_image_path: {
         Args: { file_path: string }
         Returns: string
