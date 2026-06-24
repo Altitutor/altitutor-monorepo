@@ -282,7 +282,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
+          <DropdownMenuItem onSelect={props.onOpenInPage}>
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
@@ -350,7 +350,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
+          <DropdownMenuItem onSelect={props.onOpenInPage}>
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>

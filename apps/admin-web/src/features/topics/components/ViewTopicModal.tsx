@@ -25,7 +25,7 @@ import {
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
-import { TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
+import { TrashIcon, Loader2, AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -212,10 +212,8 @@ export function ViewTopicModal({
     topicId: topicId || '',
     topic,
     onOpenInPage: () => {
-      if (topic?.subject_id) {
-        router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
-        onClose();
-      }
+      if (!topicId) return;
+      window.location.assign(`/topics/${topicId}`);
     },
     onEdit: handleEdit,
     onDelete: () => setShowDeleteDialog(true),
@@ -248,11 +246,21 @@ export function ViewTopicModal({
                 </div>
               </div>
               {topicId && topic && !isEditing && (
-                <ActionsMenu
-                  type="topic"
-                  entityId={topic.id}
-                  {...topicActions}
-                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => window.location.assign(`/topics/${topicId}`)}
+                    aria-label="Open topic in page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <ActionsMenu
+                    type="topic"
+                    entityId={topic.id}
+                    {...topicActions}
+                  />
+                </div>
               )}
             </div>
           </SheetHeader>
@@ -561,7 +569,15 @@ export function ViewTopicModal({
 
                   <Separator className="my-4" />
 
-                  {topicId ? <FlashcardManager topicId={topicId} /> : null}
+                  {topicId ? (
+                    <FlashcardManager
+                      topicId={topicId}
+                      onNavigateToPage={(href) => {
+                        onClose();
+                        router.push(href);
+                      }}
+                    />
+                  ) : null}
 
                   <Separator className="my-4" />
 

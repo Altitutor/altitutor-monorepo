@@ -61,6 +61,18 @@ export const AiToolExplanationResponseSchema = z.object({
   updates: z.array(AiToolExplanationUpdateSchema).default([]),
 })
 
+export const AiToolWriteQuestionResponseSchema = z.object({
+  questionText: z.string().min(1),
+  answerExplanation: z.string().min(1),
+  options: z.array(
+    z.object({
+      answerText: z.string().min(1),
+      isAnswer: z.boolean(),
+    })
+  ).min(2).max(5),
+  rationale: z.string().nullable().optional(),
+})
+
 export type AiToolQuestionStemPayload = z.infer<typeof AiToolQuestionStemPayloadSchema>
 export type AiToolExplanationUpdate = z.infer<typeof AiToolExplanationUpdateSchema>
 
@@ -158,6 +170,25 @@ export function rewriteResponseToStemValues(
         })),
       }
     }),
+  }
+}
+
+export function writtenQuestionToFormValue(
+  response: z.infer<typeof AiToolWriteQuestionResponseSchema>,
+  tagIds: string[] = []
+): UcatQuestionStemFormValues['questions'][number] {
+  return {
+    questionText: plainTextToProseMirrorWithLineBreaks(response.questionText),
+    questionType: 'multiple_choice',
+    answerExplanation: plainTextToProseMirror(response.answerExplanation),
+    difficulty: null,
+    timeBurdenSeconds: '',
+    tagIds,
+    options: response.options.map((option) => ({
+      answerText: plainTextToProseMirror(option.answerText),
+      answerExplanation: null,
+      isAnswer: option.isAnswer,
+    })),
   }
 }
 

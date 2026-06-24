@@ -20,7 +20,7 @@ import {
   SearchableSelect,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { Eye, EyeOff, FilePlus2, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -119,7 +119,7 @@ export function UcatStemEditorPropertiesPanel({
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | null>(null)
+  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | 'write' | null>(null)
   const [rewritePreview, setRewritePreview] = useState<{
     stem: UcatQuestionStemFormValues
     summary: string | null
@@ -207,6 +207,38 @@ export function UcatStemEditorPropertiesPanel({
     } catch (error) {
       toast({
         description: error instanceof Error ? error.message : 'Answer explanation generation failed',
+        variant: 'destructive',
+      })
+    } finally {
+      setAiPending(null)
+    }
+  }
+
+  const handleWriteQuestion = async () => {
+    setAiPending('write')
+    try {
+      const response = await fetch('/api/ucat/question-stems/ai-tools/write-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stem: form.getValues() }),
+      })
+      const json = (await response.json()) as {
+        question?: UcatQuestionStemFormValues['questions'][number]
+        rationale?: string | null
+        promptLayerCount?: number
+        error?: string
+      }
+      if (!response.ok || !json.question) {
+        throw new Error(json.error ?? 'Question writing failed')
+      }
+      append(json.question)
+      onQuestionIndexChange(fields.length)
+      toast({
+        description: `Question added.${json.promptLayerCount ? ` Used ${json.promptLayerCount} prompt layer${json.promptLayerCount === 1 ? '' : 's'}.` : ''}`,
+      })
+    } catch (error) {
+      toast({
+        description: error instanceof Error ? error.message : 'Question writing failed',
         variant: 'destructive',
       })
     } finally {
@@ -399,6 +431,21 @@ export function UcatStemEditorPropertiesPanel({
                 variant="outline"
                 size="sm"
                 className="w-full justify-start gap-2"
+                onClick={() => void handleWriteQuestion()}
+                disabled={aiPending != null || editorMode !== 'edit' || isSyllogism}
+              >
+                {aiPending === 'write' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FilePlus2 className="h-4 w-4" />
+                )}
+                Write question
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
                 onClick={() => void handleGenerateActiveExplanation()}
                 disabled={
                   aiPending != null ||
@@ -416,6 +463,10 @@ export function UcatStemEditorPropertiesPanel({
               {activeQuestionMissingExplanations.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Fills missing explanation fields for question {safeQuestionIndex + 1}.
+                </p>
+              ) : isSyllogism ? (
+                <p className="text-xs text-muted-foreground">
+                  Writing extra questions is disabled for syllogism stems.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">

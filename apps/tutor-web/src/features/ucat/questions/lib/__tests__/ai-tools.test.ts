@@ -1,6 +1,11 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import { applyExplanationUpdates, findMissingExplanations, summarizeStemForAi } from '../ai-tools'
+import {
+  applyExplanationUpdates,
+  findMissingExplanations,
+  summarizeStemForAi,
+  writtenQuestionToFormValue,
+} from '../ai-tools'
 
 function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionStemFormValues {
   return {
@@ -103,5 +108,27 @@ describe('AI tools explanation helpers', () => {
         isAnswer: true,
       },
     ])
+  })
+
+  it('converts a written question response into form values', () => {
+    const question = writtenQuestionToFormValue(
+      {
+        questionText: 'Which statement follows?',
+        answerExplanation: 'Use the final sentence to eliminate the distractors.',
+        options: [
+          { answerText: 'A follows', isAnswer: true },
+          { answerText: 'B follows', isAnswer: false },
+        ],
+        rationale: 'Tests inference.',
+      },
+      ['00000000-0000-0000-0000-000000000010']
+    )
+
+    expect(question.questionType).toBe('multiple_choice')
+    expect(question.tagIds).toEqual(['00000000-0000-0000-0000-000000000010'])
+    expect(question.options.map((option) => option.isAnswer)).toEqual([true, false])
+    expect(question.answerExplanation).toEqual(
+      plainTextToProseMirror('Use the final sentence to eliminate the distractors.')
+    )
   })
 })

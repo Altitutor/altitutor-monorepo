@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   const { data: siblings } = await supabaseAdmin
     .from('flashcards')
-    .select('index')
+    .select('id,index')
     .eq('topic_id', body.topic_id)
     .is('deleted_at', null);
 
@@ -51,11 +51,41 @@ export async function POST(request: NextRequest) {
       topic_id: body.topic_id,
       cloze_text: body.cloze_text,
       extra: body.extra || null,
-      index: body.index ?? nextIndex,
+      index: nextIndex,
     })
     .select('*')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (body.index !== undefined) {
+    const targetIndexRaw = Number(body.index);
+    const targetIndex = Math.min(
+      Math.max(Number.isFinite(targetIndexRaw) ? Math.trunc(targetIndexRaw) : nextIndex, 1),
+      nextIndex,
+    );
+    const ordered = [...(siblings ?? []).sort((a, b) => a.index - b.index), data];
+    const withoutNew = ordered.filter((card) => card.id !== data.id);
+    withoutNew.splice(targetIndex - 1, 0, data);
+
+    for (const [idx, card] of withoutNew.entries()) {
+      const { error: updateError } = await supabaseAdmin
+        .from('flashcards')
+        .update({ index: idx + 1, updated_at: new Date().toISOString() })
+        .eq('id', card.id);
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    const { data: reordered, error: reorderFetchError } = await supabaseAdmin
+      .from('flashcards')
+      .select('*')
+      .eq('id', data.id)
+      .single();
+
+    if (reorderFetchError) return NextResponse.json({ error: reorderFetchError.message }, { status: 500 });
+    return NextResponse.json({ data: reordered });
+  }
+
   return NextResponse.json({ data });
 }

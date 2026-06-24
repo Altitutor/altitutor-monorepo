@@ -12,7 +12,7 @@ export const flashcardsApi = {
     return readJson<Flashcard[]>(res);
   },
 
-  async createCard(input: { topicId: string; clozeText: string; extra?: string }): Promise<Flashcard> {
+  async createCard(input: { topicId: string; clozeText: string; extra?: string; index?: number }): Promise<Flashcard> {
     const res = await fetch('/api/flashcards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -20,6 +20,7 @@ export const flashcardsApi = {
         topic_id: input.topicId,
         cloze_text: input.clozeText,
         extra: input.extra,
+        index: input.index,
       }),
     });
     return readJson<Flashcard>(res);
@@ -30,11 +31,16 @@ export const flashcardsApi = {
     await readJson<unknown>(res);
   },
 
-  async updateCard(input: { cardId: string; clozeText: string; extra?: string }): Promise<Flashcard> {
+  async updateCard(input: { cardId: string; topicId?: string; clozeText: string; extra?: string; index?: number }): Promise<Flashcard> {
     const res = await fetch(`/api/flashcards/cards/${encodeURIComponent(input.cardId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cloze_text: input.clozeText, extra: input.extra }),
+      body: JSON.stringify({
+        topic_id: input.topicId,
+        cloze_text: input.clozeText,
+        extra: input.extra,
+        index: input.index,
+      }),
     });
     return readJson<Flashcard>(res);
   },

@@ -24,10 +24,11 @@ export function useFlashcardReviewCards(topicId: string | null, mode: 'due' | 'a
   });
 }
 
-export function useDueFlashcardReviewCards() {
+export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
+  const topicIdsKey = topicIds?.join(',') ?? 'all';
   return useQuery({
-    queryKey: ['flashcards', 'review-cards', 'due-all'],
-    queryFn: () => flashcardsApi.listDueReviewCards(),
+    queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
+    queryFn: () => flashcardsApi.listDueReviewCards(topicIds ?? undefined),
   });
 }
 

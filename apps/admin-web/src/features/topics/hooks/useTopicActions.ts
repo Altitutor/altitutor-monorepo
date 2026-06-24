@@ -25,7 +25,7 @@ interface UseTopicActionsProps {
  */
 export function useTopicActions({
   topicId,
-  topic,
+  topic: _topic,
   onOpenInPage,
   onEdit,
   onDelete,
@@ -35,10 +35,10 @@ export function useTopicActions({
   const handleOpenInPage = useCallback(() => {
     if (onOpenInPage) {
       onOpenInPage();
-    } else if (topic?.subject_id) {
-      router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
+    } else if (topicId) {
+      router.push(`/topics/${topicId}`);
     }
-  }, [topicId, topic, router, onOpenInPage]);
+  }, [topicId, router, onOpenInPage]);
 
   return {
     onOpenInPage: handleOpenInPage,
