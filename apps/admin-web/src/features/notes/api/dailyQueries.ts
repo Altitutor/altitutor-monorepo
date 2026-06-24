@@ -5,7 +5,7 @@ import { notesKeys } from './queryKeys';
 import type { DailyNoteUpdate } from '../types';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
-const DAILY_NOTE_REALTIME_DEBOUNCE_MS = 750;
+const DAILY_NOTE_REALTIME_DEBOUNCE_MS = 250;
 const getDailyNoteRelatedKeys = (row: { date?: string | null }) =>
   row.date ? [notesKeys.daily(row.date)] : [];
 

@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { JumpHighlightExtension } from '../extensions/JumpHighlightExtension';
-import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
+import { useAdminRichTextImageUpload, useRefreshedAdminContent } from '@/features/rich-text-images';
 import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 
 export type { NoteEditorRef };
@@ -30,6 +30,7 @@ interface NoteEditorProps {
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
   const {
+    content,
     onChangeDebounceMs = 200,
     enableCollapsibleHeadings = false,
     ...rest
@@ -39,6 +40,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
     editorRef: ref as React.RefObject<NoteEditorRef | null>,
   });
   const slashMenuSuggestions = useSlashCommandSuggestions();
+  const jsonContent =
+    content && typeof content === 'object'
+      ? (content as unknown as Record<string, unknown>)
+      : null;
+  const { content: refreshedContent } = useRefreshedAdminContent(jsonContent);
 
   return (
     <div
@@ -47,6 +53,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
     >
       <RichTextEditor
         {...rest}
+        content={(refreshedContent as JSONContent | null) ?? content}
         ref={ref}
         minHeight="full"
         onChangeDebounceMs={onChangeDebounceMs}

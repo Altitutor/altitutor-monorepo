@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
-import Link from 'next/link';
-import { FileText } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { RichTextEditor, type JSONContent } from '@altitutor/ui';
 import {
+  ResourcesBackLink,
+  ResourcesPager,
   type ResourceSidebarItem,
   ResourcesSidebar,
-} from '@/features/resources/components/resources-sidebar';
+} from '@/features/resources';
 import { TutorPageContainer } from '@/shared/components/layouts';
-import { tutorCardCn, tutorClickableCardHoverCn } from '@/shared/lib/tutor-visual';
-import { cn } from '@/shared/utils';
+import { tutorCardCn } from '@/shared/lib/tutor-visual';
 import {
   useTutorDocumentationDocument,
   useTutorDocumentationDocuments,
@@ -24,6 +24,10 @@ import type {
 type FolderNode = TutorDocumentationFolder & {
   documents: TutorDocumentationDocument[];
   children: FolderNode[];
+};
+
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (updateCallback: () => void) => void;
 };
 
 function buildFolderNodes(
@@ -84,28 +88,11 @@ function buildFolderNodes(
   ];
 }
 
-function DocumentCards({ documents }: { documents: TutorDocumentationDocument[] }) {
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {documents.map((document) => (
-        <Link
-          key={document.id}
-          href={`/documentation/${document.id}`}
-          className={cn(tutorCardCn('group flex items-start gap-3 p-4'), tutorClickableCardHoverCn)}
-        >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/65 text-muted-foreground">
-            <FileText className="h-5 w-5" aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{document.title || 'Untitled'}</span>
-            <span className="mt-1 block text-xs text-muted-foreground">
-              Updated {new Date(document.updated_at).toLocaleDateString()}
-            </span>
-          </span>
-        </Link>
-      ))}
-    </div>
-  );
+function flattenDocumentItems(items: ResourceSidebarItem[]): Array<{ href: string; label: string }> {
+  return items.flatMap((item) => {
+    const current = item.href ? [{ href: item.href, label: item.label }] : [];
+    return [...current, ...flattenDocumentItems(item.children ?? [])];
+  });
 }
 
 export function TutorDocumentationPage({
@@ -113,6 +100,7 @@ export function TutorDocumentationPage({
 }: {
   selectedDocumentId?: string | null;
 }) {
+  const router = useRouter();
   const foldersQuery = useTutorDocumentationFolders();
   const documentsQuery = useTutorDocumentationDocuments();
   const selectedDocumentQuery = useTutorDocumentationDocument(selectedDocumentId);
@@ -122,53 +110,99 @@ export function TutorDocumentationPage({
     () => buildFolderNodes(foldersQuery.data ?? [], documents, selectedDocumentId),
     [documents, foldersQuery.data, selectedDocumentId],
   );
+  const flatDocumentItems = useMemo(() => flattenDocumentItems(sidebarItems), [sidebarItems]);
 
   const isLoading = foldersQuery.isLoading || documentsQuery.isLoading;
   const selectedDocument = selectedDocumentId
     ? selectedDocumentQuery.data ?? null
     : null;
+  const { prev, next } = useMemo(() => {
+    if (!selectedDocumentId) return { prev: null, next: null };
+    const idx = flatDocumentItems.findIndex((item) => item.href === `/documentation/${selectedDocumentId}`);
+    if (idx === -1) return { prev: null, next: null };
+    return {
+      prev: idx > 0 ? flatDocumentItems[idx - 1] : null,
+      next: idx < flatDocumentItems.length - 1 ? flatDocumentItems[idx + 1] : null,
+    };
+  }, [flatDocumentItems, selectedDocumentId]);
+
+  const navigateWithTreeTransition = useCallback((href: string) => {
+    const transitionDocument = document as ViewTransitionDocument;
+    if (transitionDocument.startViewTransition) {
+      transitionDocument.startViewTransition(() => {
+        router.push(href);
+      });
+      return;
+    }
+    router.push(href);
+  }, [router]);
+
+  if (!selectedDocumentId) {
+    return (
+      <TutorPageContainer className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
+        </div>
+
+        {isLoading ? (
+          <div className={tutorCardCn('h-72 max-w-3xl animate-pulse bg-muted/35')} />
+        ) : documents.length > 0 ? (
+          <div style={{ viewTransitionName: 'documentation-tree' }}>
+            <ResourcesSidebar
+              title="Folders"
+              items={sidebarItems}
+              className="max-w-3xl lg:w-full"
+              onNavigate={navigateWithTreeTransition}
+            />
+          </div>
+        ) : (
+          <div className={tutorCardCn('max-w-3xl p-8 text-center text-sm text-muted-foreground')}>
+            No documentation is available.
+          </div>
+        )}
+      </TutorPageContainer>
+    );
+  }
 
   return (
-    <TutorPageContainer className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
-        <ResourcesSidebar title="Folders" items={sidebarItems} />
-
-        <main className="min-w-0">
-          {isLoading ? (
-            <div className={tutorCardCn('h-72 animate-pulse bg-muted/35')} />
-          ) : selectedDocumentId ? (
-            selectedDocumentQuery.isLoading ? (
-              <div className={tutorCardCn('h-72 animate-pulse bg-muted/35')} />
-            ) : selectedDocument ? (
-              <article className={tutorCardCn('min-h-[60vh] p-5 sm:p-8')}>
-                <h2 className="mb-8 text-2xl font-semibold tracking-tight">
-                  {selectedDocument.title || 'Untitled'}
-                </h2>
-                <div className="min-h-0">
-                  <RichTextEditor
-                    content={selectedDocument.content as JSONContent | null}
-                    editable={false}
-                    minHeight="0px"
-                  />
-                </div>
-              </article>
-            ) : (
-              <div className={tutorCardCn('p-8 text-center text-sm text-muted-foreground')}>
-                Document not found.
-              </div>
-            )
-          ) : documents.length > 0 ? (
-            <DocumentCards documents={documents} />
+    <TutorPageContainer className="space-y-8">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <main className="min-w-0 flex-1 space-y-8">
+          {selectedDocumentQuery.isLoading || isLoading ? (
+            <div className="h-72 animate-pulse rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
+          ) : selectedDocument ? (
+            <article className="mx-auto max-w-3xl pb-12">
+              <h1 className="mb-8 text-3xl font-bold tracking-tight">
+                {selectedDocument.title || 'Untitled'}
+              </h1>
+              <RichTextEditor
+                content={selectedDocument.content as JSONContent | null}
+                editable={false}
+                minHeight="0px"
+              />
+            </article>
           ) : (
             <div className={tutorCardCn('p-8 text-center text-sm text-muted-foreground')}>
-              No documentation is available.
+              Document not found.
             </div>
           )}
         </main>
+
+        <div className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
+          <ResourcesBackLink
+            href="/documentation"
+            label="Back to documents"
+            className="hidden lg:inline-flex"
+          />
+          <div style={{ viewTransitionName: 'documentation-tree' }}>
+            <ResourcesSidebar
+              title="Folders"
+              items={sidebarItems}
+              onNavigate={navigateWithTreeTransition}
+            />
+          </div>
+          <ResourcesPager prev={prev} next={next} ariaLabel="Document navigation" />
+        </div>
       </div>
     </TutorPageContainer>
   );

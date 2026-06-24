@@ -14,9 +14,14 @@ type Project = { id: string; name: string | null };
 interface ProjectSearchSelectProps {
   form: UseFormReturn<NoteFormData>;
   variant?: 'default' | 'pill';
+  editable?: boolean;
 }
 
-export function ProjectSearchSelect({ form, variant = 'default' }: ProjectSearchSelectProps) {
+export function ProjectSearchSelect({
+  form,
+  variant = 'default',
+  editable = true,
+}: ProjectSearchSelectProps) {
   const { data: projects = [] } = useProjects();
 
   return (
@@ -30,6 +35,7 @@ export function ProjectSearchSelect({ form, variant = 'default' }: ProjectSearch
           <FormControl>
             <button
               type="button"
+              disabled={!editable}
               className={cn(
                 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2',
                 'justify-start',
@@ -57,6 +63,7 @@ export function ProjectSearchSelect({ form, variant = 'default' }: ProjectSearch
           <FormItem>
             <SearchableSelect<Project>
               items={projects}
+              disabled={!editable}
               value={selectedProject}
               onValueChange={(p) => field.onChange(p?.id ?? null)}
               getItemId={(p) => p.id}

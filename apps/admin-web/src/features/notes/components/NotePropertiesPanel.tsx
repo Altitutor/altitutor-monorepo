@@ -18,16 +18,21 @@ import { ProjectSearchSelect } from './ProjectSearchSelect';
 interface NotePropertiesPanelProps {
   form: UseFormReturn<NoteFormData>;
   folders?: Folder[];
+  editable?: boolean;
 }
 
-export function NotePropertiesPanel({ form, folders }: NotePropertiesPanelProps) {
+export function NotePropertiesPanel({
+  form,
+  folders,
+  editable = true,
+}: NotePropertiesPanelProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-sm font-semibold text-foreground">Properties</h3>
       <Form {...form}>
         <div className="space-y-4">
-          <FolderSearchSelect form={form} folders={folders} />
-          <ProjectSearchSelect form={form} />
+          <FolderSearchSelect form={form} folders={folders} editable={editable} />
+          <ProjectSearchSelect form={form} editable={editable} />
           <FormField
             control={form.control}
             name="is_tutor_documentation"
@@ -44,6 +49,7 @@ export function NotePropertiesPanel({ form, folders }: NotePropertiesPanelProps)
                     <Switch
                       checked={Boolean(field.value)}
                       onCheckedChange={field.onChange}
+                      disabled={!editable}
                     />
                   </FormControl>
                 </div>

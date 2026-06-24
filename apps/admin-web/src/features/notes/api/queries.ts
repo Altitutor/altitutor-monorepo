@@ -4,7 +4,7 @@ import { foldersApi } from './folders';
 import { notesKeys, foldersKeys } from './queryKeys';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
-const DOCUMENT_REALTIME_DEBOUNCE_MS = 750;
+const DOCUMENT_REALTIME_DEBOUNCE_MS = 150;
 
 const getNoteDocumentDetailKey = (id: string) => notesKeys.detail(id);
 const getNoteDocumentRelatedKeys = (row: { folder_id?: string | null; project_id?: string | null }) => {

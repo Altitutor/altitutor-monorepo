@@ -27,6 +27,7 @@ import {
   ScrollArea,
   SegmentedControl,
   SegmentedTabPanelContent,
+  useToast,
   type JSONContent,
   type MentionClickDetail,
 } from '@altitutor/ui';
@@ -92,6 +93,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const lastLocalContentEditAtRef = useRef(0);
   const suppressLocalContentEditsUntilRef = useRef(0);
   const isUpdatingFromServerRef = useRef(false);
+  const lastTakeoverLockTokenRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
@@ -101,6 +103,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
   const lastBlurSavedTitleRef = useRef<string | null>(null);
   const isEditing = mode === 'edit' && editLock.isHeldByThisWindow;
+  const { toast } = useToast();
 
   const form = useForm<NoteFormData, unknown, NoteFormData>({
     resolver: zodResolver(formSchema) as Resolver<NoteFormData>,
@@ -168,6 +171,22 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
+    } else if (hasServerChange && hasRecentLocalContentEdit && !updateNote.isPending && !isEditing) {
+      const mergedValues: NoteFormData = {
+        ...currentValues,
+        title: nextValues.title,
+        folder_id: nextValues.folder_id,
+        project_id: nextValues.project_id,
+        is_tutor_documentation: nextValues.is_tutor_documentation,
+      };
+      isUpdatingFromServerRef.current = true;
+      form.reset(mergedValues);
+      lastAppliedServerValuesRef.current = mergedValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      lastBlurSavedTitleRef.current = note.title;
+      setTimeout(() => {
+        isUpdatingFromServerRef.current = false;
+      }, 0);
     } else if (JSON.stringify(currentValues) === JSON.stringify(nextValues)) {
       lastAppliedServerValuesRef.current = nextValues;
       lastAppliedServerUpdatedAtRef.current = note.updated_at;
@@ -175,13 +194,21 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     } else if (isInitialized && note.title !== lastBlurSavedTitleRef.current) {
       lastBlurSavedTitleRef.current = note.title;
     }
-  }, [note, noteId, form, isInitialized, updateNote.isPending]);
+  }, [note, noteId, form, isInitialized, updateNote.isPending, isEditing]);
 
   useEffect(() => {
     if (mode === 'edit' && editLock.isHeldByAnotherWindow) {
+      const takeoverLockToken = editLock.lock?.lock_token ?? null;
+      if (takeoverLockToken && takeoverLockToken !== lastTakeoverLockTokenRef.current) {
+        lastTakeoverLockTokenRef.current = takeoverLockToken;
+        toast({
+          title: 'Edit mode ended',
+          description: `${getDocumentEditLockOwnerName(editLock.lock)} is now editing this document.`,
+        });
+      }
       setMode('view');
     }
-  }, [editLock.isHeldByAnotherWindow, mode]);
+  }, [editLock.isHeldByAnotherWindow, editLock.lock, mode, toast]);
 
   useEffect(() => {
     if (note && titleFieldRef.current && !initialFocusDone) {
@@ -295,6 +322,15 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     await enterEditMode();
     setIsTakeoverDialogOpen(false);
   }, [enterEditMode]);
+
+  const showEditModeToast = useCallback(() => {
+    if (isEditing) return;
+    toast({
+      title: 'Switch to edit mode?',
+      description: 'This document is currently open in view mode.',
+      action: { label: 'Edit', onClick: () => void handleModeChange('edit') },
+    });
+  }, [handleModeChange, isEditing, toast]);
 
   const handleContentChange = useCallback(
     (onChange: (value: JSONContent) => void) => (value: JSONContent) => {
@@ -411,6 +447,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onBlur={handleTitleBlur}
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
+                          onPointerDownCapture={() => {
+                            if (!isEditing) showEditModeToast();
+                          }}
+                          onFocus={() => {
+                            if (!isEditing) showEditModeToast();
+                          }}
                           data-placeholder="Untitled"
                           className={`${DOCUMENT_TITLE_FIELD_CLASS} outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap`}
                           suppressContentEditableWarning
@@ -426,7 +468,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           <div className="px-6 pt-8 flex-1 flex flex-col min-h-0">
             <Form {...form}>
               <div className="md:hidden pt-4 mb-4">
-                <NotePropertyPills form={form} folders={foldersArray} />
+                <NotePropertyPills form={form} folders={foldersArray} editable={isEditing} />
               </div>
 
               <div className="md:hidden mb-6">
@@ -437,7 +479,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                 />
               </div>
 
-              <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
+              <div
+                className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0"
+                onPointerDownCapture={() => {
+                  if (!isEditing) showEditModeToast();
+                }}
+              >
                 <FormField
                   control={form.control}
                   name="content"
@@ -445,7 +492,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <FormItem className="flex-1 flex flex-col min-h-0">
                       <FormControl className="flex-1 flex flex-col min-h-0">
                         <NoteEditor
-                          key={`${noteId}-${acceptedServerVersion}`}
+                          key={`${noteId}-${acceptedServerVersion}-${isEditing ? 'edit' : 'view'}`}
                           ref={noteEditorRef}
                           content={field.value}
                           onChange={handleContentChange(field.onChange)}
@@ -465,17 +512,19 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           </div>
         </div>
 
-        <div
-          className="flex-shrink-0 px-6 pointer-events-none"
-          style={{
-            left: isMobile ? 0 : `${sidebarWidth}px`,
-            right: isMobile ? '80px' : '320px',
-          }}
-        >
-          <div className="pointer-events-auto max-w-3xl mx-auto">
-            <NoteEditorBottomToolbar editor={editorInstanceRef.current} />
+        {isEditing ? (
+          <div
+            className="flex-shrink-0 px-6 pointer-events-none"
+            style={{
+              left: isMobile ? 0 : `${sidebarWidth}px`,
+              right: isMobile ? '80px' : '320px',
+            }}
+          >
+            <div className="pointer-events-auto max-w-3xl mx-auto">
+              <NoteEditorBottomToolbar editor={editorInstanceRef.current} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
@@ -495,10 +544,16 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           <div className="flex-1 min-h-0 overflow-hidden">
             <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
               <ScrollArea className="flex-1">
-                <div className="p-6">
+                <div
+                  className="p-6"
+                  onPointerDownCapture={() => {
+                    if (!isEditing) showEditModeToast();
+                  }}
+                >
                   <NotePropertiesPanel
                     form={form}
                     folders={foldersArray}
+                    editable={isEditing}
                   />
                 </div>
               </ScrollArea>
