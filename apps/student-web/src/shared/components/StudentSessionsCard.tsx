@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import {
+  ClickableCardIcon,
+  ClickableCardRevealChevron,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  clickableCardHoverCn,
+} from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
-import { getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 type StudentSession = Database['public']['Views']['vstudent_session_base']['Row'];
@@ -113,10 +121,7 @@ export function StudentSessionsCard({
       })()
     : '';
 
-  const subjectColorHex = (session as Record<string, unknown>).subject_color as string | null ?? null;
   const defaultBorderClass = 'ring-1 ring-black/[0.06] dark:ring-white/10';
-  const iconBackgroundColor = subjectColorHex ? { backgroundColor: subjectColorHex } : undefined;
-  const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   const isGreyedOut = isNotAttending;
   const isExtraSession = isExtra;
@@ -140,7 +145,7 @@ export function StudentSessionsCard({
         'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-all duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
-        onClick ? 'cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : '',
+        onClick ? cn('group cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', clickableCardHoverCn) : '',
         isGreyedOut && 'opacity-50',
         isExtraSession && 'ring-2 ring-yellow-400 dark:ring-yellow-500',
       )}
@@ -148,20 +153,7 @@ export function StudentSessionsCard({
     >
       <div className={cn('flex items-start', shouldUseCompact ? 'gap-1.5' : 'gap-3')}>
         {iconVisible && (
-          <div className="flex-shrink-0">
-            <div
-              className={cn(
-                'h-10 w-10 rounded-lg flex items-center justify-center',
-                iconBackgroundColor ? '' : 'bg-muted text-muted-foreground'
-              )}
-              style={iconBackgroundColor}
-            >
-              <Users
-                className="h-5 w-5"
-                style={iconBackgroundColor ? { stroke: iconStrokeColor } : undefined}
-              />
-            </div>
-          </div>
+          <ClickableCardIcon icon={Users} size="sm" className="rounded-lg" />
         )}
 
         <div className={cn('flex-1 min-w-0', isCalendarView ? 'overflow-visible' : 'overflow-hidden')}>
@@ -202,6 +194,7 @@ export function StudentSessionsCard({
                 )}
               </p>
             </div>
+            {onClick && !shouldUseCompact ? <ClickableCardRevealChevron size="sm" /> : null}
           </div>
 
           {staff.length > 0 && (

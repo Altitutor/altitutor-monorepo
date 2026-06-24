@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom';
 import React from 'react';
 
+jest.mock('@/shared/hooks/useSupabaseRealtimeInvalidation', () => ({
+  useSupabaseRealtimeInvalidation: jest.fn(),
+}));
+
 // Sonner's Toaster (via ToastProvider) reads matchMedia; jsdom does not implement it.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

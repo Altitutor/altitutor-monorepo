@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format, addDays, startOfWeek, eachDayOfInterval, isSameDay, parseISO, isBefore, isPast } from 'date-fns';
 import { Button } from '@altitutor/ui';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { SkeletonTimeSlotGrid } from '@altitutor/ui';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
@@ -202,9 +203,7 @@ export function TimeSlotPicker({
 
       {/* Calendar Grid */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonTimeSlotGrid />
       ) : !hasAnySlots ? (
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">

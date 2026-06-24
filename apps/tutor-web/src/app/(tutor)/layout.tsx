@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   Calendar,
   ChevronDown,
+  FileText,
   FileQuestion,
   FolderTree,
   GitMerge,
@@ -24,10 +25,17 @@ import {
   Dumbbell,
 } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
-import { cn } from '@/shared/utils';
+import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
+import { useResourceSubjects } from '@/features/resources';
+import {
+  getResourceSubjectHref,
+  getResourceSubjectNavLabel,
+  isResourceSubjectNavActive,
+  isResourcesNavSectionActive,
+} from '@altitutor/shared';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 
@@ -104,24 +112,69 @@ function renderUcatDropdownChild(
   );
 }
 
-const primaryNavItems: NavItem[] = [
-  { title: 'Dashboard', href: '/dashboard', icon: Home },
-  { title: 'Classes', href: '/classes', icon: Calendar },
-  { title: 'Pay tier', href: '/pay-tier', icon: TrendingUp },
-  { title: 'Resources', href: '/resources', icon: BookOpen },
-  { type: 'dropdown', title: 'UCAT', href: '/ucat', icon: BrainCircuit, children: ucatDropdownChildren },
-];
-
 const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
 
-function getPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
-  return primaryNavItems.filter(
-    (item) => item.type !== 'dropdown' || (item.type === 'dropdown' && isUcatTutor),
-  );
+function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
+  const { data: subjects } = useResourceSubjects();
+
+  return useMemo(() => {
+    const resourceChildren: DropdownChild[] = (subjects ?? []).map((subject) => ({
+      title: getResourceSubjectNavLabel(subject),
+      href: getResourceSubjectHref(subject),
+      icon: BookOpen,
+    }));
+
+    const items: NavItem[] = [
+      { title: 'Dashboard', href: '/dashboard', icon: Home },
+      { title: 'Classes', href: '/classes', icon: Calendar },
+      { title: 'Pay tier', href: '/pay-tier', icon: TrendingUp },
+      { title: 'Documentation', href: '/documentation', icon: FileText },
+      {
+        type: 'dropdown',
+        title: 'Resources',
+        href: '/resources',
+        icon: BookOpen,
+        children: resourceChildren,
+      },
+    ];
+
+    if (isUcatTutor) {
+      items.push({
+        type: 'dropdown',
+        title: 'UCAT',
+        href: '/ucat',
+        icon: BrainCircuit,
+        children: ucatDropdownChildren,
+      });
+    }
+
+    return items;
+  }, [subjects, isUcatTutor]);
 }
 
-const navHoverStyles =
-  'rounded-xl hover:bg-muted/80 dark:hover:bg-white/[0.07] transition-colors duration-300 ease-out';
+function getInitialOpenDropdowns(pathname: string): Record<string, boolean> {
+  return {
+    Resources: isResourcesNavSectionActive(pathname),
+    UCAT: pathname.startsWith('/ucat'),
+  };
+}
+
+function isDropdownParentActive(pathname: string, parentHref: string): boolean {
+  if (parentHref === '/resources') {
+    return isResourcesNavSectionActive(pathname);
+  }
+  return pathname.startsWith(parentHref);
+}
+
+function isDropdownChildActive(pathname: string, parentHref: string, childHref: string): boolean {
+  if (parentHref === '/resources') {
+    return isResourceSubjectNavActive(pathname, childHref);
+  }
+  if (parentHref === '/ucat') {
+    return isUcatDropdownChildActive(pathname, childHref);
+  }
+  return isNavLinkActive(pathname, childHref);
+}
 
 function isNavLinkActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
@@ -161,10 +214,8 @@ function renderSettingsLink(item: NavLinkItem, pathname: string, collapsed: bool
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
-        active
-          ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
-          : navHoverStyles,
+        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
+        active ? navLinkActiveStyles : navLinkInactiveStyles,
         collapsed && 'justify-center px-0',
       )}
     >
@@ -184,10 +235,14 @@ function MobileMenu({
   primaryItems: NavItem[];
 }) {
   const pathname = usePathname();
-  const [ucatOpen, setUcatOpen] = useState(() => pathname.startsWith('/ucat'));
+  const [openDropdowns, setOpenDropdowns] = useState(() => getInitialOpenDropdowns(pathname));
 
   useEffect(() => {
-    if (pathname.startsWith('/ucat')) setUcatOpen(true);
+    setOpenDropdowns((prev) => ({
+      ...prev,
+      ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
+      ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+    }));
   }, [pathname]);
 
   useEffect(() => {
@@ -219,13 +274,17 @@ function MobileMenu({
     onClose();
   }, [pathname, onClose]);
 
-  const childLinkClass = (href: string) =>
+  const getChildLinkClass = (parentHref: string) => (href: string) =>
     cn(
-      'rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
-      isUcatDropdownChildActive(pathname, href)
-        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
-        : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+      'rounded-xl px-3 py-2 text-sm',
+      isDropdownChildActive(pathname, parentHref, href)
+        ? navActiveStyles
+        : cn('text-muted-foreground', navLinkInactiveStyles),
     );
+
+  const toggleDropdown = (title: string) => {
+    setOpenDropdowns((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   return (
     <>
@@ -261,17 +320,16 @@ function MobileMenu({
                 );
               }
               if (item.type === 'dropdown') {
-                const open = item.title === 'UCAT' ? ucatOpen : false;
-                const isActive = pathname.startsWith(item.href);
+                const open = openDropdowns[item.title] ?? false;
+                const isActive = isDropdownParentActive(pathname, item.href);
                 const Icon = item.icon;
+                const childLinkClass = getChildLinkClass(item.href);
                 return (
                   <div key={item.href} className="flex flex-col gap-0">
                     <div
                       className={cn(
-                        'flex items-center gap-1 rounded-xl px-2 py-2 text-sm transition-all duration-300 ease-out',
-                        isActive
-                          ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
-                          : navHoverStyles,
+                        'flex items-center gap-1 rounded-xl px-2 py-2 text-sm',
+                        isActive ? navLinkActiveStyles : navLinkInactiveStyles,
                       )}
                     >
                       <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
@@ -283,10 +341,11 @@ function MobileMenu({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (item.title === 'UCAT') setUcatOpen((o) => !o);
+                          toggleDropdown(item.title);
                         }}
                         className="shrink-0 rounded-lg p-1 hover:bg-black/10 dark:hover:bg-white/10"
                         aria-expanded={open}
+                        aria-label={open ? `Collapse ${item.title} menu` : `Expand ${item.title} menu`}
                       >
                         <ChevronDown
                           className={cn(
@@ -311,10 +370,8 @@ function MobileMenu({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
-                    active
-                      ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
-                      : navHoverStyles,
+                    'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
+                    active ? navLinkActiveStyles : navLinkInactiveStyles,
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -341,19 +398,27 @@ function SidebarNav({
   ...props
 }: SidebarNavProps & { primaryItems: NavItem[] }) {
   const pathname = usePathname();
-  const [ucatOpen, setUcatOpen] = useState(() => pathname.startsWith('/ucat'));
+  const [openDropdowns, setOpenDropdowns] = useState(() => getInitialOpenDropdowns(pathname));
 
   useEffect(() => {
-    if (pathname.startsWith('/ucat')) setUcatOpen(true);
+    setOpenDropdowns((prev) => ({
+      ...prev,
+      ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
+      ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+    }));
   }, [pathname]);
 
-  const childLinkClass = (href: string) =>
+  const getChildLinkClass = (parentHref: string) => (href: string) =>
     cn(
-      'rounded-xl px-2 py-1.5 text-sm transition-all duration-300 ease-out whitespace-nowrap overflow-hidden',
-      isUcatDropdownChildActive(pathname, href)
-        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
-        : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+      'rounded-xl px-2 py-1.5 text-sm whitespace-nowrap overflow-hidden',
+      isDropdownChildActive(pathname, parentHref, href)
+        ? navActiveStyles
+        : cn('text-muted-foreground', navLinkInactiveStyles),
     );
+
+  const toggleDropdown = (title: string) => {
+    setOpenDropdowns((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   return (
     <div
@@ -409,19 +474,18 @@ function SidebarNav({
               );
             }
             if (item.type === 'dropdown') {
-              const open = item.title === 'UCAT' ? ucatOpen : false;
-              const isActive = pathname.startsWith(item.href);
+              const open = openDropdowns[item.title] ?? false;
+              const isActive = isDropdownParentActive(pathname, item.href);
               const Icon = item.icon;
+              const childLinkClass = getChildLinkClass(item.href);
               if (collapsed) {
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center justify-center rounded-xl px-0 py-2 text-sm transition-all duration-300 ease-out',
-                      isActive
-                        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
-                        : navHoverStyles,
+                      'flex items-center justify-center rounded-xl px-0 py-2 text-sm',
+                      isActive ? navLinkActiveStyles : navLinkInactiveStyles,
                     )}
                   >
                     <Icon className="h-6 w-6" />
@@ -432,10 +496,8 @@ function SidebarNav({
                 <div key={item.href} className="flex flex-col gap-0">
                   <div
                     className={cn(
-                      'flex items-center gap-1 rounded-xl px-2 py-2 text-sm transition-all duration-300 ease-out',
-                      isActive
-                        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
-                        : navHoverStyles,
+                      'flex items-center gap-1 rounded-xl px-2 py-2 text-sm',
+                      isActive ? navLinkActiveStyles : navLinkInactiveStyles,
                     )}
                   >
                     <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
@@ -447,10 +509,11 @@ function SidebarNav({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (item.title === 'UCAT') setUcatOpen((o) => !o);
+                        toggleDropdown(item.title);
                       }}
                       className="shrink-0 rounded-lg p-1 hover:bg-black/10 dark:hover:bg-white/10"
                       aria-expanded={open}
+                      aria-label={open ? `Collapse ${item.title} menu` : `Expand ${item.title} menu`}
                     >
                       <ChevronDown
                         className={cn(
@@ -475,10 +538,8 @@ function SidebarNav({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
-                  active
-                    ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
-                    : navHoverStyles,
+                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
+                  active ? navLinkActiveStyles : navLinkInactiveStyles,
                   collapsed && 'justify-center px-0',
                 )}
               >
@@ -508,7 +569,7 @@ export default function TutorLayout({
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const ucatAccess = useUcatAccess();
   const isUcatTutor = !!ucatAccess.data;
-  const primaryItems = getPrimaryNavItems(isUcatTutor);
+  const primaryItems = useTutorPrimaryNavItems(isUcatTutor);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);

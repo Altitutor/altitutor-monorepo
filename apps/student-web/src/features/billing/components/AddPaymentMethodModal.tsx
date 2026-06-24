@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Label } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Label, SkeletonStripeCardForm } from '@altitutor/ui';
 import { loadStripe, StripeElementsOptions, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CreditCard } from 'lucide-react';
@@ -302,11 +302,7 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && (
-          <div className="flex justify-center items-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-          </div>
-        )}
+        {isLoading && <SkeletonStripeCardForm />}
 
         {!isLoading && clientSecret && (
           <Elements stripe={getStripePromise()} options={elementsOptions}>

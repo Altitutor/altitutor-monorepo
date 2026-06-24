@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@altitutor/ui'
+import { Button, paginationPageActiveStyles, paginationPageInactiveStyles } from '@altitutor/ui'
 import { getTruncatedPageNumbers } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
 import { cn } from '@/shared/utils'
-import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
 
 type UcatCatalogPaginationProps = {
   page: number
@@ -68,11 +68,11 @@ export function UcatCatalogPagination({
           <Button
             key={item}
             type="button"
-            variant={item === currentPage ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
             className={cn(
               'size-8 min-w-8 p-0 text-xs tabular-nums',
-              item === currentPage ? tutorBtnPrimary : tutorBtnOutline,
+              item === currentPage ? paginationPageActiveStyles : paginationPageInactiveStyles,
             )}
             onClick={() => handlePageChange(item)}
             aria-label={`Page ${item}`}

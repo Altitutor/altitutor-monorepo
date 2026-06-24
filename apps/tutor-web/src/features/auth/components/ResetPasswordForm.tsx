@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Alert, AlertDescription } from '@altitutor/ui';
+import { Alert, AlertDescription, SkeletonAuthCard } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
@@ -112,13 +112,8 @@ export function ResetPasswordForm() {
   // Show loading state while verifying session
   if (sessionValid === null) {
     return (
-      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-        <div className="flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue" />
-        </div>
-        <div className="text-center">
-          <p className="text-muted-foreground">Verifying reset session...</p>
-        </div>
+      <div className="w-full max-w-md bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+        <SkeletonAuthCard />
       </div>
     );
   }

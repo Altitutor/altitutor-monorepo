@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RegistrationFlow } from '@/features/auth/components/RegistrationFlow';
 import { useToast } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
+import { SkeletonRegistrationFlow } from '@altitutor/ui';
 
 type RegistrationData = {
   student: {
@@ -100,10 +100,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
   if (isLoading) {
     return (
       <div className="container max-w-4xl py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Loading registration form...</span>
-        </div>
+        <SkeletonRegistrationFlow />
       </div>
     );
   }

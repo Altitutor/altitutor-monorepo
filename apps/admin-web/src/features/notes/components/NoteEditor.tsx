@@ -18,6 +18,7 @@ interface NoteEditorProps {
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
   onMentionClick?: (detail: MentionClickDetail) => boolean;
   enableCollapsibleHeadings?: boolean;
+  editable?: boolean;
   /** Default 200ms — with autosave debounce, changes persist ~0.5–0.8s after you stop typing. */
   onChangeDebounceMs?: number;
 }

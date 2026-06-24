@@ -4,6 +4,10 @@
  */
 
 import { Badge } from '@altitutor/ui';
+import {
+  commandPaletteItemActiveStyles,
+  commandPaletteItemInactiveStyles,
+} from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import type { LucideIcon } from 'lucide-react';
 import { highlightText } from '../utils/highlighting';
@@ -28,10 +32,8 @@ export function PageItem({
   onMouseEnter,
 }: PageItemProps) {
   const baseClasses = cn(
-    'w-full flex items-start gap-3 px-4 py-3 rounded-md cursor-pointer transition-colors text-left',
-    isSelected
-      ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20'
-      : 'hover:bg-muted'
+    'w-full flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer text-left',
+    isSelected ? commandPaletteItemActiveStyles : commandPaletteItemInactiveStyles,
   );
 
   return (

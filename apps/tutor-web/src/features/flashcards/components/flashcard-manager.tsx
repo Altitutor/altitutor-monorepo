@@ -2,6 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   DataTableToolbar,
   Dialog,
   DialogContent,
@@ -32,11 +49,14 @@ import {
   Check,
   Eye,
   EyeOff,
+  GripVertical,
   Loader2,
   MoreHorizontal,
   MoreVertical,
   Pencil,
   Plus,
+  RotateCcw,
+  Rows3,
   Trash2,
   Upload,
   X,
@@ -50,6 +70,7 @@ import type {
 } from '@altitutor/shared';
 import { getClozeIndexes, parseClozeParts, renderClozeQuestionText } from '@altitutor/shared';
 import { UcatRowActions } from '@/features/ucat/shared/row-actions';
+import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar';
 import { useTopics } from '@/features/topics/hooks';
 import {
   tutorBtnIconOutline,
@@ -534,6 +555,47 @@ function compareCards(a: Flashcard, b: Flashcard, sortBy: string | null, directi
   return direction === 'asc' ? result : -result;
 }
 
+function SortableFlashcardRow({
+  cardId,
+  className,
+  children,
+}: {
+  cardId: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: cardId });
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      className={cn(className, isDragging && 'relative z-10 opacity-80')}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
+      <TableCell className="w-10">
+        <button
+          type="button"
+          className="cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing"
+          aria-label="Drag flashcard"
+          {...attributes}
+          {...listeners}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </TableCell>
+      {children}
+    </TableRow>
+  );
+}
+
 export function FlashcardManager({ topicId }: { topicId: string }) {
   const { data: cards = [], isLoading, isFetching } = useFlashcards(topicId);
   const { data: topics = [] } = useTopics();
@@ -543,6 +605,8 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<Flashcard[]>([]);
 
   const visibleColumns = useMemo(() => new Set(state.visibleColumns), [state.visibleColumns]);
 
@@ -561,17 +625,31 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
     return [...searched].sort((a, b) => compareCards(a, b, state.sortBy, state.sortDirection));
   }, [cards, searchFrom, state.search, state.sortBy, state.sortDirection]);
 
+  const displayCards = isReorderMode ? draftOrder : filteredCards;
+
   const paginatedCards = useMemo(() => {
     const start = (state.page - 1) * state.pageSize;
-    return filteredCards.slice(start, start + state.pageSize);
-  }, [filteredCards, state.page, state.pageSize]);
+    return displayCards.slice(start, start + state.pageSize);
+  }, [displayCards, state.page, state.pageSize]);
 
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(filteredCards.length / state.pageSize));
+    const maxPage = Math.max(1, Math.ceil(displayCards.length / state.pageSize));
     if (state.page > maxPage) {
       setState((value) => ({ ...value, page: maxPage }));
     }
-  }, [filteredCards.length, state.page, state.pageSize]);
+  }, [displayCards.length, state.page, state.pageSize]);
+
+  useEffect(() => {
+    if (!isReorderMode) return;
+    setDraftOrder([...cards].sort((a, b) => a.index - b.index));
+  }, [cards, isReorderMode]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const openAdd = () => {
     setEditingCard(null);
@@ -583,7 +661,47 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
     setDialogOpen(true);
   };
 
+  const startReorder = useCallback(() => {
+    setDraftOrder([...cards].sort((a, b) => a.index - b.index));
+    setIsReorderMode(true);
+    setState((value) => ({ ...value, page: 1 }));
+  }, [cards]);
+
+  const cancelReorder = useCallback(() => {
+    setIsReorderMode(false);
+    setDraftOrder([]);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setDraftOrder((items) => {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  }, []);
+
+  const saveReorder = useCallback(async () => {
+    await mutations.reorderCards.mutateAsync({
+      id: topicId,
+      cardIds: draftOrder.map((card) => card.id),
+    });
+    setIsReorderMode(false);
+    setDraftOrder([]);
+  }, [draftOrder, mutations.reorderCards, topicId]);
+
   const isSaving = mutations.createCard.isPending || mutations.updateCard.isPending;
+  const tableColumnCount = (
+    (isReorderMode ? 1 : 0)
+    + Number(visibleColumns.has('index'))
+    + Number(visibleColumns.has('preview'))
+    + Number(visibleColumns.has('clozes'))
+    + Number(visibleColumns.has('extra'))
+    + Number(!isReorderMode && visibleColumns.has('actions'))
+  );
 
   return (
     <section className="space-y-4" aria-labelledby="flashcards-heading">
@@ -603,6 +721,10 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem className="gap-2" onSelect={startReorder}>
+                <Rows3 className="h-4 w-4" />
+                Reorder
+              </DropdownMenuItem>
               <DropdownMenuItem className="gap-2" onSelect={() => setImportOpen(true)}>
                 <Upload className="h-4 w-4" />
                 Import CSV/TSV
@@ -643,73 +765,120 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
           <Table>
             <TableHeader>
               <TableRow className={tutorTableHeaderRow}>
+                {isReorderMode ? <TableHead className="w-10"><span className="sr-only">Reorder</span></TableHead> : null}
                 {visibleColumns.has('index') ? <TableHead className="w-[84px]">Index</TableHead> : null}
                 {visibleColumns.has('preview') ? <TableHead className="min-w-[340px]">Preview</TableHead> : null}
                 {visibleColumns.has('clozes') ? <TableHead className="w-[100px]">Clozes</TableHead> : null}
                 {visibleColumns.has('extra') ? <TableHead className="min-w-[220px]">Extra</TableHead> : null}
-                {visibleColumns.has('actions') ? <TableHead className="w-[88px] text-right">Actions</TableHead> : null}
+                {!isReorderMode && visibleColumns.has('actions') ? <TableHead className="w-[88px] text-right">Actions</TableHead> : null}
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={visibleColumns.size} className="h-24 text-center text-muted-foreground">
-                    Loading flashcards...
-                  </TableCell>
-                </TableRow>
-              ) : paginatedCards.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={visibleColumns.size} className="h-24 text-center text-muted-foreground">
-                    No flashcards found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedCards.map((card) => {
-                  const clozeIndexes = getClozeIndexes(card.cloze_text);
-                  return (
-                    <TableRow key={card.id} className={tutorTableBodyRow}>
-                      {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
-                      {visibleColumns.has('preview') ? (
-                        <TableCell className="max-w-[520px]">
-                          <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                            {htmlToText(renderClozeQuestionText(card.cloze_text, clozeIndexes[0] ?? 1))}
-                          </p>
+            {isReorderMode ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={displayCards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={tableColumnCount} className="h-24 text-center text-muted-foreground">
+                          Loading flashcards...
                         </TableCell>
-                      ) : null}
-                      {visibleColumns.has('clozes') ? (
-                        <TableCell>{card.review_card_count ?? clozeIndexes.length}</TableCell>
-                      ) : null}
-                      {visibleColumns.has('extra') ? (
-                        <TableCell className="max-w-[320px]">
-                          <p className="line-clamp-2 text-sm text-muted-foreground">{htmlToText(card.extra) || '—'}</p>
+                      </TableRow>
+                    ) : paginatedCards.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={tableColumnCount} className="h-24 text-center text-muted-foreground">
+                          No flashcards found.
                         </TableCell>
-                      ) : null}
-                      {visibleColumns.has('actions') ? (
-                        <TableCell onClick={(event) => event.stopPropagation()}>
-                          <div className="flex justify-end">
-                            <UcatRowActions
-                              actions={[
-                                {
-                                  label: 'Edit',
-                                  icon: <Pencil className="h-4 w-4" />,
-                                  onClick: () => openEdit(card),
-                                },
-                                {
-                                  label: 'Delete',
-                                  icon: <Trash2 className="h-4 w-4" />,
-                                  destructive: true,
-                                  onClick: () => mutations.deleteCard.mutate(card.id),
-                                },
-                              ]}
-                            />
-                          </div>
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
+                      </TableRow>
+                    ) : (
+                      paginatedCards.map((card) => {
+                        const clozeIndexes = getClozeIndexes(card.cloze_text);
+                        return (
+                          <SortableFlashcardRow key={card.id} cardId={card.id} className={tutorTableBodyRow}>
+                            {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
+                            {visibleColumns.has('preview') ? (
+                              <TableCell className="max-w-[520px]">
+                                <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                                  {htmlToText(renderClozeQuestionText(card.cloze_text, clozeIndexes[0] ?? 1))}
+                                </p>
+                              </TableCell>
+                            ) : null}
+                            {visibleColumns.has('clozes') ? (
+                              <TableCell>{card.review_card_count ?? clozeIndexes.length}</TableCell>
+                            ) : null}
+                            {visibleColumns.has('extra') ? (
+                              <TableCell className="max-w-[320px]">
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{htmlToText(card.extra) || '—'}</p>
+                              </TableCell>
+                            ) : null}
+                          </SortableFlashcardRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={tableColumnCount} className="h-24 text-center text-muted-foreground">
+                      Loading flashcards...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedCards.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={tableColumnCount} className="h-24 text-center text-muted-foreground">
+                      No flashcards found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedCards.map((card) => {
+                    const clozeIndexes = getClozeIndexes(card.cloze_text);
+                    return (
+                      <TableRow key={card.id} className={tutorTableBodyRow}>
+                        {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
+                        {visibleColumns.has('preview') ? (
+                          <TableCell className="max-w-[520px]">
+                            <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                              {htmlToText(renderClozeQuestionText(card.cloze_text, clozeIndexes[0] ?? 1))}
+                            </p>
+                          </TableCell>
+                        ) : null}
+                        {visibleColumns.has('clozes') ? (
+                          <TableCell>{card.review_card_count ?? clozeIndexes.length}</TableCell>
+                        ) : null}
+                        {visibleColumns.has('extra') ? (
+                          <TableCell className="max-w-[320px]">
+                            <p className="line-clamp-2 text-sm text-muted-foreground">{htmlToText(card.extra) || '—'}</p>
+                          </TableCell>
+                        ) : null}
+                        {visibleColumns.has('actions') ? (
+                          <TableCell onClick={(event) => event.stopPropagation()}>
+                            <div className="flex justify-end">
+                              <UcatRowActions
+                                actions={[
+                                  {
+                                    label: 'Edit',
+                                    icon: <Pencil className="h-4 w-4" />,
+                                    onClick: () => openEdit(card),
+                                  },
+                                  {
+                                    label: 'Delete',
+                                    icon: <Trash2 className="h-4 w-4" />,
+                                    destructive: true,
+                                    onClick: () => mutations.deleteCard.mutate(card.id),
+                                  },
+                                ]}
+                              />
+                            </div>
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            )}
           </Table>
         </div>
       </div>
@@ -717,12 +886,23 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
-        total={filteredCards.length}
+        total={displayCards.length}
         isFetching={isFetching}
         onPageChange={(page) => setState((value) => ({ ...value, page }))}
         onPageSizeChange={(pageSize) => setState((value) => ({ ...value, pageSize, page: 1 }))}
-        activePageButtonClassName={tutorBtnPrimary}
       />
+
+      <UcatSelectionToolbar
+        selectedCount={isReorderMode ? draftOrder.length : 0}
+        onCancel={cancelReorder}
+        hideDelete
+      >
+        <span className="px-1 text-sm font-medium text-muted-foreground">Reorder flashcards</span>
+        <Button type="button" size="sm" className={cn(tutorBtnPrimary, 'gap-1.5')} onClick={saveReorder} disabled={mutations.reorderCards.isPending}>
+          {mutations.reorderCards.isPending ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          Save
+        </Button>
+      </UcatSelectionToolbar>
 
       <FlashcardDialog
         open={dialogOpen}

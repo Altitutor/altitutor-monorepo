@@ -1,10 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { formatResourceTypeLabel, groupFilesByType, pairFilesWithSolutions } from '../lib/helpers';
-import { getResourceTypeAccent, getResourceTypeIcon } from '../lib/resource-type-icons';
+import { getResourceTypeIcon } from '../lib/resource-type-icons';
 import type { ResourceFile } from '../lib/types';
+import {
+  ClickableCardIcon,
+  ClickableCardRevealChevron,
+  clickableCardInteractiveCn,
+} from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { studentCardCn } from '@/shared/lib/student-visual';
 
@@ -32,7 +36,6 @@ export function TopicFilesList({
       {Object.entries(grouped).map(([type, typeFiles]) => {
         const pairs = pairFilesWithSolutions(typeFiles);
         const Icon = getResourceTypeIcon(type);
-        const accentClass = getResourceTypeAccent(type);
         return (
           <section key={type}>
             <h3 className={cn(fileTypeHeadingClassName)}>{formatResourceTypeLabel(type)}</h3>
@@ -42,8 +45,7 @@ export function TopicFilesList({
                   key={primary.id}
                   className={cn(
                     studentCardCn('group relative overflow-hidden p-4'),
-                    !staticDisplay &&
-                      'hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] focus-within:-translate-y-0.5 focus-within:shadow-[0_12px_40px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_12px_40px_rgb(0,0,0,0.32)] dark:focus-within:shadow-[0_12px_40px_rgb(0,0,0,0.32)]',
+                    !staticDisplay && clickableCardInteractiveCn,
                   )}
                 >
                   {!staticDisplay && getFileHref ? (
@@ -59,20 +61,9 @@ export function TopicFilesList({
                       staticDisplay ? '' : 'pointer-events-none',
                     )}
                   >
-                    <div
-                      className={cn(
-                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-300',
-                        accentClass,
-                      )}
-                    >
-                      <Icon className="h-5 w-5" aria-hidden />
-                    </div>
+                    <ClickableCardIcon icon={Icon} size="sm" />
                     <span
-                      className={cn(
-                        'min-w-0 flex-1 truncate text-sm font-medium leading-snug tracking-tight text-card-foreground',
-                        !staticDisplay &&
-                          'transition-colors duration-300 group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue',
-                      )}
+                      className="min-w-0 flex-1 truncate text-sm font-medium leading-snug tracking-tight text-card-foreground"
                     >
                       {primary.code} · {primary.filename}
                     </span>
@@ -93,14 +84,7 @@ export function TopicFilesList({
                           )
                         )
                       ) : null}
-                      <ArrowRight
-                        className={cn(
-                          'h-4 w-4 text-muted-foreground',
-                          !staticDisplay &&
-                            'transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:text-foreground',
-                        )}
-                        aria-hidden
-                      />
+                      {!staticDisplay ? <ClickableCardRevealChevron size="sm" /> : null}
                     </div>
                   </div>
                 </div>

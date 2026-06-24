@@ -107,16 +107,6 @@ export const UCAT_HEADER_ICON_BUTTON = cn(
 export const UCAT_APP_HEADER_RULE =
   "border-b border-black/[0.045] dark:border-white/[0.06]";
 
-/**
- * Current page in `TablePagination` — matches sidebar **selected** nav treatment:
- * light: same fill as `--primary` (via `--sidebar`); dark: `sidebar-foreground/20` wash like active nav links.
- */
-export const UCAT_PAGINATION_ACTIVE_PAGE_BUTTON = cn(
-  "border-transparent shadow-sm font-medium text-sidebar-foreground",
-  "bg-sidebar hover:bg-sidebar/88",
-  "dark:bg-sidebar-foreground/20 dark:hover:bg-sidebar-foreground/28",
-);
-
 /** Session detail / smaller list tiles */
 export const UCAT_COMPACT_LIST_ROW = cn(
   UCAT_SURFACE_CARD,

@@ -10,6 +10,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Form,
   FormControl,
   FormField,
@@ -32,6 +40,11 @@ import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
+import {
+  getDocumentEditLockOwnerName,
+  isDocumentEditLockActive,
+  useDocumentEditLock,
+} from '../hooks/useDocumentEditLock';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
@@ -56,7 +69,10 @@ const formSchema = z.object({
   content: z.any(),
   folder_id: z.string().nullable().optional(),
   project_id: z.string().nullable().optional(),
+  is_tutor_documentation: z.boolean().optional(),
 });
+
+type DocumentMode = 'view' | 'edit';
 
 interface EditDocumentDialogProps {
   isOpen: boolean;
@@ -71,11 +87,16 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const lastResetNoteIdRef = useRef<string | null>(null);
   const lastAppliedServerValuesRef = useRef<NoteFormData | null>(null);
   const lastAppliedServerUpdatedAtRef = useRef<string | null>(null);
+  const lastLocalContentEditAtRef = useRef(0);
+  const suppressLocalContentEditsUntilRef = useRef(0);
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [acceptedServerVersion, setAcceptedServerVersion] = useState<string>('');
+  const [mode, setMode] = useState<DocumentMode>('view');
   const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
   const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('properties');
 
@@ -88,6 +109,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
 
   useEffect(() => {
     setLinkedDocumentId(null);
+    setMode('view');
   }, [noteId]);
 
   /** Until reset runs, RHF can still hold the previous note — never paint that into the editor. */
@@ -102,6 +124,21 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const { data: folders } = useFolders();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const editLock = useDocumentEditLock(noteId, !!noteId && isOpen);
+  const isEditing = mode === 'edit' && editLock.isHeldByThisWindow;
+
+  useEffect(() => {
+    if (mode === 'edit' && editLock.isHeldByAnotherWindow) {
+      setMode('view');
+    }
+  }, [editLock.isHeldByAnotherWindow, mode]);
+
+  useEffect(() => {
+    if (!isOpen && mode === 'edit') {
+      setMode('view');
+      void editLock.release();
+    }
+  }, [editLock, isOpen, mode]);
 
   const form = useForm<NoteFormData>({
     resolver: zodResolver(formSchema) as Resolver<NoteFormData>,
@@ -110,6 +147,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
       content: '',
       folder_id: null,
       project_id: null,
+      is_tutor_documentation: false,
     },
   });
 
@@ -144,15 +182,14 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
       content: (note.content as JSONContent) || '',
       folder_id: note.folder_id,
       project_id: (note as { project_id?: string | null }).project_id ?? null,
+      is_tutor_documentation: Boolean(note.is_tutor_documentation),
     };
     const isInitialLoad = note.id !== lastResetNoteIdRef.current;
-    const currentValues = form.getValues();
-    const lastAppliedValues = lastAppliedServerValuesRef.current;
-    const hasLocalChanges =
-      !!lastAppliedValues && JSON.stringify(currentValues) !== JSON.stringify(lastAppliedValues);
     const hasServerChange = note.updated_at !== lastAppliedServerUpdatedAtRef.current;
+    const hasRecentLocalContentEdit = Date.now() - lastLocalContentEditAtRef.current < 5000;
 
-    if (!isInitialLoad && (!hasServerChange || hasLocalChanges || updateNote.isPending)) {
+    if (!isInitialLoad && (!hasServerChange || hasRecentLocalContentEdit || updateNote.isPending)) {
+      const currentValues = form.getValues();
       if (JSON.stringify(currentValues) === JSON.stringify(nextValues)) {
         lastAppliedServerValuesRef.current = nextValues;
         lastAppliedServerUpdatedAtRef.current = note.updated_at;
@@ -166,6 +203,8 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     lastResetNoteIdRef.current = note.id;
     lastAppliedServerValuesRef.current = nextValues;
     lastAppliedServerUpdatedAtRef.current = note.updated_at;
+    suppressLocalContentEditsUntilRef.current = Date.now() + 1000;
+    setAcceptedServerVersion(note.updated_at);
     setIsInitialized(true);
     queueMicrotask(() => {
       isUpdatingFromServerRef.current = false;
@@ -177,8 +216,11 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
       lastResetNoteIdRef.current = null;
       lastAppliedServerValuesRef.current = null;
       lastAppliedServerUpdatedAtRef.current = null;
+      lastLocalContentEditAtRef.current = 0;
+      suppressLocalContentEditsUntilRef.current = 0;
       setIsInitialized(false);
       setEditorInstance(null);
+      setAcceptedServerVersion('');
     }
   }, [isOpen]);
 
@@ -194,11 +236,59 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     [noteId, updateNote]
   );
 
+  const handleContentChange = useCallback(
+    (onChange: (value: JSONContent) => void) => (value: JSONContent) => {
+      if (
+        !isUpdatingFromServerRef.current &&
+        Date.now() > suppressLocalContentEditsUntilRef.current
+      ) {
+        lastLocalContentEditAtRef.current = Date.now();
+      }
+      onChange(value);
+    },
+    []
+  );
+
   const handleDelete = useCallback(async () => {
     if (!noteId) return;
     await deleteNote.mutateAsync(noteId);
     onClose();
   }, [noteId, deleteNote, onClose]);
+
+  const enterEditMode = useCallback(async () => {
+    await editLock.acquire();
+    setMode('edit');
+  }, [editLock]);
+
+  const handleModeChange = useCallback(
+    async (nextMode: DocumentMode) => {
+      if (nextMode === mode) return;
+
+      if (nextMode === 'view') {
+        setMode('view');
+        await editLock.release();
+        return;
+      }
+
+      const latestLock = (await editLock.refetch()).data ?? null;
+      if (
+        latestLock &&
+        isDocumentEditLockActive(latestLock) &&
+        latestLock.lock_token !== editLock.lockToken
+      ) {
+        setIsTakeoverDialogOpen(true);
+        return;
+      }
+
+      await enterEditMode();
+    },
+    [editLock, enterEditMode, mode]
+  );
+
+  const handleTakeover = useCallback(async () => {
+    await enterEditMode();
+    setIsTakeoverDialogOpen(false);
+  }, [enterEditMode]);
 
   const titleText = form.watch('title');
   useFitDocumentTitle(titleInputRef, titleText);
@@ -229,7 +319,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
-                {updateNote.isPending ? (
+                {isEditing && updateNote.isPending ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
                     <span>Saving...</span>
@@ -246,6 +336,16 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   </>
                 )}
               </div>
+              <SegmentedControl<DocumentMode>
+                value={mode}
+                onValueChange={(value) => void handleModeChange(value)}
+                size="sm"
+                aria-label="Document mode"
+                options={[
+                  { value: 'view', label: 'View' },
+                  { value: 'edit', label: 'Edit' },
+                ]}
+              />
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -284,7 +384,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   form={form}
                   noteId={noteId}
                   note={note ?? undefined}
-                  isInitialized={isInitialized}
+                  isInitialized={isInitialized && isEditing}
                   isUpdatingFromServer={() => isUpdatingFromServerRef.current}
                   onSave={handleAutoSave}
                 />
@@ -315,6 +415,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                                 ref={titleInputRef}
                                 value={field.value || ''}
                                 onChange={field.onChange}
+                                readOnly={!isEditing}
                                 placeholder="Untitled"
                                 className={cn(
                                   'w-full bg-transparent outline-none border-none',
@@ -333,10 +434,11 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                           <FormItem>
                             <FormControl>
                               <NoteEditor
-                                key={noteId}
+                                key={`${noteId}-${acceptedServerVersion}`}
                                 ref={noteEditorRef}
                                 content={field.value}
-                                onChange={field.onChange}
+                                onChange={handleContentChange(field.onChange)}
+                                editable={isEditing}
                                 placeholder="Start writing..."
                                 enableCollapsibleHeadings
                                 onEditorReady={handleEditorReady}
@@ -411,6 +513,22 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           onClose={() => setLinkedDocumentId(null)}
         />
       ) : null}
+      <AlertDialog open={isTakeoverDialogOpen} onOpenChange={setIsTakeoverDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Take over editing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getDocumentEditLockOwnerName(editLock.lock)} is editing this document. If you proceed, they will be moved back to view mode.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleTakeover()}>
+              Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
+import { SkeletonAuthCard } from '@altitutor/ui';
 import Link from 'next/link';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
@@ -59,9 +59,8 @@ function ResetPasswordContent() {
     return (
       <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-brand-lightBlue/20 dark:to-brand-dark-card/50 z-0"></div>
-        <div className="relative z-10 flex flex-col items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue mb-4" />
-          <div className="text-center">Validating reset token...</div>
+        <div className="relative z-10">
+          <SkeletonAuthCard />
         </div>
       </div>
     );
@@ -111,7 +110,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue" />
+        <SkeletonAuthCard />
       </div>
     }>
       <ResetPasswordContent />

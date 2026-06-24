@@ -1,116 +1,206 @@
-import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+'use client';
+
 import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@/shared/components/segmented-tab-panel';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SessionInfoGrid,
+  Badge,
+  ClassStatusBadge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@altitutor/ui';
+import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { cn } from '@/shared/utils';
-import { tutorSheetContentClass } from '@/shared/lib/tutor-visual';
+import {
+  tutorModalHairline,
+  tutorSheetContentClass,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual';
 import { useClassModalData } from '../../hooks/useClassModalData';
-import { ClassInfoTab } from './tabs/ClassInfoTab';
-import { ClassStudentsTab } from './tabs/ClassStudentsTab';
-import { ClassStaffTab } from './tabs/ClassStaffTab';
 
 interface ViewClassModalProps {
   isOpen: boolean;
   classId: string | null;
   onClose: () => void;
-  onClassUpdated: () => void;
+  onClassUpdated?: () => void;
 }
 
-/**
- * ViewClassModal for tutor-web
- * 
- * IMPORTANT: Tutors can only VIEW class details, not edit them.
- * All data comes from vtutor_class_detail view which includes students and staff as JSON arrays.
- */
-export function ViewClassModal({ 
-  isOpen, 
-  classId, 
-  onClose, 
-  onClassUpdated: _onClassUpdated 
+export function ViewClassModal({
+  isOpen,
+  classId,
+  onClose,
+  onClassUpdated: _onClassUpdated,
 }: ViewClassModalProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'students' | 'staff'>('info');
-
-  // Use hook for all class data loading and processing
-  const {
-    classDetail,
-    students,
-    staff,
-    classData,
-    subject,
-    isLoading,
-  } = useClassModalData({
+  const { students, staff, classData, subject, isLoading } = useClassModalData({
     isOpen,
     classId,
   });
 
-  // Early return if no class data loaded
-  if (!classDetail || !classData) {
+  if (isLoading || !classData) {
     return (
-      <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className={cn(tutorSheetContentClass, 'max-w-md')}>
-          <SheetHeader>
-            <SheetTitle>Loading class...</SheetTitle>
-          </SheetHeader>
+      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent
+          className={cn(
+            'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
+            tutorSheetContentClass,
+          )}
+        >
+          <div className="flex-1 overflow-y-auto p-6">
+            <SheetHeader className="mb-6">
+              <SheetTitle>{isLoading ? 'Loading...' : 'Class Details'}</SheetTitle>
+            </SheetHeader>
+            {isLoading ? (
+              <div className="py-6 text-center text-muted-foreground">Loading class details...</div>
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Class not found or you do not have access to it.
+              </div>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     );
   }
 
+  const classTitle =
+    classData.long_name?.trim() ||
+    classData.short_name?.trim() ||
+    classData.level?.trim() ||
+    'Class Details';
+
+  const sortedStudents = [...students].sort((a, b) =>
+    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`),
+  );
+
+  const sortedStaff = [...staff].sort((a, b) =>
+    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`),
+  );
+
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className={cn(tutorSheetContentClass, 'max-w-md overflow-y-auto')}>
-        <SheetHeader>
-          <SheetTitle>
-            {classData.level}
-          </SheetTitle>
-        </SheetHeader>
-        
-        <div className="mt-6">
-          <SegmentedTabPanel
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as 'info' | 'students' | 'staff')}
-            className="w-full"
-            options={[
-              { value: 'info', label: 'Info' },
-              { value: 'students', label: 'Students' },
-              { value: 'staff', label: 'Staff' },
-            ]}
-          >
-            <SegmentedTabPanelContent when="info" activeTab={activeTab} className="mt-4">
-              <ClassInfoTab
-                classData={classData}
-                subject={subject}
-                subjects={[]} // Not needed for view-only
-                isEditing={false} // Tutors can't edit
-                isLoading={isLoading}
-                onEdit={() => {}} // No-op
-                onCancelEdit={() => {}} // No-op
-                onSubmit={async () => {}} // No-op - tutors can't update classes
-              />
-            </SegmentedTabPanelContent>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        className={cn(
+          'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
+          tutorSheetContentClass,
+        )}
+      >
+        <div className="flex-1 overflow-y-auto p-6">
+          <SheetHeader className="mb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <SheetTitle>Class Details</SheetTitle>
+                <SheetDescription className="text-lg font-medium">{classTitle}</SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
 
-            <SegmentedTabPanelContent when="students" activeTab={activeTab} className="mt-4">
-              <ClassStudentsTab
-                classStudents={students}
-                allStudents={students} // Students come from view only
-                loadingStudents={isLoading}
-                onEnrollStudent={async () => {}} // No-op - tutors can't enroll students
-                onRemoveStudent={async () => {}} // No-op - tutors can't remove students
+          <div className="space-y-6">
+            <div>
+              <h3 className="mb-4 text-lg font-semibold">Class Information</h3>
+              <SessionInfoGrid
+                day={getDayOfWeek(classData.day_of_week)}
+                time={`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}
+                subjectNode={
+                  subject
+                    ? (() => {
+                        const { style, textColorClass } = getSubjectColorStyle(subject);
+                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                        return (
+                          <Badge
+                            className={defaultClass || textColorClass}
+                            style={style.backgroundColor ? style : undefined}
+                          >
+                            {formatSubjectDisplay(subject)}
+                          </Badge>
+                        );
+                      })()
+                    : '—'
+                }
               />
-            </SegmentedTabPanelContent>
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="text-sm font-medium text-muted-foreground">Status:</div>
+                <div className="text-sm">
+                  <ClassStatusBadge
+                    value={classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL' | null}
+                  />
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">Room:</div>
+                <div className="text-sm">{classData.room || '—'}</div>
+              </div>
+            </div>
 
-            <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="mt-4">
-              <ClassStaffTab
-                classStaff={staff}
-                allStaff={[]} // Not needed for view-only
-                loadingStaff={isLoading}
-                onAssignStaff={async () => {}} // No-op - tutors can't assign staff
-                onRemoveStaff={async () => {}} // No-op - tutors can't remove staff
-              />
-            </SegmentedTabPanelContent>
-          </SegmentedTabPanel>
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Students ({sortedStudents.length})</h3>
+              </div>
+              {sortedStudents.length === 0 ? (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  No students enrolled
+                </div>
+              ) : (
+                <div className={tutorTableShell}>
+                  <Table>
+                    <TableHeader className="[&_tr]:border-b-0">
+                      <TableRow className={tutorTableHeaderRow}>
+                        <TableHead>Student</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedStudents.map((student) => (
+                        <TableRow key={student.id} className={tutorTableBodyRow}>
+                          <TableCell className="font-medium">
+                            {student.first_name} {student.last_name}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Staff ({sortedStaff.length})</h3>
+              </div>
+              {sortedStaff.length === 0 ? (
+                <div className="py-4 text-center text-sm text-muted-foreground">No staff assigned</div>
+              ) : (
+                <div className={tutorTableShell}>
+                  <Table>
+                    <TableHeader className="[&_tr]:border-b-0">
+                      <TableRow className={tutorTableHeaderRow}>
+                        <TableHead>Staff</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedStaff.map((staffMember) => (
+                        <TableRow key={staffMember.id} className={tutorTableBodyRow}>
+                          <TableCell className="font-medium">
+                            {staffMember.first_name} {staffMember.last_name}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

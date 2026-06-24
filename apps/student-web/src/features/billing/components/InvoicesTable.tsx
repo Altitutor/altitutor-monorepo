@@ -12,8 +12,9 @@ import {
   Button,
   TablePagination,
   PAID_INVOICE_BADGE_VARIANT,
+  SkeletonTable,
 } from '@altitutor/ui';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import {
   studentBtnOutline,
@@ -101,8 +102,8 @@ export function InvoicesTable() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className={studentTableShell}>
+        <SkeletonTable rows={6} columns={5} />
       </div>
     );
   }

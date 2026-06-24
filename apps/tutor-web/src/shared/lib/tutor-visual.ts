@@ -73,6 +73,13 @@ export const tutorBtnPrimary = cn(tutorTransition, 'rounded-xl shadow-sm');
 /** Icon-only outline control (back, close, expand) */
 export const tutorBtnIconOutline = cn(tutorBtnOutline, 'size-9 shrink-0');
 
+export {
+  clickableCardFocusRingCn as tutorClickableCardFocusRingCn,
+  clickableCardFocusWithinCn as tutorClickableCardFocusWithinCn,
+  clickableCardHoverCn as tutorClickableCardHoverCn,
+  clickableCardInteractiveCn as tutorClickableCardInteractiveCn,
+} from '@altitutor/ui';
+
 export const tutorToolbarClassName = 'py-1';
 
 export const tutorToolbarRowClassName = 'gap-2';

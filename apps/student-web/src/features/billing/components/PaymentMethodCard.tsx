@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@altitutor/ui';
-import { CreditCard, Plus, Loader2 } from 'lucide-react';
+import { Button, SkeletonPaymentMethodCard } from '@altitutor/ui';
+import { CreditCard, Plus } from 'lucide-react';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { AddPaymentMethodModal } from './AddPaymentMethodModal';
 import { PaymentMethodsList } from './PaymentMethodsList';
@@ -19,11 +19,7 @@ export function PaymentMethodCard() {
   const studentId = billing?.student_id || profile?.id;
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <SkeletonPaymentMethodCard />;
   }
 
   // Handle payment_methods - should already be transformed to array by API layer

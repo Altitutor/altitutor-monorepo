@@ -19,7 +19,6 @@ import { NotebookText } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   UCAT_LIST_ROW_LINK,
-  UCAT_PAGINATION_ACTIVE_PAGE_BUTTON,
 } from "@/lib/ucat-surface-motion";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -160,7 +159,6 @@ export function MocksListPage() {
               total={filteredMocks.length}
               onPageChange={(p) => setPage(p - 1)}
               onPageSizeChange={handlePageSizeChange}
-              activePageButtonClassName={UCAT_PAGINATION_ACTIVE_PAGE_BUTTON}
             />
           </div>
         )}

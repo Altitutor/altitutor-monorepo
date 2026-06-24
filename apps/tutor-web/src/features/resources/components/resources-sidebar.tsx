@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils';
 import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 export type ResourceSidebarItem = {
@@ -57,10 +57,8 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
             href={item.href}
             aria-current={item.active ? 'page' : undefined}
             className={cn(
-              'min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-300 ease-out',
-              item.active
-                ? 'bg-brand-darkBlue text-white shadow-sm hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
-                : 'hover:bg-muted/80',
+              'min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium',
+              item.active ? navLinkActiveStyles : navLinkInactiveStyles,
             )}
           >
             <span className="block truncate" title={item.label}>

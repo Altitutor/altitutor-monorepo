@@ -88,7 +88,14 @@ export function useSupabaseRealtimeInvalidation({
           getRelatedKeys?.(row).forEach(invalidateKey);
         }
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error(
+            `[useSupabaseRealtimeInvalidation] ${table} subscription failed`,
+            error
+          );
+        }
+      });
 
     return () => {
       if (debounceTimeout) clearTimeout(debounceTimeout);

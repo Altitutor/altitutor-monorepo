@@ -45,6 +45,15 @@ export const flashcardsApi = {
     return readJson<Flashcard>(res);
   },
 
+  async reorderCards(topicId: string, cardIds: string[]): Promise<{ updated: number }> {
+    const res = await fetch('/api/flashcards/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic_id: topicId, card_ids: cardIds }),
+    });
+    return readJson<{ updated: number }>(res);
+  },
+
   async importCsv(topicId: string, csv: string): Promise<{ inserted: number; rejected: Array<{ row: number; reason: string }> }> {
     const res = await fetch('/api/flashcards/import', {
       method: 'POST',

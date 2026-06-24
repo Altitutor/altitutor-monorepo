@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BlockoutDatesTable } from '@/features/bookings/components/BlockoutDatesTable';
 import { blockoutsApi, type BlockoutRow } from '@/features/bookings/api/blockouts';
-import { ChevronLeft, Loader2 } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { ChevronLeft } from 'lucide-react';
+import { Button, SkeletonPageHeader, SkeletonTable } from '@altitutor/ui';
 import { TutorPageContainer } from '@/shared/components/layouts';
 
 export default function BlockoutsPage() {
@@ -31,9 +31,10 @@ export default function BlockoutsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <TutorPageContainer className="space-y-6">
+        <SkeletonPageHeader showBack />
+        <SkeletonTable rows={6} columns={4} />
+      </TutorPageContainer>
     );
   }
 

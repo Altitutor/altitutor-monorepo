@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search,
   Loader2,
   Home,
   CheckSquare,
@@ -20,7 +19,7 @@ import {
   Newspaper,
   FolderKanban,
 } from 'lucide-react';
-import { Input, Button } from '@altitutor/ui';
+import { Input, SearchFromDropdown } from '@altitutor/ui';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
 import {
   additionalPages,
@@ -73,6 +72,26 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Documents', href: '/documents', icon: FileText },
 ];
 
+const COMMAND_PALETTE_FILTER_OPTIONS: Array<{ type: FilterType; label: string }> = [
+  { type: 'command', label: 'Commands' },
+  { type: 'page', label: 'Pages' },
+  { type: 'student', label: 'Students' },
+  { type: 'staff', label: 'Staff' },
+  { type: 'parent', label: 'Parents' },
+  { type: 'class', label: 'Classes' },
+  { type: 'subject', label: 'Subjects' },
+  { type: 'task', label: 'Tasks' },
+  { type: 'issue', label: 'Issues' },
+  { type: 'project', label: 'Projects' },
+  { type: 'topic', label: 'Topics' },
+  { type: 'file', label: 'Files' },
+  { type: 'note', label: 'Notes' },
+];
+
+const ALL_COMMAND_PALETTE_FILTER_TYPES = COMMAND_PALETTE_FILTER_OPTIONS.map(
+  (filter) => filter.type,
+);
+
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
@@ -85,7 +104,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const resultsRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType | null>(null);
+  const [selectedFilters, setSelectedFilters] = useState<FilterType[]>(
+    ALL_COMMAND_PALETTE_FILTER_TYPES,
+  );
 
   // Get command actions (may be null if QuickActionsProvider not available)
   const commandActions = useCommandPaletteCommandActions(onClose);
@@ -103,6 +124,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const { results: entityResults, isLoading: isSearching } = useCommandPaletteSearch({
     search: searchQuery,
     enabled: isOpen,
+    selectedFilters,
+    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
   });
 
   // Filter and sort items
@@ -111,7 +134,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     pages: allPages,
     entityResults,
     searchQuery,
-    selectedFilter,
+    selectedFilters,
+    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
     entityTypeMapping: ENTITY_TYPE_MAPPING,
     entityTypes,
   });
@@ -128,7 +152,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     if (!isOpen) return;
     setSearchQuery('');
     setSelectedIndex(0);
-    setSelectedFilter(null);
+    setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
     const t = setTimeout(() => inputRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [isOpen]);
@@ -224,37 +248,6 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     [selectedIndex, searchQuery, handleSelectItem]
   );
 
-  // Toggle filter (single select - clicking same filter deselects it)
-  const toggleFilter = useCallback((filterType: FilterType) => {
-    setSelectedFilter((prev) => {
-      // If clicking the same filter, deselect it
-      if (prev === filterType) {
-        return null;
-      }
-      // Otherwise, select the new filter
-      return filterType;
-    });
-  }, []);
-
-  // Define available filters
-  const availableFilters: Array<{ type: FilterType; label: string }> = useMemo(() => {
-    return [
-      { type: 'command', label: 'Commands' },
-      { type: 'page', label: 'Pages' },
-      { type: 'student', label: 'Students' },
-      { type: 'staff', label: 'Staff' },
-      { type: 'parent', label: 'Parents' },
-      { type: 'class', label: 'Classes' },
-      { type: 'subject', label: 'Subjects' },
-      { type: 'task', label: 'Tasks' },
-      { type: 'issue', label: 'Issues' },
-      { type: 'project', label: 'Projects' },
-      { type: 'topic', label: 'Topics' },
-      { type: 'file', label: 'Files' },
-      { type: 'note', label: 'Notes' },
-    ];
-  }, []);
-
   if (!isOpen) return null;
 
   return (
@@ -264,41 +257,35 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
           className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100dvh-2rem)] max-h-[800px]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Search input - styled like searchable-select-inline */}
-          <div className="flex items-center border-b px-3 flex-shrink-0">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <Input
-              ref={inputRef}
-              type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files, notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex h-11 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            {isSearching && <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />}
-          </div>
-
-          {/* Filter buttons */}
-          <div className="px-4 py-2 border-b flex flex-wrap gap-2 flex-shrink-0">
-            {availableFilters.map((filter) => {
-              const isSelected = selectedFilter === filter.type;
-              return (
-                <Button
-                  key={filter.type}
-                  variant={isSelected ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleFilter(filter.type);
-                  }}
-                  className="h-7 text-xs"
-                >
-                  {filter.label}
-                </Button>
-              );
-            })}
+          {/* Search input with entity type filter */}
+          <div className="flex shrink-0 border-b px-3 py-2">
+            <div className="flex h-10 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <SearchFromDropdown
+                options={COMMAND_PALETTE_FILTER_OPTIONS.map((filter) => ({
+                  label: filter.label,
+                  value: filter.type,
+                }))}
+                value={selectedFilters}
+                onValueChange={(values) => setSelectedFilters(values as FilterType[])}
+                menuLabel="Search in"
+                allSelectedLabel="All types"
+                partialSelectedSuffix="types"
+                menuContentClassName="z-[110]"
+                modal={false}
+              />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files, notes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              {isSearching ? (
+                <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin opacity-50" />
+              ) : null}
+            </div>
           </div>
 
           {/* Results */}

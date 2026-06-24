@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button, SearchableSelect, ScrollArea } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea, SkeletonListRows } from "@altitutor/ui";
 import { Loader2, Users, Plus, X, Search } from "lucide-react";
 import { cn } from "@/shared/utils";
 // import { ViewStudentModal } from '@/features/students'; // TODO: Tutor-web doesn't have students feature
@@ -9,6 +9,7 @@ interface ClassStudentsTabProps {
   classStudents: Tables<'students'>[];
   allStudents: Tables<'students'>[];
   loadingStudents: boolean;
+  readOnly?: boolean;
   onEnrollStudent: (studentId: string) => void;
   onRemoveStudent: (studentId: string) => void;
 }
@@ -17,6 +18,7 @@ export function ClassStudentsTab({
   classStudents,
   allStudents,
   loadingStudents,
+  readOnly = false,
   onEnrollStudent,
   onRemoveStudent
 }: ClassStudentsTabProps) {
@@ -117,27 +119,29 @@ export function ClassStudentsTab({
           </div>
         )}
 
-        <SearchableSelect<Tables<'students'>>
-          {...studentSelectProps}
-          trigger={addStudentTrigger}
-          align="end"
-        />
+        {!readOnly ? (
+          <SearchableSelect<Tables<'students'>>
+            {...studentSelectProps}
+            trigger={addStudentTrigger}
+            align="end"
+          />
+        ) : null}
       </div>
 
       {loadingStudents ? (
-        <div className="flex-1 flex justify-center items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonListRows rows={5} />
       ) : classStudents.length === 0 && enrollingStudents.size === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center">
           <Users className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No students enrolled</p>
-          <SearchableSelect<Tables<'students'>>
-            {...studentSelectProps}
-            trigger={enrollStudentTrigger}
-            align="center"
-            emptyMessage="No students found"
-          />
+          {!readOnly ? (
+            <SearchableSelect<Tables<'students'>>
+              {...studentSelectProps}
+              trigger={enrollStudentTrigger}
+              align="center"
+              emptyMessage="No students found"
+            />
+          ) : null}
         </div>
       ) : (
         <ScrollArea className="flex-1">
@@ -186,30 +190,32 @@ export function ClassStudentsTab({
                   )}
                 </div>
                 
-                <div className="flex space-x-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleViewStudent(student.id)}
-                    title="View Student"
-                    disabled={removingStudents.has(student.id)}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleRemoveStudent(student.id)}
-                    title="Remove Student"
-                    disabled={removingStudents.has(student.id)}
-                  >
-                    {removingStudents.has(student.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                {!readOnly ? (
+                  <div className="flex space-x-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleViewStudent(student.id)}
+                      title="View Student"
+                      disabled={removingStudents.has(student.id)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRemoveStudent(student.id)}
+                      title="Remove Student"
+                      disabled={removingStudents.has(student.id)}
+                    >
+                      {removingStudents.has(student.id) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

@@ -14,6 +14,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { SkeletonStripeCardForm } from '@altitutor/ui';
 import { paymentMethodsApi } from '@/shared/api';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
@@ -158,9 +159,7 @@ export function AddCardSheet({ studentId, onSuccess }: AddCardSheetProps) {
         </DialogHeader>
         <div className="mt-4">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
+            <SkeletonStripeCardForm />
           ) : clientSecret ? (
             <Elements
               stripe={stripePromise}

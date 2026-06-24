@@ -6,6 +6,7 @@ import { Badge } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/shared/utils/index';
+import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type Step1SessionPickerProps = {
   staffId: string;
@@ -53,8 +54,8 @@ export function Step1SessionPicker({
             <Card
               key={sessionId}
               className={cn(
-                'p-4 cursor-pointer transition-all hover:shadow-md',
-                isSelected && 'ring-2 ring-primary shadow-md'
+                tutorCardCn('cursor-pointer p-4'),
+                isSelected && 'ring-2 ring-primary',
               )}
               onClick={() => onSelectSession(sessionId)}
             >

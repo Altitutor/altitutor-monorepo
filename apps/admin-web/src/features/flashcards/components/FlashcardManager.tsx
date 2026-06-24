@@ -478,16 +478,20 @@ export function FlashcardManager({
       />
 
       {isReorderMode ? (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-background px-3 py-2 shadow-lg">
-          <span className="px-2 text-sm text-muted-foreground">Reorder flashcards</span>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={cancelReorder}>
-            <X className="h-4 w-4" />
-            Cancel
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={saveReorder} disabled={mutations.reorderCards.isPending}>
-            {mutations.reorderCards.isPending ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Save
-          </Button>
+        <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 items-center gap-3 rounded-lg border bg-popover px-4 py-2 shadow-lg">
+          <span className="shrink-0 text-sm font-medium text-muted-foreground">{draftOrder.length} selected</span>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-2">
+            <span className="px-1 text-sm font-medium text-muted-foreground">Reorder flashcards</span>
+            <Button size="sm" className="gap-1.5" onClick={saveReorder} disabled={mutations.reorderCards.isPending}>
+              {mutations.reorderCards.isPending ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Save
+            </Button>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" variant="ghost" size="icon" onClick={cancelReorder} aria-label="Cancel reorder">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       ) : null}
 

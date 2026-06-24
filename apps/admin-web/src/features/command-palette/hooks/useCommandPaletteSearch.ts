@@ -1,5 +1,5 @@
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
-import { entityTypes } from '../config/commandPalette.config';
+import { getEntitySearchTypes, shouldRunEntitySearch } from '../utils/entitySearchTypes';
 import type { UseCommandPaletteSearchOptions } from '../types';
 
 // Re-export types for backward compatibility
@@ -9,11 +9,19 @@ export type { CommandPaletteEntityResult, UseCommandPaletteSearchOptions } from 
  * Hook for searching all entity types in parallel
  * Now uses the shared useEntitySearch hook
  */
-export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPaletteSearchOptions) {
-  const { results, isLoading, hasError } = useEntitySearch({ 
-    search, 
-    enabled,
-    types: Object.keys(entityTypes) as (keyof typeof entityTypes)[]
+export function useCommandPaletteSearch({
+  search,
+  enabled = true,
+  selectedFilters,
+  allFilterTypes,
+}: UseCommandPaletteSearchOptions) {
+  const entitySearchTypes = getEntitySearchTypes(selectedFilters, allFilterTypes);
+  const canSearchEntities = shouldRunEntitySearch(selectedFilters, allFilterTypes);
+
+  const { results, isLoading, hasError } = useEntitySearch({
+    search,
+    enabled: enabled && canSearchEntities,
+    types: entitySearchTypes,
   });
 
   const filteredResults = results.filter((result) => {
