@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, SegmentedControl } from '@altitutor/ui';
+import { SegmentedControl } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { ProjectsBoard } from '@/features/projects/components/ProjectsBoard';
 import { ProjectsList } from '@/features/projects/components/ProjectsList';
@@ -27,10 +28,11 @@ export default function ProjectsPage() {
               { value: 'list', label: 'List' },
             ]}
           />
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Project
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="New Project"
+            onClick={() => setIsCreateDialogOpen(true)}
+          />
         </div>
       </div>
 

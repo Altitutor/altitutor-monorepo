@@ -3,7 +3,8 @@
 import { Suspense, useState } from 'react';
 import { AdminShiftsTable, AddAdminShiftModal } from '@/features/admin-shifts';
 import { CalendarView } from '@/features/admin-shifts/components/CalendarView';
-import { Button, SegmentedControl } from '@altitutor/ui';
+import { SegmentedControl } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAdminShiftsWithDetails } from '@/features/admin-shifts/hooks/useAdminShiftsQuery';
@@ -71,10 +72,11 @@ export default function AdminShiftsPage() {
               { value: 'calendar', label: 'Calendar' },
             ]}
           />
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Admin Shift
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add Admin Shift"
+            onClick={() => setIsAddModalOpen(true)}
+          />
         </div>
       </div>
 

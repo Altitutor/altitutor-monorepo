@@ -3,18 +3,29 @@ import type { QuestionStemWithQuestions } from "@/features/question-engine/model
 
 export const PRACTICE_SESSION_KEY = "practice-session";
 
+export type PracticeSessionFilterMeta = {
+  sectionLabel?: string;
+  categoryLabels?: string[];
+};
+
 export type PracticeSessionData =
   | {
       mode: "set";
       sessionId: string;
       stems: QuestionStemWithQuestions[];
+      filters?: SetGeneratorInput;
+      filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;
+      startedAtMs?: number;
     }
   | {
       mode: "unlimited";
       sessionId: string;
       filters: SetGeneratorInput;
+      stems?: QuestionStemWithQuestions[];
+      filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;
+      startedAtMs?: number;
     };
 
 export function getPracticeSession(): PracticeSessionData | null {

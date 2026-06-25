@@ -29,17 +29,67 @@ import {
 export interface ProjectsListProps {
   /** Initial filter values (e.g. dashboard: projects where current user is lead) */
   defaultFilters?: Record<string, unknown[]>;
+  hideToolbar?: boolean;
+  embedView?: {
+    groupBy?: string | null;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    secondarySortBy?: string;
+  };
 }
 
-export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
+export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }: ProjectsListProps = {}) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
+  const embedLocked = hideToolbar && embedView != null;
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>('status');
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [groupBy, setGroupBy] = useState<string | null>(
+    embedLocked ? (embedView.groupBy ?? null) : 'status'
+  );
+  const [sortBy, setSortBy] = useState<string>(
+    embedLocked ? (embedView.sortBy ?? 'name') : 'name'
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+    embedLocked ? (embedView.sortDirection ?? 'asc') : 'asc'
+  );
 
   const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
+  const displayProjects = useMemo(() => {
+    if (!embedLocked || !embedView.secondarySortBy) return projects;
+
+    const secondaryKey = embedView.secondarySortBy;
+    const primaryKey = embedView.sortBy ?? 'name';
+    const direction = embedView.sortDirection ?? 'asc';
+
+    const getPrimaryValue = (project: ProjectWithLead) => {
+      if (primaryKey === 'priority') return Number(project.priority ?? 0);
+      if (primaryKey === 'target_date') {
+        return project.target_date ? new Date(project.target_date).getTime() : Number.POSITIVE_INFINITY;
+      }
+      return project.name ?? '';
+    };
+
+    const getSecondaryValue = (project: ProjectWithLead) => {
+      if (secondaryKey === 'target_date') {
+        return project.target_date ? new Date(project.target_date).getTime() : Number.POSITIVE_INFINITY;
+      }
+      if (secondaryKey === 'priority') return Number(project.priority ?? 0);
+      return project.name ?? '';
+    };
+
+    return [...projects].sort((a, b) => {
+      const primaryA = getPrimaryValue(a);
+      const primaryB = getPrimaryValue(b);
+      if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
+      if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
+
+      const secondaryA = getSecondaryValue(a);
+      const secondaryB = getSecondaryValue(b);
+      if (secondaryA < secondaryB) return -1;
+      if (secondaryA > secondaryB) return 1;
+      return 0;
+    });
+  }, [projects, embedLocked, embedView]);
   const updateProject = useUpdateProject();
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
@@ -219,18 +269,18 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
   return (
     <>
       <EntityList<ProjectWithLead>
-        items={projects}
+        items={displayProjects}
         getItemId={(p) => p.id}
         renderName={(p) => p.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
-        groupByOptions={groupByOptions}
+        groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortChange={handleSortChange}
+        groupBy={embedLocked ? (embedView.groupBy ?? null) : groupBy}
+        onGroupByChange={embedLocked ? undefined : setGroupBy}
+        sortBy={embedLocked && embedView.secondarySortBy ? 'name' : embedLocked ? (embedView.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked && embedView.secondarySortBy ? 'asc' : embedLocked ? (embedView.sortDirection ?? 'asc') : sortDirection}
+        onSortChange={embedLocked ? undefined : handleSortChange}
         getGroupOrder={(columnKey, valueKey) => {
           if (columnKey === 'status') return getProjectStatusOrder(valueKey);
           if (columnKey === 'priority')
@@ -261,7 +311,7 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
-        onAdd={handleAdd}
+        onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(p) => {
           setSelectedProjectId(p.id);
           setIsEditDialogOpen(true);
@@ -272,22 +322,27 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
         emptyMessage="No projects match your filters"
         isLoading={isLoading}
         noPadding={true}
+        hideToolbar={hideToolbar}
         filters={filters}
-        onFiltersChange={setFilters}
-        descriptionConfig={{
-          enabled: true,
-          renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <AdminRichTextEditorWithImages
-              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
-              content={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              className="min-h-[60px]"
-              context="projects"
-            />
-          ),
-          placeholder: 'Add project description...'
-        }}
+        onFiltersChange={hideToolbar ? undefined : setFilters}
+        descriptionConfig={
+          hideToolbar
+            ? undefined
+            : {
+                enabled: true,
+                renderEditor: ({ value, onChange, placeholder, ref }) => (
+                  <AdminRichTextEditorWithImages
+                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    content={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    className="min-h-[60px]"
+                    context="projects"
+                  />
+                ),
+                placeholder: 'Add project description...',
+              }
+        }
       />
 
       {selectedProjectId && (

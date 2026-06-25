@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
-import { useResourceSubjects } from '@/features/resources';
+import { useResourceSubjectNavItems } from '@/features/resources';
 import {
   buildSubjectPages,
   staticPages,
@@ -9,7 +9,7 @@ import {
 } from '../config/commandPalette.config';
 
 export function useCommandPalettePages(): CommandPalettePage[] {
-  const { data: subjects } = useResourceSubjects();
+  const { data: subjects } = useResourceSubjectNavItems();
   const ucatAccess = useUcatAccess();
   const isUcatTutor = Boolean(ucatAccess.data);
 

@@ -11,6 +11,7 @@ export * from "./types/ucat-skill-trainer";
 export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./utils/ilike";
+export * from "./utils/focus";
 export * from "./external-url/embed";
 export * from "./resources";
 export * from "./flashcards";

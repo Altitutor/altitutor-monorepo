@@ -143,7 +143,6 @@ export default function TutorResourceFilePage() {
             <h1 className="text-3xl font-bold tracking-tight">
               {fileTitle ?? file?.code ?? fileCode}
             </h1>
-            <p className="mt-1 truncate text-muted-foreground">{file?.filename}</p>
           </div>
 
           {file ? (

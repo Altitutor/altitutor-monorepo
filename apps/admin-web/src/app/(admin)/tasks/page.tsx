@@ -4,7 +4,8 @@ import { Suspense, useState } from 'react';
 import { TasksBoard } from '@/features/tasks/components/TasksBoard';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
-import { Button, SegmentedControl } from '@altitutor/ui';
+import { SegmentedControl } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -38,10 +39,11 @@ export default function TasksPage() {
               { value: 'list', label: 'List' },
             ]}
           />
-          <Button onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Task
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Create Task"
+            onClick={() => setIsCreateModalOpen(true)}
+          />
         </div>
       </div>
 
@@ -73,4 +75,3 @@ export default function TasksPage() {
     </div>
   );
 }
-

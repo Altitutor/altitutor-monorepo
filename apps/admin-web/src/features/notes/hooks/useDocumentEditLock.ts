@@ -39,6 +39,7 @@ export function useDocumentEditLock(noteId: string | null, enabled = true) {
     table: 'note_document_edit_locks',
     queryKey: noteId ? notesKeys.editLock(noteId) : notesKeys.all,
     detailKey: getLockDetailKey,
+    enabled: enabled && !!noteId,
   });
 
   const query = useQuery({

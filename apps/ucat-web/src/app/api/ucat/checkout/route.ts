@@ -22,8 +22,12 @@ export async function POST(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
-  let selection: UcatCheckoutSelection = { tier: "unlimited", interval: "week" };
-  let returnContext: "signup_onboarding" | "subscribe" = "subscribe";
+  let selection: UcatCheckoutSelection = {
+    tier: "unlimited",
+    interval: "week",
+  };
+  let returnContext: "signup_onboarding" | "subscribe" | "practice_session" =
+    "subscribe";
   try {
     const body = (await request.clone().json()) as unknown;
     const parsed = parseUcatCheckoutRequest(body);
@@ -67,7 +71,9 @@ export async function POST(request: NextRequest) {
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, first_name, last_name, email, ucat_unlimited_trial_consumed_at")
+    .select(
+      "id, first_name, last_name, email, ucat_unlimited_trial_consumed_at",
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -139,7 +145,9 @@ export async function POST(request: NextRequest) {
   const checkoutReturnBase =
     returnContext === "signup_onboarding"
       ? `${origin}/signup/complete`
-      : `${origin}/dashboard`;
+      : returnContext === "practice_session"
+        ? `${origin}/practice/session`
+        : `${origin}/dashboard`;
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
@@ -161,11 +169,15 @@ export async function POST(request: NextRequest) {
     success_url:
       returnContext === "signup_onboarding"
         ? `${checkoutReturnBase}?checkout=success`
-        : checkoutReturnBase,
+        : returnContext === "practice_session"
+          ? `${checkoutReturnBase}?checkout=success`
+          : checkoutReturnBase,
     cancel_url:
       returnContext === "signup_onboarding"
         ? `${origin}/signup/complete?checkout=canceled`
-        : `${origin}/subscribe?canceled=1`,
+        : returnContext === "practice_session"
+          ? `${origin}/practice/session?checkout=canceled`
+          : `${origin}/subscribe?canceled=1`,
     allow_promotion_codes: true,
   };
 

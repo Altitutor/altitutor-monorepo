@@ -12,9 +12,7 @@ import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
 import { PlanPickerPriceSkeleton } from "./plan-picker-price-skeleton";
 import { PlanUpgradeConfirmDialog } from "./plan-upgrade-confirm-dialog";
-import {
-  planPickerCardMotionProps,
-} from "./plan-picker-dialog-shell";
+import { planPickerCardMotionProps } from "./plan-picker-dialog-shell";
 import {
   planPickerSurface,
   type PlanPickerSurfaceTheme,
@@ -38,7 +36,10 @@ type PlanPickerProps = {
   surfaceTheme?: PlanPickerSurfaceTheme;
   /** Landing page: CTAs route to signup */
   audience?: "app" | "marketing";
-  checkoutReturnContext?: "signup_onboarding" | "subscribe";
+  checkoutReturnContext?:
+    | "signup_onboarding"
+    | "subscribe"
+    | "practice_session";
   /** Subset of tiers to render (e.g. upgrade upsell on plan page) */
   visibleTiers?: PlanPickerTier[];
   layout?: "default" | "horizontal";
@@ -92,9 +93,7 @@ function PlanPickerCard({
   children: ReactNode;
 }) {
   const reduceMotion = useReducedMotion();
-  const card = (
-    <div className={className}>{children}</div>
-  );
+  const card = <div className={className}>{children}</div>;
 
   if (!animate) {
     return layoutClassName ? (
@@ -212,8 +211,7 @@ export function PlanPicker({
     canDowngradeTo("unlimited") &&
     !unlimitedIsCurrentPlan;
   const showFreeCta =
-    showFree &&
-    (freeIsDowngrade || !(isOnPaid && audience === "app"));
+    showFree && (freeIsDowngrade || !(isOnPaid && audience === "app"));
 
   const cardGridVariants = useMemo(
     () => ({
@@ -263,368 +261,378 @@ export function PlanPicker({
       <Grid className={gridClass} {...gridMotionProps}>
         {/* UCAT Free */}
         {showFree ? (
-        <PlanPickerCard
-          animate={animateCards}
-          layoutClassName={cardLayoutClass}
-          className={cn(
-            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
-            cardPadding,
-            surface.freeCard,
-            freeIsCurrentPlan
-              ? "ring-2 ring-primary/30"
-              : surface.freeCardRing,
-          )}
-        >
-          <div>
-            {freeIsCurrentPlan ? (
+          <PlanPickerCard
+            animate={animateCards}
+            layoutClassName={cardLayoutClass}
+            className={cn(
+              "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
+              cardPadding,
+              surface.freeCard,
+              freeIsCurrentPlan
+                ? "ring-2 ring-primary/30"
+                : surface.freeCardRing,
+            )}
+          >
+            <div>
+              {freeIsCurrentPlan ? (
+                <span
+                  className={cn(
+                    `inline-block rounded-full px-3 py-1 text-xs font-semibold ${typo.dataMono}`,
+                    surface.currentPlanBadge,
+                  )}
+                >
+                  Current plan
+                </span>
+              ) : null}
               <span
                 className={cn(
-                  `inline-block rounded-full px-3 py-1 text-xs font-semibold ${typo.dataMono}`,
-                  surface.currentPlanBadge,
+                  `mt-2 block text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
+                  surface.tierLabelMuted,
                 )}
               >
-                Current plan
+                Free
               </span>
-            ) : null}
-            <span
-              className={cn(
-                `mt-2 block text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
-                surface.tierLabelMuted,
-              )}
-            >
-              Free
-            </span>
-            <h3
-              className={cn(
-                `mt-3 text-2xl font-bold ${typo.headingSans}`,
-                surface.heading,
-              )}
-            >
-              UCAT Free
-            </h3>
-            <p
-              className={cn(
-                `mt-3 text-sm ${typo.secondarySans}`,
-                surface.description,
-              )}
-            >
-              Get started at no cost with limited access to every area of the
-              platform.
-            </p>
-
-            <div className="mt-6 space-y-1">
-              <div className="flex items-end gap-2">
-                <span
-                  className={cn(
-                    `text-4xl font-bold ${typo.headingSans}`,
-                    surface.price,
-                  )}
-                >
-                  $0
-                </span>
-                <span
-                  className={cn(
-                    `mb-1 ${typo.secondarySans}`,
-                    surface.priceMuted,
-                  )}
-                >
-                  free forever
-                </span>
-              </div>
-              <p className={cn(`text-xs ${typo.dataMono}`, surface.priceCaption)}>
-                Quotas reset daily, weekly, or monthly
+              <h3
+                className={cn(
+                  `mt-3 text-2xl font-bold ${typo.headingSans}`,
+                  surface.heading,
+                )}
+              >
+                UCAT Free
+              </h3>
+              <p
+                className={cn(
+                  `mt-3 text-sm ${typo.secondarySans}`,
+                  surface.description,
+                )}
+              >
+                Get started at no cost with limited access to every area of the
+                platform.
               </p>
+
+              <div className="mt-6 space-y-1">
+                <div className="flex items-end gap-2">
+                  <span
+                    className={cn(
+                      `text-4xl font-bold ${typo.headingSans}`,
+                      surface.price,
+                    )}
+                  >
+                    $0
+                  </span>
+                  <span
+                    className={cn(
+                      `mb-1 ${typo.secondarySans}`,
+                      surface.priceMuted,
+                    )}
+                  >
+                    free forever
+                  </span>
+                </div>
+                <p
+                  className={cn(
+                    `text-xs ${typo.dataMono}`,
+                    surface.priceCaption,
+                  )}
+                >
+                  Quotas reset daily, weekly, or monthly
+                </p>
+              </div>
+
+              {isPricingLoading ? (
+                <ul className="mt-6 space-y-2.5" aria-hidden>
+                  {freeQuotaAreas.map((area) => (
+                    <li key={area}>
+                      <Skeleton className="h-5 w-full max-w-[16rem] rounded-md" />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul
+                  className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}
+                >
+                  {freeQuotaAreas.map((area) => {
+                    const quota = cfg.freeQuotas[area];
+                    return (
+                      <li
+                        key={area}
+                        className={cn(
+                          "flex items-start gap-2",
+                          surface.featureItem,
+                        )}
+                      >
+                        <PlanPickerCheckIcon />
+                        <span className={surface.featureText}>
+                          {formatFreeQuotaLine(area, quota.limit, quota.period)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
-            {isPricingLoading ? (
-              <ul className="mt-6 space-y-2.5" aria-hidden>
-                {freeQuotaAreas.map((area) => (
-                  <li key={area}>
-                    <Skeleton className="h-5 w-full max-w-[16rem] rounded-md" />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
-                {freeQuotaAreas.map((area) => {
-                  const quota = cfg.freeQuotas[area];
-                  return (
-                    <li
-                      key={area}
-                      className={cn(
-                        "flex items-start gap-2",
-                        surface.featureItem,
-                      )}
-                    >
-                      <PlanPickerCheckIcon />
-                      <span className={surface.featureText}>
-                        {formatFreeQuotaLine(area, quota.limit, quota.period)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {showFreeCta ? (
-            <PlanPickerCta
-              variant="free"
-              surfaceTheme={surfaceTheme}
-              isCurrentPlan={freeIsCurrentPlan}
-              isDowngrade={freeIsDowngrade}
-              disabled={!freeIsDowngrade && loadingPlan !== null}
-              onClick={() =>
-                void (freeIsDowngrade
-                  ? handleDowngrade("free")
-                  : handleFreePlanAction())
-              }
-            >
-              {freeIsCurrentPlan
-                ? "Your current plan"
-                : freeIsDowngrade
-                  ? "Downgrade"
-                  : loadingPlan === "free"
-                    ? "Saving…"
-                    : audience === "marketing"
-                      ? "Sign up free"
-                      : "Continue with Free"}
-            </PlanPickerCta>
-          ) : null}
-        </PlanPickerCard>
+            {showFreeCta ? (
+              <PlanPickerCta
+                variant="free"
+                surfaceTheme={surfaceTheme}
+                isCurrentPlan={freeIsCurrentPlan}
+                isDowngrade={freeIsDowngrade}
+                disabled={!freeIsDowngrade && loadingPlan !== null}
+                onClick={() =>
+                  void (freeIsDowngrade
+                    ? handleDowngrade("free")
+                    : handleFreePlanAction())
+                }
+              >
+                {freeIsCurrentPlan
+                  ? "Your current plan"
+                  : freeIsDowngrade
+                    ? "Downgrade"
+                    : loadingPlan === "free"
+                      ? "Saving…"
+                      : audience === "marketing"
+                        ? "Sign up free"
+                        : "Continue with Free"}
+              </PlanPickerCta>
+            ) : null}
+          </PlanPickerCard>
         ) : null}
 
         {/* UCAT Unlimited */}
         {showUnlimited ? (
-        <PlanPickerCard
-          animate={animateCards}
-          layoutClassName={cardLayoutClass}
-          className={cn(
-            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
-            cardPadding,
-            surface.unlimitedCard,
-          )}
-        >
-          {cfg.trialDays > 0 ? (
-            <div className="absolute right-6 top-6">
-              <TrialBadge
-                trialDays={cfg.trialDays}
-                surfaceTheme={surfaceTheme}
-              />
-            </div>
-          ) : null}
-          <div
+          <PlanPickerCard
+            animate={animateCards}
+            layoutClassName={cardLayoutClass}
             className={cn(
-              "absolute right-0 top-0 h-28 w-28 rounded-bl-full blur-2xl",
-              surface.unlimitedGlow,
+              "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
+              cardPadding,
+              surface.unlimitedCard,
             )}
-          />
-          <div>
-            <span
+          >
+            {cfg.trialDays > 0 ? (
+              <div className="absolute right-6 top-6">
+                <TrialBadge
+                  trialDays={cfg.trialDays}
+                  surfaceTheme={surfaceTheme}
+                />
+              </div>
+            ) : null}
+            <div
               className={cn(
-                `text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
-                surface.tierLabelAccent,
+                "absolute right-0 top-0 h-28 w-28 rounded-bl-full blur-2xl",
+                surface.unlimitedGlow,
               )}
-            >
-              Online
-            </span>
-            <h3
-              className={cn(
-                `mt-3 text-2xl font-bold ${typo.headingSans}`,
-                surface.heading,
-              )}
-            >
-              UCAT Unlimited
-            </h3>
-            <p
-              className={cn(
-                `mt-3 text-sm ${typo.secondarySans}`,
-                surface.description,
-              )}
-            >
-              Unlimited online practice with accountability pricing — complete
-              your daily targets to keep costs low.
-            </p>
-
-            {isPricingLoading ? (
-              <PlanPickerPriceSkeleton />
-            ) : unlimitedPricing ? (
-              <PaidTierPriceBlock
-                pricing={unlimitedPricing}
-                formatMoney={formatMoney}
-                billingInterval={billingInterval}
-                minQuestionsPerDay={cfg.minQuestionsPerDay}
-                discountPerDayCents={discountRule.discountPerDayCents}
-                maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
-                surfaceTheme={surfaceTheme}
-              />
-            ) : (
-              <p
+            />
+            <div>
+              <span
                 className={cn(
-                  `mt-6 text-sm ${typo.secondarySans}`,
-                  surface.comingSoon,
+                  `text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
+                  surface.tierLabelAccent,
                 )}
               >
-                Coming soon
+                Online
+              </span>
+              <h3
+                className={cn(
+                  `mt-3 text-2xl font-bold ${typo.headingSans}`,
+                  surface.heading,
+                )}
+              >
+                UCAT Unlimited
+              </h3>
+              <p
+                className={cn(
+                  `mt-3 text-sm ${typo.secondarySans}`,
+                  surface.description,
+                )}
+              >
+                Unlimited online practice with accountability pricing — complete
+                your daily targets to keep costs low.
               </p>
-            )}
 
-            <p
-              className={cn(
-                `mt-6 text-sm font-semibold ${typo.secondarySans}`,
-                surface.featureHeader,
-              )}
-            >
-              Everything in Free, plus
-            </p>
-            <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
-              {onlineFeatures.map((f) => (
-                <li
-                  key={f}
-                  className={cn("flex items-start gap-2", surface.featureItem)}
+              {isPricingLoading ? (
+                <PlanPickerPriceSkeleton />
+              ) : unlimitedPricing ? (
+                <PaidTierPriceBlock
+                  pricing={unlimitedPricing}
+                  formatMoney={formatMoney}
+                  billingInterval={billingInterval}
+                  minQuestionsPerDay={cfg.minQuestionsPerDay}
+                  discountPerDayCents={discountRule.discountPerDayCents}
+                  maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
+                  surfaceTheme={surfaceTheme}
+                />
+              ) : (
+                <p
+                  className={cn(
+                    `mt-6 text-sm ${typo.secondarySans}`,
+                    surface.comingSoon,
+                  )}
                 >
-                  <PlanPickerCheckIcon />
-                  <span className={surface.featureText}>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+                  Coming soon
+                </p>
+              )}
 
-          <PlanPickerCta
-            variant="proAccent"
-            surfaceTheme={surfaceTheme}
-            isCurrentPlan={unlimitedIsCurrentPlan}
-            isDowngrade={unlimitedIsDowngrade}
-            disabled={
-              !unlimitedIsDowngrade &&
-              (isPricingLoading ||
-                loadingPlan !== null ||
-                !unlimitedTierOffered ||
-                !unlimitedAvailable)
-            }
-            onClick={() =>
-              void (unlimitedIsDowngrade
-                ? handleDowngrade("unlimited")
-                : handleOnlineSubscribe("unlimited"))
-            }
-          >
-            {unlimitedIsCurrentPlan
-              ? "Your current plan"
-              : unlimitedIsDowngrade
-                ? "Downgrade"
-                : isPricingLoading
-                  ? "Loading…"
-                  : paidCtaLabel(
-                      unlimitedTierOffered,
-                      unlimitedAvailable,
-                      loadingPlan === "unlimited",
-                      audience === "marketing" ? "Sign up" : trialCta,
+              <p
+                className={cn(
+                  `mt-6 text-sm font-semibold ${typo.secondarySans}`,
+                  surface.featureHeader,
+                )}
+              >
+                Everything in Free, plus
+              </p>
+              <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
+                {onlineFeatures.map((f) => (
+                  <li
+                    key={f}
+                    className={cn(
+                      "flex items-start gap-2",
+                      surface.featureItem,
                     )}
-          </PlanPickerCta>
-        </PlanPickerCard>
+                  >
+                    <PlanPickerCheckIcon />
+                    <span className={surface.featureText}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <PlanPickerCta
+              variant="proAccent"
+              surfaceTheme={surfaceTheme}
+              isCurrentPlan={unlimitedIsCurrentPlan}
+              isDowngrade={unlimitedIsDowngrade}
+              disabled={
+                !unlimitedIsDowngrade &&
+                (isPricingLoading ||
+                  loadingPlan !== null ||
+                  !unlimitedTierOffered ||
+                  !unlimitedAvailable)
+              }
+              onClick={() =>
+                void (unlimitedIsDowngrade
+                  ? handleDowngrade("unlimited")
+                  : handleOnlineSubscribe("unlimited"))
+              }
+            >
+              {unlimitedIsCurrentPlan
+                ? "Your current plan"
+                : unlimitedIsDowngrade
+                  ? "Downgrade"
+                  : isPricingLoading
+                    ? "Loading…"
+                    : paidCtaLabel(
+                        unlimitedTierOffered,
+                        unlimitedAvailable,
+                        loadingPlan === "unlimited",
+                        audience === "marketing" ? "Sign up" : trialCta,
+                      )}
+            </PlanPickerCta>
+          </PlanPickerCard>
         ) : null}
 
         {/* UCAT Pro */}
         {showPro ? (
-        <PlanPickerCard
-          animate={animateCards}
-          layoutClassName={cardLayoutClass}
-          className={cn(
-            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
-            cardPadding,
-            variant === "page" && !isHorizontal ? "md:scale-[1.03]" : "",
-          )}
-        >
-          <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
-            {cfg.trialDays > 0 ? (
-              <TrialBadge trialDays={cfg.trialDays} featured />
-            ) : null}
-          </div>
-          <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
-
-          <div>
-            <span
-              className={`text-xs font-bold uppercase tracking-widest text-marketing-accent ${typo.dataMono}`}
-            >
-              Online + tutors
-            </span>
-            <h3
-              className={`mt-3 text-2xl font-bold text-marketing-cream ${typo.headingSans}`}
-            >
-              UCAT Pro
-            </h3>
-            <p
-              className={`mt-3 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
-            >
-              Everything in Unlimited, plus workshops, on-demand tutor help, and
-              monthly 1-1 performance reviews.
-            </p>
-
-            {isPricingLoading ? (
-              <PlanPickerPriceSkeleton featured />
-            ) : proPricing ? (
-              <PaidTierPriceBlock
-                pricing={proPricing}
-                formatMoney={formatMoney}
-                billingInterval={billingInterval}
-                minQuestionsPerDay={cfg.minQuestionsPerDay}
-                discountPerDayCents={discountRule.discountPerDayCents}
-                maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
-                featured
-                surfaceTheme={surfaceTheme}
-              />
-            ) : (
-              <p
-                className={`mt-6 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
-              >
-                Coming soon
-              </p>
+          <PlanPickerCard
+            animate={animateCards}
+            layoutClassName={cardLayoutClass}
+            className={cn(
+              "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
+              cardPadding,
+              variant === "page" && !isHorizontal ? "md:scale-[1.03]" : "",
             )}
-
-            <p
-              className={`mt-6 text-sm font-semibold text-marketing-cream/80 ${typo.secondarySans}`}
-            >
-              Everything in Unlimited, plus
-            </p>
-            <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
-              {proFeatures.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2 text-marketing-accent"
-                >
-                  <PlanPickerCheckIcon />
-                  <span className="text-marketing-cream/70">{f}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <PlanPickerCta
-            variant="monthlyFeatured"
-            surfaceTheme={surfaceTheme}
-            isCurrentPlan={isOnPro}
-            disabled={
-              isPricingLoading ||
-              loadingPlan !== null ||
-              !proTierOffered ||
-              !proAvailable
-            }
-            onClick={() => void handleOnlineSubscribe("pro")}
           >
-            {isOnPro
-              ? "Your current plan"
-              : isPricingLoading
-                ? "Loading…"
-                : isOnUnlimited && audience === "app"
-                  ? "Upgrade to Pro"
-                  : paidCtaLabel(
-                      proTierOffered,
-                      proAvailable,
-                      loadingPlan === "pro",
-                      audience === "marketing" ? "Sign up" : trialCta,
-                    )}
-          </PlanPickerCta>
-        </PlanPickerCard>
+            <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
+              {cfg.trialDays > 0 ? (
+                <TrialBadge trialDays={cfg.trialDays} featured />
+              ) : null}
+            </div>
+            <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
+
+            <div>
+              <span
+                className={`text-xs font-bold uppercase tracking-widest text-marketing-accent ${typo.dataMono}`}
+              >
+                Online + tutors
+              </span>
+              <h3
+                className={`mt-3 text-2xl font-bold text-marketing-cream ${typo.headingSans}`}
+              >
+                UCAT Pro
+              </h3>
+              <p
+                className={`mt-3 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
+              >
+                Everything in Unlimited, plus workshops, on-demand tutor help,
+                and monthly 1-1 performance reviews.
+              </p>
+
+              {isPricingLoading ? (
+                <PlanPickerPriceSkeleton featured />
+              ) : proPricing ? (
+                <PaidTierPriceBlock
+                  pricing={proPricing}
+                  formatMoney={formatMoney}
+                  billingInterval={billingInterval}
+                  minQuestionsPerDay={cfg.minQuestionsPerDay}
+                  discountPerDayCents={discountRule.discountPerDayCents}
+                  maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
+                  featured
+                  surfaceTheme={surfaceTheme}
+                />
+              ) : (
+                <p
+                  className={`mt-6 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
+                >
+                  Coming soon
+                </p>
+              )}
+
+              <p
+                className={`mt-6 text-sm font-semibold text-marketing-cream/80 ${typo.secondarySans}`}
+              >
+                Everything in Unlimited, plus
+              </p>
+              <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
+                {proFeatures.map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-start gap-2 text-marketing-accent"
+                  >
+                    <PlanPickerCheckIcon />
+                    <span className="text-marketing-cream/70">{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <PlanPickerCta
+              variant="monthlyFeatured"
+              surfaceTheme={surfaceTheme}
+              isCurrentPlan={isOnPro}
+              disabled={
+                isPricingLoading ||
+                loadingPlan !== null ||
+                !proTierOffered ||
+                !proAvailable
+              }
+              onClick={() => void handleOnlineSubscribe("pro")}
+            >
+              {isOnPro
+                ? "Your current plan"
+                : isPricingLoading
+                  ? "Loading…"
+                  : isOnUnlimited && audience === "app"
+                    ? "Upgrade to Pro"
+                    : paidCtaLabel(
+                        proTierOffered,
+                        proAvailable,
+                        loadingPlan === "pro",
+                        audience === "marketing" ? "Sign up" : trialCta,
+                      )}
+            </PlanPickerCta>
+          </PlanPickerCard>
         ) : null}
       </Grid>
 

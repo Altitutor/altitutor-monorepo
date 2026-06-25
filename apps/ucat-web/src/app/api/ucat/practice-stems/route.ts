@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { pickStems } from "../generated-sets/pick-stems";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
@@ -7,6 +8,11 @@ import {
   mapStemDetailToQuestionStemWithQuestions,
   type StemDetailRowFromDb,
 } from "@/features/practice/lib/map-stem-detail-for-practice";
+import {
+  checkPracticeStartQuota,
+  getPracticeQuotaStatusForStudent,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -22,6 +28,13 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: "Server write client not configured" },
+      { status: 500 },
+    );
   }
 
   let body: { input?: SetGeneratorInput };
@@ -40,7 +53,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await pickStems(supabase, input);
+  const { data: student, error: studentError } = await supabaseAdmin
+    .from("students")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (studentError) {
+    return NextResponse.json(
+      { error: "Failed to resolve student" },
+      { status: 500 },
+    );
+  }
+
+  if (!student) {
+    return NextResponse.json(
+      { error: "No student profile found" },
+      { status: 404 },
+    );
+  }
+
+  const quotaStatus = await getPracticeQuotaStatusForStudent(
+    supabaseAdmin,
+    student.id,
+  );
+  const enforcePracticeQuota =
+    quotaStatus != null && !quotaStatus.isQuotaExempt;
+
+  const result = await pickStems(supabase, input, {
+    allowOversizedFallback: !enforcePracticeQuota,
+  });
 
   if (result.chosenStemIds.length === 0) {
     return NextResponse.json(
@@ -69,6 +111,18 @@ export async function POST(request: NextRequest) {
   const stems: QuestionStemWithQuestions[] = orderedStems.map((row) =>
     mapStemDetailToQuestionStemWithQuestions(row),
   );
+
+  const questionIds = stems.flatMap((stem) =>
+    stem.questions.map((question) => question.id),
+  );
+  const quotaCheck = await checkPracticeStartQuota(
+    supabaseAdmin,
+    student.id,
+    questionIds,
+  );
+  if (!quotaCheck.allowed) {
+    return quotaExceededResponse(quotaCheck.payload);
+  }
 
   return NextResponse.json({
     stems,

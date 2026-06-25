@@ -17,3 +17,11 @@ export function formatQuotaUsageLabel(
 ): string {
   return `${used} of ${limit} used ${formatQuotaPeriodLabel(period)}`;
 }
+
+export function formatQuotaUsageCompact(
+  used: number,
+  limit: number,
+  period: UcatQuotaPeriod,
+): string {
+  return `${used}/${limit} ${formatQuotaPeriodLabel(period)}`;
+}

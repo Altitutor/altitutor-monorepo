@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { StudentsTable, AddStudentModal, ViewStudentModal } from '@/features/students';
-import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 
 export default function StudentsPage() {
@@ -40,10 +40,11 @@ export default function StudentsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Students</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Student
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Student"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <StudentsTable onRefresh={refreshCounter} />
@@ -63,5 +64,4 @@ export default function StudentsPage() {
     </div>
   );
 }
-
 

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
-import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import {
   useAttemptedMockIds,
   useMocks,
@@ -130,7 +129,6 @@ export function MocksListPage() {
         title="Mocks"
         description="Choose a mock to start the exam (first set)."
       />
-      <QuotaUsageCard area="mocks" />
       <div className="space-y-4">
         <ListToolbar
           search={search}

@@ -138,12 +138,9 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
         onAddClass: modals.handleAddClass,
       }}
     >
-      <div className="p-6 space-y-8">
+      <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Identify and resolve data inconsistencies across scheduling, communication, and financial domains
-          </p>
         </div>
 
         {tabCounts.isError && (
@@ -154,7 +151,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
         )}
 
         <SegmentedControl
-          className="w-full max-w-5xl"
+          className="w-full max-w-5xl min-w-0"
           fullWidth
           value={activeSegment}
           onValueChange={(segment) => {

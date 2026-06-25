@@ -71,6 +71,8 @@ export type PickStemsOptions = {
   excludeStemIds?: string[];
   /** When set, return at most this many stems. For unlimited mode, use 1. */
   limitStems?: number;
+  /** When false, do not pick a single oversized fallback stem above questionCount. */
+  allowOversizedFallback?: boolean;
 };
 
 export type PickStemsResult = {
@@ -296,7 +298,11 @@ export async function pickStems(
     runningQuestions += agg.allQuestionsCount;
   }
 
-  if (chosenStems.length === 0 && limitStems == null) {
+  if (
+    chosenStems.length === 0 &&
+    limitStems == null &&
+    options?.allowOversizedFallback !== false
+  ) {
     const smallest = candidateStems.reduce((min, current) => {
       if (!min || current.allQuestionsCount < min.allQuestionsCount)
         return current;

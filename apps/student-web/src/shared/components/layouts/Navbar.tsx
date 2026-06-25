@@ -26,6 +26,7 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
+import { shouldHideNavbar } from '@/shared/lib/shell-layout';
 
 export function Navbar() {
   const router = useRouter();
@@ -40,12 +41,7 @@ export function Navbar() {
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
 
-  // Hide navbar on booking routes and register routes
-  if (
-    pathname === '/booking/trial-session' ||
-    pathname === '/booking-success' ||
-    pathname.startsWith('/register/')
-  ) {
+  if (shouldHideNavbar(pathname)) {
     return null;
   }
 

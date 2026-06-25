@@ -83,9 +83,6 @@ export default function BillingSettingsPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Billing Settings</h1>
-          <p className="text-muted-foreground">
-            Manage billing pricing and subject-specific pricing overrides
-          </p>
         </div>
       </div>
 

@@ -108,7 +108,10 @@ async function countLearnStarts(
 ): Promise<number> {
   const { count, error } = await supabase
     .from("ucat_student_learning_module_progress")
-    .select("id, ucat_learning_modules!inner(kind)", { count: "exact", head: true })
+    .select("id, ucat_learning_modules!inner(kind)", {
+      count: "exact",
+      head: true,
+    })
     .eq("student_id", studentId)
     .eq("ucat_learning_modules.kind", "lesson")
     .gte("started_at", periodStart);
@@ -243,6 +246,116 @@ export async function getQuotaUsageForStudent(
 export type QuotaCheckResult =
   | { allowed: true }
   | { allowed: false; payload: QuotaExceededPayload };
+
+export type PracticeQuotaStatus = {
+  isQuotaExempt: boolean;
+  used: number;
+  limit: number;
+  period: UcatQuotaAreaUsage["period"];
+  remaining: number | null;
+};
+
+export async function getPracticeQuotaStatusForStudent(
+  supabase: AdminClient,
+  studentId: string,
+): Promise<PracticeQuotaStatus | null> {
+  const ctx = await resolveStudentQuotaContext(supabase, studentId);
+  if (!ctx) return null;
+
+  const config = await loadQuotaConfig(supabase);
+  const { limit, period } = getAreaConfig(config, "practice");
+  if (ctx.isQuotaExempt) {
+    return {
+      isQuotaExempt: true,
+      used: 0,
+      limit: -1,
+      period,
+      remaining: null,
+    };
+  }
+
+  const used = await countQuotaUsage(supabase, ctx, "practice", config);
+  return {
+    isQuotaExempt: false,
+    used,
+    limit,
+    period,
+    remaining: Math.max(0, limit - used),
+  };
+}
+
+export async function countNewPracticeQuestionsForStudent(
+  supabase: AdminClient,
+  studentId: string,
+  questionIds: string[],
+): Promise<number> {
+  const ctx = await resolveStudentQuotaContext(supabase, studentId);
+  if (!ctx || ctx.isQuotaExempt) return 0;
+
+  const uniqueQuestionIds = Array.from(new Set(questionIds.filter(Boolean)));
+  if (uniqueQuestionIds.length === 0) return 0;
+
+  const config = await loadQuotaConfig(supabase);
+  const { period } = getAreaConfig(config, "practice");
+  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+
+  const { data, error } = await supabase
+    .from("student_question_attempts")
+    .select("question_id")
+    .eq("student_id", studentId)
+    .in("question_id", uniqueQuestionIds)
+    .not("student_practice_session_id", "is", null)
+    .is("student_question_set_attempt_id", null)
+    .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
+    .gte("attempted_at", periodStart);
+
+  if (error) throw new Error(error.message);
+
+  const existing = new Set((data ?? []).map((row) => row.question_id));
+  return uniqueQuestionIds.filter((id) => !existing.has(id)).length;
+}
+
+export async function checkPracticeStartQuota(
+  supabase: AdminClient,
+  studentId: string,
+  questionIds: string[],
+): Promise<QuotaCheckResult> {
+  const status = await getPracticeQuotaStatusForStudent(supabase, studentId);
+  if (!status || status.isQuotaExempt) return { allowed: true };
+
+  if (status.limit === 0 || status.remaining === 0) {
+    return {
+      allowed: false,
+      payload: {
+        code: "QUOTA_EXCEEDED",
+        area: "practice",
+        used: status.used,
+        limit: status.limit,
+        period: status.period,
+      },
+    };
+  }
+
+  const newQuestionCount = await countNewPracticeQuestionsForStudent(
+    supabase,
+    studentId,
+    questionIds,
+  );
+  if (newQuestionCount > (status.remaining ?? 0)) {
+    return {
+      allowed: false,
+      payload: {
+        code: "QUOTA_EXCEEDED",
+        area: "practice",
+        used: status.used,
+        limit: status.limit,
+        period: status.period,
+      },
+    };
+  }
+
+  return { allowed: true };
+}
 
 export async function checkQuotaForAction(
   supabase: AdminClient,

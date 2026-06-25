@@ -330,13 +330,13 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   };
 
   return (
-    <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
+    <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-2 flex-shrink-0 w-full overflow-hidden min-w-0">
+      <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center justify-center gap-2 overflow-hidden p-2 sm:justify-start">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="mr-auto h-10">
-              <LayoutGrid className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
+              <LayoutGrid className="h-4 w-4 md:mr-2" />
               <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
             </Button>
           </DropdownMenuTrigger>
@@ -392,8 +392,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           <div className="relative flex items-center">
             <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10">
-                  <Layers className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
+                  <Layers className="h-4 w-4 md:mr-2" />
                   <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                     Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
@@ -430,8 +430,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           <div className="relative flex items-center">
             <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10">
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" className="size-9 p-0 sm:h-10 sm:w-auto sm:px-3">
+                  <ArrowUpDown className="h-4 w-4 sm:mr-2" />
                   <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
                     Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                   </span>
@@ -467,7 +467,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                       {selected ? (
                         <button
                           type="button"
-                          className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs hover:bg-muted"
+                          className="inline-flex h-7 items-center gap-1 rounded-[var(--radius)] border bg-background px-2 text-xs hover:bg-muted"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -516,8 +516,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         <div className="relative flex items-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10">
-                <Filter className="h-4 w-4 mr-2" />
+              <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
+                <Filter className="h-4 w-4 md:mr-2" />
                 <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
                   Filter
                 </span>
@@ -967,7 +967,7 @@ function KanbanColumn<TItem>({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col h-full w-[300px] min-w-[300px] rounded-lg bg-muted/30 transition-colors',
+        'flex h-full w-[300px] min-w-[300px] flex-col rounded-[var(--radius)] bg-muted/30 transition-colors',
         isOver && 'bg-muted/50'
       )}
     >
@@ -1052,7 +1052,7 @@ function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: S
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-md transition-shadow hover:shadow-md',
+        'group relative rounded-[var(--radius)] transition-shadow hover:shadow-md',
         isDragging && 'opacity-30'
       )}
       {...attributes}

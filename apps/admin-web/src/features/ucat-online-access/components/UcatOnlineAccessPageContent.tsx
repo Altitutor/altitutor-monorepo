@@ -178,10 +178,6 @@ export function UcatOnlineAccessPageContent() {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Manual online access</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Grant or revoke admin manual online access for any student and subject. UCAT grants set Force UCAT
-              Pro; revoking the last UCAT grant resets to Default. Use tier override to force UCAT Free.
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setTierOverrideOpen(true)} disabled>
@@ -247,10 +243,6 @@ export function UcatOnlineAccessPageContent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Manual online access</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Grant or revoke admin manual online access for any student and subject. UCAT grants set Force UCAT
-            Pro; revoking the last UCAT grant resets to Default. Use tier override to force UCAT Free.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setTierOverrideOpen(true)}>

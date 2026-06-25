@@ -145,18 +145,18 @@ export function TutorDocumentationPage({
         </div>
 
         {isLoading ? (
-          <div className={tutorCardCn('h-72 max-w-3xl animate-pulse bg-muted/35')} />
+          <div className={tutorCardCn('h-72 animate-pulse bg-muted/35')} />
         ) : documents.length > 0 ? (
           <div style={{ viewTransitionName: 'documentation-tree' }}>
             <ResourcesSidebar
               title="Folders"
               items={sidebarItems}
-              className="max-w-3xl lg:w-full"
+              className="lg:w-full"
               onNavigate={navigateWithTreeTransition}
             />
           </div>
         ) : (
-          <div className={tutorCardCn('max-w-3xl p-8 text-center text-sm text-muted-foreground')}>
+          <div className={tutorCardCn('p-8 text-center text-sm text-muted-foreground')}>
             No documentation is available.
           </div>
         )}
@@ -171,7 +171,7 @@ export function TutorDocumentationPage({
           {selectedDocumentQuery.isLoading || isLoading ? (
             <div className="h-72 animate-pulse rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
           ) : selectedDocument ? (
-            <article className="mx-auto max-w-3xl pb-12">
+            <article className="pb-12">
               <h1 className="mb-8 text-3xl font-bold tracking-tight">
                 {selectedDocument.title || 'Untitled'}
               </h1>

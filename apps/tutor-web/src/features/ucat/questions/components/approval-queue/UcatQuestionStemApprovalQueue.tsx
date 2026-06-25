@@ -280,6 +280,11 @@ function UcatQuestionStemApprovalQueue({
     const saved = await saveCurrent()
     if (!saved) return
     await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'approved' })
+    if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
+      await invalidateQueueData(currentEntry.stemId)
+      onExit()
+      return
+    }
     goNext()
     void invalidateQueueData(currentEntry.stemId)
   }
@@ -357,7 +362,6 @@ function UcatQuestionStemApprovalQueue({
           <div className="flex flex-1 items-center justify-center text-center text-muted-foreground">
             <div>
               <p className="text-lg">{entries.length === 0 ? 'No matching stems found' : 'Queue complete'}</p>
-              <Button type="button" className="mt-4" onClick={onExit}>Back to source</Button>
             </div>
           </div>
         ) : isLoading ? (
@@ -399,7 +403,13 @@ function UcatQuestionStemApprovalQueue({
               <UcatRichTextToolbar editor={activeTextEditor} />
             </div>
           ) : <div className="flex-1" />}
-          {!queueComplete && currentEntry ? (
+          {entries.length === 0 || queueComplete || !currentEntry ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" className={tutorBtnPrimary} onClick={onExit}>
+                Close
+              </Button>
+            </div>
+          ) : (
             <div className="flex shrink-0 items-center gap-2">
               {isAiMode ? (
                 <>
@@ -421,7 +431,7 @@ function UcatQuestionStemApprovalQueue({
                 </>
               )}
             </div>
-          ) : null}
+          )}
         </div>
       </DialogFooter>
 

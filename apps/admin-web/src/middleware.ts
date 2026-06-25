@@ -7,14 +7,12 @@ import type { PostgrestError } from '@supabase/supabase-js';
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
-  let supabaseResponse = NextResponse.next({
-    request: req,
-  });
-
   // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
-    return supabaseResponse;
+    return NextResponse.next({
+      request: req,
+    });
   }
 
   // Public paths that don't require authentication checks.
@@ -27,6 +25,16 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/invite') ||
     pathname.startsWith('/auth');
+
+  if (isPublicPath) {
+    return NextResponse.next({
+      request: req,
+    });
+  }
+
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  });
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,10 +66,6 @@ export async function middleware(req: NextRequest) {
       },
     }
   );
-
-  if (isPublicPath) {
-    return supabaseResponse;
-  }
 
   // Determine tutor app URL based on environment
   const tutorAppUrl = process.env.NODE_ENV === 'production' 
@@ -129,5 +133,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+  ],
 };

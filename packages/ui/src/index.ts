@@ -41,6 +41,7 @@ export * from './components/spinner';
 export * from './components/switch';
 export * from './components/table-pagination';
 export * from './components/table';
+export * from './components/table-actions';
 export * from './components/tabs';
 export * from './components/textarea';
 export * from './components/tooltip';
@@ -79,3 +80,4 @@ export {
   normalizeTimeInput,
   shouldUseTextDateTimeInput,
 } from './lib/native-datetime-input';
+export * from './hooks/use-media-query';

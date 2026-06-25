@@ -32,6 +32,7 @@ import {
   PopoverTrigger,
   SearchableSelect,
   Table,
+  TableActions,
   TableBody,
   TableCell,
   TableHead,
@@ -114,7 +115,6 @@ import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { cn, formatDateTime } from '@/shared/utils'
 import {
   tutorBtnOutline,
-  tutorBtnPrimary,
   tutorTableBodyRow,
   tutorTableHeaderRow,
   tutorTableShell,
@@ -1095,33 +1095,69 @@ export function UcatQuestionsPage() {
           { label: 'Questions', href: '/ucat/questions' },
         ]}
         actions={
-          <div className="flex items-center gap-2">
-            {mode === 'generated' ? (
-              <>
-                <Button variant="outline" className={tutorBtnOutline} onClick={handleBeginGeneratedApprovals}>
-                  Begin approvals
-                </Button>
-                <Button className={tutorBtnPrimary} onClick={() => setGenerateOpen(true)}>
-                  Generate questions
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
-                  Bulk Import
-                </Button>
-                <Button className={tutorBtnPrimary} onClick={() => setCreateOpen(true)}>
-                  Add Question Stem
-                </Button>
-              </>
-            )}
-          </div>
+          <>
+            <div className="hidden items-center gap-2 sm:flex">
+              {mode === 'generated' ? (
+                <>
+                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleBeginGeneratedApprovals}>
+                    Begin approvals
+                  </Button>
+                  <Button type="button" onClick={() => setGenerateOpen(true)}>
+                    Generate questions
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
+                    Bulk Import
+                  </Button>
+                  <Button type="button" onClick={() => setCreateOpen(true)}>
+                    Add Question Stem
+                  </Button>
+                </>
+              )}
+            </div>
+            <TableActions
+              className="sm:hidden"
+              triggerClassName={`${tutorBtnOutline} min-w-0`}
+              actions={
+                mode === 'generated'
+                  ? [
+                      {
+                        id: 'begin-approvals',
+                        label: 'Begin approvals',
+                        description: 'Review generated drafts in sequence',
+                        onSelect: handleBeginGeneratedApprovals,
+                      },
+                      {
+                        id: 'generate-questions',
+                        label: 'Generate questions',
+                        description: 'Create AI-generated question stems',
+                        onSelect: () => setGenerateOpen(true),
+                      },
+                    ]
+                  : [
+                      {
+                        id: 'bulk-import',
+                        label: 'Bulk Import',
+                        description: 'Paste and parse multiple stems',
+                        onSelect: () => setBulkImportOpen(true),
+                      },
+                      {
+                        id: 'add-question-stem',
+                        label: 'Add Question Stem',
+                        description: 'Create one stem manually',
+                        onSelect: () => setCreateOpen(true),
+                      },
+                    ]
+              }
+            />
+          </>
         }
       />
 
       <SegmentedControl
-        fullWidth
-        className="max-w-md"
+        className="w-fit max-w-full"
         value={activeTab}
         onValueChange={(value) => setActiveTab(parseQuestionsTab(value))}
         options={[
@@ -1179,7 +1215,7 @@ export function UcatQuestionsPage() {
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <div className={tutorTableShell}>
-        <Table className="w-full table-fixed">
+        <Table className="w-[1100px] table-fixed md:w-full">
           <TableHeader className="[&_tr]:border-b-0">
             <TableRow className={tutorTableHeaderRow}>
               <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>

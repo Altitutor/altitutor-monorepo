@@ -31,15 +31,19 @@ export type IssueInsert = TablesInsert<'issues'>;
  */
 export type IssueUpdate = TablesUpdate<'issues'>;
 
-/**
- * Issue tag type
- */
-export type IssueTag = Tables<'issue_tags'>;
+export type IssueTag = {
+  id?: string | null;
+  issue_id?: string | null;
+  student_id?: string | null;
+  staff_id?: string | null;
+  parent_id?: string | null;
+  class_id?: string | null;
+  session_id?: string | null;
+  invoice_id?: string | null;
+  subject_id?: string | null;
+};
 
-/**
- * Issue tag insert type
- */
-export type IssueTagInsert = TablesInsert<'issue_tags'>;
+export type IssueTagInsert = Omit<IssueTag, 'id'>;
 
 /**
  * Issue with related tags and activity info

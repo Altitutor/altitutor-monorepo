@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { motion } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
-import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { LearningCatalogPageSkeleton } from "@/features/learning/components/learning-catalog-page-skeleton";
 import { LearningModuleCatalogTree } from "@/features/learning/components/learning-module-catalog-tree";
 import { useLearningModules } from "@/features/learning/hooks/use-learning";
@@ -39,10 +38,6 @@ export function LearningCatalogPage() {
           title="Learn"
           description="Browse learning modules and track your progress."
         />
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <QuotaUsageCard area="learn" />
       </motion.div>
 
       {error ? (

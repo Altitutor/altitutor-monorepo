@@ -30,7 +30,7 @@ export function ExpandButton({
       size="icon"
       onClick={onToggle}
       title={expanded ? 'Exit full screen' : 'Full screen'}
-      className={cn(tutorBtnIconOutline, className)}
+      className={cn(tutorBtnIconOutline, 'hidden sm:inline-flex', className)}
     >
       {expanded ? (
         <Minimize2 className="h-4 w-4" />

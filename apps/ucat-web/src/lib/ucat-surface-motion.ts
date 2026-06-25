@@ -38,13 +38,23 @@ export const UCAT_FOCUS_RING_INSET = cn(
 
 /** Full-bleed dashboard grid tile (`Link` / `button` with icon + hover chevron). */
 export function ucatDashboardNavTileClassName() {
+  return ucatClickableCardClassName({ interactive: true });
+}
+
+/** Shared surface for settings-style nav cards and list rows. */
+export function ucatClickableCardClassName(options?: {
+  interactive?: boolean;
+  className?: string;
+}) {
+  const { interactive = true, className } = options ?? {};
   return cn(
     "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
     UCAT_SURFACE_CARD,
     UCAT_SURFACE_MOTION,
-    UCAT_PRESSABLE_LIFT_HOVER,
-    UCAT_PRESSABLE_SURFACE_HOVER,
-    UCAT_FOCUS_RING_INSET,
+    interactive && UCAT_PRESSABLE_LIFT_HOVER,
+    interactive && UCAT_PRESSABLE_SURFACE_HOVER,
+    interactive && UCAT_FOCUS_RING_INSET,
+    className,
   );
 }
 

@@ -9,16 +9,16 @@ import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import {
   SegmentedControl,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 export default function SessionsPage() {
@@ -92,10 +92,11 @@ export default function SessionsPage() {
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>
-                Add meeting
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
+              <AdminPageActionButton
+                icon={<Plus className="h-4 w-4" />}
+                label="Add meeting"
+                trailingIcon={<ChevronDown className="h-4 w-4" />}
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
@@ -157,7 +158,11 @@ export default function SessionsPage() {
             onOpenStaff={(id) => setActiveStaffId(id as string)}
           />
         ) : (
-          <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />
+          <SessionsCalendarView
+            onOpenSession={(id) => setActiveSessionId(id as string)}
+            initialDate={search.get('date') ?? undefined}
+            initialViewMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
+          />
         )}
       </Suspense>
 
@@ -226,4 +231,3 @@ export default function SessionsPage() {
     </div>
   );
 }
-

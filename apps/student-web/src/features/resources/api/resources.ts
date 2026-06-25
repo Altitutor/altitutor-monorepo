@@ -4,6 +4,7 @@ import type {
   ResourceAccessSource,
   ResourceFile,
   ResourceSubject,
+  ResourceSubjectNavItem,
   StudentSubjectAccessRow,
   StudentSubjectRow,
   StudentTopicFileRow,
@@ -48,6 +49,19 @@ export const resourcesApi = {
     }
 
     return map;
+  },
+
+  async getMySubjectNavItems(): Promise<ResourceSubjectNavItem[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('vstudent_subjects')
+      .select('id, name, short_name, long_name, curriculum, year_level')
+      .order('curriculum', { ascending: true })
+      .order('year_level', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return ((data ?? []) as ResourceSubjectNavItem[]).filter((subject) => Boolean(subject.id));
   },
 
   async getMySubjects(): Promise<ResourceSubject[]> {
@@ -96,13 +110,13 @@ export const resourcesApi = {
   },
 
   async getSubjectByShortName(subjectShortName: string): Promise<ResourceSubject | null> {
-    const subjects = await resourcesApi.getMySubjects();
+    const subjects = await resourcesApi.getMySubjectNavItems();
     const slug = normalizeSlug(subjectShortName);
-    return (
+    const subject =
       subjects.find((subject) => normalizeSlug(subject.short_name ?? '') === slug) ??
       subjects.find((subject) => normalizeSlug(subject.name ?? '') === slug) ??
-      null
-    );
+      null;
+    return subject as ResourceSubject | null;
   },
 
   async getTopicsBySubject(subjectId: string): Promise<StudentTopicRow[]> {

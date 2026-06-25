@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Input, SearchFromDropdown } from '@altitutor/ui';
+import { focusCommandPaletteInput } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
 import { tutorToolbarSearchContainerClassName, tutorToolbarSearchInputClassName } from '@/shared/lib/tutor-visual';
 import { entityTypes } from '../config/commandPalette.config';
+import { getEffectiveEntityFilters } from '../utils/entitySearchTypes';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
 import { useCommandPaletteFiltering } from '../hooks/useCommandPaletteFiltering';
 import { useCommandPaletteKeyboard } from '../hooks/useCommandPaletteKeyboard';
@@ -54,6 +56,11 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   const allPages = useCommandPalettePages();
 
+  const effectiveEntityFilters = useMemo(
+    () => getEffectiveEntityFilters(selectedFilters, searchQuery),
+    [selectedFilters, searchQuery],
+  );
+
   const { results: entityResults, isLoading: isSearching } = useCommandPaletteSearch({
     search: searchQuery,
     enabled: isOpen,
@@ -61,31 +68,30 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
   });
 
-  const { filteredItems, groupedItems } = useCommandPaletteFiltering({
+  const { filteredItems, groupedItems, displayItems } = useCommandPaletteFiltering({
     pages: allPages,
     entityResults,
     searchQuery,
-    selectedFilters,
+    selectedFilters: effectiveEntityFilters,
     allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
     entityTypeMapping: ENTITY_TYPE_MAPPING,
     entityTypes,
   });
 
   useEffect(() => {
-    if (filteredItems.length > 0) setSelectedIndex(0);
-  }, [filteredItems.length]);
+    if (displayItems.length > 0) setSelectedIndex(0);
+  }, [displayItems]);
 
   useEffect(() => {
     if (!isOpen) return;
     setSearchQuery('');
     setSelectedIndex(0);
     setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(timer);
+    focusCommandPaletteInput(inputRef.current);
   }, [isOpen]);
 
   const handleSelectItem = useCallback(
-    (item: (typeof filteredItems)[number]) => {
+    (item: (typeof displayItems)[number]) => {
       if (item.type === 'page') {
         onClose();
         router.push(item.href);
@@ -107,7 +113,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   );
 
   const { handleKeyDown } = useCommandPaletteKeyboard({
-    filteredItems,
+    filteredItems: displayItems,
     selectedIndex,
     onIndexChange: setSelectedIndex,
     onSelectItem: handleSelectItem,
@@ -115,7 +121,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   });
 
   const renderItem = useCallback(
-    (item: (typeof filteredItems)[number], index: number) => {
+    (item: (typeof displayItems)[number], index: number) => {
       const isSelected = index === selectedIndex;
 
       if (item.type === 'page') {
@@ -171,13 +177,19 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         />
         <Input
           ref={inputRef}
-          type="text"
-          placeholder="Search pages, subjects, topics, files, flashcards..."
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoFocus
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Search or try 12CHEM 2.2 for a topic/file..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           className={cn(
-            'h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
+            'h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm',
             tutorToolbarSearchInputClassName,
           )}
         />
@@ -200,8 +212,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             </div>
             <div className="space-y-0">
               {group.items.map((item) => {
-                const globalIndex = filteredItems.indexOf(item);
-                return renderItem(item, globalIndex);
+                const index = displayItems.indexOf(item);
+                return renderItem(item, index);
               })}
             </div>
           </div>

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { activityApi } from '../api';
 import type { ActivityEventsParams } from '../types';
-import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
 /**
  * Query keys for activity events
@@ -25,10 +24,6 @@ export const activityKeys = {
  */
 export function useActivityEvents(params: ActivityEventsParams & { enabled?: boolean }) {
   const { enabled = true, ...queryParams } = params;
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
 
   return useQuery({
     queryKey: activityKeys.list(queryParams),
@@ -43,11 +38,6 @@ export function useActivityEvents(params: ActivityEventsParams & { enabled?: boo
  * Get activity events for a student
  */
 export function useStudentActivity(studentId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.student(studentId || ''),
     queryFn: () => activityApi.getStudentActivity(studentId!, limit),
@@ -61,11 +51,6 @@ export function useStudentActivity(studentId: string | null, enabled = true, lim
  * Get activity events for a staff member
  */
 export function useStaffActivity(staffId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.staff(staffId || ''),
     queryFn: () => activityApi.getStaffActivity(staffId!, limit),
@@ -79,11 +64,6 @@ export function useStaffActivity(staffId: string | null, enabled = true, limit =
  * Get activity events for a class
  */
 export function useClassActivity(classId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.class(classId || ''),
     queryFn: () => activityApi.getClassActivity(classId!, limit),
@@ -97,11 +77,6 @@ export function useClassActivity(classId: string | null, enabled = true, limit =
  * Get activity events for a session
  */
 export function useSessionActivity(sessionId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.session(sessionId || ''),
     queryFn: () => activityApi.getSessionActivity(sessionId!, limit),
@@ -115,11 +90,6 @@ export function useSessionActivity(sessionId: string | null, enabled = true, lim
  * Get activity events for a parent
  */
 export function useParentActivity(parentId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.parent(parentId || ''),
     queryFn: () => activityApi.getParentActivity(parentId!, limit),
@@ -133,11 +103,6 @@ export function useParentActivity(parentId: string | null, enabled = true, limit
  * Get activity events for a task
  */
 export function useTaskActivity(taskId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.task(taskId || ''),
     queryFn: () => activityApi.getTaskActivity(taskId!, limit),
@@ -161,10 +126,6 @@ export function useIssueActivity(params: {
   limit?: number;
 }) {
   const { issueId, enabled = true, limit = 50, ...ids } = params;
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
 
   return useQuery({
     queryKey: [...activityKeys.issue(issueId || ''), ids],
@@ -179,11 +140,6 @@ export function useIssueActivity(params: {
  * Get activity events for an admin shift
  */
 export function useAdminShiftActivity(adminShiftId: string | null, enabled = true, limit = 50) {
-  useSupabaseRealtimeInvalidation({
-    table: 'activity_events',
-    queryKey: activityKeys.all,
-  });
-
   return useQuery({
     queryKey: activityKeys.adminShift(adminShiftId || ''),
     queryFn: () => activityApi.getAdminShiftActivity(adminShiftId!, limit),

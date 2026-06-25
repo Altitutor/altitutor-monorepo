@@ -24,9 +24,6 @@ export default function PoliciesPage() {
             <FileText className="h-8 w-8" />
             Policies
           </h1>
-          <p className="text-muted-foreground">
-            Configure policy documents shown to students during registration
-          </p>
         </div>
       </div>
 

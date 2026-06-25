@@ -243,9 +243,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           <h1 className="text-3xl font-bold tracking-tight">
             {editFlow.isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {staffMember.first_name} {staffMember.last_name}
-          </p>
         </div>
         <ActionsMenu
           type="staff"
@@ -255,7 +252,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}

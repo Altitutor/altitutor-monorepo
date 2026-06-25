@@ -4,11 +4,7 @@ import React, { useEffect, useState } from "react";
 import { TOKENS } from "./shared";
 
 const SECTION_ITEMS = [
-  { id: "mission", label: "Mission" },
-  { id: "resources", label: "Resources" },
   { id: "ucat", label: "UCAT" },
-  { id: "community", label: "Community" },
-  { id: "ecosystem", label: "Get Started" },
 ] as const;
 
 export function ScrollIndicatorV2() {

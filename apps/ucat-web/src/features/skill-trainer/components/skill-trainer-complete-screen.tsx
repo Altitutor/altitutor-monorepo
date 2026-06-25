@@ -9,8 +9,7 @@ import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-c
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
-import { UCAT_PRIMARY_ACTION_BUTTON, UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function SkillTrainerCompleteScreen({
   trainerKey,
@@ -50,7 +49,8 @@ export function SkillTrainerCompleteScreen({
     try {
       onLeave();
       const state = await skillTrainerApi.startAttempt(trainerKey);
-      router.push(`/skill-trainer/${slug}/play?attemptId=${state.attempt.id}`);
+      const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
+      router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {
@@ -79,14 +79,10 @@ export function SkillTrainerCompleteScreen({
         <p className="text-sm text-muted-foreground">Final score</p>
       </div>
 
-      <section
-        className={cn(
-          "space-y-4 rounded-ucatShell p-4",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
-      >
-        <h2 className="text-lg font-semibold">Leaderboard</h2>
+      <section aria-labelledby="leaderboard-heading" className="space-y-4">
+        <h2 id="leaderboard-heading" className="text-2xl font-semibold tracking-tight">
+          Leaderboard
+        </h2>
         <SkillTrainerLeaderboard trainerKey={trainerKey} />
       </section>
 

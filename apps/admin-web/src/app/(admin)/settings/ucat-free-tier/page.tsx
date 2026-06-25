@@ -58,9 +58,6 @@ export default function UcatFreeTierSettingsPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">UCAT Free tier</h1>
-          <p className="text-muted-foreground">
-            Configure per-area usage limits for students on UCAT Free
-          </p>
         </div>
       </div>
 

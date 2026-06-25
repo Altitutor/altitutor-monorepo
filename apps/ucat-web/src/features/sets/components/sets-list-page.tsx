@@ -6,7 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
-import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
 import { filterSets, type StudentSetRow } from "@/features/sets/api/sets-api";
 import {
@@ -200,7 +199,6 @@ export function SetsListPage({
         backHref={sectionNumberProp != null ? "/sets" : undefined}
         backLabel={sectionNumberProp != null ? "Back to sets" : undefined}
       />
-      <QuotaUsageCard area="sets" />
       <div className="space-y-4">
         <ListToolbar
           search={search}

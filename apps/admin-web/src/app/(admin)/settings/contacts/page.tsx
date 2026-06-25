@@ -7,6 +7,7 @@ import { contactsApi } from '@/features/contacts/api';
 import { generateVcf, downloadVcf } from '@/features/contacts/utils';
 import { Loader2, ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { useToast } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 
@@ -98,23 +99,13 @@ export default function ContactsPage() {
         <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
-            <p className="text-muted-foreground">
-              View and export all contacts in the system. Export as VCF for iPhone import.
-            </p>
           </div>
-          <Button onClick={handleExport} disabled={isExporting || !contacts || contacts.length === 0}>
-            {isExporting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Export VCF
-              </>
-            )}
-          </Button>
+          <AdminPageActionButton
+            icon={isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            label="Export VCF"
+            onClick={handleExport}
+            disabled={isExporting || !contacts || contacts.length === 0}
+          />
         </div>
       </div>
 

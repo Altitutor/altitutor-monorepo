@@ -15,8 +15,8 @@ export function useCommandPaletteSearch({
   selectedFilters,
   allFilterTypes,
 }: UseCommandPaletteSearchOptions) {
-  const entitySearchTypes = getEntitySearchTypes(selectedFilters, allFilterTypes);
-  const canSearchEntities = shouldRunEntitySearch(selectedFilters, allFilterTypes);
+  const entitySearchTypes = getEntitySearchTypes(selectedFilters, allFilterTypes, search);
+  const canSearchEntities = shouldRunEntitySearch(selectedFilters, allFilterTypes, search);
 
   const { results, isLoading, hasError } = useEntitySearch({
     search,

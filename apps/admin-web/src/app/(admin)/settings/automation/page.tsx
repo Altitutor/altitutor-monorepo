@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { AutomationRulesList } from '@/features/automation/components/AutomationRulesList';
 import { CreateAutomationRuleWizard } from '@/features/automation/components/CreateAutomationRuleWizard';
 import { EditAutomationRuleDialog } from '@/features/automation/components/EditAutomationRuleDialog';
@@ -41,14 +42,12 @@ export default function AutomationSettingsPage() {
         <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Automation Rules</h1>
-            <p className="text-muted-foreground">
-              Configure automated actions that trigger based on activity events
-            </p>
           </div>
-          <Button onClick={() => setIsCreateWizardOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Rule
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Create Rule"
+            onClick={() => setIsCreateWizardOpen(true)}
+          />
         </div>
       </div>
 
@@ -73,4 +72,3 @@ export default function AutomationSettingsPage() {
     </div>
   );
 }
-

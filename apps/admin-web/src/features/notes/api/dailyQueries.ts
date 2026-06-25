@@ -15,6 +15,7 @@ export function useDailyNote(date: string, enabled = true) {
     queryKey: notesKeys.all,
     getRelatedKeys: getDailyNoteRelatedKeys,
     debounceMs: DAILY_NOTE_REALTIME_DEBOUNCE_MS,
+    enabled: enabled && !!date,
   });
 
   return useQuery({

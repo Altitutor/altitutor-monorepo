@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ParentsTable, AddParentModal } from '@/features/parents';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
-import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 
 export default function ParentsPage() {
@@ -41,10 +41,11 @@ export default function ParentsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Parents</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Parent
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Parent"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <ParentsTable onRefresh={refreshCounter} />
@@ -64,4 +65,3 @@ export default function ParentsPage() {
     </div>
   );
 }
-

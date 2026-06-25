@@ -26,15 +26,28 @@ import {
 export interface IssuesListProps {
   /** Initial filter values (e.g. dashboard: open only) */
   defaultFilters?: Record<string, unknown[]>;
+  hideToolbar?: boolean;
+  embedView?: {
+    groupBy?: string | null;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  };
 }
 
-export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
+export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: IssuesListProps = {}) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
+  const embedLocked = hideToolbar && embedView != null;
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>('status');
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [groupBy, setGroupBy] = useState<string | null>(
+    embedLocked ? (embedView.groupBy ?? null) : 'status'
+  );
+  const [sortBy, setSortBy] = useState<string>(
+    embedLocked ? (embedView.sortBy ?? 'name') : 'name'
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+    embedLocked ? (embedView.sortDirection ?? 'asc') : 'asc'
+  );
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
@@ -161,13 +174,13 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         renderName={(i) => i.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
-        groupByOptions={groupByOptions}
+        groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortChange={handleSortChange}
+        groupBy={embedLocked ? (embedView.groupBy ?? null) : groupBy}
+        onGroupByChange={embedLocked ? undefined : setGroupBy}
+        sortBy={embedLocked ? (embedView.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked ? (embedView.sortDirection ?? 'asc') : sortDirection}
+        onSortChange={embedLocked ? undefined : handleSortChange}
         getGroupOrder={(columnKey, valueKey) => {
           if (columnKey === 'status') {
             return getIssueStatusOrder(valueKey);
@@ -185,7 +198,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
-        onAdd={handleAdd}
+        onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(i) => {
           setSelectedIssueId(i.id);
           setIsEditDialogOpen(true);
@@ -196,22 +209,27 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         emptyMessage="No issues match your filters"
         isLoading={isLoading}
         noPadding={true}
+        hideToolbar={hideToolbar}
         filters={filters}
-        onFiltersChange={setFilters}
-        descriptionConfig={{
-          enabled: true,
-          renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <AdminRichTextEditorWithImages
-              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
-              content={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              className="min-h-[60px]"
-              context="issues"
-            />
-          ),
-          placeholder: "Add issue description..."
-        }}
+        onFiltersChange={hideToolbar ? undefined : setFilters}
+        descriptionConfig={
+          hideToolbar
+            ? undefined
+            : {
+                enabled: true,
+                renderEditor: ({ value, onChange, placeholder, ref }) => (
+                  <AdminRichTextEditorWithImages
+                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    content={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    className="min-h-[60px]"
+                    context="issues"
+                  />
+                ),
+                placeholder: "Add issue description...",
+              }
+        }
       />
 
       {selectedIssueId && (

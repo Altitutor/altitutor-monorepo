@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getResourceSubjectHref, getResourceSubjectNavLabel } from '@altitutor/shared';
-import type { ResourceSubject } from '@/features/resources/lib/types';
+import type { ResourceSubjectNavItem } from '@/features/resources/lib/types';
 
 export interface CommandPalettePage {
   id: string;
@@ -84,13 +84,6 @@ export const staticPages: CommandPalettePage[] = [
   { id: 'classes', title: 'Classes', href: '/classes', icon: Calendar, keywords: ['sessions', 'schedule'] },
   { id: 'pay-tier', title: 'Pay tier', href: '/pay-tier', icon: TrendingUp, keywords: ['pay', 'salary', 'wage'] },
   { id: 'resources', title: 'Resources', href: '/resources', icon: BookOpen, keywords: ['subjects', 'topics', 'files'] },
-  {
-    id: 'session-logs',
-    title: 'Session logs',
-    href: '/session-logs',
-    icon: ScrollText,
-    keywords: ['tutor log', 'logs'],
-  },
   { id: 'settings', title: 'Settings', href: '/settings', icon: Settings },
   {
     id: 'settings-profile',
@@ -139,7 +132,7 @@ export const ucatPages: CommandPalettePage[] = [
   { id: 'ucat-sections', title: 'UCAT sections', href: '/ucat/sections', icon: LayoutGrid },
 ];
 
-export function buildSubjectPages(subjects: ResourceSubject[]): CommandPalettePage[] {
+export function buildSubjectPages(subjects: ResourceSubjectNavItem[]): CommandPalettePage[] {
   return subjects.map((subject) => ({
     id: `subject-page-${subject.id}`,
     title: getResourceSubjectNavLabel(subject),
