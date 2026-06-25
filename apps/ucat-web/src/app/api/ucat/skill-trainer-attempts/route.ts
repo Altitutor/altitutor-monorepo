@@ -42,16 +42,26 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const isLearnContext =
+      body.skillTrainerSetId != null && body.learningModuleBlockId != null;
+
     const existing = await getActiveAttemptForStudent(auth.admin, auth.studentId);
     if (existing && !existing.completed_at) {
       const state = await buildAttemptState(auth.admin, existing);
       if (!state.isCompleted) {
+        if (existing.trainer_key !== body.trainerKey && isLearnContext) {
+          return NextResponse.json(
+            {
+              error: "ANOTHER_ATTEMPT_IN_PROGRESS",
+              activeTrainerKey: existing.trainer_key,
+              attempt: state,
+            },
+            { status: 409 },
+          );
+        }
         return NextResponse.json({ attempt: state });
       }
     }
-
-    const isLearnContext =
-      body.skillTrainerSetId != null && body.learningModuleBlockId != null;
 
     if (!isLearnContext) {
       const quotaCheck = await checkQuotaForAction(

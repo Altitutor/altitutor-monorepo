@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { addDays, format, isValid, parse } from 'date-fns';
 import type { JSONContent } from '@altitutor/ui';
@@ -8,20 +9,18 @@ import {
   Button,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   SegmentedControl,
 } from '@altitutor/ui';
-import { Check, ChevronLeft, ChevronRight, CloudOff, Loader2 } from 'lucide-react';
-import type { Editor } from '@tiptap/react';
+import { Check, ChevronLeft, ChevronRight, CloudOff, ExternalLink, Loader2 } from 'lucide-react';
 import { TodaySessionsView } from '@/features/sessions/components/TodaySessionsView';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssuesList } from '@/features/issues/components/IssuesList';
 import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
-import { NoteEditorBottomToolbar } from '@/features/notes/components/NoteEditorBottomToolbar';
+import { DashboardReconciliationCard } from '@/features/reconciliation/components/DashboardReconciliationCard';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
 import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
@@ -39,6 +38,38 @@ function getValidDateString(value: string): string | null {
   return value;
 }
 
+function DashboardCardHeader({
+  title,
+  href,
+  linkLabel,
+  action,
+  headerExtra,
+}: {
+  title: string;
+  href?: string;
+  linkLabel?: string;
+  action?: ReactNode;
+  headerExtra?: ReactNode;
+}) {
+  return (
+    <CardHeader className="flex flex-row items-center justify-between gap-4 px-4 pb-2 pt-3">
+      <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+      <div className="flex items-center gap-2">
+        {headerExtra}
+        {action}
+        {href ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={href} className="gap-1.5">
+              <ExternalLink className="h-3.5 w-3.5" />
+              {linkLabel ?? title}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </CardHeader>
+  );
+}
+
 function DailyNoteCard({ date }: { date: string }) {
   const { data: note, isLoading } = useDailyNote(date);
   const updateDailyNote = useUpdateDailyNote();
@@ -49,7 +80,6 @@ function DailyNoteCard({ date }: { date: string }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const currentNoteIdRef = useRef<string | null>(null);
   const lastSavedContentRef = useRef<string>('');
-  const [editor, setEditor] = useState<Editor | null>(null);
 
   useEffect(() => {
     if (!note) return;
@@ -81,60 +111,54 @@ function DailyNoteCard({ date }: { date: string }) {
   }, [content, date, debouncedContentTrigger, isInitialized, note, updateDailyNote, currentStaff?.id]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>Daily Note</CardTitle>
-          <CardDescription>Notes for {date}</CardDescription>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-          {updateDailyNote.isPending ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : updateDailyNote.isError ? (
-            <>
-              <CloudOff className="h-3 w-3 text-destructive" />
-              <span className="text-destructive">Changes not saved</span>
-            </>
-          ) : (
-            <>
-              <Check className="h-3 w-3 text-emerald-500" />
-              <span>Saved</span>
-            </>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 p-0">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden">
+      <DashboardCardHeader
+        title="Daily Note"
+        href="/documents"
+        linkLabel="Documents"
+        headerExtra={
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            {updateDailyNote.isPending ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : updateDailyNote.isError ? (
+              <>
+                <CloudOff className="h-3 w-3 text-destructive" />
+                <span className="text-destructive">Changes not saved</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-3 w-3 text-emerald-500" />
+                <span>Saved</span>
+              </>
+            )}
+          </div>
+        }
+      />
+      <CardContent className="flex min-h-0 flex-1 flex-col p-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-10">
+          <div className="flex flex-1 items-center justify-center py-10">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <>
-            <div className="relative min-h-[220px] min-w-0 rounded-md border bg-background p-4 pb-20">
-              <NoteEditor
-                content={content}
-                onChange={setContent}
-                placeholder="Write daily notes..."
-                onEditorReady={setEditor}
-                mentionSuggestions={mentionSuggestions}
-              />
-              <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center">
-                <div className="pointer-events-auto min-w-0 max-w-full">
-                  <NoteEditorBottomToolbar editor={editor} />
-                </div>
-              </div>
-            </div>
-          </>
+          <div className="flex min-h-0 flex-1 flex-col border-t px-4 pt-3 pb-3">
+            <NoteEditor
+              content={content}
+              onChange={setContent}
+              placeholder="Write daily notes..."
+              mentionSuggestions={mentionSuggestions}
+              fillContainer
+            />
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
 
-const DASHBOARD_TASK_DEFAULT_STATUSES = ['backlog', 'todo', 'in_progress'] as const;
+const DASHBOARD_TASK_DEFAULT_STATUSES = ['todo', 'in_progress'] as const;
 const DASHBOARD_ISSUE_DEFAULT_STATUS = ['open'] as const;
 
 export default function DashboardDatePage({ params }: { params: { date: string } }) {
@@ -165,6 +189,19 @@ export default function DashboardDatePage({ params }: { params: { date: string }
     }),
     [currentStaff?.id]
   );
+
+  const sessionsPageHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('view', sessionsViewMode);
+    if (sessionsViewMode === 'table') {
+      params.set('from', dateStr ?? todayDateStr);
+      params.set('to', dateStr ?? todayDateStr);
+    } else {
+      params.set('date', dateStr ?? todayDateStr);
+      params.set('calendarMode', 'day');
+    }
+    return `/sessions?${params.toString()}`;
+  }, [dateStr, sessionsViewMode, todayDateStr]);
 
   useEffect(() => {
     if (!dateStr) {
@@ -220,54 +257,78 @@ export default function DashboardDatePage({ params }: { params: { date: string }
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle>Sessions</CardTitle>
-          <SegmentedControl
-            value={sessionsViewMode}
-            onValueChange={(v) => setSessionsViewMode(v as ViewMode)}
-            options={[
-              { value: 'table', label: 'Table' },
-              { value: 'calendar', label: 'Calendar' },
-            ]}
+      <Card className="flex flex-col overflow-hidden">
+        <DashboardCardHeader
+          title="Sessions"
+          href={sessionsPageHref}
+          linkLabel="Sessions"
+          action={
+            <SegmentedControl
+              value={sessionsViewMode}
+              onValueChange={(v) => setSessionsViewMode(v as ViewMode)}
+              options={[
+                { value: 'table', label: 'Table' },
+                { value: 'calendar', label: 'Calendar' },
+              ]}
+            />
+          }
+        />
+        <CardContent className="overflow-auto p-0">
+          <TodaySessionsView
+            date={dateStr}
+            viewMode={sessionsViewMode}
+            onOpenSession={handleSessionClick}
+            embedTable
           />
-        </CardHeader>
-        <CardContent className="p-0">
-          <TodaySessionsView date={dateStr} viewMode={sessionsViewMode} onOpenSession={handleSessionClick} />
         </CardContent>
       </Card>
 
-      <DailyNoteCard date={dateStr} />
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <DailyNoteCard date={dateStr} />
+        <DashboardReconciliationCard />
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Tasks</CardTitle>
-          <CardDescription>Tasks in progress or to do</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <TasksList key={currentStaff?.id ?? 'staff-loading'} defaultFilters={dashboardTaskFilters} />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="flex max-h-[520px] flex-col overflow-hidden">
+          <DashboardCardHeader title="Tasks" href="/tasks" />
+          <CardContent className="min-h-0 flex-1 p-0">
+            <TasksList
+              key={currentStaff?.id ?? 'staff-loading'}
+              defaultFilters={dashboardTaskFilters}
+              hideToolbar
+              embedView={{ groupBy: 'status', sortBy: 'priority', sortDirection: 'asc' }}
+              showAssigneePill={false}
+              showIssuePill={false}
+              showProjectPill={false}
+              showLinkPill={false}
+              compact
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Issues</CardTitle>
-          <CardDescription>Track and update active issues</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <IssuesList defaultFilters={dashboardIssueFilters} />
-        </CardContent>
-      </Card>
+        <Card className="flex max-h-[520px] flex-col overflow-hidden">
+          <DashboardCardHeader title="Issues" href="/issues" />
+          <CardContent className="min-h-0 flex-1 p-0">
+            <IssuesList
+              defaultFilters={dashboardIssueFilters}
+              hideToolbar
+              embedView={{ sortBy: 'due_date', sortDirection: 'asc' }}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Projects</CardTitle>
-          <CardDescription>Projects you lead</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ProjectsList key={currentStaff?.id ?? 'staff-loading'} defaultFilters={dashboardProjectFilters} />
-        </CardContent>
-      </Card>
+        <Card className="flex max-h-[520px] flex-col overflow-hidden">
+          <DashboardCardHeader title="Projects" href="/projects" />
+          <CardContent className="min-h-0 flex-1 p-0">
+            <ProjectsList
+              key={currentStaff?.id ?? 'staff-loading'}
+              defaultFilters={dashboardProjectFilters}
+              hideToolbar
+              embedView={{ sortBy: 'priority', sortDirection: 'asc', secondarySortBy: 'target_date' }}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       <SessionModal
         isOpen={isSessionModalOpen}

@@ -59,10 +59,16 @@ export function useCommandPaletteFiltering({
     [filteredItems, searchQuery, entityTypeMapping, entityTypes],
   );
 
+  const displayItems = useMemo(
+    () => groupedItems.flatMap((group) => group.items),
+    [groupedItems],
+  );
+
   return {
     filteredPages,
     allItems,
     filteredItems,
     groupedItems,
+    displayItems,
   };
 }

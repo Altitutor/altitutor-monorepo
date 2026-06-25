@@ -135,6 +135,10 @@ export interface RichTextEditorProps {
    */
   minHeight?: string;
   /**
+   * When true, the editor sizes to its content instead of stretching to fill the parent.
+   */
+  autoHeight?: boolean;
+  /**
    * Whether the editor is editable.
    */
   editable?: boolean;
@@ -399,6 +403,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onEditorReady,
   isMarkdown = false,
   minHeight = '200px',
+  autoHeight = false,
   editable = true,
   mentionSuggestions,
   onMentionClick,
@@ -1210,10 +1215,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   return (
     <div 
       className={cn(
-        'relative flex h-full min-h-0 w-full min-w-0 cursor-text flex-col overflow-visible',
+        'relative flex w-full min-w-0 cursor-text flex-col overflow-visible',
+        autoHeight ? 'h-auto' : 'h-full min-h-0',
         !editable && 'cursor-default'
       )}
-      style={{ minHeight }}
+      style={autoHeight ? undefined : { minHeight }}
       onClick={handleContainerClick}
       onPasteCapture={(e) => {
         clipboardCaptureRef.current = {
@@ -1222,7 +1228,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         };
       }}
     >
-      <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
+      <EditorContent
+        editor={editor}
+        className={cn(autoHeight ? 'h-auto overflow-visible' : 'min-h-0 flex-1 overflow-visible')}
+      />
     </div>
   );
 });

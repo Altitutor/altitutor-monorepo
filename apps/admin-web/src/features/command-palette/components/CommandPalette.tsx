@@ -136,7 +136,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   });
 
   // Filter and sort items
-  const { filteredItems, groupedItems } = useCommandPaletteFiltering({
+  const { filteredItems, groupedItems, displayItems } = useCommandPaletteFiltering({
     commands: commandsWithActions,
     pages: allPages,
     entityResults,
@@ -147,12 +147,12 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     entityTypes,
   });
 
-  // Reset selected index when items change
+  // Reset selected index when visible items change
   useEffect(() => {
-    if (filteredItems.length > 0) {
+    if (displayItems.length > 0) {
       setSelectedIndex(0);
     }
-  }, [filteredItems.length]);
+  }, [displayItems]);
 
   // Reset state and focus input when opened (Radix Dialog focuses first focusable, but we ensure input gets it)
   useEffect(() => {
@@ -165,7 +165,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Handle item selection
   const handleSelectItem = useCallback(
-    (item: typeof filteredItems[number]) => {
+    (item: typeof displayItems[number]) => {
       if (item.type === 'command') {
         // Execute the action
         if (item.action) {
@@ -192,7 +192,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Keyboard navigation
   const { handleKeyDown } = useCommandPaletteKeyboard({
-    filteredItems,
+    filteredItems: displayItems,
     selectedIndex,
     onIndexChange: setSelectedIndex,
     onSelectItem: handleSelectItem,
@@ -201,7 +201,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Render item helper
   const renderItem = useCallback(
-    (item: typeof filteredItems[number], index: number) => {
+    (item: typeof displayItems[number], index: number) => {
       const isSelected = index === selectedIndex;
 
       if (item.type === 'command') {
@@ -313,8 +313,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             </div>
             <div className="space-y-0">
               {group.items.map((item) => {
-                const globalIndex = filteredItems.indexOf(item);
-                return renderItem(item, globalIndex);
+                const index = displayItems.indexOf(item);
+                return renderItem(item, index);
               })}
             </div>
           </div>

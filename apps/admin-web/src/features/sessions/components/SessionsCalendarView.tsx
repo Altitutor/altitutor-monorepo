@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { addDays, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
+import { addDays, startOfWeek, endOfWeek, format, isSameDay, parse, isValid } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
@@ -10,11 +10,22 @@ import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 import { Button, SegmentedControl } from "@altitutor/ui";
 
-type Props = { onOpenSession?: (id: string) => void };
+type Props = {
+  onOpenSession?: (id: string) => void;
+  initialDate?: string;
+  initialViewMode?: 'day' | 'week';
+};
 
-export function SessionsCalendarView({ onOpenSession }: Props) {
-  const [anchor, setAnchor] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
+function parseDateParam(value?: string): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = parse(value, 'yyyy-MM-dd', new Date());
+  return isValid(parsed) ? parsed : null;
+}
+
+export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMode }: Props) {
+  const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
+  const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
+  const [viewMode, setViewMode] = useState<'day' | 'week'>(initialViewMode ?? 'week');
   
   // Calculate date range based on view mode
   const rangeStart = useMemo(() => {

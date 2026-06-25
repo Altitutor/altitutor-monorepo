@@ -85,7 +85,10 @@ type UsePlanPickerOptions = {
   onDowngradeNavigate?: () => void;
   /** Marketing surfaces send users to signup instead of checkout */
   audience?: "app" | "marketing";
-  checkoutReturnContext?: "signup_onboarding" | "subscribe";
+  checkoutReturnContext?:
+    | "signup_onboarding"
+    | "subscribe"
+    | "practice_session";
 };
 
 export function usePlanPicker(options: UsePlanPickerOptions = {}) {
@@ -294,7 +297,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       return;
     }
 
-    const selection: UcatCheckoutSelection = { tier, interval: billingInterval };
+    const selection: UcatCheckoutSelection = {
+      tier,
+      interval: billingInterval,
+    };
     options.onCheckoutStart?.();
     try {
       const { url } = await createUcatCheckoutSession({

@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { pickStems } from "../../generated-sets/pick-stems";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import {
   mapStemDetailToQuestionStemWithQuestions,
   type StemDetailRowFromDb,
 } from "@/features/practice/lib/map-stem-detail-for-practice";
+import {
+  getPracticeQuotaStatusForStudent,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 /**
  * Fetches the next stem for unlimited practice mode.
@@ -27,17 +34,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { input?: SetGeneratorInput; excludeStemIds?: string[] };
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: "Server write client not configured" },
+      { status: 500 },
+    );
+  }
+
+  let body: {
+    input?: SetGeneratorInput;
+    excludeStemIds?: string[];
+    practiceSessionId?: string;
+  };
   try {
     body = (await request.json()) as {
       input?: SetGeneratorInput;
       excludeStemIds?: string[];
+      practiceSessionId?: string;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const input = body.input;
+  const practiceSessionId = body.practiceSessionId;
   const excludeStemIds = body.excludeStemIds ?? [];
 
   if (!input?.section) {
@@ -47,8 +67,77 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!practiceSessionId) {
+    return NextResponse.json(
+      { error: "Missing practice session id." },
+      { status: 400 },
+    );
+  }
+
+  const { data: student, error: studentError } = await supabaseAdmin
+    .from("students")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (studentError) {
+    return NextResponse.json(
+      { error: "Failed to resolve student" },
+      { status: 500 },
+    );
+  }
+
+  if (!student) {
+    return NextResponse.json(
+      { error: "No student profile found" },
+      { status: 404 },
+    );
+  }
+
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from("student_practice_sessions")
+    .select("id, stems_snapshot, unlimited, completed_at")
+    .eq("id", practiceSessionId)
+    .eq("student_id", student.id)
+    .maybeSingle();
+
+  if (sessionError) {
+    return NextResponse.json({ error: sessionError.message }, { status: 500 });
+  }
+  if (!session || !session.unlimited || session.completed_at) {
+    return NextResponse.json(
+      { error: "Practice session not found" },
+      { status: 404 },
+    );
+  }
+
+  const status = await getPracticeQuotaStatusForStudent(
+    supabaseAdmin,
+    student.id,
+  );
+  if (
+    status &&
+    !status.isQuotaExempt &&
+    (status.limit === 0 || status.remaining === 0)
+  ) {
+    return quotaExceededResponse({
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used: status.used,
+      limit: status.limit,
+      period: status.period,
+    });
+  }
+
+  const deliveredStems = Array.isArray(session.stems_snapshot)
+    ? (session.stems_snapshot as QuestionStemWithQuestions[])
+    : [];
+  const deliveredStemIds = deliveredStems.map((stem) => stem.id);
+
   const result = await pickStems(supabase, input, {
-    excludeStemIds,
+    excludeStemIds: Array.from(
+      new Set([...excludeStemIds, ...deliveredStemIds]),
+    ),
     limitStems: 1,
   });
 
@@ -70,6 +159,17 @@ export async function POST(request: NextRequest) {
 
   const stemRow = stemDetails[0] as StemDetailRowFromDb;
   const stem = mapStemDetailToQuestionStemWithQuestions(stemRow);
+
+  const nextDeliveredStems = [...deliveredStems, stem];
+  const { error: updateError } = await supabaseAdmin
+    .from("student_practice_sessions")
+    .update({ stems_snapshot: nextDeliveredStems as unknown as Json })
+    .eq("id", practiceSessionId)
+    .eq("student_id", student.id);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ stem });
 }

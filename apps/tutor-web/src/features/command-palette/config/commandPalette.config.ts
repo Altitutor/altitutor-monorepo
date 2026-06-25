@@ -84,13 +84,6 @@ export const staticPages: CommandPalettePage[] = [
   { id: 'classes', title: 'Classes', href: '/classes', icon: Calendar, keywords: ['sessions', 'schedule'] },
   { id: 'pay-tier', title: 'Pay tier', href: '/pay-tier', icon: TrendingUp, keywords: ['pay', 'salary', 'wage'] },
   { id: 'resources', title: 'Resources', href: '/resources', icon: BookOpen, keywords: ['subjects', 'topics', 'files'] },
-  {
-    id: 'session-logs',
-    title: 'Session logs',
-    href: '/session-logs',
-    icon: ScrollText,
-    keywords: ['tutor log', 'logs'],
-  },
   { id: 'settings', title: 'Settings', href: '/settings', icon: Settings },
   {
     id: 'settings-profile',

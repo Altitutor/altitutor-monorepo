@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-period";
@@ -29,7 +29,7 @@ export function QuotaLimitModal() {
 
   const handleGoBack = () => {
     closeQuotaLimit();
-    router.back();
+    router.replace("/dashboard");
   };
 
   return (
@@ -49,8 +49,8 @@ export function QuotaLimitModal() {
           className="w-full sm:w-auto"
           onClick={handleGoBack}
         >
-          <ChevronLeft className="h-4 w-4" aria-hidden />
-          Go back
+          <LayoutDashboard className="h-4 w-4" aria-hidden />
+          Go to dashboard
         </Button>
       }
     >

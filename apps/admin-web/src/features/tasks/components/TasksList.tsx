@@ -323,6 +323,8 @@ export function TasksList({
   projectId,
   compact = false,
   hideToolbar = false,
+  embedView,
+  showAssigneePill = true,
   showIssuePill = true,
   showProjectPill = true,
   showLinkPill = true,
@@ -333,14 +335,21 @@ export function TasksList({
   projectId?: string;
   compact?: boolean;
   hideToolbar?: boolean;
+  embedView?: {
+    groupBy?: string | null;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  };
+  showAssigneePill?: boolean;
   showIssuePill?: boolean;
   showProjectPill?: boolean;
   showLinkPill?: boolean;
   noPadding?: boolean;
-  /** Initial filter values (e.g. dashboard: my tasks + backlog/todo/in progress) */
+  /** Initial filter values (e.g. dashboard: my tasks + todo/in progress) */
   defaultFilters?: Record<string, unknown[]>;
 } = {}) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
+  const embedLocked = hideToolbar && embedView != null;
 
   const effectiveFilters = useMemo(() => ({
     ...filters,
@@ -350,9 +359,15 @@ export function TasksList({
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>('status');
-  const [sortBy, setSortBy] = useState<string>('priority');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [groupBy, setGroupBy] = useState<string | null>(
+    embedLocked ? (embedView.groupBy ?? null) : 'status'
+  );
+  const [sortBy, setSortBy] = useState<string>(
+    embedLocked ? (embedView.sortBy ?? 'priority') : 'priority'
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+    embedLocked ? (embedView.sortDirection ?? 'asc') : 'asc'
+  );
 
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
@@ -525,17 +540,17 @@ export function TasksList({
   const defaultAssignee = currentStaffId ?? null;
 
   const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(() => [
-    {
+    ...(showAssigneePill ? [{
       key: 'assignee',
       label: 'Assignee',
       visibleByDefault: true,
-      getValue: (t) => t.assigned_to ?? null,
+      getValue: (t: TaskWithAssignee) => t.assigned_to ?? null,
       defaultValue: defaultAssignee,
       filterOptions: assigneeFilterOptions,
       groupable: true,
       sortable: false,
       filterable: true,
-      renderPill: (item, onChange, collapsed) => (
+      renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
         <TaskAssigneeEntityPill
           task={item}
           staffList={staffList}
@@ -546,7 +561,7 @@ export function TasksList({
           }}
         />
       ),
-    },
+    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
     ...(showLinkPill ? [{
       key: 'link_entity',
       label: 'Link',
@@ -704,6 +719,7 @@ export function TasksList({
     staffList,
     issues,
     projects,
+    showAssigneePill,
     showIssuePill,
     showProjectPill,
     showLinkPill,
@@ -763,14 +779,14 @@ export function TasksList({
         renderName={(t) => t.title ?? ''}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
-        groupByOptions={groupByOptions}
+        groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortChange={handleSortChange}
-        onAdd={handleAdd}
+        groupBy={embedLocked ? (embedView.groupBy ?? null) : groupBy}
+        onGroupByChange={embedLocked ? undefined : setGroupBy}
+        sortBy={embedLocked ? (embedView.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked ? (embedView.sortDirection ?? 'asc') : sortDirection}
+        onSortChange={embedLocked ? undefined : handleSortChange}
+        onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(t) => {
           setSelectedTaskId(t.id);
           setIsEditDialogOpen(true);
@@ -781,9 +797,9 @@ export function TasksList({
         emptyMessage="No tasks match your filters"
         isLoading={isLoading}
         filters={filters}
-        onFiltersChange={setFilters}
-        quickFilters={quickFilters}
-        onApplyQuickFilter={handleApplyQuickFilter}
+        onFiltersChange={hideToolbar ? undefined : setFilters}
+        quickFilters={hideToolbar ? [] : quickFilters}
+        onApplyQuickFilter={hideToolbar ? undefined : handleApplyQuickFilter}
         getGroupOrder={getGroupOrder}
         getGroupLabel={(columnKey, valueKey) => {
           if (columnKey === 'assignee') {
@@ -820,21 +836,25 @@ export function TasksList({
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
-        descriptionConfig={{
-          enabled: true,
-          renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <AdminRichTextEditorWithImages
-              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
-              content={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              className="min-h-[60px]"
-              context="tasks"
-              mentionSuggestions={mentionSuggestions}
-            />
-          ),
-          placeholder: 'Add task description...'
-        }}
+        descriptionConfig={
+          hideToolbar
+            ? undefined
+            : {
+                enabled: true,
+                renderEditor: ({ value, onChange, placeholder, ref }) => (
+                  <AdminRichTextEditorWithImages
+                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    content={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    className="min-h-[60px]"
+                    context="tasks"
+                    mentionSuggestions={mentionSuggestions}
+                  />
+                ),
+                placeholder: 'Add task description...',
+              }
+        }
         renderAddRow={
           issueId || projectId
             ? (props) => (

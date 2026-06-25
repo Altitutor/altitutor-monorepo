@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
-import {
-  checkQuotaForAction,
-  quotaExceededResponse,
-} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -80,16 +77,40 @@ export async function POST(request: NextRequest) {
     body.studentQuestionSetAttemptId === null;
 
   if (isPracticeAttempt) {
-    const hasAnswer =
-      body.questionAnswerOptionId != null || body.answerSnapshot != null;
-    const quotaCheck = await checkQuotaForAction(
-      supabaseAdmin,
-      student.id,
-      "practice",
-      { practiceQuestionId: body.questionId, hasAnswer },
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from("student_practice_sessions")
+      .select("id, stems_snapshot, completed_at")
+      .eq("id", body.studentPracticeSessionId!)
+      .eq("student_id", student.id)
+      .maybeSingle();
+
+    if (sessionError) {
+      return NextResponse.json(
+        { error: sessionError.message },
+        { status: 500 },
+      );
+    }
+
+    const deliveredStems = Array.isArray(session?.stems_snapshot)
+      ? (session.stems_snapshot as QuestionStemWithQuestions[])
+      : [];
+    const deliveredQuestionIds = new Set(
+      deliveredStems.flatMap((stem) =>
+        Array.isArray(stem.questions)
+          ? stem.questions.map((question) => question.id)
+          : [],
+      ),
     );
-    if (!quotaCheck.allowed) {
-      return quotaExceededResponse(quotaCheck.payload);
+
+    if (
+      !session ||
+      session.completed_at ||
+      !deliveredQuestionIds.has(body.questionId)
+    ) {
+      return NextResponse.json(
+        { error: "Question is not part of this practice session" },
+        { status: 403 },
+      );
     }
   }
 
@@ -218,7 +239,9 @@ export async function POST(request: NextRequest) {
     student_id: student.id,
     student_question_set_attempt_id: setAttemptId,
     student_practice_session_id: practiceSessionId,
-    learning_module_block_id: isLearnAttempt ? body.learningModuleBlockId! : null,
+    learning_module_block_id: isLearnAttempt
+      ? body.learningModuleBlockId!
+      : null,
     question_id: body.questionId,
     question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,

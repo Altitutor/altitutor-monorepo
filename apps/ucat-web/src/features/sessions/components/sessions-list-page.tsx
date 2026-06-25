@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge, Card, CardContent, useToast } from "@altitutor/ui";
+import { Badge, useToast } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
-import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
-import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-card-icon-chip";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
@@ -16,6 +14,11 @@ import {
   getUcatSessionAdelaideDayStatus,
   type StudentUcatSession,
 } from "@/features/sessions/api/sessions-api";
+import {
+  UcatClickableCardContent,
+} from "@/shared/components/ucat-clickable-card";
+import { ucatClickableCardClassName } from "@/lib/ucat-surface-motion";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const ADELAIDE_TZ = "Australia/Adelaide";
 
@@ -78,9 +81,8 @@ function SessionCard({
     }
   };
 
-  const cardClassName = cn(
-    UCAT_CARD_CHROME,
-    canNavigate && UCAT_CARD_RAISED_HOVER,
+  const surfaceClassName = cn(
+    ucatClickableCardClassName({ interactive: canNavigate }),
     isToday && canNavigate && "ring-1 ring-primary/20",
     isFutureDay && "opacity-[0.55]",
   );
@@ -91,52 +93,44 @@ function SessionCard({
       ? "future"
       : "default";
 
-  const cardInner = (
-    <Card className={cardClassName}>
-      <CardContent className="p-6">
-        <div className="flex items-center gap-4">
-          <div className={sessionCardIconChipClassName(iconVariant)}>
-            <CalendarDays className="h-5 w-5" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="font-semibold leading-tight">{dateLabel}</h3>
-              {isToday ? (
-                <Badge
-                  variant="secondary"
-                  className="h-5 shrink-0 px-2 py-0 text-[10px] font-semibold uppercase tracking-wide"
-                >
-                  Today
-                </Badge>
-              ) : null}
-              {isAbsentLogged ? (
-                <Badge
-                  variant="outline"
-                  className="h-5 shrink-0 border-destructive/40 px-2 py-0 text-[10px] font-semibold uppercase tracking-wide text-destructive"
-                >
-                  Absent
-                </Badge>
-              ) : null}
-            </div>
-            {timeLabel ? (
-              <p className="text-sm text-muted-foreground">{timeLabel}</p>
-            ) : null}
-          </div>
-          {canNavigate ? <UcatHoverChevron /> : null}
+  const cardContent = (
+    <UcatClickableCardContent
+      layout="inline"
+      iconNode={
+        <div className={sessionCardIconChipClassName(iconVariant)}>
+          <CalendarDays className="h-5 w-5" aria-hidden />
         </div>
-      </CardContent>
-    </Card>
+      }
+      title={dateLabel}
+      titleAddon={
+        <>
+          {isToday ? (
+            <Badge
+              variant="secondary"
+              className="h-5 shrink-0 px-2 py-0 text-[10px] font-semibold uppercase tracking-wide"
+            >
+              Today
+            </Badge>
+          ) : null}
+          {isAbsentLogged ? (
+            <Badge
+              variant="outline"
+              className="h-5 shrink-0 border-destructive/40 px-2 py-0 text-[10px] font-semibold uppercase tracking-wide text-destructive"
+            >
+              Absent
+            </Badge>
+          ) : null}
+        </>
+      }
+      description={timeLabel}
+      showChevron={canNavigate}
+    />
   );
 
   if (canNavigate) {
     return (
-      <Link
-        href={href}
-        className={cn(
-          "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
-        )}
-      >
-        {cardInner}
+      <Link href={href} className={surfaceClassName}>
+        {cardContent}
       </Link>
     );
   }
@@ -144,16 +138,16 @@ function SessionCard({
   return (
     <button
       type="button"
-      className="block w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35"
+      className={cn(surfaceClassName, "w-full cursor-pointer text-left")}
       onClick={handleBlockedClick}
     >
-      {cardInner}
+      {cardContent}
     </button>
   );
 }
 
 export function SessionsListPage() {
-  const reduceMotion = useReducedMotion();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { toast } = useToast();
   const { data: sessions, isLoading, error } = useStudentUcatSessions();
   const [showPreviousSessions, setShowPreviousSessions] = useState(false);
@@ -170,34 +164,6 @@ export function SessionsListPage() {
       });
     },
     [toast],
-  );
-
-  const listVariants = useMemo(
-    () => ({
-      hidden: {},
-      show: {
-        transition: {
-          staggerChildren: reduceMotion ? 0 : 0.04,
-          delayChildren: reduceMotion ? 0 : 0.03,
-        },
-      },
-    }),
-    [reduceMotion],
-  );
-
-  const itemVariants = useMemo(
-    () => ({
-      hidden: reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 },
-      show: {
-        opacity: 1,
-        y: 0,
-        transition: {
-          duration: reduceMotion ? 0 : 0.2,
-          ease: [0.32, 0.72, 0, 1] as const,
-        },
-      },
-    }),
-    [reduceMotion],
   );
 
   const headerDescription =
@@ -287,7 +253,7 @@ export function SessionsListPage() {
       ) : (
         <motion.div
           className="flex flex-col gap-4"
-          variants={listVariants}
+          variants={containerVariants}
           initial="hidden"
           animate="show"
         >

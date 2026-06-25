@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { Badge } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
@@ -17,11 +15,14 @@ import { DashboardFreeQuotaCard } from "@/features/dashboard/components/dashboar
 import { DashboardPracticeDiscountCard } from "@/features/dashboard/components/dashboard-practice-discount-card";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
-import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
-import { ucatDashboardNavTileClassName } from "@/lib/ucat-surface-motion";
+import {
+  UcatClickableCardButton,
+  UcatClickableCardLink,
+} from "@/shared/components/ucat-clickable-card";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function DashboardPage() {
-  const reduceMotion = useReducedMotion();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { showComingSoonModal } = useComingSoon();
   const access = useUcatAccess();
   const { openInPersonUpsell } = useUpsellDialog();
@@ -31,36 +32,6 @@ export function DashboardPage() {
     if (!config || config.requiredAccess !== "inPerson") return;
     openInPersonUpsell();
   };
-
-  const cardGridVariants = useMemo(
-    () => ({
-      hidden: {},
-      show: {
-        transition: {
-          staggerChildren: reduceMotion ? 0 : 0.04,
-          delayChildren: reduceMotion ? 0 : 0.03,
-        },
-      },
-    }),
-    [reduceMotion],
-  );
-
-  const cardItemVariants = useMemo(
-    () => ({
-      hidden: reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 },
-      show: {
-        opacity: 1,
-        y: 0,
-        transition: {
-          duration: reduceMotion ? 0 : 0.2,
-          ease: [0.32, 0.72, 0, 1] as const,
-        },
-      },
-    }),
-    [reduceMotion],
-  );
-
-  const cardSurfaceClass = ucatDashboardNavTileClassName();
 
   return (
     <div className="space-y-6">
@@ -78,86 +49,75 @@ export function DashboardPage() {
 
       <motion.div
         className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        variants={cardGridVariants}
+        variants={containerVariants}
         initial="hidden"
         animate="show"
       >
         {dashboardCards.map((card) => {
-          const Icon = card.icon;
           const accessConfig = getUpsellConfigForPath(card.href);
           const blocked = !hasAccessForPath(card.href, access);
 
           if (card.comingSoon) {
             return (
-              <motion.button
+              <motion.div
                 key={card.href}
-                type="button"
-                variants={cardItemVariants}
-                onClick={() => showComingSoonModal()}
-                className={cardSurfaceClass}
-                aria-label={`${card.label} (coming soon)`}
+                variants={itemVariants}
+                className="flex h-full min-w-0 flex-col"
               >
-                <div className="flex w-full items-start justify-between">
-                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
-                  </div>
-                  <Badge variant="secondary" className="shrink-0 text-[10px]">
-                    Coming soon
-                  </Badge>
-                </div>
-                <h3 className="mt-4 font-semibold">{card.label}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {card.description}
-                </p>
-              </motion.button>
+                <UcatClickableCardButton
+                  onClick={() => showComingSoonModal()}
+                  aria-label={`${card.label} (coming soon)`}
+                  icon={card.icon}
+                  title={card.label}
+                  description={card.description}
+                  showChevron={false}
+                  trailing={
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      Coming soon
+                    </Badge>
+                  }
+                />
+              </motion.div>
             );
           }
 
           if (blocked) {
             return (
-              <motion.button
+              <motion.div
                 key={card.href}
-                type="button"
-                variants={cardItemVariants}
-                onClick={() => openUpsellForPath(card.href)}
-                className={cardSurfaceClass}
+                variants={itemVariants}
+                className="flex h-full min-w-0 flex-col"
               >
-                <div className="flex w-full items-start justify-between">
-                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
-                  </div>
-                  {accessConfig ? (
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">
-                      {accessConfig.badgeLabel}
-                    </Badge>
-                  ) : null}
-                </div>
-                <h3 className="mt-4 font-semibold">{card.label}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {card.description}
-                </p>
-              </motion.button>
+                <UcatClickableCardButton
+                  onClick={() => openUpsellForPath(card.href)}
+                  icon={card.icon}
+                  title={card.label}
+                  description={card.description}
+                  showChevron={false}
+                  trailing={
+                    accessConfig ? (
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                        {accessConfig.badgeLabel}
+                      </Badge>
+                    ) : null
+                  }
+                />
+              </motion.div>
             );
           }
 
           return (
             <motion.div
               key={card.href}
-              variants={cardItemVariants}
+              variants={itemVariants}
               className="flex h-full min-w-0 flex-col"
             >
-              <Link href={card.href} className={cardSurfaceClass}>
-                <div className="flex w-full items-start justify-between">
-                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
-                  </div>
-                  <UcatHoverChevron />
-                </div>
-                <h3 className="mt-4 font-semibold">{card.label}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {card.description}
-                </p>
-              </Link>
+              <UcatClickableCardLink
+                href={card.href}
+                icon={card.icon}
+                title={card.label}
+                description={card.description}
+              />
             </motion.div>
           );
         })}

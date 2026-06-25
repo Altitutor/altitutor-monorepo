@@ -68,7 +68,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
   });
 
-  const { filteredItems, groupedItems } = useCommandPaletteFiltering({
+  const { filteredItems, groupedItems, displayItems } = useCommandPaletteFiltering({
     pages: allPages,
     entityResults,
     searchQuery,
@@ -79,8 +79,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   });
 
   useEffect(() => {
-    if (filteredItems.length > 0) setSelectedIndex(0);
-  }, [filteredItems.length]);
+    if (displayItems.length > 0) setSelectedIndex(0);
+  }, [displayItems]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,7 +91,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   }, [isOpen]);
 
   const handleSelectItem = useCallback(
-    (item: (typeof filteredItems)[number]) => {
+    (item: (typeof displayItems)[number]) => {
       if (item.type === 'page') {
         onClose();
         router.push(item.href);
@@ -113,7 +113,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   );
 
   const { handleKeyDown } = useCommandPaletteKeyboard({
-    filteredItems,
+    filteredItems: displayItems,
     selectedIndex,
     onIndexChange: setSelectedIndex,
     onSelectItem: handleSelectItem,
@@ -121,7 +121,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   });
 
   const renderItem = useCallback(
-    (item: (typeof filteredItems)[number], index: number) => {
+    (item: (typeof displayItems)[number], index: number) => {
       const isSelected = index === selectedIndex;
 
       if (item.type === 'page') {
@@ -212,8 +212,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             </div>
             <div className="space-y-0">
               {group.items.map((item) => {
-                const globalIndex = filteredItems.indexOf(item);
-                return renderItem(item, globalIndex);
+                const index = displayItems.indexOf(item);
+                return renderItem(item, index);
               })}
             </div>
           </div>

@@ -7,6 +7,7 @@ export {
 } from "@/features/ucat-access/lib/upsell-query-params";
 export { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 export { QuotaLimitModal } from "@/features/ucat-access/components/quota-limit-modal";
+export { QuotaHeaderPill } from "@/features/ucat-access/components/quota-header-pill";
 export {
   QuotaUsageCard,
   getQuotaAreaLabel,

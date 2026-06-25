@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
-import { Dialog, DialogContent, DialogPortal } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogPortal, useMediaQuery } from '@altitutor/ui';
 import { ViewClassModal } from '@/features/classes';
 import { cn } from '@/shared/utils';
 import { tutorDialogContentClass } from '@/shared/lib/tutor-visual';
@@ -13,6 +13,7 @@ interface CommandPaletteModalProps {
 }
 
 export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProps) {
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   const dragStartYRef = useRef<number | null>(null);
   const dragOffsetRef = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -73,37 +74,53 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     }
   };
 
-  if (!isOpen && !selectedClassId) {
-    return null;
-  }
-
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogPortal>
-          <DialogContent
-            mobilePresentation="bottom-sheet"
-            className={cn(
-              tutorDialogContentClass,
-              'z-[101] flex h-[calc(100dvh-2rem)] max-h-[800px] w-full max-w-[calc(100vw-2rem)] flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
-              'max-md:h-[88dvh] max-md:max-h-[88dvh] max-md:rounded-t-3xl max-md:rounded-b-none max-md:transition-transform max-md:duration-300 max-md:ease-out',
-              dragStartYRef.current != null && 'max-md:transition-none',
-            )}
-            style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            onOpenAutoFocus={(event) => event.preventDefault()}
-          >
-            <CommandPalette
-              isOpen={isOpen}
-              onClose={onClose}
-              onEntitySelected={handleEntitySelected}
-            />
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
+      {isOpen ? (
+        <div
+          className="fixed inset-0 z-[100] bg-black/60 md:hidden"
+          onClick={onClose}
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-[101] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
+          dragStartYRef.current != null && 'transition-none',
+          isOpen ? 'translate-y-0' : 'translate-y-full',
+        )}
+        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        <CommandPalette
+          isOpen={isOpen}
+          onClose={onClose}
+          onEntitySelected={handleEntitySelected}
+        />
+      </div>
+
+      {isDesktop ? (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+          <DialogPortal>
+            <DialogContent
+              className={cn(
+                tutorDialogContentClass,
+                'z-[101] flex w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 md:max-w-4xl md:h-[min(800px,calc(100dvh-2rem))] md:min-h-[min(800px,calc(100dvh-2rem))] md:max-h-[min(800px,calc(100dvh-2rem))] [&>button]:hidden',
+              )}
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
+              <CommandPalette
+                isOpen={isOpen}
+                onClose={onClose}
+                onEntitySelected={handleEntitySelected}
+              />
+            </DialogContent>
+          </DialogPortal>
+        </Dialog>
+      ) : null}
 
       {selectedClassId ? (
         <ViewClassModal

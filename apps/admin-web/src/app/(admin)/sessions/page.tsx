@@ -158,7 +158,11 @@ export default function SessionsPage() {
             onOpenStaff={(id) => setActiveStaffId(id as string)}
           />
         ) : (
-          <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />
+          <SessionsCalendarView
+            onOpenSession={(id) => setActiveSessionId(id as string)}
+            initialDate={search.get('date') ?? undefined}
+            initialViewMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
+          />
         )}
       </Suspense>
 

@@ -14,7 +14,12 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { UcatExamActionButton, UcatExamShell, useToast } from "@altitutor/ui";
+import {
+  Skeleton,
+  UcatExamActionButton,
+  UcatExamShell,
+  useToast,
+} from "@altitutor/ui";
 import { UCAT_COLORS } from "@altitutor/ui/components/ucat/ucat-theme";
 import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
 import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";
@@ -45,7 +50,10 @@ import { ReviewBody } from "@/features/question-engine/components/review-body";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
-import { getIncompleteCount } from "@/features/question-engine/lib/review";
+import {
+  getIncompleteCount,
+  getReviewQuestionStatus,
+} from "@/features/question-engine/lib/review";
 import {
   formatTimeRemaining,
   getCurrentMockSegment,
@@ -74,6 +82,9 @@ import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/e
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { useHydratedQuestionStems } from "@/features/practice/hooks/use-hydrated-question-stems";
+import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
+import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
+import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +95,142 @@ export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
 export const LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS =
   "mx-auto h-full max-h-full w-full min-h-0 overflow-hidden";
 
+function QuestionEngineLoadingContentSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-5 overflow-hidden bg-white px-1 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Skeleton className="h-6 w-32 bg-slate-200" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-20 bg-slate-200" />
+          <Skeleton className="h-8 w-24 bg-slate-200" />
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="min-h-0 space-y-5 overflow-hidden">
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-11/12 bg-slate-200" />
+            <Skeleton className="h-5 w-4/5 bg-slate-200" />
+            <Skeleton className="h-5 w-2/3 bg-slate-200" />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex min-h-14 items-start gap-3 border border-slate-200 bg-white p-3"
+              >
+                <Skeleton className="h-5 w-5 shrink-0 rounded-full bg-slate-200" />
+                <div className="w-full space-y-2">
+                  <Skeleton className="h-4 w-full bg-slate-200" />
+                  <Skeleton className="h-4 w-3/4 bg-slate-200" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Skeleton className="h-32 w-full bg-slate-200" />
+        </div>
+
+        <div className="hidden min-h-0 border-l border-slate-200 pl-5 lg:block">
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-24 bg-slate-200" />
+            <div className="grid grid-cols-5 gap-2">
+              {Array.from({ length: 15 }).map((_, index) => (
+                <Skeleton
+                  key={index}
+                  className="aspect-square w-full rounded-sm bg-slate-200"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuestionEngineLoadingSkeleton({
+  label,
+  isPracticeMode,
+  embeddedInLesson,
+}: {
+  label: string;
+  isPracticeMode: boolean;
+  embeddedInLesson: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        isPracticeMode
+          ? embeddedInLesson
+            ? LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS
+            : PRACTICE_EMBEDDED_VIEWPORT_CLASS
+          : "mx-auto h-[calc(100dvh-8rem)] min-h-[420px] w-full overflow-hidden",
+      )}
+      aria-busy="true"
+      aria-live="polite"
+      role="status"
+    >
+      <span className="sr-only">{label}</span>
+      <section
+        className="relative h-full min-h-0 overflow-hidden bg-white text-black"
+        data-ucat-shell-root="true"
+      >
+        <div className="flex h-full min-h-0 flex-col bg-white">
+          <header
+            className="flex items-center justify-between border-b-2 px-3 pb-1.5 pt-3"
+            style={{
+              borderColor: UCAT_COLORS.primaryBlue,
+              backgroundColor: UCAT_COLORS.primaryBlue,
+            }}
+          >
+            <Skeleton className="h-7 w-52 bg-white/35" />
+            <Skeleton className="h-5 w-28 bg-white/30" />
+          </header>
+
+          <div
+            className="flex min-h-[30px] items-center justify-between border-b px-3"
+            style={{
+              borderColor: UCAT_COLORS.toolbarBorderBlue,
+              backgroundColor: UCAT_COLORS.toolbarBlue,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-4 w-24 bg-white/30" />
+              <Skeleton className="h-4 w-28 bg-white/30" />
+            </div>
+            <Skeleton className="h-4 w-32 bg-white/30" />
+          </div>
+
+          <div className="min-h-0 flex-1 bg-white px-4 py-0 sm:px-5">
+            <QuestionEngineLoadingContentSkeleton />
+          </div>
+
+          <footer
+            className="flex shrink-0 items-center justify-between px-3 py-2"
+            style={{ backgroundColor: UCAT_COLORS.primaryBlue }}
+          >
+            <Skeleton className="h-8 w-24 bg-white/30" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24 bg-white/30" />
+              <Skeleton className="h-8 w-28 bg-white/30" />
+            </div>
+          </footer>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export type PracticeEngineLiveStats = {
+  answeredCount: number;
+  correctCount: number;
+  incorrectCount: number;
+  currentQuestionNumber: number;
+  totalQuestionLabel: string;
+};
+
 export function QuestionEnginePage({
   mode,
   sourceId,
@@ -91,11 +238,13 @@ export function QuestionEnginePage({
   standaloneQuestions,
   practice = false,
   practiceSessionId,
+  onPracticeStatsChange,
   confirmPracticeTransitions = true,
   timePerQuestionSeconds = null,
   backHref,
   onBack,
   onNeedMoreStems,
+  practiceQuotaReached,
   learningModuleBlockId,
   onLearnProgress,
   embeddedInLesson = false,
@@ -108,6 +257,8 @@ export function QuestionEnginePage({
   practice?: boolean;
   /** When provided (practice mode): links question attempts to this session for persistence. */
   practiceSessionId?: string | null;
+  /** Practice session wrapper callback for rendering live stats outside the engine. */
+  onPracticeStatsChange?: (stats: PracticeEngineLiveStats | null) => void;
   /** When true (default): show confirmation popup before submit→answer and before next question stem in answer mode. */
   confirmPracticeTransitions?: boolean;
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
@@ -120,6 +271,8 @@ export function QuestionEnginePage({
   onNeedMoreStems?: (
     excludeStemIds: string[],
   ) => Promise<QuestionStemWithQuestions[] | null>;
+  /** Unlimited practice: quota was reached while trying to fetch the next stem. */
+  practiceQuotaReached?: QuotaExceededPayload | null;
   /** Learn lesson block: links attempts to this block and skips practice quota. */
   learningModuleBlockId?: string;
   /** Called after learn attempts are recorded (e.g. to refresh lesson progress). */
@@ -138,7 +291,9 @@ export function QuestionEnginePage({
   const launchGate = useExamAttemptLaunchGate(launchGateKind, sourceId);
 
   const { stems: hydratedQuestionStems, isLoading: isHydratingQuestionStems } =
-    useHydratedQuestionStems(mode === "questionStem" ? questionStems : undefined);
+    useHydratedQuestionStems(
+      mode === "questionStem" ? questionStems : undefined,
+    );
 
   const questionStemsForExam =
     mode === "questionStem" ? hydratedQuestionStems : questionStems;
@@ -270,14 +425,14 @@ export function QuestionEnginePage({
 
   const { serverSegmentEndsAt, isHydrating: isHydratingExamAttempt } =
     useExamAttemptLifecycle({
-    enabled: examAttemptLifecycleEnabled,
-    exam,
-    state,
-    setState,
-    practice: isPracticeMode,
-    practiceSessionId,
-    attemptStateRef,
-  });
+      enabled: examAttemptLifecycleEnabled,
+      exam,
+      state,
+      setState,
+      practice: isPracticeMode,
+      practiceSessionId,
+      attemptStateRef,
+    });
 
   const markingOrQuestionIndex =
     state.phase === "question"
@@ -764,8 +919,7 @@ export function QuestionEnginePage({
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
-      const inputType =
-        target instanceof HTMLInputElement ? target.type : null;
+      const inputType = target instanceof HTMLInputElement ? target.type : null;
       const isTextInput =
         tagName === "INPUT" &&
         inputType !== "button" &&
@@ -1129,11 +1283,72 @@ export function QuestionEnginePage({
     onBack,
   ]);
 
+  useEffect(() => {
+    if (!onPracticeStatsChange) return;
+    if (!isPracticeMode || embeddedInLesson || !exam) {
+      onPracticeStatsChange(null);
+      return;
+    }
+
+    const answeredRows = questions.filter(
+      (question) =>
+        getReviewQuestionStatus(
+          question,
+          state.visitedQuestionIds,
+          state.selectedAnswers,
+          state.syllogismSnapshots,
+        ) === "complete",
+    );
+    const markingResult = computeMarkingResult(
+      questions,
+      state.selectedAnswers,
+      state.syllogismSnapshots,
+    );
+    const answeredIds = new Set(answeredRows.map((question) => question.id));
+    const correctCount = markingResult.rows.filter(
+      (row) => answeredIds.has(row.question.id) && row.points > 0,
+    ).length;
+    const answeredCount = answeredRows.length;
+    const progressIndex =
+      state.phase === "practiceAnswer" && state.viewingQuestionIndex != null
+        ? state.viewingQuestionIndex
+        : effectiveCurrentIndex;
+    const currentQuestionNumber = Math.min(
+      Math.max(progressIndex + 1, 1),
+      Math.max(questions.length, 1),
+    );
+
+    onPracticeStatsChange({
+      answeredCount,
+      correctCount,
+      incorrectCount: Math.max(0, answeredCount - correctCount),
+      currentQuestionNumber,
+      totalQuestionLabel: onNeedMoreStems
+        ? "Unlimited"
+        : String(questions.length),
+    });
+  }, [
+    onPracticeStatsChange,
+    isPracticeMode,
+    embeddedInLesson,
+    exam,
+    questions,
+    state.visitedQuestionIds,
+    state.selectedAnswers,
+    state.syllogismSnapshots,
+    state.phase,
+    state.viewingQuestionIndex,
+    effectiveCurrentIndex,
+    onNeedMoreStems,
+  ]);
+
   if (launchGateKind && launchGate.isCheckingLaunch) {
     return (
-      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
-        Checking for in-progress attempts...
-      </div>
+      <QuestionEngineLoadingSkeleton
+        label="Checking for in-progress attempts"
+        isPracticeMode={isPracticeMode}
+        embeddedInLesson={embeddedInLesson}
+      />
     );
   }
 
@@ -1142,9 +1357,7 @@ export function QuestionEnginePage({
       <ExamAttemptConflictDialog
         open={Boolean(launchGate.conflictActive)}
         active={launchGate.conflictActive}
-        pendingLabel={
-          mode === "mock" ? "this mock exam" : "this question set"
-        }
+        pendingLabel={mode === "mock" ? "this mock exam" : "this question set"}
         isFinalizing={launchGate.isFinalizingConflict}
         onFinalizeAndContinue={() =>
           void launchGate.finalizeConflictAndContinue()
@@ -1156,25 +1369,31 @@ export function QuestionEnginePage({
 
   if ((mode === "set" || mode === "mock") && query.isLoading) {
     return (
-      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
-        Loading exam...
-      </div>
+      <QuestionEngineLoadingSkeleton
+        label="Loading exam"
+        isPracticeMode={isPracticeMode}
+        embeddedInLesson={embeddedInLesson}
+      />
     );
   }
 
   if (isHydratingExamAttempt) {
     return (
-      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
-        Resuming attempt...
-      </div>
+      <QuestionEngineLoadingSkeleton
+        label="Resuming attempt"
+        isPracticeMode={isPracticeMode}
+        embeddedInLesson={embeddedInLesson}
+      />
     );
   }
 
   if (mode === "questionStem" && isHydratingQuestionStems) {
     return (
-      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
-        Loading questions...
-      </div>
+      <QuestionEngineLoadingSkeleton
+        label="Loading questions"
+        isPracticeMode={isPracticeMode}
+        embeddedInLesson={embeddedInLesson}
+      />
     );
   }
 
@@ -1567,7 +1786,9 @@ export function QuestionEnginePage({
                   void handleEndReview();
                 })
               }
-              onCancel={() => void runWithLag(() => setShowSubmitSetDialog(false))}
+              onCancel={() =>
+                void runWithLag(() => setShowSubmitSetDialog(false))
+              }
             />
           </div>
         ) : null}
@@ -1640,60 +1861,29 @@ export function QuestionEnginePage({
             : "contents",
         )}
       >
-      <UcatExamShell
-        sectionTitle={
-          isLoadingMorePhase
-            ? `${exam.title} – Loading…`
-            : isPracticeCompletePhase
-              ? `${exam.title} – Complete`
-              : isResultsPhase
-                ? `${exam.title} – Results`
-                : isReviewScreen
-                  ? exam.title
-                  : (currentQuestion?.sectionName ?? exam.title)
-        }
-        sectionTitleRight={
-          isReviewScreen
-            ? isTimed && remainingSeconds !== null
-              ? headerRight
-              : null
-            : !isInstructionsPhase || isTimed
-              ? headerRight
-              : null
-        }
-        toolLeft={
-          isResultsPhase ? null : isReviewScreen ? (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-              onClick={() =>
-                void runWithLag(() =>
-                  setState((current) => ({
-                    ...current,
-                    showReviewInstructionsDialog: true,
-                  })),
-                )
-              }
-            >
-              <span className="text-[13pt]">Instructions</span>
-            </button>
-          ) : isInstructionsPhase ? null : (
-            <>
-              {backHref && !isPracticeMode ? (
-                <Link
-                  href={backHref}
-                  className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-                  onClick={(e) => {
-                    if (onBack) {
-                      e.preventDefault();
-                      onBack();
-                    }
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="text-[13pt]">Back</span>
-                </Link>
-              ) : null}
+        <UcatExamShell
+          sectionTitle={
+            isLoadingMorePhase
+              ? `${exam.title} – Loading…`
+              : isPracticeCompletePhase
+                ? `${exam.title} – Complete`
+                : isResultsPhase
+                  ? `${exam.title} – Results`
+                  : isReviewScreen
+                    ? exam.title
+                    : (currentQuestion?.sectionName ?? exam.title)
+          }
+          sectionTitleRight={
+            isReviewScreen
+              ? isTimed && remainingSeconds !== null
+                ? headerRight
+                : null
+              : !isInstructionsPhase || isTimed
+                ? headerRight
+                : null
+          }
+          toolLeft={
+            isResultsPhase ? null : isReviewScreen ? (
               <button
                 type="button"
                 className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -1701,138 +1891,390 @@ export function QuestionEnginePage({
                   void runWithLag(() =>
                     setState((current) => ({
                       ...current,
-                      showCalculator: !current.showCalculator,
+                      showReviewInstructionsDialog: true,
                     })),
                   )
                 }
               >
-                <Calculator className="h-4 w-4" />
+                <span className="text-[13pt]">Instructions</span>
+              </button>
+            ) : isInstructionsPhase ? null : (
+              <>
+                {backHref && !isPracticeMode ? (
+                  <Link
+                    href={backHref}
+                    className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
+                    onClick={(e) => {
+                      if (onBack) {
+                        e.preventDefault();
+                        onBack();
+                      }
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="text-[13pt]">Back</span>
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
+                  onClick={() =>
+                    void runWithLag(() =>
+                      setState((current) => ({
+                        ...current,
+                        showCalculator: !current.showCalculator,
+                      })),
+                    )
+                  }
+                >
+                  <Calculator className="h-4 w-4" />
+                  <span className="text-[13pt]">
+                    <span className="underline">C</span>alculator
+                  </span>
+                </button>
+              </>
+            )
+          }
+          toolRight={
+            isResultsPhase ||
+            isReviewScreen ||
+            isInstructionsPhase ||
+            isPracticeAnswerPhase ||
+            isPracticeCompletePhase ||
+            isLoadingMorePhase ? null : (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
+                onClick={() =>
+                  void runWithLag(() => {
+                    toggleFlagCurrent();
+                  })
+                }
+              >
+                {flaggedCurrent ? (
+                  <span
+                    className="inline-flex items-center rounded-sm px-0.5 py-0.5"
+                    style={{
+                      backgroundColor: UCAT_COLORS.highlightYellow,
+                      color: UCAT_COLORS.primaryBlueDark,
+                    }}
+                  >
+                    <Flag className="h-4 w-4" />
+                  </span>
+                ) : (
+                  <Flag className="h-4 w-4" />
+                )}
                 <span className="text-[13pt]">
-                  <span className="underline">C</span>alculator
+                  <span className="underline">F</span>lag for Review
                 </span>
               </button>
-            </>
-          )
-        }
-        toolRight={
-          isResultsPhase ||
-          isReviewScreen ||
-          isInstructionsPhase ||
-          isPracticeAnswerPhase ||
-          isPracticeCompletePhase ||
-          isLoadingMorePhase ? null : (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-              onClick={() =>
-                void runWithLag(() => {
-                  toggleFlagCurrent();
-                })
-              }
-            >
-              {flaggedCurrent ? (
-                <span
-                  className="inline-flex items-center rounded-sm px-0.5 py-0.5"
-                  style={{
-                    backgroundColor: UCAT_COLORS.highlightYellow,
-                    color: UCAT_COLORS.primaryBlueDark,
-                  }}
-                >
-                  <Flag className="h-4 w-4" />
-                </span>
-              ) : (
-                <Flag className="h-4 w-4" />
-              )}
-              <span className="text-[13pt]">
-                <span className="underline">F</span>lag for Review
-              </span>
-            </button>
-          )
-        }
-        footerLeft={
-          isResultsPhase && state.viewingQuestionIndex != null ? (
-            <UcatExamActionButton
-              onClick={() =>
-                void runWithLag(() =>
-                  setState((current) => ({
-                    ...current,
-                    viewingQuestionIndex: null,
-                  })),
-                )
-              }
-              icon={<ArrowLeft className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">Back to results</span>
-            </UcatExamActionButton>
-          ) : isPracticeMode &&
-            (state.phase === "question" || state.phase === "practiceAnswer") ? (
-            <UcatExamActionButton
-              onClick={() =>
-                void runWithLag(() => setShowConfirmFinishPracticeDialog(true))
-              }
-              icon={<LogOut className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">
-                <span className="underline">F</span>inish practice
-              </span>
-            </UcatExamActionButton>
-          ) : isResultsPhase ? null : isReviewScreen ? (
-            <UcatExamActionButton
-              onClick={() =>
-                void runWithLag(() => {
-                  if (incompleteCount > 0) {
+            )
+          }
+          footerLeft={
+            isResultsPhase && state.viewingQuestionIndex != null ? (
+              <UcatExamActionButton
+                onClick={() =>
+                  void runWithLag(() =>
                     setState((current) => ({
                       ...current,
-                      showEndReviewDialog: true,
-                    }));
-                  } else if (exam?.sourceType === "set") {
-                    setShowSubmitSetDialog(true);
-                  } else {
-                    void runWithLag(handleEndReview);
-                  }
-                })
-              }
-              icon={<LogOut className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">
-                <span className="underline">E</span>nd Review
-              </span>
-            </UcatExamActionButton>
-          ) : isReviewMode ? (
-            <UcatExamActionButton
-              onClick={() => void runWithLag(() => goToReviewScreen())}
-              icon={<Navigation className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">
-                Review <span className="underline">S</span>creen
-              </span>
-            </UcatExamActionButton>
-          ) : isInstructionsPhase ? null : null
-        }
-        footerRight={
-          isPracticeAnswerPhase ? (
-            <>
-              {(state.viewingQuestionIndex ?? 0) >
-              (state.practiceAnswerUnitStartIndex ?? 0) ? (
+                      viewingQuestionIndex: null,
+                    })),
+                  )
+                }
+                icon={<ArrowLeft className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">Back to results</span>
+              </UcatExamActionButton>
+            ) : isPracticeMode &&
+              (state.phase === "question" ||
+                state.phase === "practiceAnswer") ? (
+              <UcatExamActionButton
+                onClick={() =>
+                  void runWithLag(() =>
+                    setShowConfirmFinishPracticeDialog(true),
+                  )
+                }
+                icon={<LogOut className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">
+                  <span className="underline">F</span>inish practice
+                </span>
+              </UcatExamActionButton>
+            ) : isResultsPhase ? null : isReviewScreen ? (
+              <UcatExamActionButton
+                onClick={() =>
+                  void runWithLag(() => {
+                    if (incompleteCount > 0) {
+                      setState((current) => ({
+                        ...current,
+                        showEndReviewDialog: true,
+                      }));
+                    } else if (exam?.sourceType === "set") {
+                      setShowSubmitSetDialog(true);
+                    } else {
+                      void runWithLag(handleEndReview);
+                    }
+                  })
+                }
+                icon={<LogOut className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">
+                  <span className="underline">E</span>nd Review
+                </span>
+              </UcatExamActionButton>
+            ) : isReviewMode ? (
+              <UcatExamActionButton
+                onClick={() => void runWithLag(() => goToReviewScreen())}
+                icon={<Navigation className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">
+                  Review <span className="underline">S</span>creen
+                </span>
+              </UcatExamActionButton>
+            ) : isInstructionsPhase ? null : null
+          }
+          footerRight={
+            isPracticeAnswerPhase ? (
+              <>
+                {(state.viewingQuestionIndex ?? 0) >
+                (state.practiceAnswerUnitStartIndex ?? 0) ? (
+                  <UcatExamActionButton
+                    onClick={() => void runWithLag(() => goPrevious())}
+                    icon={<ArrowLeft className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">Previous</span>
+                  </UcatExamActionButton>
+                ) : null}
+                {!(
+                  state.viewingQuestionIndex === questions.length - 1 &&
+                  !onNeedMoreStems
+                ) ? (
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() => {
+                        const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
+                        const viewing = state.viewingQuestionIndex ?? 0;
+                        const isGoingToNextStem = viewing >= unitEnd;
+                        if (isGoingToNextStem && confirmPracticeTransitions) {
+                          setShowConfirmNextStemDialog(true);
+                        } else {
+                          goNext();
+                        }
+                      })
+                    }
+                    variant="highlight"
+                    icon={<ArrowRight className="h-4 w-4" />}
+                    iconRight
+                  >
+                    <span className="text-[14pt]">
+                      {(state.viewingQuestionIndex ?? 0) >=
+                      (state.practiceAnswerUnitEndIndex ?? 0) ? (
+                        <>
+                          <span className="underline">N</span>ext question
+                        </>
+                      ) : (
+                        <>
+                          <span className="underline">N</span>ext
+                        </>
+                      )}
+                    </span>
+                  </UcatExamActionButton>
+                ) : null}
+              </>
+            ) : isResultsPhase ? (
+              state.viewingQuestionIndex != null ? (
+                <>
+                  {state.viewingQuestionIndex > 0 ? (
+                    <UcatExamActionButton
+                      onClick={() =>
+                        void runWithLag(() =>
+                          setState((current) => ({
+                            ...current,
+                            viewingQuestionIndex: Math.max(
+                              0,
+                              (current.viewingQuestionIndex ?? 0) - 1,
+                            ),
+                          })),
+                        )
+                      }
+                      icon={<ArrowLeft className="h-4 w-4" />}
+                    >
+                      <span className="text-[14pt]">Previous</span>
+                    </UcatExamActionButton>
+                  ) : null}
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() => {
+                        const idx = state.viewingQuestionIndex ?? 0;
+                        if (idx < questions.length - 1) {
+                          setState((current) => ({
+                            ...current,
+                            viewingQuestionIndex: idx + 1,
+                          }));
+                        } else {
+                          setState((current) => ({
+                            ...current,
+                            viewingQuestionIndex: null,
+                          }));
+                        }
+                      })
+                    }
+                    variant="highlight"
+                    icon={<ArrowRight className="h-4 w-4" />}
+                    iconRight
+                  >
+                    <span className="text-[14pt]">
+                      {(state.viewingQuestionIndex ?? 0) < questions.length - 1
+                        ? "Next"
+                        : "Done"}
+                    </span>
+                  </UcatExamActionButton>
+                </>
+              ) : exam?.sourceType === "set" ||
+                exam?.sourceType === "mock" ? null : (
                 <UcatExamActionButton
-                  onClick={() => void runWithLag(() => goPrevious())}
-                  icon={<ArrowLeft className="h-4 w-4" />}
+                  onClick={() =>
+                    void runWithLag(() =>
+                      setState((current) => ({
+                        ...current,
+                        showExitResultsDialog: true,
+                      })),
+                    )
+                  }
+                  variant="highlight"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconRight
                 >
-                  <span className="text-[14pt]">Previous</span>
+                  <span className="text-[14pt]">Exit</span>
                 </UcatExamActionButton>
-              ) : null}
-              {!(
-                state.viewingQuestionIndex === questions.length - 1 &&
-                !onNeedMoreStems
-              ) ? (
+              )
+            ) : isReviewScreen ? (
+              <>
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => startReviewFilter("all"))
+                  }
+                  icon={<Search className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">
+                    Review <span className="underline">A</span>ll
+                  </span>
+                </UcatExamActionButton>
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => startReviewFilter("incomplete"))
+                  }
+                  icon={<X className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">
+                    Review <span className="underline">I</span>ncomplete
+                  </span>
+                </UcatExamActionButton>
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => startReviewFilter("flagged"))
+                  }
+                  icon={<Flag className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">
+                    Re<span className="underline">v</span>iew Flagged
+                  </span>
+                </UcatExamActionButton>
+              </>
+            ) : isReviewMode ? (
+              <>
+                {state.reviewFilterIndex > 0 ? (
+                  <UcatExamActionButton
+                    onClick={() => void runWithLag(() => goPrevious())}
+                    icon={<ArrowLeft className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">
+                      <span className="underline">P</span>revious
+                    </span>
+                  </UcatExamActionButton>
+                ) : null}
+                <UcatExamActionButton
+                  onClick={() => void runWithLag(() => goNext())}
+                  variant="highlight"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconRight
+                >
+                  <span className="text-[14pt]">
+                    <span className="underline">N</span>ext
+                  </span>
+                </UcatExamActionButton>
+              </>
+            ) : isInstructionsPhase ? (
+              <>
+                {hasPreviousInstructions ? (
+                  <UcatExamActionButton
+                    onClick={() => void runWithLag(() => goPrevious())}
+                    icon={<ArrowLeft className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">
+                      <span className="underline">P</span>revious
+                    </span>
+                  </UcatExamActionButton>
+                ) : null}
+                <UcatExamActionButton
+                  onClick={() => void runWithLag(() => goNext())}
+                  variant="highlight"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconRight
+                >
+                  <span className="text-[14pt]">
+                    <span className="underline">N</span>ext
+                  </span>
+                </UcatExamActionButton>
+              </>
+            ) : isPracticeCompletePhase ? null : (
+              <>
+                {hasPreviousQuestion ? (
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() => {
+                        goPrevious();
+                      })
+                    }
+                    icon={<ArrowLeft className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">
+                      <span className="underline">P</span>revious
+                    </span>
+                  </UcatExamActionButton>
+                ) : null}
+                {!isPracticeMode ? (
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() =>
+                        setState((current) => ({
+                          ...current,
+                          showNavigator: !current.showNavigator,
+                        })),
+                      )
+                    }
+                    icon={<Navigation className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">
+                      Na<span className="underline">v</span>igator
+                    </span>
+                  </UcatExamActionButton>
+                ) : null}
                 <UcatExamActionButton
                   onClick={() =>
                     void runWithLag(() => {
-                      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
-                      const viewing = state.viewingQuestionIndex ?? 0;
-                      const isGoingToNextStem = viewing >= unitEnd;
-                      if (isGoingToNextStem && confirmPracticeTransitions) {
-                        setShowConfirmNextStemDialog(true);
+                      if (isPracticeMode && isLastQuestionOfCurrentUnit) {
+                        if (confirmPracticeTransitions) {
+                          setShowConfirmSubmitDialog(true);
+                        } else {
+                          const { startIndex, endIndex } = getStemBoundaries(
+                            questions,
+                            state.currentIndex,
+                            mode as "questions" | "questionStem",
+                          );
+                          recordAnswersForUnit(startIndex, endIndex);
+                          handlePracticeSubmit();
+                        }
                       } else {
                         goNext();
                       }
@@ -1842,394 +2284,178 @@ export function QuestionEnginePage({
                   icon={<ArrowRight className="h-4 w-4" />}
                   iconRight
                 >
-                  <span className="text-[14pt]">
-                    {(state.viewingQuestionIndex ?? 0) >=
-                    (state.practiceAnswerUnitEndIndex ?? 0) ? (
-                      <>
-                        <span className="underline">N</span>ext question
-                      </>
-                    ) : (
-                      <>
-                        <span className="underline">N</span>ext
-                      </>
-                    )}
-                  </span>
-                </UcatExamActionButton>
-              ) : null}
-            </>
-          ) : isResultsPhase ? (
-            state.viewingQuestionIndex != null ? (
-              <>
-                {state.viewingQuestionIndex > 0 ? (
-                  <UcatExamActionButton
-                    onClick={() =>
-                      void runWithLag(() =>
-                        setState((current) => ({
-                          ...current,
-                          viewingQuestionIndex: Math.max(
-                            0,
-                            (current.viewingQuestionIndex ?? 0) - 1,
-                          ),
-                        })),
-                      )
-                    }
-                    icon={<ArrowLeft className="h-4 w-4" />}
-                  >
-                    <span className="text-[14pt]">Previous</span>
-                  </UcatExamActionButton>
-                ) : null}
-                <UcatExamActionButton
-                  onClick={() =>
-                    void runWithLag(() => {
-                      const idx = state.viewingQuestionIndex ?? 0;
-                      if (idx < questions.length - 1) {
-                        setState((current) => ({
-                          ...current,
-                          viewingQuestionIndex: idx + 1,
-                        }));
-                      } else {
-                        setState((current) => ({
-                          ...current,
-                          viewingQuestionIndex: null,
-                        }));
-                      }
-                    })
-                  }
-                  variant="highlight"
-                  icon={<ArrowRight className="h-4 w-4" />}
-                  iconRight
-                >
-                  <span className="text-[14pt]">
-                    {(state.viewingQuestionIndex ?? 0) < questions.length - 1
-                      ? "Next"
-                      : "Done"}
-                  </span>
+                  {isPracticeMode && isLastQuestionOfCurrentUnit ? (
+                    <span className="text-[14pt]">
+                      <span className="underline">S</span>ubmit
+                    </span>
+                  ) : isLastQuestion && !isPracticeMode ? (
+                    <span className="text-[14pt]">Review</span>
+                  ) : (
+                    <span className="text-[14pt]">
+                      <span className="underline">N</span>ext
+                    </span>
+                  )}
                 </UcatExamActionButton>
               </>
-            ) : exam?.sourceType === "set" ||
-              exam?.sourceType === "mock" ? null : (
-              <UcatExamActionButton
-                onClick={() =>
+            )
+          }
+          overlay={overlay}
+        >
+          {isInstructionsPhase && currentInstructionsScreen ? (
+            <InstructionsContent screen={currentInstructionsScreen} />
+          ) : isPracticeCompletePhase ? (
+            <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+              <p className="text-[14pt]">Practice complete.</p>
+              <p className="text-[12pt] text-muted-foreground">
+                {practiceMarkingResult
+                  ? `${practiceCorrectCount} correct / ${questions.length} total`
+                  : "You have reviewed all questions."}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => (onBack ? onBack() : router.back())}
+                  className="h-10 px-4"
+                >
+                  Back to practice
+                </Button>
+                {practiceSessionId ? (
+                  <Link
+                    href={`/progress/practice-sessions/${practiceSessionId}`}
+                    data-skip-leave-warning
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+                  >
+                    View attempt
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : isLoadingMorePhase ? (
+            <QuestionEngineLoadingContentSkeleton />
+          ) : isPracticeAnswerPhase || isResultsPhase ? (
+            state.viewingQuestionIndex != null &&
+            questions[state.viewingQuestionIndex] ? (
+              <ResultsQuestionViewer
+                question={questions[state.viewingQuestionIndex]!}
+                selectedOptionId={
+                  state.selectedAnswers[
+                    questions[state.viewingQuestionIndex]!.id
+                  ]
+                }
+                correctOptionId={
+                  questions[state.viewingQuestionIndex]!.correctOptionId
+                }
+                preloadedContent={getCachedContent(
+                  questions[state.viewingQuestionIndex]!.id,
+                )}
+                points={(() => {
+                  const idx = state.viewingQuestionIndex!;
+                  if (
+                    isMockScorePhase &&
+                    exam &&
+                    exam.sourceType === "mock" &&
+                    exam.mockSetSummaries
+                  ) {
+                    const summary = exam.mockSetSummaries.find(
+                      (s: {
+                        questionStartIndex: number;
+                        questionEndIndex: number;
+                      }) =>
+                        idx >= s.questionStartIndex && idx < s.questionEndIndex,
+                    );
+                    if (summary) {
+                      const setQuestions = questions.slice(
+                        summary.questionStartIndex,
+                        summary.questionEndIndex,
+                      );
+                      const result = computeMarkingResult(
+                        setQuestions,
+                        state.selectedAnswers,
+                        state.syllogismSnapshots,
+                      );
+                      return result.rows[idx - summary.questionStartIndex]
+                        ?.points;
+                    }
+                  }
+                  return computeMarkingResult(
+                    questions,
+                    state.selectedAnswers,
+                    state.syllogismSnapshots,
+                  ).rows[idx]?.points;
+                })()}
+                syllogismSnapshot={
+                  state.syllogismSnapshots?.[
+                    questions[state.viewingQuestionIndex]!.id
+                  ]
+                }
+              />
+            ) : isMockScorePhase &&
+              exam?.sourceType === "mock" &&
+              exam.mockSetSummaries?.length ? (
+              <MockScoreBody
+                exam={exam}
+                questions={questions}
+                selectedAnswers={state.selectedAnswers}
+                syllogismSnapshots={state.syllogismSnapshots}
+                onViewQuestion={(index) =>
                   void runWithLag(() =>
                     setState((current) => ({
                       ...current,
-                      showExitResultsDialog: true,
+                      viewingQuestionIndex: index,
                     })),
                   )
                 }
-                variant="highlight"
-                icon={<ArrowRight className="h-4 w-4" />}
-                iconRight
-              >
-                <span className="text-[14pt]">Exit</span>
-              </UcatExamActionButton>
-            )
-          ) : isReviewScreen ? (
-            <>
-              <UcatExamActionButton
-                onClick={() => void runWithLag(() => startReviewFilter("all"))}
-                icon={<Search className="h-4 w-4" />}
-              >
-                <span className="text-[14pt]">
-                  Review <span className="underline">A</span>ll
-                </span>
-              </UcatExamActionButton>
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => startReviewFilter("incomplete"))
-                }
-                icon={<X className="h-4 w-4" />}
-              >
-                <span className="text-[14pt]">
-                  Review <span className="underline">I</span>ncomplete
-                </span>
-              </UcatExamActionButton>
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => startReviewFilter("flagged"))
-                }
-                icon={<Flag className="h-4 w-4" />}
-              >
-                <span className="text-[14pt]">
-                  Re<span className="underline">v</span>iew Flagged
-                </span>
-              </UcatExamActionButton>
-            </>
-          ) : isReviewMode ? (
-            <>
-              {state.reviewFilterIndex > 0 ? (
-                <UcatExamActionButton
-                  onClick={() => void runWithLag(() => goPrevious())}
-                  icon={<ArrowLeft className="h-4 w-4" />}
-                >
-                  <span className="text-[14pt]">
-                    <span className="underline">P</span>revious
-                  </span>
-                </UcatExamActionButton>
-              ) : null}
-              <UcatExamActionButton
-                onClick={() => void runWithLag(() => goNext())}
-                variant="highlight"
-                icon={<ArrowRight className="h-4 w-4" />}
-                iconRight
-              >
-                <span className="text-[14pt]">
-                  <span className="underline">N</span>ext
-                </span>
-              </UcatExamActionButton>
-            </>
-          ) : isInstructionsPhase ? (
-            <>
-              {hasPreviousInstructions ? (
-                <UcatExamActionButton
-                  onClick={() => void runWithLag(() => goPrevious())}
-                  icon={<ArrowLeft className="h-4 w-4" />}
-                >
-                  <span className="text-[14pt]">
-                    <span className="underline">P</span>revious
-                  </span>
-                </UcatExamActionButton>
-              ) : null}
-              <UcatExamActionButton
-                onClick={() => void runWithLag(() => goNext())}
-                variant="highlight"
-                icon={<ArrowRight className="h-4 w-4" />}
-                iconRight
-              >
-                <span className="text-[14pt]">
-                  <span className="underline">N</span>ext
-                </span>
-              </UcatExamActionButton>
-            </>
-          ) : isPracticeCompletePhase ? null : (
-            <>
-              {hasPreviousQuestion ? (
-                <UcatExamActionButton
-                  onClick={() =>
-                    void runWithLag(() => {
-                      goPrevious();
-                    })
-                  }
-                  icon={<ArrowLeft className="h-4 w-4" />}
-                >
-                  <span className="text-[14pt]">
-                    <span className="underline">P</span>revious
-                  </span>
-                </UcatExamActionButton>
-              ) : null}
-              {!isPracticeMode ? (
-                <UcatExamActionButton
-                  onClick={() =>
-                    void runWithLag(() =>
-                      setState((current) => ({
-                        ...current,
-                        showNavigator: !current.showNavigator,
-                      })),
-                    )
-                  }
-                  icon={<Navigation className="h-4 w-4" />}
-                >
-                  <span className="text-[14pt]">
-                    Na<span className="underline">v</span>igator
-                  </span>
-                </UcatExamActionButton>
-              ) : null}
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => {
-                    if (isPracticeMode && isLastQuestionOfCurrentUnit) {
-                      if (confirmPracticeTransitions) {
-                        setShowConfirmSubmitDialog(true);
-                      } else {
-                        const { startIndex, endIndex } = getStemBoundaries(
-                          questions,
-                          state.currentIndex,
-                          mode as "questions" | "questionStem",
-                        );
-                        recordAnswersForUnit(startIndex, endIndex);
-                        handlePracticeSubmit();
-                      }
-                    } else {
-                      goNext();
-                    }
-                  })
-                }
-                variant="highlight"
-                icon={<ArrowRight className="h-4 w-4" />}
-                iconRight
-              >
-                {isPracticeMode && isLastQuestionOfCurrentUnit ? (
-                  <span className="text-[14pt]">
-                    <span className="underline">S</span>ubmit
-                  </span>
-                ) : isLastQuestion && !isPracticeMode ? (
-                  <span className="text-[14pt]">Review</span>
-                ) : (
-                  <span className="text-[14pt]">
-                    <span className="underline">N</span>ext
-                  </span>
-                )}
-              </UcatExamActionButton>
-            </>
-          )
-        }
-        overlay={overlay}
-      >
-        {isInstructionsPhase && currentInstructionsScreen ? (
-          <InstructionsContent screen={currentInstructionsScreen} />
-        ) : isPracticeCompletePhase ? (
-          <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-            <p className="text-[14pt]">Practice complete.</p>
-            <p className="text-[12pt] text-muted-foreground">
-              {practiceMarkingResult
-                ? `${practiceCorrectCount} correct / ${questions.length} total`
-                : "You have reviewed all questions."}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => (onBack ? onBack() : router.back())}
-                className="h-10 px-4"
-              >
-                Back to practice
-              </Button>
-              {practiceSessionId ? (
-                <Link
-                  href={`/progress/practice-sessions/${practiceSessionId}`}
-                  data-skip-leave-warning
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
-                >
-                  View attempt
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        ) : isLoadingMorePhase ? (
-          <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-            <p className="text-[14pt]">Loading next question…</p>
-          </div>
-        ) : isPracticeAnswerPhase || isResultsPhase ? (
-          state.viewingQuestionIndex != null &&
-          questions[state.viewingQuestionIndex] ? (
-            <ResultsQuestionViewer
-              question={questions[state.viewingQuestionIndex]!}
-              selectedOptionId={
-                state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]
-              }
-              correctOptionId={
-                questions[state.viewingQuestionIndex]!.correctOptionId
-              }
-              preloadedContent={getCachedContent(
-                questions[state.viewingQuestionIndex]!.id,
-              )}
-              points={(() => {
-                const idx = state.viewingQuestionIndex!;
-                if (
-                  isMockScorePhase &&
-                  exam &&
-                  exam.sourceType === "mock" &&
-                  exam.mockSetSummaries
-                ) {
-                  const summary = exam.mockSetSummaries.find(
-                    (s: {
-                      questionStartIndex: number;
-                      questionEndIndex: number;
-                    }) =>
-                      idx >= s.questionStartIndex && idx < s.questionEndIndex,
-                  );
-                  if (summary) {
-                    const setQuestions = questions.slice(
-                      summary.questionStartIndex,
-                      summary.questionEndIndex,
-                    );
-                    const result = computeMarkingResult(
-                      setQuestions,
-                      state.selectedAnswers,
-                      state.syllogismSnapshots,
-                    );
-                    return result.rows[idx - summary.questionStartIndex]
-                      ?.points;
-                  }
-                }
-                return computeMarkingResult(
+                viewAttemptHref={setMockResultsActions?.viewAttemptHref}
+              />
+            ) : (
+              <MarkingBody
+                result={computeMarkingResult(
                   questions,
                   state.selectedAnswers,
                   state.syllogismSnapshots,
-                ).rows[idx]?.points;
-              })()}
-              syllogismSnapshot={
-                state.syllogismSnapshots?.[
-                  questions[state.viewingQuestionIndex]!.id
-                ]
-              }
+                )}
+                syllogismSnapshots={state.syllogismSnapshots}
+                onViewQuestion={(index) =>
+                  void runWithLag(() =>
+                    setState((current) => ({
+                      ...current,
+                      viewingQuestionIndex: index,
+                    })),
+                  )
+                }
+                viewAttemptHref={setMockResultsActions?.viewAttemptHref}
+              />
+            )
+          ) : isReviewScreen ? (
+            <ReviewBody
+              sectionTitle={exam.title}
+              incompleteCount={incompleteCount}
+              rows={reviewListRows}
+              flaggedIds={state.flaggedIds}
+              onToggleFlag={toggleFlagById}
+              onSelectQuestion={goToReviewQuestionByGlobalIndex}
             />
-          ) : isMockScorePhase &&
-            exam?.sourceType === "mock" &&
-            exam.mockSetSummaries?.length ? (
-            <MockScoreBody
-              exam={exam}
-              questions={questions}
-              selectedAnswers={state.selectedAnswers}
-              syllogismSnapshots={state.syllogismSnapshots}
-              onViewQuestion={(index) =>
-                void runWithLag(() =>
-                  setState((current) => ({
-                    ...current,
-                    viewingQuestionIndex: index,
-                  })),
-                )
+          ) : currentQuestion ? (
+            <QuestionContent
+              question={currentQuestion}
+              selectedOptionId={state.selectedAnswers[currentQuestion.id]}
+              syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
+              onChangeSyllogismSnapshot={(snapshot) =>
+                setSyllogismSnapshot(currentQuestion.id, snapshot)
               }
-              viewAttemptHref={setMockResultsActions?.viewAttemptHref}
-            />
-          ) : (
-            <MarkingBody
-              result={computeMarkingResult(
-                questions,
-                state.selectedAnswers,
-                state.syllogismSnapshots,
+              onSelectOption={(optionId) => {
+                setAnswer(optionId);
+                recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
+              }}
+              preloadedContent={getCachedContent(currentQuestion.id)}
+              showAnswerExplanations={Boolean(
+                isReviewMode &&
+                  (exam?.sourceType === "questions" ||
+                    exam?.sourceType === "questionStem"),
               )}
-              syllogismSnapshots={state.syllogismSnapshots}
-              onViewQuestion={(index) =>
-                void runWithLag(() =>
-                  setState((current) => ({
-                    ...current,
-                    viewingQuestionIndex: index,
-                  })),
-                )
-              }
-              viewAttemptHref={setMockResultsActions?.viewAttemptHref}
             />
-          )
-        ) : isReviewScreen ? (
-          <ReviewBody
-            sectionTitle={exam.title}
-            incompleteCount={incompleteCount}
-            rows={reviewListRows}
-            flaggedIds={state.flaggedIds}
-            onToggleFlag={toggleFlagById}
-            onSelectQuestion={goToReviewQuestionByGlobalIndex}
-          />
-        ) : currentQuestion ? (
-          <QuestionContent
-            question={currentQuestion}
-            selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-            syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
-            onChangeSyllogismSnapshot={(snapshot) =>
-              setSyllogismSnapshot(currentQuestion.id, snapshot)
-            }
-            onSelectOption={(optionId) => {
-              setAnswer(optionId);
-              recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
-            }}
-            preloadedContent={getCachedContent(currentQuestion.id)}
-            showAnswerExplanations={Boolean(
-              isReviewMode &&
-                (exam?.sourceType === "questions" ||
-                  exam?.sourceType === "questionStem"),
-            )}
-          />
-        ) : null}
-      </UcatExamShell>
+          ) : null}
+        </UcatExamShell>
       </div>
 
       {state.showCalculator ? (
@@ -2301,6 +2527,36 @@ export function QuestionEnginePage({
           </div>
         </div>
       ) : null}
+
+      <PlanPickerDialogShell
+        open={Boolean(practiceQuotaReached)}
+        onOpenChange={() => {}}
+        dismissible={false}
+        hideCloseButton
+        title="Practice limit reached"
+        description="You've used your UCAT Free practice questions for this period. Upgrade to continue this session, or finish it and review what you've completed."
+        footer={
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => void handleFinishPractice()}
+            disabled={completePracticeSession.isPending}
+          >
+            {completePracticeSession.isPending
+              ? "Finishing..."
+              : "Finish session"}
+          </Button>
+        }
+      >
+        <PlanPicker
+          variant="dialog"
+          surfaceTheme="app"
+          checkoutReturnContext="practice_session"
+          visibleTiers={["unlimited", "pro"]}
+          layout="horizontal"
+        />
+      </PlanPickerDialogShell>
     </>
   );
 }
