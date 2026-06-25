@@ -415,7 +415,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="mr-auto h-10">
-                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  <LayoutGrid className="h-4 w-4 md:mr-2" />
                   <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -441,7 +441,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-10">
-                    <Layers className="h-4 w-4 mr-2" />
+                    <Layers className="h-4 w-4 md:mr-2" />
                     <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                       Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                     </span>
@@ -479,7 +479,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-10">
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <ArrowUpDown className="h-4 w-4 md:mr-2" />
                     <span className={cn("hidden md:inline", sortBy === 'name' && "opacity-50")}>
                       Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                     </span>
@@ -565,7 +565,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-10">
-                  <Filter className="h-4 w-4 mr-2" />
+                  <Filter className="h-4 w-4 md:mr-2" />
                   <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
                     Filter
                   </span>

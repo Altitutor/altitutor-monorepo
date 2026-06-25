@@ -10,7 +10,7 @@ import { useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/us
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption, Json } from '@altitutor/shared'
-import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
@@ -215,7 +215,7 @@ export function UntaggedQuestionsTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin reconciling
           </Button>
         }

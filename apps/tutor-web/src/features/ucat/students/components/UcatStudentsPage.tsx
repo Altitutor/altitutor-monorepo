@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { DataTable, DataTableToolbar } from '@altitutor/ui'
+import { DataTable, DataTableToolbar, TablePagination } from '@altitutor/ui'
 import { Eye } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
@@ -187,6 +187,11 @@ export function UcatStudentsPage() {
       (k, i, arr) => arr.indexOf(k) === i
     )
   )
+  const { page, pageSize } = tableState.state
+  const totalRows = sortedRows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
   const columnDefinitions = useMemo(
     () =>
@@ -279,8 +284,18 @@ export function UcatStudentsPage() {
         <DataTable
           {...tutorDataTableProps}
           columns={visibleColumns}
-          data={sortedRows}
+          data={paginatedRows}
+          pagination="external"
           pageSizeOptions={[10, 20, 50]}
+        />
+        <TablePagination
+          page={effectivePage}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={tableState.actions.onPageChange}
+          onPageSizeChange={tableState.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
+          className="pt-3"
         />
       </div>
     </div>

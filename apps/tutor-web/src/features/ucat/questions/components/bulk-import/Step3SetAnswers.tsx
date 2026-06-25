@@ -146,6 +146,15 @@ export function Step3SetAnswers({
       ),
     [stems]
   )
+  const missingExplanationRowKeys = useMemo(
+    () =>
+      new Set(
+        missingExplanationTargets.map(
+          (target) => `${target.stemId}-${target.questionIndex}`,
+        ),
+      ),
+    [missingExplanationTargets],
+  )
 
   const editorSections = useMemo<UcatSectionOption[]>(
     () =>
@@ -344,6 +353,7 @@ export function Step3SetAnswers({
             {rows.map((row) => {
               const rowKey = `${row.stemId}-${row.questionIndex}`
               const isExpanded = expandedRowKey === rowKey
+              const isMissingExplanation = missingExplanationRowKeys.has(rowKey)
               const stem = stems.find((s) => s.id === row.stemId)
               const correctDisplay = row.isSyllogism
                 ? (row.syllogismPattern ?? '')
@@ -354,7 +364,8 @@ export function Step3SetAnswers({
                   <TableRow
                     className={cn(
                       'h-9 max-h-9 cursor-pointer',
-                      isExpanded && 'bg-muted/30 hover:bg-muted/30'
+                      isExpanded && 'bg-muted/30 hover:bg-muted/30',
+                      isMissingExplanation && 'bg-amber-50 text-amber-950 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/40'
                     )}
                     onClick={() => toggleExpanded(rowKey)}
                   >

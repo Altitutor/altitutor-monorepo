@@ -496,19 +496,6 @@ export function UcatStemEditorPropertiesPanel({
                   activeQuestionMissingExplanations.length === 0
                 }
               />
-              {activeQuestionMissingExplanations.length > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Fills missing explanation fields for question {safeQuestionIndex + 1}.
-                </p>
-              ) : isSyllogism ? (
-                <p className="text-xs text-muted-foreground">
-                  Writing extra questions is disabled for syllogism stems.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Question {safeQuestionIndex + 1} already has the required explanation fields.
-                </p>
-              )}
               {explanationReviewFlags.length > 0 ? (
                 <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   <div className="font-medium">Review flagged</div>

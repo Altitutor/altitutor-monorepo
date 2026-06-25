@@ -79,9 +79,6 @@ export default function SettingsProfilePage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My profile</h1>
-          <p className="mt-1 text-muted-foreground">
-            Update your personal information and preferences
-          </p>
         </div>
       </header>
 

@@ -49,13 +49,9 @@ export default function BlockoutsPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Blockout dates</h1>
-          <p className="mt-1 text-muted-foreground">
-            Manage your unavailability dates and times
-          </p>
         </div>
       </header>
       <BlockoutDatesTable blockouts={blockouts} onUpdate={loadData} />
     </TutorPageContainer>
   );
 }
-

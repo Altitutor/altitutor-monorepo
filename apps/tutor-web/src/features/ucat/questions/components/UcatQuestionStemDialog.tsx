@@ -88,6 +88,7 @@ export function UcatQuestionStemDialog({
   initialQuestionIndex,
   initialEditorMode = 'edit',
   readOnly = false,
+  warningPills,
 }: {
   open: boolean
   title: string
@@ -103,6 +104,7 @@ export function UcatQuestionStemDialog({
   initialQuestionIndex?: number
   initialEditorMode?: StemEditorMode
   readOnly?: boolean
+  warningPills?: string[]
 }) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
@@ -323,6 +325,7 @@ export function UcatQuestionStemDialog({
       saveDisabled={loading}
       isSaving={loading}
       headerActions={headerActions}
+      warningPills={warningPills}
       hideCancel
       defaultExpanded
       richTextToolbarEditor={activeTextEditor}

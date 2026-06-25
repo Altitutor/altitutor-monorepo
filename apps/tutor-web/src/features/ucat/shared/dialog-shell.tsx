@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui'
+import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { X } from 'lucide-react'
 import {
@@ -32,6 +32,7 @@ export function UcatDialogShell({
   isSaving,
   hideCancel = false,
   headerActions,
+  warningPills,
   defaultExpanded = false,
   richTextToolbarEditor = null,
 }: {
@@ -46,6 +47,7 @@ export function UcatDialogShell({
   isSaving?: boolean
   hideCancel?: boolean
   headerActions?: ReactNode
+  warningPills?: string[]
   defaultExpanded?: boolean
   /** When set, renders the rich-text toolbar inline in the dialog footer beside action buttons. */
   richTextToolbarEditor?: Editor | null
@@ -81,6 +83,15 @@ export function UcatDialogShell({
               <div className="flex-1">
                 <DialogTitle>{title}</DialogTitle>
                 {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+                {warningPills && warningPills.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {warningPills.map((warning) => (
+                      <Badge key={warning} variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                        {warning}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">

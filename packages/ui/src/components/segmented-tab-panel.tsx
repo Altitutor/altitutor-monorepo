@@ -30,7 +30,7 @@ export function SegmentedTabPanel<T extends string>({
   children,
 }: SegmentedTabPanelProps<T>) {
   return (
-    <div className={cn('flex min-h-0 flex-col', className)}>
+    <div className={cn('flex min-h-0 min-w-0 flex-col', className)}>
       <SegmentedControl
         fullWidth={fullWidth}
         value={value}

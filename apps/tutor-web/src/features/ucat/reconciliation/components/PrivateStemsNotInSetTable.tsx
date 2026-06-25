@@ -38,7 +38,7 @@ import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/fea
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
-import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import {
   UcatQuestionStemApprovalQueueDialog,
@@ -69,23 +69,39 @@ function getFullSetWarning(
   set: SetQuestionCountWarningSet | null | undefined,
   stemSectionId: string,
   sections: SetQuestionCountWarningSection[],
-): { setName: string; sectionName: string; questionCount: number } | null {
+): { setName: string; title: string; description: string } | null {
   if (!set) return null
   const parsed = parseSetSections(set.sections ?? null)
   if (parsed.sectionCount !== 1 || parsed.firstSectionNumber == null) return null
 
   const setSection = sections.find((section) => section.section_number === parsed.firstSectionNumber)
-  if (!setSection || setSection.id !== stemSectionId) return null
+  if (!setSection) return null
+  const stemSection = sections.find((section) => section.id === stemSectionId)
+  const setName = proseMirrorToPlainText(set.name as Json) ?? 'Untitled'
+  const setSectionName = setSection.name ?? 'the set section'
+  const stemSectionName = stemSection?.name ?? 'the stem section'
+  const reasons: string[] = []
+
+  if (setSection.id !== stemSectionId) {
+    reasons.push(`This set is currently all ${setSectionName}, but the stem is ${stemSectionName}.`)
+  }
 
   const expectedQuestionCount = setSection.number_of_questions ?? null
   const currentQuestionCount = set.question_count ?? null
-  if (expectedQuestionCount == null || currentQuestionCount == null) return null
-  if (currentQuestionCount !== expectedQuestionCount) return null
+  if (
+    expectedQuestionCount != null &&
+    currentQuestionCount != null &&
+    currentQuestionCount === expectedQuestionCount
+  ) {
+    reasons.push(`This set already has ${currentQuestionCount} questions, matching the configured count for ${setSectionName}.`)
+  }
+
+  if (reasons.length === 0) return null
 
   return {
-    setName: proseMirrorToPlainText(set.name as Json) ?? 'Untitled',
-    sectionName: setSection.name ?? 'this section',
-    questionCount: currentQuestionCount,
+    setName,
+    title: 'Review set before adding',
+    description: `"${setName}" may not be a good target for this stem. ${reasons.join(' ')}`,
   }
 }
 
@@ -125,8 +141,8 @@ export function PrivateStemsNotInSetTable({
   const [setWarning, setSetWarning] = useState<{
     setId: string
     setName: string
-    sectionName: string
-    questionCount: number
+    title: string
+    description: string
     action: () => Promise<void>
   } | null>(null)
 
@@ -375,7 +391,7 @@ export function PrivateStemsNotInSetTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin reconciling
           </Button>
         }
@@ -458,9 +474,9 @@ export function PrivateStemsNotInSetTable({
       <AlertDialog open={setWarning != null} onOpenChange={(open) => !open && setSetWarning(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Set already has the section question count</AlertDialogTitle>
+            <AlertDialogTitle>{setWarning?.title ?? 'Review set before adding'}</AlertDialogTitle>
             <AlertDialogDescription>
-              &quot;{setWarning?.setName}&quot; already has {setWarning?.questionCount} questions for {setWarning?.sectionName}. Adding another stem may make this set exceed the exam-like question count.
+              {setWarning?.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

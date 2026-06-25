@@ -13,3 +13,8 @@ export type ResourceAccessSource = 'class_enrollment' | 'subscription' | 'manual
 export type ResourceSubject = StudentSubjectRow & {
   image?: ResourceSubjectImage | null;
 };
+
+export type ResourceSubjectNavItem = Pick<
+  StudentSubjectRow,
+  'id' | 'name' | 'short_name' | 'long_name' | 'curriculum' | 'year_level'
+>;

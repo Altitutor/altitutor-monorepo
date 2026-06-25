@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getResourceSubjectHref, getResourceSubjectNavLabel } from '@altitutor/shared';
-import type { ResourceSubject } from '@/features/resources/lib/types';
+import type { ResourceSubjectNavItem } from '@/features/resources/lib/types';
 
 export interface CommandPalettePage {
   id: string;
@@ -139,7 +139,7 @@ export const ucatPages: CommandPalettePage[] = [
   { id: 'ucat-sections', title: 'UCAT sections', href: '/ucat/sections', icon: LayoutGrid },
 ];
 
-export function buildSubjectPages(subjects: ResourceSubject[]): CommandPalettePage[] {
+export function buildSubjectPages(subjects: ResourceSubjectNavItem[]): CommandPalettePage[] {
   return subjects.map((subject) => ({
     id: `subject-page-${subject.id}`,
     title: getResourceSubjectNavLabel(subject),

@@ -29,7 +29,7 @@ import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from 
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
-import { useResourceSubjects } from '@/features/resources';
+import { useResourceSubjectNavItems } from '@/features/resources';
 import {
   getResourceSubjectHref,
   getResourceSubjectNavLabel,
@@ -115,7 +115,7 @@ function renderUcatDropdownChild(
 const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
 
 function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
-  const { data: subjects } = useResourceSubjects();
+  const { data: subjects } = useResourceSubjectNavItems();
 
   return useMemo(() => {
     const resourceChildren: DropdownChild[] = (subjects ?? []).map((subject) => ({

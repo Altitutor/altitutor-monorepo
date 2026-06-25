@@ -25,9 +25,6 @@ export default function TutorSettingsPage() {
     <TutorPageContainer className="space-y-8">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-muted-foreground">
-          Tutor preferences and scheduling tools
-        </p>
       </header>
 
       <section aria-labelledby="settings-nav-heading" className="space-y-4">

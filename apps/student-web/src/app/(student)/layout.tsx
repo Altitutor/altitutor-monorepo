@@ -15,7 +15,7 @@ import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from 
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { WelcomeModalGate } from '@/features/welcome';
-import { useResourceSubjects } from '@/features/resources';
+import { useResourceSubjectNavItems } from '@/features/resources';
 import type { LucideIcon } from 'lucide-react';
 import { STUDENT_CONTENT_MAX, STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 
@@ -201,7 +201,7 @@ function renderNavItem(
 }
 
 function useStudentPrimaryNavItems(): NavItem[] {
-  const { data: subjects } = useResourceSubjects();
+  const { data: subjects } = useResourceSubjectNavItems();
 
   return useMemo(() => {
     const resourceChildren: NavLink[] = (subjects ?? []).map((subject) => ({

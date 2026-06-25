@@ -197,13 +197,6 @@ export default function DashboardDatePage({ params }: { params: { date: string }
 
   if (!dateStr || !selectedDate) return null;
 
-  const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-  const dateLabel = selectedDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">

@@ -302,7 +302,7 @@ export function DataTableToolbar({
     ? 'sr-only'
     : 'hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap';
   const controlBtnClass = (extra?: string) => cn(compact ? 'size-9 p-0' : 'h-10', controlClassName, extra);
-  const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'mr-2', extra);
+  const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'md:mr-2', extra);
 
   const searchFromViewGroupsResolved = searchFromViewGroups ?? (
     searchFromOptions.length > 0

@@ -1,8 +1,28 @@
 import { buildFileCountByTopic, mapTopicFile, normalizeSlug } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { ResourceFile, ResourceSubject, TutorTopicFileRow, TutorTopicRow, TutorSubjectRow } from '../lib/types';
+import type {
+  ResourceFile,
+  ResourceSubject,
+  ResourceSubjectNavItem,
+  TutorTopicFileRow,
+  TutorTopicRow,
+  TutorSubjectRow,
+} from '../lib/types';
 
 export const resourcesApi = {
+  async getMySubjectNavItems(): Promise<ResourceSubjectNavItem[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('vtutor_subjects')
+      .select('id, name, short_name, long_name, curriculum, year_level')
+      .order('curriculum', { ascending: true })
+      .order('year_level', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return ((data ?? []) as ResourceSubjectNavItem[]).filter((subject) => Boolean(subject.id));
+  },
+
   async getMySubjects(): Promise<ResourceSubject[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -46,13 +66,13 @@ export const resourcesApi = {
   },
 
   async getSubjectByShortName(subjectShortName: string): Promise<ResourceSubject | null> {
-    const subjects = await resourcesApi.getMySubjects();
+    const subjects = await resourcesApi.getMySubjectNavItems();
     const slug = normalizeSlug(subjectShortName);
-    return (
+    const subject =
       subjects.find((subject) => normalizeSlug(subject.short_name ?? '') === slug) ??
       subjects.find((subject) => normalizeSlug(subject.name ?? '') === slug) ??
-      null
-    );
+      null;
+    return subject as ResourceSubject | null;
   },
 
   async getTopicsBySubject(subjectId: string): Promise<TutorTopicRow[]> {

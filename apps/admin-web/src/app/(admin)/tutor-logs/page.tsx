@@ -6,7 +6,6 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Button } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';

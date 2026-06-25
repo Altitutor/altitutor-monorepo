@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { Button, Input, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
+import { Button, Input, SearchableSelect, TableActions, Textarea, useToast } from '@altitutor/ui'
 import { Pencil, Search } from 'lucide-react'
-import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import {
@@ -406,17 +406,36 @@ export function UcatQuestionStemCategoriesPage() {
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Question Stem Categories' }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant={editMode ? 'default' : 'outline'}
-              onClick={() => setEditMode((prev) => !prev)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              {editMode ? 'Done reordering' : 'Edit hierarchy'}
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>Add Category</Button>
-          </div>
+          <>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button
+                type="button"
+                variant={editMode ? 'default' : 'outline'}
+                className={editMode ? undefined : tutorBtnOutline}
+                onClick={() => setEditMode((prev) => !prev)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                {editMode ? 'Done reordering' : 'Edit hierarchy'}
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>Add Category</Button>
+            </div>
+            <TableActions
+              className="sm:hidden"
+              triggerClassName={`${tutorBtnOutline} min-w-0`}
+              actions={[
+                {
+                  id: 'toggle-hierarchy',
+                  label: editMode ? 'Done reordering' : 'Edit hierarchy',
+                  onSelect: () => setEditMode((prev) => !prev),
+                },
+                {
+                  id: 'add-category',
+                  label: 'Add Category',
+                  onSelect: () => setCreateOpen(true),
+                },
+              ]}
+            />
+          </>
         }
       />
 

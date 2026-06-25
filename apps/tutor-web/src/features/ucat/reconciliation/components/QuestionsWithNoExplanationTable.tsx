@@ -10,7 +10,7 @@ import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestion
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { QuestionsWithNoExplanationReconciliationDialog } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationReconciliationDialog'
 
 const TRUNCATE_LEN = 80
@@ -118,7 +118,7 @@ export function QuestionsWithNoExplanationTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => setQueueOpen(true)} disabled={filteredQuestions.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={filteredQuestions.length === 0}>
             Begin reconciling
           </Button>
         }

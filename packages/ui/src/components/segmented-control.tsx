@@ -137,7 +137,7 @@ export function SegmentedControl<T extends string>({
       <div
         ref={containerRef}
         className={cn(
-          'relative inline-flex border-0 p-0.5',
+          'relative inline-flex min-w-0 border-0 p-0.5',
           textSizeClass,
           fullWidth && 'w-full min-w-0',
           'max-w-full overflow-x-auto overscroll-x-contain',

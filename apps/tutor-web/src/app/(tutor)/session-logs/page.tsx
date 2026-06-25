@@ -33,7 +33,6 @@ export default function TutorSessionLogsPage() {
     <TutorPageContainer className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">My session logs</h1>
-        <p className="mt-1 text-muted-foreground">Sessions assigned to you</p>
       </header>
       <Card className={tutorCardCn('overflow-hidden')}>
         <CardHeader>

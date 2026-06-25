@@ -33,7 +33,7 @@ All direct subscriptions now have a cleanup path. One leak was fixed in `apps/ad
 
 Created a migration file that is intended for the normal reviewed migration flow, not direct production execution:
 
-`supabase/migrations/20260625042338_performance_realtime_publication_proposal.sql`
+`supabase/migrations/20260625042338_remove_activity_events_from_realtime_publication.sql`
 
 It removes only `activity_events` from `supabase_realtime`, guarded by a `pg_publication_tables` existence check.
 

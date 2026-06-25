@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagInsert, Issue } from '../types';
 import type { JSONContent } from '@altitutor/ui';
 import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
+import { extractMentions } from '@/shared/utils/extractMentions';
 
 async function appendTagsToDescription(
   description: JSONContent | null | undefined,

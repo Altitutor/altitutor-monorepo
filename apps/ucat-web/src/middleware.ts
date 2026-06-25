@@ -15,20 +15,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/subscribe", origin));
   }
 
-  const publicPaths = [
-    "/",
-    "/login",
-    "/signup",
-    "/forgot-password",
-    "/reset-password",
-    "/auth/callback",
-  ];
-  const isPublicPath =
-    publicPaths.includes(pathname) ||
+  const publicPaths = ["/", "/login", "/signup", "/forgot-password"];
+  const isPublicPath = publicPaths.includes(pathname);
+  const isNoAuthPublicPath =
+    pathname === "/reset-password" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/ucat/subscription-config" ||
     pathname === "/api/ucat/signup/check-email";
+
+  if (isNoAuthPublicPath) {
+    return NextResponse.next({ request });
+  }
 
   let response = NextResponse.next({
     request,

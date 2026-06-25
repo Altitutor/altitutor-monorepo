@@ -1,18 +1,45 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { normalizeSlug } from '@altitutor/shared';
 import { resourcesApi } from '../api/resources';
+import type { ResourceSubject, ResourceSubjectNavItem } from '../lib/types';
+
+export function useResourceSubjectNavItems() {
+  return useQuery({
+    queryKey: ['tutor-resources', 'subject-nav'],
+    queryFn: resourcesApi.getMySubjectNavItems,
+  });
+}
 
 export function useResourceSubjects() {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ['tutor-resources', 'subjects'],
     queryFn: resourcesApi.getMySubjects,
+    placeholderData: () => {
+      const subjects = queryClient.getQueryData<ResourceSubjectNavItem[]>(['tutor-resources', 'subject-nav']);
+      return subjects as ResourceSubject[] | undefined;
+    },
   });
 }
 
 export function useResourceSubject(subjectShortName: string) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ['tutor-resources', 'subject', subjectShortName],
     queryFn: () => resourcesApi.getSubjectByShortName(subjectShortName),
     enabled: Boolean(subjectShortName),
+    initialData: () => {
+      const subjects = queryClient.getQueryData<ResourceSubjectNavItem[]>(['tutor-resources', 'subject-nav']);
+      if (!subjects) return undefined;
+      const slug = normalizeSlug(subjectShortName);
+      const subject =
+        subjects?.find((item) => normalizeSlug(item.short_name ?? '') === slug) ??
+        subjects?.find((item) => normalizeSlug(item.name ?? '') === slug) ??
+        null;
+      return subject as ResourceSubject | null;
+    },
   });
 }
 

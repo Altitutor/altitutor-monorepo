@@ -9,6 +9,12 @@ export async function middleware(req: NextRequest) {
   // Public paths that don't require authentication
   const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth');
 
+  if (pathname.startsWith('/api') || isPublicPath) {
+    return NextResponse.next({
+      request: req,
+    });
+  }
+
   let supabaseResponse = NextResponse.next({
     request: req,
   });
@@ -38,17 +44,6 @@ export async function middleware(req: NextRequest) {
       },
     }
   );
-
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
-    return supabaseResponse;
-  }
-
-  // Allow public paths without user checks
-  if (isPublicPath) {
-    return supabaseResponse;
-  }
 
   // IMPORTANT: Use getUser() to validate and refresh auth token
   // This validates the token with Supabase Auth server (secure)

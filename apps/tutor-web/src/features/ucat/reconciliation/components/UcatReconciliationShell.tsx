@@ -29,6 +29,12 @@ import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatReconciliationProvider } from '@/features/ucat/reconciliation/components/UcatReconciliationContext'
 import { useReconciliationTabCounts } from '@/features/ucat/reconciliation/hooks/useReconciliationTabCounts'
+import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useReconciliation'
+import {
+  getMockReconciliationWarnings,
+  getSetReconciliationWarnings,
+  getStemReconciliationWarnings,
+} from '@/features/ucat/reconciliation/lib/reconciliation-warning-labels'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const NAV = [
@@ -87,6 +93,7 @@ export function UcatReconciliationShell({ children }: { children: React.ReactNod
   const access = useUcatAccess()
   const queryClient = useQueryClient()
   const tabCounts = useReconciliationTabCounts()
+  const reconciliationQuery = useReconciliationData()
 
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -201,11 +208,22 @@ export function UcatReconciliationShell({ children }: { children: React.ReactNod
           tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
           initial={stemDetail.data}
           loading={updateStemMutation.isPending || stemDetail.isLoading}
+          warningPills={getStemReconciliationWarnings(reconciliationQuery.data, editingStemId)}
         />
 
-        <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={handleSetEditorClose} />
+        <UcatSetEditorDialog
+          open={!!editingSetId}
+          setId={editingSetId}
+          onClose={handleSetEditorClose}
+          warningPills={getSetReconciliationWarnings(reconciliationQuery.data, editingSetId)}
+        />
 
-        <UcatMockEditorDialog open={!!editingMockId} mockId={editingMockId} onClose={handleMockEditorClose} />
+        <UcatMockEditorDialog
+          open={!!editingMockId}
+          mockId={editingMockId}
+          onClose={handleMockEditorClose}
+          warningPills={getMockReconciliationWarnings(reconciliationQuery.data, editingMockId)}
+        />
       </div>
     </UcatReconciliationProvider>
   )

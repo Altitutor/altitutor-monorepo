@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Button, Input } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { FolderTree } from '@/features/notes/components/FolderTree';

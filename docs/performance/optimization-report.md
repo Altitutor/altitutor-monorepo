@@ -30,10 +30,10 @@ Notification batching:
 - `apps/tutor-web/src/features/notifications/api/mutations.ts`
 - `apps/tutor-web/src/features/notifications/components/NotificationsTray.tsx`
 
-Docs and migration proposals:
+Docs and migrations:
 - `docs/performance/realtime-audit.md`
 - `docs/performance/optimization-report.md`
-- `supabase/migrations/20260625042338_performance_realtime_publication_proposal.sql`
+- `supabase/migrations/20260625042338_remove_activity_events_from_realtime_publication.sql`
 
 ## Expected Vercel CPU Impact
 
@@ -71,12 +71,11 @@ Recommended EXPLAIN ANALYZE targets before SQL changes:
 ## Migrations Created But Not Applied
 
 Created:
-- `20260625042338_performance_realtime_publication_proposal.sql`
+- `20260625042338_remove_activity_events_from_realtime_publication.sql`
 
 This migration removes `public.activity_events` from `supabase_realtime` if it is present. It was not run. No production Supabase DDL was executed.
 
-Removed:
-- `20260625042342_performance_targeted_db_proposals.sql`
+Removed the broad targeted DB proposal migration in favor of the focused Realtime migration above.
 
 ## Validation
 

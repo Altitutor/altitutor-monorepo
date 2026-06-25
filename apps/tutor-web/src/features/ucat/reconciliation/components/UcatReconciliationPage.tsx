@@ -30,6 +30,12 @@ import {
 import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
 import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useReconciliation'
+import {
+  getMockReconciliationWarnings,
+  getSetReconciliationWarnings,
+  getStemReconciliationWarnings,
+} from '@/features/ucat/reconciliation/lib/reconciliation-warning-labels'
 
 function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
   if (value == null) return null
@@ -68,6 +74,7 @@ function mapFormValuesToBundlePayload(
 export function UcatReconciliationPage() {
   const access = useUcatAccess()
   const queryClient = useQueryClient()
+  const reconciliationQuery = useReconciliationData()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
@@ -181,18 +188,21 @@ export function UcatReconciliationPage() {
         tags={(tagsQuery.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
+        warningPills={getStemReconciliationWarnings(reconciliationQuery.data, editingStemId)}
       />
 
       <UcatSetEditorDialog
         open={!!editingSetId}
         setId={editingSetId}
         onClose={handleSetEditorClose}
+        warningPills={getSetReconciliationWarnings(reconciliationQuery.data, editingSetId)}
       />
 
       <UcatMockEditorDialog
         open={!!editingMockId}
         mockId={editingMockId}
         onClose={handleMockEditorClose}
+        warningPills={getMockReconciliationWarnings(reconciliationQuery.data, editingMockId)}
       />
     </div>
   )
