@@ -6,6 +6,9 @@ import type { Database } from '@altitutor/shared';
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
+  // Public paths that don't require authentication
+  const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth');
+
   let supabaseResponse = NextResponse.next({
     request: req,
   });
@@ -36,6 +39,17 @@ export async function middleware(req: NextRequest) {
     }
   );
 
+  // For API routes, we just refresh the token but don't redirect
+  // The API route itself will handle auth checks
+  if (pathname.startsWith('/api')) {
+    return supabaseResponse;
+  }
+
+  // Allow public paths without user checks
+  if (isPublicPath) {
+    return supabaseResponse;
+  }
+
   // IMPORTANT: Use getUser() to validate and refresh auth token
   // This validates the token with Supabase Auth server (secure)
   // getSession() reads from cookies without validation (insecure)
@@ -43,15 +57,6 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
-    return supabaseResponse;
-  }
-
-  // Public paths that don't require authentication
-  const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth');
-  
   // If no user and trying to access protected route, redirect to login
   const isProtected = pathname !== '/' && !isPublicPath;
   if (!user && isProtected) {
@@ -61,11 +66,6 @@ export async function middleware(req: NextRequest) {
       redirectResponse.cookies.set(cookie.name, cookie.value);
     });
     return redirectResponse;
-  }
-
-  // Allow public paths without user checks
-  if (isPublicPath) {
-    return supabaseResponse;
   }
 
   // If no user on public paths or root, allow access
@@ -118,6 +118,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+  ],
 };
-

@@ -47,9 +47,6 @@ export default function StripeSyncPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Stripe Sync</h1>
-          <p className="text-muted-foreground">
-            Sync Stripe customers to students and manage payment methods
-          </p>
         </div>
       </div>
 
@@ -63,4 +60,3 @@ export default function StripeSyncPage() {
     </div>
   );
 }
-

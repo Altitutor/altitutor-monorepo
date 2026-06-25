@@ -150,3 +150,20 @@
     font-size: 16px;
   }
 }
+
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-entrance {
+    animation: auth-enter var(--motion-duration-enter) var(--motion-ease-standard) both;
+  }
+}

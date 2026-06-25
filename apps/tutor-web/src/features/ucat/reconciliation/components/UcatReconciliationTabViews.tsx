@@ -71,7 +71,7 @@ function setsTabCount(data: NonNullable<ReturnType<typeof useReconciliationData>
 }
 
 export function UcatReconciliationQuestionsTab() {
-  const { onOpenStemDialog } = useUcatReconciliationHandlers()
+  const { onOpenStemDialog, onEditSet } = useUcatReconciliationHandlers()
   const { data, isLoading, isError } = useReconciliationData()
 
   if (isLoading) return <QuestionsTabSkeleton />
@@ -86,7 +86,7 @@ export function UcatReconciliationQuestionsTab() {
       <StemsWithNoCategoryTable onOpenStemDialog={onOpenStemDialog} />
       <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
       <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
-      <PrivateStemsNotInSetTable onOpenStemDialog={onOpenStemDialog} />
+      <PrivateStemsNotInSetTable onOpenStemDialog={onOpenStemDialog} onEditSet={onEditSet} />
     </div>
   )
 }

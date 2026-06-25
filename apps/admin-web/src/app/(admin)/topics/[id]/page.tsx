@@ -249,9 +249,6 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
           <h1 className="text-3xl font-bold tracking-tight">
             {isEditing ? 'Edit Topic' : 'Topic Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {topic.name}
-          </p>
         </div>
       </div>
 

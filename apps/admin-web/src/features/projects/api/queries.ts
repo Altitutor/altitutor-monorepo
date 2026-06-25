@@ -6,6 +6,7 @@ import { tasksKeys } from '@/features/tasks/api/queryKeys';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
 const getProjectDetailKey = (id: string) => projectKeys.detail(id);
+const PROJECTS_REALTIME_DEBOUNCE_MS = 500;
 
 export function useProjects(filters?: ProjectFilters) {
   useSupabaseRealtimeInvalidation({
@@ -13,6 +14,7 @@ export function useProjects(filters?: ProjectFilters) {
     queryKey: projectKeys.all,
     detailKey: getProjectDetailKey,
     extraQueryKeys: [tasksKeys.all],
+    debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
   });
 
   return useQuery({
@@ -27,6 +29,8 @@ export function useProject(projectId: string, enabled = true) {
     queryKey: projectKeys.all,
     detailKey: getProjectDetailKey,
     extraQueryKeys: [tasksKeys.all],
+    debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
+    enabled: enabled && !!projectId,
   });
 
   return useQuery({

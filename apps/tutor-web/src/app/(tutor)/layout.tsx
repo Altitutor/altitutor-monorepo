@@ -236,6 +236,9 @@ function MobileMenu({
 }) {
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState(() => getInitialOpenDropdowns(pathname));
+  const dragStartYRef = React.useRef<number | null>(null);
+  const dragOffsetRef = React.useRef(0);
+  const [dragOffset, setDragOffset] = useState(0);
 
   useEffect(() => {
     setOpenDropdowns((prev) => ({
@@ -274,6 +277,36 @@ function MobileMenu({
     onClose();
   }, [pathname, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      dragStartYRef.current = null;
+      dragOffsetRef.current = 0;
+      setDragOffset(0);
+    }
+  }, [isOpen]);
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    dragStartYRef.current = event.touches[0]?.clientY ?? null;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (dragStartYRef.current == null) return;
+    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
+    dragOffsetRef.current = nextOffset;
+    setDragOffset(nextOffset);
+  };
+
+  const handleTouchEnd = () => {
+    if (dragOffsetRef.current > 96) {
+      onClose();
+    }
+    dragStartYRef.current = null;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
   const getChildLinkClass = (parentHref: string) => (href: string) =>
     cn(
       'rounded-xl px-3 py-2 text-sm',
@@ -291,18 +324,26 @@ function MobileMenu({
       {isOpen && (
         <div
           data-mobile-menu-overlay
-          className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
+          className="fixed inset-0 z-[70] bg-black/60 transition-opacity duration-300 md:hidden"
           onClick={onClose}
         />
       )}
 
       <div
         className={cn(
-          'fixed bottom-0 left-0 top-[var(--navbar-height)] z-50 flex w-[280px] max-w-[85vw] flex-col overflow-hidden rounded-r-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          'fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
+          dragStartYRef.current != null && 'transition-none',
+          isOpen ? 'translate-y-0' : 'translate-y-full',
         )}
+        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
       >
-        <div className="flex h-14 shrink-0 items-center px-4">
+        <div
+          className="flex h-14 shrink-0 touch-pan-y items-center px-4"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+        >
           <h2 className="text-lg font-semibold">Altitutor Tutor</h2>
         </div>
 

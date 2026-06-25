@@ -30,20 +30,44 @@ import { useUcatCategories, useUcatSections } from '@/features/ucat/questions/ho
 import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import type { CategoryOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
-import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption, Json } from '@altitutor/shared'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
 } from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
+import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { inferBulkImportCategoryIdForParsedStem } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
   return text.slice(0, max).trim() + '…'
+}
+
+function richTextishToPlainText(value: unknown): string {
+  if (typeof value === 'string') return value
+  return proseMirrorToPlainText(value as Json) ?? ''
+}
+
+function toParsedStem(item: StemWithNoCategory): ParsedStem {
+  return {
+    stemText: richTextishToPlainText(item.stemText),
+    questions: [...(item.questions ?? [])]
+      .sort((a, b) => a.index - b.index)
+      .map((question) => ({
+        number: question.index,
+        text: richTextishToPlainText(question.question_text),
+        options: (question.answer_options ?? []).map((option, index) => ({
+          label: String.fromCharCode(97 + index),
+          text: richTextishToPlainText(option.answer_text),
+        })),
+      })),
+  }
 }
 
 export function StemsWithNoCategoryTable({
@@ -169,6 +193,36 @@ export function StemsWithNoCategoryTable({
     [setCategoryMutation, toast, onOpenStemDialog]
   )
 
+  const handleAutoSetCategory = useCallback(
+    async (item: StemWithNoCategory) => {
+      const section = bulkImportSectionFromUcatName(item.sectionName)
+      if (!section) {
+        toast({
+          title: 'Could not infer category',
+          description: 'This stem section is not supported by the bulk import category parser.',
+          variant: 'destructive',
+        })
+        return
+      }
+      const categoryId = inferBulkImportCategoryIdForParsedStem({
+        stem: toParsedStem(item),
+        section,
+        sectionId: item.sectionId,
+        categories: categoriesQuery.data ?? [],
+      })
+      if (!categoryId) {
+        toast({
+          title: 'Could not infer category',
+          description: 'The bulk import parser did not find a matching category for this stem.',
+          variant: 'destructive',
+        })
+        return
+      }
+      await handleSetCategory(item, categoryId)
+    },
+    [categoriesQuery.data, handleSetCategory, toast]
+  )
+
   const toggleStemSelection = useCallback((id: string) => {
     setSelectedStemIds((prev) => {
       const next = new Set(prev)
@@ -269,7 +323,7 @@ export function StemsWithNoCategoryTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin reconciling
           </Button>
         }
@@ -289,7 +343,7 @@ export function StemsWithNoCategoryTable({
             sectionId={item.sectionId}
             visibleColumnKeys={visibleColumnKeys}
             selection={sel}
-            onSetCategory={(categoryId) => handleSetCategory(item, categoryId)}
+            onAutoSetCategory={() => handleAutoSetCategory(item)}
             isSettingCategory={setCategoryMutation.isPending}
             onOpenStemDialog={onOpenStemDialog}
           />
@@ -317,7 +371,7 @@ export function StemsWithNoCategoryTable({
           searchPlaceholder="Search categories..."
           emptyMessage="No categories found"
           trigger={
-            <Button variant="default" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Add category
             </Button>
           }
@@ -359,7 +413,7 @@ function StemWithNoCategoryRow({
   sectionId,
   visibleColumnKeys,
   selection,
-  onSetCategory,
+  onAutoSetCategory,
   isSettingCategory,
   onOpenStemDialog,
 }: {
@@ -372,7 +426,7 @@ function StemWithNoCategoryRow({
     selectedIds: Set<string>
     onToggleSelection: (id: string) => void
   }
-  onSetCategory: (categoryId: string) => Promise<void>
+  onAutoSetCategory: () => Promise<void>
   isSettingCategory: boolean
   onOpenStemDialog?: (stemId: string) => void
 }) {
@@ -428,59 +482,22 @@ function StemWithNoCategoryRow({
           <Button
             variant="outline"
             size="sm"
+            className={tutorBtnOutline}
             onClick={() => onOpenStemDialog?.(item.id)}
           >
-            View stem
+            View
           </Button>
-          <AddCategorySelect
-            categories={sectionCategories}
-            onSelect={onSetCategory}
-            disabled={isSettingCategory}
-          />
+          <Button
+            variant="outline"
+            size="sm"
+            className={tutorBtnOutline}
+            onClick={() => void onAutoSetCategory()}
+            disabled={isSettingCategory || sectionCategories.length === 0}
+          >
+            Auto-set category
+          </Button>
         </div>
       </TableCell>
     </TableRow>
-  )
-}
-
-function AddCategorySelect({
-  categories,
-  onSelect,
-  disabled,
-}: {
-  categories: CategoryOption[]
-  onSelect: (categoryId: string) => Promise<void>
-  disabled: boolean
-}) {
-  const items = useMemo(
-    () => categories.filter((c): c is CategoryOption & { id: string } => !!c.id && !!c.name),
-    [categories]
-  )
-
-  if (items.length === 0) {
-    return (
-      <Button variant="default" size="sm" disabled>
-        No categories for section
-      </Button>
-    )
-  }
-
-  return (
-    <SearchableSelect<CategoryOption & { id: string }>
-      items={items}
-      value={null}
-      onValueChange={async (cat) => {
-        if (cat) await onSelect(cat.id)
-      }}
-      getItemLabel={(c) => taxonomyDisplayLabel(c)}
-      getItemId={(c) => c.id}
-      placeholder="Add category"
-      disabled={disabled}
-      trigger={
-        <Button variant="default" size="sm" disabled={disabled}>
-          Add category
-        </Button>
-      }
-    />
   )
 }

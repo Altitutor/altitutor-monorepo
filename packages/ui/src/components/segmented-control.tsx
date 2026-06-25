@@ -48,12 +48,12 @@ const segmentTabPadding = 'inline-flex items-center justify-center gap-1.5 px-3 
  */
 const SEGMENTED_RADII = {
   default: {
-    track: 'overflow-hidden rounded-2xl',
-    inner: 'rounded-[0.875rem]',
+    track: 'rounded-[var(--radius)]',
+    inner: 'rounded-[calc(var(--radius)_-_0.125rem)]',
   },
   light: {
-    track: 'overflow-hidden rounded-md',
-    inner: 'rounded',
+    track: 'rounded-[var(--radius)]',
+    inner: 'rounded-[calc(var(--radius)_-_0.125rem)]',
   },
 } as const
 
@@ -139,7 +139,8 @@ export function SegmentedControl<T extends string>({
         className={cn(
           'relative inline-flex border-0 p-0.5',
           textSizeClass,
-          fullWidth && 'w-full',
+          fullWidth && 'w-full min-w-0',
+          'max-w-full overflow-x-auto overscroll-x-contain',
           isLight
             ? cn(radii.track, 'bg-neutral-200/80 ring-1 ring-black/10')
             : cn(radii.track, 'bg-muted/90 ring-1 ring-black/[0.06] dark:ring-white/10'),
@@ -179,7 +180,7 @@ export function SegmentedControl<T extends string>({
                 className={cn(
                   'group relative z-10 inline-flex items-stretch overflow-hidden',
                   radii.inner,
-                  fullWidth && 'min-w-0 flex-1',
+                  fullWidth && 'min-w-0 flex-1 max-sm:min-w-max max-sm:flex-none',
                   isLight
                     ? isActive
                       ? 'text-black'
@@ -197,7 +198,7 @@ export function SegmentedControl<T extends string>({
                   className={cn(
                     segmentTabPadding,
                     'rounded-l-md rounded-r-none',
-                    fullWidth && 'min-w-0 flex-1',
+                    fullWidth && 'min-w-0 flex-1 max-sm:min-w-max max-sm:flex-none',
                     !isActive && (isLight ? 'hover:bg-black/5' : 'hover:bg-muted/80')
                   )}
                 >
@@ -242,7 +243,7 @@ export function SegmentedControl<T extends string>({
                 segmentTabPadding,
                 'relative z-10 transition-colors duration-200',
                 radii.inner,
-                fullWidth && 'min-w-0 flex-1',
+                fullWidth && 'min-w-0 flex-1 max-sm:min-w-max max-sm:flex-none',
                 isLight
                   ? isActive
                     ? 'text-black'

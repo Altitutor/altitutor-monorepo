@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { StaffTable, AddStaffModal, ViewStaffModal } from '@/features/staff';
-import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 
 export default function StaffPage() {
@@ -40,10 +40,11 @@ export default function StaffPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Staff</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Staff
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Staff"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <StaffTable onRefresh={refreshCounter} />
@@ -63,5 +64,4 @@ export default function StaffPage() {
     </div>
   );
 }
-
 

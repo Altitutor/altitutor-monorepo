@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type TouchEvent } from 'react';
 import { Dialog, DialogContent, DialogPortal } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
 import { CommandPalette } from './CommandPalette';
 import { ViewStudentModal } from '@/features/students/components';
 import { ViewStaffModal } from '@/features/staff/components/modal';
@@ -25,6 +26,9 @@ interface CommandPaletteModalProps {
  * Provides the darkened background overlay for the Raycast-like search experience
  */
 export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProps) {
+  const dragStartYRef = useRef<number | null>(null);
+  const dragOffsetRef = useRef(0);
+  const [dragOffset, setDragOffset] = useState(0);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -54,11 +58,47 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      dragStartYRef.current = null;
+      dragOffsetRef.current = 0;
+      setDragOffset(0);
     }
     return () => {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (touch.clientY > rect.top + 72) {
+      dragStartYRef.current = null;
+      return;
+    }
+
+    dragStartYRef.current = touch.clientY;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    if (dragStartYRef.current == null) return;
+
+    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
+    dragOffsetRef.current = nextOffset;
+    setDragOffset(nextOffset);
+    if (nextOffset > 0) event.preventDefault();
+  };
+
+  const handleTouchEnd = () => {
+    if (dragOffsetRef.current > 96) {
+      onClose();
+    }
+    dragStartYRef.current = null;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
 
   const handleEntitySelected = (type: string, id: string) => {
     // Reset all states first
@@ -133,7 +173,18 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogPortal>
           <DialogContent
-            className="z-[101] w-full max-w-[calc(100vw-2rem)] md:max-w-4xl h-[calc(100dvh-2rem)] max-h-[800px] p-0 gap-0 border rounded-lg shadow-xl bg-popover [&>button]:hidden flex flex-col"
+            mobilePresentation="bottom-sheet"
+            className={cn(
+              "z-[101] flex h-[calc(100dvh-2rem)] max-h-[800px] w-full max-w-[calc(100vw-2rem)] flex-col gap-0 border rounded-lg bg-popover p-0 shadow-xl md:max-w-4xl [&>button]:hidden",
+              "max-md:h-[88dvh] max-md:max-h-[88dvh] max-md:rounded-t-3xl max-md:rounded-b-none max-md:bg-background max-md:transition-transform max-md:duration-300 max-md:ease-out",
+              dragStartYRef.current != null && "max-md:transition-none",
+            )}
+            style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            onOpenAutoFocus={(event) => event.preventDefault()}
           >
             <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
           </DialogContent>

@@ -6,7 +6,7 @@ import {
   AddTopicModal,
   ViewTopicModal,
 } from '@/features/topics';
-import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 
 export default function TopicsPage() {
@@ -37,10 +37,11 @@ export default function TopicsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Topics & Files</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Topic
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Topic"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <TopicsTable 

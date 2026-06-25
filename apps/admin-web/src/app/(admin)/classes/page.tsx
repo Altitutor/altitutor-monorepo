@@ -3,7 +3,8 @@
 import { Suspense, useState } from 'react';
 import { ClassesTable, ViewClassModal, AddClassModal } from '@/features/classes';
 import { CalendarView } from '@/features/classes/components/CalendarView';
-import { Button, SegmentedControl } from '@altitutor/ui';
+import { SegmentedControl } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
@@ -70,10 +71,11 @@ export default function ClassesPage() {
               { value: 'calendar', label: 'Calendar' },
             ]}
           />
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Class
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add Class"
+            onClick={() => setIsAddModalOpen(true)}
+          />
         </div>
       </div>
 
@@ -136,5 +138,4 @@ export default function ClassesPage() {
     </div>
   );
 }
-
 

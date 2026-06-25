@@ -193,7 +193,7 @@ function UcatQuestionStemApprovalQueue({
   const queueComplete = entries.length > 0 && index >= entries.length
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
-  const aiPrimaryLabel = isLastAiQuestion ? 'Approve' : 'Next question'
+  const aiPrimaryLabel = isLastAiQuestion ? 'Review' : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
 
@@ -280,6 +280,11 @@ function UcatQuestionStemApprovalQueue({
     const saved = await saveCurrent()
     if (!saved) return
     await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'approved' })
+    if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
+      await invalidateQueueData(currentEntry.stemId)
+      onExit()
+      return
+    }
     goNext()
     void invalidateQueueData(currentEntry.stemId)
   }

@@ -11,9 +11,6 @@ export default function UcatSkillTrainersSettingsPage() {
           ← Settings
         </Link>
         <h1 className="text-3xl font-bold tracking-tight mt-2">UCAT skill trainers</h1>
-        <p className="text-muted-foreground mt-1">
-          Enable trainers and configure timing and scoring. Item content is authored in tutor-web.
-        </p>
       </div>
       <UcatSkillTrainerConfigForm />
     </div>

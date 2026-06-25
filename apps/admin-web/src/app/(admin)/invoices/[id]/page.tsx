@@ -207,9 +207,6 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Invoice Details</h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-          </p>
         </div>
         <ActionsMenu
           type="invoice"

@@ -3,7 +3,7 @@ export type StemWithNoCategory = {
   sectionId: string
   sectionName: string
   stemText: unknown
-  questions: Array<{ id: string; question_text: unknown; index: number }>
+  questions: Array<{ id: string; question_text: unknown; index: number; answer_options?: Array<{ answer_text?: unknown }> }>
 }
 
 export type QuestionWithNoExplanation = {
@@ -24,6 +24,7 @@ export type UntaggedQuestion = {
   questionId: string
   questionText: unknown
   questionIndex: number
+  answerOptions?: Array<{ answer_text?: unknown }>
 }
 
 export type PrivateStemNotInSet = {
@@ -33,7 +34,7 @@ export type PrivateStemNotInSet = {
   categoryId: string | null
   categoryName: string | null
   stemText: unknown
-  questions: Array<{ id: string; question_text: unknown; index: number }>
+  questions: Array<{ id: string; question_text: unknown; index: number; answer_options?: Array<{ answer_text?: unknown }> }>
 }
 
 export type PendingGeneratedStem = {
@@ -43,7 +44,7 @@ export type PendingGeneratedStem = {
   categoryId: string | null
   categoryName: string | null
   stemText: unknown
-  questions: Array<{ id: string; question_text: unknown; index: number }>
+  questions: Array<{ id: string; question_text: unknown; index: number; answer_options?: Array<{ answer_text?: unknown }> }>
 }
 
 export type SetReconciliationRow = {

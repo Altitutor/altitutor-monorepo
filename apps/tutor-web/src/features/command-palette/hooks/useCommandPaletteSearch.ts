@@ -12,8 +12,8 @@ export function useCommandPaletteSearch({
 }: UseCommandPaletteSearchOptions) {
   const debouncedSearch = useDebounce(search, 250);
   const trimmedSearch = debouncedSearch.trim();
-  const entitySearchTypes = getEntitySearchTypes(selectedFilters, allFilterTypes);
-  const canSearchEntities = shouldRunEntitySearch(selectedFilters, allFilterTypes);
+  const entitySearchTypes = getEntitySearchTypes(selectedFilters, allFilterTypes, search);
+  const canSearchEntities = shouldRunEntitySearch(selectedFilters, allFilterTypes, search);
   const shouldSearch = enabled && canSearchEntities && trimmedSearch.length >= 2;
 
   const query = useQuery({

@@ -7,6 +7,7 @@ import { ViewStudentModal } from '@/features/students/components/ViewStudentModa
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
 import { Plus, Download } from 'lucide-react';
@@ -69,14 +70,17 @@ export default function TutorLogsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Tutor logs</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setExportModalOpen(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button onClick={() => setTutorLogModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add tutor log
-          </Button>
+          <AdminPageActionButton
+            variant="outline"
+            icon={<Download className="h-4 w-4" />}
+            label="Export"
+            onClick={() => setExportModalOpen(true)}
+          />
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add tutor log"
+            onClick={() => setTutorLogModalOpen(true)}
+          />
         </div>
       </div>
 

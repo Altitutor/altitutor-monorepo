@@ -23,7 +23,7 @@ const getNoteDocumentRelatedKeys = (row: { folder_id?: string | null; project_id
 
 const getFolderDetailKey = (id: string) => foldersKeys.detail(id);
 
-function useNoteDocumentsRealtimeInvalidation() {
+function useNoteDocumentsRealtimeInvalidation(enabled = true) {
   useSupabaseRealtimeInvalidation({
     table: 'notes_documents',
     queryKey: notesKeys.all,
@@ -31,6 +31,7 @@ function useNoteDocumentsRealtimeInvalidation() {
     getRelatedKeys: getNoteDocumentRelatedKeys,
     extraQueryKeys: [foldersKeys.tree()],
     debounceMs: DOCUMENT_REALTIME_DEBOUNCE_MS,
+    enabled,
   });
 }
 
@@ -40,6 +41,7 @@ function useNoteFoldersRealtimeInvalidation() {
     queryKey: foldersKeys.all,
     detailKey: getFolderDetailKey,
     extraQueryKeys: [notesKeys.lists()],
+    debounceMs: 500,
   });
 }
 
@@ -50,7 +52,7 @@ export function useNotes(
   filters?: { folderId?: string | null; projectId?: string | null; search?: string },
   enabled = true
 ) {
-  useNoteDocumentsRealtimeInvalidation();
+  useNoteDocumentsRealtimeInvalidation(enabled);
 
   return useQuery({
     queryKey: notesKeys.list(filters),
@@ -65,7 +67,7 @@ export function useNotes(
  * Get notes by folder ID
  */
 export function useNotesByFolder(folderId: string, enabled = true) {
-  useNoteDocumentsRealtimeInvalidation();
+  useNoteDocumentsRealtimeInvalidation(enabled && !!folderId);
 
   return useQuery({
     queryKey: [...notesKeys.lists(), 'folder', folderId],
@@ -80,7 +82,7 @@ export function useNotesByFolder(folderId: string, enabled = true) {
  * Get a single note by ID
  */
 export function useNote(noteId: string, enabled = true) {
-  useNoteDocumentsRealtimeInvalidation();
+  useNoteDocumentsRealtimeInvalidation(enabled && !!noteId);
 
   return useQuery({
     queryKey: notesKeys.detail(noteId),

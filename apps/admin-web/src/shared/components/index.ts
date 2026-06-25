@@ -11,6 +11,8 @@ export { ToastProviderWrapper } from './toast-provider-wrapper';
 // Breadcrumb component
 export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbItem } from './Breadcrumb';
+export { AdminPageActionButton } from './admin-page-action-button';
+export { AdminDialogShell } from './dialog-shell';
 
 // Logout confirmation modal
 export { LogoutConfirmationModal } from './logout-confirmation-modal';
@@ -19,4 +21,4 @@ export { LogoutConfirmationModal } from './logout-confirmation-modal';
 export { TruncatedText } from './TruncatedText';
 
 // File components
-export * from './files'; 
+export * from './files';

@@ -1,15 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button, TableCell, TableRow, useToast } from '@altitutor/ui'
+import { Button, TableCell, TableRow } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
 import type { PendingGeneratedStem } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
-import { useSetUcatQuestionStemApprovalStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
@@ -22,16 +20,12 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trim() + '...'
 }
 
-export function PendingGeneratedStemsTable({
-  onOpenStemDialog,
-}: {
+export function PendingGeneratedStemsTable(_props: {
   onOpenStemDialog?: (stemId: string) => void
 }) {
-  const router = useRouter()
-  const { toast } = useToast()
   const { data, isLoading } = useReconciliationData()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
   const [queueOpen, setQueueOpen] = useState(false)
+  const [reviewStemId, setReviewStemId] = useState<string | null>(null)
 
   const items = useMemo(() => data?.pendingGeneratedStems ?? [], [data?.pendingGeneratedStems])
   const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
@@ -46,25 +40,6 @@ export function PendingGeneratedStemsTable({
     { key: 'questions', label: 'Questions' },
   ]
 
-  async function setApprovalStatus(item: PendingGeneratedStem, status: 'approved' | 'rejected') {
-    try {
-      await approvalMutation.mutateAsync({ stemId: item.id, status })
-      toast({
-        title: status === 'approved' ? 'Generated question approved' : 'Generated question rejected',
-        description:
-          status === 'approved'
-            ? 'The stem is now published with approved questions.'
-            : 'The stem has been removed from the approval queue.',
-      })
-    } catch {
-      toast({
-        title: 'Failed to update approval',
-        description: 'Please try again.',
-        variant: 'destructive',
-      })
-    }
-  }
-
   return (
     <>
       <ReconciliationTable<PendingGeneratedStem>
@@ -74,7 +49,7 @@ export function PendingGeneratedStemsTable({
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={columnDefinitions.map((column) => column.key)}
         headerActions={
-          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin approvals
           </Button>
         }
@@ -83,11 +58,7 @@ export function PendingGeneratedStemsTable({
           key={item.id}
           item={item}
           visibleColumnKeys={visibleColumnKeys}
-          isUpdating={approvalMutation.isPending}
-          onApprove={() => setApprovalStatus(item, 'approved')}
-          onReject={() => setApprovalStatus(item, 'rejected')}
-          onOpenStemDialog={onOpenStemDialog}
-          onReview={() => router.push(`/ucat/questions/generated/${item.id}`)}
+          onReview={() => setReviewStemId(item.id)}
         />
         )}
       />
@@ -97,6 +68,12 @@ export function PendingGeneratedStemsTable({
         entries={queueEntries}
         onClose={() => setQueueOpen(false)}
       />
+      <UcatQuestionStemApprovalQueueDialog
+        open={reviewStemId != null}
+        title="Review generated question stem"
+        entries={reviewStemId ? [{ stemId: reviewStemId, mode: 'ai_approval' }] : []}
+        onClose={() => setReviewStemId(null)}
+      />
     </>
   )
 }
@@ -104,18 +81,10 @@ export function PendingGeneratedStemsTable({
 function PendingGeneratedStemRow({
   item,
   visibleColumnKeys,
-  isUpdating,
-  onApprove,
-  onReject,
-  onOpenStemDialog,
   onReview,
 }: {
   item: PendingGeneratedStem
   visibleColumnKeys: string[]
-  isUpdating: boolean
-  onApprove: () => Promise<void>
-  onReject: () => Promise<void>
-  onOpenStemDialog?: (stemId: string) => void
   onReview: () => void
 }) {
   const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
@@ -146,17 +115,8 @@ function PendingGeneratedStemRow({
       {visibleColumnKeys.map((key) => cells[key]).filter((cell): cell is React.ReactNode => cell != null)}
       <TableCell>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onReview}>
+          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onReview}>
             Review
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onOpenStemDialog?.(item.id)}>
-            Quick edit
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void onReject()} disabled={isUpdating}>
-            Reject
-          </Button>
-          <Button size="sm" onClick={() => void onApprove()} disabled={isUpdating}>
-            Approve
           </Button>
         </div>
       </TableCell>

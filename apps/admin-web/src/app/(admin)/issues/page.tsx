@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, SegmentedControl } from '@altitutor/ui';
+import { SegmentedControl } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { IssuesBoard } from '@/features/issues/components/IssuesBoard';
 import { IssuesList } from '@/features/issues/components/IssuesList';
@@ -30,10 +31,11 @@ export default function IssuesPage() {
               { value: 'list', label: 'List' },
             ]}
           />
-          <Button onClick={handleCreateIssue}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Issue
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="New Issue"
+            onClick={handleCreateIssue}
+          />
         </div>
       </div>
 

@@ -126,7 +126,7 @@ export function UcatReconciliationPage() {
             <StemsWithNoCategoryTable onOpenStemDialog={handleOpenStemDialog} />
             <QuestionsWithNoExplanationTable onOpenStemDialog={handleOpenStemDialog} />
             <UntaggedQuestionsTable onOpenStemDialog={handleOpenStemDialog} />
-            <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} />
+            <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} onEditSet={setEditingSetId} />
           </div>
         </section>
 

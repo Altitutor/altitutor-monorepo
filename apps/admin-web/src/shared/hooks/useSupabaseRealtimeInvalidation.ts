@@ -21,6 +21,7 @@ type RealtimeInvalidationOptions = {
   getRelatedKeys?: (row: RealtimeRow) => QueryKey[];
   extraQueryKeys?: QueryKey[];
   debounceMs?: number;
+  enabled?: boolean;
 };
 
 export function useSupabaseRealtimeInvalidation({
@@ -30,6 +31,7 @@ export function useSupabaseRealtimeInvalidation({
   getRelatedKeys,
   extraQueryKeys = [],
   debounceMs = 0,
+  enabled = true,
 }: RealtimeInvalidationOptions) {
   const queryClient = useQueryClient();
   const supabase = useSupabaseClient();
@@ -43,6 +45,8 @@ export function useSupabaseRealtimeInvalidation({
   );
 
   useEffect(() => {
+    if (!enabled) return;
+
     const pendingKeys = new Map<string, QueryKey>();
     let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -104,6 +108,7 @@ export function useSupabaseRealtimeInvalidation({
   }, [
     debounceMs,
     detailKey,
+    enabled,
     getRelatedKeys,
     instanceId,
     queryClient,

@@ -22,6 +22,8 @@ export function useNotes(targetType: string, targetId: string, enabled = true) {
     table: 'notes',
     queryKey: notesKeys.all,
     getRelatedKeys: getNoteTargetKeys,
+    debounceMs: 250,
+    enabled: enabled && !!targetId,
   });
 
   return useQuery({
@@ -111,7 +113,5 @@ export function useDeleteNote() {
     },
   });
 }
-
-
 
 

@@ -7,6 +7,23 @@ import type { PostgrestError } from '@supabase/supabase-js';
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
+  const isPublicPath =
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/invite/') ||
+    pathname.startsWith('/register/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/booking/trial-session') ||
+    pathname.startsWith('/booking-success');
+
+  if (isPublicPath) {
+    return NextResponse.next({
+      request: req,
+    });
+  }
+
   let supabaseResponse = NextResponse.next({
     request: req,
   });
@@ -40,24 +57,6 @@ export async function middleware(req: NextRequest) {
   // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
-    return supabaseResponse;
-  }
-
-  // Public paths that don't require authentication
-  // Check these EARLY to avoid unnecessary auth calls
-  const isPublicPath = 
-    pathname === '/' ||
-    pathname.startsWith('/login') || 
-    pathname.startsWith('/forgot-password') || 
-    pathname.startsWith('/reset-password') || 
-    pathname.startsWith('/invite/') || 
-    pathname.startsWith('/register/') ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/booking/trial-session') ||
-    pathname.startsWith('/booking-success');
-
-  // For public paths, allow access without authentication checks
-  if (isPublicPath) {
     return supabaseResponse;
   }
 
@@ -157,6 +156,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+  ],
 };
-

@@ -338,9 +338,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           <h1 className="text-3xl font-bold tracking-tight">
             {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {student.first_name} {student.last_name}
-          </p>
         </div>
         <ActionsMenu
           type="student"
@@ -350,7 +347,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}

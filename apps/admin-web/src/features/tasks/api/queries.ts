@@ -5,6 +5,7 @@ import type { TaskFilters } from '../types';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
 const getTaskDetailKey = (id: string) => tasksKeys.detail(id);
+const TASKS_REALTIME_DEBOUNCE_MS = 500;
 
 /**
  * Get all tasks with optional filters
@@ -14,6 +15,7 @@ export function useTasks(filters?: TaskFilters) {
     table: 'tasks',
     queryKey: tasksKeys.all,
     detailKey: getTaskDetailKey,
+    debounceMs: TASKS_REALTIME_DEBOUNCE_MS,
   });
 
   return useQuery({
@@ -32,6 +34,8 @@ export function useTask(taskId: string, enabled = true) {
     table: 'tasks',
     queryKey: tasksKeys.all,
     detailKey: getTaskDetailKey,
+    debounceMs: TASKS_REALTIME_DEBOUNCE_MS,
+    enabled: enabled && !!taskId,
   });
 
   return useQuery({

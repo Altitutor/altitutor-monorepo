@@ -301,7 +301,7 @@ export function DataTableToolbar({
   const labelFlexClass = compact
     ? 'sr-only'
     : 'hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap';
-  const controlBtnClass = (extra?: string) => cn(compact ? 'h-9 px-2' : 'h-10', controlClassName, extra);
+  const controlBtnClass = (extra?: string) => cn(compact ? 'size-9 p-0' : 'h-10', controlClassName, extra);
   const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'mr-2', extra);
 
   const searchFromViewGroupsResolved = searchFromViewGroups ?? (
@@ -371,7 +371,13 @@ export function DataTableToolbar({
 
   return (
     <div className={cn('flex w-full flex-col gap-2', compact && 'gap-1.5', className)}>
-      <div className={cn('flex items-center gap-2', compact ? 'flex-nowrap gap-1' : 'flex-wrap', rowClassName)}>
+      <div
+        className={cn(
+          'flex items-center gap-2',
+          compact ? 'flex-nowrap justify-center gap-1' : 'flex-wrap',
+          rowClassName,
+        )}
+      >
         {/* Search */}
         {!hideSearch ? (
           <div
@@ -404,7 +410,12 @@ export function DataTableToolbar({
         ) : null}
         {!hideSearch && searchAccessory}
 
-        <div className={cn('flex shrink-0 items-center gap-2', hideSearch && 'w-full')}>
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-2',
+            hideSearch && (compact ? 'mx-auto justify-center' : 'w-full'),
+          )}
+        >
           {/* View Options (Columns + optional search-from groups) */}
           {(columnViewGroups.length > 0 ||
             columnDefinitions.length > 0 ||

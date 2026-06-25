@@ -6,6 +6,7 @@ import { BlockoutDatesTable } from '@/features/bookings/components/BlockoutDates
 import { blockoutsApi, type BlockoutRow } from '@/features/bookings/api/blockouts';
 import { Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 
 export default function BlockoutsPage() {
   const router = useRouter();
@@ -52,19 +53,16 @@ export default function BlockoutsPage() {
         <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Blockout Dates</h1>
-            <p className="text-muted-foreground">
-              Manage staff unavailability dates and times
-            </p>
           </div>
-          <Button onClick={() => setAddButtonClick(prev => prev + 1)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Blockout
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add Blockout"
+            onClick={() => setAddButtonClick(prev => prev + 1)}
+          />
         </div>
       </div>
       <BlockoutDatesTable blockouts={blockouts} onUpdate={loadData} onCreateTrigger={addButtonClick} />
     </div>
   );
 }
-
 

@@ -216,9 +216,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           <h1 className="text-3xl font-bold tracking-tight">
             {isEditing ? 'Edit Class' : 'Class Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {classData.long_name?.trim() ?? ''}
-          </p>
         </div>
         <ActionsMenu
           type="class"
@@ -228,7 +225,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
