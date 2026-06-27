@@ -28,6 +28,7 @@ import { cn } from '@/shared/utils';
 import { stripeInvoiceDashboardUrl } from '@/shared/utils/stripe-dashboard-urls';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
@@ -37,6 +38,7 @@ export const dynamic = 'force-dynamic';
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
 export default function InvoicesPage() {
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('invoices');

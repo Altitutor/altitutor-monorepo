@@ -13,6 +13,7 @@ export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbItem } from './Breadcrumb';
 export { AdminPageActionButton } from './admin-page-action-button';
 export { AdminDialogShell } from './dialog-shell';
+export { AdminUrlSyncBoundary } from './AdminUrlSyncBoundary';
 
 // Logout confirmation modal
 export { LogoutConfirmationModal } from './logout-confirmation-modal';

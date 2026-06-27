@@ -25,6 +25,9 @@ import {
   PRIORITY_OPTIONS,
   PROJECT_STATUS_OPTIONS,
 } from '../utils/projectUtils';
+import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+
+const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date'] as const;
 
 export interface ProjectsListProps {
   /** Initial filter values (e.g. dashboard: projects where current user is lead) */
@@ -39,19 +42,28 @@ export interface ProjectsListProps {
 }
 
 export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }: ProjectsListProps = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
   const embedLocked = hideToolbar && embedView != null;
+
+  const {
+    filters,
+    setFilters,
+    groupBy,
+    setGroupBy,
+    sortBy,
+    sortDirection,
+    handleSortChange,
+  } = useEntityListTableState({
+    defaultFilters: defaultFilters ?? {},
+    defaultSort: embedLocked
+      ? { field: embedView?.sortBy ?? 'name', direction: embedView?.sortDirection ?? 'asc' }
+      : { field: 'name', direction: 'asc' },
+    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : 'status',
+    filterKeys: [...PROJECT_FILTER_KEYS],
+    skipUrlSync: embedLocked,
+  });
+
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>(
-    embedLocked ? (embedView.groupBy ?? null) : 'status'
-  );
-  const [sortBy, setSortBy] = useState<string>(
-    embedLocked ? (embedView.sortBy ?? 'name') : 'name'
-  );
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
-    embedLocked ? (embedView.sortDirection ?? 'asc') : 'asc'
-  );
 
   const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
   const displayProjects = useMemo(() => {
@@ -261,11 +273,6 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
     []
   );
 
-  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setSortBy(key);
-    setSortDirection(direction);
-  }, []);
-
   return (
     <>
       <EntityList<ProjectWithLead>
@@ -276,10 +283,10 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
         rightPills={rightPills}
         groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={embedLocked ? (embedView.groupBy ?? null) : groupBy}
+        groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}
         onGroupByChange={embedLocked ? undefined : setGroupBy}
-        sortBy={embedLocked && embedView.secondarySortBy ? 'name' : embedLocked ? (embedView.sortBy ?? 'name') : sortBy}
-        sortDirection={embedLocked && embedView.secondarySortBy ? 'asc' : embedLocked ? (embedView.sortDirection ?? 'asc') : sortDirection}
+        sortBy={embedLocked && embedView?.secondarySortBy ? 'name' : embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked && embedView?.secondarySortBy ? 'asc' : embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
         onSortChange={embedLocked ? undefined : handleSortChange}
         getGroupOrder={(columnKey, valueKey) => {
           if (columnKey === 'status') return getProjectStatusOrder(valueKey);

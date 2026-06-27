@@ -103,6 +103,7 @@ function buildTableHref(pathname: string, params: URLSearchParams): string {
 interface UseDataTableOptions {
   defaultFilters?: Record<string, unknown[]>;
   defaultSort?: { field: string; direction: 'asc' | 'desc' };
+  defaultGroupBy?: string | null;
   defaultVisibleColumns?: string[];
   pageSize?: number;
   skipUrlSync?: boolean;
@@ -112,6 +113,7 @@ interface UseDataTableOptions {
 export function useDataTable({
   defaultFilters = {},
   defaultSort = { field: 'created_at', direction: 'desc' },
+  defaultGroupBy = null,
   defaultVisibleColumns = [],
   pageSize: initialPageSize = 50,
   skipUrlSync = false,
@@ -159,7 +161,7 @@ export function useDataTable({
         filters: defaultFilters,
         sortBy: defaultSort.field,
         sortDirection: defaultSort.direction,
-        groupBy: null,
+        groupBy: defaultGroupBy,
         page: 1,
         pageSize: initialPageSize,
         visibleColumns: defaultVisibleColumns,
@@ -170,7 +172,7 @@ export function useDataTable({
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort');
     const sortDirection = (searchParams.get('order') || defaultSort.direction) as 'asc' | 'desc';
-    const groupBy = searchParams.get('group');
+    const groupBy = searchParams.get('group') ?? defaultGroupBy;
     const page = Number(searchParams.get('page')) || 1;
     const pageSize = Number(searchParams.get('pageSize')) || initialPageSize;
     const visibleColumns = searchParams.get('columns')?.split(',').filter(Boolean) || defaultVisibleColumns;
@@ -188,7 +190,7 @@ export function useDataTable({
         filters: defaultFilters,
         sortBy: defaultSort.field,
         sortDirection: defaultSort.direction,
-        groupBy: null,
+        groupBy: defaultGroupBy,
         page: 1,
         pageSize: initialPageSize,
         visibleColumns: defaultVisibleColumns,
@@ -207,7 +209,7 @@ export function useDataTable({
       visibleColumns,
       defaultVisibleColumns,
     };
-  }, [searchParams, defaultFilters, defaultSort, initialPageSize, defaultVisibleColumns, parseFiltersFromUrl, skipUrlSync, isManagedKey]);
+  }, [searchParams, defaultFilters, defaultSort, defaultGroupBy, initialPageSize, defaultVisibleColumns, parseFiltersFromUrl, skipUrlSync, isManagedKey]);
 
   const [state, setState] = useState<DataTableState>(getInitialState);
   const stateRef = useRef(state);
@@ -357,7 +359,7 @@ export function useDataTable({
       filters: defaultFilters,
       sortBy: defaultSort.field,
       sortDirection: defaultSort.direction,
-      groupBy: null,
+      groupBy: defaultGroupBy,
       page: 1,
       pageSize: initialPageSize,
       visibleColumns: defaultVisibleColumns,
@@ -371,7 +373,7 @@ export function useDataTable({
 
     setState(resetState);
     commitTableUrl(resetState);
-  }, [commitTableUrl, defaultFilters, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, skipUrlSync, updateState]);
+  }, [commitTableUrl, defaultFilters, defaultGroupBy, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, skipUrlSync, updateState]);
 
   return {
     state,

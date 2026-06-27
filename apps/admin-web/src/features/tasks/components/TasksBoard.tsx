@@ -15,6 +15,9 @@ import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters'
 import { useIssues } from '@/features/issues/api/queries';
 import { useProjects } from '@/features/projects/api/queries';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
+import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+
+const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id'] as const;
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
 import { CreateTaskDialog } from './CreateTaskDialog';
@@ -50,16 +53,25 @@ interface TasksBoardProps {
 }
 
 export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardProps) {
-  const [activeColumnKey, setActiveColumnKey] = useState<string>('status');
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+  const {
+    filters,
+    setFilters,
+    groupBy: activeColumnKey,
+    setGroupBy: setActiveColumnKey,
+    sortBy,
+    sortDirection,
+    handleSortChange,
+  } = useEntityListTableState({
+    defaultSort: { field: 'priority', direction: 'asc' },
+    defaultGroupBy: 'status',
+    filterKeys: [...TASK_FILTER_KEYS],
+  });
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDefaultStatus, setCreateDefaultStatus] = useState<TaskStatus | undefined>(undefined);
   const [createDefaultValues, setCreateDefaultValues] = useState<Partial<TaskFormData>>({});
-
-  const [sortBy, setSortBy] = useState<string>('priority');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
@@ -79,7 +91,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       delete resolved.assignedTo;
     }
     setFilters(resolved);
-  }, [currentStaffId]);
+  }, [currentStaffId, setFilters]);
 
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
@@ -408,18 +420,13 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     return valueKey === '__null__' ? 'No value' : valueKey;
   }, [staffList, issues, projects]);
 
-  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setSortBy(key);
-    setSortDirection(direction);
-  }, []);
-
   return (
     <>
       <KanbanBoard<TaskWithAssignee>
         items={tasks}
         getItemId={(t) => t.id}
         columnDefs={columnDefs}
-        activeColumnKey={activeColumnKey}
+        activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
         renderCard={(t, visiblePillKeys) => (
           <TaskCard

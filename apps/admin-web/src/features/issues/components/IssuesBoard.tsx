@@ -23,10 +23,25 @@ import {
   getIssueStatusLabel,
   ISSUE_STATUS_OPTIONS,
 } from '../utils/issueUtils';
+import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+
+const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 
 export function IssuesBoard() {
-  const [activeColumnKey, setActiveColumnKey] = useState<string>('status');
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+  const {
+    filters,
+    setFilters,
+    groupBy: activeColumnKey,
+    setGroupBy: setActiveColumnKey,
+    sortBy,
+    sortDirection,
+    handleSortChange,
+  } = useEntityListTableState({
+    defaultSort: { field: 'name', direction: 'asc' },
+    defaultGroupBy: 'status',
+    filterKeys: [...ISSUE_FILTER_KEYS],
+  });
+
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -36,8 +51,6 @@ export function IssuesBoard() {
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
   const { data: currentStaff } = useCurrentStaff();
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
     (issue: IssueWithTags, updates: Partial<IssueUpdate>) => {
@@ -176,11 +189,6 @@ export function IssuesBoard() {
     []
   );
 
-  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setSortBy(key);
-    setSortDirection(direction);
-  }, []);
-
   const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = useMemo(
     () => ({
       key: 'status',
@@ -219,7 +227,7 @@ export function IssuesBoard() {
         items={issues}
         getItemId={(i) => i.id}
         columnDefs={columnDefs}
-        activeColumnKey={activeColumnKey}
+        activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
         renderCard={(i, visiblePillKeys) => (
           <IssueCard

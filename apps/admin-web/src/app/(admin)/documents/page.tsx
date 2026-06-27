@@ -8,9 +8,10 @@ import { FolderTree } from '@/features/notes/components/FolderTree';
 import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
+import { useUrlQueryParam } from '@/shared/hooks/useUrlQueryParam';
 
 export default function DocumentsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useUrlQueryParam('search');
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 

@@ -43,6 +43,9 @@ import { formatShortDate } from '@/shared/utils/datetime';
 import { Clock, Circle, CheckCircle, Eye, CheckSquare, Loader2 } from 'lucide-react';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
+import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+
+const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id'] as const;
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
@@ -348,8 +351,25 @@ export function TasksList({
   /** Initial filter values (e.g. dashboard: my tasks + todo/in progress) */
   defaultFilters?: Record<string, unknown[]>;
 } = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
   const embedLocked = hideToolbar && embedView != null;
+
+  const {
+    filters,
+    setFilters,
+    groupBy,
+    setGroupBy,
+    sortBy,
+    sortDirection,
+    handleSortChange,
+  } = useEntityListTableState({
+    defaultFilters: defaultFilters ?? {},
+    defaultSort: embedLocked
+      ? { field: embedView?.sortBy ?? 'priority', direction: embedView?.sortDirection ?? 'asc' }
+      : { field: 'priority', direction: 'asc' },
+    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : 'status',
+    filterKeys: [...TASK_FILTER_KEYS],
+    skipUrlSync: embedLocked,
+  });
 
   const effectiveFilters = useMemo(() => ({
     ...filters,
@@ -359,15 +379,6 @@ export function TasksList({
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>(
-    embedLocked ? (embedView.groupBy ?? null) : 'status'
-  );
-  const [sortBy, setSortBy] = useState<string>(
-    embedLocked ? (embedView.sortBy ?? 'priority') : 'priority'
-  );
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
-    embedLocked ? (embedView.sortDirection ?? 'asc') : 'asc'
-  );
 
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
@@ -389,7 +400,7 @@ export function TasksList({
     }
 
     setFilters(resolved);
-  }, [currentStaffId]);
+  }, [currentStaffId, setFilters]);
 
   const { data: tasks = [], isLoading } = useTasks(effectiveFilters as TaskFilters);
   const filteredTasks = useMemo(() => tasks, [tasks]);
@@ -766,11 +777,6 @@ export function TasksList({
     return 0;
   }, []);
 
-  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setSortBy(key);
-    setSortDirection(direction);
-  }, []);
-
   return (
     <>
       <EntityList<TaskWithAssignee>
@@ -781,10 +787,10 @@ export function TasksList({
         rightPills={rightPills}
         groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={embedLocked ? (embedView.groupBy ?? null) : groupBy}
+        groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}
         onGroupByChange={embedLocked ? undefined : setGroupBy}
-        sortBy={embedLocked ? (embedView.sortBy ?? 'name') : sortBy}
-        sortDirection={embedLocked ? (embedView.sortDirection ?? 'asc') : sortDirection}
+        sortBy={embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
         onSortChange={embedLocked ? undefined : handleSortChange}
         onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(t) => {
