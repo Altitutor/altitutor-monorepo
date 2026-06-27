@@ -31,8 +31,15 @@ export function ToolbarActiveBadge({
         onClear();
       }}
     >
-      <span className="group-hover/badge:hidden">{children}</span>
-      <X className="hidden h-3 w-3 group-hover/badge:block" />
+      <span className="inline-flex min-w-0 items-center justify-center transition-opacity group-hover/badge:opacity-0">
+        {children}
+      </span>
+      <span
+        aria-hidden
+        className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover/badge:opacity-100"
+      >
+        <X className="h-3 w-3" />
+      </span>
     </button>
   );
 }

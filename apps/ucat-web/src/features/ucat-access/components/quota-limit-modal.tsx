@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-period";
@@ -11,7 +11,8 @@ import { PlanPickerDialogShell } from "@/features/subscription/components/plan-p
 
 export function QuotaLimitModal() {
   const router = useRouter();
-  const { open, payload, closeQuotaLimit } = useQuotaLimitModal();
+  const { open, payload, dismissAction, closeQuotaLimit } =
+    useQuotaLimitModal();
 
   if (!payload) return null;
 
@@ -27,9 +28,20 @@ export function QuotaLimitModal() {
     ? `${areaLabel} is not available on UCAT Free. Choose UCAT Unlimited for unlimited access across Learn, Practice, Sets, Mocks, and Skill trainer.`
     : `You've used ${payload.used} of ${payload.limit} ${areaLabel.toLowerCase()} ${periodLabel} on UCAT Free. Upgrade to UCAT Unlimited for unlimited access.`;
 
-  const handleGoBack = () => {
+  const dismissLabel =
+    dismissAction?.label ??
+    (dismissAction?.variant === "dismiss" ? "Dismiss" : "Go to dashboard");
+  const dismissVariant = dismissAction?.variant ?? "dashboard";
+
+  const handleDismiss = () => {
     closeQuotaLimit();
-    router.replace("/dashboard");
+    if (dismissAction?.onDismiss) {
+      dismissAction.onDismiss();
+      return;
+    }
+    if (dismissVariant === "dashboard") {
+      router.replace("/dashboard");
+    }
   };
 
   return (
@@ -47,10 +59,14 @@ export function QuotaLimitModal() {
           type="button"
           variant="outline"
           className="w-full sm:w-auto"
-          onClick={handleGoBack}
+          onClick={handleDismiss}
         >
-          <LayoutDashboard className="h-4 w-4" aria-hidden />
-          Go to dashboard
+          {dismissVariant === "dismiss" ? (
+            <X className="h-4 w-4" aria-hidden />
+          ) : (
+            <LayoutDashboard className="h-4 w-4" aria-hidden />
+          )}
+          {dismissLabel}
         </Button>
       }
     >

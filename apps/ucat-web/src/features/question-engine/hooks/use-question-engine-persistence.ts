@@ -23,7 +23,12 @@ type CreateSetAttemptResponse = {
   id: string;
 };
 
-type QuestionAttemptMode = "question" | "question_stem" | "set" | "mock" | "learn";
+type QuestionAttemptMode =
+  | "question"
+  | "question_stem"
+  | "set"
+  | "mock"
+  | "learn";
 
 type UpsertQuestionAttemptInput = {
   studentQuestionSetAttemptId: string | null;
@@ -470,7 +475,14 @@ export function useQuestionEnginePersistence({
 
       return null;
     },
-    [exam, isStudentEngine, mode, createSetAttempt, createMockAttempt, examAttemptManaged],
+    [
+      exam,
+      isStudentEngine,
+      mode,
+      createSetAttempt,
+      createMockAttempt,
+      examAttemptManaged,
+    ],
   );
 
   const withLearnContext = useCallback(
@@ -580,6 +592,7 @@ export function useQuestionEnginePersistence({
         const prevTotal =
           t.accumulatedSecondsByQuestionId.get(t.currentQuestionId) ?? 0;
         const newTotal = prevTotal + elapsedSeconds;
+        t.accumulatedSecondsByQuestionId.set(t.currentQuestionId, newTotal);
         const prevAnswerOptionId = state.selectedAnswers[t.currentQuestionId];
         const question = findQuestion(exam, t.currentQuestionId);
         const syllogismSnapshot = (
@@ -745,6 +758,37 @@ export function useQuestionEnginePersistence({
     upsertQuestionAttempt,
   ]);
 
+  const getQuestionTimeSpentSeconds = useCallback(
+    (questionIds?: Iterable<string>): number => {
+      const timing = questionTimingRef.current;
+      const ids = questionIds ? new Set(questionIds) : null;
+      let total = 0;
+
+      for (const [
+        questionId,
+        seconds,
+      ] of timing.accumulatedSecondsByQuestionId) {
+        if (!ids || ids.has(questionId)) {
+          total += seconds;
+        }
+      }
+
+      if (
+        timing.currentQuestionId &&
+        timing.startedAt != null &&
+        (!ids || ids.has(timing.currentQuestionId))
+      ) {
+        total += Math.max(
+          0,
+          Math.round((Date.now() - timing.startedAt) / 1000),
+        );
+      }
+
+      return total;
+    },
+    [],
+  );
+
   async function handleExamCompleted(): Promise<{
     earnedDiscount: boolean;
     discountCents: number;
@@ -864,7 +908,8 @@ export function useQuestionEnginePersistence({
         managedExamAttempt.mockAttemptId &&
         !attemptStateRef.current.mockAttemptId
       ) {
-        attemptStateRef.current.mockAttemptId = managedExamAttempt.mockAttemptId;
+        attemptStateRef.current.mockAttemptId =
+          managedExamAttempt.mockAttemptId;
       }
     }
 
@@ -936,8 +981,9 @@ export function useQuestionEnginePersistence({
         attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
       if (!setAttemptId && examAttemptManaged) {
         setAttemptId =
-          Array.from(attemptStateRef.current.setAttemptIdsBySetId.values())[0] ??
-          null;
+          Array.from(
+            attemptStateRef.current.setAttemptIdsBySetId.values(),
+          )[0] ?? null;
       }
       if (setAttemptId) {
         const sectionName = exam.questions[0]?.sectionName;
@@ -1009,5 +1055,6 @@ export function useQuestionEnginePersistence({
     completePracticeSession,
     attemptIds,
     attemptStateRef,
+    getQuestionTimeSpentSeconds,
   };
 }

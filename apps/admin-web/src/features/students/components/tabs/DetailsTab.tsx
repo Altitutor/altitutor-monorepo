@@ -23,12 +23,13 @@ import {
   useToast,
 } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
-import { Pencil, Loader2, Trash2, X, Copy, Check, Mail, UserPlus } from 'lucide-react';
+import { Pencil, Loader2, Trash2, X, Copy, Check, UserPlus } from 'lucide-react';
 import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor } from '@/shared/utils';
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
+import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
 
 const CURRICULUM_OPTIONS = [
   { value: 'SACE' as const, label: 'SACE' },
@@ -81,10 +82,6 @@ interface DetailsTabProps {
   onViewParent?: (parentId: string) => void;
   onRemoveParent?: (parentId: string) => void;
   addParentButton?: React.ReactNode;
-  // Account props
-  isLoadingAccount?: boolean;
-  hasPasswordResetLinkSent?: boolean;
-  onPasswordResetRequest?: () => Promise<void>;
 }
 
 export function DetailsTab({
@@ -105,9 +102,6 @@ export function DetailsTab({
   onViewParent,
   onRemoveParent,
   addParentButton,
-  isLoadingAccount = false,
-  hasPasswordResetLinkSent = false,
-  onPasswordResetRequest,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
   const parentIds = parents.map(p => p.id);
@@ -430,50 +424,26 @@ export function DetailsTab({
                   
                   // Case 4: Registered AND has account -> Show Reset Password
                   return (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Send a password reset link to this student's email address.
-                      </p>
-                      
-                      <div className="flex flex-col space-y-3">
-                        <Button
-                          variant="outline"
-                          onClick={onPasswordResetRequest}
-                          disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
-                          className="justify-start w-fit"
-                        >
-                          {isLoadingAccount ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Sending reset link...
-                            </>
-                          ) : hasPasswordResetLinkSent ? (
-                            <>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Reset link sent
-                            </>
-                          ) : (
-                            <>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Send password reset email
-                            </>
-                          )}
-                        </Button>
-                    
-                        {!student.email && (
-                          <p className="text-sm text-orange-600">
-                            No email address set. Please add a student email above.
-                          </p>
-                        )}
-                      </div>
-                    
-                      {hasPasswordResetLinkSent && (
-                        <p className="text-sm text-green-600">
-                          A password reset link has been sent to {student.email}.
-                          The student needs to check their email to set a new password.
-                        </p>
-                      )}
-                    </div>
+                    <AdminPasswordResetSection
+                      userId={student.user_id}
+                      email={student.email}
+                      userType="student"
+                      displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
+                      recipients={[
+                        {
+                          type: 'student',
+                          id: student.id,
+                          label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
+                          value: student.phone,
+                        },
+                        ...parents.map((parent) => ({
+                          type: 'parent' as const,
+                          id: parent.id,
+                          label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
+                          value: parent.phone,
+                        })),
+                      ]}
+                    />
                   );
                 })()}
               </div>
@@ -847,50 +817,26 @@ export function DetailsTab({
           
           // Case 4: Registered AND has account -> Show Reset Password
           return (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Send a password reset link to this student's email address.
-              </p>
-              
-              <div className="flex flex-col space-y-3">
-                <Button
-                  variant="outline"
-                  onClick={onPasswordResetRequest}
-                  disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
-                  className="justify-start w-fit"
-                >
-                  {isLoadingAccount ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending reset link...
-                    </>
-                  ) : hasPasswordResetLinkSent ? (
-                    <>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Reset link sent
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send password reset email
-                    </>
-                  )}
-                </Button>
-            
-                {!student.email && (
-                  <p className="text-sm text-orange-600">
-                    No email address set. Please add a student email above.
-                  </p>
-                )}
-              </div>
-            
-              {hasPasswordResetLinkSent && (
-                <p className="text-sm text-green-600">
-                  A password reset link has been sent to {student.email}.
-                  The student needs to check their email to set a new password.
-                </p>
-              )}
-            </div>
+            <AdminPasswordResetSection
+              userId={student.user_id}
+              email={student.email}
+              userType="student"
+              displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
+              recipients={[
+                {
+                  type: 'student',
+                  id: student.id,
+                  label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
+                  value: student.phone,
+                },
+                ...parents.map((parent) => ({
+                  type: 'parent' as const,
+                  id: parent.id,
+                  label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
+                  value: parent.phone,
+                })),
+              ]}
+            />
           );
         })()}
       </div>

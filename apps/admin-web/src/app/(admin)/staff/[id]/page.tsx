@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
-import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -47,7 +46,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
   
@@ -91,7 +89,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     onPasswordResetOrRegistration: () => {
       passwordReset.openPasswordResetOrRegistration();
       if (staffMember?.user_id) {
-        handlePasswordResetRequest();
+        setActiveTab('details');
       }
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
@@ -113,7 +111,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
@@ -128,36 +125,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         toRemove: editFlow.subjectsToRemove,
       }
     );
-  };
-
-  // Handle password reset request
-  const handlePasswordResetRequest = async () => {
-    if (!staffMember || !staffMember.email) {
-      toast({
-        title: "Error",
-        description: "No email address found for this staff member.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoadingPasswordReset(true);
-      passwordReset.setPasswordResetLinkSent(true);
-      toast({
-        title: "Success",
-        description: "Password reset link sent successfully.",
-      });
-    } catch (error) {
-      console.error('Failed to send password reset:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send password reset link. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPasswordReset(false);
-    }
   };
 
   // Handle delete with navigation
@@ -286,9 +253,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
                 onSelectSubject={(subject) => handleAssignSubject(subject.id)}
               />
             }
-            isLoadingAccount={loadingPasswordReset}
-            hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
-            onPasswordResetRequest={handlePasswordResetRequest}
           />
           {editFlow.isEditing && (
             <div className="flex justify-end gap-2 pt-4 border-t">

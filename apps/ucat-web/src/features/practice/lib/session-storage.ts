@@ -6,6 +6,7 @@ export const PRACTICE_SESSION_KEY = "practice-session";
 export type PracticeSessionFilterMeta = {
   sectionLabel?: string;
   categoryLabels?: string[];
+  examTimePerQuestionSeconds?: number | null;
 };
 
 export type PracticeSessionData =

@@ -33,6 +33,9 @@ const THEME_RICH_TEXT = cn(
   UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
 )
 
+const PARAGRAPH_SPACING_CLASS =
+  '[&_p]:!my-2 [&_p:first-child]:!mt-0 [&_p:last-child]:!mb-0'
+
 type UcatRichContentBlockProps = {
   json?: Record<string, unknown> | null
   plainText: string
@@ -40,6 +43,7 @@ type UcatRichContentBlockProps = {
   className?: string
   /** Engine chrome uses fixed black text; theme follows app foreground (e.g. bulk import previews). */
   textTone?: 'engine' | 'theme'
+  paragraphSpacing?: boolean
 }
 
 /** Renders rich content when JSON is available (parity with ucat-web RichContentBlock). */
@@ -49,6 +53,7 @@ export function UcatRichContentBlock({
   preloadedContent,
   className,
   textTone = 'engine',
+  paragraphSpacing = false,
 }: UcatRichContentBlockProps) {
   const { content, isLoading } = useRefreshedUcatContent(preloadedContent != null ? undefined : json)
 
@@ -80,20 +85,33 @@ export function UcatRichContentBlock({
     return docStructureFingerprint(displayContent as Record<string, unknown>)
   }, [displayContent, hasImageRefs, plainText, richJson])
 
-  if (hasRichTextContent(richJson)) {
-    if (waitingForImageRefresh) {
+  const renderPlainText = () => {
+    const text = plainText || '\u00A0'
+    if (!paragraphSpacing) {
       return (
         <p className={cn('whitespace-pre-line', toneClass, className)}>
-          {plainText || '\u00A0'}
+          {text}
         </p>
       )
     }
+
+    return (
+      <div className={cn('space-y-2', toneClass, className)}>
+        {text.split(/\r?\n/u).map((paragraph, index) => (
+          <p key={`${index}-${paragraph.slice(0, 12)}`}>
+            {paragraph || '\u00A0'}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  if (hasRichTextContent(richJson)) {
+    if (waitingForImageRefresh) {
+      return renderPlainText()
+    }
     if (displayContent == null) {
-      return (
-        <p className={cn('whitespace-pre-line', toneClass, className)}>
-          {plainText || '\u00A0'}
-        </p>
-      )
+      return renderPlainText()
     }
     return (
       <div className={cn(toneClass, className)}>
@@ -103,14 +121,13 @@ export function UcatRichContentBlock({
           editable={false}
           omitTypography
           minHeight="auto"
-          className={UCAT_ENGINE_READONLY_EDITOR_CLASSNAME}
+          className={cn(
+            UCAT_ENGINE_READONLY_EDITOR_CLASSNAME,
+            paragraphSpacing && PARAGRAPH_SPACING_CLASS
+          )}
         />
       </div>
     )
   }
-  return (
-    <p className={cn('whitespace-pre-line', toneClass, className)}>
-      {plainText || '\u00A0'}
-    </p>
-  )
+  return renderPlainText()
 }

@@ -123,9 +123,7 @@ export function getRenderableHtml(page: MarketingPage) {
     .replace(
       /(<span class="elementor-counter-number"[^>]*data-to-value="([^"]+)"[^>]*>)[^<]*(<\/span>)/g,
       "$1$2$3",
-    )
-    .replace(/<style[\s\S]*?<\/style>/g, "")
-    .replace(/<script[\s\S]*?<\/script>/g, "");
+    );
 }
 
 function removeElementorWidget(html: string, widgetClass: string) {
@@ -181,22 +179,10 @@ export function createMetadata(page?: MarketingPage): Metadata {
   const description = seo.description;
   const socialDescription = seo.og_description || description || stripHtml(page.excerpt);
   const ogImage = seo.og_image?.[0];
-  const localDescription =
-    description ||
-    `${stripHtml(page.excerpt) || page.title} Adelaide tutoring for students and parents seeking clear teaching, resources and support.`;
-  const pageKeywords = [
-    "Adelaide tutoring",
-    "Adelaide tutors",
-    "SACE tutoring Adelaide",
-    "UCAT preparation Adelaide",
-    "school tutoring Adelaide",
-    page.title,
-  ];
 
   return {
     title: seo.title || `${page.title} | ${SITE_NAME}`,
-    description: localDescription,
-    keywords: pageKeywords,
+    description,
     alternates: {
       canonical,
     },

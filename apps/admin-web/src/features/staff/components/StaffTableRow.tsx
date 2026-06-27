@@ -25,11 +25,12 @@ import { staffApi } from '../api';
 import { useToast } from '@altitutor/ui';
 
 interface StaffTableRowProps {
-  staff: Tables<'staff'>;
+  staff: Tables<'staff'> & { subjects?: Tables<'subjects'>[] };
   classes: (Tables<'classes'> & { subject?: Tables<'subjects'> })[];
   onStaffClick: (id: string) => void;
   onClassClick: (id: string) => void;
   onStaffUpdated?: () => void;
+  visibleColumns: string[];
 }
 
 export const StaffTableRow = memo(function StaffTableRow({
@@ -38,6 +39,7 @@ export const StaffTableRow = memo(function StaffTableRow({
   onStaffClick,
   onClassClick,
   onStaffUpdated,
+  visibleColumns,
 }: StaffTableRowProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
@@ -66,7 +68,22 @@ export const StaffTableRow = memo(function StaffTableRow({
     }
 
     try {
-      // TODO: Implement password reset API call
+      const response = await fetch('/api/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send-email',
+          userId: staff.user_id,
+          email: staff.email,
+          userType: staff.role === 'TUTOR' ? 'tutor' : 'admin',
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'Failed to send password reset link');
+      }
+
       toast({
         title: "Success",
         description: "Password reset link sent successfully.",
@@ -80,7 +97,7 @@ export const StaffTableRow = memo(function StaffTableRow({
         variant: "destructive",
       });
     }
-  }, [staff.email, toast]);
+  }, [staff.email, staff.role, staff.user_id, toast]);
 
   const handlePasswordResetOrRegistration = useCallback(() => {
     if (!staff.user_id) {
@@ -127,45 +144,88 @@ export const StaffTableRow = memo(function StaffTableRow({
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={handleClick}
       >
-      <TableCell>
-        <StaffStatusBadge value={(staff.status === 'ACTIVE' || staff.status === 'INACTIVE' || staff.status === 'TRIAL') ? staff.status : null} />
-      </TableCell>
-      <TableCell>
-        <StaffRoleBadge value={(staff.role === 'ADMIN' || staff.role === 'TUTOR' || staff.role === 'ADMINSTAFF') ? staff.role : null} />
-      </TableCell>
-      <TableCell className="font-medium">
-        {staff.first_name || '-'}
-      </TableCell>
-      <TableCell className="font-medium">
-        {staff.last_name || '-'}
-      </TableCell>
-      <TableCell>
-        {classes.length > 0 ? (
+      {visibleColumns.includes('status') && (
+        <TableCell>
+          <StaffStatusBadge value={(staff.status === 'ACTIVE' || staff.status === 'INACTIVE' || staff.status === 'TRIAL') ? staff.status : null} />
+        </TableCell>
+      )}
+      {visibleColumns.includes('role') && (
+        <TableCell>
+          <StaffRoleBadge value={(staff.role === 'ADMIN' || staff.role === 'TUTOR' || staff.role === 'ADMINSTAFF') ? staff.role : null} />
+        </TableCell>
+      )}
+      {visibleColumns.includes('first_name') && (
+        <TableCell className="font-medium">
+          {staff.first_name || '-'}
+        </TableCell>
+      )}
+      {visibleColumns.includes('last_name') && (
+        <TableCell className="font-medium">
+          {staff.last_name || '-'}
+        </TableCell>
+      )}
+      {visibleColumns.includes('email') && (
+        <TableCell className="whitespace-nowrap text-sm">
+          {staff.email || '-'}
+        </TableCell>
+      )}
+      {visibleColumns.includes('phone') && (
+        <TableCell className="whitespace-nowrap text-sm">
+          {staff.phone_number || '-'}
+        </TableCell>
+      )}
+      {visibleColumns.includes('office_keys') && (
+        <TableCell className="whitespace-nowrap text-sm">
           <div className="flex flex-col gap-1">
-            {classes
-              .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
-              .map((cls) => (
-                <Button
-                  key={cls.id}
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-xs justify-start whitespace-nowrap"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onClassClick(cls.id);
-                  }}
-                  title={cls.long_name?.trim() ?? ''}
-                >
-                  {/* Default to short names, only show full on 2xl+ screens */}
-<span className="2xl:hidden">{cls.short_name?.trim() ?? ''}</span>
-                    <span className="hidden 2xl:inline">{cls.long_name?.trim() ?? ''}</span>
-                </Button>
-              ))}
+            <span>Key: {staff.office_key_number ?? '-'}</span>
+            <span>Parking: {staff.has_parking_remote || 'NONE'}</span>
           </div>
-        ) : (
-          <span className="text-muted-foreground text-sm">No classes</span>
-        )}
-      </TableCell>
+        </TableCell>
+      )}
+      {visibleColumns.includes('subjects') && (
+        <TableCell className="min-w-48">
+          {staff.subjects && staff.subjects.length > 0 ? (
+            <div className="flex flex-col gap-1 text-xs">
+              {staff.subjects.map((subject) => (
+                <span key={subject.id} className="whitespace-nowrap">
+                  {subject.long_name || subject.short_name || subject.name || subject.id}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-sm">No subjects</span>
+          )}
+        </TableCell>
+      )}
+      {visibleColumns.includes('classes') && (
+        <TableCell>
+          {classes.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {classes
+                .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
+                .map((cls) => (
+                  <Button
+                    key={cls.id}
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs justify-start whitespace-nowrap"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onClassClick(cls.id);
+                    }}
+                    title={cls.long_name?.trim() ?? ''}
+                  >
+                    {/* Default to short names, only show full on 2xl+ screens */}
+                    <span className="2xl:hidden">{cls.short_name?.trim() ?? ''}</span>
+                    <span className="hidden 2xl:inline">{cls.long_name?.trim() ?? ''}</span>
+                  </Button>
+                ))}
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-sm">No classes</span>
+          )}
+        </TableCell>
+      )}
       <TableCell onClick={(e) => e.stopPropagation()}>
         <ActionsMenu
           type="staff"

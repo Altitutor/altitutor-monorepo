@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
   TableBody,
@@ -24,7 +25,7 @@ import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
-import { useSubjectSearch } from '@/features/subjects/hooks';
+import { useSubjectsSearchForFilter } from '@/features/classes/hooks/useSubjectsSearchForFilter';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -47,7 +48,7 @@ export function TopicsTable({
   basePath: _basePath = '/topics',
   hideSubjectFilter = false,
 }: TopicsTableProps) {
-  useRouter(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('topics');
   
@@ -83,16 +84,17 @@ export function TopicsTable({
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
-  // Subject filter popover state
-  const [isSubjectPopoverOpen] = useState(false);
-  const [subjectSearchQuery] = useState('');
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
+  const { data: subjectSearchData } = useSubjectsSearchForFilter(subjectFilterSearch);
 
-  // Use React Query hook for debounced subject search
-  const { subjects: subjectSearchResults } = useSubjectSearch({
-    searchQuery: subjectSearchQuery,
-    isOpen: isSubjectPopoverOpen,
-    limit: 100,
-  });
+  const subjectFilterOptions = useMemo(
+    () =>
+      (subjectSearchData?.subjects ?? []).map((s) => ({
+        label: s.long_name ?? '',
+        value: s.id,
+      })),
+    [subjectSearchData?.subjects]
+  );
 
   // React Query hook for data fetching with server-side filtering
   const effectiveSubjectIds = subjectId ? [subjectId] : (state.filters.subject as string[] || undefined);
@@ -150,10 +152,12 @@ export function TopicsTable({
       {
         key: 'subject',
         label: 'Subject',
-        options: subjectSearchResults.map(s => ({ label: s.long_name ?? '', value: s.id })),
+        options: subjectFilterOptions,
+        searchable: true,
+        searchPlaceholder: 'Search subjects...',
       },
     ];
-  }, [hideSubjectFilter, subjectSearchResults]);
+  }, [hideSubjectFilter, subjectFilterOptions]);
 
   const sortOptions: DataTableSortOption[] = [
     { key: 'name', label: 'Name' },
@@ -196,6 +200,10 @@ export function TopicsTable({
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters}
+          filterSearchValues={{ subject: subjectFilterSearch }}
+          onFilterSearchChange={(filterKey, value) => {
+            if (filterKey === 'subject') setSubjectFilterSearch(value);
+          }}
           searchPlaceholder="Search topics..."
           isLoading={true}
         />
@@ -239,6 +247,10 @@ export function TopicsTable({
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
+        filterSearchValues={{ subject: subjectFilterSearch }}
+        onFilterSearchChange={(filterKey, value) => {
+          if (filterKey === 'subject') setSubjectFilterSearch(value);
+        }}
         searchPlaceholder="Search topics..."
         isLoading={isFetching}
       />

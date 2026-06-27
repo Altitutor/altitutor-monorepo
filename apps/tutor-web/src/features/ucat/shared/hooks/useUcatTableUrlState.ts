@@ -39,6 +39,7 @@ function buildDefaultState(
     page: 1,
     pageSize: defaultPageSize,
     visibleColumns: initialVisibleColumns,
+    defaultVisibleColumns: initialVisibleColumns,
   }
 }
 

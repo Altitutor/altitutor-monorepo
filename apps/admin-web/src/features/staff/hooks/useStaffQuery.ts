@@ -27,6 +27,7 @@ export interface UseStaffListParams {
   status?: string;
   roles?: string[];
   statuses?: string[];
+  subjectIds?: string[];
   page?: number; // 1-based
   pageSize?: number;
   orderBy?: keyof Tables<'staff'>;
@@ -40,6 +41,7 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
     status,
     roles = [],
     statuses = [],
+    subjectIds = [],
     page = 1,
     pageSize = 50,
     orderBy = 'last_name',
@@ -49,7 +51,7 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: staffKeys.minimal({ search, role, status, roles, statuses, page, pageSize, orderBy, ascending }),
+    queryKey: staffKeys.minimal({ search, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
     queryFn: () =>
       staffApi.listMinimal({
         search,
@@ -57,6 +59,7 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
         status,
         roles,
         statuses,
+        subjectIds,
         limit: pageSize,
         offset,
         orderBy,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ParentsTable, AddParentModal } from '@/features/parents';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
@@ -48,7 +48,9 @@ export default function ParentsPage() {
         />
       </div>
       
-      <ParentsTable onRefresh={refreshCounter} />
+      <Suspense fallback={null}>
+        <ParentsTable onRefresh={refreshCounter} />
+      </Suspense>
       
       <AddParentModal 
         isOpen={isAddModalOpen} 

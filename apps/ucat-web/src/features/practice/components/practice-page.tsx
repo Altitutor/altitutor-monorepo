@@ -16,7 +16,10 @@ import type { QuestionStemWithQuestions } from "@/features/question-engine/model
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
-import { setPracticeSession } from "@/features/practice/lib/session-storage";
+import {
+  clearPracticeSession,
+  setPracticeSession,
+} from "@/features/practice/lib/session-storage";
 import {
   fetchActiveExamAttempt,
   finalizeExamAttempt,
@@ -156,6 +159,7 @@ export function PracticePage() {
               variables.payload.categoryIds.length > 0
                 ? filters.selectedCategories.map((c) => c.name)
                 : [],
+            examTimePerQuestionSeconds: filters.sectionTimePerQuestionSeconds,
           },
           timePerQuestionSeconds,
           startedAtMs: Date.now(),
@@ -172,6 +176,7 @@ export function PracticePage() {
               variables.payload.categoryIds.length > 0
                 ? filters.selectedCategories.map((c) => c.name)
                 : [],
+            examTimePerQuestionSeconds: filters.sectionTimePerQuestionSeconds,
           },
           timePerQuestionSeconds,
           startedAtMs: Date.now(),
@@ -181,7 +186,9 @@ export function PracticePage() {
     },
     onError: (error) => {
       if (error instanceof QuotaExceededError) {
-        openQuotaLimit(error.payload);
+        openQuotaLimit(error.payload, {
+          dismissAction: { label: "Dismiss", variant: "dismiss" },
+        });
       }
     },
   });
@@ -203,13 +210,18 @@ export function PracticePage() {
         practiceQuota.limit - practiceQuota.used,
       );
       if (practiceQuota.limit === 0 || remainingCount === 0) {
-        openQuotaLimit({
-          code: "QUOTA_EXCEEDED",
-          area: "practice",
-          used: practiceQuota.used,
-          limit: practiceQuota.limit,
-          period: practiceQuota.period,
-        });
+        openQuotaLimit(
+          {
+            code: "QUOTA_EXCEEDED",
+            area: "practice",
+            used: practiceQuota.used,
+            limit: practiceQuota.limit,
+            period: practiceQuota.period,
+          },
+          {
+            dismissAction: { label: "Dismiss", variant: "dismiss" },
+          },
+        );
         return;
       }
 
@@ -255,6 +267,9 @@ export function PracticePage() {
         kind: conflictActive.kind,
         attemptId: conflictActive.attemptId,
       });
+      if (conflictActive.kind === "practice") {
+        clearPracticeSession();
+      }
       await refreshActiveAttempt();
       setConflictActive(null);
       startWithQuotaPreflight(pendingStartRef.current);

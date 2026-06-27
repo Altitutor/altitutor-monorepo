@@ -647,18 +647,21 @@ export function UcatQuestionsPage() {
         columnDefinitions,
         visibleColumns: tableState.state.visibleColumns,
         onVisibleColumnsChange: tableState.actions.onVisibleColumnsChange,
+        defaultVisibleColumns: initialVisibleColumns,
       },
       {
         heading: 'Question columns',
         columnDefinitions: questionColumnDefinitions,
         visibleColumns: visibleQuestionColumns,
         onVisibleColumnsChange: setVisibleQuestionColumns,
+        defaultVisibleColumns: defaultVisibleQuestionColumns,
       },
       {
         heading: 'Answer option columns',
         columnDefinitions: answerOptionColumnDefinitions,
         visibleColumns: visibleAnswerOptionColumns,
         onVisibleColumnsChange: setVisibleAnswerOptionColumns,
+        defaultVisibleColumns: defaultVisibleAnswerOptionColumns,
       },
     ],
     [
@@ -666,6 +669,7 @@ export function UcatQuestionsPage() {
       tableState.actions.onVisibleColumnsChange,
       visibleQuestionColumns,
       visibleAnswerOptionColumns,
+      initialVisibleColumns,
     ],
   )
   const colCount =

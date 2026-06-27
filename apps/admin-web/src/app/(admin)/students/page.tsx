@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { StudentsTable, AddStudentModal, ViewStudentModal } from '@/features/students';
 import { AdminPageActionButton } from '@/shared/components';
@@ -47,7 +47,9 @@ export default function StudentsPage() {
         />
       </div>
       
-      <StudentsTable onRefresh={refreshCounter} />
+      <Suspense fallback={null}>
+        <StudentsTable onRefresh={refreshCounter} />
+      </Suspense>
       
       <AddStudentModal 
         isOpen={isAddModalOpen} 

@@ -42,6 +42,7 @@ import {
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
 
@@ -51,7 +52,7 @@ interface SubjectsTableProps {
 }
 
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
-  useRouter(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('subjects');
   

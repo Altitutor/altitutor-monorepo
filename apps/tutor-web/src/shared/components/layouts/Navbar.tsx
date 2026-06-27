@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Bug, LogOut, Search, Settings, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
@@ -27,9 +27,11 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline } from '@/shared/lib/tutor-visual';
+import { shouldHideNavbar } from '@/shared/lib/shell-layout';
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
@@ -57,6 +59,10 @@ export function Navbar() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
+
+  if (shouldHideNavbar(pathname)) {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {

@@ -1,5 +1,5 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 import {
   applyReviewFlagSuggestion,
   applyExplanationUpdates,
@@ -126,6 +126,16 @@ describe('AI tools explanation helpers', () => {
         answerText: 'Option 1',
         isAnswer: true,
       },
+    ])
+  })
+
+  it('summarizes stem paragraphs for passage evidence references', () => {
+    const stem = baseStem('multiple_choice')
+    stem.stemText = plainTextToProseMirrorWithLineBreaks('First paragraph.\n\nSecond paragraph.')
+
+    expect(summarizeStemForAi(stem).stemParagraphs).toEqual([
+      { paragraphNumber: 1, text: 'First paragraph.' },
+      { paragraphNumber: 2, text: 'Second paragraph.' },
     ])
   })
 

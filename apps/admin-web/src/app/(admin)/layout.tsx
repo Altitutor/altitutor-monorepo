@@ -27,7 +27,7 @@ import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialo
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
-import { Breadcrumb } from '@/shared/components';
+import { Breadcrumb, AdminUrlSyncBoundary } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { format } from 'date-fns';
 import type { LucideIcon } from 'lucide-react';
@@ -479,7 +479,7 @@ function AdminLayoutContent({
               <Breadcrumb items={breadcrumbs} />
             </div>
           )}
-          {children}
+          <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
           {/* Quick action modals */}
           {currentStaff?.id && (
             <>

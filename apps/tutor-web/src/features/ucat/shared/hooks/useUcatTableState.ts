@@ -17,6 +17,7 @@ export function useUcatTableState(
     page: 1,
     pageSize: options?.defaultPageSize ?? 20,
     visibleColumns: initialVisibleColumns,
+    defaultVisibleColumns: initialVisibleColumns,
   })
 
   return {

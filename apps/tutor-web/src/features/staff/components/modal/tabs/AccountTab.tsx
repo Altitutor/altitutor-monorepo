@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button, Separator } from "@altitutor/ui";
-import { Loader2, Mail, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, Mail, Trash2, UserPlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,8 +19,10 @@ interface AccountTabProps {
   staffMember: Tables<'staff'>;
   isLoading: boolean;
   hasPasswordResetLinkSent: boolean;
+  isCopyingPasswordResetLink?: boolean;
   isDeleting?: boolean;
   onPasswordResetRequest: () => Promise<void>;
+  onCopyPasswordResetLink?: () => Promise<void>;
   onDelete?: () => Promise<void>;
 }
 
@@ -28,11 +30,14 @@ export function AccountTab({
   staffMember,
   isLoading,
   hasPasswordResetLinkSent,
+  isCopyingPasswordResetLink = false,
   isDeleting = false,
   onPasswordResetRequest,
+  onCopyPasswordResetLink,
   onDelete
 }: AccountTabProps) {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -62,10 +67,10 @@ export function AccountTab({
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Password Management</h3>
         <p className="text-sm text-muted-foreground">
-          Send a password reset link to this staff member's email address.
+          Send a password reset link to this staff member&apos;s email address, or copy a link to share manually.
         </p>
         
-        <div className="flex flex-col space-y-3">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={onPasswordResetRequest}
@@ -90,12 +95,42 @@ export function AccountTab({
             )}
           </Button>
 
-          {!staffMember.email && (
-            <p className="text-sm text-orange-600">
-              No email address set. Please add an email in the Details tab.
-            </p>
+          {onCopyPasswordResetLink && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await onCopyPasswordResetLink();
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              disabled={isCopyingPasswordResetLink || !staffMember.email}
+              className="justify-start w-fit"
+            >
+              {isCopyingPasswordResetLink ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Copying link...
+                </>
+              ) : linkCopied ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Link copied
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy reset link
+                </>
+              )}
+            </Button>
           )}
         </div>
+
+        {!staffMember.email && (
+          <p className="text-sm text-orange-600">
+            No email address set. Please add an email in the Details tab.
+          </p>
+        )}
         
         {hasPasswordResetLinkSent && (
           <p className="text-sm text-green-600">

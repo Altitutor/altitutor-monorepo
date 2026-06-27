@@ -7,8 +7,6 @@ import {
 import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 
-const EXPLANATION_MUTED_STYLE = { color: "#5a6c7d" } as const;
-
 export function hasAnswerExplanation(item: {
   answerExplanation?: string;
   answerExplanationJson?: Record<string, unknown> | null;
@@ -30,9 +28,12 @@ export function AnswerExplanation({
   }
 
   return (
-    <div className={className} style={EXPLANATION_MUTED_STYLE}>
-      <RichContentBlock json={json} plainText={text ?? ""} />
-    </div>
+    <RichContentBlock
+      json={json}
+      plainText={text ?? ""}
+      className={className}
+      paragraphSpacing
+    />
   );
 }
 
@@ -200,7 +201,7 @@ function SyllogismQuestionContent({
                 <AnswerExplanation
                   text={option.answerExplanation}
                   json={option.answerExplanationJson}
-                  className="pl-1 text-[10pt] leading-relaxed"
+                  className="pl-1"
                 />
               ) : null}
               </div>
@@ -244,7 +245,7 @@ function SyllogismQuestionContent({
         <AnswerExplanation
           text={question.answerExplanation}
           json={question.answerExplanationJson}
-          className="mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+          className="mt-3 border-t border-[#9ba9bd] pt-3 dark:border-border"
         />
       ) : null}
     </section>
@@ -264,6 +265,7 @@ function SyllogismQuestionContent({
               json={question.stemJson}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
+              paragraphSpacing
             />
           </div>
         </article>
@@ -284,6 +286,7 @@ function SyllogismQuestionContent({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
           />
         </article>
         {content}
@@ -331,6 +334,7 @@ export function QuestionContent({
               json={question.stemJson}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
+              paragraphSpacing
             />
           </div>
         </article>
@@ -367,7 +371,7 @@ export function QuestionContent({
                       <AnswerExplanation
                         text={option.answerExplanation}
                         json={option.answerExplanationJson}
-                        className="ml-6 text-[11pt] leading-relaxed"
+                        className="ml-6"
                       />
                     ) : null}
                   </div>
@@ -378,7 +382,7 @@ export function QuestionContent({
               <AnswerExplanation
                 text={question.answerExplanation}
                 json={question.answerExplanationJson}
-                className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+                className="mt-3 border-t border-[#9ba9bd] pt-3 dark:border-border"
               />
             ) : null}
           </div>
@@ -397,6 +401,7 @@ export function QuestionContent({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
           />
         </article>
         <section className="space-y-3">
@@ -431,7 +436,7 @@ export function QuestionContent({
                     <AnswerExplanation
                       text={option.answerExplanation}
                       json={option.answerExplanationJson}
-                      className="ml-6 text-[11pt] leading-relaxed"
+                      className="ml-6"
                     />
                   ) : null}
                 </div>
@@ -442,7 +447,7 @@ export function QuestionContent({
             <AnswerExplanation
               text={question.answerExplanation}
               json={question.answerExplanationJson}
-              className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+              className="mt-3 border-t border-[#9ba9bd] pt-3 dark:border-border"
             />
           ) : null}
         </section>

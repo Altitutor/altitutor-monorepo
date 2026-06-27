@@ -146,6 +146,7 @@ export function parseUcatTableStateFromUrl(
     page,
     pageSize,
     visibleColumns: resolvedVisibleColumns,
+    defaultVisibleColumns: initialVisibleColumns,
   }
 }
 

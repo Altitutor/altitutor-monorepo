@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -227,6 +228,7 @@ export type PracticeEngineLiveStats = {
   answeredCount: number;
   correctCount: number;
   incorrectCount: number;
+  totalAnsweredTimeSeconds: number;
   currentQuestionNumber: number;
   totalQuestionLabel: string;
 };
@@ -248,6 +250,7 @@ export function QuestionEnginePage({
   learningModuleBlockId,
   onLearnProgress,
   embeddedInLesson = false,
+  onRegisterFinishPracticeDialog,
 }: {
   mode: QuestionEngineMode;
   sourceId?: string;
@@ -279,7 +282,10 @@ export function QuestionEnginePage({
   onLearnProgress?: () => void;
   /** Shorter viewport when practice engine is embedded inside a lesson block card. */
   embeddedInLesson?: boolean;
+  /** Parent can call the registered opener to show the finish-practice confirmation dialog. */
+  onRegisterFinishPracticeDialog?: (open: () => void) => void;
 }) {
+  const queryClient = useQueryClient();
   const query = useQuestionEngineData({
     mode,
     setId: mode === "set" ? sourceId : undefined,
@@ -374,6 +380,14 @@ export function QuestionEnginePage({
   const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
   const timeExpiredFiredRef = useRef<string | null>(null);
 
+  const openFinishPracticeDialog = useCallback(() => {
+    setShowConfirmFinishPracticeDialog(true);
+  }, []);
+
+  useEffect(() => {
+    onRegisterFinishPracticeDialog?.(openFinishPracticeDialog);
+  }, [onRegisterFinishPracticeDialog, openFinishPracticeDialog]);
+
   const examAttemptManaged =
     !learningModuleBlockId &&
     (mode === "set" ||
@@ -410,6 +424,7 @@ export function QuestionEnginePage({
     completePracticeSession,
     attemptIds,
     attemptStateRef,
+    getQuestionTimeSpentSeconds,
   } = useQuestionEnginePersistence({
     mode,
     exam,
@@ -824,6 +839,10 @@ export function QuestionEnginePage({
     state.phase === "review" &&
     Boolean(state.reviewFilter) &&
     state.reviewFilterIndex > 0;
+  const hasPreviousPracticeAnswerQuestion =
+    state.phase === "practiceAnswer" &&
+    (state.viewingQuestionIndex ?? 0) >
+      (state.practiceAnswerUnitStartIndex ?? 0);
 
   const practiceMarkingResult = useMemo(
     () =>
@@ -871,6 +890,7 @@ export function QuestionEnginePage({
             description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
           });
         }
+        await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
       } catch {
         // Session complete may fail; still navigate to session when we have an id
       }
@@ -905,6 +925,7 @@ export function QuestionEnginePage({
     questionStemsForExam,
     setState,
     toast,
+    queryClient,
     router,
     refreshActiveExamAttempt,
     clearActiveExamAttempt,
@@ -1166,7 +1187,11 @@ export function QuestionEnginePage({
           });
           break;
         case "previousQuestion":
-          if (hasPreviousQuestion || hasPreviousReviewQuestion) {
+          if (
+            hasPreviousQuestion ||
+            hasPreviousReviewQuestion ||
+            hasPreviousPracticeAnswerQuestion
+          ) {
             void runWithLag(() => {
               goPrevious();
             });
@@ -1253,6 +1278,7 @@ export function QuestionEnginePage({
     state.currentIndex,
     state.viewingQuestionIndex,
     state.practiceAnswerUnitEndIndex,
+    state.practiceAnswerUnitStartIndex,
     currentQuestion,
     setState,
     setAnswer,
@@ -1275,6 +1301,7 @@ export function QuestionEnginePage({
     handleEndReview,
     hasPreviousQuestion,
     hasPreviousReviewQuestion,
+    hasPreviousPracticeAnswerQuestion,
     questions,
     mode,
     runWithLag,
@@ -1322,6 +1349,7 @@ export function QuestionEnginePage({
       answeredCount,
       correctCount,
       incorrectCount: Math.max(0, answeredCount - correctCount),
+      totalAnsweredTimeSeconds: getQuestionTimeSpentSeconds(answeredIds),
       currentQuestionNumber,
       totalQuestionLabel: onNeedMoreStems
         ? "Unlimited"
@@ -1340,6 +1368,7 @@ export function QuestionEnginePage({
     state.viewingQuestionIndex,
     effectiveCurrentIndex,
     onNeedMoreStems,
+    getQuestionTimeSpentSeconds,
   ]);
 
   if (launchGateKind && launchGate.isCheckingLaunch) {
@@ -1423,6 +1452,10 @@ export function QuestionEnginePage({
   const isResultsPhase = isMarkingPhase || isMockScorePhase;
   const isPracticeAnswerPhase = state.phase === "practiceAnswer";
   const isPracticeCompletePhase = state.phase === "practiceComplete";
+  const isLastSetPracticeAnswerScreen =
+    isPracticeAnswerPhase &&
+    !onNeedMoreStems &&
+    (state.viewingQuestionIndex ?? 0) === questions.length - 1;
   const isLoadingMorePhase = state.phase === "loadingMore";
   const isReviewScreen = isReviewPhase && !state.reviewFilter;
   const isReviewMode = isReviewPhase && state.reviewFilter;
@@ -1987,12 +2020,11 @@ export function QuestionEnginePage({
               </UcatExamActionButton>
             ) : isPracticeMode &&
               (state.phase === "question" ||
-                state.phase === "practiceAnswer") ? (
+                (state.phase === "practiceAnswer" &&
+                  !isLastSetPracticeAnswerScreen)) ? (
               <UcatExamActionButton
                 onClick={() =>
-                  void runWithLag(() =>
-                    setShowConfirmFinishPracticeDialog(true),
-                  )
+                  void runWithLag(() => openFinishPracticeDialog())
                 }
                 icon={<LogOut className="h-4 w-4" />}
               >
@@ -2042,13 +2074,27 @@ export function QuestionEnginePage({
                     onClick={() => void runWithLag(() => goPrevious())}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >
-                    <span className="text-[14pt]">Previous</span>
+                    <span className="text-[14pt]">
+                      <span className="underline">P</span>revious
+                    </span>
                   </UcatExamActionButton>
                 ) : null}
-                {!(
-                  state.viewingQuestionIndex === questions.length - 1 &&
-                  !onNeedMoreStems
-                ) ? (
+                {isLastSetPracticeAnswerScreen ? (
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() => openFinishPracticeDialog())
+                    }
+                    variant="highlight"
+                    icon={<LogOut className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">
+                      <span className="underline">F</span>inish practice
+                    </span>
+                  </UcatExamActionButton>
+                ) : !(
+                    state.viewingQuestionIndex === questions.length - 1 &&
+                    !onNeedMoreStems
+                  ) ? (
                   <UcatExamActionButton
                     onClick={() =>
                       void runWithLag(() => {
@@ -2099,7 +2145,9 @@ export function QuestionEnginePage({
                       }
                       icon={<ArrowLeft className="h-4 w-4" />}
                     >
-                      <span className="text-[14pt]">Previous</span>
+                      <span className="text-[14pt]">
+                        <span className="underline">P</span>revious
+                      </span>
                     </UcatExamActionButton>
                   ) : null}
                   <UcatExamActionButton

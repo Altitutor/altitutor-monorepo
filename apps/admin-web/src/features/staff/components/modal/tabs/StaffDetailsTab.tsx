@@ -24,13 +24,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
-import { Loader2, Pencil, Trash2, X, Copy, Check, Mail, UserPlus } from "lucide-react";
+import { Loader2, Pencil, Trash2, X, Copy, Check, UserPlus } from "lucide-react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { getSubjectColorStyle } from '@/shared/utils';
 import { useToast } from "@altitutor/ui";
 import { SendInviteDialog } from '../SendInviteDialog';
+import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -85,10 +86,6 @@ interface StaffDetailsTabProps {
   onRemoveSubject?: (subjectId: string) => void;
   onViewSubject?: (subjectId: string) => void;
   addSubjectButton?: React.ReactNode;
-  // Account props
-  isLoadingAccount?: boolean;
-  hasPasswordResetLinkSent?: boolean;
-  onPasswordResetRequest?: () => Promise<void>;
 }
 
 export function StaffDetailsTab({
@@ -105,9 +102,6 @@ export function StaffDetailsTab({
   onRemoveSubject,
   onViewSubject,
   addSubjectButton,
-  isLoadingAccount = false,
-  hasPasswordResetLinkSent = false,
-  onPasswordResetRequest
 }: StaffDetailsTabProps) {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -578,48 +572,20 @@ export function StaffDetailsTab({
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Send a password reset link to this staff member's email address.
-                    </p>
-                    
-                    <div className="flex flex-col space-y-3">
-                      <Button
-                        variant="outline"
-                        onClick={onPasswordResetRequest}
-                        disabled={isLoadingAccount || hasPasswordResetLinkSent || !staffMember.email}
-                        className="justify-start w-fit"
-                      >
-                        {isLoadingAccount ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Sending reset link...
-                          </>
-                        ) : hasPasswordResetLinkSent ? (
-                          <>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Reset link sent
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Send password reset email
-                          </>
-                        )}
-                      </Button>
-
-                      {!staffMember.email && (
-                        <p className="text-sm text-orange-600">
-                          No email address set. Please add an email above.
-                        </p>
-                      )}
-                    </div>
-                    
-                    {hasPasswordResetLinkSent && (
-                      <p className="text-sm text-green-600">
-                        A password reset link has been sent to {staffMember.email}.
-                        The staff member needs to check their email to set a new password.
-                      </p>
-                    )}
+                    <AdminPasswordResetSection
+                      userId={staffMember.user_id}
+                      email={staffMember.email}
+                      userType={staffMember.role === 'TUTOR' ? 'tutor' : 'admin'}
+                      displayName={`${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Staff member'}
+                      recipients={[
+                        {
+                          type: 'staff',
+                          id: staffMember.id,
+                          label: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Staff member',
+                          value: staffMember.phone_number,
+                        },
+                      ]}
+                    />
                   </div>
                 )}
               </div>
@@ -938,48 +904,20 @@ export function StaffDetailsTab({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Send a password reset link to this staff member's email address.
-            </p>
-            
-            <div className="flex flex-col space-y-3">
-              <Button
-                variant="outline"
-                onClick={onPasswordResetRequest}
-                disabled={isLoadingAccount || hasPasswordResetLinkSent || !staffMember.email}
-                className="justify-start w-fit"
-              >
-                {isLoadingAccount ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending reset link...
-                  </>
-                ) : hasPasswordResetLinkSent ? (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Reset link sent
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send password reset email
-                  </>
-                )}
-              </Button>
-
-              {!staffMember.email && (
-                <p className="text-sm text-orange-600">
-                  No email address set. Please add an email above.
-                </p>
-              )}
-            </div>
-            
-            {hasPasswordResetLinkSent && (
-              <p className="text-sm text-green-600">
-                A password reset link has been sent to {staffMember.email}.
-                The staff member needs to check their email to set a new password.
-              </p>
-            )}
+            <AdminPasswordResetSection
+              userId={staffMember.user_id}
+              email={staffMember.email}
+              userType={staffMember.role === 'TUTOR' ? 'tutor' : 'admin'}
+              displayName={`${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Staff member'}
+              recipients={[
+                {
+                  type: 'staff',
+                  id: staffMember.id,
+                  label: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Staff member',
+                  value: staffMember.phone_number,
+                },
+              ]}
+            />
           </div>
         )}
       </div>

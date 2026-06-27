@@ -20,6 +20,7 @@ import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -114,6 +115,7 @@ export function SessionsTable({
 }: SessionsTableProps) {
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('sessions');
