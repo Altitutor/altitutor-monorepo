@@ -105,8 +105,8 @@ for template_name in "${!TEMPLATES[@]}"; do
         continue
     fi
     
-    # Read template content and escape JSON
-    if ! content=$(cat "$template_path" | jq -Rs .); then
+    # Read template content, inject current year, and escape JSON
+    if ! content=$(sed "s/__CURRENT_YEAR__/$(date +%Y)/g" "$template_path" | jq -Rs .); then
         echo "❌ Error: Failed to read or parse template file: $template_path"
         continue
     fi
