@@ -310,6 +310,7 @@ function SyllogismPreviewBody({
               json={question.stemJson ?? undefined}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem ?? undefined}
+              paragraphSpacing
             />
           </div>
         </article>
@@ -334,6 +335,7 @@ function SyllogismPreviewBody({
             json={question.stemJson ?? undefined}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem ?? undefined}
+            paragraphSpacing
           />
         </article>
         {content}
@@ -430,6 +432,7 @@ function MultipleChoicePreviewBody({
               json={question.stemJson ?? undefined}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem ?? undefined}
+              paragraphSpacing
             />
           </div>
         </article>
@@ -454,6 +457,7 @@ function MultipleChoicePreviewBody({
             json={question.stemJson ?? undefined}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem ?? undefined}
+            paragraphSpacing
           />
         </article>
         <section className="space-y-3">{innerSection}</section>

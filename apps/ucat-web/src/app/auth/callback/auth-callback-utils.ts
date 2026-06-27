@@ -18,6 +18,9 @@ export function parseEmailOtpType(raw: string | null): EmailOtpType | null {
 export function otpTypeFromParam(raw: string | null): EmailOtpType[] {
   const parsed = parseEmailOtpType(raw);
   if (parsed) {
+    if (parsed === "recovery") {
+      return ["recovery"];
+    }
     return [parsed, "email", "signup", "magiclink"];
   }
   return ["email", "signup", "magiclink"];

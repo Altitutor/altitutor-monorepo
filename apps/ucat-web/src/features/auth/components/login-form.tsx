@@ -15,10 +15,12 @@ export function LoginForm({
   redirectTo = "/dashboard",
   initialEmail = "",
   accountExists = false,
+  resetSuccess = false,
 }: {
   redirectTo?: string;
   initialEmail?: string;
   accountExists?: boolean;
+  resetSuccess?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -61,6 +63,14 @@ export function LoginForm({
           role="status"
         >
           An account with this email already exists. Sign in below.
+        </p>
+      ) : null}
+      {resetSuccess ? (
+        <p
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          role="status"
+        >
+          Your password has been reset. You can now sign in with your new password.
         </p>
       ) : null}
       <div className="space-y-1.5">

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { 
   Table,
   TableBody,
@@ -33,6 +34,7 @@ import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils
 import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
+import { ViewParentModal } from './ViewParentModal';
 import { ViewClassModal } from '@/features/classes';
 import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
@@ -56,7 +58,7 @@ interface StudentsTableProps {
 
 export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
   const router = useRouter();
-  useSearchParams(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: allSubjects = [] } = useSubjects();
   const { data: quickFilters = [] } = useQuickFilters('students');
@@ -108,6 +110,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [isParentModalOpen, setIsParentModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -184,6 +188,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     { key: 'education', label: 'Education' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'school', label: 'School' },
+    { key: 'subjects', label: 'Subjects' },
+    { key: 'parents', label: 'Parents' },
     { key: 'classes', label: 'Classes' },
   ];
 
@@ -274,6 +283,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     setIsClassModalOpen(true);
   };
 
+  const handleParentClick = (parentId: string) => {
+    setSelectedParentId(parentId);
+    setIsParentModalOpen(true);
+  };
+
   // Actions menu handlers
   const handlePasswordResetOrRegistration = (student: Tables<'students'>) => {
     const isRegistered = student.status === 'ACTIVE';
@@ -315,7 +329,22 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
     try {
       setLoadingPasswordReset(true);
-      // TODO: Implement password reset API call
+      const response = await fetch('/api/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send-email',
+          userId: student.user_id,
+          email: student.email,
+          userType: 'student',
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'Failed to send password reset link');
+      }
+
       setHasPasswordResetLinkSent(true);
       toast({
         title: "Success",
@@ -441,6 +470,23 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   )} />
                 </TableHead>
               )}
+              {state.visibleColumns.includes('email') && (
+                <TableHead>
+                  Email
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('phone') && (
+                <TableHead>
+                  Phone
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('school') && (
+                <TableHead>
+                  School
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('subjects') && <TableHead>Subjects</TableHead>}
+              {state.visibleColumns.includes('parents') && <TableHead>Parents</TableHead>}
               {state.visibleColumns.includes('classes') && <TableHead>Classes</TableHead>}
               <TableHead></TableHead>
             </TableRow>
@@ -464,8 +510,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
                   has_online_subscription?: boolean;
                   has_in_person_class?: boolean;
+                  subjects?: Tables<'subjects'>[];
+                  parents?: Tables<'parents'>[];
                 };
                 const classes = studentWithClasses.classes || [];
+                const subjects = studentWithClasses.subjects || [];
+                const parents = studentWithClasses.parents || [];
                 return (
                   <TableRow
                     key={student.id}
@@ -519,6 +569,60 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     {state.visibleColumns.includes('last_name') && (
                       <TableCell className="font-medium">
                         {student.last_name || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('email') && (
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {student.email || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('phone') && (
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {student.phone || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('school') && (
+                      <TableCell className="min-w-48 text-sm">
+                        {student.school || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('subjects') && (
+                      <TableCell className="min-w-48">
+                        {subjects.length > 0 ? (
+                          <div className="flex flex-col gap-1 text-xs">
+                            {subjects.map((subject) => (
+                              <span key={subject.id} className="whitespace-nowrap">
+                                {subject.long_name || subject.short_name || subject.name || subject.id}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No subjects</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('parents') && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {parents.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {parents.map((parent) => (
+                              <Button
+                                key={parent.id}
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs justify-start whitespace-nowrap"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleParentClick(parent.id);
+                                }}
+                              >
+                                {`${parent.first_name || ''} ${parent.last_name || ''}`.trim() || 'Parent'}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No parents</span>
+                        )}
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('classes') && (
@@ -652,6 +756,18 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             setSelectedClassId(null);
           }}
           onClassUpdated={handleStudentUpdated}
+        />
+      )}
+
+      {selectedParentId && (
+        <ViewParentModal
+          isOpen={isParentModalOpen}
+          onClose={() => {
+            setIsParentModalOpen(false);
+            setSelectedParentId(null);
+          }}
+          parentId={selectedParentId}
+          onParentUpdated={handleStudentUpdated}
         />
       )}
 

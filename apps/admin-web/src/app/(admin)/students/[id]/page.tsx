@@ -100,7 +100,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
@@ -121,24 +120,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         toRemove: editFlow.parentsToRemove,
       }
     );
-  };
-
-  // Handle password reset request
-  const handlePasswordResetRequest = async () => {
-    if (!student || !student.email) {
-      return;
-    }
-
-    try {
-      setLoadingAccountUpdate(true);
-      passwordReset.setPasswordResetLinkSent(true);
-      // TODO: Implement password reset API call
-      // await authApi.requestPasswordReset(student.email);
-    } catch (error) {
-      console.error('Failed to send password reset:', error);
-    } finally {
-      setLoadingAccountUpdate(false);
-    }
   };
 
   // Handle student deletion
@@ -259,7 +240,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       setActiveTab('details');
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: passwordReset.openPasswordResetOrRegistration,
+    onPasswordResetOrRegistration: () => {
+      passwordReset.openPasswordResetOrRegistration();
+      if (student?.user_id) {
+        setActiveTab('details');
+      }
+    },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
@@ -390,9 +376,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                 />
               ) : undefined
             }
-            isLoadingAccount={loadingAccountUpdate}
-            hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
-            onPasswordResetRequest={handlePasswordResetRequest}
           />
           {editFlow.isEditing && (
             <div className="flex justify-end gap-2 pt-4 border-t">

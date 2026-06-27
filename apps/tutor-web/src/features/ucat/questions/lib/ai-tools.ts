@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  extractTextFromRichJson,
   hasRichTextContent,
   plainTextToProseMirror,
   plainTextToProseMirrorWithLineBreaks,
@@ -97,6 +98,31 @@ function asJson(value: unknown): Json | null {
   return value == null ? null : (value as Json)
 }
 
+function extractStemParagraphs(value: Json | null): Array<{ paragraphNumber: number; text: string }> {
+  if (!value) return []
+  if (typeof value === 'string') {
+    return value
+      .split(/\r?\n+/u)
+      .map((text) => text.trim())
+      .filter(Boolean)
+      .map((text, index) => ({ paragraphNumber: index + 1, text }))
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return []
+
+  const record = value as Record<string, unknown>
+  const content = Array.isArray(record.content) ? record.content : []
+  const paragraphs = content
+    .map((node) => {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return ''
+      const nodeRecord = node as Record<string, unknown>
+      if (!['paragraph', 'heading', 'codeBlock'].includes(String(nodeRecord.type ?? ''))) return ''
+      return extractTextFromRichJson(node as Parameters<typeof extractTextFromRichJson>[0]).trim()
+    })
+    .filter(Boolean)
+
+  return paragraphs.map((text, index) => ({ paragraphNumber: index + 1, text }))
+}
+
 function containsUnsupportedRewriteNode(value: Json | null | undefined): boolean {
   if (proseMirrorHasBlockTable(value)) return true
   if (!value || typeof value !== 'object') return false
@@ -124,8 +150,10 @@ export function assertRewriteSupported(stem: AiToolQuestionStemPayload) {
 }
 
 export function summarizeStemForAi(stem: AiToolQuestionStemPayload) {
+  const stemJson = asJson(stem.stemText)
   return {
-    stemText: proseMirrorToPlainText(asJson(stem.stemText)) ?? '',
+    stemText: proseMirrorToPlainText(stemJson) ?? '',
+    stemParagraphs: extractStemParagraphs(stemJson),
     questions: stem.questions.map((question, questionIndex) => ({
       questionIndex,
       questionText: proseMirrorToPlainText(asJson(question.questionText)) ?? '',

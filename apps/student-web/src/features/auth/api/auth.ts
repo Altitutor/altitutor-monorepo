@@ -99,6 +99,8 @@ export const authApi = {
         throw new Error('Failed to update password. Please try again.');
       }
 
+      await supabase.auth.signOut();
+
       return { 
         message: 'Password updated successfully',
         user: updateData.user 

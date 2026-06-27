@@ -7,6 +7,10 @@ import {
   collectUcatImageRefsFromDoc,
   docStructureFingerprint,
 } from "@/features/question-engine/lib/refresh-ucat-image-urls";
+import { cn } from "@/lib/utils";
+
+const PARAGRAPH_SPACING_CLASS =
+  "[&_p]:!my-2 [&_p:first-child]:!mt-0 [&_p:last-child]:!mb-0";
 
 function normalizeDoc(json: Record<string, unknown>): Record<string, unknown> {
   if (json.type === "doc" && Array.isArray(json.content)) {
@@ -26,6 +30,7 @@ type RichContentBlockProps = {
   /** Pre-refreshed content (from batch cache). Preferred when available. */
   preloadedContent?: Record<string, unknown> | null;
   className?: string;
+  paragraphSpacing?: boolean;
 };
 
 /**
@@ -37,6 +42,7 @@ export function RichContentBlock({
   plainText,
   preloadedContent,
   className,
+  paragraphSpacing = false,
 }: RichContentBlockProps) {
   const normalizedDoc = useMemo(() => {
     if (!json || typeof json !== "object") return null;
@@ -65,20 +71,30 @@ export function RichContentBlock({
     preloadedContent == null &&
     isLoading;
 
+  const renderPlainText = () => {
+    const text = plainText || "\u00A0";
+    if (!paragraphSpacing) {
+      return <p className={cn("whitespace-pre-line", className)}>{text}</p>;
+    }
+
+    const paragraphs = text.split(/\r?\n/u);
+    return (
+      <div className={cn("space-y-2", className)}>
+        {paragraphs.map((paragraph, index) => (
+          <p key={`${index}-${paragraph.slice(0, 12)}`}>
+            {paragraph || "\u00A0"}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
   if (normalizedDoc) {
     if (waitingForImageRefresh) {
-      return (
-        <p className={`whitespace-pre-line ${className ?? ""}`}>
-          {plainText || "\u00A0"}
-        </p>
-      );
+      return renderPlainText();
     }
     if (displayContent == null) {
-      return (
-        <p className={`whitespace-pre-line ${className ?? ""}`}>
-          {plainText || "\u00A0"}
-        </p>
-      );
+      return renderPlainText();
     }
     return (
       <div className={className}>
@@ -87,14 +103,13 @@ export function RichContentBlock({
           content={displayContent}
           editable={false}
           minHeight="auto"
-          className="min-h-0 [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0"
+          className={cn(
+            "min-h-0 [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0",
+            paragraphSpacing && PARAGRAPH_SPACING_CLASS,
+          )}
         />
       </div>
     );
   }
-  return (
-    <p className={`whitespace-pre-line ${className ?? ""}`}>
-      {plainText || "\u00A0"}
-    </p>
-  );
+  return renderPlainText();
 }

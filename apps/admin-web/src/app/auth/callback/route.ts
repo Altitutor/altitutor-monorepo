@@ -6,9 +6,11 @@ import type { Database } from '@altitutor/shared'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const tokenHash = requestUrl.searchParams.get('token_hash')
+  const type = requestUrl.searchParams.get('type')
   const next = requestUrl.searchParams.get('next') ?? '/'
 
-  if (code) {
+  if (code || tokenHash) {
     const cookieStore = await cookies()
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,18 +37,22 @@ export async function GET(request: NextRequest) {
           path: '/',
           sameSite: 'lax' as const,
           secure: process.env.NODE_ENV === 'production',
-          httpOnly: true,
         },
       }
     )
     
     try {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      const { data, error } = tokenHash
+        ? await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type === 'recovery' ? 'recovery' : 'email',
+          })
+        : await supabase.auth.exchangeCodeForSession(code!)
       
       if (error) {
         console.error('Code exchange error:', error)
-        // Redirect to error page with error message
-        return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
+        const errorPath = type === 'recovery' ? '/forgot-password' : '/login'
+        return NextResponse.redirect(new URL(`${errorPath}?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
       }
 
       if (data.session) {
@@ -56,7 +62,7 @@ export async function GET(request: NextRequest) {
         }
         // For password reset flow, check if this is a recovery session
         const session = data.session
-        const isRecoverySession = session.user?.recovery_sent_at || session.user?.email_change_sent_at
+        const isRecoverySession = type === 'recovery' || session.user?.recovery_sent_at || session.user?.email_change_sent_at
         
         if (isRecoverySession) {
           // This is a password reset flow - redirect to reset password page

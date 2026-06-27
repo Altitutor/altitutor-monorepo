@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Link from 'next/link';
+import { MARKETING_TOKENS } from '@altitutor/shared';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -16,23 +18,35 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
-import { Loader2, CheckCircle2 } from 'lucide-react';
-import Image from 'next/image';
-import { useTheme } from 'next-themes';
+import { Loader2 } from 'lucide-react';
 import { authApi } from '@/features/auth/api';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
+import { cn } from '@/shared/utils';
 
-const resetPasswordSchema = z.object({
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const { typography: typo } = MARKETING_TOKENS;
+
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
+const authCardClassName = cn(
+  'space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm',
+  typo.secondarySans,
+);
+
+const footerLinkClassName =
+  'font-medium text-primary underline-offset-2 transition-colors hover:underline';
 
 type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
 
@@ -40,9 +54,7 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
-  const { resolvedTheme } = useTheme();
+  const [sessionState, setSessionState] = useState<'loading' | 'valid' | 'invalid'>('loading');
   const supabase = useSupabaseClient();
 
   const form = useForm<ResetPasswordData>({
@@ -53,151 +65,87 @@ export function ResetPasswordForm() {
     },
   });
 
-  // Verify session is valid for password reset on component mount
   useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error || !session) {
-          console.error('Session verification failed:', error);
-          setSessionValid(false);
-          setError('Invalid or expired reset session. Please request a new password reset.');
-        } else {
-          setSessionValid(true);
-        }
-      } catch (err) {
-        console.error('Session check error:', err);
-        setSessionValid(false);
-        setError('Unable to verify reset session. Please try again.');
-      }
-    };
+    void (async () => {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-    verifySession();
+      if (sessionError || !session) {
+        setError('Invalid or expired reset session. Please request a new password reset.');
+        setSessionState('invalid');
+        return;
+      }
+
+      setSessionState('valid');
+    })();
   }, [supabase]);
 
   const onSubmit = async (data: ResetPasswordData) => {
-    if (sessionValid !== true) {
+    if (sessionState !== 'valid') {
       setError('Session not valid. Please request a new password reset.');
       return;
     }
 
     setLoading(true);
     setError(null);
-    setSuccess(false);
 
     try {
       await authApi.confirmPasswordReset({
         password: data.password,
       });
-      
-      setSuccess(true);
-      
-      // Redirect after a brief delay to show success message
-      setTimeout(() => {
       router.push('/login?reset=success');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Password reset error:', error);
+    } catch (submitError) {
       setError(
-        error instanceof Error 
-          ? error.message 
-          : 'An error occurred while resetting your password. Please try again or request a new reset link.'
+        submitError instanceof Error
+          ? submitError.message
+          : 'An error occurred while resetting your password. Please try again or request a new reset link.',
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading state while verifying session
-  if (sessionValid === null) {
+  if (sessionState === 'loading') {
     return (
-      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-        <div className="flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue" />
-        </div>
-        <div className="text-center">
-          <p className="text-muted-foreground">Verifying reset session...</p>
-        </div>
+      <div
+        className={cn(
+          authCardClassName,
+          'flex flex-col items-center justify-center gap-4 py-12',
+        )}
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm text-muted-foreground">Validating reset link…</p>
       </div>
     );
   }
 
-  // Show error if session is invalid
-  if (sessionValid === false) {
+  if (sessionState === 'invalid') {
     return (
-      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-        <div className="space-y-2 text-center">
-          <div className="flex justify-center">
-            <Image 
-              src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
-              alt="Altitutor Logo" 
-              width={120} 
-              height={120} 
-              className="mb-4"
-            />
-          </div>
-          <h1 className="text-2xl font-bold">Session Expired</h1>
-        </div>
-
+      <div className={authCardClassName}>
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error ?? 'Invalid or expired reset session. Please request a new password reset.'}
+          </AlertDescription>
         </Alert>
-
-        <div className="flex flex-col gap-2">
-          <Button 
-            onClick={() => router.push('/forgot-password')}
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
-          >
-            Request New Reset
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/login')}
-            className="w-full"
-          >
-            Back to Login
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show success state
-  if (success) {
-    return (
-      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-        <div className="space-y-2 text-center">
-          <div className="flex justify-center">
-            <CheckCircle2 className="h-16 w-16 text-green-600 mb-4" />
-          </div>
-          <h1 className="text-2xl font-bold">Password Reset Successful</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Your password has been updated successfully. Redirecting to login...
-          </p>
-        </div>
+        <Button
+          asChild
+          className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-darkBlue dark:hover:bg-brand-lightBlue/90"
+        >
+          <Link href="/forgot-password">Request new reset</Link>
+        </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          <Link href="/login" className={footerLinkClassName}>
+            Back to sign in
+          </Link>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-      <div className="space-y-2 text-center">
-        <div className="flex justify-center">
-          <Image 
-            src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
-            alt="Altitutor Logo" 
-            width={120} 
-            height={120} 
-            className="mb-4"
-          />
-        </div>
-        <h1 className="text-2xl font-bold">Reset Your Password</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Enter your new password below
-        </p>
-      </div>
-
+    <div className={authCardClassName}>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -211,19 +159,20 @@ export function ResetPasswordForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>New Password</FormLabel>
+                <FormLabel>New password</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
                     placeholder="Enter your new password"
+                    autoComplete="new-password"
                     disabled={loading}
                     {...field}
                   />
                 </FormControl>
                 <FormMessage />
-                <div className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Password must be at least 8 characters with uppercase, lowercase, and a number
-                </div>
+                </p>
               </FormItem>
             )}
           />
@@ -233,11 +182,12 @@ export function ResetPasswordForm() {
             name="confirmPassword"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Confirm Password</FormLabel>
+                <FormLabel>Confirm password</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
                     placeholder="Confirm your new password"
+                    autoComplete="new-password"
                     disabled={loading}
                     {...field}
                   />
@@ -249,31 +199,20 @@ export function ResetPasswordForm() {
 
           <Button
             type="submit"
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-darkBlue dark:hover:bg-brand-lightBlue/90"
             disabled={loading}
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Resetting Password...
+                Saving...
               </>
             ) : (
-              'Reset Password'
+              'Set new password'
             )}
           </Button>
         </form>
       </Form>
-
-      <div className="text-center">
-        <Button 
-          variant="link" 
-          onClick={() => router.push('/login')}
-          className="text-brand-mediumBlue dark:text-brand-lightBlue"
-          disabled={loading}
-        >
-          Back to Login
-        </Button>
-      </div>
     </div>
   );
-} 
+}

@@ -15,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { ChevronDown, Plus } from 'lucide-react';
@@ -23,9 +24,8 @@ import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 export default function SessionsPage() {
   const search = useSearchParams();
-  const router = useRouter();
   const { openCheckInModal } = useQuickActions();
-  const viewParam = search.get('view') || 'calendar';
+  const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'calendar');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
@@ -33,12 +33,6 @@ export default function SessionsPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
-  const setView = (v: 'table' | 'calendar') => {
-    const params = new URLSearchParams(search.toString());
-    params.set('view', v);
-    router.push(`/sessions?${params.toString()}`);
-  };
-
 
   // Listen for events fired from SessionModal to open student/staff/topic/file modals
   useEffect(() => {
@@ -83,7 +77,7 @@ export default function SessionsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
         <div className="flex items-center gap-4">
           <SegmentedControl
-            value={viewParam}
+            value={view}
             onValueChange={(v) => setView(v as 'table' | 'calendar')}
             options={[
               { value: 'table', label: 'Table' },
@@ -151,7 +145,7 @@ export default function SessionsPage() {
       </div>
 
       <Suspense>
-        {viewParam === 'table' ? (
+        {view === 'table' ? (
           <SessionsTable 
             onOpenSession={(id) => setActiveSessionId(id as string)}
             onOpenStudent={(id) => setActiveStudentId(id as string)}

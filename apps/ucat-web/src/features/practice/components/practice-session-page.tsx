@@ -23,9 +23,18 @@ import {
 } from "@/lib/ucat/quota/parse-quota-error";
 import { sectionLabels } from "@/features/set-generator/model/mock-data";
 import { formatTimeSeconds } from "@/features/progress/lib/format-time";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_HEADER_BTN_OUTLINE,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+} from "@altitutor/ui";
 
 async function fetchNextStem(
   practiceSessionId: string,
@@ -51,118 +60,160 @@ async function fetchNextStem(
   return data.stem ? [data.stem] : null;
 }
 
-function formatPracticePerformanceFilter(input?: SetGeneratorInput): string {
-  if (!input) return "Any";
-  if (input.unansweredOnly) return "Unanswered";
-  if (input.incorrectOnly) return "Incorrect";
-  return "Any";
-}
-
-function formatPracticeTimeFilter(input?: SetGeneratorInput): string {
-  const seconds = input?.timePerQuestionSeconds;
-  if (seconds != null && seconds > 0) {
-    return `${Number(seconds).toFixed(1)} sec/question`;
-  }
-  return "No time limit";
-}
-
-function formatPracticeCategoryFilter(
+function getPracticeCategoryList(
   input?: SetGeneratorInput,
   meta?: PracticeSessionData["filterMeta"],
 ): string {
   const count = input?.categoryIds?.length ?? 0;
-  if (count === 0) return "All categories";
+  if (count === 0) return "";
   const labels = meta?.categoryLabels?.filter(Boolean) ?? [];
   if (labels.length > 0) return labels.join(", ");
   return `${count} selected`;
 }
 
-function PracticeSessionStatsCards({
+function formatSecondsPerQuestion(seconds: number): string {
+  return Number.isInteger(seconds)
+    ? `${seconds} sec`
+    : `${seconds.toFixed(1)} sec`;
+}
+
+function buildPracticeSessionTitle({
   stats,
   filters,
   filterMeta,
-  elapsedSeconds,
 }: {
   stats: PracticeEngineLiveStats | null;
   filters?: SetGeneratorInput;
   filterMeta?: PracticeSessionData["filterMeta"];
+}) {
+  const timePerQuestionSeconds = filters?.timePerQuestionSeconds ?? null;
+  const isTimed = timePerQuestionSeconds != null && timePerQuestionSeconds > 0;
+  const sectionLabel =
+    filterMeta?.sectionLabel ??
+    (filters?.section ? sectionLabels[filters.section] : "Practice");
+  const categoryList = getPracticeCategoryList(filters, filterMeta);
+  const categoryPhrase = categoryList ? ` (${categoryList})` : "";
+  const progress = stats
+    ? `question ${stats.currentQuestionNumber} / ${stats.totalQuestionLabel}`
+    : "question — / —";
+
+  let timingPhrase = "";
+  if (isTimed) {
+    const examSeconds = filterMeta?.examTimePerQuestionSeconds;
+    const speedPercent =
+      examSeconds != null && examSeconds > 0
+        ? Math.round((examSeconds / timePerQuestionSeconds) * 100)
+        : null;
+    timingPhrase = ` @ ${formatSecondsPerQuestion(timePerQuestionSeconds)} per question${
+      speedPercent != null ? ` (${speedPercent}% of exam speed)` : ""
+    }`;
+  }
+
+  return `${isTimed ? "Timed" : "Untimed"} ${sectionLabel}${categoryPhrase} practice${timingPhrase}: ${progress}`;
+}
+
+function InlineStatRow({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "text-right text-sm font-semibold tabular-nums",
+          valueClassName,
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function PracticeSessionStatsCards({
+  stats,
+  elapsedSeconds,
+  onFinishPractice,
+}: {
+  stats: PracticeEngineLiveStats | null;
   elapsedSeconds: number;
+  onFinishPractice?: () => void;
 }) {
   const answeredCount = stats?.answeredCount ?? 0;
   const correctCount = stats?.correctCount ?? 0;
   const incorrectCount = stats?.incorrectCount ?? 0;
+  const answeredTimeSeconds = stats?.totalAnsweredTimeSeconds ?? 0;
   const averageSeconds =
-    answeredCount > 0 ? elapsedSeconds / answeredCount : null;
-  const sectionLabel =
-    filterMeta?.sectionLabel ??
-    (filters?.section ? sectionLabels[filters.section] : "Practice");
-  const totalQuestionLabel = stats?.totalQuestionLabel ?? "—";
-  const currentQuestionLabel = stats
-    ? `${stats.currentQuestionNumber} / ${stats.totalQuestionLabel}`
-    : "—";
-
-  const statCards = [
-    { label: "Answered", value: String(answeredCount) },
-    {
-      label: "Correct / answered",
-      value: `${correctCount} / ${answeredCount}`,
-    },
-    {
-      label: "Incorrect / answered",
-      value: `${incorrectCount} / ${answeredCount}`,
-    },
-    { label: "Session time", value: formatTimeSeconds(elapsedSeconds) },
-    {
-      label: "Average time / question",
-      value: averageSeconds != null ? formatTimeSeconds(averageSeconds) : "—",
-    },
-  ];
-
-  const filterRows = [
-    { label: "Section", value: sectionLabel },
-    {
-      label: "Category",
-      value: formatPracticeCategoryFilter(filters, filterMeta),
-    },
-    { label: "Time", value: formatPracticeTimeFilter(filters) },
-    { label: "Performance", value: formatPracticePerformanceFilter(filters) },
-    { label: "Question count", value: totalQuestionLabel },
-    { label: "Current question", value: currentQuestionLabel },
-  ];
+    answeredCount > 0 ? answeredTimeSeconds / answeredCount : null;
 
   return (
     <aside className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-        {statCards.map((card) => (
-          <Card key={card.label} className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-            <CardContent className="p-4">
-              <div className="text-xs font-medium text-muted-foreground">
-                {card.label}
-              </div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums">
-                {card.value}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
       <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            Practice filters
-          </CardTitle>
+          <CardTitle className="text-sm font-semibold">Answers</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <dl className="space-y-2 text-sm">
-            {filterRows.map((row) => (
-              <div key={row.label}>
-                <dt className="text-xs text-muted-foreground">{row.label}</dt>
-                <dd className="break-words font-medium">{row.value}</dd>
-              </div>
-            ))}
+          <dl className="space-y-2">
+            <InlineStatRow label="Answered" value={String(answeredCount)} />
+            <InlineStatRow
+              label="Correct"
+              value={String(correctCount)}
+              valueClassName="text-emerald-600 dark:text-emerald-400"
+            />
+            <InlineStatRow
+              label="Incorrect"
+              value={String(incorrectCount)}
+              valueClassName="text-red-600 dark:text-red-400"
+            />
           </dl>
         </CardContent>
       </Card>
+      <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Timing</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <dl className="space-y-2 text-sm">
+            <InlineStatRow
+              label="Session time"
+              value={formatTimeSeconds(elapsedSeconds)}
+            />
+            <InlineStatRow
+              label="Question time"
+              value={formatTimeSeconds(answeredTimeSeconds)}
+            />
+            <InlineStatRow
+              label="Average time / question"
+              value={
+                averageSeconds != null ? formatTimeSeconds(averageSeconds) : "—"
+              }
+            />
+          </dl>
+        </CardContent>
+      </Card>
+      {onFinishPractice ? (
+        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn("w-full justify-start", UCAT_HEADER_BTN_OUTLINE)}
+              onClick={onFinishPractice}
+            >
+              Finish practice
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </aside>
   );
 }
@@ -178,6 +229,15 @@ export function PracticeSessionPage() {
     null,
   );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const openFinishPracticeDialogRef = useRef<(() => void) | null>(null);
+
+  const handleRegisterFinishPracticeDialog = useCallback((open: () => void) => {
+    openFinishPracticeDialogRef.current = open;
+  }, []);
+
+  const handleFinishPracticeFromSidebar = useCallback(() => {
+    openFinishPracticeDialogRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (quotaLoading) return;
@@ -281,25 +341,38 @@ export function PracticeSessionPage() {
     return null;
   }
 
+  const sessionTitle = buildPracticeSessionTitle({
+    stats: liveStats,
+    filters: session.filters,
+    filterMeta: session.filterMeta,
+  });
+
   if (session.mode === "unlimited") {
     return (
       <UcatLagProvider>
-        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <UnlimitedPracticeEngine
-            sessionId={session.sessionId}
-            filters={session.filters}
-            initialStems={session.stems ?? []}
-            sessionMeta={session}
-            timePerQuestionSeconds={session.timePerQuestionSeconds}
-            onBack={handleDone}
-            onPracticeStatsChange={setLiveStats}
-          />
-          <PracticeSessionStatsCards
-            stats={liveStats}
-            filters={session.filters}
-            filterMeta={session.filterMeta}
-            elapsedSeconds={elapsedSeconds}
-          />
+        <div className="space-y-4">
+          <h1 className="text-lg font-semibold tracking-normal text-foreground">
+            {sessionTitle}
+          </h1>
+          <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <UnlimitedPracticeEngine
+              sessionId={session.sessionId}
+              filters={session.filters}
+              initialStems={session.stems ?? []}
+              sessionMeta={session}
+              timePerQuestionSeconds={session.timePerQuestionSeconds}
+              onBack={handleDone}
+              onPracticeStatsChange={setLiveStats}
+              onRegisterFinishPracticeDialog={
+                handleRegisterFinishPracticeDialog
+              }
+            />
+            <PracticeSessionStatsCards
+              stats={liveStats}
+              elapsedSeconds={elapsedSeconds}
+              onFinishPractice={handleFinishPracticeFromSidebar}
+            />
+          </div>
         </div>
       </UcatLagProvider>
     );
@@ -307,24 +380,29 @@ export function PracticeSessionPage() {
 
   return (
     <UcatLagProvider>
-      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <QuestionEnginePage
-          mode="questionStem"
-          sourceId="practice"
-          questionStems={session.stems}
-          practice
-          practiceSessionId={session.sessionId}
-          onPracticeStatsChange={setLiveStats}
-          timePerQuestionSeconds={session.timePerQuestionSeconds}
-          backHref="/practice"
-          onBack={handleDone}
-        />
-        <PracticeSessionStatsCards
-          stats={liveStats}
-          filters={session.filters}
-          filterMeta={session.filterMeta}
-          elapsedSeconds={elapsedSeconds}
-        />
+      <div className="space-y-4">
+        <h1 className="text-lg font-semibold tracking-normal text-foreground">
+          {sessionTitle}
+        </h1>
+        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <QuestionEnginePage
+            mode="questionStem"
+            sourceId="practice"
+            questionStems={session.stems}
+            practice
+            practiceSessionId={session.sessionId}
+            onPracticeStatsChange={setLiveStats}
+            timePerQuestionSeconds={session.timePerQuestionSeconds}
+            backHref="/practice"
+            onBack={handleDone}
+            onRegisterFinishPracticeDialog={handleRegisterFinishPracticeDialog}
+          />
+          <PracticeSessionStatsCards
+            stats={liveStats}
+            elapsedSeconds={elapsedSeconds}
+            onFinishPractice={handleFinishPracticeFromSidebar}
+          />
+        </div>
       </div>
     </UcatLagProvider>
   );
@@ -338,6 +416,7 @@ function UnlimitedPracticeEngine({
   timePerQuestionSeconds,
   onBack,
   onPracticeStatsChange,
+  onRegisterFinishPracticeDialog,
 }: {
   sessionId: string;
   filters: SetGeneratorInput;
@@ -346,6 +425,7 @@ function UnlimitedPracticeEngine({
   timePerQuestionSeconds: number | null;
   onBack: () => void;
   onPracticeStatsChange: (stats: PracticeEngineLiveStats | null) => void;
+  onRegisterFinishPracticeDialog?: (open: () => void) => void;
 }) {
   const [stems, setStems] = useState<QuestionStemWithQuestions[]>(initialStems);
   const [loading, setLoading] = useState(initialStems.length === 0);
@@ -453,6 +533,7 @@ function UnlimitedPracticeEngine({
       onBack={onBack}
       onNeedMoreStems={handleNeedMoreStems}
       practiceQuotaReached={quotaReached}
+      onRegisterFinishPracticeDialog={onRegisterFinishPracticeDialog}
     />
   );
 }

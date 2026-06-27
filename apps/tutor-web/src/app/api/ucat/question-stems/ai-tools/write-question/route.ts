@@ -105,6 +105,11 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
           'Use the stem as the only source of facts.',
           'Return one question with answer options, exactly one selected correct answer, and a student-facing explanation.',
           'The explanation should teach how to solve the question and why the correct option is correct.',
+          ...(promptContext.sectionName === 'Verbal Reasoning'
+            ? [
+                'In the explanation, cite the relevant passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, using the supplied stemParagraphs list.',
+              ]
+            : []),
           'Keep the option count and answer style consistent with the existing stem where possible.',
         ],
         outputShape: {

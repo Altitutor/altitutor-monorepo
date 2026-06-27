@@ -6,7 +6,7 @@ import { AppProviders } from "@/components/providers/app-providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "UCAT Web",
+  title: "Altitutor UCAT System",
   description: "UCAT practice app",
   icons: {
     icon: [

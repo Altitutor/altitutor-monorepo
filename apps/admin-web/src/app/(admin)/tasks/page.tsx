@@ -7,24 +7,14 @@ import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { SegmentedControl } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
-export default function TasksPage() {
-  const search = useSearchParams();
-  const router = useRouter();
-  const viewParam = (search.get('view') || 'kanban') as 'kanban' | 'list';
+const TASK_VIEWS = ['kanban', 'list'] as const;
+
+function TasksPageContent() {
+  const [view, setView] = useAdminPageViewParam(TASK_VIEWS, 'kanban');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | undefined>(undefined);
-
-  const setView = (v: 'kanban' | 'list') => {
-    const params = new URLSearchParams(search.toString());
-    params.set('view', v);
-    router.push(`/tasks?${params.toString()}`);
-  };
-
-  const handleTaskUpdated = () => {
-    // Refetch will happen automatically via query invalidation
-  };
 
   return (
     <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-64px)] overflow-hidden">
@@ -32,8 +22,8 @@ export default function TasksPage() {
         <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
         <div className="flex items-center gap-4">
           <SegmentedControl
-            value={viewParam}
-            onValueChange={(v) => setView(v as 'kanban' | 'list')}
+            value={view}
+            onValueChange={(v) => setView(v as (typeof TASK_VIEWS)[number])}
             options={[
               { value: 'kanban', label: 'Board' },
               { value: 'list', label: 'List' },
@@ -48,30 +38,34 @@ export default function TasksPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Suspense>
-          {viewParam === 'kanban' ? (
-            <TasksBoard
-              onCreateTask={(status) => {
-                setDefaultStatus(status);
-                setIsCreateModalOpen(true);
-              }}
-            />
-          ) : (
-            <TasksList />
-          )}
-        </Suspense>
+        {view === 'kanban' ? (
+          <TasksBoard
+            onCreateTask={(status) => {
+              setDefaultStatus(status);
+              setIsCreateModalOpen(true);
+            }}
+          />
+        ) : (
+          <TasksList />
+        )}
       </div>
 
-      {/* Create Task Modal */}
       <CreateTaskDialog
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
           setDefaultStatus(undefined);
         }}
-        onTaskCreated={handleTaskUpdated}
         defaultStatus={defaultStatus}
       />
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={null}>
+      <TasksPageContent />
+    </Suspense>
   );
 }

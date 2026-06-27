@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
   TableBody,
@@ -41,7 +42,7 @@ interface ParentsTableProps {
 }
 
 export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) {
-  useSearchParams(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('parents');

@@ -57,7 +57,7 @@ export function ResetPasswordForm() {
     setIsSubmitting(true);
     try {
       await authApi.confirmPasswordReset(password);
-      router.push("/dashboard");
+      router.push("/login?reset=success");
       router.refresh();
     } catch (cause) {
       setError(

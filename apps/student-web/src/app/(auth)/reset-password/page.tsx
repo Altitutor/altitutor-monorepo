@@ -1,119 +1,27 @@
-'use client';
-
-import { useState, useEffect, Suspense } from 'react';
-import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
-import { Alert, AlertDescription } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { SkeletonAuthCard } from '@altitutor/ui';
 import Link from 'next/link';
-import { useSupabaseClient } from '@/shared/lib/supabase/client';
-import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { MARKETING_TOKENS } from '@altitutor/shared';
+import { LoginPageLayout, ResetPasswordForm } from '@/features/auth/components';
 import { cn } from '@/shared/utils';
 
-function ResetPasswordContent() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isValidSession, setIsValidSession] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const supabase = useSupabaseClient();
-
-  useEffect(() => {
-    const validateSession = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Check if we have a valid session (PKCE flow)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          // eslint-disable-next-line no-console
-          console.error('Session error during password reset validation:', sessionError);
-          setError('Invalid or expired reset session. Please request a new password reset.');
-          setIsValidSession(false);
-          return;
-        }
-
-        if (!session) {
-          setError('No active reset session found. Please click the reset link again or request a new one.');
-          setIsValidSession(false);
-          return;
-        }
-
-        // Session exists - user can proceed with password reset
-        setIsValidSession(true);
-        
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Session validation error:', err);
-        setError('Failed to validate reset session. Please try again.');
-        setIsValidSession(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    validateSession();
-  }, [supabase]);
-
-  if (isLoading) {
-    return (
-      <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-brand-lightBlue/20 dark:to-brand-dark-card/50 z-0"></div>
-        <div className="relative z-10">
-          <SkeletonAuthCard />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValidSession || error) {
-    return (
-      <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-brand-lightBlue/20 dark:to-brand-dark-card/50 z-0"></div>
-        <div className="relative z-10 max-w-md w-full">
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>
-              {error || 'Invalid or missing reset token. Please request a new password reset.'}
-            </AlertDescription>
-          </Alert>
-          <div className="flex flex-col gap-2">
-            <Button
-              asChild
-              variant="default"
-              className={cn(
-                studentBtnPrimary,
-                'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
-              )}
-            >
-              <Link href="/forgot-password">Request New Reset</Link>
-            </Button>
-            <Button asChild variant="outline" className={cn(studentBtnOutline, 'w-full')}>
-              <Link href="/login">Back to Login</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-brand-lightBlue/20 dark:to-brand-dark-card/50 z-0"></div>
-      <div className="relative z-10">
-        <ResetPasswordForm />
-      </div>
-    </div>
-  );
-}
+const { typography: typo } = MARKETING_TOKENS;
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-        <SkeletonAuthCard />
-      </div>
-    }>
-      <ResetPasswordContent />
-    </Suspense>
+    <LoginPageLayout
+      title="Choose a new password"
+      subtitle="Enter a new password for your account."
+      footer={
+        <p className={cn('mt-6 text-center text-sm text-muted-foreground', typo.secondarySans)}>
+          <Link
+            href="/login"
+            className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
+          >
+            Back to sign in
+          </Link>
+        </p>
+      }
+    >
+      <ResetPasswordForm />
+    </LoginPageLayout>
   );
-} 
+}

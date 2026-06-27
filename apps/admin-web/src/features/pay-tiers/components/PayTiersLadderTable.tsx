@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Button,
   Table,
@@ -31,7 +31,7 @@ type TierRow = StaffPayTier & {
 };
 
 export function PayTiersLadderTable() {
-  useSearchParams(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const { data: tiers = [], isLoading, isError, refetch, isFetching } = usePayTiers();
   const createTier = useCreatePayTier();
   const [editingTier, setEditingTier] = useState<StaffPayTier | null>(null);

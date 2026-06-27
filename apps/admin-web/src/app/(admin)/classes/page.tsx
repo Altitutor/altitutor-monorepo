@@ -6,28 +6,20 @@ import { CalendarView } from '@/features/classes/components/CalendarView';
 import { SegmentedControl } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 import { useAdminShiftsWithDetails } from '@/features/admin-shifts/hooks/useAdminShiftsQuery';
 import type { Tables } from '@altitutor/shared';
 import { ViewAdminShiftModal } from '@/features/admin-shifts/components/modal';
 
 export default function ClassesPage() {
-  const search = useSearchParams();
-  const router = useRouter();
-  const viewParam = search.get('view') || 'table';
+  const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'table');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedAdminShiftId, setSelectedAdminShiftId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAdminShiftDetailModalOpen, setIsAdminShiftDetailModalOpen] = useState(false);
   const [showAdminShifts, setShowAdminShifts] = useState(false);
-
-  const setView = (v: 'table' | 'calendar') => {
-    const params = new URLSearchParams(search.toString());
-    params.set('view', v);
-    router.push(`/classes?${params.toString()}`);
-  };
 
   const { data, refetch } = useClassesWithDetails();
   const { data: adminShiftsData, refetch: refetchAdminShifts } = useAdminShiftsWithDetails();
@@ -64,7 +56,7 @@ export default function ClassesPage() {
         <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
         <div className="flex items-center gap-4">
           <SegmentedControl
-            value={viewParam}
+            value={view}
             onValueChange={(v) => setView(v as 'table' | 'calendar')}
             options={[
               { value: 'table', label: 'Table' },
@@ -80,7 +72,7 @@ export default function ClassesPage() {
       </div>
 
       <Suspense>
-        {viewParam === 'table' ? (
+        {view === 'table' ? (
           <ClassesTable 
             addModalState={[isAddModalOpen, setIsAddModalOpen]}
             viewMode="table"

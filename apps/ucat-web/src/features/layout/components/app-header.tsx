@@ -41,7 +41,7 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
             href="/dashboard"
             className="text-sm font-semibold tracking-wide"
           >
-            UCAT Web
+            Altitutor UCAT System
           </Link>
         </div>
 

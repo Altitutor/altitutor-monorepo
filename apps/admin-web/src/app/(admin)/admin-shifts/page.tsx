@@ -6,7 +6,7 @@ import { CalendarView } from '@/features/admin-shifts/components/CalendarView';
 import { SegmentedControl } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { useAdminShiftsWithDetails } from '@/features/admin-shifts/hooks/useAdminShiftsQuery';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
@@ -14,21 +14,13 @@ import { ViewAdminShiftModal } from '@/features/admin-shifts/components/modal';
 import { ViewClassModal } from '@/features/classes';
 
 export default function AdminShiftsPage() {
-  const search = useSearchParams();
-  const router = useRouter();
-  const viewParam = search.get('view') || 'table';
+  const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'table');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedAdminShiftId, setSelectedAdminShiftId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isClassDetailModalOpen, setIsClassDetailModalOpen] = useState(false);
   const [showClasses, setShowClasses] = useState(false);
-
-  const setView = (v: 'table' | 'calendar') => {
-    const params = new URLSearchParams(search.toString());
-    params.set('view', v);
-    router.push(`/admin-shifts?${params.toString()}`);
-  };
 
   const { data: adminShiftsData, refetch: refetchAdminShifts } = useAdminShiftsWithDetails();
   const { data: classesData, refetch: refetchClasses } = useClassesWithDetails();
@@ -65,7 +57,7 @@ export default function AdminShiftsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Admin Shifts</h1>
         <div className="flex items-center gap-4">
           <SegmentedControl
-            value={viewParam}
+            value={view}
             onValueChange={(v) => setView(v as 'table' | 'calendar')}
             options={[
               { value: 'table', label: 'Table' },
@@ -81,7 +73,7 @@ export default function AdminShiftsPage() {
       </div>
 
       <Suspense>
-        {viewParam === 'table' ? (
+        {view === 'table' ? (
           <AdminShiftsTable 
             addModalState={[isAddModalOpen, setIsAddModalOpen]}
             viewMode="table"

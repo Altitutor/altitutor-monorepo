@@ -120,7 +120,6 @@ export function ViewStudentModal({
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
@@ -166,24 +165,6 @@ export function ViewStudentModal({
         toRemove: editFlow.parentsToRemove,
       }
     );
-  };
-
-  // Handle password reset request
-  const handlePasswordResetRequest = async () => {
-    if (!student || !student.email) {
-      return;
-    }
-
-    try {
-      setLoadingAccountUpdate(true);
-      passwordReset.setPasswordResetLinkSent(true);
-      // TODO: Implement password reset API call
-      // await authApi.requestPasswordReset(student.email);
-    } catch (error) {
-      console.error('Failed to send password reset:', error);
-    } finally {
-      setLoadingAccountUpdate(false);
-    }
   };
 
   // Handle student deletion
@@ -304,7 +285,12 @@ export function ViewStudentModal({
       setActiveTab('details');
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: passwordReset.openPasswordResetOrRegistration,
+    onPasswordResetOrRegistration: () => {
+      passwordReset.openPasswordResetOrRegistration();
+      if (student?.user_id) {
+        setActiveTab('details');
+      }
+    },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
@@ -448,9 +434,6 @@ export function ViewStudentModal({
                           />
                         ) : undefined
                       }
-                      isLoadingAccount={loadingAccountUpdate}
-                      hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
-                      onPasswordResetRequest={handlePasswordResetRequest}
                     />
                   </div>
                 </SegmentedTabPanelContent>

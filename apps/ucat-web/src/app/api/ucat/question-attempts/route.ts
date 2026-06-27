@@ -4,6 +4,10 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
+import {
+  checkQuotaForAction,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
   if (isPracticeAttempt) {
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("student_practice_sessions")
-      .select("id, stems_snapshot, completed_at")
+      .select("id, stems_snapshot, unlimited, completed_at")
       .eq("id", body.studentPracticeSessionId!)
       .eq("student_id", student.id)
       .maybeSingle();
@@ -101,6 +105,10 @@ export async function POST(request: NextRequest) {
           : [],
       ),
     );
+    const latestDeliveredStem = deliveredStems.at(-1);
+    const latestDeliveredQuestionIds = new Set(
+      latestDeliveredStem?.questions?.map((question) => question.id) ?? [],
+    );
 
     if (
       !session ||
@@ -111,6 +119,24 @@ export async function POST(request: NextRequest) {
         { error: "Question is not part of this practice session" },
         { status: 403 },
       );
+    }
+
+    const hasAnswer =
+      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    const canFinishLatestUnlimitedStem =
+      Boolean(session.unlimited) &&
+      latestDeliveredQuestionIds.has(body.questionId);
+
+    if (!canFinishLatestUnlimitedStem) {
+      const quotaCheck = await checkQuotaForAction(
+        supabaseAdmin,
+        student.id,
+        "practice",
+        { practiceQuestionId: body.questionId, hasAnswer },
+      );
+      if (!quotaCheck.allowed) {
+        return quotaExceededResponse(quotaCheck.payload);
+      }
     }
   }
 
