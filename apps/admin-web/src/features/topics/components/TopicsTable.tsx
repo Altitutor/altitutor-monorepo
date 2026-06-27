@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -47,7 +47,7 @@ export function TopicsTable({
   basePath: _basePath = '/topics',
   hideSubjectFilter = false,
 }: TopicsTableProps) {
-  useRouter(); // Required for URL sync in useDataTable
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('topics');
   

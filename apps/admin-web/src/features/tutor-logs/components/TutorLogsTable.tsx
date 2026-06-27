@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -37,6 +38,7 @@ export function TutorLogsTable({
   onOpenSession: _onOpenSession,
   onOpenStaff: _onOpenStaff,
 }: TutorLogsTableProps) {
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('tutor_logs');
 

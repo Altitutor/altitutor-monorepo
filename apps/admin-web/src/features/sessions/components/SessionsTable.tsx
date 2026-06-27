@@ -19,7 +19,7 @@ import { cn, formatSessionType } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -114,6 +114,7 @@ export function SessionsTable({
 }: SessionsTableProps) {
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
+  useSearchParams(); // Required for URL sync in useDataTable
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('sessions');

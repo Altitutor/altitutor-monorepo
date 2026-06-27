@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -41,6 +41,7 @@ interface ParentsTableProps {
 }
 
 export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) {
+  useSearchParams(); // Required for URL sync in useDataTable
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('parents');
@@ -92,6 +93,8 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
     { key: 'students', label: 'Students' },
   ];
 
@@ -222,6 +225,8 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                   )} />
                 </TableHead>
               )}
+              {state.visibleColumns.includes('email') && <TableHead>Email</TableHead>}
+              {state.visibleColumns.includes('phone') && <TableHead>Phone</TableHead>}
               {state.visibleColumns.includes('students') && <TableHead>Students</TableHead>}
               <TableHead></TableHead>
             </TableRow>
@@ -256,6 +261,16 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                     {state.visibleColumns.includes('last_name') && (
                       <TableCell className="font-medium">
                         {parent.last_name || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('email') && (
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {parent.email || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('phone') && (
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {parent.phone || '-'}
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('students') && (

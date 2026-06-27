@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -53,6 +53,7 @@ interface ClassesTableProps {
 }
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
+  useSearchParams(); // Required for URL sync in useDataTable
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('classes');

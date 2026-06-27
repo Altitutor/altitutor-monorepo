@@ -7,21 +7,98 @@ import { addDays, endOfWeek, format, startOfWeek, subDays } from 'date-fns';
 function isEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
-  
+
   const keysA = Object.keys(a as object).sort();
   const keysB = Object.keys(b as object).sort();
-  
+
   if (keysA.length !== keysB.length) return false;
-  
+
   for (let i = 0; i < keysA.length; i++) {
     const key = keysA[i];
     if (keysA[i] !== keysB[i] || !isEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
   }
-  
+
   return true;
 }
 
 const MANAGED_PARAM_KEYS = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'];
+
+function mergeTableState(prev: DataTableState, updates: Partial<DataTableState>): DataTableState {
+  const next: DataTableState = { ...prev, ...updates };
+
+  if ('filters' in updates || 'search' in updates || 'sortBy' in updates || 'pageSize' in updates) {
+    next.page = 'page' in updates && updates.page != null ? updates.page : 1;
+  }
+
+  return next;
+}
+
+function clearManagedParams(params: URLSearchParams, filterKeys?: string[]) {
+  MANAGED_PARAM_KEYS.forEach((key) => params.delete(key));
+
+  if (filterKeys) {
+    filterKeys.forEach((key) => params.delete(key));
+    return;
+  }
+
+  Array.from(params.keys()).forEach((key) => {
+    if (!MANAGED_PARAM_KEYS.includes(key)) {
+      params.delete(key);
+    }
+  });
+}
+
+function applyTableStateToParams(
+  params: URLSearchParams,
+  tableState: DataTableState,
+  initialPageSize: number,
+  defaultVisibleColumns: string[],
+  filterKeys?: string[],
+) {
+  clearManagedParams(params, filterKeys);
+
+  if (tableState.search) {
+    params.set('search', tableState.search);
+  }
+
+  if (tableState.sortBy) {
+    params.set('sort', tableState.sortBy);
+    params.set('order', tableState.sortDirection);
+  }
+
+  if (tableState.groupBy) {
+    params.set('group', tableState.groupBy);
+  }
+
+  if (tableState.page > 1) {
+    params.set('page', String(tableState.page));
+  }
+
+  if (tableState.pageSize !== initialPageSize) {
+    params.set('pageSize', String(tableState.pageSize));
+  }
+
+  const columnsChanged =
+    tableState.visibleColumns.join(',') !== defaultVisibleColumns.join(',');
+  if (columnsChanged && tableState.visibleColumns.length > 0) {
+    params.set('columns', tableState.visibleColumns.join(','));
+  }
+
+  const filterEntries = filterKeys
+    ? filterKeys.map((key) => [key, tableState.filters[key]] as const)
+    : Object.entries(tableState.filters);
+
+  filterEntries.forEach(([key, values]) => {
+    if (values && values.length > 0) {
+      params.set(key, values.map(String).join(','));
+    }
+  });
+}
+
+function buildTableHref(pathname: string, params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
 
 interface UseDataTableOptions {
   defaultFilters?: Record<string, unknown[]>;
@@ -49,6 +126,13 @@ export function useDataTable({
   const isManagedKey = useCallback((key: string) => {
     return MANAGED_PARAM_KEYS.includes(key) || (filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key));
   }, [filterKeys]);
+
+  const commitTableUrl = useCallback((tableState: DataTableState) => {
+    const params = new URLSearchParams(searchParams.toString());
+    applyTableStateToParams(params, tableState, initialPageSize, defaultVisibleColumns, filterKeys);
+    pendingUrlUpdateRef.current = true;
+    router.replace(buildTableHref(pathname, params), { scroll: false });
+  }, [defaultVisibleColumns, filterKeys, initialPageSize, pathname, router, searchParams]);
 
   // Parse filters from URL helper
   const parseFiltersFromUrl = useCallback(() => {
@@ -97,7 +181,7 @@ export function useDataTable({
     // Use defaults whenever URL is empty (not just on first load) to avoid race where
     // router.replace hasn't updated searchParams yet, which would overwrite defaults with {}.
     const hasAnyParam = Array.from(searchParams.keys()).some((key) => isManagedKey(key));
-    
+
     if (!hasAnyParam) {
       return {
         search: '',
@@ -115,7 +199,7 @@ export function useDataTable({
     return {
       search,
       filters,
-      sortBy: sortBy || (isInitialLoad.current ? defaultSort.field : null),
+      sortBy: sortBy || defaultSort.field,
       sortDirection,
       groupBy,
       page,
@@ -126,13 +210,15 @@ export function useDataTable({
   }, [searchParams, defaultFilters, defaultSort, initialPageSize, defaultVisibleColumns, parseFiltersFromUrl, skipUrlSync, isManagedKey]);
 
   const [state, setState] = useState<DataTableState>(getInitialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Sync state with URL changes
   useEffect(() => {
     if (skipUrlSync) return;
 
     const derivedState = getInitialState();
-    // Don't overwrite optimistic state with stale URL while our router.push is in flight
+    // Don't overwrite optimistic state with stale URL while our router.replace is in flight
     if (pendingUrlUpdateRef.current) {
       if (isEqual(derivedState, state)) {
         pendingUrlUpdateRef.current = false;
@@ -157,107 +243,28 @@ export function useDataTable({
       return;
     }
 
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('sort', defaultSort.field);
-    params.set('order', defaultSort.direction);
-    Object.entries(defaultFilters).forEach(([key, values]) => {
-      if (values && values.length > 0) {
-        params.set(key, values.join(','));
-      }
-    });
-
     hasSyncedInitialDefaults.current = true;
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [defaultFilters, defaultSort.direction, defaultSort.field, isManagedKey, pathname, router, searchParams, skipUrlSync]);
+    commitTableUrl(getInitialState());
+  }, [commitTableUrl, getInitialState, isManagedKey, searchParams, skipUrlSync]);
 
   // Update state helper
   const updateState = useCallback((updates: Partial<DataTableState>) => {
     setState(prev => {
-      const next = { ...prev, ...updates };
-      
-      // Handle dependent updates
-      if ('filters' in updates || 'search' in updates || 'sortBy' in updates || 'pageSize' in updates) {
-        next.page = 1;
-      }
-      
+      const next = mergeTableState(prev, updates);
       return isEqual(prev, next) ? prev : next;
     });
   }, []);
 
-  // Update URL helper - stable and minimal dependencies
+  // Update URL helper - serialize the full next table state so params never go missing
   const updateUrl = useCallback((updates: Partial<DataTableState>) => {
-    // Optimistic update: apply state immediately so queries run without waiting for router
-    updateState(updates);
+    const next = mergeTableState(stateRef.current, updates);
+    if (isEqual(stateRef.current, next)) return;
 
-    if (skipUrlSync) {
-      return;
+    setState(next);
+    if (!skipUrlSync) {
+      commitTableUrl(next);
     }
-
-    const params = new URLSearchParams(searchParams.toString());
-    
-    if ('search' in updates) {
-      if (updates.search) params.set('search', updates.search);
-      else params.delete('search');
-    }
-    
-    if ('sortBy' in updates) {
-      if (updates.sortBy) {
-        params.set('sort', updates.sortBy);
-        params.set('order', updates.sortDirection || 'desc');
-      } else {
-        params.delete('sort');
-        params.delete('order');
-      }
-    } else if ('sortDirection' in updates && state.sortBy) {
-      params.set('order', updates.sortDirection || 'desc');
-    }
-
-    if ('groupBy' in updates) {
-      if (updates.groupBy) params.set('group', updates.groupBy);
-      else params.delete('group');
-    }
-
-    if ('page' in updates) {
-      if (updates.page && updates.page > 1) params.set('page', String(updates.page));
-      else params.delete('page');
-    }
-
-    if ('pageSize' in updates) {
-      if (updates.pageSize && updates.pageSize !== initialPageSize) params.set('pageSize', String(updates.pageSize));
-      else params.delete('pageSize');
-    }
-
-    if ('visibleColumns' in updates) {
-      if (updates.visibleColumns && updates.visibleColumns.length > 0) params.set('columns', updates.visibleColumns.join(','));
-      else params.delete('columns');
-    }
-
-    if ('filters' in updates && updates.filters) {
-      const currentKeys = Array.from(params.keys());
-      const keysToClear = filterKeys
-        ? currentKeys.filter((key) => filterKeys.includes(key))
-        : currentKeys.filter((key) => !MANAGED_PARAM_KEYS.includes(key));
-      keysToClear.forEach((key) => params.delete(key));
-      
-      if (filterKeys) {
-        filterKeys.forEach((key) => {
-          const values = updates.filters?.[key];
-          if (values && values.length > 0) {
-            params.set(key, values.join(','));
-          }
-        });
-      } else {
-        Object.entries(updates.filters).forEach(([key, values]) => {
-          if (values && values.length > 0) {
-            params.set(key, values.join(','));
-          }
-        });
-      }
-    }
-
-    pendingUrlUpdateRef.current = true;
-    router.push(`${pathname}?${params.toString()}`);
-  }, [filterKeys, router, pathname, searchParams, initialPageSize, state.sortBy, skipUrlSync, updateState]);
+  }, [commitTableUrl, skipUrlSync]);
 
   const setSearch = useCallback((search: string) => {
     updateUrl({ search, page: 1 });
@@ -280,12 +287,12 @@ export function useDataTable({
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
-    
+
     const newFilters = { ...state.filters, [key]: next.filter((v) => v != null) };
     if (next.length === 0) {
       delete newFilters[key];
     }
-    
+
     setFilters(newFilters);
   }, [state.filters, setFilters]);
 
@@ -345,25 +352,26 @@ export function useDataTable({
   }, [setFilters]);
 
   const resetFilters = useCallback(() => {
+    const resetState: DataTableState = {
+      search: '',
+      filters: defaultFilters,
+      sortBy: defaultSort.field,
+      sortDirection: defaultSort.direction,
+      groupBy: null,
+      page: 1,
+      pageSize: initialPageSize,
+      visibleColumns: defaultVisibleColumns,
+      defaultVisibleColumns,
+    };
+
     if (skipUrlSync) {
-      updateState({
-        search: '',
-        filters: defaultFilters,
-        sortBy: defaultSort.field,
-        sortDirection: defaultSort.direction,
-        groupBy: null,
-        page: 1,
-        pageSize: initialPageSize,
-        visibleColumns: defaultVisibleColumns,
-        defaultVisibleColumns,
-      });
+      updateState(resetState);
       return;
     }
 
-    // Clear everything explicitly in the URL
-    const params = new URLSearchParams();
-    router.push(`${pathname}?${params.toString()}`);
-  }, [defaultFilters, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, pathname, router, skipUrlSync, updateState]);
+    setState(resetState);
+    commitTableUrl(resetState);
+  }, [commitTableUrl, defaultFilters, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, skipUrlSync, updateState]);
 
   return {
     state,

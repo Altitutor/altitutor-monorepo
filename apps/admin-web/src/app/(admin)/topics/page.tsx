@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   TopicsTable,
   AddTopicModal,
@@ -10,10 +11,20 @@ import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 
 export default function TopicsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+
+  useEffect(() => {
+    const viewTopicId = searchParams.get('view');
+    if (viewTopicId) {
+      setSelectedTopicId(viewTopicId);
+      setIsViewModalOpen(true);
+    }
+  }, [searchParams]);
 
   const handleTopicAdded = () => {
     setRefreshCounter(prev => prev + 1);
@@ -27,6 +38,7 @@ export default function TopicsPage() {
   const handleCloseViewModal = () => {
     setIsViewModalOpen(false);
     setSelectedTopicId(null);
+    router.push('/topics');
   };
 
   const handleTopicUpdated = () => {
@@ -44,10 +56,12 @@ export default function TopicsPage() {
         />
       </div>
       
-      <TopicsTable 
-        onRefresh={refreshCounter}
-        onViewTopic={handleViewTopic}
-      />
+      <Suspense fallback={null}>
+        <TopicsTable 
+          onRefresh={refreshCounter}
+          onViewTopic={handleViewTopic}
+        />
+      </Suspense>
       
       <AddTopicModal 
         isOpen={isAddModalOpen} 

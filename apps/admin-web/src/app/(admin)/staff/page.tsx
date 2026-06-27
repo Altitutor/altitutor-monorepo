@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { StaffTable, AddStaffModal, ViewStaffModal } from '@/features/staff';
 import { AdminPageActionButton } from '@/shared/components';
@@ -47,7 +47,9 @@ export default function StaffPage() {
         />
       </div>
       
-      <StaffTable onRefresh={refreshCounter} />
+      <Suspense fallback={null}>
+        <StaffTable onRefresh={refreshCounter} />
+      </Suspense>
       
       <AddStaffModal 
         isOpen={isAddModalOpen} 

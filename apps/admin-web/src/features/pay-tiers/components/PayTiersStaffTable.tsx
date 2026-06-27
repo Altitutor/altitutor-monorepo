@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -37,6 +38,7 @@ type StaffRow = StaffSummary & {
 };
 
 export function PayTiersStaffTable() {
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: staffRaw = [], isLoading, isError, refetch, isFetching } = usePayTiersStaffSummaries();
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
