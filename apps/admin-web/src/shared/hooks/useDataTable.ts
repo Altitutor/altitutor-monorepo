@@ -79,6 +79,7 @@ export function useDataTable({
         page: 1,
         pageSize: initialPageSize,
         visibleColumns: defaultVisibleColumns,
+        defaultVisibleColumns,
       };
     }
 
@@ -107,6 +108,7 @@ export function useDataTable({
         page: 1,
         pageSize: initialPageSize,
         visibleColumns: defaultVisibleColumns,
+        defaultVisibleColumns,
       };
     }
 
@@ -119,6 +121,7 @@ export function useDataTable({
       page,
       pageSize,
       visibleColumns,
+      defaultVisibleColumns,
     };
   }, [searchParams, defaultFilters, defaultSort, initialPageSize, defaultVisibleColumns, parseFiltersFromUrl, skipUrlSync, isManagedKey]);
 
@@ -352,6 +355,7 @@ export function useDataTable({
         page: 1,
         pageSize: initialPageSize,
         visibleColumns: defaultVisibleColumns,
+        defaultVisibleColumns,
       });
       return;
     }

@@ -40,6 +40,13 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import {
+  canResolveDefaultVisibleColumns,
+  countColumnViewLayoutDiff,
+  countVisibleColumnLayoutDiff,
+  ensureAtLeastOneVisibleColumn,
+  resolveDefaultVisibleColumns,
+} from '../lib/column-view-layout';
 
 interface DataTableToolbarProps {
   state: DataTableState;
@@ -55,6 +62,8 @@ interface DataTableToolbarProps {
   sortOptions?: DataTableSortOption[];
   groupByOptions?: DataTableGroupByOption[];
   columnDefinitions?: DataTableColumnDefinition[];
+  /** Default visible columns; when omitted, derived from columnDefinitions.visibleByDefault when set */
+  defaultVisibleColumns?: string[];
   quickFilters?: QuickFilter[];
   
   className?: string;
@@ -100,6 +109,8 @@ export interface DataTableColumnViewGroup {
   columnDefinitions: DataTableColumnDefinition[];
   visibleColumns: string[];
   onVisibleColumnsChange: (columns: string[]) => void;
+  /** Default visible columns for this group; when omitted, derived from columnDefinitions.visibleByDefault when set */
+  defaultVisibleColumns?: string[];
 }
 
 export interface DataTableSearchFromOption {
@@ -120,6 +131,7 @@ export function DataTableToolbar({
   sortOptions = [],
   groupByOptions = [],
   columnDefinitions = [],
+  defaultVisibleColumns,
   quickFilters = [],
   className,
   rowClassName,
@@ -298,9 +310,6 @@ export function DataTableToolbar({
   };
 
   const labelClass = compact ? 'sr-only' : 'hidden md:inline';
-  const labelFlexClass = compact
-    ? 'sr-only'
-    : 'hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap';
   const controlBtnClass = (extra?: string) => cn(compact ? 'size-9 p-0' : 'h-10', controlClassName, extra);
   const iconClass = (extra?: string) => cn('h-4 w-4 shrink-0', !compact && 'md:mr-2', extra);
 
@@ -310,16 +319,89 @@ export function DataTableToolbar({
       : []
   );
 
+  const resolvedDefaultVisibleColumns = defaultVisibleColumns ?? state.defaultVisibleColumns;
+
   const toggleColumnVisibility = (
     group: DataTableColumnViewGroup,
     columnKey: string,
     checked: boolean,
   ) => {
+    if (
+      !checked &&
+      group.visibleColumns.length === 1 &&
+      group.visibleColumns.includes(columnKey)
+    ) {
+      return;
+    }
     const next = checked
       ? [...group.visibleColumns, columnKey]
       : group.visibleColumns.filter((key) => key !== columnKey);
-    group.onVisibleColumnsChange(next);
+    group.onVisibleColumnsChange(
+      ensureAtLeastOneVisibleColumn(
+        next,
+        group.columnDefinitions.map((column) => column.key),
+      ),
+    );
   };
+
+  const handleVisibleColumnsChange = React.useCallback(
+    (columns: string[]) => {
+      onVisibleColumnsChange(
+        ensureAtLeastOneVisibleColumn(
+          columns,
+          columnDefinitions.map((column) => column.key),
+        ),
+      );
+    },
+    [columnDefinitions, onVisibleColumnsChange],
+  );
+
+  const viewLayoutChangeCount = React.useMemo(() => {
+    if (columnViewGroups.length > 0) {
+      return countColumnViewLayoutDiff(columnViewGroups);
+    }
+    if (columnDefinitions.length === 0) {
+      return 0;
+    }
+    if (!canResolveDefaultVisibleColumns(columnDefinitions, resolvedDefaultVisibleColumns)) {
+      return 0;
+    }
+    const defaults = resolveDefaultVisibleColumns(columnDefinitions, resolvedDefaultVisibleColumns);
+    return countVisibleColumnLayoutDiff(state.visibleColumns, defaults);
+  }, [
+    columnViewGroups,
+    columnDefinitions,
+    resolvedDefaultVisibleColumns,
+    state.visibleColumns,
+  ]);
+
+  const handleResetViewLayout = React.useCallback(() => {
+    if (columnViewGroups.length > 0) {
+      columnViewGroups.forEach((group) => {
+        if (!canResolveDefaultVisibleColumns(group.columnDefinitions, group.defaultVisibleColumns)) {
+          return;
+        }
+        group.onVisibleColumnsChange(
+          ensureAtLeastOneVisibleColumn(
+            resolveDefaultVisibleColumns(group.columnDefinitions, group.defaultVisibleColumns),
+            group.columnDefinitions.map((column) => column.key),
+          ),
+        );
+      });
+      return;
+    }
+    if (!canResolveDefaultVisibleColumns(columnDefinitions, resolvedDefaultVisibleColumns)) {
+      return;
+    }
+    handleVisibleColumnsChange(
+      resolveDefaultVisibleColumns(columnDefinitions, resolvedDefaultVisibleColumns),
+    );
+  }, [
+    columnViewGroups,
+    columnDefinitions,
+    resolvedDefaultVisibleColumns,
+    handleVisibleColumnsChange,
+  ]);
 
   const searchFromControl = searchFromEnabled && !searchFromInView ? (
     <DropdownMenu>
@@ -421,6 +503,7 @@ export function DataTableToolbar({
             columnDefinitions.length > 0 ||
             (searchFromInView &&
               (stemSearchFromOptions.length > 0 || searchFromViewGroupsResolved.length > 0))) && (
+            <div className="relative flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={controlBtnClass()} aria-label="View options">
@@ -438,6 +521,9 @@ export function DataTableToolbar({
                         <DropdownMenuCheckboxItem
                           key={col.key}
                           checked={group.visibleColumns.includes(col.key)}
+                          disabled={
+                            group.visibleColumns.length === 1 && group.visibleColumns.includes(col.key)
+                          }
                           onCheckedChange={(checked) =>
                             toggleColumnVisibility(group, col.key, checked === true)
                           }
@@ -460,7 +546,12 @@ export function DataTableToolbar({
                       <SearchableSelectInline<DataTableColumnDefinition>
                         items={columnDefinitions}
                         value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
-                        onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
+                        onValueChange={(cols) => {
+                          if (cols.length === 0) {
+                            return;
+                          }
+                          handleVisibleColumnsChange(cols.map((c) => c.key));
+                        }}
                         getItemId={(c) => c.key}
                         getItemLabel={(c) => c.label}
                         searchPlaceholder="Search columns..."
@@ -506,6 +597,15 @@ export function DataTableToolbar({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            {viewLayoutChangeCount > 0 ? (
+              <ToolbarActiveBadge
+                onClear={handleResetViewLayout}
+                ariaLabel="Reset column layout to default"
+              >
+                {viewLayoutChangeCount}
+              </ToolbarActiveBadge>
+            ) : null}
+            </div>
           )}
 
           {/* Group By */}
@@ -557,17 +657,11 @@ export function DataTableToolbar({
                   <Button
                     variant="outline"
                     size="sm"
-                    className={controlBtnClass('flex-nowrap shrink-0')}
+                    className={controlBtnClass()}
                     aria-label="Sort"
                   >
                     <ArrowUpDown className={iconClass()} />
-                    <span className={labelFlexClass}>
-                      {state.sortBy ? (
-                        <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
-                      ) : (
-                        'Sort by'
-                      )}
-                    </span>
+                    <span className={labelClass}>Sort</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[240px]">
@@ -614,12 +708,21 @@ export function DataTableToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.sortBy ? (
-                <ToolbarActiveBadge onClear={() => onSortChange(null, 'desc')} ariaLabel="Clear sort">
-                  {state.sortDirection === 'asc' ? (
-                    <ArrowUp className="h-3 w-3" />
-                  ) : (
-                    <ArrowDown className="h-3 w-3" />
-                  )}
+                <ToolbarActiveBadge
+                  onClear={() => onSortChange(null, 'desc')}
+                  ariaLabel={`Clear sort by ${sortOptions.find((o) => o.key === state.sortBy)?.label ?? state.sortBy}`}
+                  className="max-w-28 min-w-0"
+                >
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-0.5">
+                    <span className="min-w-0 flex-1 truncate">
+                      {sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}
+                    </span>
+                    {state.sortDirection === 'asc' ? (
+                      <ArrowUp className="h-3 w-3 shrink-0" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3 shrink-0" />
+                    )}
+                  </span>
                 </ToolbarActiveBadge>
               ) : null}
             </div>
