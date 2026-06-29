@@ -1,6 +1,37 @@
 import type { Metadata } from "next";
+import { Cormorant_Garamond, IBM_Plex_Mono, Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import clsx from "clsx";
 import "./globals.css";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+const bodyFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plus-jakarta-sans",
+  display: "swap",
+});
+
+const headingFont = Outfit({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-outfit",
+  display: "swap",
+});
+
+const displayFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  style: ["italic"],
+  variable: "--font-cormorant-garamond",
+  display: "swap",
+});
+
+const monoFont = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -33,7 +64,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-AU">
+    <html lang="en-AU" className={clsx(bodyFont.variable, headingFont.variable, displayFont.variable, monoFont.variable)}>
       <body>{children}</body>
     </html>
   );

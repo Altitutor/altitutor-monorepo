@@ -1,5 +1,5 @@
 import Link, { type LinkProps } from "next/link";
-import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, HTMLAttributes } from "react";
 import clsx from "clsx";
 import styles from "./MarketingUI.module.css";
 
@@ -22,6 +22,31 @@ export function MarketingButton({
       )}
       data-marketing-button
       data-button-variant={variant}
+      {...props}
+    />
+  );
+}
+
+type MarketingActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "filled" | "outline";
+};
+
+export function MarketingActionButton({
+  className,
+  variant = "filled",
+  type = "button",
+  ...props
+}: MarketingActionButtonProps) {
+  return (
+    <button
+      className={clsx(
+        styles.button,
+        variant === "filled" ? styles.filled : styles.outline,
+        className,
+      )}
+      data-marketing-button
+      data-button-variant={variant}
+      type={type}
       {...props}
     />
   );
