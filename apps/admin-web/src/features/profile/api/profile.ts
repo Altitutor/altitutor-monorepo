@@ -1,10 +1,15 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Tables } from '@altitutor/shared';
+import { uploadStaffProfileImage, deleteFromBucket } from '@/shared/lib/supabase/storage';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 
 type StaffRow = Tables<'staff'>;
 
+const PROFILE_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 export interface StaffProfileUpdate {
   phone_number?: string;
+  profile_bio?: string | null;
+  profile_image_file_id?: string | null;
   // Availability fields (individual days)
   availability_monday?: boolean;
   availability_tuesday?: boolean;
@@ -59,9 +64,82 @@ export const profileApi = {
 
     const result = await response.json();
     return result.data as StaffRow;
+  },
+
+  getProfileImageUrl: async (fileId: string | null | undefined): Promise<string | null> => {
+    if (!fileId) return null;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('files')
+      .select('bucket, storage_path')
+      .eq('id', fileId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.bucket || !data.storage_path) return null;
+
+    const { data: urlData } = supabase.storage
+      .from(data.bucket)
+      .getPublicUrl(data.storage_path);
+
+    return urlData.publicUrl;
+  },
+
+  uploadProfileImage: async (staffId: string, file: File): Promise<Tables<'files'>> => {
+    if (!PROFILE_IMAGE_MIME_TYPES.has(file.type)) {
+      throw new Error('Please choose a JPEG, PNG, or WebP image.');
+    }
+
+    const supabase = getSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data: staff } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const { path } = await uploadStaffProfileImage({ staffId, file });
+
+    const fileData: TablesInsert<'files'> = {
+      mimetype: file.type,
+      filename: file.name,
+      size_bytes: file.size,
+      metadata: {
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+        purpose: 'staff-profile-image',
+      },
+      storage_provider: 'supabase',
+      bucket: 'staff-profile-images',
+      storage_path: path,
+      created_by: staff?.id ?? null,
+    };
+
+    const { data: created, error } = await supabase
+      .from('files')
+      .insert(fileData)
+      .select()
+      .single();
+
+    if (error || !created) {
+      try {
+        await deleteFromBucket('staff-profile-images', path);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup profile image after file insert error:', cleanupError);
+      }
+      throw error ?? new Error('Failed to create profile image record');
+    }
+
+    return created as Tables<'files'>;
   }
 };
-
 
 
 

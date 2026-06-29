@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
+import { sitemapPages } from "@/content/marketing-pages";
 import { SITE_URL } from "@/lib/site";
-import { getSitemapPages } from "@/lib/wordpress";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return getSitemapPages().map((page) => ({
+  return sitemapPages.map((page) => ({
     url: `${SITE_URL}${page.path}`,
     lastModified: page.modified,
     changeFrequency: page.path === "/" ? "weekly" : "monthly",

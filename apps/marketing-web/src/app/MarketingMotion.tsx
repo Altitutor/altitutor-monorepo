@@ -1,43 +1,64 @@
 "use client";
 
 import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useEffect, useRef } from "react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function MarketingMotion({ children }: { children: React.ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const nav = root.querySelector<HTMLElement>(".marketing-nav");
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
 
-    const ctx = gsap.context(() => {
-      gsap.from("[data-hero-reveal]", {
-        y: 36,
-        opacity: 0,
-        duration: 1.05,
-        stagger: 0.07,
+    root.classList.add("marketing-motion-ready");
+
+    let ticking = false;
+    const updateNav = () => {
+      ticking = false;
+      nav?.classList.toggle("marketing-nav--scrolled", window.scrollY > 100);
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(updateNav);
+    };
+
+    updateNav();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    const heroElements = Array.from(root.querySelectorAll<HTMLElement>("[data-hero-reveal]"));
+
+    if (reduceMotion) {
+      heroElements.forEach((element) => element.classList.add("is-revealed"));
+      return () => {
+        window.removeEventListener("scroll", onScroll);
+        root.classList.remove("marketing-motion-ready");
+      };
+    }
+
+    const heroTween = gsap.fromTo(
+      heroElements,
+      { y: 40, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 1.2,
+        stagger: 0.08,
         ease: "power3.out",
-      });
+        delay: 0.2,
+        clearProps: "opacity,transform",
+        onComplete: () => heroElements.forEach((element) => element.classList.add("is-revealed")),
+      },
+    );
 
-      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((element) => {
-        gsap.from(element, {
-          y: 28,
-          opacity: 0,
-          duration: 0.9,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: element,
-            start: "top 82%",
-            once: true,
-          },
-        });
-      });
-    }, rootRef);
-
-    return () => ctx.revert();
+    return () => {
+      heroTween.kill();
+      window.removeEventListener("scroll", onScroll);
+      root.classList.remove("marketing-motion-ready");
+    };
   }, []);
 
   return <div ref={rootRef}>{children}</div>;

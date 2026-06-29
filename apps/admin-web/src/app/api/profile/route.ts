@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 // Whitelist of fields that admin staff are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
   'phone_number',
+  'profile_bio',
+  'profile_image_file_id',
   'availability_monday',
   'availability_tuesday',
   'availability_wednesday',
@@ -86,7 +88,17 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, unknown> = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in body) {
-        updates[field] = body[field];
+        if (field === 'profile_bio') {
+          if (typeof body[field] === 'string' || body[field] === null) {
+            updates[field] = typeof body[field] === 'string' ? body[field].slice(0, 1200) : null;
+          }
+        } else if (field === 'profile_image_file_id') {
+          if (typeof body[field] === 'string' || body[field] === null) {
+            updates[field] = body[field];
+          }
+        } else {
+          updates[field] = body[field];
+        }
       }
     }
     
@@ -96,6 +108,23 @@ export async function PATCH(request: NextRequest) {
         { error: 'No valid fields provided for update' },
         { status: 400 }
       );
+    }
+
+    if (typeof updates.profile_image_file_id === 'string') {
+      const { data: imageFile, error: imageFileError } = await supabaseAdmin
+        .from('files')
+        .select('id, bucket, mimetype')
+        .eq('id', updates.profile_image_file_id)
+        .eq('bucket', 'staff-profile-images')
+        .like('mimetype', 'image/%')
+        .maybeSingle();
+
+      if (imageFileError || !imageFile) {
+        return NextResponse.json(
+          { error: 'Invalid profile image file' },
+          { status: 400 }
+        );
+      }
     }
     
     // Use admin client to update the staff record
@@ -128,4 +157,3 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
-

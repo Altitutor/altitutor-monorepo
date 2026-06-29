@@ -334,6 +334,8 @@ describe('processSessionStaff', () => {
     current_tier_number: 1,
     employment_started_at: '2024-01-01T00:00:00.000Z',
     metric_overrides: {},
+    profile_bio: null,
+    profile_image_file_id: null,
   };
 
   it('should process staff with planned attendance', () => {

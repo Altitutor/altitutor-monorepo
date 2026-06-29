@@ -1,3 +1,34 @@
+function getSupabaseStorageRemotePatterns() {
+  const urls = [
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_PROJECT_REF ? `https://${process.env.SUPABASE_PROJECT_REF}.supabase.co` : undefined,
+    ...(process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URLS ?? "").split(","),
+  ];
+
+  const patterns = new Map();
+
+  for (const value of urls) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+
+    try {
+      const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+
+      patterns.set(`${url.protocol}//${url.host}`, {
+        protocol: url.protocol.replace(":", ""),
+        hostname: url.hostname,
+        port: url.port,
+        pathname: "/storage/v1/object/public/**",
+      });
+    } catch {
+      console.warn(`Ignoring invalid Supabase Storage URL in marketing-web next.config.js: ${trimmed}`);
+    }
+  }
+
+  return Array.from(patterns.values());
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -5,11 +36,7 @@ const nextConfig = {
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "altitutor.com",
-        pathname: "/wp-content/uploads/**",
-      },
+      ...getSupabaseStorageRemotePatterns(),
       {
         protocol: "https",
         hostname: "student.altitutor.com",
@@ -20,11 +47,17 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/wp-content/:path*",
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: ".*\\.vercel\\.app",
+          },
+        ],
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400",
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
           },
         ],
       },

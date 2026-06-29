@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { HomeExperience } from "../HomeExperience";
+import { MarketingNav } from "../MarketingNav";
 import { MarketingMotion } from "../MarketingMotion";
+import { MarketingButton, MarketingCard, MarketingHeading } from "../MarketingUI";
+import { marketingPages, type MarketingPage, type MarketingPageSection } from "@/content/marketing-pages";
 import {
-  createMetadata,
-  getAllMarketingPages,
-  getMarketingPage,
-  getPageSchema,
-  getRenderableHtml,
-  pathFromSlug,
-  type MarketingPage,
-} from "@/lib/wordpress";
-import { NAV_ITEMS, PRODUCT_LINKS, SITE_NAME, SITE_URL } from "@/lib/site";
+  getMarketingStaffProfiles,
+  getStaffProfileImageUrl,
+  type MarketingStaffProfile,
+} from "@/lib/staff-profiles";
+import { COURSE_LINKS, PRODUCT_LINKS, SITE_NAME, SITE_URL } from "@/lib/site";
 
 type PageProps = {
   params: {
@@ -28,152 +28,185 @@ const SOCIAL_LINKS = [
   ["YouTube", "https://www.youtube.com/channel/UCtHb57z0bE-caSB76YguEMA"],
 ] as const;
 
-const COURSE_LINKS = [
-  ["/classes/weekly-classes/", "Weekly subject tutoring"],
-  ["/classes/english-assignment-drafting/", "English drafting"],
-  ["/classes/examprep/", "Exam preparation"],
-  ["/classes/ucatprep/", "UCAT preparation"],
-  ["/classes/medical-interview-preparation/", "Medical interviews"],
-] as const;
+function normalizePath(path: string) {
+  if (!path || path === "/") return "/";
+  const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
+  return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+}
 
-const HERO_IMAGES: Record<string, string> = {
-  "/": "/wp-content/uploads/2021/12/website-resources-ipad-iphone.psd-600x443.png",
-  "/classes/": "/wp-content/uploads/2021/12/Pre-course-prep-1-1075x1536.png",
-  "/classes/weekly-classes/": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-1-1080x1536.png",
-  "/classes/english-assignment-drafting/": "/wp-content/uploads/2021/12/SACE-EngLit-draft-1-1024x1006.png",
-  "/classes/examprep/": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-1088x1536.png",
-  "/classes/ucatprep/": "/wp-content/uploads/2021/12/UCAT-QR-online-13-inch-MBP.png",
-  "/classes/medical-interview-preparation/": "/wp-content/uploads/2026/03/Josh.jpg",
-  "/resources/": "/wp-content/uploads/2021/12/Anki-iphone-ipad-1024x763.png",
-  "/about/": "/wp-content/uploads/2021/12/Profile-Picture-cropped-1024x1024.jpg",
-  "/about/testimonials/": "/wp-content/uploads/2026/03/Darshil-1024x1024.jpg",
-  "/about/apply/": "/wp-content/uploads/2026/03/square-image.jpg",
-};
+function pathFromSlug(slug?: string[]) {
+  if (!slug || slug.length === 0) return "/";
+  return normalizePath(slug.join("/"));
+}
+
+function getMarketingPage(path: string) {
+  const normalizedPath = normalizePath(path);
+  return marketingPages.find((page) => page.path === normalizedPath);
+}
 
 export function generateStaticParams() {
-  return getAllMarketingPages()
-    .filter((page) => page.path !== "/")
-    .map((page) => ({
-      slug: page.path.replace(/^\/|\/$/g, "").split("/"),
-    }));
+  return marketingPages.map((page) => ({
+    slug: page.path === "/" ? [] : page.path.replace(/^\/|\/$/g, "").split("/"),
+  }));
 }
+
+export const dynamicParams = false;
 
 export function generateMetadata({ params }: PageProps): Metadata {
   const page = getMarketingPage(pathFromSlug(params.slug));
-  return createMetadata(page);
+
+  if (!page) {
+    return {
+      title: `Page not found | ${SITE_NAME}`,
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const shouldIndex = page.seo.index !== false;
+
+  return {
+    title: {
+      absolute: page.seo.title,
+    },
+    description: page.seo.description,
+    keywords: page.seo.keywords,
+    alternates: {
+      canonical: `${SITE_URL}${page.path}`,
+    },
+    openGraph: {
+      type: "website",
+      locale: "en_AU",
+      siteName: SITE_NAME,
+      title: page.seo.title,
+      description: page.seo.description,
+      url: `${SITE_URL}${page.path}`,
+      images: page.hero.image
+        ? [
+            {
+              url: `${SITE_URL}${page.hero.image}`,
+              alt: page.title,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: page.seo.title,
+      description: page.seo.description,
+      images: page.hero.image ? [`${SITE_URL}${page.hero.image}`] : undefined,
+    },
+    robots: {
+      index: shouldIndex,
+      follow: true,
+      googleBot: {
+        index: shouldIndex,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
+  };
 }
 
-export default function MarketingRoute({ params }: PageProps) {
+export default async function MarketingRoute({ params }: PageProps) {
   const page = getMarketingPage(pathFromSlug(params.slug));
 
   if (!page) {
     notFound();
   }
 
-  const schema = getPageSchema(page);
-  const pageTitle = page.path === "/" ? "Adelaide tutoring that makes schoolwork easier." : page.title;
-  const pageDescription = getPageDescription(page);
-  const heroImage = getFirstImage(page);
-  const mergedSchema = [schema, getLocalBusinessSchema(page)].filter(Boolean);
+  const structuredData = getStructuredData(page);
+  const isHome = page.path === "/";
+  const staffProfiles = page.path === "/about/" ? await getMarketingStaffProfiles() : [];
 
   return (
     <MarketingMotion>
-      {mergedSchema.length > 0 ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(mergedSchema) }}
-        />
-      ) : null}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      <div className="marketing-noise" aria-hidden>
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <filter id="marketingNoiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#marketingNoiseFilter)" />
+        </svg>
+      </div>
       <main className="marketing-site">
-        <header className="marketing-nav" data-reveal>
-          <Link className="marketing-nav__brand" href="/" aria-label="Altitutor home">
-            <Image
-              src="/wp-content/uploads/2021/01/Site-logo-large-1-300x55.png"
-              alt="Altitutor"
-              width={300}
-              height={55}
-              priority
-            />
-          </Link>
-          <nav className="marketing-nav__links" aria-label="Primary navigation">
-            {NAV_ITEMS.filter((item) =>
-              ["/", "/classes/", "/classes/ucatprep/", "/resources/", "/about/", "/about/contact/"].includes(
-                item.href,
-              ),
-            ).map((item) => (
-              <Link key={item.href} href={item.href}>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <Link className="marketing-button marketing-button--dark" href={PRODUCT_LINKS.trialBooking}>
-            Book trial
-          </Link>
-        </header>
+        <MarketingNav />
 
-        <section className="marketing-hero">
+        <section id={isHome ? "alti-home" : undefined} className={`marketing-hero ${isHome ? "marketing-hero--text-only" : ""}`}>
+          {isHome ? (
+            <Image
+              className="marketing-hero__background"
+              src="/images/landing/background-alt-scaled.jpg"
+              alt="Altitutor online learning dashboard and study resources"
+              fill
+              priority
+              sizes="100vw"
+            />
+          ) : null}
           <div className="marketing-hero__copy">
             <p className="marketing-kicker" data-hero-reveal>
               Adelaide tutoring for students and parents
             </p>
-            <h1 data-hero-reveal>{pageTitle}</h1>
+            <h1 data-hero-reveal aria-label={`${page.hero.noun} ${page.hero.power}.`}>
+              <span className="marketing-hero__sans">{page.hero.noun}</span>
+              {" "}
+              <span className="marketing-hero__drama">{page.hero.power}.</span>
+            </h1>
             <p className="marketing-hero__lead" data-hero-reveal>
-              {pageDescription}
+              {page.description}
             </p>
             <div className="marketing-hero__actions" data-hero-reveal>
-              <Link className="marketing-button marketing-button--accent" href={PRODUCT_LINKS.trialBooking}>
+              <MarketingButton href={PRODUCT_LINKS.trialBooking}>
                 Book a trial session
-              </Link>
-              <Link className="marketing-button marketing-button--ghost" href="/classes/">
+              </MarketingButton>
+              <MarketingButton variant="outline" href="/classes/">
                 View courses
-              </Link>
+              </MarketingButton>
             </div>
           </div>
-          <div className="marketing-hero__media" aria-hidden={!heroImage} data-hero-reveal>
-            {heroImage ? (
-              <Image src={heroImage} alt="" fill priority={page.path === "/"} sizes="(min-width: 1024px) 42vw, 100vw" />
-            ) : (
-              <div className="marketing-hero__mark">A</div>
-            )}
-          </div>
+          {!isHome ? (
+            <div className="marketing-hero__media" aria-hidden={!page.hero.image} data-hero-reveal>
+              {page.hero.image ? (
+                <Image src={page.hero.image} alt="" fill sizes="(min-width: 1024px) 42vw, 100vw" />
+              ) : (
+                <div className="marketing-hero__mark">A</div>
+              )}
+            </div>
+          ) : null}
         </section>
 
-        <section className="marketing-proof" aria-label="Altitutor details">
-          <div>
-            <strong>CBD learning centre</strong>
-            <span>Level 1, 17A Solomon St, Adelaide SA 5000</span>
-          </div>
-          <div>
-            <strong>Small group teaching</strong>
-            <span>Classes sorted by level, goals and learning ability.</span>
-          </div>
-          <div>
-            <strong>Not-for-profit model</strong>
-            <span>Revenue supports subsidised tuition for students who need it.</span>
-          </div>
-        </section>
+        {isHome ? (
+          <HomeExperience />
+        ) : (
+          <div className={`marketing-page-shell marketing-page-shell--${page.kind}`}>
+            <MarketingPageContent page={page} />
 
-        <article
-          className="marketing-content"
-          data-reveal
-          dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }}
-        />
+            {staffProfiles.length > 0 ? <StaffProfilesSection profiles={staffProfiles} /> : null}
 
-        <section className="marketing-cta" data-reveal>
-          <p className="marketing-kicker">Start with a real lesson</p>
-          <h2>Book a free 1 hour trial session in Adelaide.</h2>
-          <p>
-            Meet a tutor, discuss availability and logistics, and decide whether Altitutor is the right fit.
-          </p>
-          <Link className="marketing-button marketing-button--accent" href={PRODUCT_LINKS.trialBooking}>
-            Book a trial session
-          </Link>
-        </section>
+            <section className="marketing-cta" data-reveal>
+              <p className="marketing-kicker">Start with a real lesson</p>
+              <MarketingHeading variant="display">Book a free 1 hour trial session in Adelaide.</MarketingHeading>
+              <p>
+                Meet a tutor, discuss availability and logistics, and decide whether Altitutor is the right fit.
+              </p>
+              <MarketingButton href={PRODUCT_LINKS.trialBooking}>
+                Book a trial session
+              </MarketingButton>
+            </section>
+          </div>
+        )}
       </main>
 
       <footer className="marketing-footer">
         <div>
-          <h2>Altitutor.</h2>
+          <MarketingHeading variant="footer">Altitutor.</MarketingHeading>
+          <p className="marketing-footer__tagline">Adelaide tutoring for students who want schoolwork to become easier.</p>
+          <p className="marketing-footer__status"><span /> System Operational</p>
           <address>
             Level 1, 17A Solomon St
             <br />
@@ -190,7 +223,7 @@ export default function MarketingRoute({ params }: PageProps) {
           </div>
         </div>
         <nav aria-label="Education links">
-          <h3>Education</h3>
+          <MarketingHeading as="h3" variant="footer">Education</MarketingHeading>
           {COURSE_LINKS.map(([href, label]) => (
             <Link key={href} href={href}>
               {label}
@@ -198,7 +231,7 @@ export default function MarketingRoute({ params }: PageProps) {
           ))}
         </nav>
         <nav aria-label="Company links">
-          <h3>Company</h3>
+          <MarketingHeading as="h3" variant="footer">Company</MarketingHeading>
           <Link href="/about/">About us</Link>
           <Link href="/about/testimonials/">Testimonials</Link>
           <Link href="/about/subsidy/">Tuition subsidy</Link>
@@ -210,30 +243,96 @@ export default function MarketingRoute({ params }: PageProps) {
   );
 }
 
-function getPageDescription(page: MarketingPage) {
-  const seoDescription = page.seo?.description?.trim();
-  if (seoDescription) return seoDescription;
-  const text = stripHtml(page.excerpt || page.html);
-  if (text.length <= 220) return text;
-  return `${text.slice(0, 217).trim()}...`;
+function MarketingPageContent({ page }: { page: MarketingPage }) {
+  return (
+    <article className={`marketing-content marketing-content--${page.kind}`} data-page-path={page.path} data-reveal>
+      {page.sections.map((section) => (
+        <MarketingContentSection key={section.heading} section={section} />
+      ))}
+    </article>
+  );
 }
 
-function getFirstImage(page: MarketingPage) {
-  if (HERO_IMAGES[page.path]) return HERO_IMAGES[page.path];
-  const match = page.html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
-  if (!match?.[1]) return undefined;
-  return match[1]
-    .replace("https://altitutor.com/wp-content/", "/wp-content/")
-    .replace("http://altitutor.com/wp-content/", "/wp-content/");
+function MarketingContentSection({ section }: { section: MarketingPageSection }) {
+  return (
+    <MarketingCard as="section" className="marketing-rich-section">
+      {section.eyebrow ? <p className="marketing-kicker">{section.eyebrow}</p> : null}
+      <MarketingHeading>{section.heading}</MarketingHeading>
+      {section.body?.map((paragraph) => (
+        <p key={paragraph}>{paragraph}</p>
+      ))}
+      {section.list ? (
+        <ul>
+          {section.list.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+      {section.cards ? (
+        <div className="marketing-rich-grid">
+          {section.cards.map((card) => (
+            <MarketingCard className="marketing-rich-card" key={card.title}>
+              <MarketingHeading as="h3" variant="card">{card.title}</MarketingHeading>
+              <p>{card.description}</p>
+              {card.href ? (
+                <MarketingButton href={card.href}>
+                  Learn more
+                </MarketingButton>
+              ) : null}
+            </MarketingCard>
+          ))}
+        </div>
+      ) : null}
+    </MarketingCard>
+  );
 }
 
-function getLocalBusinessSchema(page: MarketingPage) {
-  return {
+function StaffProfilesSection({ profiles }: { profiles: MarketingStaffProfile[] }) {
+  return (
+    <section className="marketing-staff" data-reveal>
+      <div className="marketing-staff__intro">
+        <p className="marketing-kicker">Our team</p>
+        <MarketingHeading variant="display">Meet the people behind Altitutor.</MarketingHeading>
+      </div>
+      <div className="marketing-staff__grid">
+        {profiles.map((profile) => {
+          const imageUrl = getStaffProfileImageUrl(profile);
+          const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
+          const paragraphs = (profile.profile_bio ?? "")
+            .split(/\n{2,}/)
+            .map((paragraph) => paragraph.trim())
+            .filter(Boolean);
+
+          return (
+            <MarketingCard className="marketing-staff__profile" key={profile.staff_id}>
+              {imageUrl ? (
+                <Image src={imageUrl} alt={name} width={360} height={360} sizes="(min-width: 900px) 18rem, 100vw" />
+              ) : (
+                <div className="marketing-staff__placeholder" aria-hidden>
+                  {name.slice(0, 1)}
+                </div>
+              )}
+              <div>
+                <MarketingHeading as="h3" variant="card">{name}</MarketingHeading>
+                {paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+            </MarketingCard>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function getStructuredData(page: MarketingPage) {
+  const organization = {
     "@context": "https://schema.org",
     "@type": "EducationalOrganization",
     name: SITE_NAME,
-    url: `${SITE_URL}${page.path}`,
-    description: getPageDescription(page),
+    url: SITE_URL,
+    description: marketingPages[0].description,
     telephone: "+61483849842",
     email: "admin@altitutor.com",
     address: {
@@ -254,16 +353,37 @@ function getLocalBusinessSchema(page: MarketingPage) {
       "Exam preparation",
     ],
   };
-}
 
-function stripHtml(html: string) {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#8217;/g, "'")
-    .replace(/&#8220;|&#8221;/g, '"')
-    .replace(/&#8211;/g, "-")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+  const webPage = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: page.title,
+    url: `${SITE_URL}${page.path}`,
+    description: page.description,
+    isPartOf: {
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+  };
+
+  if (page.kind === "course-detail") {
+    return [
+      organization,
+      webPage,
+      {
+        "@context": "https://schema.org",
+        "@type": "Course",
+        name: page.title,
+        description: page.description,
+        provider: {
+          "@type": "EducationalOrganization",
+          name: SITE_NAME,
+          sameAs: SITE_URL,
+        },
+      },
+    ];
+  }
+
+  return [organization, webPage];
 }
