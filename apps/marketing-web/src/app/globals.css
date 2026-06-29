@@ -4087,11 +4087,18 @@ body {
   }
 }
 
-/* Native scrollbars avoid reserving a visible gutter on full-width marketing sections. */
+/* Keep the marketing canvas full-bleed even when the OS is set to always show scrollbars. */
 html {
   overflow-x: clip;
   overflow-y: auto;
   scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Header CTA returns to translucent over the hero, then fills after scroll. */
