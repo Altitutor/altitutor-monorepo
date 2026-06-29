@@ -21,7 +21,7 @@
     "db:committypes": "supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
   },
   "devDependencies": {
-    "supabase": "^2.76.9",
+    "supabase": "^2.108.0",
     "turbo": "^2.10.0"
   },
   "packageManager": "pnpm@11.7.0",
