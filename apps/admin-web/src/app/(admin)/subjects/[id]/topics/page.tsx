@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopicsTable, AddTopicModal } from '@/features/topics';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { Loader2 } from 'lucide-react';
@@ -66,14 +67,12 @@ export default function SubjectTopicsPage({ params }: { params: { id: string } }
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Topics & Files</h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {subject.name}
-          </p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Topic
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Topic"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <TopicsTable 

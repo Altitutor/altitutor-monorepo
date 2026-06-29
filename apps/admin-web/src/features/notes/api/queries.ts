@@ -1,7 +1,49 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { notesApi } from './notes';
 import { foldersApi } from './folders';
 import { notesKeys, foldersKeys } from './queryKeys';
+import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
+
+const DOCUMENT_REALTIME_DEBOUNCE_MS = 150;
+
+const getNoteDocumentDetailKey = (id: string) => notesKeys.detail(id);
+const getNoteDocumentRelatedKeys = (row: { folder_id?: string | null; project_id?: string | null }) => {
+  const keys: QueryKey[] = [foldersKeys.tree()];
+
+  if (row.folder_id) {
+    keys.push([...notesKeys.lists(), 'folder', row.folder_id]);
+  }
+
+  if (row.project_id) {
+    keys.push(notesKeys.list({ projectId: row.project_id }));
+  }
+
+  return keys;
+};
+
+const getFolderDetailKey = (id: string) => foldersKeys.detail(id);
+
+function useNoteDocumentsRealtimeInvalidation(enabled = true) {
+  useSupabaseRealtimeInvalidation({
+    table: 'notes_documents',
+    queryKey: notesKeys.all,
+    detailKey: getNoteDocumentDetailKey,
+    getRelatedKeys: getNoteDocumentRelatedKeys,
+    extraQueryKeys: [foldersKeys.tree()],
+    debounceMs: DOCUMENT_REALTIME_DEBOUNCE_MS,
+    enabled,
+  });
+}
+
+function useNoteFoldersRealtimeInvalidation() {
+  useSupabaseRealtimeInvalidation({
+    table: 'notes_folders',
+    queryKey: foldersKeys.all,
+    detailKey: getFolderDetailKey,
+    extraQueryKeys: [notesKeys.lists()],
+    debounceMs: 500,
+  });
+}
 
 /**
  * Get all notes with optional filters
@@ -10,6 +52,8 @@ export function useNotes(
   filters?: { folderId?: string | null; projectId?: string | null; search?: string },
   enabled = true
 ) {
+  useNoteDocumentsRealtimeInvalidation(enabled);
+
   return useQuery({
     queryKey: notesKeys.list(filters),
     queryFn: () => notesApi.list(filters),
@@ -23,6 +67,8 @@ export function useNotes(
  * Get notes by folder ID
  */
 export function useNotesByFolder(folderId: string, enabled = true) {
+  useNoteDocumentsRealtimeInvalidation(enabled && !!folderId);
+
   return useQuery({
     queryKey: [...notesKeys.lists(), 'folder', folderId],
     queryFn: () => notesApi.listByFolder(folderId),
@@ -36,6 +82,8 @@ export function useNotesByFolder(folderId: string, enabled = true) {
  * Get a single note by ID
  */
 export function useNote(noteId: string, enabled = true) {
+  useNoteDocumentsRealtimeInvalidation(enabled && !!noteId);
+
   return useQuery({
     queryKey: notesKeys.detail(noteId),
     queryFn: () => notesApi.get(noteId),
@@ -49,6 +97,8 @@ export function useNote(noteId: string, enabled = true) {
  * Get all folders
  */
 export function useFolders() {
+  useNoteFoldersRealtimeInvalidation();
+
   return useQuery({
     queryKey: foldersKeys.list(),
     queryFn: () => foldersApi.list(),
@@ -61,6 +111,8 @@ export function useFolders() {
  * Get root folders (folders with no parent)
  */
 export function useRootFolders() {
+  useNoteFoldersRealtimeInvalidation();
+
   return useQuery({
     queryKey: foldersKeys.root(),
     queryFn: () => foldersApi.listRoot(),
@@ -73,6 +125,8 @@ export function useRootFolders() {
  * Get folders by parent ID
  */
 export function useFoldersByParent(parentId: string, enabled = true) {
+  useNoteFoldersRealtimeInvalidation();
+
   return useQuery({
     queryKey: foldersKeys.byParent(parentId),
     queryFn: () => foldersApi.listByParent(parentId),
@@ -86,6 +140,8 @@ export function useFoldersByParent(parentId: string, enabled = true) {
  * Get a single folder by ID
  */
 export function useFolder(folderId: string, enabled = true) {
+  useNoteFoldersRealtimeInvalidation();
+
   return useQuery({
     queryKey: foldersKeys.detail(folderId),
     queryFn: () => foldersApi.get(folderId),
@@ -99,6 +155,9 @@ export function useFolder(folderId: string, enabled = true) {
  * Get folder tree with notes (recursive structure)
  */
 export function useFolderTree() {
+  useNoteDocumentsRealtimeInvalidation();
+  useNoteFoldersRealtimeInvalidation();
+
   return useQuery({
     queryKey: foldersKeys.tree(),
     queryFn: () => foldersApi.getTree(),

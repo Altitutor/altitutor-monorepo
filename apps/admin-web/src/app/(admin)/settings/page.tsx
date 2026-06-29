@@ -15,6 +15,7 @@ import {
   FileStack,
   GraduationCap,
   TrendingUp,
+  Layers,
 } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
@@ -162,6 +163,12 @@ export default function SettingsPage() {
           description: 'Create and manage templates for issues, projects, tasks, and notes',
           href: '/settings/rich-text-templates',
           icon: FileStack,
+        },
+        {
+          title: 'Manual online access',
+          description: 'Grant or revoke manual online product access for students by subject',
+          href: '/settings/manual-online-access',
+          icon: Layers,
         },
       ],
     },

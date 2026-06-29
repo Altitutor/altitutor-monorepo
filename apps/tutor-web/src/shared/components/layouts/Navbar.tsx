@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
-import { useRouter } from 'next/navigation';
-import { Bug, LogOut, Settings, User } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Bug, LogOut, Search, Settings, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -20,18 +20,23 @@ import {
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline } from '@/shared/lib/tutor-visual';
+import { shouldHideNavbar } from '@/shared/lib/shell-layout';
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
+  const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } =
+    useCommandPalette();
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -39,6 +44,25 @@ export function Navbar() {
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(staffRecord?.id ?? '');
+
+  useEffect(() => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+      if (e.key === 'Escape' && isCommandPaletteOpen) {
+        closeCommandPalette();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
+
+  if (shouldHideNavbar(pathname)) {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {
@@ -97,6 +121,18 @@ export function Navbar() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {user ? (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleCommandPalette}
+              className={cn(tutorBtnOutline, 'h-9 w-9')}
+              aria-label="Open quick navigator"
+              title="Quick navigator (Cmd+K / Ctrl+K)"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          ) : null}
           {/* Notifications Button */}
           {user && staffRecord?.id && (
             <NotificationsTray />

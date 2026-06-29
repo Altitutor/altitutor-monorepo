@@ -15,24 +15,19 @@ import {
 } from '@/features/ucat/questions/lib/parsers/splitStemDocument'
 import {
   mapParsedVerbalReasoningToFormValues,
-  getVerbalReasoningStemCategoryName,
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
 import {
   mapParsedDecisionMakingToFormValues,
-  getDecisionMakingStemCategoryName,
   isSyllogismQuestionText,
   parseDecisionMakingPlainText,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
   parseQuantitativeReasoningFromDoc,
   mapParsedQuantitativeReasoningToFormValues,
-  getQuantitativeReasoningStemCategoryName,
-  getQuantitativeReasoningTagPathsForQuestion,
   type ParseQuantitativeReasoningResult,
 } from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
 import {
   mapParsedSituationalJudgementToFormValues,
-  getSituationalJudgementStemCategoryName,
   parseSituationalJudgementFromDoc,
 } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
 import { parseVerbalReasoningFromDoc } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
@@ -40,14 +35,15 @@ import {
   collectDecisionMakingLinesWithSyllogismImageOcr,
   type DecisionMakingSyllogismOcrResult,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportDecisionMakingOcr'
+import {
+  inferBulkImportCategoryIdForParsedStem,
+  inferBulkImportTagIdsForParsedQuestion,
+  type BulkImportCategoryRow,
+  type BulkImportTagRow,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 
-type CategoryRow = { id?: string | null; ucat_section_id?: string | null; name?: string | null }
-type TagRow = {
-  id?: string | null
-  name?: string | null
-  parent_question_tag_id?: string | null
-  ucat_section_id?: string | null
-}
+type CategoryRow = BulkImportCategoryRow
+type TagRow = BulkImportTagRow
 
 type ParsedSectionResult =
   | { section: BulkImportParseSection; stems: ParsedStem[] }
@@ -170,11 +166,6 @@ export function mapParsedStemsToFormValues(
   tags: TagRow[] = []
 ): UcatQuestionStemFormValues[] {
   const stems = Array.isArray(parsed) ? parsed : parsed.stems
-  const getCategoryId = (name: string) =>
-    categories.find(
-      (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
-    )?.id ?? null
-  const getTagIdByPath = buildTagIdByPath(tags, sectionId)
 
   switch (section) {
     case 'verbal_reasoning':
@@ -182,7 +173,7 @@ export function mapParsedStemsToFormValues(
         sectionId,
         isPrivate: false,
         getCategoryIdForStem: (stem) =>
-          getCategoryId(getVerbalReasoningStemCategoryName(stem)),
+          inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
       })
     case 'decision_making':
       return mapParsedDecisionMakingToFormValues(
@@ -199,7 +190,7 @@ export function mapParsedStemsToFormValues(
           sectionId,
           isPrivate: false,
           getCategoryIdForStem: (stem) =>
-            getCategoryId(getDecisionMakingStemCategoryName(stem)),
+            inferBulkImportCategoryIdForParsedStem({ stem: stem as ParsedStem, section, sectionId, categories }),
         }
       )
     case 'quantitative_reasoning':
@@ -208,24 +199,18 @@ export function mapParsedStemsToFormValues(
         {
           sectionId,
           isPrivate: false,
-          getCategoryIdForStem: (stem) => {
-            const name = getQuantitativeReasoningStemCategoryName(stem)
-            return name ? getCategoryId(name) : null
-          },
+          getCategoryIdForStem: (stem) =>
+            inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
           getTagIdsForQuestion: ({ stem, question }) =>
-            getQuantitativeReasoningTagPathsForQuestion({ stem, question })
-              .map((path) => getTagIdByPath(path))
-              .filter((id): id is string => id != null),
+            inferBulkImportTagIdsForParsedQuestion({ stem, question, section, sectionId, tags }),
         }
       )
     case 'situational_judgement':
       return mapParsedSituationalJudgementToFormValues(stems, {
         sectionId,
         isPrivate: false,
-        getCategoryIdForStem: (stem) => {
-          const name = getSituationalJudgementStemCategoryName(stem)
-          return name ? getCategoryId(name) : null
-        },
+        getCategoryIdForStem: (stem) =>
+          inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
       })
     default:
       return []
@@ -240,41 +225,6 @@ function toQuantitativeReasoningResult(
     return { stems: parsed.stems, tableMap: parsed.tableMap }
   }
   return { stems, tableMap: new Map() }
-}
-
-type ResolvedTagRow = TagRow & { id: string; name: string }
-
-function buildTagIdByPath(tags: TagRow[], sectionId: string): (path: string[]) => string | null {
-  const rows = tags.filter((tag): tag is ResolvedTagRow => {
-    return typeof tag.id === 'string' && tag.id.length > 0 && typeof tag.name === 'string'
-  })
-  const byParent = new Map<string | null, ResolvedTagRow[]>()
-  for (const row of rows) {
-    const parentId = row.parent_question_tag_id ?? null
-    const current = byParent.get(parentId) ?? []
-    current.push(row)
-    byParent.set(parentId, current)
-  }
-
-  return (path: string[]) => {
-    let parentId: string | null = null
-    let matchedId: string | null = null
-    for (let index = 0; index < path.length; index += 1) {
-      const expected = path[index]?.trim().toLowerCase()
-      if (!expected) return null
-      const candidates: ResolvedTagRow[] = byParent.get(parentId) ?? []
-      const match = candidates.find((candidate: ResolvedTagRow) => {
-        const nameMatches = candidate.name.trim().toLowerCase() === expected
-        if (!nameMatches) return false
-        if (index === 0) return (candidate.ucat_section_id ?? null) === sectionId
-        return true
-      })
-      if (!match) return null
-      matchedId = match.id
-      parentId = match.id
-    }
-    return matchedId
-  }
 }
 
 export function buildFormValuesFromSeparateStemDocuments(

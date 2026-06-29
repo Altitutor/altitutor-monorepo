@@ -11,6 +11,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  if (pathname === "/pricing") {
+    return NextResponse.redirect(new URL("/subscribe", origin));
+  }
+
+  const publicPaths = ["/", "/login", "/signup", "/forgot-password"];
+  const isPublicPath = publicPaths.includes(pathname);
+  const isNoAuthPublicPath =
+    pathname === "/reset-password" ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/api/ucat/subscription-config" ||
+    pathname === "/api/ucat/signup/check-email";
+
+  if (isNoAuthPublicPath) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({
     request,
   });
@@ -43,25 +60,6 @@ export async function middleware(request: NextRequest) {
       name: "student-auth",
     },
   });
-
-  if (pathname === "/pricing") {
-    return NextResponse.redirect(new URL("/subscribe", origin));
-  }
-
-  const publicPaths = [
-    "/",
-    "/login",
-    "/signup",
-    "/forgot-password",
-    "/reset-password",
-    "/auth/callback",
-  ];
-  const isPublicPath =
-    publicPaths.includes(pathname) ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config" ||
-    pathname === "/api/ucat/signup/check-email";
 
   const {
     data: { user },
@@ -97,5 +95,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
+  ],
 };

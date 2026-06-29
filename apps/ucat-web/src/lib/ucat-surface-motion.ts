@@ -38,13 +38,23 @@ export const UCAT_FOCUS_RING_INSET = cn(
 
 /** Full-bleed dashboard grid tile (`Link` / `button` with icon + hover chevron). */
 export function ucatDashboardNavTileClassName() {
+  return ucatClickableCardClassName({ interactive: true });
+}
+
+/** Shared surface for settings-style nav cards and list rows. */
+export function ucatClickableCardClassName(options?: {
+  interactive?: boolean;
+  className?: string;
+}) {
+  const { interactive = true, className } = options ?? {};
   return cn(
     "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
     UCAT_SURFACE_CARD,
     UCAT_SURFACE_MOTION,
-    UCAT_PRESSABLE_LIFT_HOVER,
-    UCAT_PRESSABLE_SURFACE_HOVER,
-    UCAT_FOCUS_RING_INSET,
+    interactive && UCAT_PRESSABLE_LIFT_HOVER,
+    interactive && UCAT_PRESSABLE_SURFACE_HOVER,
+    interactive && UCAT_FOCUS_RING_INSET,
+    className,
   );
 }
 
@@ -106,16 +116,6 @@ export const UCAT_HEADER_ICON_BUTTON = cn(
 /** Sticky app header bottom edge */
 export const UCAT_APP_HEADER_RULE =
   "border-b border-black/[0.045] dark:border-white/[0.06]";
-
-/**
- * Current page in `TablePagination` — matches sidebar **selected** nav treatment:
- * light: same fill as `--primary` (via `--sidebar`); dark: `sidebar-foreground/20` wash like active nav links.
- */
-export const UCAT_PAGINATION_ACTIVE_PAGE_BUTTON = cn(
-  "border-transparent shadow-sm font-medium text-sidebar-foreground",
-  "bg-sidebar hover:bg-sidebar/88",
-  "dark:bg-sidebar-foreground/20 dark:hover:bg-sidebar-foreground/28",
-);
 
 /** Session detail / smaller list tiles */
 export const UCAT_COMPACT_LIST_ROW = cn(

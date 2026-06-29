@@ -22,19 +22,44 @@ import {
   getIssueStatusOrder,
   ISSUE_STATUS_OPTIONS,
 } from '../utils/issueUtils';
+import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+
+const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 
 export interface IssuesListProps {
   /** Initial filter values (e.g. dashboard: open only) */
   defaultFilters?: Record<string, unknown[]>;
+  hideToolbar?: boolean;
+  embedView?: {
+    groupBy?: string | null;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  };
 }
 
-export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
+export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: IssuesListProps = {}) {
+  const embedLocked = hideToolbar && embedView != null;
+
+  const {
+    filters,
+    setFilters,
+    groupBy,
+    setGroupBy,
+    sortBy,
+    sortDirection,
+    handleSortChange,
+  } = useEntityListTableState({
+    defaultFilters: defaultFilters ?? {},
+    defaultSort: embedLocked
+      ? { field: embedView?.sortBy ?? 'name', direction: embedView?.sortDirection ?? 'asc' }
+      : { field: 'name', direction: 'asc' },
+    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : 'status',
+    filterKeys: [...ISSUE_FILTER_KEYS],
+    skipUrlSync: embedLocked,
+  });
+
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<string | null>('status');
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
@@ -148,11 +173,6 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     []
   );
 
-  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setSortBy(key);
-    setSortDirection(direction);
-  }, []);
-
   return (
     <>
       <EntityList<IssueWithTags>
@@ -161,13 +181,13 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         renderName={(i) => i.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
-        groupByOptions={groupByOptions}
+        groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortChange={handleSortChange}
+        groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}
+        onGroupByChange={embedLocked ? undefined : setGroupBy}
+        sortBy={embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
+        sortDirection={embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
+        onSortChange={embedLocked ? undefined : handleSortChange}
         getGroupOrder={(columnKey, valueKey) => {
           if (columnKey === 'status') {
             return getIssueStatusOrder(valueKey);
@@ -185,7 +205,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
-        onAdd={handleAdd}
+        onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(i) => {
           setSelectedIssueId(i.id);
           setIsEditDialogOpen(true);
@@ -196,22 +216,27 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         emptyMessage="No issues match your filters"
         isLoading={isLoading}
         noPadding={true}
+        hideToolbar={hideToolbar}
         filters={filters}
-        onFiltersChange={setFilters}
-        descriptionConfig={{
-          enabled: true,
-          renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <AdminRichTextEditorWithImages
-              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
-              content={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              className="min-h-[60px]"
-              context="issues"
-            />
-          ),
-          placeholder: "Add issue description..."
-        }}
+        onFiltersChange={hideToolbar ? undefined : setFilters}
+        descriptionConfig={
+          hideToolbar
+            ? undefined
+            : {
+                enabled: true,
+                renderEditor: ({ value, onChange, placeholder, ref }) => (
+                  <AdminRichTextEditorWithImages
+                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    content={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    className="min-h-[60px]"
+                    context="issues"
+                  />
+                ),
+                placeholder: "Add issue description...",
+              }
+        }
       />
 
       {selectedIssueId && (

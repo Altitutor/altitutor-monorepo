@@ -5,6 +5,11 @@ import type { FlashcardReviewCard } from '@altitutor/shared';
 
 export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
+  const topicIds = request.nextUrl.searchParams
+    .get('topicIds')
+    ?.split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
   const mode = request.nextUrl.searchParams.get('mode') === 'all' ? 'all' : 'due';
 
   const userClient = createClient();
@@ -16,12 +21,12 @@ export async function GET(request: NextRequest) {
 
   if (topicId) {
     query = query.eq('topic_id', topicId);
+  } else if (topicIds?.length) {
+    query = query.in('topic_id', topicIds);
   }
 
   if (mode === 'due') {
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    query = query.lte('due_at', endOfToday.toISOString());
+    query = query.lte('due_at', new Date().toISOString());
   }
 
   const { data, error } = await query;

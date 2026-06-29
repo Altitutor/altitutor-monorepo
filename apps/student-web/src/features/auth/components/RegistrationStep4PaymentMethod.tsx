@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { Button, Label, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle, PolicyViewer, FormControl, FormField, FormItem, FormMessage } from '@altitutor/ui';
+import { Button, Label, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle, PolicyViewer, FormControl, FormField, FormItem, FormMessage, SkeletonPolicyContent, SkeletonStripeCardForm } from '@altitutor/ui';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CheckCircle2 } from 'lucide-react';
@@ -91,9 +91,7 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
             <DialogTitle>Billing Policy</DialogTitle>
           </DialogHeader>
           {policyLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <SkeletonPolicyContent />
           ) : (
             <PolicyViewer content={policyContent} className="mt-4" />
           )}
@@ -424,11 +422,7 @@ export function RegistrationStep4PaymentMethod({
         <p className="text-sm text-destructive">{paymentMethodError}</p>
       )}
 
-      {isLoading && (
-        <div className="flex justify-center items-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-        </div>
-      )}
+      {isLoading && <SkeletonStripeCardForm />}
 
       {!isLoading && clientSecret && (
         <div className="space-y-6">

@@ -165,9 +165,6 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Session Details</h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {sessionTitle}
-          </p>
         </div>
         <ActionsMenu
           type="session"
@@ -183,7 +180,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}

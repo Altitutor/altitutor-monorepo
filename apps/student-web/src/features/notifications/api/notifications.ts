@@ -54,4 +54,22 @@ export const notificationsApi = {
       throw new Error(error.error || 'Failed to mark notification as read');
     }
   },
+
+  /**
+   * Mark multiple notifications as read in one request.
+   */
+  markNotificationsRead: async (notificationIds: string[]): Promise<void> => {
+    const response = await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notificationIds }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to mark notifications as read' }));
+      throw new Error(error.error || 'Failed to mark notifications as read');
+    }
+  },
 };

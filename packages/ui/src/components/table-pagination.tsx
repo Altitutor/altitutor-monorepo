@@ -5,6 +5,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
 import { SearchableSelect } from './searchable-select';
 import { cn } from '../lib/cn';
+import {
+  paginationPageActiveStyles,
+  paginationPageInactiveStyles,
+} from '../lib/styles';
 
 export interface TablePaginationProps {
   page: number;
@@ -15,7 +19,7 @@ export interface TablePaginationProps {
   onPageSizeChange: (pageSize: number) => void;
   pageSizeOptions?: number[];
   className?: string;
-  /** When set, current page uses `outline` plus these classes (e.g. app chrome color). Otherwise active page uses `default` (primary). */
+  /** @deprecated Use default nav-style active page. Override only for exceptional theming. */
   activePageButtonClassName?: string;
 }
 
@@ -85,60 +89,61 @@ export function TablePagination({
   };
 
   return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground', className)}>
-      <div className="flex items-center gap-2">
-        <span>
-          Page {currentPage} of {pageCount} • {total} total
-        </span>
-        {isFetching && <span className="text-xs">(Refreshing...)</span>}
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div className="flex items-center gap-2">
-          <span>Rows per page</span>
-          <SearchableSelect<PageSizeItem>
-            items={pageSizeItems}
-            value={selectedPageSize}
-            onValueChange={handlePageSizeChange}
-            getItemLabel={(i) => String(i.value)}
-            getItemId={(i) => String(i.value)}
-            triggerClassName="!w-auto min-w-[5.25rem] shrink-0 max-w-[6.5rem]"
-          />
+    <div className={cn('w-full overflow-x-auto overscroll-x-contain text-sm text-muted-foreground', className)}>
+      <div className="flex min-w-max items-center justify-between gap-4">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="whitespace-nowrap">
+            Page {currentPage} of {pageCount} • {total} total
+          </span>
+          {isFetching && <span className="text-xs">(Refreshing...)</span>}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1">
-            {pages.map((item, index) =>
-              item === 'ellipsis' ? (
-                <span key={`ellipsis-${index}`} className="px-2">
-                  …
-                </span>
-              ) : (
-                <Button
-                  key={item}
-                  variant={
-                    item === currentPage && !activePageButtonClassName
-                      ? 'default'
-                      : 'outline'
-                  }
-                  size="sm"
-                  onClick={() => handlePageChange(item)}
-                  className={cn(
-                    'min-w-[36px]',
-                    item === currentPage && activePageButtonClassName,
-                  )}
-                >
-                  {item}
-                </Button>
-              ),
-            )}
+        <div className="flex shrink-0 items-center gap-4">
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <span>Rows per page</span>
+            <SearchableSelect<PageSizeItem>
+              items={pageSizeItems}
+              value={selectedPageSize}
+              onValueChange={handlePageSizeChange}
+              getItemLabel={(i) => String(i.value)}
+              getItemId={(i) => String(i.value)}
+              triggerClassName="!w-auto min-w-[5.25rem] shrink-0 max-w-[6.5rem]"
+            />
           </div>
-          <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= pageCount}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1">
+              {pages.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="px-2">
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={item}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(item)}
+                    aria-current={item === currentPage ? 'page' : undefined}
+                    className={cn(
+                      'min-w-[36px] tabular-nums',
+                      item === currentPage
+                        ? (activePageButtonClassName ?? paginationPageActiveStyles)
+                        : paginationPageInactiveStyles,
+                    )}
+                  >
+                    {item}
+                  </Button>
+                ),
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= pageCount}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

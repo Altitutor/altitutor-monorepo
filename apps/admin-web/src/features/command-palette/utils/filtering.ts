@@ -76,25 +76,28 @@ export function filterAndSortPages(
 }
 
 /**
- * Filter items by selected filter type
+ * Filter items by selected filter types (all types = no filter)
  */
 export function filterItemsByType(
   items: CommandPaletteItem[],
-  filterType: FilterType | null
+  filterTypes: FilterType[],
+  allFilterTypes: FilterType[],
 ): CommandPaletteItem[] {
-  if (filterType === null) {
+  if (filterTypes.length === 0 || filterTypes.length >= allFilterTypes.length) {
     return items;
   }
 
+  const allowed = new Set(filterTypes);
+
   return items.filter((item) => {
     if (item.type === 'command') {
-      return filterType === 'command';
+      return allowed.has('command');
     }
     if (item.type === 'page') {
-      return filterType === 'page';
+      return allowed.has('page');
     }
     if (item.type === 'entity') {
-      return filterType === item.result.type;
+      return allowed.has(item.result.type as FilterType);
     }
     return false;
   });

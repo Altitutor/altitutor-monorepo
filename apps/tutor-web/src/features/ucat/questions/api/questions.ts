@@ -410,14 +410,18 @@ export const ucatQuestionsApi = {
   },
 
   async addQuestionTag(stemId: string, questionId: string, tagId: string) {
+    return this.addQuestionTags(stemId, questionId, [tagId])
+  },
+
+  async addQuestionTags(stemId: string, questionId: string, tagIds: string[]) {
     const detail = await this.getDetail(stemId)
     if (!detail) throw new Error('Question stem not found')
     const questions = (detail.questions ?? []) as StemDetailQuestion[]
     const questionIndex = questions.findIndex((q) => q.id === questionId)
     if (questionIndex === -1) throw new Error('Question not found')
     const existingTagIds = (questions[questionIndex].tags ?? []).map((t) => t.id)
-    if (existingTagIds.includes(tagId)) return
-    const newTagIds = [...existingTagIds, tagId]
+    const newTagIds = Array.from(new Set([...existingTagIds, ...tagIds]))
+    if (newTagIds.length === existingTagIds.length) return
     const payload = stemDetailToBundlePayload(detail, (q, i) =>
       i === questionIndex ? newTagIds : (q.tags ?? []).map((t) => t.id)
     )

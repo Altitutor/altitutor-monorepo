@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button, SearchableSelect, ScrollArea, StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea, StaffRoleBadge, StaffStatusBadge, SkeletonListRows } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
 import { cn } from "@/shared/utils";
 // import { ViewStaffModal } from '@/features/staff'; // Tutors can't view other staff - removed
@@ -9,6 +9,7 @@ interface ClassStaffTabProps {
   classStaff: Tables<'staff'>[];
   allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
+  readOnly?: boolean;
   onAssignStaff: (staffId: string) => void;
   onRemoveStaff: (staffId: string) => void;
 }
@@ -17,6 +18,7 @@ export function ClassStaffTab({
   classStaff,
   allStaff,
   loadingStaff,
+  readOnly = false,
   onAssignStaff,
   onRemoveStaff
 }: ClassStaffTabProps) {
@@ -119,27 +121,29 @@ export function ClassStaffTab({
           </div>
         )}
 
-        <SearchableSelect<Tables<'staff'>>
-          {...staffSelectProps}
-          trigger={addStaffTrigger}
-          align="end"
-        />
+        {!readOnly ? (
+          <SearchableSelect<Tables<'staff'>>
+            {...staffSelectProps}
+            trigger={addStaffTrigger}
+            align="end"
+          />
+        ) : null}
       </div>
 
       {loadingStaff ? (
-        <div className="flex-1 flex justify-center items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonListRows rows={5} />
       ) : classStaff.length === 0 && assigningStaff.size === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center">
           <UserCheck className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No staff assigned</p>
-          <SearchableSelect<Tables<'staff'>>
-            {...staffSelectProps}
-            trigger={assignStaffTrigger}
-            align="center"
-            emptyMessage="No staff found"
-          />
+          {!readOnly ? (
+            <SearchableSelect<Tables<'staff'>>
+              {...staffSelectProps}
+              trigger={assignStaffTrigger}
+              align="center"
+              emptyMessage="No staff found"
+            />
+          ) : null}
         </div>
       ) : (
         <ScrollArea className="flex-1">
@@ -192,30 +196,32 @@ export function ClassStaffTab({
                   )}
                 </div>
                 
-                <div className="flex space-x-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleViewStaff(staff.id)}
-                    title="View Staff"
-                    disabled={removingStaff.has(staff.id)}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleRemoveStaff(staff.id)}
-                    title="Remove Staff"
-                    disabled={removingStaff.has(staff.id)}
-                  >
-                    {removingStaff.has(staff.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                {!readOnly ? (
+                  <div className="flex space-x-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleViewStaff(staff.id)}
+                      title="View Staff"
+                      disabled={removingStaff.has(staff.id)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRemoveStaff(staff.id)}
+                      title="Remove Staff"
+                      disabled={removingStaff.has(staff.id)}
+                    >
+                      {removingStaff.has(staff.id) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

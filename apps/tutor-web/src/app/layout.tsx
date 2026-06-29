@@ -3,10 +3,12 @@ import { Inter } from 'next/font/google'
 import './styles/globals.css'
 import { ThemeProvider, Navbar, MainContent } from '@/shared/components'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { CommandPaletteHost } from '@/shared/components/CommandPaletteHost'
 // Legacy DbProvider removed under migration
 import { AuthProvider } from '@/features/auth/providers'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
+import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 
@@ -44,10 +46,13 @@ export default function RootLayout({
                 <HapticFeedbackProvider />
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
-                    <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
-                      <Navbar />
-                      <MainContent>{children}</MainContent>
-                    </div>
+                    <CommandPaletteProvider>
+                      <CommandPaletteHost />
+                      <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
+                        <Navbar />
+                        <MainContent>{children}</MainContent>
+                      </div>
+                    </CommandPaletteProvider>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>
               </ThemeProvider>

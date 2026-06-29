@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SubjectsTable, AddSubjectModal, ViewSubjectModal } from '@/features/subjects';
-import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Plus } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
@@ -34,10 +34,11 @@ export default function SubjectsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Subjects</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Subject
-        </Button>
+        <AdminPageActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Add Subject"
+          onClick={() => setIsAddModalOpen(true)}
+        />
       </div>
       
       <SubjectsTable 
@@ -60,5 +61,4 @@ export default function SubjectsPage() {
     </div>
   );
 }
-
 

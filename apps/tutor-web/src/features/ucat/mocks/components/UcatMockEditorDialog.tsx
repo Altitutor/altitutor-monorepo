@@ -48,12 +48,14 @@ export function UcatMockEditorDialog({
   onClose,
   onEditSet,
   onDelete,
+  warningPills,
 }: {
   open: boolean
   mockId: string | null
   onClose: () => void
   onEditSet?: (setId: string) => void
   onDelete?: () => void
+  warningPills?: string[]
 }) {
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
@@ -191,6 +193,7 @@ export function UcatMockEditorDialog({
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
         headerActions={headerActions}
+        warningPills={warningPills}
         hideCancel
         defaultExpanded
       >

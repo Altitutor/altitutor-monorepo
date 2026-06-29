@@ -1,10 +1,10 @@
 'use client';
 
 import { Badge } from '@altitutor/ui';
-import { Separator } from '@altitutor/ui';
 import type { TutorLogFormData } from '../../types';
 import { useTutorLogStep9Data } from '../../hooks/useTutorLogStep9Data';
 import { format } from 'date-fns';
+import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type Step9ConfirmationProps = {
   formData: Partial<TutorLogFormData>;
@@ -30,19 +30,14 @@ export function Step9Confirmation({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-xl font-semibold">Review and Submit</h3>
-        <p className="text-sm text-muted-foreground mt-2">
-          Please review the details below before submitting your log.
-        </p>
-      </div>
-
-      <Separator />
+      <p className="text-sm text-muted-foreground">
+        Please review the details below before submitting your log.
+      </p>
 
       {/* Session Info */}
       {session && (
-        <div>
-          <div className="font-medium mb-2">Session</div>
+        <div className={tutorCardCn('space-y-2 p-4')}>
+          <div className="font-medium">Session</div>
           <div className="space-y-1 text-sm">
             <div>
               <span className="text-muted-foreground">Date: </span>
@@ -61,11 +56,9 @@ export function Step9Confirmation({
         </div>
       )}
 
-      <Separator />
-
       {/* Staff Attendance */}
-      <div>
-        <div className="font-medium mb-2">Staff Attendance</div>
+      <div className={tutorCardCn('space-y-3 p-4')}>
+        <div className="font-medium">Staff Attendance</div>
         <div className="space-y-2">
           {attendedStaff.map((sa) => {
             const staff = staffMap.get(sa.staffId);
@@ -83,11 +76,9 @@ export function Step9Confirmation({
         </div>
       </div>
 
-      <Separator />
-
       {/* Student Attendance */}
-      <div>
-        <div className="font-medium mb-2">Student Attendance ({attendedStudents.length})</div>
+      <div className={tutorCardCn('space-y-3 p-4')}>
+        <div className="font-medium">Student Attendance ({attendedStudents.length})</div>
         <div className="flex flex-wrap gap-2">
           {attendedStudents.map((sa) => {
             const student = studentsMap.get(sa.studentId);
@@ -100,12 +91,9 @@ export function Step9Confirmation({
         </div>
       </div>
 
-      <Separator />
-
       {/* Topics */}
-      <Separator />
-      <div>
-        <div className="font-medium mb-2">Topics Covered ({formData.topics?.length || 0})</div>
+      <div className={tutorCardCn('space-y-3 p-4')}>
+        <div className="font-medium">Topics Covered ({formData.topics?.length || 0})</div>
         {(formData.topics || []).length > 0 ? (
           <div className="space-y-3">
             {(formData.topics || []).map((topic) => {
@@ -116,7 +104,7 @@ export function Step9Confirmation({
                 <div key={topic.topicId} className="space-y-2">
                   <div className="text-sm">
                     <span className="font-mono text-muted-foreground">{topicCode}</span>
-                    <span className="font-medium ml-2">{topicData?.name}</span>
+                    <span className="ml-2 font-medium">{topicData?.name}</span>
                   </div>
                   {studentIds.length > 0 && (
                     <div className="flex flex-wrap gap-1">
@@ -141,9 +129,8 @@ export function Step9Confirmation({
       </div>
 
       {/* Files */}
-      <Separator />
-      <div>
-        <div className="font-medium mb-2">Files Used ({formData.topicFiles?.length || 0})</div>
+      <div className={tutorCardCn('space-y-3 p-4')}>
+        <div className="font-medium">Files Used ({formData.topicFiles?.length || 0})</div>
         {(formData.topicFiles || []).length > 0 ? (
           <div className="space-y-3">
             {(formData.topics || []).map((topic) => {
@@ -163,7 +150,7 @@ export function Step9Confirmation({
                       
                       return (
                         <div key={file.topicsFilesId} className="space-y-1">
-                          <div className="text-sm font-mono text-muted-foreground">{fileCode}</div>
+                          <div className="font-mono text-sm text-muted-foreground">{fileCode}</div>
                           {studentIds.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {studentIds.map((studentId) => {
@@ -191,13 +178,12 @@ export function Step9Confirmation({
       </div>
 
       {/* Notes */}
-      <Separator />
-      <div>
-        <div className="font-medium mb-2">Notes</div>
+      <div className={tutorCardCn('space-y-3 p-4')}>
+        <div className="font-medium">Notes</div>
         {(formData.notes?.length || 0) > 0 ? (
           <div className="space-y-2">
             {(formData.notes || []).map((note, index) => (
-              <div key={index} className="text-sm p-2 bg-muted/30 rounded whitespace-pre-wrap">
+              <div key={index} className="whitespace-pre-wrap rounded-lg bg-muted/30 p-3 text-sm">
                 {note}
               </div>
             ))}

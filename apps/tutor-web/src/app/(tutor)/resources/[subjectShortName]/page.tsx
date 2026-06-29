@@ -43,7 +43,6 @@ export default function TutorResourceSubjectPage() {
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{subject?.long_name || subject?.name}</h1>
-        <p className="mt-1 text-muted-foreground">Browse the full topic hierarchy for this subject.</p>
       </div>
 
       <section className={tutorCardCn('p-5 sm:p-6')}>

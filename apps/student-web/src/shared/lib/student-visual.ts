@@ -1,4 +1,10 @@
 import { cn } from '@/shared/utils';
+import {
+  clickableCardFocusRingCn,
+  clickableCardFocusWithinCn,
+  clickableCardHoverCn,
+  clickableCardInteractiveCn,
+} from '@altitutor/ui';
 
 /** Default motion for interactive student UI; matches `globals.css` / Tailwind motion tokens. */
 export const studentTransition =
@@ -55,3 +61,15 @@ export const studentBtnPrimary = cn(studentTransition, 'rounded-xl shadow-sm');
 
 /** Icon-only outline control (notifications, theme, compact toolbars) */
 export const studentBtnIconOutline = cn(studentBtnOutline, 'size-9 shrink-0');
+
+/** @deprecated Use `clickableCardHoverCn` from `@altitutor/ui`. */
+export const studentClickableCardHoverCn = clickableCardHoverCn;
+
+/** @deprecated Use `clickableCardFocusWithinCn` from `@altitutor/ui`. */
+export const studentClickableCardFocusWithinCn = clickableCardFocusWithinCn;
+
+/** @deprecated Use `clickableCardInteractiveCn` from `@altitutor/ui`. */
+export const studentClickableCardInteractiveCn = clickableCardInteractiveCn;
+
+/** @deprecated Use `clickableCardFocusRingCn` from `@altitutor/ui`. */
+export const studentClickableCardFocusRingCn = clickableCardFocusRingCn;

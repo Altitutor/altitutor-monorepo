@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search,
   Loader2,
   Home,
   CheckSquare,
@@ -20,7 +19,9 @@ import {
   Newspaper,
   FolderKanban,
 } from 'lucide-react';
-import { Input, Button } from '@altitutor/ui';
+import { Input, SearchFromDropdown } from '@altitutor/ui';
+import { focusCommandPaletteInput } from '@altitutor/shared';
+import { getEffectiveEntityFilters } from '../utils/entitySearchTypes';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
 import {
   additionalPages,
@@ -73,6 +74,26 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Documents', href: '/documents', icon: FileText },
 ];
 
+const COMMAND_PALETTE_FILTER_OPTIONS: Array<{ type: FilterType; label: string }> = [
+  { type: 'command', label: 'Commands' },
+  { type: 'page', label: 'Pages' },
+  { type: 'student', label: 'Students' },
+  { type: 'staff', label: 'Staff' },
+  { type: 'parent', label: 'Parents' },
+  { type: 'class', label: 'Classes' },
+  { type: 'subject', label: 'Subjects' },
+  { type: 'task', label: 'Tasks' },
+  { type: 'issue', label: 'Issues' },
+  { type: 'project', label: 'Projects' },
+  { type: 'topic', label: 'Topics' },
+  { type: 'file', label: 'Files' },
+  { type: 'note', label: 'Notes' },
+];
+
+const ALL_COMMAND_PALETTE_FILTER_TYPES = COMMAND_PALETTE_FILTER_OPTIONS.map(
+  (filter) => filter.type,
+);
+
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
@@ -85,7 +106,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const resultsRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType | null>(null);
+  const [selectedFilters, setSelectedFilters] = useState<FilterType[]>(
+    ALL_COMMAND_PALETTE_FILTER_TYPES,
+  );
 
   // Get command actions (may be null if QuickActionsProvider not available)
   const commandActions = useCommandPaletteCommandActions(onClose);
@@ -99,43 +122,50 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     commandActions,
   });
 
+  const effectiveEntityFilters = useMemo(
+    () => getEffectiveEntityFilters(selectedFilters, searchQuery),
+    [selectedFilters, searchQuery],
+  );
+
   // Search entities
   const { results: entityResults, isLoading: isSearching } = useCommandPaletteSearch({
     search: searchQuery,
     enabled: isOpen,
+    selectedFilters,
+    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
   });
 
   // Filter and sort items
-  const { filteredItems, groupedItems } = useCommandPaletteFiltering({
+  const { filteredItems, groupedItems, displayItems } = useCommandPaletteFiltering({
     commands: commandsWithActions,
     pages: allPages,
     entityResults,
     searchQuery,
-    selectedFilter,
+    selectedFilters: effectiveEntityFilters,
+    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
     entityTypeMapping: ENTITY_TYPE_MAPPING,
     entityTypes,
   });
 
-  // Reset selected index when items change
+  // Reset selected index when visible items change
   useEffect(() => {
-    if (filteredItems.length > 0) {
+    if (displayItems.length > 0) {
       setSelectedIndex(0);
     }
-  }, [filteredItems.length]);
+  }, [displayItems]);
 
   // Reset state and focus input when opened (Radix Dialog focuses first focusable, but we ensure input gets it)
   useEffect(() => {
     if (!isOpen) return;
     setSearchQuery('');
     setSelectedIndex(0);
-    setSelectedFilter(null);
-    const t = setTimeout(() => inputRef.current?.focus(), 0);
-    return () => clearTimeout(t);
+    setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
+    focusCommandPaletteInput(inputRef.current);
   }, [isOpen]);
 
   // Handle item selection
   const handleSelectItem = useCallback(
-    (item: typeof filteredItems[number]) => {
+    (item: typeof displayItems[number]) => {
       if (item.type === 'command') {
         // Execute the action
         if (item.action) {
@@ -162,7 +192,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Keyboard navigation
   const { handleKeyDown } = useCommandPaletteKeyboard({
-    filteredItems,
+    filteredItems: displayItems,
     selectedIndex,
     onIndexChange: setSelectedIndex,
     onSelectItem: handleSelectItem,
@@ -171,7 +201,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Render item helper
   const renderItem = useCallback(
-    (item: typeof filteredItems[number], index: number) => {
+    (item: typeof displayItems[number], index: number) => {
       const isSelected = index === selectedIndex;
 
       if (item.type === 'command') {
@@ -224,119 +254,77 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     [selectedIndex, searchQuery, handleSelectItem]
   );
 
-  // Toggle filter (single select - clicking same filter deselects it)
-  const toggleFilter = useCallback((filterType: FilterType) => {
-    setSelectedFilter((prev) => {
-      // If clicking the same filter, deselect it
-      if (prev === filterType) {
-        return null;
-      }
-      // Otherwise, select the new filter
-      return filterType;
-    });
-  }, []);
-
-  // Define available filters
-  const availableFilters: Array<{ type: FilterType; label: string }> = useMemo(() => {
-    return [
-      { type: 'command', label: 'Commands' },
-      { type: 'page', label: 'Pages' },
-      { type: 'student', label: 'Students' },
-      { type: 'staff', label: 'Staff' },
-      { type: 'parent', label: 'Parents' },
-      { type: 'class', label: 'Classes' },
-      { type: 'subject', label: 'Subjects' },
-      { type: 'task', label: 'Tasks' },
-      { type: 'issue', label: 'Issues' },
-      { type: 'project', label: 'Projects' },
-      { type: 'topic', label: 'Topics' },
-      { type: 'file', label: 'Files' },
-      { type: 'note', label: 'Notes' },
-    ];
-  }, []);
-
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
-        <div 
-          className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100dvh-2rem)] max-h-[800px]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Search input - styled like searchable-select-inline */}
-          <div className="flex items-center border-b px-3 flex-shrink-0">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <Input
-              ref={inputRef}
-              type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files, notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex h-11 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            {isSearching && <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />}
-          </div>
-
-          {/* Filter buttons */}
-          <div className="px-4 py-2 border-b flex flex-wrap gap-2 flex-shrink-0">
-            {availableFilters.map((filter) => {
-              const isSelected = selectedFilter === filter.type;
-              return (
-                <Button
-                  key={filter.type}
-                  variant={isSelected ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleFilter(filter.type);
-                  }}
-                  className="h-7 text-xs"
-                >
-                  {filter.label}
-                </Button>
-              );
-            })}
-          </div>
-
-          {/* Results */}
-          <div
-            ref={resultsRef}
-            className="overflow-y-auto overscroll-contain flex-1 min-h-0"
-          >
-            {filteredItems.length === 0 && !isSearching && (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {searchQuery.trim().length < 2 && searchQuery.trim().length > 0
-                  ? 'Type at least 2 characters to search entities'
-                  : 'No results found'}
-              </div>
-            )}
-
-            {groupedItems.map((group) => (
-              <div key={group.label} className="py-2">
-                <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase text-left">
-                  {group.label}
-                </div>
-                <div className="space-y-0">
-                  {group.items.map((item) => {
-                    const globalIndex = filteredItems.indexOf(item);
-                    return renderItem(item, globalIndex);
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer hint */}
-          <div className="px-4 py-2 border-t text-xs text-muted-foreground flex items-center justify-between flex-shrink-0">
-            <span>Navigate with ↑↓ or Tab, select with Enter</span>
-            <span>Press Esc to close</span>
-          </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 border-b px-3 py-2">
+        <div className="flex h-10 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+          <SearchFromDropdown
+            options={COMMAND_PALETTE_FILTER_OPTIONS.map((filter) => ({
+              label: filter.label,
+              value: filter.type,
+            }))}
+            value={selectedFilters}
+            onValueChange={(values) => setSelectedFilters(values as FilterType[])}
+            menuLabel="Search in"
+            allSelectedLabel="All types"
+            partialSelectedSuffix="types"
+            menuContentClassName="z-[110]"
+            modal={false}
+          />
+          <Input
+            ref={inputRef}
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoFocus
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Search or try 12CHEM 2.2 for a topic/file..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm"
+          />
+          {isSearching ? (
+            <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin opacity-50" />
+          ) : null}
         </div>
       </div>
 
-    </>
+      <div
+        ref={resultsRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        {filteredItems.length === 0 && !isSearching && (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {searchQuery.trim().length < 2 && searchQuery.trim().length > 0
+              ? 'Type at least 2 characters to search entities'
+              : 'No results found'}
+          </div>
+        )}
+
+        {groupedItems.map((group) => (
+          <div key={group.label} className="py-2">
+            <div className="px-4 py-1.5 text-left text-xs font-semibold uppercase text-muted-foreground">
+              {group.label}
+            </div>
+            <div className="space-y-0">
+              {group.items.map((item) => {
+                const index = displayItems.indexOf(item);
+                return renderItem(item, index);
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+        <span>Navigate with ↑↓ or Tab, select with Enter</span>
+        <span>Press Esc to close</span>
+      </div>
+    </div>
   );
 }

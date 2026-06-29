@@ -1,4 +1,5 @@
 import type { Tables } from '@altitutor/shared';
+import type { FilterType } from '../utils/filtering';
 
 /**
  * Minimal class type from classes API (includes DB short_name/long_name for display).
@@ -36,4 +37,6 @@ export type CommandPaletteEntityResult =
 export interface UseCommandPaletteSearchOptions {
   search: string;
   enabled?: boolean;
+  selectedFilters: FilterType[];
+  allFilterTypes: FilterType[];
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, memo, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import { ViewClassModal } from '@/features/classes';
 import { StaffTableRow } from './StaffTableRow';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useSubjects } from '@/features/subjects';
 import { cn } from '@/shared/utils';
 
 interface StaffTableProps {
@@ -29,9 +30,10 @@ interface StaffTableProps {
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
-  useSearchParams(); // Required for URL sync in useDataTable
+  useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('staff');
+  const { data: allSubjects = [] } = useSubjects();
   
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
@@ -51,7 +53,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['role', 'status'],
+    filterKeys: ['role', 'status', 'subject'],
   });
   
   const { 
@@ -64,6 +66,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     search: state.search,
     roles: state.filters.role as string[],
     statuses: state.filters.status as string[],
+    subjectIds: state.filters.subject as string[],
     page: state.page,
     pageSize: state.pageSize,
     orderBy: state.sortBy as keyof Tables<'staff'> || 'role',
@@ -89,7 +92,14 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         { label: 'TRIAL', value: 'TRIAL' },
       ],
     },
-  ], []);
+    {
+      key: 'subject',
+      label: 'Subjects',
+      options: allSubjects
+        .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
+        .map(s => ({ label: s.long_name ?? '', value: s.id })),
+    },
+  ], [allSubjects]);
 
   const sortOptions: DataTableSortOption[] = [
     { key: 'status', label: 'Status' },
@@ -103,10 +113,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     { key: 'role', label: 'Role' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'office_keys', label: 'Office Keys' },
+    { key: 'subjects', label: 'Subjects' },
     { key: 'classes', label: 'Classes' },
   ];
 
-  const staffMembers = (data?.staff as (Tables<'staff'> & { classes?: (Tables<'classes'> & { subject?: Tables<'subjects'> })[] })[] | undefined) || [];
+  const staffMembers = (data?.staff as (Tables<'staff'> & {
+    classes?: (Tables<'classes'> & { subject?: Tables<'subjects'> })[];
+    subjects?: Tables<'subjects'>[];
+  })[] | undefined) || [];
   const total = data?.total ?? 0;
 
   // Modal state
@@ -262,6 +279,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                   </div>
                 </TableHead>
               )}
+              {state.visibleColumns.includes('email') && <TableHead>Email</TableHead>}
+              {state.visibleColumns.includes('phone') && <TableHead>Phone</TableHead>}
+              {state.visibleColumns.includes('office_keys') && <TableHead>Office Keys</TableHead>}
+              {state.visibleColumns.includes('subjects') && <TableHead>Subjects</TableHead>}
               {state.visibleColumns.includes('classes') && <TableHead>Classes</TableHead>}
               <TableHead></TableHead>
             </TableRow>
@@ -288,6 +309,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                   onStaffClick={handleStaffClick}
                   onClassClick={handleClassClick}
                   onStaffUpdated={handleStaffUpdated}
+                  visibleColumns={state.visibleColumns}
                 />
               ))
             )}

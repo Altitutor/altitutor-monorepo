@@ -100,7 +100,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
@@ -121,24 +120,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         toRemove: editFlow.parentsToRemove,
       }
     );
-  };
-
-  // Handle password reset request
-  const handlePasswordResetRequest = async () => {
-    if (!student || !student.email) {
-      return;
-    }
-
-    try {
-      setLoadingAccountUpdate(true);
-      passwordReset.setPasswordResetLinkSent(true);
-      // TODO: Implement password reset API call
-      // await authApi.requestPasswordReset(student.email);
-    } catch (error) {
-      console.error('Failed to send password reset:', error);
-    } finally {
-      setLoadingAccountUpdate(false);
-    }
   };
 
   // Handle student deletion
@@ -259,10 +240,16 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       setActiveTab('details');
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: passwordReset.openPasswordResetOrRegistration,
+    onPasswordResetOrRegistration: () => {
+      passwordReset.openPasswordResetOrRegistration();
+      if (student?.user_id) {
+        setActiveTab('details');
+      }
+    },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
+    onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
       ? () =>
           openCheckInModal({
@@ -337,9 +324,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           <h1 className="text-3xl font-bold tracking-tight">
             {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {student.first_name} {student.last_name}
-          </p>
         </div>
         <ActionsMenu
           type="student"
@@ -349,7 +333,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
@@ -392,9 +376,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                 />
               ) : undefined
             }
-            isLoadingAccount={loadingAccountUpdate}
-            hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
-            onPasswordResetRequest={handlePasswordResetRequest}
           />
           {editFlow.isEditing && (
             <div className="flex justify-end gap-2 pt-4 border-t">
@@ -487,6 +468,18 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         initialStudentId={id}
         onBookingCreated={() => {
           modals.closeBookDraftingSession();
+          handleStudentUpdated();
+        }}
+      />
+
+      {/* Book Subsidy Interview Modal */}
+      <BookSessionModal
+        isOpen={modals.isBookSubsidyInterviewModalOpen}
+        onClose={modals.closeBookSubsidyInterview}
+        sessionType="SUBSIDY_INTERVIEW"
+        initialStudentId={id}
+        onBookingCreated={() => {
+          modals.closeBookSubsidyInterview();
           handleStudentUpdated();
         }}
       />

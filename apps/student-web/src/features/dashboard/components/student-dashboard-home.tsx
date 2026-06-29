@@ -12,11 +12,11 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react';
-import { Button, Card, Skeleton } from '@altitutor/ui';
+import { Button, ClickableNavCard, Skeleton } from '@altitutor/ui';
 import { formatSessionDate } from '@altitutor/shared';
 import type { StudentSessionWithStaff } from '@/shared/api/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { StudentSessionsCard } from '@/shared/components/StudentSessionsCard';
+import { StudentSessionsCard } from '@/shared/components';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { useStudentSessions } from '@/shared/hooks';
 import { studentBtnOutline, studentCardCn } from '@/shared/lib/student-visual';
@@ -30,7 +30,6 @@ type QuickLinkItem = {
   description: string;
   href: string;
   icon: LucideIcon;
-  accentClass: string;
 };
 
 const quickLinks: QuickLinkItem[] = [
@@ -39,36 +38,30 @@ const quickLinks: QuickLinkItem[] = [
     description: 'Enrolments, calendar, and session tools',
     href: '/classes',
     icon: Calendar,
-    accentClass:
-      'bg-brand-darkBlue/10 text-brand-darkBlue dark:bg-brand-lightBlue/15 dark:text-brand-lightBlue',
   },
   {
     title: 'Resources',
     description: 'Subject notes, topics, and files',
     href: '/resources',
     icon: BookOpen,
-    accentClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
   },
   {
     title: 'Billing',
     description: 'Subscriptions, invoices, and payment methods',
     href: '/billing',
     icon: CreditCard,
-    accentClass: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
   },
   {
     title: 'My profile',
     description: 'Personal details and preferences',
-    href: '/my-profile',
+    href: '/settings/profile',
     icon: User,
-    accentClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
   {
     title: 'Settings',
     description: 'Account and notification settings',
     href: '/settings',
     icon: Settings,
-    accentClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
   },
 ];
 
@@ -238,39 +231,14 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
             {quickLinks.map((item) => {
               const Icon = item.icon;
               return (
-                <li key={item.href}>
-                  <Link href={item.href} className="group block h-full">
-                    <Card
-                      className={cn(
-                        studentCardCn('h-full'),
-                        'hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)]',
-                      )}
-                    >
-                      <div className="flex items-start gap-4 p-5">
-                        <div
-                          className={cn(
-                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-300',
-                            item.accentClass,
-                          )}
-                        >
-                          <Icon className="h-5 w-5" aria-hidden />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1.5 pr-1">
-                          <p className="text-base font-semibold leading-snug tracking-tight text-card-foreground transition-colors duration-300 group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue">
-                            {item.title}
-                          </p>
-                          <p className="text-sm leading-relaxed text-muted-foreground">{item.description}</p>
-                        </div>
-                        <ArrowRight
-                          className={cn(
-                            'mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-out',
-                            'group-hover:translate-x-0.5 group-hover:text-foreground',
-                          )}
-                          aria-hidden
-                        />
-                      </div>
-                    </Card>
-                  </Link>
+                <li key={item.href} className="flex min-w-0 flex-col">
+                  <ClickableNavCard
+                    href={item.href}
+                    icon={Icon}
+                    title={item.title}
+                    description={item.description}
+                    cardClassName={studentCardCn()}
+                  />
                 </li>
               );
             })}

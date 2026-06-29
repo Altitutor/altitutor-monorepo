@@ -50,7 +50,6 @@ export default function ClassesPage() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
-            <p className="mt-1 text-muted-foreground">View your assigned classes and sessions</p>
           </div>
           {currentStaff?.id && (
             <Button

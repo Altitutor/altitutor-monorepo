@@ -1,12 +1,13 @@
-import { ForgotPasswordForm } from '@/features/auth/components/ForgotPasswordForm';
+import { ForgotPasswordForm, LoginPageLayout } from '@/features/auth/components';
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
-      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-brand-lightBlue/20 dark:to-brand-dark-card/50 z-0"></div>
-      <div className="relative z-10">
-        <ForgotPasswordForm />
-      </div>
-    </div>
+    <LoginPageLayout
+      title="Reset password"
+      subtitle="Enter your email and we'll send you a link to choose a new password."
+      footer={null}
+    >
+      <ForgotPasswordForm />
+    </LoginPageLayout>
   );
-} 
+}

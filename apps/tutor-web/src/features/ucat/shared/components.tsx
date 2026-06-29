@@ -54,7 +54,6 @@ export function UcatBreadcrumb({ items, className }: { items: UcatBreadcrumbItem
 
 export function UcatPageHeader({
   title,
-  description,
   actions,
   backHref,
   backLabel,
@@ -81,7 +80,6 @@ export function UcatPageHeader({
           ) : null}
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            {description ? <p className="mt-1 text-muted-foreground">{description}</p> : null}
           </div>
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}

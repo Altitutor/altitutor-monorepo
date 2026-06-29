@@ -49,20 +49,12 @@ function getResultsViewerTheme(variant: ResultsViewerVariant) {
     correctAnswerBox: site
       ? "flex h-9 w-20 items-center justify-center rounded-md border border-border bg-card text-sm font-medium"
       : "flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium",
-    explanationText: site
-      ? "text-xs leading-relaxed text-muted-foreground"
-      : "text-[10pt] leading-relaxed text-[#5a6c7d]",
     footer: site
-      ? "mt-3 space-y-1 border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground"
-      : "mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed",
-    footerStyle: site ? undefined : ({ color: "#5a6c7d" } as const),
+      ? "mt-3 space-y-1 border-t border-border pt-3 text-sm leading-relaxed"
+      : "mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 dark:border-border",
     questionPrompt: site ? "font-medium text-base" : "font-medium text-[12pt]",
     correctRowBg: site ? "bg-green-500/10" : "bg-green-100",
     wrongRowBg: site ? "bg-red-500/10" : "bg-red-100",
-    optionExplanation: site
-      ? "text-sm leading-relaxed text-muted-foreground"
-      : "text-[11pt] leading-relaxed text-[#5a6c7d]",
-    optionExplanationStyle: site ? undefined : ({ color: "#5a6c7d" } as const),
     statsBarBg: site ? "bg-muted" : "bg-[#e8ecf0]",
     labelSize: site ? "text-xs" : "text-[10pt]",
   };
@@ -231,6 +223,7 @@ export function ResultsQuestionViewer({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
           />
         </article>
         <section className="space-y-3">
@@ -345,9 +338,7 @@ export function ResultsQuestionViewer({
                         />
                       </div>
                       {hasAnswerExplanation(option) ? (
-                        <div
-                          className={cn("col-span-4 pl-1", theme.explanationText)}
-                        >
+                        <div className="col-span-4 pl-1">
                           <AnswerExplanation
                             text={option.answerExplanation}
                             json={option.answerExplanationJson}
@@ -360,7 +351,7 @@ export function ResultsQuestionViewer({
               )}
             </div>
           </div>
-          <div className={theme.footer} style={theme.footerStyle}>
+          <div className={theme.footer}>
             {typeof points === "number" ? (
               <QuestionPointsFooter points={points} question={question} />
             ) : null}
@@ -391,6 +382,7 @@ export function ResultsQuestionViewer({
                 json={question.stemJson}
                 plainText={question.stemText}
                 preloadedContent={preloadedContent?.stem}
+                paragraphSpacing
               />
             </div>
           </article>
@@ -483,7 +475,7 @@ export function ResultsQuestionViewer({
           <AnswerExplanation
             text={option.answerExplanation}
             json={option.answerExplanationJson}
-            className={cn("pl-14", theme.optionExplanation)}
+            className="pl-14"
           />
         ) : null}
       </div>
@@ -502,7 +494,7 @@ export function ResultsQuestionViewer({
       <div className="space-y-2">
         {question.options.map((opt, i) => renderOption(opt, i))}
       </div>
-      <div className={cn(theme.footer, "mt-3 pt-3")} style={theme.footerStyle}>
+      <div className={cn(theme.footer, "mt-3 pt-3")}>
         {typeof points === "number" ? (
           <QuestionPointsFooter points={points} question={question} />
         ) : null}
@@ -532,6 +524,7 @@ export function ResultsQuestionViewer({
               json={question.stemJson}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
+              paragraphSpacing
             />
           </div>
         </article>
@@ -548,6 +541,7 @@ export function ResultsQuestionViewer({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
           />
         </article>
         <section className="space-y-3">{optionsContent}</section>

@@ -63,10 +63,13 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
   return subject.long_name || subject.short_name || subject.name || '';
 }
 
-/**
- * Navigation hover styles for consistent UI
- */
-export const navHoverStyles = "hover:bg-muted text-brand-darkBlue dark:text-white dark:hover:bg-muted/50 dark:hover:text-white" 
+export {
+  navActiveStyles,
+  navHoverStyles,
+  navItemTransitionStyles,
+  navLinkActiveStyles,
+  navLinkInactiveStyles,
+} from '@altitutor/ui'; 
 
 /**
  * Calculate luminance from RGB values using WCAG formula

@@ -12,9 +12,18 @@ type TodaySessionsViewProps = {
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
+  /** Hide table toolbar and pagination when embedded on dashboard */
+  embedTable?: boolean;
 };
 
-export function TodaySessionsView({ date, viewMode, onOpenSession, onOpenStudent, onOpenStaff }: TodaySessionsViewProps) {
+export function TodaySessionsView({
+  date,
+  viewMode,
+  onOpenSession,
+  onOpenStudent,
+  onOpenStaff,
+  embedTable = false,
+}: TodaySessionsViewProps) {
   const dateStr = date || format(new Date(), 'yyyy-MM-dd');
 
   return (
@@ -30,6 +39,9 @@ export function TodaySessionsView({ date, viewMode, onOpenSession, onOpenStudent
             onOpenSession={onOpenSession}
             onOpenStudent={onOpenStudent}
             onOpenStaff={onOpenStaff}
+            hideToolbar={embedTable}
+            hidePagination={embedTable}
+            skipUrlSync={embedTable}
           />
         )}
       </div>

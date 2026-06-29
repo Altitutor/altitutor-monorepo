@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TemplatesTable } from '@/features/messages/components/templates/TemplatesTable';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,14 +27,12 @@ export default function TemplatesPage() {
         <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Message Templates</h1>
-            <p className="text-muted-foreground">
-              Create and manage message templates
-            </p>
           </div>
-          <Button onClick={() => setCreateButtonClick(prev => prev + 1)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Template
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="New Template"
+            onClick={() => setCreateButtonClick(prev => prev + 1)}
+          />
         </div>
       </div>
       

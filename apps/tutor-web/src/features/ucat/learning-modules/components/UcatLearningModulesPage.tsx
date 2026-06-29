@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { Button, Input, useToast } from '@altitutor/ui'
+import { Button, Input, TableActions, useToast } from '@altitutor/ui'
 import { Pencil, Search } from 'lucide-react'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -24,7 +24,7 @@ import {
 import { getNextLearningModuleIndex } from '@/features/ucat/learning-modules/lib/get-next-learning-module-index'
 import { mapLearningModuleTreeToTaxonomyNodes } from '@/features/ucat/learning-modules/lib/map-learning-module-tree'
 import { LearningModuleHierarchyTree } from '@/features/ucat/learning-modules/components/LearningModuleHierarchyTree'
-import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 
 export function UcatLearningModulesPage() {
   const { toast } = useToast()
@@ -212,23 +212,41 @@ export function UcatLearningModulesPage() {
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="Learning modules"
-        description="Organise UCAT lessons and folders. Lessons contain blocks students complete in class or online."
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Learning modules' }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant={editMode ? 'default' : 'outline'}
-              onClick={() => setEditMode((prev) => !prev)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              {editMode ? 'Done reordering' : 'Edit hierarchy'}
-            </Button>
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              New module
-            </Button>
-          </div>
+          <>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button
+                type="button"
+                variant={editMode ? 'default' : 'outline'}
+                className={editMode ? undefined : tutorBtnOutline}
+                onClick={() => setEditMode((prev) => !prev)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                {editMode ? 'Done reordering' : 'Edit hierarchy'}
+              </Button>
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                New module
+              </Button>
+            </div>
+            <TableActions
+              className="sm:hidden"
+              triggerClassName={`${tutorBtnOutline} min-w-0`}
+              actions={[
+                {
+                  id: 'toggle-hierarchy',
+                  label: editMode ? 'Done reordering' : 'Edit hierarchy',
+                  onSelect: () => setEditMode((prev) => !prev),
+                },
+                {
+                  id: 'new-module',
+                  label: 'New module',
+                  onSelect: () => setCreateOpen(true),
+                },
+              ]}
+            />
+          </>
         }
       />
 

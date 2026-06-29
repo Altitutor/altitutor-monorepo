@@ -50,9 +50,6 @@ export default function BookingSettingsPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Booking Settings</h1>
-          <p className="text-muted-foreground">
-            Manage global booking configuration settings
-          </p>
         </div>
       </div>
       <BookingSettingsTable settings={settings} onUpdate={loadData} />

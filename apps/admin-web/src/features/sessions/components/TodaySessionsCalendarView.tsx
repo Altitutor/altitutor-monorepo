@@ -12,6 +12,7 @@ type SessionsData = {
 };
 import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
+import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionsCard } from './SessionsCard';
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
+  const [dayColumnRef, dayColumnSize] = useElementSize<HTMLDivElement>();
   const selectedDate = date ? parseISO(date) : new Date();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const today = new Date();
@@ -89,6 +91,15 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
   const currentMinutesFromStart = (today.getHours() * 60 + today.getMinutes()) - (startHour * 60);
   const totalMinutesInRange = slots.length * 60;
   const showTodayIndicator = isViewingToday && currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
+  const dayColumnWidth = dayColumnSize.width;
+  const preferCompactCards = dayColumnWidth > 0 && dayColumnWidth < 520;
+
+  const shouldUseCompactCard = (overlapCount: number, columnWidthPercent: number) => {
+    if (preferCompactCards) return true;
+    if (dayColumnWidth <= 0) return overlapCount > 1;
+    const estimatedCardWidth = (dayColumnWidth * columnWidthPercent) / 100;
+    return overlapCount > 1 || estimatedCardWidth < 220;
+  };
 
   if (todaySessions.length === 0) {
     return (
@@ -118,7 +129,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
             <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
               {format(new Date(2000, 0, 1, hour, 0), 'h a')}
             </div>
-            <div className="relative border-b border-r h-[75px] bg-blue-50/30 dark:bg-transparent">
+            <div ref={dayColumnRef} className="relative border-b border-r h-[75px] bg-blue-50/30 dark:bg-transparent">
               {idx === 0 && (
                 <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
                   {/* Today indicator line */}
@@ -207,11 +218,12 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const hasAttendingStudents = sessionStudents.length > 0 && 
                           sessionStudents.some((student) => !student.planned_absence);
                         
-                        // Calculate actual pixel dimensions for smart sizing
                         const cardHeight = Math.max(height, 45);
-                        // Estimate width: for today view, column is wider, estimate ~400-600px
-                        const estimatedColumnWidth = 500; // Approximate column width for today view
-                        const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                        const cardWidth =
+                          dayColumnWidth > 0
+                            ? (dayColumnWidth * columnWidth) / 100
+                            : columnWidth;
+                        const useCompact = shouldUseCompactCard(total, columnWidth);
                         
                         blocks.push(
                           <div
@@ -235,6 +247,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                               students={sessionStudents}
                               onClick={() => {}}
                               isCalendarView={true}
+                              compact={useCompact}
                               cardHeight={cardHeight}
                               cardWidth={cardWidth}
                             />
@@ -263,11 +276,12 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const hasAttendingStudents = sessionStudents.length > 0 && 
                           sessionStudents.some((student) => !student.planned_absence);
                         
-                        // Calculate actual pixel dimensions for smart sizing
                         const cardHeight = Math.max(height, 45);
-                        // Estimate width: for today view, column is wider, estimate ~400-600px
-                        const estimatedColumnWidth = 500; // Approximate column width for today view
-                        const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                        const cardWidth =
+                          dayColumnWidth > 0
+                            ? (dayColumnWidth * columnWidth) / 100
+                            : columnWidth;
+                        const useCompact = shouldUseCompactCard(total, columnWidth);
                         
                         blocks.push(
                           <div
@@ -291,6 +305,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                               students={sessionStudents}
                               onClick={() => {}}
                               isCalendarView={true}
+                              compact={useCompact}
                               cardHeight={cardHeight}
                               cardWidth={cardWidth}
                             />

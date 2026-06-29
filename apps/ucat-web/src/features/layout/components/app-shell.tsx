@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth";
 import { AppSidebar } from "@/features/layout/components/app-sidebar";
 import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
-import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
 import { UcatFloatingToolbar } from "@/features/layout/components/ucat-floating-toolbar";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
@@ -44,12 +43,8 @@ function AppShellInner({ children }: AppShellProps) {
   const sidebarOverride = useSidebarOverride();
   const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
-  const { active: activeExamAttempt } = useActiveExamAttempt();
-
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
-  const showExamAttemptPill =
-    !isImmersiveRoute && activeExamAttempt != null;
 
   useEffect(() => {
     if (isImmersiveRoute) {
@@ -119,7 +114,7 @@ function AppShellInner({ children }: AppShellProps) {
     router.replace("/dashboard");
   };
 
-  const mainPaddingClass = hideTopBar ? "p-4" : "pt-16 p-6";
+  const mainPaddingClass = hideTopBar ? "p-4" : "pt-28 p-6";
 
   return (
     <ComingSoonProvider
@@ -186,7 +181,6 @@ function AppShellInner({ children }: AppShellProps) {
                     <FloatingAppActions
                       onToggleNav={handleToggleNav}
                       isMenuOpen={sidebarExpanded}
-                      showExamAttemptPill={showExamAttemptPill}
                     />
                   ) : null}
                   <AppSidebar

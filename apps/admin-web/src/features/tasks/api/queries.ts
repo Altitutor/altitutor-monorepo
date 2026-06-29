@@ -2,11 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
 import type { TaskFilters } from '../types';
+import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
+
+const getTaskDetailKey = (id: string) => tasksKeys.detail(id);
+const TASKS_REALTIME_DEBOUNCE_MS = 500;
 
 /**
  * Get all tasks with optional filters
  */
 export function useTasks(filters?: TaskFilters) {
+  useSupabaseRealtimeInvalidation({
+    table: 'tasks',
+    queryKey: tasksKeys.all,
+    detailKey: getTaskDetailKey,
+    debounceMs: TASKS_REALTIME_DEBOUNCE_MS,
+  });
+
   return useQuery({
     queryKey: tasksKeys.list(filters),
     queryFn: () => tasksApi.list(filters),
@@ -19,6 +30,14 @@ export function useTasks(filters?: TaskFilters) {
  * Get a single task by ID
  */
 export function useTask(taskId: string, enabled = true) {
+  useSupabaseRealtimeInvalidation({
+    table: 'tasks',
+    queryKey: tasksKeys.all,
+    detailKey: getTaskDetailKey,
+    debounceMs: TASKS_REALTIME_DEBOUNCE_MS,
+    enabled: enabled && !!taskId,
+  });
+
   return useQuery({
     queryKey: tasksKeys.detail(taskId),
     queryFn: () => tasksApi.get(taskId),
@@ -27,4 +46,3 @@ export function useTask(taskId: string, enabled = true) {
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }
-

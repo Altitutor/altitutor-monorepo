@@ -19,7 +19,7 @@ export const authApi = {
     }
 
     const supabase = getSupabaseBrowserClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+    const redirectTo = `${window.location.origin}/auth/callback`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
@@ -52,5 +52,7 @@ export const authApi = {
     if (error) {
       throw new Error(error.message || "Failed to reset password. Please try again.");
     }
+
+    await supabase.auth.signOut();
   },
 };

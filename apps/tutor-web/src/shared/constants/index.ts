@@ -26,4 +26,12 @@ export const DATE_FORMAT = 'dd MMM yyyy';
 export const DATE_TIME_FORMAT = 'dd MMM yyyy HH:mm';
 
 // Theme
-export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme'; 
+export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme';
+
+const isDev = process.env.NODE_ENV === 'development';
+
+export const MARKETING_HOME_URL = isDev ? 'http://localhost:3003' : 'https://altitutor.com';
+
+export const TUTOR_APPLY_URL = isDev
+  ? 'http://localhost:3003/about/apply/'
+  : 'https://altitutor.com/about/apply/';

@@ -110,8 +110,10 @@ export function useBookSessionFlow({
     } else if (initialStudentId && !originalSessionId) {
       // Regular booking flow (not rescheduling)
       setSelectedStudentId(initialStudentId);
-      // For DRAFTING sessions, advance to step 1 (subject selection) since student is pre-selected
+      // Advance past student selection when the student is pre-selected.
       if (sessionType === 'DRAFTING') {
+        setCurrentStep(1);
+      } else if (sessionType === 'SUBSIDY_INTERVIEW') {
         setCurrentStep(1);
       }
     }

@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Badge, Button, Checkbox, SearchableSelect } from '@altitutor/ui';
-import { Plus, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { useTutorLogStep4Data } from '../../hooks/useTutorLogStep4Data';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
   topicId: string;
@@ -87,7 +88,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       return (
         <div key={topic.id}>
           <div
-            className="flex items-center gap-2 py-2 hover:bg-accent/50 rounded"
+            className="flex items-center gap-2 rounded-lg py-2 hover:bg-muted/40"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
             {hasChildren && (
@@ -126,8 +127,13 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     }
   };
 
+  const handleRemoveTopic = (topicId: string) => {
+    setAdditionalTopicIds(additionalTopicIds.filter((id) => id !== topicId));
+    onUpdate(topics.filter((t) => t.topicId !== topicId));
+  };
+
   const addTopicFromOtherSubjectTrigger = (
-    <Button variant="outline" className="w-full sm:w-auto">
+    <Button variant="outline" className={cn(tutorBtnOutline, 'w-full sm:w-auto')}>
       <Plus className="h-4 w-4 mr-2" />
       Add Topic from Another Subject
     </Button>
@@ -144,21 +150,51 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       </p>
 
       {subjectTopics.length > 0 && (
-        <div className="border rounded-md p-4 max-h-[400px] overflow-y-auto">
+        <div className={tutorCardCn('max-h-[400px] overflow-y-auto p-4')}>
           {renderTopicTree(null)}
         </div>
       )}
 
       {additionalTopicIds.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="font-medium">Additional Topics</div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {additionalTopicIds.map((topicId) => {
               const topic = allTopics.find((t) => t.id === topicId);
               if (!topic) return null;
+              const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
+              const topicCode = topic.code || '';
+              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+
               return (
-                <div key={topicId} className="p-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-md text-sm">
-                  {topic.name}
+                <div
+                  key={topicId}
+                  className={tutorCardCn('flex items-center gap-3 bg-muted/30 p-3')}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {subject && (
+                      <Badge
+                        variant="secondary"
+                        className={cn('shrink-0 px-2 py-0.5 text-xs', defaultClass || textColorClass)}
+                        style={style.backgroundColor ? style : undefined}
+                      >
+                        {formatSubjectShortName(subject)}
+                      </Badge>
+                    )}
+                    {topicCode ? (
+                      <span className="shrink-0 font-mono text-sm text-muted-foreground">{topicCode}</span>
+                    ) : null}
+                    <span className="min-w-0 truncate text-sm">{topic.name}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveTopic(topicId)}
+                    aria-label={`Remove ${topic.name}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               );
             })}

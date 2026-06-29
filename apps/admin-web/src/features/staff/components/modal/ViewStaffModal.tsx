@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
-import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -9,9 +8,6 @@ import { useStaffActions } from '../../hooks/useStaffActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffDetails, useCurrentStaff } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
-import type { Database } from '@altitutor/shared';
-import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { StaffSessionsTab } from './tabs/StaffSessionsTab';
@@ -67,7 +63,6 @@ export function ViewStaffModal({
   initialTab,
 }: ViewStaffModalProps) {
   // Hooks
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
@@ -120,7 +115,7 @@ export function ViewStaffModal({
     onPasswordResetOrRegistration: () => {
       passwordReset.openPasswordResetOrRegistration();
       if (staffMember?.user_id) {
-        handlePasswordResetRequest();
+        setActiveTab('details');
       }
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
@@ -142,8 +137,6 @@ export function ViewStaffModal({
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Nested modal state for sessions table interactions
@@ -156,11 +149,6 @@ export function ViewStaffModal({
     setNestedStudentId,
   } = useNestedModalEvents({ isOpen });
 
-  // Set base URL for password reset
-  useEffect(() => {
-    setBaseUrl(window.location.origin);
-  }, []);
-
   // Reset state when modal closes; honour initialTab when opening
   useEffect(() => {
     if (!isOpen) {
@@ -168,7 +156,6 @@ export function ViewStaffModal({
       passwordReset.setPasswordResetLinkSent(false);
       setActiveTab('details');
       modals.reset();
-      setLoadingPasswordReset(false);
       return;
     }
     if (initialTab) {
@@ -201,57 +188,6 @@ export function ViewStaffModal({
       onClose();
     } catch (error) {
       // Error handling is done in the mutation hook
-    }
-  };
-
-  // Password reset handler
-  const handlePasswordResetRequest = async () => {
-    if (!staffMember || !staffMember.email) {
-      toast({
-        title: 'Error',
-        description: 'No email address found for this staff member.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    try {
-      setLoadingPasswordReset(true);
-      // Determine redirect URL based on staff role
-      let redirectUrl: string;
-      if (staffMember.role === 'TUTOR') {
-        const tutorUrl = process.env.NODE_ENV === 'development'
-          ? 'http://localhost:3002'
-          : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
-        redirectUrl = `${tutorUrl}/auth/callback`;
-      } else {
-        // ADMINSTAFF goes to admin portal
-        redirectUrl = `${baseUrl}/auth/callback`;
-      }
-      
-      const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
-        staffMember.email,
-        {
-          redirectTo: redirectUrl,
-        }
-      );
-      
-      if (error) throw error;
-      
-      passwordReset.setPasswordResetLinkSent(true);
-      
-      toast({
-        title: 'Password reset link sent',
-        description: `A password reset link has been sent to ${staffMember.email}.`,
-      });
-    } catch (err) {
-      toast({
-        title: 'Password reset failed',
-        description: 'There was an error resetting the password. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingPasswordReset(false);
     }
   };
 
@@ -355,9 +291,6 @@ export function ViewStaffModal({
                           onSelectSubject={(subject) => handleAssignSubject(subject.id)}
                         />
                       }
-                      isLoadingAccount={loadingPasswordReset}
-                      hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
-                      onPasswordResetRequest={handlePasswordResetRequest}
                     />
                   </div>
                 </SegmentedTabPanelContent>

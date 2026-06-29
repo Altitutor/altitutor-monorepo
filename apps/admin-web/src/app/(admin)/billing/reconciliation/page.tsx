@@ -72,9 +72,6 @@ export default function ReconciliationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Payment Reconciliation</h1>
-          <p className="text-muted-foreground">
-            Stripe automatically handles reconciliation for invoices. This page is kept for reference.
-          </p>
         </div>
         <Button onClick={handleReconcile} disabled={reconciling || loading} variant="outline">
           {reconciling ? 'Reconciling...' : 'Info'}
@@ -273,7 +270,6 @@ export default function ReconciliationPage() {
     </div>
   );
 }
-
 
 
 

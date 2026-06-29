@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import {
+  checkPracticeStartQuota,
+  getPracticeQuotaStatusForStudent,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -58,6 +64,43 @@ export async function POST(request: NextRequest) {
       { error: "No student profile found" },
       { status: 404 },
     );
+  }
+
+  if (body.unlimited) {
+    const status = await getPracticeQuotaStatusForStudent(
+      supabaseAdmin,
+      student.id,
+    );
+    if (
+      status &&
+      !status.isQuotaExempt &&
+      (status.limit === 0 || status.remaining === 0)
+    ) {
+      return quotaExceededResponse({
+        code: "QUOTA_EXCEEDED",
+        area: "practice",
+        used: status.used,
+        limit: status.limit,
+        period: status.period,
+      });
+    }
+  } else {
+    const stems = Array.isArray(body.stemsSnapshot)
+      ? (body.stemsSnapshot as QuestionStemWithQuestions[])
+      : [];
+    const questionIds = stems.flatMap((stem) =>
+      Array.isArray(stem.questions)
+        ? stem.questions.map((question) => question.id)
+        : [],
+    );
+    const quotaCheck = await checkPracticeStartQuota(
+      supabaseAdmin,
+      student.id,
+      questionIds,
+    );
+    if (!quotaCheck.allowed) {
+      return quotaExceededResponse(quotaCheck.payload);
+    }
   }
 
   const insertPayload = {

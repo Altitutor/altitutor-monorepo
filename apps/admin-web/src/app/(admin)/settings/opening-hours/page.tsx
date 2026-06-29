@@ -6,6 +6,7 @@ import { OpeningHoursTable } from '@/features/bookings/components/OpeningHoursTa
 import { openingHoursApi, type OpeningHoursRow } from '@/features/bookings/api/opening-hours';
 import { Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 
 export default function OpeningHoursPage() {
   const router = useRouter();
@@ -52,19 +53,16 @@ export default function OpeningHoursPage() {
         <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Opening Hours</h1>
-            <p className="text-muted-foreground">
-              Manage business opening hours by day of the week
-            </p>
           </div>
-          <Button onClick={() => setAddButtonClick(prev => prev + 1)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Opening Hours
-          </Button>
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add Opening Hours"
+            onClick={() => setAddButtonClick(prev => prev + 1)}
+          />
         </div>
       </div>
       <OpeningHoursTable openingHours={openingHours} onUpdate={loadData} onCreateTrigger={addButtonClick} />
     </div>
   );
 }
-
 

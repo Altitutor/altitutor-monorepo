@@ -2,6 +2,7 @@
 
 import React, { useState, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
   TableBody,
@@ -45,6 +46,7 @@ interface AdminShiftsTableProps {
 }
 
 export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('admin-shifts');

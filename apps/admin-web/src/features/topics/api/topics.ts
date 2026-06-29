@@ -1,4 +1,5 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import { buildCodeAndNameOrFilter, buildCodeContainsPattern, buildSubjectNameOrFilter, parseSubjectQualifiedSearch } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { buildTopicTree, type TopicTree } from '../utils/codes';
 import type { Database } from '@altitutor/shared';
@@ -270,6 +271,64 @@ export const topicsApi = {
       topics: (rpcData.topics || []) as Array<Tables<'topics'> & { subject: Tables<'subjects'> }>,
       total: rpcData.total ?? 0,
     };
+  },
+
+  /**
+   * Lightweight topic search for command palette.
+   * Uses indexed code exact/prefix matching instead of the heavy search_topics_admin RPC.
+   */
+  searchForCommandPalette: async (
+    search: string,
+    limit = 8,
+  ): Promise<Array<Tables<'topics'> & { subject: Tables<'subjects'> }>> => {
+    const trimmed = search.trim();
+    if (trimmed.length < 2) return [];
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const parsed = parseSubjectQualifiedSearch(trimmed);
+    const topicSelect = `
+        id, subject_id, name, parent_id, index, code, created_at, updated_at, created_by,
+        subject:subjects!inner (
+          id, name, curriculum, year_level, discipline, level, color, short_name, long_name
+        )
+      `;
+
+    if (parsed.mode === 'qualified') {
+      const { data: subjects, error: subjectError } = await supabase
+        .from('subjects')
+        .select('id')
+        .or(buildSubjectNameOrFilter(parsed.subjectQuery));
+
+      if (subjectError) throw subjectError;
+
+      const subjectIds = (subjects ?? [])
+        .map((subject) => subject.id)
+        .filter((id): id is string => Boolean(id));
+      if (subjectIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('topics')
+        .select(topicSelect)
+        .in('subject_id', subjectIds)
+        .ilike('code', buildCodeContainsPattern(parsed.codeQuery))
+        .order('code', { ascending: true })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data ?? []) as Array<Tables<'topics'> & { subject: Tables<'subjects'> }>;
+    }
+
+    const orFilter = buildCodeAndNameOrFilter('code', 'name', trimmed);
+
+    const { data, error } = await supabase
+      .from('topics')
+      .select(topicSelect)
+      .or(orFilter)
+      .order('code', { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data ?? []) as Array<Tables<'topics'> & { subject: Tables<'subjects'> }>;
   },
 
   /**

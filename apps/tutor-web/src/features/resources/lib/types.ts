@@ -10,3 +10,8 @@ export type TutorTopicFileRow = Database['public']['Views']['vtutor_topics_files
 export type ResourceSubject = TutorSubjectRow & {
   image?: ResourceSubjectImage | null;
 };
+
+export type ResourceSubjectNavItem = Pick<
+  TutorSubjectRow,
+  'id' | 'name' | 'short_name' | 'long_name' | 'curriculum' | 'year_level'
+>;

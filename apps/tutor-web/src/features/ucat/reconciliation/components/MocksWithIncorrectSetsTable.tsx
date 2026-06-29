@@ -9,7 +9,7 @@ import { useReconciliationData } from '../hooks/useReconciliation'
 import { applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 export function MocksWithIncorrectSetsTable({
   onEditMock,
@@ -127,7 +127,7 @@ function MockReconciliationRow({
     <TableRow className={tutorTableBodyRow}>
       {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
       <TableCell>
-        <Button variant="default" size="sm" onClick={() => onEditMock(item.id)}>
+        <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => onEditMock(item.id)}>
           <Pencil className="h-4 w-4 mr-1" />
           Edit mock
         </Button>

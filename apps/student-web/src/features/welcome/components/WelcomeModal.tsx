@@ -327,26 +327,28 @@ export function WelcomeModal({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="w-[min(96vw,1100px)] max-w-none h-[min(88vh,760px)] overflow-hidden p-0 flex flex-col">
-        <AlertDialogHeader className="border-b px-6 py-4">
-          <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground font-medium">
-            <span className={step === 1 ? 'font-semibold text-foreground' : ''}>Step 1</span>
-            <span>/</span>
-            <span className={step === 2 ? 'font-semibold text-foreground' : ''}>Step 2</span>
-            <span>/</span>
-            <span className={step === 3 ? 'font-semibold text-foreground' : ''}>Step 3</span>
-          </div>
-          <AlertDialogTitle className="text-2xl">
-            {step === 1
-              ? `Welcome, ${studentFirstName ?? 'Student'}`
-              : step === 2
-                ? 'Important Information'
-                : 'Finish tutorial'}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="sr-only">Welcome modal with onboarding details</AlertDialogDescription>
-        </AlertDialogHeader>
+      <AlertDialogContent className="flex h-[90vh] max-h-[calc(100dvh-2rem)] w-full flex-col gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-h-[calc(100dvh-2rem)] md:max-w-5xl lg:max-w-6xl">
+        <div className="flex-shrink-0 border-b bg-background">
+          <AlertDialogHeader className="px-6 py-4">
+            <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <span className={step === 1 ? 'font-semibold text-foreground' : ''}>Step 1</span>
+              <span>/</span>
+              <span className={step === 2 ? 'font-semibold text-foreground' : ''}>Step 2</span>
+              <span>/</span>
+              <span className={step === 3 ? 'font-semibold text-foreground' : ''}>Step 3</span>
+            </div>
+            <AlertDialogTitle className="text-2xl">
+              {step === 1
+                ? `Welcome, ${studentFirstName ?? 'Student'}`
+                : step === 2
+                  ? 'Important Information'
+                  : 'Finish tutorial'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">Welcome modal with onboarding details</AlertDialogDescription>
+          </AlertDialogHeader>
+        </div>
 
-        <div className={cn('flex-1 px-6 py-5', step === 1 ? 'overflow-y-auto' : 'overflow-hidden')}>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 w-full">
           {step === 1 ? (
             <section className="animate-in fade-in-0 slide-in-from-bottom-2 duration-500 space-y-4">
               <p className="text-m text-muted-foreground leading-relaxed">
@@ -465,7 +467,7 @@ export function WelcomeModal({
           )}
         </div>
 
-        <AlertDialogFooter className="border-t px-6 py-4 flex-row justify-between">
+        <AlertDialogFooter className="flex-shrink-0 border-t px-6 py-4 flex-row justify-between">
           <Button
             type="button"
             variant="outline"

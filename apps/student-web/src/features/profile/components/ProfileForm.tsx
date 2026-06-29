@@ -16,7 +16,7 @@ import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
-import { PhoneInput } from '@altitutor/ui';
+import { PhoneInput, Skeleton, SkeletonFormFields } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useProfile, useUpdateProfile } from '../hooks';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
@@ -104,8 +104,9 @@ export function ProfileForm() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <SkeletonFormFields fields={8} columns={2} />
       </div>
     );
   }

@@ -38,7 +38,8 @@ import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/fea
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
@@ -51,10 +52,65 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trim() + '…'
 }
 
+type SetQuestionCountWarningSet = {
+  name?: unknown
+  sections?: unknown
+  question_count?: number | null
+}
+
+type SetQuestionCountWarningSection = {
+  id?: string | null
+  section_number?: number | null
+  name?: string | null
+  number_of_questions?: number | null
+}
+
+function getFullSetWarning(
+  set: SetQuestionCountWarningSet | null | undefined,
+  stemSectionId: string,
+  sections: SetQuestionCountWarningSection[],
+): { setName: string; title: string; description: string } | null {
+  if (!set) return null
+  const parsed = parseSetSections(set.sections ?? null)
+  if (parsed.sectionCount !== 1 || parsed.firstSectionNumber == null) return null
+
+  const setSection = sections.find((section) => section.section_number === parsed.firstSectionNumber)
+  if (!setSection) return null
+  const stemSection = sections.find((section) => section.id === stemSectionId)
+  const setName = proseMirrorToPlainText(set.name as Json) ?? 'Untitled'
+  const setSectionName = setSection.name ?? 'the set section'
+  const stemSectionName = stemSection?.name ?? 'the stem section'
+  const reasons: string[] = []
+
+  if (setSection.id !== stemSectionId) {
+    reasons.push(`This set is currently all ${setSectionName}, but the stem is ${stemSectionName}.`)
+  }
+
+  const expectedQuestionCount = setSection.number_of_questions ?? null
+  const currentQuestionCount = set.question_count ?? null
+  if (
+    expectedQuestionCount != null &&
+    currentQuestionCount != null &&
+    currentQuestionCount === expectedQuestionCount
+  ) {
+    reasons.push(`This set already has ${currentQuestionCount} questions, matching the configured count for ${setSectionName}.`)
+  }
+
+  if (reasons.length === 0) return null
+
+  return {
+    setName,
+    title: 'Review set before adding',
+    description: `"${setName}" may not be a good target for this stem. ${reasons.join(' ')}`,
+  }
+}
+
 export function PrivateStemsNotInSetTable({
   onOpenStemDialog,
+  onEditSet,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  onEditSet?: (setId: string) => void
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -82,6 +138,13 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetPending, setBulkSetPending] = useState(false)
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'category_name', 'section_name'])
   const [queueOpen, setQueueOpen] = useState(false)
+  const [setWarning, setSetWarning] = useState<{
+    setId: string
+    setName: string
+    title: string
+    description: string
+    action: () => Promise<void>
+  } | null>(null)
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'category_name', label: 'Category', visibleByDefault: true },
@@ -154,7 +217,7 @@ export function PrivateStemsNotInSetTable({
     [filteredStems],
   )
 
-  const handleAddToSet = useCallback(
+  const addStemToSet = useCallback(
     async (item: PrivateStemNotInSet, setId: string) => {
       try {
         await ucatSetsApi.addStemsToSet(setId, [item.id])
@@ -184,6 +247,25 @@ export function PrivateStemsNotInSetTable({
       }
     },
     [toast, onOpenStemDialog, queryClient]
+  )
+
+  const handleAddToSet = useCallback(
+    async (item: PrivateStemNotInSet, setId: string) => {
+      const selectedSet = staffSets.find((set) => set.id === setId)
+      const warning = getFullSetWarning(selectedSet, item.sectionId, sectionsQuery.data ?? [])
+      if (warning) {
+        setSetWarning({
+          setId,
+          ...warning,
+          action: async () => {
+            await addStemToSet(item, setId)
+          },
+        })
+        return
+      }
+      await addStemToSet(item, setId)
+    },
+    [addStemToSet, staffSets, sectionsQuery.data]
   )
 
   const toggleStemSelection = useCallback((id: string) => {
@@ -226,12 +308,12 @@ export function PrivateStemsNotInSetTable({
     )
     .some((s) => selectedStemIds.has(s.id))
 
-  const handleBulkAddToSetConfirm = useCallback(async () => {
-    if (!bulkSetId || selectedStemIds.size === 0) return
-    const count = selectedStemIds.size
+  const addSelectedStemsToSet = useCallback(async (setId: string, stemIds: string[]) => {
+    if (stemIds.length === 0) return
+    const count = stemIds.length
     setBulkSetPending(true)
     try {
-      await ucatSetsApi.addStemsToSet(bulkSetId, Array.from(selectedStemIds))
+      await ucatSetsApi.addStemsToSet(setId, stemIds)
       setSelectedStemIds(new Set())
       setBulkSetOpen(false)
       setBulkSetId(null)
@@ -250,7 +332,28 @@ export function PrivateStemsNotInSetTable({
     } finally {
       setBulkSetPending(false)
     }
-  }, [bulkSetId, selectedStemIds, toast, queryClient])
+  }, [queryClient, toast])
+
+  const handleBulkAddToSetConfirm = useCallback(async () => {
+    if (!bulkSetId || selectedStemIds.size === 0) return
+    const stemIds = Array.from(selectedStemIds)
+    const selectedSet = staffSets.find((set) => set.id === bulkSetId)
+    const selectedStems = filteredStems.filter((stem) => selectedStemIds.has(stem.id))
+    const firstStem = selectedStems[0]
+    const warning = firstStem ? getFullSetWarning(selectedSet, firstStem.sectionId, sectionsQuery.data ?? []) : null
+    if (warning) {
+      setSetWarning({
+        setId: bulkSetId,
+        ...warning,
+        action: async () => {
+          await addSelectedStemsToSet(bulkSetId, stemIds)
+        },
+      })
+      setBulkSetOpen(false)
+      return
+    }
+    await addSelectedStemsToSet(bulkSetId, stemIds)
+  }, [addSelectedStemsToSet, bulkSetId, selectedStemIds, staffSets, filteredStems, sectionsQuery.data])
 
   const toolbar = (
     <DataTableToolbar
@@ -288,7 +391,7 @@ export function PrivateStemsNotInSetTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin reconciling
           </Button>
         }
@@ -309,6 +412,7 @@ export function PrivateStemsNotInSetTable({
             visibleColumnKeys={visibleColumnKeys}
             selection={sel}
             onAddToSet={(setId) => handleAddToSet(item, setId)}
+            onOpenStemDialog={onOpenStemDialog}
           />
         )}
       />
@@ -334,7 +438,7 @@ export function PrivateStemsNotInSetTable({
           searchPlaceholder="Search sets..."
           emptyMessage="No sets found"
           trigger={
-            <Button variant="default" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Add to set
             </Button>
           }
@@ -367,6 +471,43 @@ export function PrivateStemsNotInSetTable({
         entries={queueEntries}
         onClose={() => setQueueOpen(false)}
       />
+      <AlertDialog open={setWarning != null} onOpenChange={(open) => !open && setSetWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{setWarning?.title ?? 'Review set before adding'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {setWarning?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSetPending}>Cancel</AlertDialogCancel>
+            {setWarning ? (
+              <Button
+                type="button"
+                variant="outline"
+                className={tutorBtnOutline}
+                onClick={() => {
+                  const setId = setWarning.setId
+                  setSetWarning(null)
+                  onEditSet?.(setId)
+                }}
+              >
+                View set
+              </Button>
+            ) : null}
+            <AlertDialogAction
+              onClick={() => {
+                const action = setWarning?.action
+                setSetWarning(null)
+                if (action) void action()
+              }}
+              disabled={bulkSetPending}
+            >
+              Add anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
@@ -378,6 +519,7 @@ function PrivateStemNotInSetRow({
   visibleColumnKeys,
   selection,
   onAddToSet,
+  onOpenStemDialog,
 }: {
   item: PrivateStemNotInSet
   sets: Array<{ id: string | null; name: unknown }>
@@ -389,6 +531,7 @@ function PrivateStemNotInSetRow({
     onToggleSelection: (id: string) => void
   }
   onAddToSet: (setId: string) => Promise<void>
+  onOpenStemDialog?: (stemId: string) => void
 }) {
   const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
   const stemTruncated = truncate(stemText, TRUNCATE_LEN)
@@ -437,7 +580,12 @@ function PrivateStemNotInSetRow({
       )}
       {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <AddToSetSelect sets={sets} onSelect={onAddToSet} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => onOpenStemDialog?.(item.id)}>
+            View
+          </Button>
+          <AddToSetSelect sets={sets} onSelect={onAddToSet} />
+        </div>
       </TableCell>
     </TableRow>
   )
@@ -457,7 +605,7 @@ function AddToSetSelect({
 
   if (items.length === 0) {
     return (
-      <Button variant="default" size="sm" disabled>
+      <Button variant="outline" size="sm" className={tutorBtnOutline} disabled>
         No sets available
       </Button>
     )
@@ -474,7 +622,7 @@ function AddToSetSelect({
       getItemId={(s) => s.id}
       placeholder="Add to set"
       trigger={
-        <Button variant="default" size="sm">
+        <Button variant="outline" size="sm" className={tutorBtnOutline}>
           Add to set
         </Button>
       }

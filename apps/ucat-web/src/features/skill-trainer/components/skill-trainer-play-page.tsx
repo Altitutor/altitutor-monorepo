@@ -10,7 +10,7 @@ import {
   NumpadTrainer,
   QuickSyllogismTrainer,
 } from "@altitutor/ui";
-import { trainerKeyToSlug } from "@altitutor/shared";
+import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
@@ -167,6 +167,20 @@ export function SkillTrainerPlayPage({
   const mentalMathsContent = asMentalMathsContent(state?.currentItem?.content);
   const numpadContent = asNumpadSpeedContent(state?.currentItem?.content);
   const calculatorMathsContent = asCalculatorMathsContent(state?.currentItem?.content);
+  const activeTrainerKey =
+    state?.attempt.config_snapshot.trainer_key ??
+    (state?.attempt.trainer_key && isUcatSkillTrainerKey(state.attempt.trainer_key)
+      ? state.attempt.trainer_key
+      : null);
+  const trainerMismatch =
+    activeTrainerKey != null && activeTrainerKey !== trainerKey;
+  const hasRenderableContent =
+    (trainerKey === "find_word" && Boolean(findWordContent)) ||
+    (trainerKey === "find_concept" && Boolean(findConceptContent)) ||
+    (trainerKey === "quick_syllogism" && Boolean(syllogismContent)) ||
+    (trainerKey === "mental_maths" && Boolean(mentalMathsContent)) ||
+    (trainerKey === "numpad_speed" && Boolean(numpadContent)) ||
+    (trainerKey === "calculator_maths" && Boolean(calculatorMathsContent));
 
   useEffect(() => {
     numpadInputRef.current = numpadInput;
@@ -198,6 +212,13 @@ export function SkillTrainerPlayPage({
   }, [state?.isCompleted, refresh, embedded, onComplete]);
 
   useEffect(() => {
+    if (!state || !trainerMismatch || embedded || !activeTrainerKey) return;
+    router.replace(
+      `/skill-trainer/${trainerKeyToSlug(activeTrainerKey)}/play?attemptId=${attemptId}`,
+    );
+  }, [activeTrainerKey, attemptId, embedded, router, state, trainerMismatch]);
+
+  useEffect(() => {
     setAnswerFocus(false);
     setNumericInput("");
     setNumpadInput([]);
@@ -227,6 +248,13 @@ export function SkillTrainerPlayPage({
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!state) return <p className="text-sm text-destructive">Attempt not found.</p>;
+  if (trainerMismatch) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Loading the active trainer…
+      </p>
+    );
+  }
 
   if (state.isCompleted) {
     if (embedded) {
@@ -271,6 +299,12 @@ export function SkillTrainerPlayPage({
       />
 
       {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+
+      {!hasRenderableContent ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          This trainer item could not be loaded. Exit and start a new trainer run.
+        </div>
+      ) : null}
 
       {trainerKey === "find_word" && findWordContent ? (
         <FindWordTrainer

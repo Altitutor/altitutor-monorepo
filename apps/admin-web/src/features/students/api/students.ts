@@ -66,6 +66,8 @@ export type StudentMinimalListRow = Tables<'students'> & {
     level: string | null;
     subject?: Tables<'subjects'> | null;
   }>;
+  subjects?: Tables<'subjects'>[];
+  parents?: Tables<'parents'>[];
   has_online_subscription?: boolean;
   has_in_person_class?: boolean;
 };
@@ -226,6 +228,7 @@ export const studentsApi = {
       p_offset: offset,
       p_order_by: orderBy as string,
       p_ascending: ascending,
+      p_subject_ids: subjectIds.length > 0 ? subjectIds : undefined,
       ...(subscriptionFilter ? { p_subscription_filter: subscriptionFilter } : {}),
       ...(inPersonFilter ? { p_in_person_filter: inPersonFilter } : {}),
     });
@@ -259,14 +262,6 @@ export const studentsApi = {
     if (yearLevels.length > 0) {
       students = students.filter((s) => s.year_level && yearLevels.includes(s.year_level));
     }
-    if (subjectIds.length > 0) {
-      // Filter by subject IDs - check if student has any of the requested subjects in their classes
-      students = students.filter((s) => {
-        const studentClasses = s.classes || [];
-        return studentClasses.some((cls) => cls.subject && subjectIds.includes(cls.subject.id));
-      });
-    }
-
     // Transform RPC response to match expected format
     const transformedStudents = students.map((s) => ({
       id: s.id,
@@ -296,14 +291,49 @@ export const studentsApi = {
           subject: 'subject' in cls && cls.subject ? cls.subject as Tables<'subjects'> : null,
         };
       }).filter((cls): cls is NonNullable<typeof cls> => cls !== null),
-    }));
+    })) as StudentMinimalListRow[];
+
+    const studentIds = transformedStudents.map((student) => student.id);
+    if (studentIds.length > 0) {
+      const { studentSubjects } = await studentsApi.getDetailsForStudentIds(studentIds);
+
+      const { data: parentRows, error: parentsError } = await supabase
+        .from('parents_students')
+        .select('student_id, parent_details:parents(*)')
+        .in('student_id', studentIds);
+      if (parentsError) throw parentsError;
+
+      const parentsByStudent: Record<string, Tables<'parents'>[]> = {};
+      studentIds.forEach((id) => {
+        parentsByStudent[id] = [];
+      });
+      parentRows?.forEach((row) => {
+        const studentId = row.student_id;
+        const parent = row.parent_details as Tables<'parents'> | null;
+        if (studentId && parent && parentsByStudent[studentId]) {
+          parentsByStudent[studentId].push(parent);
+        }
+      });
+
+      transformedStudents.forEach((student) => {
+        const byId = new Map<string, Tables<'subjects'>>();
+        (studentSubjects[student.id] || []).forEach((subject) => {
+          byId.set(subject.id, subject);
+        });
+        (student.classes || []).forEach((cls) => {
+          if (cls.subject) byId.set(cls.subject.id, cls.subject);
+        });
+        student.subjects = Array.from(byId.values());
+        student.parents = parentsByStudent[student.id] || [];
+      });
+    }
 
     // RPC total reflects server-side filters (status, search, subscription, in-person). Curriculum/year/subject
     // are still applied client-side below, so totals can be higher than visible rows when those filters are set.
     const total = rpcData.total;
 
     return {
-      students: transformedStudents as StudentMinimalListRow[],
+      students: transformedStudents,
       total,
     };
   },

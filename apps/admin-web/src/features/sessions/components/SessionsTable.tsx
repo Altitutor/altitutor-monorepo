@@ -20,6 +20,7 @@ import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -59,6 +60,9 @@ type SessionsTableProps = {
   hideClassColumn?: boolean; // Hide Class column
   hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
+  skipUrlSync?: boolean; // Keep table state local when embedded in modals
+  hideToolbar?: boolean;
+  hidePagination?: boolean;
   attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
@@ -100,6 +104,9 @@ export function SessionsTable({
   hideClassColumn = false,
   hideStudentsColumn = false,
   initialStudentFilters = [],
+  skipUrlSync = false,
+  hideToolbar = false,
+  hidePagination = false,
   attendanceView,
   onUndoLogAbsenceStudent,
   onUndoLogAbsenceStaff,
@@ -108,6 +115,7 @@ export function SessionsTable({
 }: SessionsTableProps) {
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('sessions');
@@ -142,6 +150,7 @@ export function SessionsTable({
     defaultSort,
     defaultVisibleColumns,
     filterKeys: ['type', 'subject', 'student', 'staff', 'tutor_log', 'from', 'to'],
+    skipUrlSync,
   });
 
   // Use the main hook for all business logic
@@ -309,6 +318,10 @@ export function SessionsTable({
     [modals]
   );
 
+  const displaySessions = hidePagination ? filteredSessions : paginatedSessions;
+  const showTableChrome = !limit && !hideToolbar;
+  const showPagination = !limit && !hidePagination;
+
   const handleCopySessionId = useCallback(async (id: string, displayText: string) => {
     const sanitizedDisplay = displayText.replace(/\]/g, '');
     await navigator.clipboard.writeText(`@[session:${id}:${sanitizedDisplay}]`);
@@ -318,7 +331,7 @@ export function SessionsTable({
   if (isLoading && allSessions.length === 0) {
     return (
       <div className="space-y-4">
-        {!limit && (
+        {!limit && !hideToolbar && (
           <div className="flex justify-between items-center">
             <div className="relative w-64">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -356,8 +369,8 @@ export function SessionsTable({
   }
 
   return (
-    <div className="space-y-4">
-      {!limit && (
+    <div className={showTableChrome || showPagination ? 'space-y-4' : undefined}>
+      {showTableChrome && (
         <div className="flex flex-col gap-2">
           <DataTableToolbar
             state={state}
@@ -418,7 +431,7 @@ export function SessionsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedSessions.length === 0 ? (
+            {displaySessions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                   {state.search || Object.keys(state.filters).length > 0
@@ -427,7 +440,7 @@ export function SessionsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedSessions.map((session) => (
+              displaySessions.map((session) => (
                 <SessionsTableRow
                   key={session.id}
                   session={session}
@@ -472,7 +485,7 @@ export function SessionsTable({
         </Table>
       </div>
       
-      {!limit && (
+      {showPagination && (
         <TablePagination
           page={state.page}
           pageSize={state.pageSize}

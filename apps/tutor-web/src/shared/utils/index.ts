@@ -97,10 +97,13 @@ export function formatClassShortName(
   return parts.join(' ');
 }
 
-/**
- * Navigation hover styles for consistent UI
- */
-export const navHoverStyles = "hover:bg-muted text-brand-darkBlue dark:text-white dark:hover:bg-muted/50 dark:hover:text-white" 
+export {
+  navActiveStyles,
+  navHoverStyles,
+  navItemTransitionStyles,
+  navLinkActiveStyles,
+  navLinkInactiveStyles,
+} from '@altitutor/ui'; 
 
 /**
  * Calculate luminance of a hex color to determine if text should be light or dark

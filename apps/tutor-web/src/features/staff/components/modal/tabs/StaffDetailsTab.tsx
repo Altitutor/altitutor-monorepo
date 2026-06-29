@@ -5,7 +5,7 @@ import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { SearchableSelect } from "@altitutor/ui";
+import { SearchableSelect, SkeletonListRows } from "@altitutor/ui";
 import { Loader2, Pencil, X } from "lucide-react";
 import type { Resolver } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
@@ -421,9 +421,7 @@ export function StaffDetailsTab({
           </div>
           
           {loadingSubjects ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <SkeletonListRows rows={4} />
           ) : staffSubjects.length === 0 ? (
             <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
           ) : (
@@ -588,9 +586,7 @@ export function StaffDetailsTab({
             </div>
             
             {loadingSubjects ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <SkeletonListRows rows={4} />
             ) : staffSubjects.length === 0 ? (
               <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
             ) : (

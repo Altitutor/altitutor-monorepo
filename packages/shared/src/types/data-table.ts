@@ -47,4 +47,6 @@ export interface DataTableState {
   page: number;
   pageSize: number;
   visibleColumns: string[];
+  /** Baseline column layout used by the View reset pill */
+  defaultVisibleColumns?: string[];
 }

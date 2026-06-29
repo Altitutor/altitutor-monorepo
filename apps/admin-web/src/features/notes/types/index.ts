@@ -9,6 +9,7 @@ export interface NoteFormData {
   content: JSONContent | string;
   folder_id?: string | null;
   project_id?: string | null;
+  is_tutor_documentation?: boolean;
 }
 
 /**

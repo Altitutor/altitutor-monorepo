@@ -178,6 +178,8 @@ export function UcatSkillTrainerSetsPage() {
       />
 
       <SegmentedControl
+        fullWidth
+        className="w-full min-w-0"
         value={trainerKeyToSlug(activeTab)}
         onValueChange={(v) => {
           const key = trainerSlugToKey(v)

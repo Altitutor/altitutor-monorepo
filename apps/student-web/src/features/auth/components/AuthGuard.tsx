@@ -21,7 +21,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // If user is authenticated and trying to access auth pages, redirect to dashboard
     // Middleware already handles redirecting unauthenticated users from protected routes,
     // so we only need to handle this UX improvement here
-    if (user && isAuthPage(pathname) && !loading) {
+    if (user && isAuthPage(pathname) && pathname !== '/reset-password' && !loading) {
       router.push('/dashboard');
     }
   }, [user, loading, pathname, router]);

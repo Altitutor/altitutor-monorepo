@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
-import type { FlashcardRating } from '@altitutor/shared';
-import { ratingMap, scheduler, stateName, toFsrsCard, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
+import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
+import { buildRatingPreviews, ratingMap, scheduler, stateName, toFsrsCard, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 
 function isFlashcardRating(value: unknown): value is FlashcardRating {
   return typeof value === 'string' && value in ratingMap;
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const result = scheduler.next(toFsrsCard(existingState as ReviewStateRow | null, now), now, ratingMap[rating]);
   const nextCard = result.card;
 
-  const { data, error } = await adminClient
+  const { error } = await adminClient
     .from('student_flashcard_review_states')
     .upsert(
       {
@@ -60,9 +60,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
       { onConflict: 'student_id,review_card_id' },
     )
-    .select()
+    .select('id')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
+
+  const { data: updatedCard, error: cardError } = await userClient
+    .from('vstudent_flashcard_review_cards')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+  if (cardError) return NextResponse.json({ error: cardError.message }, { status: 500 });
+
+  const row = updatedCard as FlashcardReviewCard;
+  return NextResponse.json({
+    data: {
+      ...row,
+      rating_previews: buildRatingPreviews(row as ReviewStateRow, now),
+    },
+  });
 }

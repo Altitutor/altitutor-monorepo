@@ -1,27 +1,50 @@
 'use client'
 
 import React, { useMemo, useCallback, useState } from 'react'
-import { TableRow, TableCell, Button, DataTableToolbar, SearchableSelect, useToast } from '@altitutor/ui'
+import { TableRow, TableCell, Button, DataTableToolbar, useToast } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UntaggedQuestion } from '../api/reconciliation'
-import { useReconciliationData, useAddQuestionTag } from '../hooks/useReconciliation'
+import { useReconciliationData, useAddQuestionTags } from '../hooks/useReconciliation'
 import { useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
-import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption, Json } from '@altitutor/shared'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
 } from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
+import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { inferBulkImportTagIdsForParsedQuestion } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
   return text.slice(0, max).trim() + '…'
+}
+
+function richTextishToPlainText(value: unknown): string {
+  if (typeof value === 'string') return value
+  return proseMirrorToPlainText(value as Json) ?? ''
+}
+
+function toParsedStem(item: UntaggedQuestion): ParsedStem {
+  return {
+    stemText: richTextishToPlainText(item.stemText),
+    questions: [
+      {
+        number: item.questionIndex,
+        text: richTextishToPlainText(item.questionText),
+        options: (item.answerOptions ?? []).map((option, index) => ({
+          label: String.fromCharCode(97 + index),
+          text: richTextishToPlainText(option.answer_text),
+        })),
+      },
+    ],
+  }
 }
 
 export function UntaggedQuestionsTable({
@@ -33,7 +56,7 @@ export function UntaggedQuestionsTable({
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
   const tagsQuery = useUcatTags()
-  const addTagMutation = useAddQuestionTag()
+  const addTagsMutation = useAddQuestionTags()
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
   const [queueOpen, setQueueOpen] = useState(false)
 
@@ -102,15 +125,40 @@ export function UntaggedQuestionsTable({
     [filteredQuestions],
   )
 
-  const handleAddTag = useCallback(
-    async (item: UntaggedQuestion, tagId: string) => {
-      try {
-        await addTagMutation.mutateAsync({ stemId: item.stemId, questionId: item.questionId, tagId })
+  const handleAutoAddTags = useCallback(
+    async (item: UntaggedQuestion) => {
+      const section = bulkImportSectionFromUcatName(item.sectionName)
+      if (!section) {
         toast({
-          title: 'Tag added',
+          title: 'Could not infer tags',
+          description: 'This question section is not supported by the bulk import tag parser.',
+          variant: 'destructive',
+        })
+        return
+      }
+      const parsedStem = toParsedStem(item)
+      const tagIds = inferBulkImportTagIdsForParsedQuestion({
+        stem: parsedStem,
+        question: parsedStem.questions[0]!,
+        section,
+        sectionId: item.sectionId,
+        tags: tagsQuery.data ?? [],
+      })
+      if (tagIds.length === 0) {
+        toast({
+          title: 'Could not infer tags',
+          description: 'The bulk import parser did not find matching tags for this question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      try {
+        await addTagsMutation.mutateAsync({ stemId: item.stemId, questionId: item.questionId, tagIds })
+        toast({
+          title: 'Tags added',
           description: (
             <>
-              The question has been tagged.{' '}
+              {tagIds.length} tag(s) have been added.{' '}
               <button
                 type="button"
                 onClick={() => onOpenStemDialog?.(item.stemId)}
@@ -123,16 +171,14 @@ export function UntaggedQuestionsTable({
         })
       } catch {
         toast({
-          title: 'Failed to add tag',
+          title: 'Failed to add tags',
           description: 'Please try again.',
           variant: 'destructive',
         })
       }
     },
-    [addTagMutation, toast, onOpenStemDialog]
+    [addTagsMutation, tagsQuery.data, toast, onOpenStemDialog]
   )
-
-  const tags = useMemo(() => mapTagsToOptions(tagsQuery.data ?? []), [tagsQuery.data])
 
   const toolbar = (
     <DataTableToolbar
@@ -169,7 +215,7 @@ export function UntaggedQuestionsTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
             Begin reconciling
           </Button>
         }
@@ -197,26 +243,20 @@ export function UntaggedQuestionsTable({
                 <Button
                   variant="outline"
                   size="sm"
+                  className={tutorBtnOutline}
                   onClick={() => onOpenStemDialog?.(item.stemId)}
                 >
-                  View stem
+                  View
                 </Button>
-                <SearchableSelect<{ id: string; name: string; label?: string | null }>
-                  items={tags}
-                  value={null}
-                  onValueChange={async (tag) => {
-                    if (tag) await handleAddTag(item, tag.id)
-                  }}
-                  getItemLabel={(t) => taxonomyDisplayLabel(t)}
-                  getItemId={(t) => t.id}
-                  placeholder="Add tag"
-                  disabled={addTagMutation.isPending}
-                  trigger={
-                    <Button variant="default" size="sm" disabled={addTagMutation.isPending}>
-                      Add tag
-                    </Button>
-                  }
-                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={tutorBtnOutline}
+                  onClick={() => void handleAutoAddTags(item)}
+                  disabled={addTagsMutation.isPending || tagsQuery.isLoading}
+                >
+                  Auto add tags
+                </Button>
               </div>
             </TableCell>
           </TableRow>

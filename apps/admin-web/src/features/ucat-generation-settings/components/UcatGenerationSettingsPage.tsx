@@ -21,10 +21,8 @@ import {
   Input,
   Label,
   SearchableSelect,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  SegmentedControl,
+  SegmentedTabPanelContent,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -790,25 +788,31 @@ export function UcatGenerationSettingsPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-      <TabsList>
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="providers">Providers</TabsTrigger>
-        <TabsTrigger value="models">Models</TabsTrigger>
-        <TabsTrigger value="prompts">Prompts</TabsTrigger>
-      </TabsList>
+    <div className="space-y-6">
+      <SegmentedControl
+        className="w-full max-w-xl min-w-0"
+        fullWidth
+        value={activeTab}
+        onValueChange={handleTabChange}
+        options={[
+          { value: 'general', label: 'General' },
+          { value: 'providers', label: 'Providers' },
+          { value: 'models', label: 'Models' },
+          { value: 'prompts', label: 'Prompts' },
+        ]}
+      />
 
-      <TabsContent value="general">
+      <SegmentedTabPanelContent when="general" activeTab={activeTab}>
         <SettingsForm settings={bundle.settings} onSaved={() => load(false)} />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="providers" className="space-y-4">
+      <SegmentedTabPanelContent when="providers" activeTab={activeTab} className="space-y-4">
         {bundle.providers.map((provider) => (
           <ProviderCard key={provider.id} provider={provider} onSaved={() => load(false)} />
         ))}
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="models" className="space-y-4">
+      <SegmentedTabPanelContent when="models" activeTab={activeTab} className="space-y-4">
         <ModelProfilesTable
           profiles={bundle.modelProfiles}
           providers={bundle.providers}
@@ -822,13 +826,13 @@ export function UcatGenerationSettingsPage() {
           onSaved={() => load(false)}
           onOpenChange={setCreatingModelProfile}
         />
-      </TabsContent>
+      </SegmentedTabPanelContent>
 
-      <TabsContent value="prompts" className="space-y-6">
+      <SegmentedTabPanelContent when="prompts" activeTab={activeTab} className="space-y-6">
         <SystemPromptsTable prompts={bundle.systemPrompts} onSaved={() => load(false)} />
         <PromptLayersTable layers={bundle.promptLayers} options={bundle.taxonomyOptions} onSaved={() => load(false)} />
-      </TabsContent>
-    </Tabs>
+      </SegmentedTabPanelContent>
+    </div>
     </TooltipProvider>
   );
 }

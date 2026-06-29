@@ -16,6 +16,7 @@ export const flashcardsApi = {
     topicId: string;
     clozeText: string;
     extra?: string;
+    index?: number;
   }): Promise<Flashcard> {
     const res = await fetch('/api/flashcards', {
       method: 'POST',
@@ -24,6 +25,7 @@ export const flashcardsApi = {
         topic_id: input.topicId,
         cloze_text: input.clozeText,
         extra: input.extra,
+        index: input.index,
       }),
     });
     return readJson<Flashcard>(res);
@@ -38,13 +40,29 @@ export const flashcardsApi = {
     cardId: string;
     clozeText: string;
     extra?: string;
+    index?: number;
+    topicId?: string;
   }): Promise<Flashcard> {
     const res = await fetch(`/api/flashcards/cards/${encodeURIComponent(input.cardId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cloze_text: input.clozeText, extra: input.extra }),
+      body: JSON.stringify({
+        cloze_text: input.clozeText,
+        extra: input.extra,
+        index: input.index,
+        topic_id: input.topicId,
+      }),
     });
     return readJson<Flashcard>(res);
+  },
+
+  async reorderCards(topicId: string, cardIds: string[]): Promise<{ updated: number }> {
+    const res = await fetch('/api/flashcards/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic_id: topicId, card_ids: cardIds }),
+    });
+    return readJson<{ updated: number }>(res);
   },
 
   async importCsv(topicId: string, csv: string): Promise<{ inserted: number; rejected: Array<{ row: number; reason: string }> }> {

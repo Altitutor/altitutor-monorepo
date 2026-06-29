@@ -6,7 +6,10 @@ export type StaffListItem = Pick<
   Tables<'staff'>,
   'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'phone_number' | 'email'
 > & {
+  office_key_number?: Tables<'staff'>['office_key_number'];
+  has_parking_remote?: Tables<'staff'>['has_parking_remote'];
   classes?: ClassWithExpandedSubject[];
+  subjects?: Tables<'subjects'>[];
 };
 
 export interface StaffCreateData {
@@ -86,6 +89,7 @@ export const staffApi = {
     status?: string;
     roles?: string[];
     statuses?: string[];
+    subjectIds?: string[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'staff'>;
@@ -99,6 +103,7 @@ export const staffApi = {
       status,
       roles = [],
       statuses = [],
+      subjectIds = [],
       limit = 50,
       offset = 0,
       orderBy = 'last_name',
@@ -121,6 +126,7 @@ export const staffApi = {
       p_offset: offset,
       p_order_by: orderBy as string,
       p_ascending: ascending,
+      p_subject_ids: subjectIds.length > 0 ? subjectIds : undefined,
     });
 
     if (rpcError) throw rpcError;
@@ -134,6 +140,8 @@ export const staffApi = {
       status?: string;
       phone_number?: string | null;
       email?: string | null;
+      office_key_number?: number | null;
+      has_parking_remote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
     }
     const rpcData = rpcResult as unknown as {
       staff: RpcStaffRow[];
@@ -170,8 +178,64 @@ export const staffApi = {
       status: s.status,
       phone_number: s.phone_number,
       email: s.email,
+      office_key_number: s.office_key_number ?? null,
+      has_parking_remote: s.has_parking_remote ?? null,
       classes: staffClassesMap[s.id] || [],
     })) as StaffListItem[];
+
+    const staffIds = transformedStaff.map((s) => s.id);
+    if (staffIds.length > 0) {
+      const [{ data: staffDetails, error: staffDetailsError }, { data: staffSubjectsData, error: staffSubjectsError }] = await Promise.all([
+        supabase
+          .from('staff')
+          .select('id, office_key_number, has_parking_remote')
+          .in('id', staffIds),
+        supabase
+          .from('staff_subjects')
+          .select('staff_id, subject_details:subjects(*)')
+          .in('staff_id', staffIds),
+      ]);
+      if (staffDetailsError) throw staffDetailsError;
+      if (staffSubjectsError) throw staffSubjectsError;
+
+      const staffDetailsById = new Map(
+        (staffDetails || []).map((row) => [
+          row.id,
+          {
+            office_key_number: row.office_key_number,
+            has_parking_remote: row.has_parking_remote,
+          },
+        ])
+      );
+      const directSubjectsByStaff: Record<string, Tables<'subjects'>[]> = {};
+      staffIds.forEach((id) => {
+        directSubjectsByStaff[id] = [];
+      });
+      staffSubjectsData?.forEach((row) => {
+        const staffId = row.staff_id;
+        const subject = row.subject_details as Tables<'subjects'> | null;
+        if (staffId && subject && directSubjectsByStaff[staffId]) {
+          directSubjectsByStaff[staffId].push(subject);
+        }
+      });
+
+      transformedStaff.forEach((staffMember) => {
+        const details = staffDetailsById.get(staffMember.id);
+        if (details) {
+          staffMember.office_key_number = details.office_key_number;
+          staffMember.has_parking_remote = details.has_parking_remote;
+        }
+
+        const byId = new Map<string, Tables<'subjects'>>();
+        (directSubjectsByStaff[staffMember.id] || []).forEach((subject) => {
+          byId.set(subject.id, subject);
+        });
+        (staffMember.classes || []).forEach((cls) => {
+          if (cls.subject) byId.set(cls.subject.id, cls.subject);
+        });
+        staffMember.subjects = Array.from(byId.values());
+      });
+    }
 
     // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
     // Note: If client-side filters are applied, the actual filtered total may be lower, but we use RPC total

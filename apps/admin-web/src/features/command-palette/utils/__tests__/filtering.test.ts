@@ -163,6 +163,8 @@ describe('filterAndSortPages', () => {
 });
 
 describe('filterItemsByType', () => {
+  const allFilterTypes = ['command', 'page', 'student', 'staff', 'topic'] as const;
+
   const items = [
     {
       type: 'command' as const,
@@ -196,25 +198,30 @@ describe('filterItemsByType', () => {
     },
   ];
 
-  it('should return all items when filter is null', () => {
-    const result = filterItemsByType(items, null);
+  it('should return all items when all filter types are selected', () => {
+    const result = filterItemsByType(items, [...allFilterTypes], [...allFilterTypes]);
+    expect(result).toHaveLength(4);
+  });
+
+  it('should return all items when no filter types are selected', () => {
+    const result = filterItemsByType(items, [], [...allFilterTypes]);
     expect(result).toHaveLength(4);
   });
 
   it('should filter by command type', () => {
-    const result = filterItemsByType(items, 'command');
+    const result = filterItemsByType(items, ['command'], [...allFilterTypes]);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('command');
   });
 
   it('should filter by page type', () => {
-    const result = filterItemsByType(items, 'page');
+    const result = filterItemsByType(items, ['page'], [...allFilterTypes]);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('page');
   });
 
   it('should filter by entity type', () => {
-    const result = filterItemsByType(items, 'student');
+    const result = filterItemsByType(items, ['student'], [...allFilterTypes]);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('entity');
     if (result[0].type === 'entity') {
@@ -223,8 +230,14 @@ describe('filterItemsByType', () => {
   });
 
   it('should return empty array when no items match filter', () => {
-    const result = filterItemsByType(items, 'topic');
+    const result = filterItemsByType(items, ['topic'], [...allFilterTypes]);
     expect(result).toHaveLength(0);
+  });
+
+  it('should filter by multiple types', () => {
+    const result = filterItemsByType(items, ['command', 'page'], [...allFilterTypes]);
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.type)).toEqual(['command', 'page']);
   });
 });
 

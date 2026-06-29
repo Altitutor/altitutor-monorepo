@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@altitutor/ui';
 import { Download, Loader2, Edit, Printer, X } from 'lucide-react';
+import { SkeletonMediaPreview } from '@altitutor/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '../utils/file-type-icons';
 import {
@@ -210,9 +211,7 @@ export function FileCard({
           
           <div className="flex-1 overflow-auto">
             {loadingPreview ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
+              <SkeletonMediaPreview />
             ) : videoEmbed ? (
               <div className="relative w-full overflow-hidden rounded-md border aspect-video max-h-[75vh] mx-auto">
                 <iframe

@@ -10,11 +10,8 @@ import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestion
 import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
-import {
-  UcatQuestionStemApprovalQueueDialog,
-  type UcatApprovalQueueEntry,
-} from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
+import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { QuestionsWithNoExplanationReconciliationDialog } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationReconciliationDialog'
 
 const TRUNCATE_LEN = 80
 
@@ -86,18 +83,6 @@ export function QuestionsWithNoExplanationTable({
     return result
   }, [data?.questionsWithNoExplanation, tableState.state, questionAccessors, searchScopes])
 
-  const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
-    () =>
-      filteredQuestions.map((question) => ({
-        stemId: question.stemId,
-        mode: 'reconciliation' as const,
-        issueType: 'missing_explanation' as const,
-        questionId: question.questionId,
-        questionIndex: Math.max(0, question.questionIndex - 1),
-      })),
-    [filteredQuestions],
-  )
-
   const toolbar = (
     <DataTableToolbar
       state={tableState.state}
@@ -133,7 +118,7 @@ export function QuestionsWithNoExplanationTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={filteredQuestions.length === 0}>
             Begin reconciling
           </Button>
         }
@@ -158,8 +143,9 @@ export function QuestionsWithNoExplanationTable({
             {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
             <TableCell>
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
+                className={tutorBtnOutline}
                 onClick={() => onOpenStemDialog?.(item.stemId)}
               >
                 Edit question
@@ -169,11 +155,10 @@ export function QuestionsWithNoExplanationTable({
         )
         }}
       />
-      <UcatQuestionStemApprovalQueueDialog
+      <QuestionsWithNoExplanationReconciliationDialog
         open={queueOpen}
-        title="Reconcile missing explanations"
-        entries={queueEntries}
-        onClose={() => setQueueOpen(false)}
+        questions={filteredQuestions}
+        onOpenChange={setQueueOpen}
       />
     </>
   )

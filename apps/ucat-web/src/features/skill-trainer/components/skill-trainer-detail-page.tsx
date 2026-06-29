@@ -52,7 +52,8 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
     setError(null);
     try {
       const state = await skillTrainerApi.startAttempt(trainerKey);
-      router.push(`/skill-trainer/${slug}/play?attemptId=${state.attempt.id}`);
+      const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
+      router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {

@@ -22,10 +22,9 @@ function AuthCallbackInner() {
 
     const finish = (errorMessage: string) => {
       setMessage(errorMessage);
-      const errorPath =
-        next === "/reset-password"
-          ? `/forgot-password?error=${encodeURIComponent(errorMessage)}`
-          : `/signup?error=${encodeURIComponent(errorMessage)}`;
+      const errorPath = isRecoveryFlow
+        ? `/forgot-password?error=${encodeURIComponent(errorMessage)}`
+        : `/signup?error=${encodeURIComponent(errorMessage)}`;
       router.replace(errorPath);
     };
 

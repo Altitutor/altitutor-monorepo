@@ -1,4 +1,10 @@
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
+import {
+  buildCodeAndFilenameOrFilter,
+  buildCodeContainsPattern,
+  buildSubjectNameOrFilter,
+  parseSubjectQualifiedSearch,
+} from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deleteFile as deleteStorageFile } from '@/shared/lib/supabase/storage';
 import type { Database } from '@altitutor/shared';
@@ -390,6 +396,182 @@ export const topicsFilesApi = {
       files: result?.files ?? [],
       total: result?.total ?? 0,
     };
+  },
+
+  /**
+   * Lightweight file search for command palette.
+   * Uses indexed code exact/prefix matching instead of the heavy search_files_admin RPC.
+   */
+  searchForCommandPalette: async (
+    search: string,
+    limit = 8,
+  ): Promise<{
+    files: Array<{
+      id: string;
+      topic_id: string;
+      type: string;
+      index: number;
+      code: string | null;
+      file_id: string;
+      file: {
+        id: string;
+        filename: string;
+        mimetype: string | null;
+        size_bytes: number | null;
+      };
+      topic: {
+        id: string;
+        name: string;
+        code: string | null;
+      };
+      subject: {
+        id: string;
+        name: string;
+        short_name: string | null;
+        long_name: string | null;
+        color: string | null;
+      };
+    }>;
+  }> => {
+    const trimmed = search.trim();
+    if (trimmed.length < 2) return { files: [] };
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const parsed = parseSubjectQualifiedSearch(trimmed);
+    const fileSelect = `
+        id,
+        topic_id,
+        type,
+        index,
+        code,
+        file_id,
+        file:files!inner (
+          id,
+          filename,
+          mimetype,
+          size_bytes,
+          deleted_at
+        ),
+        topic:topics!inner (
+          id,
+          name,
+          code,
+          subject:subjects!inner (
+            id,
+            name,
+            short_name,
+            long_name,
+            color
+          )
+        )
+      `;
+
+    let data;
+    let error;
+
+    if (parsed.mode === 'qualified') {
+      const { data: subjects, error: subjectError } = await supabase
+        .from('subjects')
+        .select('id')
+        .or(buildSubjectNameOrFilter(parsed.subjectQuery));
+
+      if (subjectError) throw subjectError;
+
+      const subjectIds = (subjects ?? [])
+        .map((subject) => subject.id)
+        .filter((id): id is string => Boolean(id));
+      if (subjectIds.length === 0) return { files: [] };
+
+      const { data: topics, error: topicsError } = await supabase
+        .from('topics')
+        .select('id')
+        .in('subject_id', subjectIds);
+
+      if (topicsError) throw topicsError;
+
+      const topicIds = (topics ?? [])
+        .map((topic) => topic.id)
+        .filter((id): id is string => Boolean(id));
+      if (topicIds.length === 0) return { files: [] };
+
+      ({ data, error } = await supabase
+        .from('topics_files')
+        .select(fileSelect)
+        .is('file.deleted_at', null)
+        .in('topic_id', topicIds)
+        .ilike('code', buildCodeContainsPattern(parsed.codeQuery))
+        .order('code', { ascending: true })
+        .limit(limit));
+    } else {
+      const orFilter = buildCodeAndFilenameOrFilter('code', 'file.filename', trimmed);
+
+      ({ data, error } = await supabase
+        .from('topics_files')
+        .select(fileSelect)
+        .is('file.deleted_at', null)
+        .or(orFilter)
+        .order('code', { ascending: true })
+        .limit(limit));
+    }
+
+    if (error) throw error;
+
+    type CommandPaletteFileRow = {
+      id: string;
+      topic_id: string;
+      type: string;
+      index: number;
+      code: string | null;
+      file_id: string;
+      file: {
+        id: string;
+        filename: string;
+        mimetype: string | null;
+        size_bytes: number | null;
+        deleted_at: string | null;
+      };
+      topic: {
+        id: string;
+        name: string;
+        code: string | null;
+        subject: {
+          id: string;
+          name: string;
+          short_name: string | null;
+          long_name: string | null;
+          color: string | null;
+        };
+      };
+    };
+
+    const files = ((data ?? []) as CommandPaletteFileRow[]).map((row) => ({
+      id: row.id,
+      topic_id: row.topic_id,
+      type: row.type,
+      index: row.index,
+      code: row.code,
+      file_id: row.file_id,
+      file: {
+        id: row.file.id,
+        filename: row.file.filename,
+        mimetype: row.file.mimetype,
+        size_bytes: row.file.size_bytes,
+      },
+      topic: {
+        id: row.topic.id,
+        name: row.topic.name,
+        code: row.topic.code,
+      },
+      subject: {
+        id: row.topic.subject.id,
+        name: row.topic.subject.name,
+        short_name: row.topic.subject.short_name,
+        long_name: row.topic.subject.long_name,
+        color: row.topic.subject.color,
+      },
+    }));
+
+    return { files };
   },
 };
 

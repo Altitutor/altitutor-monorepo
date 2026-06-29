@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { CheckCircle2, Clock, X } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -11,9 +10,14 @@ import {
 } from "@/features/exam-attempts/lib/banner-copy";
 import { getRemainingSecondsFromEndsAt } from "@/lib/ucat/exam-attempt/timing";
 import { formatTimeRemaining } from "@/features/question-engine/lib/timing";
-import { cn } from "@/lib/utils";
+import { isPracticeEngineRoute } from "@/features/ucat-access/lib/quota-area-for-pathname";
+import { HeaderStatusPill } from "@/shared/components/header-status-pill";
 
 const DISMISSED_STORAGE_KEY = "ucat-dismissed-exam-attempts";
+
+function isImmersiveHeaderRoute(pathname: string): boolean {
+  return pathname.startsWith("/exam") || isPracticeEngineRoute(pathname);
+}
 
 function readDismissedAttemptIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -80,12 +84,10 @@ export function ExamAttemptHeaderPill() {
     if (active && viewingCompletedAttempt) dismiss(active.attemptId);
   }, [active, viewingCompletedAttempt, dismiss]);
 
+  if (isImmersiveHeaderRoute(pathname)) return null;
   if (!active) return null;
 
-  if (
-    atResults &&
-    (viewingCompletedAttempt || dismissedIds.has(active.attemptId))
-  ) {
+  if (atResults && (viewingCompletedAttempt || dismissedIds.has(active.attemptId))) {
     return null;
   }
 
@@ -98,54 +100,29 @@ export function ExamAttemptHeaderPill() {
   const actionLabel = atResults ? "View results" : "Resume";
 
   return (
-    <div
-      role="status"
-      className={cn(
-        "flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm",
-        atResults
-          ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-50"
-          : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-50",
-      )}
+    <HeaderStatusPill
+      variant={atResults ? "emerald" : "amber"}
+      icon={
+        atResults ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <Clock className="h-3.5 w-3.5" />
+        )
+      }
+      action={{
+        type: "link",
+        href: actionHref,
+        label: actionLabel,
+      }}
+      onDismiss={atResults ? () => dismiss(active.attemptId) : undefined}
     >
-      {atResults ? (
-        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      ) : (
-        <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      )}
-      <span className="min-w-0 truncate">
-        <span className="font-medium">{statusLabel}</span>
-        <span className="hidden sm:inline"> · {active.label}</span>
-        {remaining != null ? (
-          <span className="ml-1 tabular-nums opacity-80">
-            ({formatTimeRemaining(remaining)})
-          </span>
-        ) : null}
-      </span>
-      <Link
-        href={actionHref}
-        prefetch={false}
-        className={cn(
-          "shrink-0 rounded-full px-2 py-0.5 font-medium transition-colors",
-          atResults
-            ? "bg-emerald-900 text-emerald-50 hover:bg-emerald-800 dark:bg-emerald-100 dark:text-emerald-950 dark:hover:bg-emerald-200"
-            : "bg-amber-900 text-amber-50 hover:bg-amber-800 dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-amber-200",
-        )}
-      >
-        {actionLabel}
-      </Link>
-      {atResults ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            dismiss(active.attemptId);
-          }}
-          className="shrink-0 rounded-full p-0.5 text-emerald-900/70 transition-colors hover:bg-emerald-900/10 hover:text-emerald-900 dark:text-emerald-100/70 dark:hover:bg-emerald-100/10 dark:hover:text-emerald-100"
-          aria-label="Dismiss"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+      <span className="font-medium">{statusLabel}</span>
+      <span className="hidden sm:inline"> · {active.label}</span>
+      {remaining != null ? (
+        <span className="ml-1 tabular-nums opacity-80">
+          ({formatTimeRemaining(remaining)})
+        </span>
       ) : null}
-    </div>
+    </HeaderStatusPill>
   );
 }

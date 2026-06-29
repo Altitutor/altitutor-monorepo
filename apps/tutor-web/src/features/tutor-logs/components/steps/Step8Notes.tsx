@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@altitutor/ui';
+import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type Step8NotesProps = {
   notes: string[];
@@ -52,14 +53,18 @@ export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Session Notes</h3>
-      <Textarea
-        ref={textareaRef}
-        value={noteText}
-        onChange={handleChange}
-        placeholder="Add session notes..."
-        className="min-h-[120px] resize-none text-sm"
-      />
+      <p className="text-sm text-muted-foreground">
+        Add any notes about this session. These will be visible to staff reviewing the log.
+      </p>
+      <div className={tutorCardCn('p-4')}>
+        <Textarea
+          ref={textareaRef}
+          value={noteText}
+          onChange={handleChange}
+          placeholder="Add session notes..."
+          className="min-h-[120px] resize-none border-0 bg-transparent p-0 text-sm shadow-none ring-0 focus-visible:ring-0"
+        />
+      </div>
     </div>
   );
 }

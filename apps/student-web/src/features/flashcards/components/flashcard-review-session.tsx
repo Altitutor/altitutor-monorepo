@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
 import { parseClozeParts } from '@altitutor/shared';
@@ -8,6 +8,7 @@ import { Check, Info, RotateCcw, X } from 'lucide-react';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { useRateFlashcardReviewCard } from '../hooks/useFlashcards';
+import { preloadFlashcardImages, refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
 const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string }> = [
   { value: 'again', label: 'Again', key: '1', className: 'bg-red-600 text-white hover:bg-red-700' },
@@ -15,6 +16,15 @@ const ratings: Array<{ value: FlashcardRating; label: string; key: string; class
   { value: 'good', label: 'Good', key: '3', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
   { value: 'easy', label: 'Easy', key: '4', className: 'bg-blue-600 text-white hover:bg-blue-700' },
 ];
+
+const maxSessionRequeueDelayMs = 60 * 60 * 1000;
+const preloadCardCount = 4;
+
+type FeedbackState = {
+  id: number;
+  kind: 'correct' | 'incorrect';
+  className: string;
+};
 
 function KeyBadge({ children, className }: { children: string; className?: string }) {
   return (
@@ -41,46 +51,162 @@ export function FlashcardReviewSession({
   topicId,
   mode,
   cards,
+  emptyDescription,
 }: {
   topicId: string;
   mode: 'due' | 'all';
   cards: FlashcardReviewCard[];
+  emptyDescription?: string;
 }) {
-  const [index, setIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [studyQueue, setStudyQueue] = useState<FlashcardReviewCard[]>(cards);
+  const [dueQueue, setDueQueue] = useState<FlashcardReviewCard[]>(cards);
+  const [dueSessionTotal, setDueSessionTotal] = useState(cards.length);
+  const [reviewedDueCount, setReviewedDueCount] = useState(0);
+  const reviewedDueIdsRef = useRef<Set<string>>(new Set());
+  const dueTimersRef = useRef<Map<string, number>>(new Map());
+  const feedbackTimerRef = useRef<number | null>(null);
+  const sessionKey = `${topicId}:${mode}`;
+  const sessionKeyRef = useRef(sessionKey);
   const rateMutation = useRateFlashcardReviewCard(topicId, mode);
   const { mutateAsync: rateReviewCard } = rateMutation;
-  const card = mode === 'all' ? studyQueue[0] ?? null : cards[index] ?? null;
+  const card = mode === 'all' ? studyQueue[0] ?? null : dueQueue[0] ?? null;
+  const [displayCard, setDisplayCard] = useState<FlashcardReviewCard | null>(card);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const freeStudyComplete = mode === 'all' && cards.length > 0 && studyQueue.length === 0;
 
-  useEffect(() => {
-    setIndex(0);
-    setShowAnswer(false);
-    setStudyQueue(cards);
-  }, [cards, mode]);
+  const showFeedback = useCallback((kind: FeedbackState['kind'], className: string) => {
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    setFeedback({ id: Date.now(), kind, className });
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 650);
+  }, []);
 
-  const goNext = useCallback(() => {
-    setShowAnswer(false);
-    setIndex((current) => Math.min(cards.length, current + 1));
-  }, [cards.length]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!card) {
+      setDisplayCard(null);
+      return;
+    }
+
+    setDisplayCard(card);
+    void Promise.all([
+      refreshFlashcardImageUrls(card.cloze_text),
+      refreshFlashcardImageUrls(card.extra),
+    ])
+      .then(([clozeText, extra]) => {
+        if (cancelled) return;
+        setDisplayCard({
+          ...card,
+          cloze_text: clozeText,
+          extra,
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to refresh flashcard image URLs:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [card]);
+
+  useEffect(() => {
+    const queue = mode === 'all' ? studyQueue : dueQueue;
+    const upcomingCards = queue.slice(1, preloadCardCount + 1);
+    if (!upcomingCards.length) return;
+
+    void Promise.allSettled(
+      upcomingCards.flatMap((upcomingCard) => [
+        preloadFlashcardImages(upcomingCard.cloze_text),
+        preloadFlashcardImages(upcomingCard.extra),
+      ]),
+    );
+  }, [dueQueue, mode, studyQueue]);
+
+  useEffect(() => {
+    const sessionChanged = sessionKeyRef.current !== sessionKey;
+    if (sessionChanged) {
+      sessionKeyRef.current = sessionKey;
+      reviewedDueIdsRef.current = new Set();
+      dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      dueTimersRef.current.clear();
+      setReviewedDueCount(0);
+      setShowAnswer(false);
+    }
+    if (mode === 'all') {
+      setStudyQueue(cards);
+      return;
+    }
+    setDueQueue(cards.filter((item) => !reviewedDueIdsRef.current.has(item.id)));
+    setDueSessionTotal((current) => (sessionChanged ? cards.length : Math.max(current, cards.length)));
+  }, [cards, mode, sessionKey]);
+
+  useEffect(() => () => {
+    dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    dueTimersRef.current.clear();
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  const enqueueDueCard = useCallback((nextCard: FlashcardReviewCard) => {
+    reviewedDueIdsRef.current.delete(nextCard.id);
+    setDueQueue((current) => {
+      if (current.some((item) => item.id === nextCard.id)) return current;
+      return [...current, nextCard];
+    });
+    setDueSessionTotal((current) => current + 1);
+  }, []);
+
+  const scheduleDueCard = useCallback((nextCard: FlashcardReviewCard) => {
+    const existingTimer = dueTimersRef.current.get(nextCard.id);
+    if (existingTimer) window.clearTimeout(existingTimer);
+
+    const delayMs = new Date(nextCard.due_at).getTime() - Date.now();
+    if (delayMs <= 0) {
+      enqueueDueCard(nextCard);
+      return;
+    }
+    if (delayMs > maxSessionRequeueDelayMs) return;
+
+    const timer = window.setTimeout(() => {
+      dueTimersRef.current.delete(nextCard.id);
+      enqueueDueCard(nextCard);
+    }, delayMs);
+    dueTimersRef.current.set(nextCard.id, timer);
+  }, [enqueueDueCard]);
 
   const rateDueCard = useCallback((rating: FlashcardRating) => {
     if (!card || mode !== 'due') return;
+    const feedbackClassName =
+      rating === 'again'
+        ? 'bg-red-600 text-white'
+        : rating === 'hard'
+          ? 'bg-amber-600 text-white'
+          : rating === 'good'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-blue-600 text-white';
+    showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
     const reviewCardId = card.id;
-    goNext();
-    void rateReviewCard({ reviewCardId, rating });
-  }, [card, goNext, mode, rateReviewCard]);
+    reviewedDueIdsRef.current.add(reviewCardId);
+    setReviewedDueCount((current) => current + 1);
+    setShowAnswer(false);
+    setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
+    void rateReviewCard({ reviewCardId, rating }).then(scheduleDueCard);
+  }, [card, mode, rateReviewCard, scheduleDueCard, showFeedback]);
 
   const markFreeStudyCorrect = useCallback(() => {
+    showFeedback('correct', 'bg-emerald-600 text-white');
     setShowAnswer(false);
     setStudyQueue((current) => current.slice(1));
-  }, []);
+  }, [showFeedback]);
 
   const markFreeStudyIncorrect = useCallback(() => {
+    showFeedback('incorrect', 'bg-red-600 text-white');
     setShowAnswer(false);
     setStudyQueue((current) => (current.length > 1 ? [...current.slice(1), current[0]] : current));
-  }, []);
+  }, [showFeedback]);
 
   const restartFreeStudy = useCallback(() => {
     setShowAnswer(false);
@@ -107,6 +233,8 @@ export function FlashcardReviewSession({
         }
         if (mode === 'due') {
           rateDueCard('good');
+        } else {
+          markFreeStudyCorrect();
         }
         return;
       }
@@ -150,22 +278,37 @@ export function FlashcardReviewSession({
     );
   }
 
-  if (!card) {
+  if (!card || !displayCard) {
     return (
       <div className={studentCardCn('p-6 text-center')}>
         <h2 className="text-xl font-semibold">No cards to review</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {mode === 'due' ? 'There are no due flashcards for this topic.' : 'This topic has no flashcards.'}
+          {emptyDescription ?? (mode === 'due' ? 'There are no due flashcards for this topic.' : 'This topic has no flashcards.')}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {feedback ? (
+        <div
+          key={feedback.id}
+          className={cn(
+            'pointer-events-none fixed left-1/2 top-1/2 z-50 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-2xl animate-in fade-in-0 zoom-in-75 duration-150',
+            feedback.className,
+          )}
+          aria-hidden="true"
+        >
+          {feedback.kind === 'correct' ? <Check className="h-14 w-14" /> : <X className="h-14 w-14" />}
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          {mode === 'all' ? `${studyQueue.length} remaining` : `Card ${index + 1} of ${cards.length}`}
+          {mode === 'all'
+            ? `${studyQueue.length} remaining`
+            : `Card ${Math.min(reviewedDueCount + 1, dueSessionTotal)} of ${dueSessionTotal}`}
         </span>
         {mode === 'due' ? (
           <span>Due review</span>
@@ -189,12 +332,12 @@ export function FlashcardReviewSession({
       <div className={studentCardCn('space-y-6 p-6')}>
         <div
           className="prose max-w-none whitespace-pre-wrap text-xl leading-9 dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: clozeReviewHtml(card, showAnswer) }}
+          dangerouslySetInnerHTML={{ __html: clozeReviewHtml(displayCard, showAnswer) }}
         />
-        {showAnswer && card.extra ? (
+        {showAnswer && displayCard.extra ? (
           <div
             className="prose prose-sm max-w-none rounded-lg border bg-muted/30 p-4 leading-6 dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: card.extra }}
+            dangerouslySetInnerHTML={{ __html: displayCard.extra }}
           />
         ) : null}
       </div>
@@ -225,15 +368,16 @@ export function FlashcardReviewSession({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 border-red-200 text-red-700 hover:bg-red-50">
+          <Button onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 bg-red-600 text-white hover:bg-red-700">
             <X className="h-4 w-4" />
             Incorrect
-            <KeyBadge>1</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">1</KeyBadge>
           </Button>
-          <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5">
+          <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
             <Check className="h-4 w-4" />
             Correct
-            <KeyBadge>2</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">2</KeyBadge>
+            <KeyBadge className="border-white/30 bg-white/20 text-white">Space</KeyBadge>
           </Button>
         </div>
       )}

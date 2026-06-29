@@ -34,7 +34,7 @@ type QuestionRow = {
   index: number
   deleted_at?: string | null
   tags?: Array<{ id: string; name: string }> | null
-  answer_options?: Array<{ answer_explanation: unknown; deleted_at?: string | null }>
+  answer_options?: Array<{ answer_text?: unknown; answer_explanation: unknown; deleted_at?: string | null }>
 }
 
 function questionIsUntagged(q: QuestionRow): boolean {
@@ -142,6 +142,7 @@ export async function GET() {
     questionId: string
     questionText: unknown
     questionIndex: number
+    answerOptions: QuestionRow['answer_options']
   }> = []
   for (const stem of rows) {
     const questions = (stem.questions ?? []) as QuestionRow[]
@@ -155,6 +156,7 @@ export async function GET() {
           questionId: q.id,
           questionText: q.question_text,
           questionIndex: q.index,
+          answerOptions: q.answer_options ?? [],
         })
       }
     }
@@ -293,7 +295,10 @@ export async function GET() {
     const sets = (mockDetail as { sets?: Array<{ id: string; name?: unknown; sections?: unknown }> } | null)?.sets ?? []
     const correct = isMockSetOrderCorrect(mock.set_count ?? 0, sets, sections)
     if (!correct) {
-      const mockNameStr = proseMirrorToPlainText(mock.name as import('@altitutor/shared').Json)?.trim() || 'Untitled'
+      const mockNameStr =
+        typeof mock.name === 'string'
+          ? mock.name.trim() || 'Untitled'
+          : proseMirrorToPlainText(mock.name as import('@altitutor/shared').Json)?.trim() || 'Untitled'
       const setsDisplay = sets.map((st) => ({
         id: st.id,
         name: proseMirrorToPlainText(st.name as import('@altitutor/shared').Json)?.trim() || 'Untitled',

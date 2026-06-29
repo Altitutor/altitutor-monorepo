@@ -64,7 +64,10 @@ export async function POST(request: NextRequest) {
       redirectUrl = `${baseUrl}/auth/callback`;
     }
 
-    // Generate password reset link using Supabase admin API
+    // Generate the token with Supabase, then expose an app-owned callback link.
+    // The raw action_link points at /auth/v1/verify and can fall back to PKCE
+    // same-browser behavior after redirect. token_hash + verifyOtp works from
+    // copied links and text messages.
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
@@ -81,15 +84,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!data?.properties?.action_link) {
+    if (!data?.properties?.hashed_token) {
       return NextResponse.json(
-        { error: 'Password reset link generated but no link returned' },
+        { error: 'Password reset link generated but no token hash returned' },
         { status: 500 }
       );
     }
 
+    const link = new URL(redirectUrl);
+    link.searchParams.set('token_hash', data.properties.hashed_token);
+    link.searchParams.set('type', 'recovery');
+
     return NextResponse.json({
-      link: data.properties.action_link,
+      link: link.toString(),
     }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error generating password reset link:', error);

@@ -7,7 +7,6 @@ import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
-import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
@@ -134,6 +133,10 @@ export interface RichTextEditorProps {
    * Minimum height of the editor.
    */
   minHeight?: string;
+  /**
+   * When true, the editor sizes to its content instead of stretching to fill the parent.
+   */
+  autoHeight?: boolean;
   /**
    * Whether the editor is editable.
    */
@@ -399,6 +402,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onEditorReady,
   isMarkdown = false,
   minHeight = '200px',
+  autoHeight = false,
   editable = true,
   mentionSuggestions,
   onMentionClick,
@@ -446,6 +450,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           keepMarks: true,
           keepAttributes: false,
         },
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            class: 'text-primary underline cursor-pointer',
+          },
+        },
       }),
       ...(enableCollapsibleHeadings
         ? [
@@ -484,12 +494,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }),
       DetailsSummary,
       DetailsContent,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: 'text-primary underline cursor-pointer',
-        },
-      }),
       Image.extend({
         addAttributes() {
           return {
@@ -499,6 +503,18 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               parseHTML: (el) => el.getAttribute('data-file-id'),
               renderHTML: (attrs) =>
                 attrs.fileId ? { 'data-file-id': attrs.fileId } : {},
+            },
+            storageBucket: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-storage-bucket'),
+              renderHTML: (attrs) =>
+                attrs.storageBucket ? { 'data-storage-bucket': attrs.storageBucket } : {},
+            },
+            storagePath: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-storage-path'),
+              renderHTML: (attrs) =>
+                attrs.storagePath ? { 'data-storage-path': attrs.storagePath } : {},
             },
           };
         },
@@ -1198,10 +1214,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   return (
     <div 
       className={cn(
-        'relative flex h-full min-h-0 w-full min-w-0 cursor-text flex-col overflow-visible',
+        'relative flex w-full min-w-0 cursor-text flex-col overflow-visible',
+        autoHeight ? 'h-auto' : 'h-full min-h-0',
         !editable && 'cursor-default'
       )}
-      style={{ minHeight }}
+      style={autoHeight ? undefined : { minHeight }}
       onClick={handleContainerClick}
       onPasteCapture={(e) => {
         clipboardCaptureRef.current = {
@@ -1210,7 +1227,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         };
       }}
     >
-      <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
+      <EditorContent
+        editor={editor}
+        className={cn(autoHeight ? 'h-auto overflow-visible' : 'min-h-0 flex-1 overflow-visible')}
+      />
     </div>
   );
 });

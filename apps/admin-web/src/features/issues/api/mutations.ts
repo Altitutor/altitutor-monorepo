@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { issuesApi } from './issues';
 import { issueKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
-import type { IssueInsert, IssueUpdate, IssueTagInsert } from '../types';
+import type { IssueUpdate } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
 
 export function useCreateIssue() {
@@ -10,7 +10,7 @@ export function useCreateIssue() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: { issue: IssueInsert, tags?: Omit<IssueTagInsert, 'issue_id'>[] }) => issuesApi.create(data),
+    mutationFn: (data: Parameters<typeof issuesApi.create>[0]) => issuesApi.create(data),
     onSuccess: (createdIssue) => {
       queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
       if (createdIssue?.id) {
@@ -69,26 +69,6 @@ export function useDeleteIssue() {
         description: error.message || 'An unexpected error occurred.',
         variant: 'destructive' 
       });
-    },
-  });
-}
-
-export function useAddIssueTag() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (tag: IssueTagInsert) => issuesApi.addTag(tag),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: issueKeys.detail(variables.issue_id) });
-    },
-  });
-}
-
-export function useRemoveIssueTag() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ tagId, issueId: _issueId }: { tagId: string, issueId: string }) => issuesApi.removeTag(tagId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: issueKeys.detail(variables.issueId) });
     },
   });
 }

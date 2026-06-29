@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { hasClozeMarker } from '@altitutor/shared';
+import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from './_lib';
 
 async function assertTopicAccess(topicId: string) {
   const userClient = createClient();
@@ -40,22 +41,47 @@ export async function POST(request: NextRequest) {
 
   const { data: siblings } = await supabaseAdmin
     .from('flashcards')
-    .select('index')
+    .select('id,index')
     .eq('topic_id', body.topic_id)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .order('index', { ascending: true });
 
   const nextIndex = Math.max(0, ...(siblings ?? []).map((row: { index: number }) => row.index)) + 1;
+  const requestedIndex = body.index == null ? (siblings?.length ?? 0) + 1 : clampIndex(body.index, (siblings?.length ?? 0) + 1);
   const { data, error } = await supabaseAdmin
     .from('flashcards')
     .insert({
       topic_id: body.topic_id,
       cloze_text: body.cloze_text,
       extra: body.extra || null,
-      index: body.index ?? nextIndex,
+      index: nextIndex,
     })
     .select('*')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (body.index !== undefined) {
+    try {
+      await persistTopicFlashcardOrder(
+        supabaseAdmin,
+        body.topic_id,
+        insertIdAtIndex((siblings ?? []).map((card) => card.id), data.id, requestedIndex),
+      );
+    } catch (orderError) {
+      const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
+    const { data: reordered, error: reorderFetchError } = await supabaseAdmin
+      .from('flashcards')
+      .select('*')
+      .eq('id', data.id)
+      .single();
+
+    if (reorderFetchError) return NextResponse.json({ error: reorderFetchError.message }, { status: 500 });
+    return NextResponse.json({ data: reordered });
+  }
+
   return NextResponse.json({ data });
 }

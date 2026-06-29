@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { refreshAdminImageUrls } from '../lib/refresh-admin-image-urls';
 
 function hasContent(json: Record<string, unknown> | null | undefined): boolean {
@@ -53,15 +53,23 @@ export function useRefreshedAdminContent(
 } {
   const [content, setContent] = useState<Record<string, unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const contentSignature = useMemo(() => {
+    if (!json || typeof json !== 'object') return '';
+    return JSON.stringify(json);
+  }, [json]);
 
   useEffect(() => {
-    if (!hasContent(json)) {
+    const currentJson = contentSignature
+      ? (JSON.parse(contentSignature) as Record<string, unknown>)
+      : null;
+
+    if (!currentJson || !hasContent(currentJson)) {
       setContent(null);
       setIsLoading(false);
       return;
     }
 
-    const doc = normalizeDoc(json as Record<string, unknown>);
+    const doc = normalizeDoc(currentJson);
     if (!hasAdminImages(doc)) {
       setContent(doc);
       setIsLoading(false);
@@ -106,7 +114,7 @@ export function useRefreshedAdminContent(
     return () => {
       cancelled = true;
     };
-  }, [json]);
+  }, [contentSignature]);
 
   return { content, isLoading };
 }

@@ -32,6 +32,8 @@ export interface ListToolbarProps {
   columnDefinitions?: DataTableColumnDefinition[];
   visibleColumns?: string[];
   onVisibleColumnsChange?: (columns: string[]) => void;
+  /** Default visible columns for the View reset pill */
+  defaultVisibleColumns?: string[];
   filterSearchValues?: Record<string, string>;
   onFilterSearchChange?: (filterKey: string, value: string) => void;
   /** Icon-only controls for narrow panels (e.g. editor sidebars). */
@@ -56,6 +58,7 @@ const emptyState: DataTableState = {
   page: 1,
   pageSize: 20,
   visibleColumns: [],
+  defaultVisibleColumns: undefined,
 };
 
 /**
@@ -79,6 +82,7 @@ export function ListToolbar({
   columnDefinitions = [],
   visibleColumns = [],
   onVisibleColumnsChange,
+  defaultVisibleColumns,
   filterSearchValues,
   onFilterSearchChange,
   compact = false,
@@ -101,8 +105,9 @@ export function ListToolbar({
       sortDirection,
       groupBy: groupByOptions.length > 0 ? groupBy : null,
       visibleColumns: columnDefinitions.length > 0 ? visibleColumns : [],
+      defaultVisibleColumns: columnDefinitions.length > 0 ? defaultVisibleColumns : undefined,
     }),
-    [search, filters, sortOptions.length, sortBy, sortDirection, groupByOptions.length, groupBy, columnDefinitions.length, visibleColumns]
+    [search, filters, sortOptions.length, sortBy, sortDirection, groupByOptions.length, groupBy, columnDefinitions.length, visibleColumns, defaultVisibleColumns]
   );
 
   const handleSortChange = React.useCallback(
@@ -146,6 +151,7 @@ export function ListToolbar({
       filterDefinitions={filterDefinitions}
       sortOptions={sortOptions}
       columnDefinitions={columnDefinitions}
+      defaultVisibleColumns={defaultVisibleColumns}
       groupByOptions={groupByOptions}
       searchPlaceholder={searchPlaceholder}
       searchFromOptions={searchFromOptions}

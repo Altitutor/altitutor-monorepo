@@ -6,9 +6,12 @@ import {
   useState,
   useMemo,
   useCallback,
+  useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
 import { format } from 'date-fns';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type {
   ReportsDateRange,
   ReportsVisibleCharts,
@@ -19,6 +22,7 @@ import {
   getDefaultReportsDateRange,
   DEFAULT_VISIBLE_CHARTS,
 } from '../components/ReportsDateRangeCard';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
 
@@ -58,13 +62,55 @@ interface ReportsProviderProps {
   children: ReactNode;
 }
 
+function commitDateRangeToUrl(
+  pathname: string,
+  searchParams: URLSearchParams,
+  router: ReturnType<typeof useRouter>,
+  from: string,
+  to: string,
+) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.set('from', from);
+  params.set('to', to);
+  router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+}
+
 export function ReportsProvider({ children }: ReportsProviderProps) {
+  useAdminUrlSync();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   const defaultRange = useMemo(() => getDefaultReportsDateRange(), []);
-  const [startDate, setStartDateState] = useState(() =>
-    format(defaultRange.start, 'yyyy-MM-dd')
+  const defaultFrom = format(defaultRange.start, 'yyyy-MM-dd');
+  const defaultTo = format(defaultRange.end, 'yyyy-MM-dd');
+
+  const [startDate, setStartDateState] = useState(
+    () => searchParams.get('from') || defaultFrom,
   );
-  const [endDate, setEndDateState] = useState(() => format(defaultRange.end, 'yyyy-MM-dd'));
+  const [endDate, setEndDateState] = useState(
+    () => searchParams.get('to') || defaultTo,
+  );
   const [visibleCharts, setVisibleCharts] = useState(DEFAULT_VISIBLE_CHARTS);
+  const hasSyncedInitialDates = useRef(false);
+
+  useEffect(() => {
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    if (from) setStartDateState(from);
+    if (to) setEndDateState(to);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (hasSyncedInitialDates.current) return;
+    const hasRange = searchParams.has('from') || searchParams.has('to');
+    if (hasRange) {
+      hasSyncedInitialDates.current = true;
+      return;
+    }
+    hasSyncedInitialDates.current = true;
+    commitDateRangeToUrl(pathname, searchParams, router, defaultFrom, defaultTo);
+  }, [defaultFrom, defaultTo, pathname, router, searchParams]);
 
   const dateRange = useMemo(
     () => ({
@@ -74,19 +120,33 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
     [startDate, endDate]
   );
 
-  const setStartDate = useCallback((value: string) => {
-    if (!value) return;
-    const v = value > TODAY ? TODAY : value;
-    setStartDateState(v);
-    setEndDateState((e) => (v > e ? v : e));
-  }, []);
+  const setStartDate = useCallback(
+    (value: string) => {
+      if (!value) return;
+      const v = value > TODAY ? TODAY : value;
+      setStartDateState(v);
+      setEndDateState((e) => {
+        const nextEnd = v > e ? v : e;
+        commitDateRangeToUrl(pathname, searchParams, router, v, nextEnd);
+        return nextEnd;
+      });
+    },
+    [pathname, router, searchParams],
+  );
 
-  const setEndDate = useCallback((value: string) => {
-    if (!value) return;
-    const v = value > TODAY ? TODAY : value;
-    setEndDateState(v);
-    setStartDateState((s) => (v < s ? v : s));
-  }, []);
+  const setEndDate = useCallback(
+    (value: string) => {
+      if (!value) return;
+      const v = value > TODAY ? TODAY : value;
+      setEndDateState(v);
+      setStartDateState((s) => {
+        const nextStart = v < s ? v : s;
+        commitDateRangeToUrl(pathname, searchParams, router, nextStart, v);
+        return nextStart;
+      });
+    },
+    [pathname, router, searchParams],
+  );
 
   const handleOperationsChartToggle = useCallback(
     (subsection: OperationsSubsection, chart: string, checked: boolean) => {

@@ -12,7 +12,7 @@ export type UcatCheckoutSelection = {
 
 export type UcatCheckoutRequest = UcatCheckoutSelection & {
   /** When set during signup onboarding, Stripe returns to /signup/complete. */
-  returnContext?: "signup_onboarding" | "subscribe";
+  returnContext?: "signup_onboarding" | "subscribe" | "practice_session";
 };
 
 export function isUcatCheckoutSelection(
@@ -23,17 +23,27 @@ export function isUcatCheckoutSelection(
   return isUcatPaidPlanTier(v.tier) && isUcatBillingInterval(v.interval);
 }
 
-export function parseUcatCheckoutRequest(value: unknown): UcatCheckoutRequest | null {
+export function parseUcatCheckoutRequest(
+  value: unknown,
+): UcatCheckoutRequest | null {
   if (!isUcatCheckoutSelection(value)) return null;
   const v = value as UcatCheckoutRequest;
   const ctx = (value as { returnContext?: unknown }).returnContext;
-  if (ctx !== undefined && ctx !== "signup_onboarding" && ctx !== "subscribe") {
+  if (
+    ctx !== undefined &&
+    ctx !== "signup_onboarding" &&
+    ctx !== "subscribe" &&
+    ctx !== "practice_session"
+  ) {
     return null;
   }
   return {
     tier: v.tier,
     interval: v.interval,
-    returnContext: ctx === "signup_onboarding" ? "signup_onboarding" : undefined,
+    returnContext:
+      ctx === "signup_onboarding" || ctx === "practice_session"
+        ? ctx
+        : undefined,
   };
 }
 

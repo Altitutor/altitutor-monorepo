@@ -18,3 +18,16 @@ export function useMarkNotificationRead() {
     },
   });
 }
+
+export function useMarkNotificationsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (notificationIds: string[]) =>
+      notificationsApi.markNotificationsRead(notificationIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.notifications() });
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.unreadCount() });
+    },
+  });
+}

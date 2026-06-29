@@ -6,12 +6,6 @@ import Link from "next/link";
 
 export function NavbarV2() {
   const [scrolled, setScrolled] = useState(false);
-  const navItems = [
-    { label: "Mission", id: "mission" },
-    { label: "Resources", id: "resources" },
-    { label: "Community", id: "community" },
-    { label: "Get Started", id: "ecosystem" },
-  ] as const;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,16 +14,6 @@ export function NavbarV2() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const scrollToSection = (sectionId: string): void => {
-    const section = document.getElementById(sectionId);
-    if (!section) return;
-
-    const navbarOffset = 120;
-    const y = section.getBoundingClientRect().top + window.scrollY - navbarOffset;
-    window.history.replaceState(null, "", `#${sectionId}`);
-    window.scrollTo({ top: y, behavior: "smooth" });
-  };
 
   return (
     <nav
@@ -43,20 +27,6 @@ export function NavbarV2() {
         className={`text-xl font-bold tracking-tight ${TOKENS.typography.headingSans}`}
       >
         Altitutor
-      </div>
-      <div
-        className={`hidden md:flex gap-8 text-sm tracking-wide ${TOKENS.typography.secondarySans}`}
-      >
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="transition-transform hover:-translate-y-[1px] opacity-80 hover:opacity-100"
-            onClick={() => scrollToSection(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
       </div>
       <div className="ml-auto flex items-center justify-end gap-2 sm:gap-3">
         <Link

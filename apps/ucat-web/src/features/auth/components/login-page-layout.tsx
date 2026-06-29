@@ -25,7 +25,7 @@ export function LoginPageLayout({
       <AuthPageHeader />
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-        <div className="auth-entrance w-full max-w-md">
+        <div className="w-full max-w-md">
           <div className="mb-10">
             <span
               className={cn(

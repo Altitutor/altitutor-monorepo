@@ -11,8 +11,9 @@ import {
   TableHeader,
   TableRow,
   PAID_INVOICE_BADGE_VARIANT,
+  SkeletonTable,
 } from '@altitutor/ui';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems, useStudentSubscriptions } from '../hooks';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 import { formatInvoiceDate } from '../utils/invoiceFormatters';
@@ -132,8 +133,8 @@ export function SubscriptionsSection() {
 
   if (isSubscriptionsLoading || isInvoicesLoading) {
     return (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className={studentTableShell}>
+        <SkeletonTable rows={4} columns={4} />
       </div>
     );
   }

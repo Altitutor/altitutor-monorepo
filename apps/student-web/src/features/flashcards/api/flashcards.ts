@@ -17,17 +17,21 @@ export const flashcardsApi = {
     return readJson<FlashcardReviewCard[]>(res);
   },
 
-  async listDueReviewCards(): Promise<FlashcardReviewCard[]> {
-    const res = await fetch('/api/flashcards/review-cards?mode=due');
+  async listDueReviewCards(topicIds?: string[]): Promise<FlashcardReviewCard[]> {
+    const params = new URLSearchParams({ mode: 'due' });
+    if (topicIds?.length) {
+      params.set('topicIds', topicIds.join(','));
+    }
+    const res = await fetch(`/api/flashcards/review-cards?${params.toString()}`);
     return readJson<FlashcardReviewCard[]>(res);
   },
 
-  async rateReviewCard(reviewCardId: string, rating: FlashcardRating): Promise<void> {
+  async rateReviewCard(reviewCardId: string, rating: FlashcardRating): Promise<FlashcardReviewCard> {
     const res = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(reviewCardId)}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rating }),
     });
-    await readJson<unknown>(res);
+    return readJson<FlashcardReviewCard>(res);
   },
 };

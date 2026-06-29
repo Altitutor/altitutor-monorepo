@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  extractTextFromRichJson,
   hasRichTextContent,
   plainTextToProseMirror,
   plainTextToProseMirrorWithLineBreaks,
@@ -54,11 +55,24 @@ export const AiToolExplanationUpdateSchema = z.object({
   reviewRequired: z.boolean().default(false),
   reviewMessage: z.string().nullable().optional(),
   suggestedCorrectOptionIndex: z.number().int().nonnegative().nullable().optional(),
+  suggestedAnswerExplanation: z.string().nullable().optional(),
   suggestedChanges: z.string().nullable().optional(),
 })
 
 export const AiToolExplanationResponseSchema = z.object({
   updates: z.array(AiToolExplanationUpdateSchema).default([]),
+})
+
+export const AiToolWriteQuestionResponseSchema = z.object({
+  questionText: z.string().min(1),
+  answerExplanation: z.string().min(1),
+  options: z.array(
+    z.object({
+      answerText: z.string().min(1),
+      isAnswer: z.boolean(),
+    })
+  ).min(2).max(5),
+  rationale: z.string().nullable().optional(),
 })
 
 export type AiToolQuestionStemPayload = z.infer<typeof AiToolQuestionStemPayloadSchema>
@@ -68,6 +82,7 @@ export type AiToolReviewFlag = {
   questionIndex: number
   message: string
   suggestedCorrectOptionIndex?: number | null
+  suggestedAnswerExplanation?: string | null
   suggestedChanges?: string | null
 }
 
@@ -81,6 +96,31 @@ export type MissingExplanationTarget = {
 
 function asJson(value: unknown): Json | null {
   return value == null ? null : (value as Json)
+}
+
+function extractStemParagraphs(value: Json | null): Array<{ paragraphNumber: number; text: string }> {
+  if (!value) return []
+  if (typeof value === 'string') {
+    return value
+      .split(/\r?\n+/u)
+      .map((text) => text.trim())
+      .filter(Boolean)
+      .map((text, index) => ({ paragraphNumber: index + 1, text }))
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return []
+
+  const record = value as Record<string, unknown>
+  const content = Array.isArray(record.content) ? record.content : []
+  const paragraphs = content
+    .map((node) => {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return ''
+      const nodeRecord = node as Record<string, unknown>
+      if (!['paragraph', 'heading', 'codeBlock'].includes(String(nodeRecord.type ?? ''))) return ''
+      return extractTextFromRichJson(node as Parameters<typeof extractTextFromRichJson>[0]).trim()
+    })
+    .filter(Boolean)
+
+  return paragraphs.map((text, index) => ({ paragraphNumber: index + 1, text }))
 }
 
 function containsUnsupportedRewriteNode(value: Json | null | undefined): boolean {
@@ -110,8 +150,10 @@ export function assertRewriteSupported(stem: AiToolQuestionStemPayload) {
 }
 
 export function summarizeStemForAi(stem: AiToolQuestionStemPayload) {
+  const stemJson = asJson(stem.stemText)
   return {
-    stemText: proseMirrorToPlainText(asJson(stem.stemText)) ?? '',
+    stemText: proseMirrorToPlainText(stemJson) ?? '',
+    stemParagraphs: extractStemParagraphs(stemJson),
     questions: stem.questions.map((question, questionIndex) => ({
       questionIndex,
       questionText: proseMirrorToPlainText(asJson(question.questionText)) ?? '',
@@ -158,6 +200,25 @@ export function rewriteResponseToStemValues(
         })),
       }
     }),
+  }
+}
+
+export function writtenQuestionToFormValue(
+  response: z.infer<typeof AiToolWriteQuestionResponseSchema>,
+  tagIds: string[] = []
+): UcatQuestionStemFormValues['questions'][number] {
+  return {
+    questionText: plainTextToProseMirrorWithLineBreaks(response.questionText),
+    questionType: 'multiple_choice',
+    answerExplanation: plainTextToProseMirror(response.answerExplanation),
+    difficulty: null,
+    timeBurdenSeconds: '',
+    tagIds,
+    options: response.options.map((option) => ({
+      answerText: plainTextToProseMirror(option.answerText),
+      answerExplanation: null,
+      isAnswer: option.isAnswer,
+    })),
   }
 }
 
@@ -232,6 +293,36 @@ export function collectExplanationReviewFlags(updates: AiToolExplanationUpdate[]
         update.rationale?.trim() ||
         'The selected answer or question may need tutor review.',
       suggestedCorrectOptionIndex: update.suggestedCorrectOptionIndex ?? null,
+      suggestedAnswerExplanation: update.suggestedAnswerExplanation ?? null,
       suggestedChanges: update.suggestedChanges ?? null,
     }))
+}
+
+export function applyReviewFlagSuggestion(
+  stem: UcatQuestionStemFormValues,
+  flag: AiToolReviewFlag
+): UcatQuestionStemFormValues {
+  const question = stem.questions[flag.questionIndex]
+  if (!question || question.questionType === 'syllogism' || flag.suggestedCorrectOptionIndex == null) {
+    return stem
+  }
+  const suggestedOption = question.options[flag.suggestedCorrectOptionIndex]
+  if (!suggestedOption) return stem
+
+  return {
+    ...stem,
+    questions: stem.questions.map((item, questionIndex) => {
+      if (questionIndex !== flag.questionIndex) return item
+      return {
+        ...item,
+        answerExplanation: flag.suggestedAnswerExplanation?.trim()
+          ? plainTextToProseMirror(flag.suggestedAnswerExplanation.trim())
+          : item.answerExplanation ?? null,
+        options: item.options.map((option, optionIndex) => ({
+          ...option,
+          isAnswer: optionIndex === flag.suggestedCorrectOptionIndex,
+        })),
+      }
+    }),
+  }
 }

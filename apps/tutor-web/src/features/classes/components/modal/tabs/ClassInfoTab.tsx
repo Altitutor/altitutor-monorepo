@@ -46,6 +46,7 @@ interface ClassInfoTabProps {
   subjects: Tables<'subjects'>[];
   isEditing: boolean;
   isLoading: boolean;
+  readOnly?: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: FormData) => Promise<void>;
@@ -57,6 +58,7 @@ export function ClassInfoTab({
   subjects,
   isEditing,
   isLoading,
+  readOnly = false,
   onEdit,
   onCancelEdit,
   onSubmit
@@ -80,7 +82,7 @@ export function ClassInfoTab({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Class Information</h3>
-        {!isEditing && (
+        {!isEditing && !readOnly && (
           <Button 
             variant="outline" 
             size="sm"

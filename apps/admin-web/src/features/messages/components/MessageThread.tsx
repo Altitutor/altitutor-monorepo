@@ -411,6 +411,8 @@ export function MessageThread({
     
     // Get all conversation IDs for this contact to subscribe to all of them
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
     
     // Fetch conversation IDs for this contact
     supabase
@@ -419,6 +421,7 @@ export function MessageThread({
       .eq('contact_id', contactId)
       .in('status', ['OPEN', 'SNOOZED'])
       .then(({ data: conversations }) => {
+        if (cancelled) return;
         if (!conversations || conversations.length === 0) return;
         
         const conversationIds = conversations.map((c) => {
@@ -427,7 +430,7 @@ export function MessageThread({
         }).filter((id): id is string => id !== '');
         
         // Subscribe to messages from all conversations for this contact
-        const channel = supabase
+        channel = supabase
           .channel(`messages-contact-${contactId}`)
           .on('postgres_changes', { 
             event: 'INSERT', 
@@ -455,11 +458,14 @@ export function MessageThread({
             qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .subscribe();
-        
-        return () => {
-          supabase.removeChannel(channel);
-        };
       });
+
+    return () => {
+      cancelled = true;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [contactId, ownedNumberId, qc]);
 
   // Filter and process messages for search

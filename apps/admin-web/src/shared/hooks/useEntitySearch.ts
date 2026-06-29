@@ -35,7 +35,7 @@ export function useEntitySearch({
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
-  const shouldSearch = enabled;
+  const shouldSearch = enabled && trimmedSearch.length >= 2;
 
   const studentsQuery = useQuery({
     queryKey: ['entity-search-students', trimmedSearch],
@@ -144,12 +144,11 @@ export function useEntitySearch({
   const topicsQuery = useQuery({
     queryKey: ['entity-search-topics', trimmedSearch],
     queryFn: async () => {
-      const result = await topicsApi.search({
-        search: trimmedSearch,
-        limit: entityTypes.topics.limit,
-        offset: 0,
-      });
-      return result.topics.slice(0, entityTypes.topics.limit).map((topic) => ({
+      const topics = await topicsApi.searchForCommandPalette(
+        trimmedSearch,
+        entityTypes.topics.limit,
+      );
+      return topics.map((topic) => ({
         type: 'topic' as const,
         id: topic.id,
         data: topic,
@@ -220,12 +219,11 @@ export function useEntitySearch({
   const filesQuery = useQuery({
     queryKey: ['entity-search-files', trimmedSearch],
     queryFn: async () => {
-      const result = await topicsFilesApi.searchFiles({
-        search: trimmedSearch,
-        limit: entityTypes.files.limit,
-        offset: 0,
-      });
-      return result.files.slice(0, entityTypes.files.limit).map((file) => ({
+      const result = await topicsFilesApi.searchForCommandPalette(
+        trimmedSearch,
+        entityTypes.files.limit,
+      );
+      return result.files.map((file) => ({
         type: 'file' as const,
         id: file.id,
         data: {
@@ -266,31 +264,31 @@ export function useEntitySearch({
     ...(notesQuery.data || []),
   ];
 
-  const isLoading = 
-    studentsQuery.isLoading ||
-    staffQuery.isLoading ||
-    parentsQuery.isLoading ||
-    classesQuery.isLoading ||
-    subjectsQuery.isLoading ||
-    tasksQuery.isLoading ||
-    issuesQuery.isLoading ||
-    projectsQuery.isLoading ||
-    topicsQuery.isLoading ||
-    filesQuery.isLoading ||
-    notesQuery.isLoading;
+  const isLoading =
+    (shouldSearch && types.includes('students') && studentsQuery.isFetching) ||
+    (shouldSearch && types.includes('staff') && staffQuery.isFetching) ||
+    (shouldSearch && types.includes('parents') && parentsQuery.isFetching) ||
+    (shouldSearch && types.includes('classes') && classesQuery.isFetching) ||
+    (shouldSearch && types.includes('subjects') && subjectsQuery.isFetching) ||
+    (shouldSearch && types.includes('tasks') && tasksQuery.isFetching) ||
+    (shouldSearch && types.includes('issues') && issuesQuery.isFetching) ||
+    (shouldSearch && types.includes('projects') && projectsQuery.isFetching) ||
+    (shouldSearch && types.includes('topics') && topicsQuery.isFetching) ||
+    (shouldSearch && types.includes('files') && filesQuery.isFetching) ||
+    (shouldSearch && types.includes('notes') && notesQuery.isFetching);
 
   const hasError = 
-    studentsQuery.isError ||
-    staffQuery.isError ||
-    parentsQuery.isError ||
-    classesQuery.isError ||
-    subjectsQuery.isError ||
-    tasksQuery.isError ||
-    issuesQuery.isError ||
-    projectsQuery.isError ||
-    topicsQuery.isError ||
-    filesQuery.isError ||
-    notesQuery.isError;
+    (types.includes('students') && studentsQuery.isError) ||
+    (types.includes('staff') && staffQuery.isError) ||
+    (types.includes('parents') && parentsQuery.isError) ||
+    (types.includes('classes') && classesQuery.isError) ||
+    (types.includes('subjects') && subjectsQuery.isError) ||
+    (types.includes('tasks') && tasksQuery.isError) ||
+    (types.includes('issues') && issuesQuery.isError) ||
+    (types.includes('projects') && projectsQuery.isError) ||
+    (types.includes('topics') && topicsQuery.isError) ||
+    (types.includes('files') && filesQuery.isError) ||
+    (types.includes('notes') && notesQuery.isError);
 
   return {
     results: allResults,

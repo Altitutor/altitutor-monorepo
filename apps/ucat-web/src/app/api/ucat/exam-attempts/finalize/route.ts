@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { clearExamAttemptProgress } from "@/lib/ucat/exam-attempt/service";
+import { finalizeExamAttemptOnServer } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 
 export async function POST(request: NextRequest) {
@@ -64,18 +65,23 @@ export async function POST(request: NextRequest) {
   const cookie = request.headers.get("cookie") ?? "";
 
   if (body.kind === "set") {
-    const res = await fetch(`${origin}/api/ucat/set-attempts/${body.attemptId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        cookie,
+    const res = await fetch(
+      `${origin}/api/ucat/set-attempts/${body.attemptId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify({ complete: true }),
       },
-      body: JSON.stringify({ complete: true }),
-    });
+    );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       return NextResponse.json(
-        { error: (data as { error?: string }).error ?? "Failed to finalize set" },
+        {
+          error: (data as { error?: string }).error ?? "Failed to finalize set",
+        },
         { status: res.status },
       );
     }
@@ -97,65 +103,21 @@ export async function POST(request: NextRequest) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       return NextResponse.json(
-        { error: (data as { error?: string }).error ?? "Failed to finalize mock" },
+        {
+          error:
+            (data as { error?: string }).error ?? "Failed to finalize mock",
+        },
         { status: res.status },
       );
     }
     return NextResponse.json(data);
   }
 
-  const { data: session } = await supabaseAdmin
-    .from("student_practice_sessions")
-    .select("id, score_points, total_points, question_count, stems_snapshot")
-    .eq("id", body.attemptId)
-    .eq("student_id", student.id)
-    .maybeSingle();
-
-  if (!session) {
-    return NextResponse.json(
-      { error: "Practice session not found" },
-      { status: 404 },
-    );
-  }
-
-  const { data: attempts } = await supabaseAdmin
-    .from("student_question_attempts")
-    .select("question_id, score")
-    .eq("student_practice_session_id", body.attemptId)
-    .eq("student_id", student.id);
-
-  const questionScores = (attempts ?? []).map((row) => ({
-    questionId: row.question_id,
-    score: Number(row.score ?? 0),
-  }));
-
-  const res = await fetch(
-    `${origin}/api/ucat/practice-sessions/${body.attemptId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        complete: true,
-        scorePoints: session.score_points ?? 0,
-        totalPoints: session.total_points ?? 0,
-        questionCount: session.question_count ?? questionScores.length,
-        stemsSnapshot: session.stems_snapshot,
-        questionScores,
-      }),
-    },
+  await finalizeExamAttemptOnServer(
+    supabaseAdmin,
+    student.id,
+    "practice",
+    body.attemptId,
   );
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return NextResponse.json(
-      {
-        error:
-          (data as { error?: string }).error ?? "Failed to finalize practice",
-      },
-      { status: res.status },
-    );
-  }
-  return NextResponse.json(data);
+  return NextResponse.json({ success: true });
 }

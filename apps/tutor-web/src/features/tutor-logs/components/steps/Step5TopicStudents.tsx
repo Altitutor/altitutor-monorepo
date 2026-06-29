@@ -5,6 +5,8 @@ import { X, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { useTutorLogStep5Data } from '../../hooks/useTutorLogStep5Data';
+import { cn } from '@/shared/utils';
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
   topicId: string;
@@ -78,7 +80,7 @@ export function Step5TopicStudents({
           if (!topicData) return null;
 
           return (
-            <div key={topic.topicId} className="border rounded-md p-4">
+            <div key={topic.topicId} className={tutorCardCn('p-4')}>
               <div className="font-medium mb-3">{topicData.name}</div>
               <div className="flex flex-wrap gap-2">
                 {topic.studentIds.map((studentId) => {
@@ -125,7 +127,7 @@ export function Step5TopicStudents({
                       searchPlaceholder="Find student..."
                       emptyMessage="All attending students are assigned to this topic"
                       trigger={
-                        <Button variant="outline" size="sm" className="border-dashed">
+                        <Button variant="outline" size="sm" className={cn(tutorBtnOutline, 'border-dashed')}>
                           <Plus className="h-3 w-3 mr-1" />
                           Add student
                         </Button>

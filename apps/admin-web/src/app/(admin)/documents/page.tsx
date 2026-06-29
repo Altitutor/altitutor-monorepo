@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Button, Input } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { AdminPageActionButton } from '@/shared/components';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { FolderTree } from '@/features/notes/components/FolderTree';
 import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
+import { useUrlQueryParam } from '@/shared/hooks/useUrlQueryParam';
 
 export default function DocumentsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useUrlQueryParam('search');
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 
@@ -33,19 +35,12 @@ export default function DocumentsPage() {
     <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-4rem)] p-6">
       <div className="flex items-center justify-between flex-shrink-0 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
-        <Button onClick={() => void handleNewDocument()} disabled={createNote.isPending}>
-          {createNote.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Creating…
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 mr-2" />
-              New document
-            </>
-          )}
-        </Button>
+        <AdminPageActionButton
+          icon={createNote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          label={createNote.isPending ? 'Creating...' : 'New document'}
+          onClick={() => void handleNewDocument()}
+          disabled={createNote.isPending}
+        />
       </div>
 
       <div className="relative flex-shrink-0 mb-4">

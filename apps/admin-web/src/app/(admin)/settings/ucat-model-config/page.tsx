@@ -31,9 +31,6 @@ export default function UcatModelConfigPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">UCAT model config</h1>
-          <p className="text-muted-foreground">
-            Configure per-section cold-start constants used by student score projections.
-          </p>
         </div>
       </div>
 

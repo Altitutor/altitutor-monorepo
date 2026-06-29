@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger, Separator, Badge, Button } from '@altitutor/ui';
+import { Popover, PopoverContent, PopoverTrigger, Separator, Badge, Button, useMediaQuery } from '@altitutor/ui';
 import type { Database, Tables } from '@altitutor/shared';
 import { formatSessionType, getSubjectColorStyle, formatSubjectDisplay } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
-import { useMediaQuery, useCurrentStudentId } from '@/shared/hooks';
+import { useCurrentStudentId } from '@/shared/hooks';
 import { studentBtnOutline } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { LogAbsenceDialog } from './LogAbsenceDialog';

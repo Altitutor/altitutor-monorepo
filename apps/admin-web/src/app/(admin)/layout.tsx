@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban, Layers } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
-import { cn, navHoverStyles } from '@/shared/utils/index';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -27,7 +27,7 @@ import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialo
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
-import { Breadcrumb } from '@/shared/components';
+import { Breadcrumb, AdminUrlSyncBoundary } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { format } from 'date-fns';
 import type { LucideIcon } from 'lucide-react';
@@ -157,11 +157,6 @@ const navItems: NavItem[] = [
     href: '/topics',
     icon: Newspaper,
   },
-  {
-    title: 'Online access',
-    href: '/manual-online-access',
-    icon: Layers,
-  },
 ];
 
 const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
@@ -185,6 +180,9 @@ const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: 'link
 
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const dragStartYRef = React.useRef<number | null>(null);
+  const dragOffsetRef = React.useRef(0);
+  const [dragOffset, setDragOffset] = useState(0);
   
   useEffect(() => {
     if (isOpen) {
@@ -216,26 +214,63 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
     onClose();
   }, [pathname, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      dragStartYRef.current = null;
+      dragOffsetRef.current = 0;
+      setDragOffset(0);
+    }
+  }, [isOpen]);
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    dragStartYRef.current = event.touches[0]?.clientY ?? null;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (dragStartYRef.current == null) return;
+    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
+    dragOffsetRef.current = nextOffset;
+    setDragOffset(nextOffset);
+  };
+
+  const handleTouchEnd = () => {
+    if (dragOffsetRef.current > 96) {
+      onClose();
+    }
+    dragStartYRef.current = null;
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
   return (
     <>
       {/* Overlay */}
       {isOpen && (
         <div
           data-mobile-menu-overlay
-          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+          className="fixed inset-0 z-[70] bg-black/60 transition-opacity md:hidden"
           onClick={onClose}
         />
       )}
       
-      {/* Slide-in menu */}
       <div
         className={cn(
-          "fixed top-[var(--navbar-height)] left-0 bottom-0 w-[280px] bg-background dark:bg-brand-dark-bg border-r dark:border-brand-dark-border z-50 md:hidden transition-transform duration-300 ease-in-out overflow-y-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-bg dark:ring-white/10 md:hidden",
+          dragStartYRef.current != null && "transition-none",
+          isOpen ? "translate-y-0" : "translate-y-full"
         )}
+        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
       >
         <div className="flex flex-col h-full">
-          <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
+          <div
+            className="flex h-14 touch-pan-y items-center border-b px-4 dark:border-brand-dark-border"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
             <h2 className="text-lg font-semibold">Altitutor Admin</h2>
           </div>
           
@@ -260,10 +295,10 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                     key={item.href} 
                     href={itemHref}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                       isNavItemActive(pathname, item)
-                        ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                        : navHoverStyles
+                        ? navLinkActiveStyles
+                        : navLinkInactiveStyles
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -278,10 +313,10 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             <Link 
               href="/settings"
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                 pathname === '/settings'
-                  ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                  : navHoverStyles
+                  ? navLinkActiveStyles
+                  : navLinkInactiveStyles
               )}
             >
               <Settings className="h-5 w-5" />
@@ -349,10 +384,10 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                 key={item.href} 
                 href={itemHref}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                   isNavItemActive(pathname, item)
-                    ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                    : navHoverStyles,
+                    ? navLinkActiveStyles
+                    : navLinkInactiveStyles,
                   collapsed && "justify-center px-0"
                 )}
               >
@@ -370,10 +405,10 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
         <Link 
           href="/settings"
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
             pathname === '/settings'
-              ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-              : navHoverStyles,
+              ? navLinkActiveStyles
+              : navLinkInactiveStyles,
             collapsed && "justify-center px-0"
           )}
         >
@@ -444,7 +479,7 @@ function AdminLayoutContent({
               <Breadcrumb items={breadcrumbs} />
             </div>
           )}
-          {children}
+          <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
           {/* Quick action modals */}
           {currentStaff?.id && (
             <>

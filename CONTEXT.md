@@ -65,7 +65,7 @@
 - **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, timer catch-up forces finalization on the current stem, or they choose **finalize** from the in-progress dialog. Submitting individual stems (answer + feedback) does not complete the session; the student may continue or resume the same session across visits.
   _Avoid_: Per-stem session, practice attempt per question
 
-- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a *different* set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
+- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
   _Avoid_: In progress tab, session storage resume
 
 - **UCAT exam attempt lifecycle (scope)** — The hardened attempt model (start at Ready to Begin, server segment clock, resume snapshot, one in-progress slot, site banner, finalization rules) applies to **sets**, **mocks**, and **practice** only. Session-linked sets and mocks follow the same rules. **Learn** lesson question blocks and **skill trainer** are out of scope for this shared in-progress slot; skill trainer keeps its own attempt rules.
@@ -168,6 +168,12 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
+  _Avoid_: Individual question playlist, skill trainer set
+
+- **Stem not in another set** — A question stem that is not included in any other non-deleted, staff-authored UCAT question set. Student-generated sets do not count; private staff-authored sets do count.
+  _Avoid_: Unused question, not attempted, public-only set membership
+
 - **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
   _Avoid_: Approval status, published status
 
@@ -183,8 +189,11 @@
 - **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Regeneration, new question generation, answer-key generation
 
-- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue and suggested correction. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. For Verbal Reasoning questions, generated explanations cite the relevant passage paragraph number when they quote, paraphrase, or rely on textual evidence. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue, suggested correction, and an accept-change action when the AI can identify a corrected answer and explanation. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Answer generation, solution key parsing, question rewrite
+
+- **AI question writing** — A tutor-requested extension of an existing multiple-choice UCAT question stem with one additional question, answer options, one selected correct answer, and a student-facing explanation. It uses the existing stem as the source of facts, avoids duplicating existing questions, and applies the shared UCAT AI provider, model profile, budget, usage logging, and database-backed generation prompt layers for the stem's section, category, and question tags.
+  _Avoid_: New stem generation, question rewrite, answer explanation fill
 
 - **Generation brief** — The structured intent for producing AI-generated UCAT content, including section, stem category, target skill tags, difficulty, time burden, format constraints, and optional calibration examples. A generation brief defines what should be created; source examples are optional style calibration and should not be required or copied.
   _Avoid_: Prompt, source stem selection
@@ -283,7 +292,7 @@
 
 - **Pay tier** — A numbered step on the organisation’s single pay ladder. Each tier has a canonical base hourly rate stored in Altitutor (not synced to QuickBooks automatically).
 
-- **Tier requirement** — A configurable threshold attached to tier *N* that must be met before a staff member may advance from tier *N* to tier *N+1*. Requirements are optional per metric; unset kinds do not apply.
+- **Tier requirement** — A configurable threshold attached to tier _N_ that must be met before a staff member may advance from tier _N_ to tier _N+1_. Requirements are optional per metric; unset kinds do not apply.
 
 - **Eligible for review** — All configured requirements for the next tier are satisfied (including metric overrides). Eligibility does not imply promotion.
 
@@ -340,8 +349,14 @@
 - **Quota consumption** — When a UCAT Free quota unit is counted. Practice: first submit on a unique question ID within the period. Sets, mocks, learn modules, and skill trainer attempts: when the attempt is started. Consumption timing is independent per area.
   _Avoid_: Usage event, quota hit
 
-- **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: block immediately after submitting the last allowed question — no further submits in that period. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt to finish; block starting the next one.
+- **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: fixed practice may start only within the remaining new unique question allowance for the quota period; if the selected batch is larger, the student may confirm a reduced batch capped at that remaining allowance. Unlimited practice lets the student finish all questions on the currently delivered stem, including answers and feedback, then blocks fetching the next stem once the allowance is exhausted. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt to finish; block starting the next one.
   _Avoid_: Rate limit exceeded, quota reached
+
+- **Reduced fixed practice** — A fixed practice session started from the student's chosen filters but capped to the remaining UCAT Free practice allowance for new unique questions in the current quota period. The student confirms the reduced size; Altitutor keeps whole stems and may return fewer questions than the remaining allowance rather than exceed it. Altitutor does not present a stem-by-stem removal list.
+  _Avoid_: Truncated practice, partial practice set
+
+- **Delivered practice stem** — A question stem that Altitutor has already presented to the student inside a practice session. In unlimited practice, the student may finish all questions on a delivered practice stem even if their UCAT Free practice allowance becomes exhausted before the stem is complete.
+  _Avoid_: Current stem (ambiguous without session context), loaded stem
 
 - **UCAT Free quota period** — The rolling window for a UCAT Free quota. Configured independently per area (day, week, or month) in admin settings. Boundaries use the student's timezone: calendar day, ISO week (Monday start), or calendar month.
   _Avoid_: Billing period, reset interval
@@ -361,7 +376,10 @@
 - **Quota limit modal** — The in-context upsell shown when a UCAT Free student hits an area's quota or tries to start a disabled area (quota of zero). Replaces the former all-or-nothing "Unlock online UCAT access" gate. Message is area-specific; primary action leads to Unlimited trial or subscribe to UCAT Unlimited.
   _Avoid_: Paywall, access gate
 
-- **Quota enforcement** — UCAT Free limits are applied when a student performs a quota-consuming action, not at route entry. UCAT Unlimited, UCAT Pro, Unlimited trial, and admin-granted unlimited overrides are exempt.
+- **Practice quota reached dialog** — The active-practice dialog shown when an unlimited practice session cannot fetch another stem because the student's UCAT Free practice allowance is exhausted. The student may upgrade and return to the same active practice session, or finish the session and review the completed practice attempt.
+  _Avoid_: Go back dialog, generic quota modal
+
+- **Quota enforcement** — UCAT Free limits are normally applied when a student performs a quota-consuming action. Practice also has entry and continuation checkpoints: an exhausted student cannot enter an active practice session unless they have already delivered practice work to finish, fixed practice is capped before start, and unlimited practice is checked before fetching the next stem. UCAT Unlimited, UCAT Pro, Unlimited trial, and admin-granted unlimited overrides are exempt.
   _Avoid_: Route gate, middleware check
 
 - **Online access tier** — A student's current online entitlement: `free`, `unlimited_trial`, `unlimited`, or `pro`. Derived in order: admin override (if not Default), then active subscription, otherwise UCAT Free. `unlimited_trial` applies while Stripe status is `trialing`, regardless of whether checkout was for Unlimited or Pro — human-support entitlements are not included. `pro` (paid) implies all UCAT Unlimited entitlements plus UCAT Pro human-support entitlements. Independent of in-person access.

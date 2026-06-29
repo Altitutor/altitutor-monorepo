@@ -45,11 +45,13 @@ export function UcatSetEditorDialog({
   setId,
   onClose,
   onDelete,
+  warningPills,
 }: {
   open: boolean
   setId: string | null
   onClose: () => void
   onDelete?: () => void
+  warningPills?: string[]
 }) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
@@ -350,6 +352,7 @@ export function UcatSetEditorDialog({
         saveDisabled={!isDirty || !isTimeLimitValid || updateSet.isPending}
         isSaving={updateSet.isPending}
         headerActions={headerActions}
+        warningPills={warningPills}
         hideCancel
         defaultExpanded
         richTextToolbarEditor={activeTextEditor}

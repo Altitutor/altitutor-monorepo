@@ -126,6 +126,7 @@ export function useIssueActivity(params: {
   limit?: number;
 }) {
   const { issueId, enabled = true, limit = 50, ...ids } = params;
+
   return useQuery({
     queryKey: [...activityKeys.issue(issueId || ''), ids],
     queryFn: () => activityApi.getIssueActivity({ issueId: issueId!, limit, ...ids }),

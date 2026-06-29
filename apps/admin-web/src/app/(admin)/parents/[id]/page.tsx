@@ -155,9 +155,6 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           <h1 className="text-3xl font-bold tracking-tight">
             {editFlow.isEditing ? 'Edit Parent' : 'Parent Details'}
           </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            {parent.first_name} {parent.last_name}
-          </p>
         </div>
         <ActionsMenu
           type="parent"
@@ -184,7 +181,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         />
       </div>
 
-      {/* Tabs */}
+      {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}

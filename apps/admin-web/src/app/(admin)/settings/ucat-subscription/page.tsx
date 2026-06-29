@@ -60,9 +60,6 @@ export default function UcatSubscriptionSettingsPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">UCAT subscription</h1>
-          <p className="text-muted-foreground">
-            UCAT Unlimited and UCAT Pro pricing, trial, practice-day discounts, and Stripe IDs
-          </p>
         </div>
       </div>
 

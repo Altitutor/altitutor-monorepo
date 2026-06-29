@@ -7,7 +7,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
@@ -418,11 +418,6 @@ export function NewConversationDialog({
                 </Button>
                 <div className="flex-1">
                   <DialogTitle>New Conversation</DialogTitle>
-                  <DialogDescription>
-                    {mode === 'search'
-                      ? 'Search for a student, staff member, or parent to start a new conversation'
-                      : 'Enter a phone number to start a new conversation'}
-                  </DialogDescription>
                 </div>
               </div>
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />

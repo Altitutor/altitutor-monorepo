@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { NotificationsButton } from './NotificationsButton';
 import { NotificationItem } from './NotificationItem';
 import { NotificationsEmptyState } from './NotificationsEmptyState';
-import { useNotifications, useUnreadCount, useMarkNotificationRead } from '../api';
+import { useNotifications, useUnreadCount, useMarkNotificationsRead } from '../api';
 import type { Notification } from '../types';
 
 export function NotificationsTray() {
@@ -13,17 +13,12 @@ export function NotificationsTray() {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const { data: notifications = [], isLoading } = useNotifications();
   const { data: unreadCount = 0 } = useUnreadCount();
-  const markReadMutation = useMarkNotificationRead();
+  const markReadMutation = useMarkNotificationsRead();
 
   // When tray closes, mark all dismissed notifications as read
   useEffect(() => {
     if (!isOpen && dismissedIds.size > 0) {
-      // Batch mark all dismissed notifications as read
-      Promise.all(
-        Array.from(dismissedIds).map((notificationId) =>
-          markReadMutation.mutateAsync(notificationId)
-        )
-      ).then(() => {
+      markReadMutation.mutateAsync(Array.from(dismissedIds)).then(() => {
         // Clear dismissed set after successful batch mark
         setDismissedIds(new Set());
       }).catch((error) => {

@@ -9,6 +9,43 @@ export function normalizeSlug(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export type ResourceSubjectNavInput = {
+  short_name?: string | null;
+  name?: string | null;
+  long_name?: string | null;
+};
+
+export function getResourceSubjectSlug(
+  subject: Pick<ResourceSubjectNavInput, 'short_name' | 'name'>,
+): string {
+  return normalizeSlug(subject.short_name || subject.name || '');
+}
+
+export function getResourceSubjectHref(
+  subject: Pick<ResourceSubjectNavInput, 'short_name' | 'name'>,
+): string {
+  const slug = getResourceSubjectSlug(subject);
+  return slug ? `/resources/${encodeURIComponent(slug)}` : '/resources';
+}
+
+export function getResourceSubjectNavLabel(subject: ResourceSubjectNavInput): string {
+  return subject.long_name || subject.name || subject.short_name || 'Subject';
+}
+
+export function isResourceSubjectNavActive(pathname: string, subjectHref: string): boolean {
+  return pathname === subjectHref || pathname.startsWith(`${subjectHref}/`);
+}
+
+export function isResourcesNavSectionActive(
+  pathname: string,
+  options?: { excludeFlashcards?: boolean },
+): boolean {
+  if (pathname === '/resources') return true;
+  if (!pathname.startsWith('/resources/')) return false;
+  if (options?.excludeFlashcards && pathname.startsWith('/resources/flashcards')) return false;
+  return true;
+}
+
 export function buildTopicTree(topics: ResourceTopicRowInput[]): ResourceTopicNode[] {
   const nodes = new Map<string, ResourceTopicNode>();
   const roots: ResourceTopicNode[] = [];

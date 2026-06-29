@@ -31,7 +31,8 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Use only one correct answer per question.
 - Questions must be answerable from the passage alone. Wrong options should be tempting because they overstate, reverse, confuse scope, import outside knowledge, or match only part of the passage.
 - Do not write comprehension questions that can be answered by keyword matching alone.
-- Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.`,
+- Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.
+- In every answerExplanation, identify the passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, e.g. "Paragraph 2 states..." or "This is supported by paragraph 4."`,
   decision_making: `Decision Making rules:
 - Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical Reasoning, Logical Puzzles.
 - Generate exactly 1 question per stem.
@@ -257,6 +258,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Return stemText as 2-6 paragraph content blocks, not one unbroken string.',
               'Follow the planned passage length/time burden and test four distinct reading skills rather than four direct retrieval questions.',
               "For True, False, Can't Tell, questionText must contain only the statement being assessed. Never state or hint whether it is True, False, or Can't Tell in questionText.",
+              'In answerExplanation, cite the relevant passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, using labels such as Paragraph 1 or Paragraph 3.',
             ]
           : []),
         ...(input.categoryName === 'Logical Puzzles'

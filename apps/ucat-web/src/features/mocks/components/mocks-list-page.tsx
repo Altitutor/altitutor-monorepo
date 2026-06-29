@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
-import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import {
   useAttemptedMockIds,
   useMocks,
@@ -19,7 +18,6 @@ import { NotebookText } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   UCAT_LIST_ROW_LINK,
-  UCAT_PAGINATION_ACTIVE_PAGE_BUTTON,
 } from "@/lib/ucat-surface-motion";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -131,7 +129,6 @@ export function MocksListPage() {
         title="Mocks"
         description="Choose a mock to start the exam (first set)."
       />
-      <QuotaUsageCard area="mocks" />
       <div className="space-y-4">
         <ListToolbar
           search={search}
@@ -160,7 +157,6 @@ export function MocksListPage() {
               total={filteredMocks.length}
               onPageChange={(p) => setPage(p - 1)}
               onPageSizeChange={handlePageSizeChange}
-              activePageButtonClassName={UCAT_PAGINATION_ACTIVE_PAGE_BUTTON}
             />
           </div>
         )}

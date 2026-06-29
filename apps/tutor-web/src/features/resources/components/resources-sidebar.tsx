@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils';
 import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 export type ResourceSidebarItem = {
@@ -19,7 +19,15 @@ function hasActiveDescendant(item: ResourceSidebarItem): boolean {
   return Boolean(item.children?.some((child) => child.active || hasActiveDescendant(child)));
 }
 
-function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth?: number }) {
+function SidebarTreeItem({
+  item,
+  depth = 0,
+  onNavigate,
+}: {
+  item: ResourceSidebarItem;
+  depth?: number;
+  onNavigate?: (href: string) => void;
+}) {
   const hasChildren = Boolean(item.children?.length);
   const activeDescendant = hasActiveDescendant(item);
   const [expanded, setExpanded] = useState(item.active || activeDescendant || depth === 0);
@@ -55,12 +63,18 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
         {item.href ? (
           <Link
             href={item.href}
+            onClick={(event) => {
+              if (!onNavigate || !item.href) return;
+              if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+              }
+              event.preventDefault();
+              onNavigate(item.href);
+            }}
             aria-current={item.active ? 'page' : undefined}
             className={cn(
-              'min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-300 ease-out',
-              item.active
-                ? 'bg-brand-darkBlue text-white shadow-sm hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
-                : 'hover:bg-muted/80',
+              'min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium',
+              item.active ? navLinkActiveStyles : navLinkInactiveStyles,
             )}
           >
             <span className="block truncate" title={item.label}>
@@ -88,7 +102,7 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
             <div className="pl-3">
               <ul className="space-y-1">
                 {item.children?.map((child) => (
-                  <SidebarTreeItem key={child.key} item={child} depth={depth + 1} />
+                  <SidebarTreeItem key={child.key} item={child} depth={depth + 1} onNavigate={onNavigate} />
                 ))}
               </ul>
             </div>
@@ -103,17 +117,19 @@ export function ResourcesSidebar({
   title,
   items,
   className,
+  onNavigate,
 }: {
   title: string;
   items: ResourceSidebarItem[];
   className?: string;
+  onNavigate?: (href: string) => void;
 }) {
   return (
     <aside className={cn(tutorCardCn(), 'w-full py-4 pl-2 pr-3 lg:w-72', className)}>
       <h3 className="mb-3 px-2 text-sm font-semibold">{title}</h3>
       <ul className="space-y-1">
         {items.map((item) => (
-          <SidebarTreeItem key={item.key} item={item} />
+          <SidebarTreeItem key={item.key} item={item} onNavigate={onNavigate} />
         ))}
       </ul>
     </aside>

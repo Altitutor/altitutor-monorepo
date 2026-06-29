@@ -58,9 +58,6 @@ export default function CallRoutingPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Call Routing</h1>
-          <p className="text-muted-foreground">
-            Configure how incoming calls are routed based on business hours and on-call schedules. All times are in Adelaide timezone.
-          </p>
         </div>
       </div>
 

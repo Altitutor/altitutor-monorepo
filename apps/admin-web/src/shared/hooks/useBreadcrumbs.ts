@@ -344,9 +344,16 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         label = getLabelForSegment(segment);
       }
 
+      const href =
+        isDynamicRoute && entityIds.find(e => e.index === index)?.type === 'topic'
+          ? currentPath
+          : isDynamicRoute
+            ? undefined
+            : currentPath;
+
       items.push({
         label,
-        href: isDynamicRoute ? undefined : currentPath,
+        href,
       });
     });
 

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { loginSchema } from '../validations';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
+import { MARKETING_TOKENS } from '@altitutor/shared';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -20,10 +21,10 @@ import { Input } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useTheme } from 'next-themes';
 import { studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
+
+const { typography: typo } = MARKETING_TOKENS;
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
@@ -31,7 +32,6 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { resolvedTheme } = useTheme();
   const router = useRouter();
 
   const form = useForm<LoginFormData>({
@@ -47,13 +47,13 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
-      
+
       if (authError) {
         throw authError;
       }
@@ -62,7 +62,6 @@ export function LoginForm() {
         throw new Error('Authentication failed: No user or session data');
       }
 
-      // Redirect immediately after successful login
       router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -71,23 +70,12 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
-      <div className="space-y-2 text-center">
-        <div className="flex justify-center">
-          <Image 
-            src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
-            alt="Altitutor Logo" 
-            width={120} 
-            height={120} 
-            className="mb-4"
-          />
-        </div>
-        <h1 className="text-2xl font-bold">Welcome Back</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Sign in to access your Student Dashboard
-        </p>
-      </div>
-
+    <div
+      className={cn(
+        'space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm',
+        typo.secondarySans,
+      )}
+    >
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -106,6 +94,7 @@ export function LoginForm() {
                   <Input
                     type="email"
                     placeholder="Enter your email"
+                    autoComplete="email"
                     {...field}
                   />
                 </FormControl>
@@ -119,12 +108,22 @@ export function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex items-center justify-between gap-2">
+                  <FormLabel>Password</FormLabel>
+                  <Button
+                    variant="link"
+                    className="h-auto px-0 text-sm text-primary"
+                    asChild
+                  >
+                    <Link href="/forgot-password">Forgot password?</Link>
+                  </Button>
+                </div>
                 <FormControl>
                   <div className="relative">
                     <Input
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
+                      autoComplete="current-password"
                       {...field}
                     />
                     <Button
@@ -139,15 +138,6 @@ export function LoginForm() {
                   </div>
                 </FormControl>
                 <FormMessage />
-                <div className="text-right">
-                  <Button 
-                    variant="link" 
-                    className="px-0 text-brand-mediumBlue dark:text-brand-lightBlue" 
-                    asChild
-                  >
-                    <Link href="/forgot-password">Forgot password?</Link>
-                  </Button>
-                </div>
               </FormItem>
             )}
           />
@@ -173,4 +163,4 @@ export function LoginForm() {
       </Form>
     </div>
   );
-} 
+}

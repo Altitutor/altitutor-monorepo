@@ -9,13 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
+import { Badge, SkeletonTable } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { useStudentClasses } from '../hooks';
 import { cn } from '@/shared/utils';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
-import { Loader2 } from 'lucide-react';
 import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
 
 interface ClassesTableProps {
@@ -29,8 +28,10 @@ export function ClassesTable({}: ClassesTableProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-4">
+        <div className={studentTableShell}>
+          <SkeletonTable rows={6} columns={4} />
+        </div>
       </div>
     );
   }

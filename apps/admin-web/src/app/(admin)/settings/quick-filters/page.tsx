@@ -50,9 +50,6 @@ export default function QuickFiltersSettingsPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Quick Filters</h1>
-          <p className="text-muted-foreground">
-            Manage global and personal quick filters for various entities.
-          </p>
         </div>
       </div>
     </div>

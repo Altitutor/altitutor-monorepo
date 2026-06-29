@@ -115,6 +115,7 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
             onOpenSession={handleOpenSession}
             onOpenStaff={handleOpenStaff}
             hideStudentFilter={true}
+            skipUrlSync={true}
             attendanceView="student"
             onUndoLogAbsenceStudent={handleUndoLogAbsenceStudent}
             onRemoveStudentFromSession={handleRemoveStudentFromSession}

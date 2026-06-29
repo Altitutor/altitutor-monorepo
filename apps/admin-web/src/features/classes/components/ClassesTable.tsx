@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
   TableBody,
@@ -53,6 +54,7 @@ interface ClassesTableProps {
 }
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
+  useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('classes');

@@ -7,6 +7,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Button,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -19,6 +27,7 @@ import {
   ScrollArea,
   SegmentedControl,
   SegmentedTabPanelContent,
+  useToast,
   type JSONContent,
   type MentionClickDetail,
 } from '@altitutor/ui';
@@ -35,6 +44,11 @@ import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
+import {
+  getDocumentEditLockOwnerName,
+  isDocumentEditLockActive,
+  useDocumentEditLock,
+} from '../hooks/useDocumentEditLock';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { DOCUMENT_TITLE_FIELD_CLASS } from '../constants/documentTitle';
 import { useFitDocumentTitle } from '../hooks/useFitDocumentTitle';
@@ -50,17 +64,21 @@ const formSchema = z.object({
   content: z.any(),
   folder_id: z.string().nullable().optional(),
   project_id: z.string().nullable().optional(),
+  is_tutor_documentation: z.boolean().optional(),
 });
 
 interface NoteDetailPageProps {
   noteId: string;
 }
 
+type DocumentMode = 'view' | 'edit';
+
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
   const { data: note, isLoading } = useNote(noteId);
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const editLock = useDocumentEditLock(noteId, true);
   const { data: folders } = useFolders();
   const sidebarWidth = useSidebarWidth();
   const [isMobile, setIsMobile] = useState(false);
@@ -70,12 +88,22 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const editorInstanceRef = useRef<Editor | null>(null);
 
   const currentNoteIdRef = useRef<string | null>(null);
+  const lastAppliedServerValuesRef = useRef<NoteFormData | null>(null);
+  const lastAppliedServerUpdatedAtRef = useRef<string | null>(null);
+  const lastLocalContentEditAtRef = useRef(0);
+  const suppressLocalContentEditsUntilRef = useRef(0);
   const isUpdatingFromServerRef = useRef(false);
+  const lastTakeoverLockTokenRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('outline');
+  const [acceptedServerVersion, setAcceptedServerVersion] = useState<string>('');
+  const [mode, setMode] = useState<DocumentMode>('view');
+  const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
   const lastBlurSavedTitleRef = useRef<string | null>(null);
+  const isEditing = mode === 'edit' && editLock.isHeldByThisWindow;
+  const { toast } = useToast();
 
   const form = useForm<NoteFormData, unknown, NoteFormData>({
     resolver: zodResolver(formSchema) as Resolver<NoteFormData>,
@@ -84,6 +112,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       content: '',
       folder_id: null,
       project_id: null,
+      is_tutor_documentation: false,
     },
   });
 
@@ -105,29 +134,81 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   useEffect(() => {
     if (currentNoteIdRef.current !== noteId) {
+      setMode('view');
       setIsInitialized(false);
       setInitialFocusDone(false);
       lastBlurSavedTitleRef.current = null;
+      lastAppliedServerValuesRef.current = null;
+      lastAppliedServerUpdatedAtRef.current = null;
+      lastLocalContentEditAtRef.current = 0;
+      suppressLocalContentEditsUntilRef.current = 0;
+      setAcceptedServerVersion('');
       currentNoteIdRef.current = noteId;
     }
 
-    if (note && !isInitialized) {
+    if (!note) return;
+
+    const nextValues: NoteFormData = {
+      title: note.title,
+      content: (note.content as unknown as JSONContent) || '',
+      folder_id: note.folder_id,
+      project_id: (note as { project_id?: string | null }).project_id ?? null,
+      is_tutor_documentation: Boolean(note.is_tutor_documentation),
+    };
+    const hasServerChange = note.updated_at !== lastAppliedServerUpdatedAtRef.current;
+    const hasRecentLocalContentEdit = Date.now() - lastLocalContentEditAtRef.current < 5000;
+    const currentValues = form.getValues();
+
+    if (!isInitialized || (hasServerChange && !hasRecentLocalContentEdit && !updateNote.isPending)) {
       isUpdatingFromServerRef.current = true;
-      form.reset({
-        title: note.title,
-        content: (note.content as unknown as JSONContent) || '',
-        folder_id: note.folder_id,
-        project_id: (note as { project_id?: string | null }).project_id ?? null,
-      });
+      form.reset(nextValues);
       lastBlurSavedTitleRef.current = note.title;
+      lastAppliedServerValuesRef.current = nextValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      suppressLocalContentEditsUntilRef.current = Date.now() + 1000;
+      setAcceptedServerVersion(note.updated_at);
       setIsInitialized(true);
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
-    } else if (note && isInitialized && note.title !== lastBlurSavedTitleRef.current) {
+    } else if (hasServerChange && hasRecentLocalContentEdit && !updateNote.isPending && !isEditing) {
+      const mergedValues: NoteFormData = {
+        ...currentValues,
+        title: nextValues.title,
+        folder_id: nextValues.folder_id,
+        project_id: nextValues.project_id,
+        is_tutor_documentation: nextValues.is_tutor_documentation,
+      };
+      isUpdatingFromServerRef.current = true;
+      form.reset(mergedValues);
+      lastAppliedServerValuesRef.current = mergedValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      lastBlurSavedTitleRef.current = note.title;
+      setTimeout(() => {
+        isUpdatingFromServerRef.current = false;
+      }, 0);
+    } else if (JSON.stringify(currentValues) === JSON.stringify(nextValues)) {
+      lastAppliedServerValuesRef.current = nextValues;
+      lastAppliedServerUpdatedAtRef.current = note.updated_at;
+      lastBlurSavedTitleRef.current = note.title;
+    } else if (isInitialized && note.title !== lastBlurSavedTitleRef.current) {
       lastBlurSavedTitleRef.current = note.title;
     }
-  }, [note, noteId, form, isInitialized]);
+  }, [note, noteId, form, isInitialized, updateNote.isPending, isEditing]);
+
+  useEffect(() => {
+    if (mode === 'edit' && editLock.isHeldByAnotherWindow) {
+      const takeoverLockToken = editLock.lock?.lock_token ?? null;
+      if (takeoverLockToken && takeoverLockToken !== lastTakeoverLockTokenRef.current) {
+        lastTakeoverLockTokenRef.current = takeoverLockToken;
+        toast({
+          title: 'Edit mode ended',
+          description: `${getDocumentEditLockOwnerName(editLock.lock)} is now editing this document.`,
+        });
+      }
+      setMode('view');
+    }
+  }, [editLock.isHeldByAnotherWindow, editLock.lock, mode, toast]);
 
   useEffect(() => {
     if (note && titleFieldRef.current && !initialFocusDone) {
@@ -207,6 +288,63 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     editorInstanceRef.current = editor;
   }, []);
 
+  const enterEditMode = useCallback(async () => {
+    await editLock.acquire();
+    setMode('edit');
+  }, [editLock]);
+
+  const handleModeChange = useCallback(
+    async (nextMode: DocumentMode) => {
+      if (nextMode === mode) return;
+
+      if (nextMode === 'view') {
+        setMode('view');
+        await editLock.release();
+        return;
+      }
+
+      const latestLock = (await editLock.refetch()).data ?? null;
+      if (
+        latestLock &&
+        isDocumentEditLockActive(latestLock) &&
+        latestLock.lock_token !== editLock.lockToken
+      ) {
+        setIsTakeoverDialogOpen(true);
+        return;
+      }
+
+      await enterEditMode();
+    },
+    [editLock, enterEditMode, mode]
+  );
+
+  const handleTakeover = useCallback(async () => {
+    await enterEditMode();
+    setIsTakeoverDialogOpen(false);
+  }, [enterEditMode]);
+
+  const showEditModeToast = useCallback(() => {
+    if (isEditing) return;
+    toast({
+      title: 'Switch to edit mode?',
+      description: 'This document is currently open in view mode.',
+      action: { label: 'Edit', onClick: () => void handleModeChange('edit') },
+    });
+  }, [handleModeChange, isEditing, toast]);
+
+  const handleContentChange = useCallback(
+    (onChange: (value: JSONContent) => void) => (value: JSONContent) => {
+      if (
+        !isUpdatingFromServerRef.current &&
+        Date.now() > suppressLocalContentEditsUntilRef.current
+      ) {
+        lastLocalContentEditAtRef.current = Date.now();
+      }
+      onChange(value);
+    },
+    []
+  );
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -233,7 +371,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         form={form}
         noteId={noteId}
         note={note || undefined}
-        isInitialized={isInitialized}
+        isInitialized={isInitialized && isEditing}
         isUpdatingFromServer={() => isUpdatingFromServerRef.current}
         onSave={(updates) => {
           updateNote.mutate({
@@ -249,7 +387,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <div className="max-w-3xl mx-auto w-full relative">
               <div className="hidden md:flex items-center gap-2 absolute top-0 right-0">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                  {updateNote.isPending ? (
+                  {isEditing && updateNote.isPending ? (
                     <>
                       <CloudOff className="h-3 w-3 animate-pulse" />
                       <span>Saving...</span>
@@ -266,6 +404,16 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     </>
                   )}
                 </div>
+                <SegmentedControl<DocumentMode>
+                  value={mode}
+                  onValueChange={(value) => void handleModeChange(value)}
+                  size="sm"
+                  aria-label="Document mode"
+                  options={[
+                    { value: 'view', label: 'View' },
+                    { value: 'edit', label: 'Edit' },
+                  ]}
+                />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="icon">
@@ -295,10 +443,16 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                       <FormControl>
                         <div
                           ref={combinedTitleRef}
-                          contentEditable
+                          contentEditable={isEditing}
                           onBlur={handleTitleBlur}
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
+                          onPointerDownCapture={() => {
+                            if (!isEditing) showEditModeToast();
+                          }}
+                          onFocus={() => {
+                            if (!isEditing) showEditModeToast();
+                          }}
                           data-placeholder="Untitled"
                           className={`${DOCUMENT_TITLE_FIELD_CLASS} outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap`}
                           suppressContentEditableWarning
@@ -314,7 +468,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           <div className="px-6 pt-8 flex-1 flex flex-col min-h-0">
             <Form {...form}>
               <div className="md:hidden pt-4 mb-4">
-                <NotePropertyPills form={form} folders={foldersArray} />
+                <NotePropertyPills form={form} folders={foldersArray} editable={isEditing} />
               </div>
 
               <div className="md:hidden mb-6">
@@ -325,7 +479,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                 />
               </div>
 
-              <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
+              <div
+                className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0"
+                onPointerDownCapture={() => {
+                  if (!isEditing) showEditModeToast();
+                }}
+              >
                 <FormField
                   control={form.control}
                   name="content"
@@ -333,9 +492,11 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <FormItem className="flex-1 flex flex-col min-h-0">
                       <FormControl className="flex-1 flex flex-col min-h-0">
                         <NoteEditor
+                          key={`${noteId}-${acceptedServerVersion}-${isEditing ? 'edit' : 'view'}`}
                           ref={noteEditorRef}
                           content={field.value}
-                          onChange={field.onChange}
+                          onChange={handleContentChange(field.onChange)}
+                          editable={isEditing}
                           placeholder="Start writing..."
                           enableCollapsibleHeadings
                           onEditorReady={handleEditorReady}
@@ -351,17 +512,19 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           </div>
         </div>
 
-        <div
-          className="flex-shrink-0 px-6 pointer-events-none"
-          style={{
-            left: isMobile ? 0 : `${sidebarWidth}px`,
-            right: isMobile ? '80px' : '320px',
-          }}
-        >
-          <div className="pointer-events-auto max-w-3xl mx-auto">
-            <NoteEditorBottomToolbar editor={editorInstanceRef.current} />
+        {isEditing ? (
+          <div
+            className="flex-shrink-0 px-6 pointer-events-none"
+            style={{
+              left: isMobile ? 0 : `${sidebarWidth}px`,
+              right: isMobile ? '80px' : '320px',
+            }}
+          >
+            <div className="pointer-events-auto max-w-3xl mx-auto">
+              <NoteEditorBottomToolbar editor={editorInstanceRef.current} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
@@ -381,10 +544,16 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           <div className="flex-1 min-h-0 overflow-hidden">
             <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
               <ScrollArea className="flex-1">
-                <div className="p-6">
+                <div
+                  className="p-6"
+                  onPointerDownCapture={() => {
+                    if (!isEditing) showEditModeToast();
+                  }}
+                >
                   <NotePropertiesPanel
                     form={form}
                     folders={foldersArray}
+                    editable={isEditing}
                   />
                 </div>
               </ScrollArea>
@@ -409,6 +578,22 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         initialContent={form.getValues('content') ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
+      <AlertDialog open={isTakeoverDialogOpen} onOpenChange={setIsTakeoverDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Take over editing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getDocumentEditLockOwnerName(editLock.lock)} is editing this document. If you proceed, they will be moved back to view mode.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleTakeover()}>
+              Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

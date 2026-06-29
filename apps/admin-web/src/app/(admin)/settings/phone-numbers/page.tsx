@@ -50,9 +50,6 @@ export default function PhoneNumbersPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Phone Numbers</h1>
-          <p className="text-muted-foreground">
-            Manage phone numbers and set the default number for sending messages.
-          </p>
         </div>
       </div>
 

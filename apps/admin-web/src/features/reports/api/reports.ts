@@ -117,6 +117,12 @@ type CreditNoteRow = {
   amount_cents: number;
   reason: string | null;
   created_at: string;
+  invoice_student_id: string | null;
+  invoice_student_first_name: string | null;
+  invoice_student_last_name: string | null;
+  refund_amount_cents?: number | null;
+  credit_amount_cents?: number | null;
+  out_of_band_amount_cents?: number | null;
 };
 
 type CreditBalanceTransactionRow = {
@@ -1596,14 +1602,54 @@ async function fetchCreditNotesForReport(
   const { data, error } = await supabase
     .from('credit_notes')
     .select(
-      'id, invoice_id, amount_cents, reason, created_at, refund_amount_cents, credit_amount_cents, out_of_band_amount_cents'
+      `
+      id,
+      invoice_id,
+      amount_cents,
+      reason,
+      created_at,
+      refund_amount_cents,
+      credit_amount_cents,
+      out_of_band_amount_cents,
+      invoice:invoices(
+        student_id,
+        student:students(first_name, last_name)
+      )
+    `
     )
     .gte('created_at', startIso)
     .lte('created_at', endIso);
 
   if (error) throw error;
-  // Cast via unknown to avoid Supabase's extended error typing when selecting new columns
-  return (data ?? []) as unknown as CreditNoteRow[];
+  type RawCreditNoteRow = {
+    id: string;
+    invoice_id: string;
+    amount_cents: number;
+    reason: string | null;
+    created_at: string;
+    refund_amount_cents?: number | null;
+    credit_amount_cents?: number | null;
+    out_of_band_amount_cents?: number | null;
+    invoice: {
+      student_id: string | null;
+      student: { first_name: string | null; last_name: string | null } | null;
+    } | null;
+  };
+
+  const rows = (data ?? []) as unknown as RawCreditNoteRow[];
+  return rows.map((row) => ({
+    id: row.id,
+    invoice_id: row.invoice_id,
+    amount_cents: row.amount_cents,
+    reason: row.reason,
+    created_at: row.created_at,
+    invoice_student_id: row.invoice?.student_id ?? null,
+    invoice_student_first_name: row.invoice?.student?.first_name ?? null,
+    invoice_student_last_name: row.invoice?.student?.last_name ?? null,
+    refund_amount_cents: row.refund_amount_cents,
+    credit_amount_cents: row.credit_amount_cents,
+    out_of_band_amount_cents: row.out_of_band_amount_cents,
+  }));
 }
 
 async function fetchCreditBalanceTransactionsForReport(
@@ -1810,6 +1856,7 @@ export async function fetchBillingStatsReportData(
               studentId: invoice.student_id,
             },
             meta: {
+              student: studentName,
               type: 'refund',
               invoice: `Invoice ${invoice.id.slice(0, 8)}`,
               amount: `$${refundAmount.toFixed(2)}`,
@@ -1846,6 +1893,7 @@ export async function fetchBillingStatsReportData(
               studentId: invoice.student_id,
             },
             meta: {
+              student: studentName,
               type: 'void',
               invoice: `Invoice ${invoice.id.slice(0, 8)}`,
               amount: `$${voidAmount.toFixed(2)}`,
@@ -1863,24 +1911,20 @@ export async function fetchBillingStatsReportData(
     const index = indexByDate.get(dayStr);
     if (index === undefined) return;
 
-    // Settlement breakdown from DB (may not be present on older rows)
-    type CreditNoteWithSettlement = typeof note & {
-      refund_amount_cents?: number | null;
-      credit_amount_cents?: number | null;
-      out_of_band_amount_cents?: number | null;
-    };
-
-    const noteWithSettlement = note as CreditNoteWithSettlement;
-
-    const refundAmountCents = noteWithSettlement.refund_amount_cents ?? 0;
-    const creditAmountCents = noteWithSettlement.credit_amount_cents ?? 0;
-    const outOfBandAmountCents = noteWithSettlement.out_of_band_amount_cents ?? 0;
+    const refundAmountCents = note.refund_amount_cents ?? 0;
+    const creditAmountCents = note.credit_amount_cents ?? 0;
+    const outOfBandAmountCents = note.out_of_band_amount_cents ?? 0;
 
     const hasRefund = refundAmountCents > 0;
     const hasCredit = creditAmountCents > 0;
     const hasOutOfBand = outOfBandAmountCents > 0;
     const invoiceShortId = note.invoice_id.slice(0, 8);
     const reason = note.reason ? ` · ${note.reason}` : '';
+    const studentName = staffName(
+      note.invoice_student_first_name,
+      note.invoice_student_last_name,
+      note.invoice_student_id ?? 'Customer'
+    );
 
     // 1) Credit-note refunds: counted under refunds
     if (hasRefund) {
@@ -1896,8 +1940,10 @@ export async function fetchBillingStatsReportData(
             link: {
               kind: 'refund' as ReportEntityLink['kind'],
               invoiceId: note.invoice_id,
+              studentId: note.invoice_student_id,
             },
             meta: {
+              student: studentName,
               type: 'refund',
               invoice: `Invoice ${invoiceShortId}`,
               amount: `$${(refundAmountCents / 100).toFixed(2)}`,
@@ -1920,8 +1966,10 @@ export async function fetchBillingStatsReportData(
           link: {
             kind: 'credit' as ReportEntityLink['kind'],
             invoiceId: note.invoice_id,
+            studentId: note.invoice_student_id,
           },
           meta: {
+            student: studentName,
             type: 'credit',
             invoice: `Invoice ${invoiceShortId}`,
             amount: `$${(creditAmountCents / 100).toFixed(2)}`,
@@ -1941,8 +1989,10 @@ export async function fetchBillingStatsReportData(
           link: {
             kind: 'credit' as ReportEntityLink['kind'],
             invoiceId: note.invoice_id,
+            studentId: note.invoice_student_id,
           },
           meta: {
+            student: studentName,
             type: 'other',
             invoice: `Invoice ${invoiceShortId}`,
             amount: `$${(outOfBandAmountCents / 100).toFixed(2)}`,
@@ -1997,6 +2047,7 @@ export async function fetchBillingStatsReportData(
         },
         meta: {
           // Billing errors grouping: treat all customer balance updates as "credits"
+          student: studentName,
           type: 'credit',
           invoice: invoiceLabel,
           amount: amountLabel,

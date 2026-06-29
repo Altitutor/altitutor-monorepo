@@ -38,38 +38,48 @@ export default function TutorResourceFilePage() {
   const { data: signedUrl } = useResourceSignedFileUrl(topic?.id ?? null, fileCode);
 
   const sidebarItems = useMemo((): ResourceSidebarItem[] => {
-    if (!topicFiles?.length) return [];
     const fileHref = (code: string) =>
       `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(code.toLowerCase())}`;
+    const flashcardsHref = `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards`;
 
-    const grouped = groupFilesByType(topicFiles);
-    return Object.entries(grouped).flatMap(([type, typeFiles]) => {
-      const pairs = pairFilesWithSolutions(typeFiles);
-      const items: ResourceSidebarItem[] = pairs.map(({ primary, solution }) => ({
-        key: primary.id,
-        label: `${primary.code} · ${primary.filename}`,
-        href: fileHref(primary.code),
-        active: primary.id === file?.id,
-        children: solution
-          ? [
-              {
-                key: solution.id,
-                label: `${solution.code} · ${solution.filename}`,
-                href: fileHref(solution.code),
-                active: solution.id === file?.id,
-              },
-            ]
-          : undefined,
-      }));
+    const fileGroups = topicFiles?.length
+      ? Object.entries(groupFilesByType(topicFiles)).flatMap(([type, typeFiles]) => {
+          const pairs = pairFilesWithSolutions(typeFiles);
+          const items: ResourceSidebarItem[] = pairs.map(({ primary, solution }) => ({
+            key: primary.id,
+            label: `${primary.code} · ${primary.filename}`,
+            href: fileHref(primary.code),
+            active: primary.id === file?.id,
+            children: solution
+              ? [
+                  {
+                    key: solution.id,
+                    label: `${solution.code} · ${solution.filename}`,
+                    href: fileHref(solution.code),
+                    active: solution.id === file?.id,
+                  },
+                ]
+              : undefined,
+          }));
 
-      return [
-        {
-          key: `type-${type}`,
-          label: formatResourceTypeLabel(type),
-          children: items,
-        },
-      ];
-    });
+          return [
+            {
+              key: `type-${type}`,
+              label: formatResourceTypeLabel(type),
+              children: items,
+            },
+          ];
+        })
+      : [];
+
+    return [
+      ...fileGroups,
+      {
+        key: 'flashcards',
+        label: 'Flashcards',
+        href: flashcardsHref,
+      },
+    ];
   }, [topicFiles, file?.id, subjectShortName, topicCode]);
 
   const fileTitle = useMemo(() => {
@@ -133,7 +143,6 @@ export default function TutorResourceFilePage() {
             <h1 className="text-3xl font-bold tracking-tight">
               {fileTitle ?? file?.code ?? fileCode}
             </h1>
-            <p className="mt-1 truncate text-muted-foreground">{file?.filename}</p>
           </div>
 
           {file ? (

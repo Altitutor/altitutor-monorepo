@@ -29,6 +29,11 @@ import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  useUcatCategories,
+  useUcatStemCatalog,
+  type UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
@@ -71,6 +76,219 @@ function countSetsInMocks(setIds: string[], rows: SetRow[]): number {
   return setIds.filter((id) => (rows.find((r) => r.id === id)?.ucat_mock_ids.length ?? 0) > 0).length
 }
 
+type AutoSetMode = 'total' | 'category'
+type AutoStemVisibility = 'either' | 'public' | 'private'
+
+type AutoSetPreview = {
+  selectedStems: UcatStemCatalogItem[]
+  totalQuestions: number
+  targetQuestions: number
+  byCategory: Array<{
+    categoryId: string
+    categoryName: string
+    targetQuestions: number
+    actualQuestions: number
+    stemCount: number
+    eligibleStemCount: number
+  }>
+  warnings: string[]
+}
+
+type AutoCategoryRow = {
+  id?: string | null
+  name?: string | null
+  ucat_section_id?: string | null
+}
+
+function positiveIntFromInput(value: string): number {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function createSeededRandom(seed: string) {
+  let state = hashString(seed) || 1
+  return () => {
+    state = Math.imul(state ^ (state >>> 15), 1 | state)
+    state ^= state + Math.imul(state ^ (state >>> 7), 61 | state)
+    return ((state ^ (state >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffleWithSeed<T>(items: T[], seed: string): T[] {
+  const random = createSeededRandom(seed)
+  const copy = [...items]
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1))
+    const current = copy[index] as T
+    copy[index] = copy[swapIndex] as T
+    copy[swapIndex] = current
+  }
+  return copy
+}
+
+function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions: number): UcatStemCatalogItem[] {
+  if (targetQuestions <= 0 || stems.length === 0) return []
+
+  const choices = new Map<number, number[]>()
+  choices.set(0, [])
+
+  stems.forEach((stem, stemIndex) => {
+    if (stem.questionsCount <= 0) return
+    const existing = Array.from(choices.entries())
+    for (const [total, indexes] of existing) {
+      const nextTotal = total + stem.questionsCount
+      if (!choices.has(nextTotal) || indexes.length + 1 < (choices.get(nextTotal)?.length ?? Number.MAX_SAFE_INTEGER)) {
+        choices.set(nextTotal, [...indexes, stemIndex])
+      }
+    }
+  })
+
+  let bestTotal = 0
+  let bestIndexes = choices.get(0) ?? []
+  for (const [total, indexes] of choices.entries()) {
+    const bestDiff = Math.abs(bestTotal - targetQuestions)
+    const nextDiff = Math.abs(total - targetQuestions)
+    const better =
+      nextDiff < bestDiff ||
+      (nextDiff === bestDiff && total < bestTotal) ||
+      (nextDiff === bestDiff && total === bestTotal && indexes.length < bestIndexes.length)
+    if (better) {
+      bestTotal = total
+      bestIndexes = indexes
+    }
+  }
+
+  return bestIndexes.map((index) => stems[index]).filter((stem): stem is UcatStemCatalogItem => Boolean(stem))
+}
+
+function buildAutoSetPreview({
+  mode,
+  targetTotal,
+  categoryTargets,
+  sectionId,
+  stemVisibility,
+  onlyNotInAnotherSet,
+  categories,
+  stems,
+  seed,
+}: {
+  mode: AutoSetMode
+  targetTotal: number
+  categoryTargets: Record<string, string>
+  sectionId: string | null
+  stemVisibility: AutoStemVisibility
+  onlyNotInAnotherSet: boolean
+  categories: AutoCategoryRow[]
+  stems: UcatStemCatalogItem[]
+  seed: number
+}): AutoSetPreview {
+  if (!sectionId) {
+    return { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
+  }
+
+  const sectionCategories = categories
+    .filter((category) => category.id && category.ucat_section_id === sectionId)
+    .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
+  const categoryIds = new Set(sectionCategories.map((category) => category.id))
+  const eligibleStems = stems.filter((stem) => {
+    if (stem.sectionId !== sectionId) return false
+    if (!stem.categoryId || !categoryIds.has(stem.categoryId)) return false
+    if (stem.questionsCount <= 0) return false
+    if (stemVisibility === 'public' && stem.isPrivate) return false
+    if (stemVisibility === 'private' && !stem.isPrivate) return false
+    if (onlyNotInAnotherSet && stem.setIds.length > 0) return false
+    return true
+  })
+
+  const warnings: string[] = []
+
+  if (mode === 'total') {
+    const shuffled = shuffleWithSeed(eligibleStems, `total:${sectionId}:${targetTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`)
+    const selectedStems = chooseClosestWholeStemSet(shuffled, targetTotal)
+    const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+    if (targetTotal > 0 && selectedStems.length === 0) {
+      warnings.push('No eligible stems match these criteria.')
+    } else if (targetTotal > 0 && totalQuestions !== targetTotal) {
+      warnings.push(`Whole stems make ${totalQuestions} questions, not exactly ${targetTotal}.`)
+    }
+
+    return {
+      selectedStems: shuffleWithSeed(selectedStems, `order:${sectionId}:${targetTotal}:${seed}`),
+      totalQuestions,
+      targetQuestions: targetTotal,
+      byCategory: [],
+      warnings,
+    }
+  }
+
+  const selectedByCategory: UcatStemCatalogItem[] = []
+  const byCategory = sectionCategories
+    .map((category) => {
+      const targetQuestions = positiveIntFromInput(categoryTargets[category.id] ?? '')
+      const categoryEligibleStems = eligibleStems.filter((stem) => stem.categoryId === category.id)
+      if (targetQuestions <= 0) {
+        return {
+          categoryId: category.id,
+          categoryName: category.name,
+          targetQuestions,
+          actualQuestions: 0,
+          stemCount: 0,
+          eligibleStemCount: categoryEligibleStems.length,
+        }
+      }
+
+      const shuffled = shuffleWithSeed(
+        categoryEligibleStems,
+        `category:${category.id}:${targetQuestions}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
+      )
+      const selectedStems = chooseClosestWholeStemSet(shuffled, targetQuestions)
+      selectedByCategory.push(...selectedStems)
+      const actualQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+      if (selectedStems.length === 0) {
+        warnings.push(`${category.name}: no eligible stems match these criteria.`)
+      } else if (actualQuestions !== targetQuestions) {
+        warnings.push(`${category.name}: whole stems make ${actualQuestions} questions, not exactly ${targetQuestions}.`)
+      }
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        targetQuestions,
+        actualQuestions,
+        stemCount: selectedStems.length,
+        eligibleStemCount: categoryEligibleStems.length,
+      }
+    })
+    .filter((row) => row.targetQuestions > 0)
+
+  const targetQuestions = byCategory.reduce((sum, row) => sum + row.targetQuestions, 0)
+  const totalQuestions = selectedByCategory.reduce((sum, stem) => sum + stem.questionsCount, 0)
+  const selectedStems = shuffleWithSeed(
+    selectedByCategory,
+    `category-order:${sectionId}:${JSON.stringify(categoryTargets)}:${seed}`,
+  )
+
+  if (targetQuestions > 0 && selectedStems.length === 0) {
+    warnings.push('No eligible stems match these criteria.')
+  }
+
+  return {
+    selectedStems,
+    totalQuestions,
+    targetQuestions,
+    byCategory,
+    warnings,
+  }
+}
+
 export function UcatSetsPage() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
@@ -78,6 +296,7 @@ export function UcatSetsPage() {
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const categoriesQuery = useUcatCategories()
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
@@ -87,12 +306,20 @@ export function UcatSetsPage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    isTimed: true,
+    isTimed: false,
     timeLimitMinutes: '',
     timeLimitSeconds: '',
     isPrivate: false,
     isStudentGenerated: false,
   })
+  const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(false)
+  const [autoSectionId, setAutoSectionId] = useState<string | null>(null)
+  const [autoMode, setAutoMode] = useState<AutoSetMode>('total')
+  const [autoTargetTotal, setAutoTargetTotal] = useState('')
+  const [autoCategoryTargets, setAutoCategoryTargets] = useState<Record<string, string>>({})
+  const [autoStemVisibility, setAutoStemVisibility] = useState<AutoStemVisibility>('either')
+  const [autoOnlyNotInAnotherSet, setAutoOnlyNotInAnotherSet] = useState(true)
+  const [autoSeed, setAutoSeed] = useState(1)
   const [selectedSetIds, setSelectedSetIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
@@ -103,6 +330,8 @@ export function UcatSetsPage() {
   const selectionMode = selectedSetIds.size > 0
   const updateSetMutation = useUpdateUcatSet()
   const mocksQuery = useUcatMocks()
+  const stemCatalogQuery = useUcatStemCatalog(openCreate && autoCriteriaEnabled)
+  const stemCatalog = useMemo(() => stemCatalogQuery.data ?? [], [stemCatalogQuery.data])
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -250,6 +479,53 @@ export function UcatSetsPage() {
   const singleDeleteInMocksCount = deletingSetId
     ? (rows.find((r) => r.id === deletingSetId)?.ucat_mock_ids.length ?? 0)
     : 0
+  const autoSectionCategories = useMemo(
+    () =>
+      ((categoriesQuery.data ?? []) as AutoCategoryRow[])
+        .filter((category) => category.id && category.ucat_section_id === autoSectionId)
+        .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
+    [autoSectionId, categoriesQuery.data],
+  )
+  const autoTargetQuestions = autoMode === 'total'
+    ? positiveIntFromInput(autoTargetTotal)
+    : Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
+  const autoCriteriaReady = !autoCriteriaEnabled || (!!autoSectionId && autoTargetQuestions > 0)
+  const autoPreview = useMemo(
+    () =>
+      autoCriteriaEnabled
+        ? buildAutoSetPreview({
+            mode: autoMode,
+            targetTotal: positiveIntFromInput(autoTargetTotal),
+            categoryTargets: autoCategoryTargets,
+            sectionId: autoSectionId,
+            stemVisibility: autoStemVisibility,
+            onlyNotInAnotherSet: autoOnlyNotInAnotherSet,
+            categories: (categoriesQuery.data ?? []) as AutoCategoryRow[],
+            stems: stemCatalog,
+            seed: autoSeed,
+          })
+        : null,
+    [
+      autoCategoryTargets,
+      autoCriteriaEnabled,
+      autoMode,
+      autoOnlyNotInAnotherSet,
+      autoSectionId,
+      autoSeed,
+      autoStemVisibility,
+      autoTargetTotal,
+      categoriesQuery.data,
+      stemCatalog,
+    ],
+  )
+  const autoPrivateStemCount = autoPreview?.selectedStems.filter((stem) => stem.isPrivate).length ?? 0
+  const autoCreateDisabled =
+    autoCriteriaEnabled &&
+    (!autoCriteriaReady ||
+      stemCatalogQuery.isLoading ||
+      !autoPreview ||
+      autoPreview.selectedStems.length === 0 ||
+      autoPreview.totalQuestions <= 0)
 
   async function invalidateSetsListQueries(setIds: string[] = []) {
     await Promise.all([
@@ -263,6 +539,26 @@ export function UcatSetsPage() {
         )
       }),
     ])
+  }
+
+  function resetCreateForm() {
+    setForm({
+      name: '',
+      description: '',
+      isTimed: false,
+      timeLimitMinutes: '',
+      timeLimitSeconds: '',
+      isPrivate: false,
+      isStudentGenerated: false,
+    })
+    setAutoCriteriaEnabled(false)
+    setAutoSectionId(null)
+    setAutoMode('total')
+    setAutoTargetTotal('')
+    setAutoCategoryTargets({})
+    setAutoStemVisibility('either')
+    setAutoOnlyNotInAnotherSet(true)
+    setAutoSeed((prev) => prev + 1)
   }
 
   function showSetDeleteSuccessToast(setIds: string[]) {
@@ -327,26 +623,19 @@ export function UcatSetsPage() {
     const timeLimitSeconds = form.isTimed
       ? minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)
       : null
+    const stemIds = autoCriteriaEnabled ? (autoPreview?.selectedStems.map((stem) => stem.id) ?? []) : []
     const payload: UcatQuestionSetPayload = {
       name: plainTextToProseMirror(form.name),
       description: form.description,
       timeLimitSeconds,
       isPrivate: form.isPrivate,
       isStudentGenerated: false,
-      stemIds: [],
+      stemIds,
     }
     const result = await createSet.mutateAsync(payload)
     const setName = form.name.trim() || 'Untitled'
     setOpenCreate(false)
-    setForm({
-      name: '',
-      description: '',
-      isTimed: true,
-      timeLimitMinutes: '',
-      timeLimitSeconds: '',
-      isPrivate: false,
-      isStudentGenerated: false,
-    })
+    resetCreateForm()
     if (result.id) setEditingSetId(result.id)
     toast({
       title: `Set ${setName} created`,
@@ -580,13 +869,17 @@ export function UcatSetsPage() {
 
       <UcatDialogShell
         open={openCreate}
-        onClose={() => setOpenCreate(false)}
+        onClose={() => {
+          setOpenCreate(false)
+          resetCreateForm()
+        }}
         title="Create Set"
         subtitle="Create a new UCAT set"
         onSave={onCreate}
         saveLabel="Create"
         saveDisabled={
           createSet.isPending ||
+          autoCreateDisabled ||
           (form.isTimed &&
             ((t) => t == null || t <= 0)(minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)))
         }
@@ -601,7 +894,7 @@ export function UcatSetsPage() {
             <span className="mb-1 block font-medium">Description</span>
             <Textarea className="min-h-20" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
           </label>
-          <label className="block text-sm">
+          <div className="block text-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-medium">Time limit</span>
               <div className="flex items-center gap-2">
@@ -642,7 +935,7 @@ export function UcatSetsPage() {
                 <span className="text-muted-foreground text-xs">min : sec</span>
               </div>
             )}
-          </label>
+          </div>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
             <SearchableSelect<{ value: 'public' | 'private'; label: string }>
@@ -656,6 +949,237 @@ export function UcatSetsPage() {
               getItemId={(i) => i.value}
             />
           </label>
+          <div className="space-y-4 rounded-md border p-4">
+            <label className="flex items-start gap-3 text-sm">
+              <Checkbox
+                checked={autoCriteriaEnabled}
+                onCheckedChange={(checked) => {
+                  setAutoCriteriaEnabled(checked === true)
+                  setAutoSeed((prev) => prev + 1)
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block font-medium">Automatically add questions based on criteria</span>
+                <span className="block text-xs text-muted-foreground">
+                  Selects whole approved stems. Exact question totals may not be possible.
+                </span>
+              </span>
+            </label>
+
+            {autoCriteriaEnabled ? (
+              <div className="space-y-4 border-t pt-4">
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">Section</span>
+                  <SearchableSelect<(typeof sections)[number]>
+                    items={sections}
+                    value={sections.find((section) => (section.id ?? '') === (autoSectionId ?? '')) ?? null}
+                    onValueChange={(section) => {
+                      setAutoSectionId(section?.id ?? null)
+                      setAutoCategoryTargets({})
+                      setAutoSeed((prev) => prev + 1)
+                    }}
+                    getItemLabel={(section) => section.name ?? 'Untitled'}
+                    getItemId={(section) => section.id ?? ''}
+                    placeholder="Select section"
+                  />
+                </label>
+
+                {autoSectionId ? (
+                  <>
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium">Question targets</span>
+                      <SearchableSelect<{ value: AutoSetMode; label: string }>
+                        items={[
+                          { value: 'total', label: 'Total only' },
+                          { value: 'category', label: 'By category' },
+                        ]}
+                        value={
+                          autoMode === 'category'
+                            ? { value: 'category', label: 'By category' }
+                            : { value: 'total', label: 'Total only' }
+                        }
+                        onValueChange={(item) => {
+                          if (!item) return
+                          setAutoMode(item.value)
+                          setAutoSeed((prev) => prev + 1)
+                        }}
+                        getItemLabel={(item) => item.label}
+                        getItemId={(item) => item.value}
+                      />
+                    </label>
+
+                    {autoMode === 'total' ? (
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-medium">Total questions</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={autoTargetTotal}
+                          onChange={(event) => {
+                            setAutoTargetTotal(event.target.value)
+                            setAutoSeed((prev) => prev + 1)
+                          }}
+                          placeholder="e.g. 20"
+                        />
+                      </label>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Questions by category</div>
+                        {autoSectionCategories.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
+                        ) : (
+                          autoSectionCategories.map((category) => {
+                            const id = category.id ?? ''
+                            const previewRow = autoPreview?.byCategory.find((row) => row.categoryId === id)
+                            const eligibleCount =
+                              previewRow?.eligibleStemCount ??
+                              stemCatalog.filter(
+                                (stem) =>
+                                  stem.sectionId === autoSectionId &&
+                                  stem.categoryId === id &&
+                                  stem.questionsCount > 0 &&
+                                  (autoStemVisibility === 'either' ||
+                                    (autoStemVisibility === 'public' ? !stem.isPrivate : stem.isPrivate)) &&
+                                  (!autoOnlyNotInAnotherSet || stem.setIds.length === 0),
+                              ).length
+                            return (
+                              <label key={id} className="grid grid-cols-[1fr_5rem] items-center gap-3 text-sm">
+                                <span className="min-w-0">
+                                  <span className="block truncate">{category.name ?? 'Untitled category'}</span>
+                                  <span className="block text-xs text-muted-foreground">
+                                    {eligibleCount} eligible {eligibleCount === 1 ? 'stem' : 'stems'}
+                                  </span>
+                                </span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={autoCategoryTargets[id] ?? ''}
+                                  onChange={(event) => {
+                                    setAutoCategoryTargets((prev) => ({
+                                      ...prev,
+                                      [id]: event.target.value,
+                                    }))
+                                    setAutoSeed((prev) => prev + 1)
+                                  }}
+                                  placeholder="0"
+                                />
+                              </label>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
+
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium">Stem visibility</span>
+                      <SearchableSelect<{ value: AutoStemVisibility; label: string }>
+                        items={[
+                          { value: 'either', label: 'Either' },
+                          { value: 'public', label: 'Public' },
+                          { value: 'private', label: 'Private' },
+                        ]}
+                        value={
+                          autoStemVisibility === 'public'
+                            ? { value: 'public', label: 'Public' }
+                            : autoStemVisibility === 'private'
+                              ? { value: 'private', label: 'Private' }
+                              : { value: 'either', label: 'Either' }
+                        }
+                        onValueChange={(item) => {
+                          if (!item) return
+                          setAutoStemVisibility(item.value)
+                          setAutoSeed((prev) => prev + 1)
+                        }}
+                        getItemLabel={(item) => item.label}
+                        getItemId={(item) => item.value}
+                      />
+                    </label>
+
+                    <label className="flex items-start gap-3 text-sm">
+                      <Checkbox
+                        checked={autoOnlyNotInAnotherSet}
+                        onCheckedChange={(checked) => {
+                          setAutoOnlyNotInAnotherSet(checked === true)
+                          setAutoSeed((prev) => prev + 1)
+                        }}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="block font-medium">Only include stems not already in another set</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Checks non-deleted staff-authored sets, including private sets.
+                        </span>
+                      </span>
+                    </label>
+                  </>
+                ) : null}
+
+                <div className="rounded-md border bg-muted/20 p-3 text-sm">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="font-medium">Live preview</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAutoSeed((prev) => prev + 1)}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                  {stemCatalogQuery.isLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading eligible stems...</p>
+                  ) : !autoSectionId ? (
+                    <p className="text-xs text-muted-foreground">Select a section to preview stems.</p>
+                  ) : autoTargetQuestions <= 0 ? (
+                    <p className="text-xs text-muted-foreground">Enter a positive question target to preview stems.</p>
+                  ) : autoPreview ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">{autoPreview.selectedStems.length} stems</Badge>
+                        <Badge variant="secondary">
+                          {autoPreview.totalQuestions} / {autoPreview.targetQuestions} questions
+                        </Badge>
+                      </div>
+                      {autoMode === 'category' && autoPreview.byCategory.length > 0 ? (
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {autoPreview.byCategory.map((row) => (
+                            <div key={row.categoryId} className="flex justify-between gap-3">
+                              <span className="truncate">{row.categoryName}</span>
+                              <span className="shrink-0">
+                                {row.actualQuestions} / {row.targetQuestions} questions
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {autoPreview.selectedStems.length > 0 ? (
+                        <div className="max-h-36 space-y-1 overflow-y-auto border-t pt-2 text-xs">
+                          {autoPreview.selectedStems.map((stem, index) => (
+                            <div key={stem.id} className="flex gap-2">
+                              <span className="w-5 shrink-0 text-muted-foreground">{index + 1}.</span>
+                              <span className="min-w-0 flex-1 truncate">{stem.text || 'Untitled stem'}</span>
+                              <span className="shrink-0 text-muted-foreground">{stem.questionsCount} q</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {!form.isPrivate && autoPrivateStemCount > 0 ? (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          {autoPrivateStemCount} private {autoPrivateStemCount === 1 ? 'stem' : 'stems'} will be available through this public set.
+                        </p>
+                      ) : null}
+                      {autoPreview.warnings.map((warning) => (
+                        <p key={warning} className="text-xs text-amber-700 dark:text-amber-400">
+                          {warning}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </UcatDialogShell>
 

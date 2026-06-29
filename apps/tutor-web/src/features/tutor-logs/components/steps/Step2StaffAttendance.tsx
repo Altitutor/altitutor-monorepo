@@ -13,6 +13,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import { filterAvailableStaff } from '@/shared/utils/filtering';
 import type { Tables } from '@altitutor/shared';
+import { cn } from '@/shared/utils';
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 const STAFF_TYPE_OPTIONS = [
   { value: 'MAIN_TUTOR' as const, label: 'Main Tutor' },
@@ -138,7 +140,7 @@ export function Step2StaffAttendance({
   };
 
   const addStaffTrigger = (
-    <Button variant="outline" className="w-full sm:w-auto">
+    <Button variant="outline" className={cn(tutorBtnOutline, 'w-full sm:w-auto')}>
       <Plus className="h-4 w-4 mr-2" />
       Add Staff
     </Button>
@@ -166,7 +168,7 @@ export function Step2StaffAttendance({
             return (
               <div
                 key={ss.staff_id}
-                className="flex items-center gap-4 p-3 border rounded-md"
+                className={tutorCardCn('flex items-center gap-4 p-3')}
               >
                 <Checkbox
                   id={`staff-${ss.staff_id}`}

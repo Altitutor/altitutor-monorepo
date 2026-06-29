@@ -11,6 +11,7 @@ import {
   Input,
   SearchableSelect,
   Switch,
+  TablePagination,
   useToast,
 } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
@@ -287,6 +288,11 @@ export function UcatSectionsPage() {
   ]
 
   const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
+  const { page, pageSize } = tableState.state
+  const totalRows = sortedRows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
   if (access.isLoading || sections.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
@@ -408,7 +414,22 @@ export function UcatSectionsPage() {
       />
 
       <div className="pt-3">
-        <DataTable {...tutorDataTableProps} columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable
+          {...tutorDataTableProps}
+          columns={visibleColumns}
+          data={paginatedRows}
+          pagination="external"
+          pageSizeOptions={[10, 20, 50]}
+        />
+        <TablePagination
+          page={effectivePage}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={tableState.actions.onPageChange}
+          onPageSizeChange={tableState.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
+          className="pt-3"
+        />
       </div>
 
       <UcatDialogShell
