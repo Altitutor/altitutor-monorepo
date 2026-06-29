@@ -1,8 +1,10 @@
 "use client";
 
+import clsx from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MarketingButton, MarketingCard, MarketingHeading } from "./MarketingUI";
+import styles from "./HomeExperience.module.css";
 
 const diagnosticLabels = [
   "Small-group weekly classes",
@@ -166,10 +168,10 @@ function HomeSectionIndicator() {
   }, []);
 
   return (
-    <nav className={`section-indicator ${visible ? "is-visible" : ""}`} aria-label="Home page sections">
+    <nav className={clsx(styles.sectionIndicator, visible && styles.sectionIndicatorVisible)} aria-label="Home page sections">
       {sectionIndicators.map((section) => (
         <a
-          className={active === section.id ? "is-active" : ""}
+          className={active === section.id ? styles.sectionIndicatorActive : undefined}
           href={`#${section.id}`}
           key={section.id}
           aria-label={`Scroll to ${section.label}`}
@@ -183,15 +185,15 @@ function HomeSectionIndicator() {
 
 function FeaturesSection() {
   return (
-    <section id="overview" className="home-section home-features" data-reveal>
-      <div className="home-section__header">
+    <section id="overview" className={styles.section} data-reveal>
+      <div className={styles.sectionHeader}>
         <p className="marketing-kicker">Interactive functional artifacts</p>
         <MarketingHeading>
           Want to achieve
           <span> better results?</span>
         </MarketingHeading>
       </div>
-      <div className="feature-artifact-grid">
+      <div className={styles.featureGrid}>
         <DiagnosticShuffler />
         <TelemetryTypewriter />
         <SchedulerCard />
@@ -215,20 +217,20 @@ function DiagnosticShuffler() {
   }, []);
 
   return (
-    <MarketingCard className="artifact-card diagnostic-card">
+    <MarketingCard className={styles.artifactCard}>
       <div>
-        <p className="artifact-label">Weekly classes</p>
+        <p className={styles.artifactLabel}>Weekly classes</p>
         <MarketingHeading as="h3" variant="card">Weekly tuition</MarketingHeading>
         <p>
           Whether you&apos;re struggling to pass or want to achieve top scores, our weekly classes ensure students not only improve their results, but find the content they&apos;re learning easy.
         </p>
-        <MarketingButton className="artifact-card__action" href="/classes/weekly-classes/">
+        <MarketingButton href="/classes/weekly-classes/">
           Explore weekly classes
         </MarketingButton>
       </div>
-      <div className="diagnostic-stack" aria-hidden>
+      <div className={styles.diagnosticStack} aria-hidden>
         {labels.map((label, index) => (
-          <div className="diagnostic-stack__item" data-index={index} key={label}>
+          <div className={styles.diagnosticStackItem} data-index={index} key={label}>
             <span>0{index + 1}</span>
             {label}
           </div>
@@ -258,9 +260,9 @@ function TelemetryTypewriter() {
   }, [charCount, message.length]);
 
   return (
-    <MarketingCard className="artifact-card telemetry-card">
+    <MarketingCard className={clsx(styles.artifactCard, styles.telemetryCard)}>
       <div>
-        <div className="live-feed-label">
+        <div className={styles.liveFeedLabel}>
           <span />
           Live Feed
         </div>
@@ -268,13 +270,13 @@ function TelemetryTypewriter() {
         <p>
           Whatever stage you&apos;re at in your preparation, we&apos;ve got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types.
         </p>
-        <MarketingButton className="artifact-card__action" href="/classes/ucatprep/">
+        <MarketingButton href="/classes/ucatprep/">
           Explore UCAT prep
         </MarketingButton>
       </div>
       <pre aria-label="Live text feed">
         {message.slice(0, charCount)}
-        <span className="type-cursor">|</span>
+        <span className={styles.typeCursor}>|</span>
       </pre>
     </MarketingCard>
   );
@@ -284,27 +286,29 @@ function SchedulerCard() {
   const cells = useMemo(() => scheduleDays.map((day, index) => ({ day, active: index === 3 })), []);
 
   return (
-    <MarketingCard className="artifact-card scheduler-card">
+    <MarketingCard className={styles.artifactCard}>
       <div>
-        <p className="artifact-label">English drafting</p>
+        <p className={styles.artifactLabel}>English drafting</p>
         <MarketingHeading as="h3" variant="card">English drafting</MarketingHeading>
         <p>
           Our English tutors provide comprehensive feedback on the structure, readability, fluency and analysis of your assignment.
         </p>
-        <MarketingButton className="artifact-card__action" href="/classes/english-assignment-drafting/">
+        <MarketingButton href="/classes/english-assignment-drafting/">
           Explore drafting
         </MarketingButton>
       </div>
-      <div className="scheduler-ui" aria-hidden>
-        <div className="scheduler-grid">
+      <div className={styles.schedulerUi} aria-hidden>
+        <div className={styles.schedulerGrid}>
           {cells.map((cell, index) => (
-            <span className={cell.active ? "is-active" : ""} key={`${cell.day}-${index}`}>
+            <span className={cell.active ? styles.activeCell : undefined} key={`${cell.day}-${index}`}>
               {cell.day}
             </span>
           ))}
         </div>
-        <button className="marketing-button marketing-button--filled" type="button">Save</button>
-        <svg className="scheduler-cursor" viewBox="0 0 40 40">
+        <MarketingButton href="#" onClick={(event) => event.preventDefault()}>
+          Save
+        </MarketingButton>
+        <svg className={styles.schedulerCursor} viewBox="0 0 40 40">
           <path d="M8 4 31 24 19 26 14 37Z" />
         </svg>
       </div>
@@ -314,9 +318,9 @@ function SchedulerCard() {
 
 function ManifestoSection() {
   return (
-    <section id="methodology" className="home-manifesto">
-      <div className="home-manifesto__texture" aria-hidden />
-      <div className="home-manifesto__inner">
+    <section id="methodology" className={styles.manifesto}>
+      <div className={styles.manifestoTexture} aria-hidden />
+      <div className={styles.manifestoInner}>
         <p>
           Most tutoring focuses on: <span>private advantage, expensive hours, and access for families who can already afford it.</span>
         </p>
@@ -330,7 +334,7 @@ function ManifestoSection() {
         <p>
           Every paid session helps fund subsidised tuition for students who would otherwise be priced out. Better teaching matters, but our mission is bigger: build a system where strong academic support is not reserved for the few.
         </p>
-        <div className="home-manifesto__stats" aria-label="Altitutor outcomes">
+        <div className={styles.manifestoStats} aria-label="Altitutor outcomes">
           {missionStats.map((stat) => (
             <AnimatedMissionStat key={stat.value} stat={stat} />
           ))}
@@ -403,18 +407,18 @@ function AnimatedMissionStat({ stat }: { stat: (typeof missionStats)[number] }) 
 
 function ProtocolSection() {
   return (
-    <section id="support" className="home-section home-support" aria-label="Altitutor support systems" data-reveal>
-      <div className="home-section__header">
+    <section id="support" className={clsx(styles.section, styles.support)} aria-label="Altitutor support systems" data-reveal>
+      <div className={styles.sectionHeader}>
         <p className="marketing-kicker">Why choose us?</p>
         <MarketingHeading>
           Better support,
           <span> wider access.</span>
         </MarketingHeading>
       </div>
-      <div className="support-card-grid">
+      <div className={styles.supportGrid}>
       {protocolCards.map((card) => (
-        <MarketingCard className="support-card" key={card.number}>
-          <div className="support-card__copy">
+        <MarketingCard className={styles.supportCard} key={card.number}>
+          <div className={styles.supportCopy}>
             <span>{card.number}</span>
             <MarketingHeading as="h3" variant="card">{card.title}</MarketingHeading>
             <p>{card.description}</p>
@@ -430,7 +434,7 @@ function ProtocolSection() {
 function ProtocolMotif({ motif }: { motif: string }) {
   if (motif === "scan") {
     return (
-      <svg className="protocol-motif protocol-motif--scan" viewBox="0 0 420 420" aria-hidden>
+      <svg className={clsx(styles.protocolMotif, styles.scan)} viewBox="0 0 420 420" aria-hidden>
         {Array.from({ length: 64 }).map((_, index) => (
           <circle key={index} cx={42 + (index % 8) * 48} cy={42 + Math.floor(index / 8) * 48} r="4" />
         ))}
@@ -440,13 +444,13 @@ function ProtocolMotif({ motif }: { motif: string }) {
   }
   if (motif === "wave") {
     return (
-      <svg className="protocol-motif protocol-motif--wave" viewBox="0 0 420 420" aria-hidden>
+      <svg className={clsx(styles.protocolMotif, styles.wave)} viewBox="0 0 420 420" aria-hidden>
         <path d="M22 230h76l22-72 52 152 42-190 42 110h142" />
       </svg>
     );
   }
   return (
-    <svg className="protocol-motif protocol-motif--orbit" viewBox="0 0 420 420" aria-hidden>
+    <svg className={clsx(styles.protocolMotif, styles.orbit)} viewBox="0 0 420 420" aria-hidden>
       <circle cx="210" cy="210" r="104" />
       <circle cx="210" cy="210" r="154" />
       <path d="M118 118c80 34 144 34 184 0M118 302c80-34 144-34 184 0" />
@@ -457,27 +461,27 @@ function ProtocolMotif({ motif }: { motif: string }) {
 
 function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="home-process">
-      <div className="home-process__header" data-reveal>
+    <section id="how-it-works" className={styles.process}>
+      <div className={styles.processHeader} data-reveal>
         <p className="marketing-kicker">How it works</p>
         <MarketingHeading>The Protocol</MarketingHeading>
         <p>A clear pathway from trial session to integrated class.</p>
       </div>
-      <div className="process-stack">
+      <div className={styles.processStack}>
         {steps.map((step, index) => (
-          <MarketingCard className="process-card" key={step}>
+          <MarketingCard className={styles.processCard} key={step}>
             <span>0{index + 1}</span>
             <MarketingHeading as="h3" variant="display">{["Trial", "Catch up", "Learn ahead", "Use resources", "Support access"][index]}</MarketingHeading>
             <p>{step}</p>
           </MarketingCard>
         ))}
       </div>
-      <div className="testimonial-rail">
+      <div className={styles.testimonialRail}>
         <MarketingHeading as="h3" variant="section">See what our students have to say</MarketingHeading>
-        <div className="testimonial-marquee" aria-label="Rotating student testimonials">
+        <div className={styles.testimonialMarquee} aria-label="Rotating student testimonials">
           {testimonialRows.map((row, rowIndex) => (
-            <div className="testimonial-marquee__row" data-direction={rowIndex === 1 ? "right" : "left"} key={rowIndex}>
-              <div className="testimonial-marquee__track">
+            <div className={styles.testimonialRow} data-direction={rowIndex === 1 ? "right" : "left"} key={rowIndex}>
+              <div className={styles.testimonialTrack}>
                 {[...row, ...row].map((testimonial, index) => (
                   <MarketingCard as="figure" key={`${rowIndex}-${testimonial.name}-${index}`}>
                     <blockquote>{testimonial.quote}</blockquote>
@@ -498,13 +502,13 @@ function HowItWorksSection() {
 
 function MembershipSection() {
   return (
-    <section id="pricing" className="membership-section" data-reveal>
-      <div className="home-section__header">
+    <section id="pricing" className={styles.membershipSection} data-reveal>
+      <div className={styles.sectionHeader}>
         <p className="marketing-kicker">Get started</p>
         <MarketingHeading>Get started</MarketingHeading>
         <p>Start with the pathway that matches how you want to study.</p>
       </div>
-      <div className="membership-grid">
+      <div className={styles.membershipGrid}>
         <MarketingCard>
           <p>In-person pathway</p>
           <MarketingHeading as="h3" variant="display">Book a trial session</MarketingHeading>

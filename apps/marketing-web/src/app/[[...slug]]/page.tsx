@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import clsx from "clsx";
 import { notFound } from "next/navigation";
 import { HomeExperience } from "../HomeExperience";
 import { MarketingNav } from "../MarketingNav";
 import { MarketingMotion } from "../MarketingMotion";
 import { MarketingButton, MarketingCard, MarketingHeading } from "../MarketingUI";
+import styles from "../MarketingRoute.module.css";
 import { marketingPages, type MarketingPage, type MarketingPageSection } from "@/content/marketing-pages";
 import {
   getMarketingStaffProfiles,
@@ -126,7 +128,7 @@ export default async function MarketingRoute({ params }: PageProps) {
   return (
     <MarketingMotion>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
-      <div className="marketing-noise" aria-hidden>
+      <div className={styles.noise} aria-hidden>
         <svg xmlns="http://www.w3.org/2000/svg">
           <filter id="marketingNoiseFilter">
             <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
@@ -134,13 +136,13 @@ export default async function MarketingRoute({ params }: PageProps) {
           <rect width="100%" height="100%" filter="url(#marketingNoiseFilter)" />
         </svg>
       </div>
-      <main className="marketing-site">
+      <main className={styles.site}>
         <MarketingNav />
 
-        <section id={isHome ? "alti-home" : undefined} className={`marketing-hero ${isHome ? "marketing-hero--text-only" : ""}`}>
+        <section id={isHome ? "alti-home" : undefined} className={clsx(styles.hero, isHome && styles.heroTextOnly)}>
           {isHome ? (
             <Image
-              className="marketing-hero__background"
+              className={styles.heroBackground}
               src="/images/landing/background-alt-scaled.jpg"
               alt="Altitutor online learning dashboard and study resources"
               fill
@@ -148,19 +150,19 @@ export default async function MarketingRoute({ params }: PageProps) {
               sizes="100vw"
             />
           ) : null}
-          <div className="marketing-hero__copy">
+          <div className={styles.heroCopy}>
             <p className="marketing-kicker" data-hero-reveal>
               Adelaide tutoring for students and parents
             </p>
             <h1 data-hero-reveal aria-label={`${page.hero.noun} ${page.hero.power}.`}>
-              <span className="marketing-hero__sans">{page.hero.noun}</span>
+              <span className={styles.heroSans}>{page.hero.noun}</span>
               {" "}
-              <span className="marketing-hero__drama">{page.hero.power}.</span>
+              <span className={styles.heroDrama}>{page.hero.power}.</span>
             </h1>
-            <p className="marketing-hero__lead" data-hero-reveal>
+            <p className={styles.heroLead} data-hero-reveal>
               {page.description}
             </p>
-            <div className="marketing-hero__actions" data-hero-reveal>
+            <div className={styles.heroActions} data-hero-reveal>
               <MarketingButton href={PRODUCT_LINKS.trialBooking}>
                 Book a trial session
               </MarketingButton>
@@ -170,11 +172,11 @@ export default async function MarketingRoute({ params }: PageProps) {
             </div>
           </div>
           {!isHome ? (
-            <div className="marketing-hero__media" aria-hidden={!page.hero.image} data-hero-reveal>
+            <div className={styles.heroMedia} aria-hidden={!page.hero.image} data-hero-reveal>
               {page.hero.image ? (
                 <Image src={page.hero.image} alt="" fill sizes="(min-width: 1024px) 42vw, 100vw" />
               ) : (
-                <div className="marketing-hero__mark">A</div>
+                <div className={styles.heroMark}>A</div>
               )}
             </div>
           ) : null}
@@ -183,12 +185,12 @@ export default async function MarketingRoute({ params }: PageProps) {
         {isHome ? (
           <HomeExperience />
         ) : (
-          <div className={`marketing-page-shell marketing-page-shell--${page.kind}`}>
+          <div className={styles.pageShell}>
             <MarketingPageContent page={page} />
 
             {staffProfiles.length > 0 ? <StaffProfilesSection profiles={staffProfiles} /> : null}
 
-            <section className="marketing-cta" data-reveal>
+            <section className={styles.cta} data-reveal>
               <p className="marketing-kicker">Start with a real lesson</p>
               <MarketingHeading variant="display">Book a free 1 hour trial session in Adelaide.</MarketingHeading>
               <p>
@@ -202,11 +204,11 @@ export default async function MarketingRoute({ params }: PageProps) {
         )}
       </main>
 
-      <footer className="marketing-footer">
+      <footer className={styles.footer}>
         <div>
           <MarketingHeading variant="footer">Altitutor.</MarketingHeading>
-          <p className="marketing-footer__tagline">Adelaide tutoring for students who want schoolwork to become easier.</p>
-          <p className="marketing-footer__status"><span /> System Operational</p>
+          <p className={styles.footerTagline}>Adelaide tutoring for students who want schoolwork to become easier.</p>
+          <p className={styles.footerStatus}><span /> System Operational</p>
           <address>
             Level 1, 17A Solomon St
             <br />
@@ -214,7 +216,7 @@ export default async function MarketingRoute({ params }: PageProps) {
           </address>
           <p>Copyright © 2021 Altitutor Pty Ltd</p>
           <p>ACN: 639 197 167</p>
-          <div className="marketing-footer__socials">
+          <div className={styles.footerSocials}>
             {SOCIAL_LINKS.map(([label, href]) => (
               <a key={href} href={href}>
                 {label}
@@ -245,7 +247,7 @@ export default async function MarketingRoute({ params }: PageProps) {
 
 function MarketingPageContent({ page }: { page: MarketingPage }) {
   return (
-    <article className={`marketing-content marketing-content--${page.kind}`} data-page-path={page.path} data-reveal>
+    <article className={styles.content} data-page-path={page.path} data-reveal>
       {page.sections.map((section) => (
         <MarketingContentSection key={section.heading} section={section} />
       ))}
@@ -255,7 +257,7 @@ function MarketingPageContent({ page }: { page: MarketingPage }) {
 
 function MarketingContentSection({ section }: { section: MarketingPageSection }) {
   return (
-    <MarketingCard as="section" className="marketing-rich-section">
+    <MarketingCard as="section" className={styles.richSection}>
       {section.eyebrow ? <p className="marketing-kicker">{section.eyebrow}</p> : null}
       <MarketingHeading>{section.heading}</MarketingHeading>
       {section.body?.map((paragraph) => (
@@ -269,9 +271,9 @@ function MarketingContentSection({ section }: { section: MarketingPageSection })
         </ul>
       ) : null}
       {section.cards ? (
-        <div className="marketing-rich-grid">
+        <div className={styles.richGrid}>
           {section.cards.map((card) => (
-            <MarketingCard className="marketing-rich-card" key={card.title}>
+            <MarketingCard className={styles.richCard} key={card.title}>
               <MarketingHeading as="h3" variant="card">{card.title}</MarketingHeading>
               <p>{card.description}</p>
               {card.href ? (
@@ -289,12 +291,12 @@ function MarketingContentSection({ section }: { section: MarketingPageSection })
 
 function StaffProfilesSection({ profiles }: { profiles: MarketingStaffProfile[] }) {
   return (
-    <section className="marketing-staff" data-reveal>
-      <div className="marketing-staff__intro">
+    <section className={styles.staff} data-reveal>
+      <div className={styles.staffIntro}>
         <p className="marketing-kicker">Our team</p>
         <MarketingHeading variant="display">Meet the people behind Altitutor.</MarketingHeading>
       </div>
-      <div className="marketing-staff__grid">
+      <div className={styles.staffGrid}>
         {profiles.map((profile) => {
           const imageUrl = getStaffProfileImageUrl(profile);
           const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
@@ -304,11 +306,11 @@ function StaffProfilesSection({ profiles }: { profiles: MarketingStaffProfile[] 
             .filter(Boolean);
 
           return (
-            <MarketingCard className="marketing-staff__profile" key={profile.staff_id}>
+            <MarketingCard className={styles.staffProfile} key={profile.staff_id}>
               {imageUrl ? (
                 <Image src={imageUrl} alt={name} width={360} height={360} sizes="(min-width: 900px) 18rem, 100vw" />
               ) : (
-                <div className="marketing-staff__placeholder" aria-hidden>
+                <div className={styles.staffPlaceholder} aria-hidden>
                   {name.slice(0, 1)}
                 </div>
               )}

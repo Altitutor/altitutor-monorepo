@@ -10,7 +10,7 @@ export function MarketingMotion({ children }: { children: React.ReactNode }) {
     const root = rootRef.current;
     if (!root) return;
 
-    const nav = root.querySelector<HTMLElement>(".marketing-nav");
+    const nav = root.querySelector<HTMLElement>("[data-marketing-nav]");
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     root.classList.add("marketing-motion-ready");
@@ -18,7 +18,7 @@ export function MarketingMotion({ children }: { children: React.ReactNode }) {
     let ticking = false;
     const updateNav = () => {
       ticking = false;
-      nav?.classList.toggle("marketing-nav--scrolled", window.scrollY > 100);
+      nav?.toggleAttribute("data-scrolled", window.scrollY > 100);
     };
     const onScroll = () => {
       if (ticking) return;

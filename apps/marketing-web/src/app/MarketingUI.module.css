@@ -1,0 +1,145 @@
+.title {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--font-marketing-heading);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.hero {
+  color: var(--paper);
+  line-height: 0.9;
+}
+
+.section {
+  font-size: clamp(2.2rem, 4.8vw, 4.35rem);
+  line-height: 1;
+}
+
+.section span {
+  display: block;
+  color: var(--accent);
+  font-family: var(--font-marketing-display);
+  font-style: italic;
+  font-weight: 700;
+}
+
+.cardTitle {
+  font-size: clamp(1.2rem, 1.65vw, 1.7rem);
+  line-height: 1.08;
+}
+
+.display {
+  font-size: clamp(2rem, 4.2vw, 3.9rem);
+  line-height: 1;
+}
+
+.footer {
+  color: inherit;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.card {
+  border: var(--marketing-card-border);
+  border-radius: var(--marketing-card-radius);
+  background: var(--marketing-card-bg);
+  box-shadow: var(--marketing-card-shadow);
+}
+
+.compact {
+  padding: clamp(1.1rem, 2vw, 1.65rem);
+}
+
+.large {
+  padding: clamp(2rem, 5vw, 4rem);
+}
+
+.dark {
+  background: var(--navy);
+  color: var(--paper);
+}
+
+.dark .title {
+  color: var(--paper);
+}
+
+.button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-height: 2.75rem;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  padding: 0.8rem 1.25rem;
+  font-family: var(--font-marketing-body);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 520ms var(--ease),
+    box-shadow 520ms var(--ease),
+    color 520ms var(--ease),
+    border-color 520ms var(--ease),
+    background-color 520ms var(--ease);
+}
+
+.button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(255 255 255 / 22%);
+  transform: translateY(100%);
+  transition: transform 520ms var(--ease);
+}
+
+.button:hover {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.button:hover::after {
+  transform: translateY(0);
+}
+
+.filled {
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--paper);
+  box-shadow: 0 18px 44px rgb(146 185 198 / 24%);
+}
+
+.filled:hover {
+  box-shadow: 0 22px 54px rgb(146 185 198 / 34%);
+}
+
+.outline {
+  border: 1px solid rgb(255 255 255 / 35%);
+  background: rgb(255 255 255 / 7%);
+  color: var(--paper);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
+.outline::after {
+  background: rgb(255 255 255 / 16%);
+}
+
+.outline:hover {
+  border-color: rgb(255 255 255 / 48%);
+  color: var(--paper);
+  box-shadow: 0 16px 38px rgb(255 255 255 / 8%);
+}
+
+@media (max-width: 560px) {
+  .button {
+    min-height: 2.55rem;
+    padding: 0.72rem 1rem;
+    font-size: 0.82rem;
+  }
+}

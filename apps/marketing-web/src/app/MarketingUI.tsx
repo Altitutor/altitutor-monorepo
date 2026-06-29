@@ -1,6 +1,7 @@
 import Link, { type LinkProps } from "next/link";
 import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import clsx from "clsx";
+import styles from "./MarketingUI.module.css";
 
 type MarketingButtonProps = LinkProps &
   AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -15,10 +16,12 @@ export function MarketingButton({
   return (
     <Link
       className={clsx(
-        "marketing-button",
-        variant === "filled" ? "marketing-button--filled" : "marketing-button--outline",
+        styles.button,
+        variant === "filled" ? styles.filled : styles.outline,
         className,
       )}
+      data-marketing-button
+      data-button-variant={variant}
       {...props}
     />
   );
@@ -40,11 +43,14 @@ export function MarketingCard({
   return (
     <Component
       className={clsx(
-        "marketing-card",
-        tone === "dark" && "marketing-card--dark",
-        padding !== "default" && `marketing-card--${padding}`,
+        styles.card,
+        tone === "dark" && styles.dark,
+        padding === "compact" && styles.compact,
+        padding === "large" && styles.large,
         className,
       )}
+      data-marketing-card
+      data-card-tone={tone}
       {...props}
     />
   );
@@ -61,5 +67,6 @@ export function MarketingHeading({
   variant = "section",
   ...props
 }: MarketingHeadingProps) {
-  return <Component className={clsx("marketing-title", `marketing-title--${variant}`, className)} {...props} />;
+  const variantClass = variant === "card" ? styles.cardTitle : styles[variant];
+  return <Component className={clsx(styles.title, variantClass, className)} data-marketing-title data-title-variant={variant} {...props} />;
 }

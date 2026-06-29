@@ -1,9 +1,10 @@
 import { MarketingButton, MarketingCard, MarketingHeading } from "./MarketingUI";
+import styles from "./NotFound.module.css";
 
 export default function NotFound() {
   return (
-    <main className="marketing-not-found">
-      <MarketingCard as="section" className="marketing-not-found__card">
+    <main className={styles.root}>
+      <MarketingCard as="section" className={styles.card}>
         <p className="marketing-kicker">404</p>
         <MarketingHeading as="h1" variant="section">Page not found</MarketingHeading>
         <p>
