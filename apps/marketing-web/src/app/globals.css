@@ -154,23 +154,6 @@ a {
   transform: translateY(0);
 }
 
-.marketing-button--dark {
-  background: var(--navy);
-  color: white;
-  box-shadow: 0 12px 30px rgb(10 41 65 / 18%);
-}
-
-.marketing-button--accent {
-  background: var(--accent);
-  color: var(--charcoal);
-  box-shadow: 0 16px 38px rgb(10 41 65 / 14%);
-}
-
-.marketing-button--ghost {
-  border: 1px solid rgb(255 255 255 / 35%);
-  color: var(--paper);
-}
-
 .marketing-hero {
   position: relative;
   display: grid;
@@ -1347,12 +1330,6 @@ a {
   box-shadow: 0 24px 70px rgb(10 41 65 / 7%);
 }
 
-.marketing-rich-section:has(.marketing-rich-media),
-.marketing-rich-section:has(.marketing-rich-map),
-.marketing-rich-section:has(.marketing-rich-accordion) {
-  background: rgb(242 240 233 / 78%);
-}
-
 .marketing-rich-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
@@ -1369,13 +1346,6 @@ a {
   border-radius: 1.5rem;
   background: rgb(255 255 255 / 50%);
   padding: clamp(1.1rem, 2vw, 1.6rem);
-}
-
-.marketing-rich-card:has(.marketing-rich-media),
-.marketing-rich-card:has(.marketing-rich-actions) {
-  border: 0;
-  background: transparent;
-  padding: 0;
 }
 
 .marketing-rich-section :where(h1, h2, h3, h4, h5, h6) {
@@ -1422,7 +1392,7 @@ a {
   margin-top: 0.55rem;
 }
 
-.marketing-rich-section a:not(.marketing-rich-button) {
+.marketing-rich-section a {
   color: var(--navy);
   font-weight: 800;
   text-decoration-color: rgb(146 185 198 / 65%);
@@ -1430,11 +1400,6 @@ a {
   text-underline-offset: 0.22em;
 }
 
-.marketing-rich-media {
-  height: 100%;
-}
-
-.marketing-rich-media img,
 .marketing-rich-section > img {
   display: block;
   width: 100%;
@@ -1444,95 +1409,6 @@ a {
   object-fit: cover;
   border-radius: 1.5rem;
   box-shadow: 0 22px 70px rgb(10 41 65 / 12%);
-}
-
-.marketing-rich-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  margin: 1.2rem 0;
-}
-
-.marketing-rich-button,
-.marketing-rich-section button {
-  display: inline-flex;
-  min-height: 2.9rem;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  background: var(--navy);
-  padding: 0.8rem 1.25rem;
-  color: white !important;
-  font-size: 0.9rem;
-  font-weight: 800;
-  line-height: 1;
-  text-decoration: none;
-  box-shadow: 0 16px 38px rgb(10 41 65 / 12%);
-  transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
-}
-
-.marketing-rich-button:hover,
-.marketing-rich-section button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 48px rgb(10 41 65 / 16%);
-}
-
-.marketing-rich-list-block ul {
-  display: grid;
-  gap: 0.7rem;
-  padding: 0;
-  list-style: none;
-}
-
-.marketing-rich-list-block li {
-  display: grid;
-  grid-template-columns: 1.6rem 1fr;
-  align-items: start;
-  gap: 0.6rem;
-}
-
-.marketing-rich-list-block li::before {
-  content: "";
-  display: block;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 999px;
-  background: rgb(146 185 198 / 26%);
-}
-
-.marketing-rich-map iframe {
-  display: block;
-  width: 100%;
-  min-height: 24rem;
-  border: 0;
-  border-radius: 1.5rem;
-  box-shadow: 0 22px 70px rgb(10 41 65 / 12%);
-}
-
-.marketing-rich-accordion {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.marketing-rich-accordion-item {
-  overflow: hidden;
-  border: 1px solid rgb(10 41 65 / 10%);
-  border-radius: 1.25rem;
-  background: rgb(255 255 255 / 52%);
-}
-
-.marketing-rich-accordion-title {
-  padding: 1rem 1.15rem;
-  color: var(--navy);
-  font-family: "Outfit", sans-serif;
-  font-size: 1.05rem;
-  font-weight: 800;
-}
-
-.marketing-rich-accordion-content {
-  border-top: 1px solid rgb(10 41 65 / 8%);
-  padding: 0 1.15rem 1.1rem;
 }
 
 .marketing-staff {
@@ -1783,10 +1659,6 @@ a {
   padding-bottom: clamp(5rem, 12vh, 10rem);
 }
 
-.marketing-hero .marketing-button--accent {
-  color: var(--charcoal);
-}
-
 .section-indicator {
   opacity: 0;
   pointer-events: none;
@@ -1836,24 +1708,6 @@ a {
   transform: translateY(-4px);
 }
 
-.artifact-link {
-  display: inline-flex;
-  width: fit-content;
-  margin-top: 1.15rem;
-  color: var(--navy);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: color 260ms var(--ease), transform 260ms var(--ease);
-}
-
-.artifact-link:hover {
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
 .diagnostic-stack {
   min-height: 14.5rem;
   perspective: 900px;
@@ -1885,31 +1739,6 @@ a {
   overflow: hidden;
 }
 
-.testimonial-carousel {
-  display: flex;
-  width: max-content;
-  gap: 1rem;
-  animation: testimonial-carousel 34s linear infinite;
-}
-
-.testimonial-carousel:hover {
-  animation-play-state: paused;
-}
-
-.testimonial-carousel figure {
-  width: clamp(20rem, 30vw, 28rem);
-  flex: 0 0 auto;
-}
-
-@keyframes testimonial-carousel {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(-50% - 0.5rem));
-  }
-}
-
 @media (max-width: 900px) {
   .marketing-nav {
     width: min(100% - 1rem, 44rem);
@@ -1937,12 +1766,6 @@ a {
 
   .marketing-hero--text-only .marketing-hero__copy {
     padding-bottom: 5rem;
-  }
-}
-
-@media (max-width: 700px) {
-  .testimonial-carousel figure {
-    width: min(82vw, 24rem);
   }
 }
 
@@ -2077,28 +1900,6 @@ a {
 
 .marketing-menu-open .marketing-menu-toggle {
   z-index: 150;
-}
-
-.artifact-link {
-  min-height: 2.85rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--accent);
-  padding: 0 1.1rem;
-  color: var(--charcoal);
-  box-shadow: 0 16px 36px rgb(146 185 198 / 24%);
-  overflow: hidden;
-  transition:
-    box-shadow 320ms var(--ease),
-    color 320ms var(--ease),
-    transform 320ms var(--ease);
-}
-
-.artifact-link:hover {
-  color: var(--charcoal);
-  box-shadow: 0 20px 46px rgb(146 185 198 / 32%);
-  transform: translateY(-1px) scale(1.03);
 }
 
 @media (min-width: 901px) {
@@ -2261,11 +2062,6 @@ a {
   filter: none;
 }
 
-.marketing-nav--scrolled .marketing-button--dark {
-  background: var(--navy);
-  color: var(--paper);
-}
-
 .marketing-button {
   border-radius: 999px;
   transition:
@@ -2283,18 +2079,6 @@ a {
   z-index: -1;
   background: rgb(255 255 255 / 22%);
   transition: transform 520ms var(--ease);
-}
-
-.marketing-button--accent {
-  background: var(--accent);
-  color: var(--paper);
-  box-shadow: 0 18px 44px rgb(146 185 198 / 24%);
-}
-
-.marketing-button--ghost {
-  background: rgb(255 255 255 / 5%);
-  color: var(--paper);
-  backdrop-filter: blur(12px);
 }
 
 .marketing-hero {
@@ -2368,7 +2152,6 @@ a {
 
 .marketing-rich-card,
 .marketing-rich-section img,
-.marketing-rich-button,
 .marketing-cta {
   border-radius: 2rem;
 }
@@ -2636,50 +2419,6 @@ a {
   color: var(--accent);
 }
 
-.home-protocol {
-  position: relative;
-  background: var(--cream);
-}
-
-.protocol-card {
-  display: grid;
-  min-height: 100svh;
-  grid-template-columns: minmax(0, 0.75fr) minmax(20rem, 0.65fr);
-  gap: clamp(2rem, 6vw, 5rem);
-  align-items: center;
-  overflow: hidden;
-  border-radius: 3rem;
-  background:
-    radial-gradient(circle at 78% 42%, rgb(146 185 198 / 18%), transparent 22rem),
-    var(--navy);
-  color: var(--paper);
-  padding: clamp(4rem, 8vw, 7rem) clamp(1.25rem, 7vw, 6rem);
-  transform-origin: center top;
-}
-
-.protocol-card__copy span {
-  color: var(--accent);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 1rem;
-}
-
-.protocol-card h2 {
-  max-width: 12ch;
-  margin: 1rem 0;
-  font-family: "Outfit", sans-serif;
-  font-size: clamp(3.5rem, 8vw, 8rem);
-  line-height: 0.88;
-  letter-spacing: 0;
-}
-
-.protocol-card p {
-  max-width: 48rem;
-  margin: 0;
-  color: rgb(251 250 246 / 72%);
-  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
-  line-height: 1.65;
-}
-
 .protocol-motif {
   width: min(100%, 24rem);
   justify-self: center;
@@ -2713,34 +2452,6 @@ a {
 
 .home-process {
   padding-top: clamp(7rem, 14vw, 12rem);
-}
-
-.process-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid rgb(10 41 65 / 10%);
-  border-radius: 2.4rem;
-  background: rgb(10 41 65 / 10%);
-}
-
-.process-grid article {
-  min-height: 18rem;
-  background: rgb(251 250 246 / 78%);
-  padding: 1.35rem;
-}
-
-.process-grid span {
-  color: var(--accent);
-  font-family: "IBM Plex Mono", monospace;
-  font-weight: 700;
-}
-
-.process-grid p {
-  margin: 1rem 0 0;
-  color: var(--ink-soft);
-  line-height: 1.65;
 }
 
 .testimonial-rail {
@@ -2933,8 +2644,7 @@ a {
 }
 
 @media (max-width: 980px) {
-  .marketing-hero,
-  .protocol-card {
+  .marketing-hero {
     grid-template-columns: 1fr;
   }
 
@@ -2958,14 +2668,6 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .process-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .protocol-card {
-    min-height: auto;
-    padding-block: 5rem;
-  }
 }
 
 @media (max-width: 560px) {
@@ -3396,28 +3098,6 @@ a {
   transform: translate(0, -50%);
 }
 
-.artifact-link {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--accent);
-  padding: 0.8rem 1.25rem;
-  color: var(--paper);
-  font-family: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 800;
-  line-height: 1;
-  text-transform: none;
-  box-shadow: 0 18px 44px rgb(146 185 198 / 24%);
-}
-
-.artifact-link:hover {
-  color: var(--paper);
-  box-shadow: 0 20px 48px rgb(146 185 198 / 32%);
-}
-
 .home-manifesto {
   display: flex;
   min-height: 100svh;
@@ -3751,9 +3431,6 @@ body {
 }
 
 .marketing-button,
-.artifact-link,
-.marketing-rich-button,
-.marketing-rich-section button,
 .scheduler-ui .marketing-button {
   position: relative;
   isolation: isolate;
@@ -3780,9 +3457,6 @@ body {
 }
 
 .marketing-button::after,
-.artifact-link::after,
-.marketing-rich-button::after,
-.marketing-rich-section button::after,
 .scheduler-ui .marketing-button::after {
   content: "";
   position: absolute;
@@ -3794,27 +3468,16 @@ body {
 }
 
 .marketing-button:hover,
-.artifact-link:hover,
-.marketing-rich-button:hover,
-.marketing-rich-section button:hover,
 .scheduler-ui .marketing-button:hover {
   transform: translateY(-1px) scale(1.03);
 }
 
 .marketing-button:hover::after,
-.artifact-link:hover::after,
-.marketing-rich-button:hover::after,
-.marketing-rich-section button:hover::after,
 .scheduler-ui .marketing-button:hover::after {
   transform: translateY(0);
 }
 
 .marketing-button--filled,
-.marketing-button--accent,
-.marketing-button--dark,
-.artifact-link,
-.marketing-rich-button,
-.marketing-rich-section button,
 .scheduler-ui .marketing-button {
   border: 1px solid transparent;
   background: var(--accent);
@@ -3823,17 +3486,11 @@ body {
 }
 
 .marketing-button--filled:hover,
-.marketing-button--accent:hover,
-.marketing-button--dark:hover,
-.artifact-link:hover,
-.marketing-rich-button:hover,
-.marketing-rich-section button:hover,
 .scheduler-ui .marketing-button:hover {
   box-shadow: 0 22px 54px rgb(146 185 198 / 34%);
 }
 
-.marketing-button--outline,
-.marketing-button--ghost {
+.marketing-button--outline {
   border: 1px solid rgb(255 255 255 / 35%);
   background: rgb(255 255 255 / 7%);
   color: var(--paper) !important;
@@ -3841,21 +3498,17 @@ body {
   backdrop-filter: blur(12px);
 }
 
-.marketing-button--outline::after,
-.marketing-button--ghost::after {
+.marketing-button--outline::after {
   background: rgb(255 255 255 / 16%);
 }
 
-.marketing-button--outline:hover,
-.marketing-button--ghost:hover {
+.marketing-button--outline:hover {
   border-color: rgb(255 255 255 / 48%);
   color: var(--paper) !important;
   box-shadow: 0 16px 38px rgb(255 255 255 / 8%);
 }
 
-.marketing-nav--scrolled .marketing-button--filled,
-.marketing-nav--scrolled .marketing-button--accent,
-.marketing-nav--scrolled .marketing-button--dark {
+.marketing-nav--scrolled .marketing-button--filled {
   background: var(--accent);
   color: var(--charcoal) !important;
 }
@@ -3991,10 +3644,7 @@ body {
 }
 
 @media (max-width: 560px) {
-  .marketing-button,
-  .artifact-link,
-  .marketing-rich-button,
-  .marketing-rich-section button {
+  .marketing-button {
     min-height: 2.55rem;
     padding: 0.72rem 1rem;
     font-size: 0.82rem;
@@ -4041,7 +3691,6 @@ body {
 }
 
 .feature-artifact-grid .marketing-button,
-.feature-artifact-grid .artifact-link,
 .scheduler-ui .marketing-button {
   color: var(--charcoal) !important;
 }
@@ -4087,18 +3736,43 @@ body {
   }
 }
 
-/* Keep the marketing canvas full-bleed even when the OS is set to always show scrollbars. */
+/* Native quiet scrollbar: invisible until page hover/focus, matching the app shells. */
 html {
   overflow-x: clip;
   overflow-y: auto;
   scrollbar-gutter: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+html:hover,
+html:focus-within {
+  scrollbar-color: rgb(10 41 65 / 28%) transparent;
 }
 
 html::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-color: transparent;
+  background-clip: padding-box;
+}
+
+html:hover::-webkit-scrollbar-thumb,
+html:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgb(10 41 65 / 28%);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(10 41 65 / 42%);
 }
 
 /* Header CTA returns to translucent over the hero, then fills after scroll. */
@@ -4125,6 +3799,25 @@ html::-webkit-scrollbar {
   background: var(--accent);
   color: var(--charcoal) !important;
   box-shadow: 0 18px 44px rgb(146 185 198 / 24%);
+}
+
+.marketing-nav--scrolled {
+  border-color: rgb(10 41 65 / 12%);
+  background: rgb(242 240 233 / 60%);
+  color: var(--navy);
+  box-shadow: 0 22px 70px rgb(10 41 65 / 10%);
+  backdrop-filter: blur(24px);
+}
+
+.marketing-nav--scrolled .marketing-nav__brand img {
+  filter: none;
+}
+
+.marketing-nav--scrolled .marketing-button--filled,
+.marketing-nav--scrolled .marketing-button--accent,
+.marketing-nav--scrolled .marketing-button--dark {
+  background: var(--accent);
+  color: var(--charcoal) !important;
 }
 
 /* Requested visual tuning */
@@ -4183,6 +3876,12 @@ html::-webkit-scrollbar {
 
 .section-indicator {
   gap: 0.65rem;
+}
+
+.section-indicator.is-visible {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .section-indicator a {
