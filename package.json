@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "supabase": "^2.76.9",
-    "turbo": "^2.8.9"
+    "turbo": "^2.10.0"
   },
   "packageManager": "pnpm@11.7.0",
   "repository": {
