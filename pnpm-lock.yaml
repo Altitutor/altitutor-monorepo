@@ -1271,11 +1271,14 @@ importers:
       '@swc/jest':
         specifier: ^0.2.37
         version: 0.2.39(@swc/core@1.14.0)
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.24)
       typescript:
-        specifier: ^5.8.3
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/ui:
