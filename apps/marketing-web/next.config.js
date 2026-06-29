@@ -33,7 +33,6 @@ function getSupabaseStorageRemotePatterns() {
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
-  transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   images: {
     remotePatterns: [
       ...getSupabaseStorageRemotePatterns(),

@@ -42,6 +42,7 @@ Last audited: 2026-06-29 with `pnpm outdated -r --format json`.
 - Aligned direct Tiptap packages to `3.22.5` across `admin-web`, `tutor-web`, and `@altitutor/ui`.
 - Added direct manifest entries for packages already imported by `@altitutor/ui`, `@altitutor/shared`, `admin-web`, `student-web`, and `tutor-web` instead of relying on hoisted transitive dependencies.
 - Added a Storybook docs pnpm package extension so React 18 Storybook workspaces do not resolve through the React 19 Expo app.
+- Aligned web/internal package manifest ranges to the compatible versions already resolved in `pnpm-lock.yaml` and removed remaining direct dependency drift found during Stage 2 validation.
 - Deferred `@supabase/ssr`, Next, React, Tailwind, Storybook, and ESLint major upgrades to later stages.
 
 ### Stage 0: Baseline Safety
