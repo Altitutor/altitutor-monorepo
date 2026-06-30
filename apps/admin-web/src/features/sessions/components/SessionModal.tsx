@@ -7,9 +7,6 @@ import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { X } from 'lucide-react';
 import { getSessionTitle, getShortSessionName } from '../utils/session-helpers';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewClassModal } from '@/features/classes';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
@@ -47,6 +44,7 @@ import { IssuePill } from '@/features/issues';
 import { formatTime } from '@/shared/utils/datetime';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -77,6 +75,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
+  const entityModals = useEntityModals();
   const addStudentMutation = useAddStudentToSession();
   const addStaffMutation = useAssignStaffToSession();
   const removeStudentMutation = useRemoveStudentFromSession();
@@ -151,24 +150,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     // Close current modal and open new one
     onClose();
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id } }));
+      entityModals.openSession(id);
     }, 100);
   };
 
   const handleOpenStaff = (id: string) => {
-    modals.openStaffModal(id);
+    entityModals.openStaff(id);
   };
 
   const handleOpenClass = (id: string) => {
-    modals.openClassModal(id);
+    entityModals.openClass(id);
   };
 
   const handleOpenTopic = (id: string) => {
-    window.dispatchEvent(new CustomEvent('open-topic-modal', { detail: { id } }));
+    entityModals.openTopic(id);
   };
 
   const handleOpenFile = (id: string) => {
-    window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id } }));
+    entityModals.openFilePreview(id);
   };
 
   const handleMessageStudent = async (studentId: string) => {
@@ -304,7 +303,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
-            <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+            <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
               <SheetHeader className="px-6 pt-6 pb-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3 flex-1">
@@ -374,7 +373,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     isSessionInPast={helpers.isSessionInPast}
                     currentStaff={currentStaff || null}
                     onOpenSession={handleOpenSession}
-                    onOpenStudent={modals.openStudentModal}
+                    onOpenStudent={entityModals.openStudent}
                     onOpenStaff={handleOpenStaff}
                     onOpenClass={handleOpenClass}
                     onMessageStudent={handleMessageStudent}
@@ -535,42 +534,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Student Modal */}
-      {modals.selectedStudentId && (
-        <ViewStudentModal
-          isOpen={modals.isStudentModalOpen}
-          onClose={modals.closeStudentModal}
-          studentId={modals.selectedStudentId}
-          onStudentUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
-
-      {/* Staff Modal */}
-      {modals.selectedStaffId && (
-        <ViewStaffModal
-          isOpen={modals.isStaffModalOpen}
-          onClose={modals.closeStaffModal}
-          staffId={modals.selectedStaffId}
-          onStaffUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
-
-      {/* Class Modal */}
-      {modals.selectedClassId && (
-        <ViewClassModal
-          isOpen={modals.isClassModalOpen}
-          onClose={modals.closeClassModal}
-          classId={modals.selectedClassId}
-          onClassUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
 
       {/* Log Session Modal */}
       {currentStaff && (

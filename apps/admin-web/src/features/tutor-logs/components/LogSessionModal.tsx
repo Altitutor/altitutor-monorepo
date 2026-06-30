@@ -21,6 +21,7 @@ import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
+  WIZARD_DIALOG_HEIGHT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 
@@ -76,6 +77,8 @@ export function LogSessionModal({
     handleAddStaffToSession,
     handleAddStudentToSession,
     handleAddParentToSession,
+    handleRemoveStaffFromSession,
+    handleRemoveStudentFromSession,
     canGoNext,
   } = useLogSessionFlow({
     isOpen,
@@ -208,6 +211,20 @@ export function LogSessionModal({
               onAddStaffToSession={handleAddStaffToSession}
               onAddStudentToSession={handleAddStudentToSession}
               onAddParentToSession={handleAddParentToSession}
+              onRemoveStaffFromSession={async (staffId) => {
+                await handleRemoveStaffFromSession(staffId);
+                updateFormData({
+                  staffAttendance: (formData.staffAttendance || []).filter((a) => a.staffId !== staffId),
+                });
+              }}
+              onRemoveStudentFromSession={async (studentId) => {
+                await handleRemoveStudentFromSession(studentId);
+                updateFormData({
+                  studentAttendance: (formData.studentAttendance || []).filter(
+                    (a) => a.studentId !== studentId
+                  ),
+                });
+              }}
             />
           ) : null;
         case 2:
@@ -258,6 +275,20 @@ export function LogSessionModal({
               onAddStaffToSession={handleAddStaffToSession}
               onAddStudentToSession={handleAddStudentToSession}
               onAddParentToSession={handleAddParentToSession}
+              onRemoveStaffFromSession={async (staffId) => {
+                await handleRemoveStaffFromSession(staffId);
+                updateFormData({
+                  staffAttendance: (formData.staffAttendance || []).filter((a) => a.staffId !== staffId),
+                });
+              }}
+              onRemoveStudentFromSession={async (studentId) => {
+                await handleRemoveStudentFromSession(studentId);
+                updateFormData({
+                  studentAttendance: (formData.studentAttendance || []).filter(
+                    (a) => a.studentId !== studentId
+                  ),
+                });
+              }}
             />
           ) : null;
         case 2:
@@ -313,6 +344,12 @@ export function LogSessionModal({
             staffAttendance={formData.staffAttendance || []}
             onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
             onAddStaffToSession={handleAddStaffToSession}
+            onRemoveStaffFromSession={async (staffId) => {
+              await handleRemoveStaffFromSession(staffId);
+              updateFormData({
+                staffAttendance: (formData.staffAttendance || []).filter((a) => a.staffId !== staffId),
+              });
+            }}
             addStaffVariant="search"
           />
         );
@@ -330,6 +367,14 @@ export function LogSessionModal({
             addStudentVariant="search"
             onAddStudentToSession={handleAddStudentToSession}
             onAddParentToSession={handleAddParentToSession}
+            onRemoveStudentFromSession={async (studentId) => {
+              await handleRemoveStudentFromSession(studentId);
+              updateFormData({
+                studentAttendance: (formData.studentAttendance || []).filter(
+                  (a) => a.studentId !== studentId
+                ),
+              });
+            }}
           />
         );
       case 3:
@@ -395,12 +440,12 @@ export function LogSessionModal({
     >
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
         )}
       >
-        <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex-shrink-0 border-b bg-card">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">

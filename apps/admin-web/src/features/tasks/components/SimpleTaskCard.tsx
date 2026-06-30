@@ -2,7 +2,7 @@
 
 import { Badge, SearchableSelect } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import { cn } from '@/shared/utils/index';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import {
   getPriorityColor,
@@ -65,8 +65,9 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
     <div
       onClick={handleCardClick}
       className={cn(
-        'bg-card border rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors',
-        'flex flex-col gap-2'
+        'group rounded-lg border bg-card p-3 cursor-pointer transition-all',
+        'flex flex-col gap-2',
+        clickableCardInteractiveCn,
       )}
     >
       {/* Top row - Title on left, Status on right */}
@@ -116,7 +117,7 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
                 type="button"
                 className={cn(
                   'text-xs cursor-pointer px-2 py-0.5 rounded-md font-medium transition-all flex-shrink-0',
-                  'hover:opacity-90 hover:scale-105 hover:shadow-sm',
+                  'hover:opacity-90 hover:scale-105',
                   'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
                   'flex items-center gap-1.5',
                   getStatusColor(task.status as TaskStatus)
@@ -175,4 +176,3 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
     </div>
   );
 }
-

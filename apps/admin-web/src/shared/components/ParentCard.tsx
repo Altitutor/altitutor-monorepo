@@ -1,6 +1,7 @@
 'use client';
 
 import type { Tables } from '@altitutor/shared';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils';
 
 interface ParentCardProps {
   parent: Tables<'parents'>;
@@ -17,11 +18,11 @@ export function ParentCard({
 
   return (
     <div
-      className={`relative flex items-start gap-3 p-3 border rounded-lg transition-colors ${
-        onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : 'bg-background'
-      }`}
+      className={cn(
+        'group relative flex items-start gap-3 rounded-lg border bg-card p-3 transition-all',
+        onClick && 'cursor-pointer',
+        onClick && clickableCardInteractiveCn,
+      )}
       onClick={onClick}
     >
       <div className="flex-shrink-0">
@@ -73,4 +74,3 @@ export function ParentCard({
     </div>
   );
 }
-

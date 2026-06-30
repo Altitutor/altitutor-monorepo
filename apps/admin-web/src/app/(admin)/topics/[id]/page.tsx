@@ -41,6 +41,7 @@ import { EditTopicFileModal } from '@/features/topics/components/EditTopicFileMo
 import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 import { buildTopicTree } from '@/features/topics/utils/codes';
 import { FlashcardManager } from '@/features/flashcards';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -186,13 +187,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   const subject = subjects.find(s => s.id === topic?.subject_id);
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="card" />;
   }
 
   if (error || !topic) {

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { ReportDataPoint, ReportEntityLink, RevenueReportDataPoint } from '../types';
 import { useBillingStatsReport } from '../hooks/useAdditionalReports';
 import { RevenueReportChart } from './RevenueReportChart';
@@ -15,9 +14,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
-import { ViewInvoiceModal } from '@/features/billing';
-import { ViewStudentModal } from '@/features/students';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 function getBillingErrorsDeduplicatedEntities(
   refundsByDay: ReportDataPoint[],
@@ -95,9 +92,7 @@ function SubsidiesTooltip({
 }
 
 export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialStatsSectionProps) {
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const entityModals = useEntityModals();
 
   const { data, isLoading, error } = useBillingStatsReport(dateRange.start, dateRange.end);
 
@@ -105,22 +100,22 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
     const link = entity.link;
     if (!link) return;
     if (link.kind === 'session' && link.sessionId) {
-      setSelectedSessionId(link.sessionId);
+      entityModals.openSession(link.sessionId);
     } else if (
       (link.kind === 'invoice' ||
         link.kind === 'refund' ||
         link.kind === 'credit') &&
       link.invoiceId
     ) {
-      setSelectedInvoiceId(link.invoiceId);
+      entityModals.openInvoice(link.invoiceId);
     } else if (link.studentId) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     }
   };
 
   const handleSubsidyEntityClick = (entity: { link?: ReportEntityLink }) => {
     const link = entity.link;
-    if (link?.studentId) setSelectedStudentId(link.studentId);
+    if (link?.studentId) entityModals.openStudent(link.studentId);
   };
 
   const errorsChartData =
@@ -377,25 +372,6 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
           </div>
         )}
     </div>
-
-    <SessionModal
-      isOpen={!!selectedSessionId}
-      sessionId={selectedSessionId}
-      onClose={() => setSelectedSessionId(null)}
-    />
-
-    <ViewInvoiceModal
-      isOpen={!!selectedInvoiceId}
-      invoiceId={selectedInvoiceId}
-      onClose={() => setSelectedInvoiceId(null)}
-    />
-
-    <ViewStudentModal
-      isOpen={!!selectedStudentId}
-      studentId={selectedStudentId}
-      onClose={() => setSelectedStudentId(null)}
-      onStudentUpdated={() => {}}
-    />
     </>
   );
 }

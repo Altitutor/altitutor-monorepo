@@ -40,8 +40,6 @@ import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge, useToast } from '@altitutor/ui';
 import { AddParentModal } from '@/features/parents/components/AddParentModal';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
 import { studentsApi } from '../api/students';
 import { IssuePill } from '@/features/issues';
@@ -56,11 +54,14 @@ import {
   useStudentConversation,
   useAllParents,
   useStudentActions,
-  studentsKeys,
 } from '../hooks';
 import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -80,6 +81,7 @@ export function ViewStudentModal({
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
@@ -99,7 +101,7 @@ export function ViewStudentModal({
     studentId: studentId || '',
     onSuccess: () => {
       if (studentId) {
-        queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
+        void invalidateStudentDetail(queryClient, studentId);
       }
       editFlow.reset();
       onStudentUpdated();
@@ -131,16 +133,6 @@ export function ViewStudentModal({
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');
   
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
-
   // Reset edit states when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -212,7 +204,7 @@ export function ViewStudentModal({
         return false;
       }
 
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated();
       toast({
         title: 'Success',
@@ -241,8 +233,7 @@ export function ViewStudentModal({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(studentId || '') });
-      await queryClient.invalidateQueries({ queryKey: ['students', studentId, 'classes'] });
+      await invalidateStudentClassSurfaces(queryClient, studentId || '');
       setIsEnrollModalOpen(false);
       onStudentUpdated();
       toast({
@@ -335,7 +326,7 @@ export function ViewStudentModal({
           ) : (
             <div className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
-              <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+              <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">
@@ -463,9 +454,7 @@ export function ViewStudentModal({
                   <div className="h-full p-6">
                     <StudentSessionsTab 
                       student={student} 
-                      onOpenSession={(sessionId) => {
-                        window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-                      }}
+                      onOpenSession={entityModals.openSession}
                     />
                   </div>
                 </SegmentedTabPanelContent>
@@ -648,33 +637,6 @@ export function ViewStudentModal({
           studentName={`${student.first_name} ${student.last_name}`}
           onConfirm={handleDiscontinue}
           isDiscontinuing={isDiscontinuing}
-        />
-      )}
-
-      {/* Nested Session Modal */}
-      <SessionModal
-        isOpen={!!nestedSessionId}
-        sessionId={nestedSessionId}
-        onClose={() => setNestedSessionId(null)}
-      />
-
-      {/* Nested Staff Modal */}
-      {nestedStaffId && (
-        <ViewStaffModal
-          isOpen={!!nestedStaffId}
-          staffId={nestedStaffId}
-          onClose={() => setNestedStaffId(null)}
-          onStaffUpdated={onStudentUpdated}
-        />
-      )}
-
-      {/* Nested Student Modal */}
-      {nestedStudentId && (
-        <ViewStudentModal
-          isOpen={!!nestedStudentId}
-          studentId={nestedStudentId}
-          onClose={() => setNestedStudentId(null)}
-          onStudentUpdated={onStudentUpdated}
         />
       )}
 

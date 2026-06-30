@@ -1,17 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { trainerKeyToSlug } from "@altitutor/shared";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
+import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
 import { useSkillTrainers } from "@/features/skill-trainer/hooks/use-skill-trainers";
-import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
+import {
+  isSkillTrainerAttemptConflictError,
+  skillTrainerApi,
+} from "@/features/skill-trainer/api/skill-trainer-api";
 import { SKILL_TRAINER_INSTRUCTIONS } from "@/features/skill-trainer/lib/instructions";
+import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
 import {
   UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
@@ -21,17 +35,56 @@ import { cn } from "@/lib/utils";
 
 export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTrainerKey }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: trainers } = useSkillTrainers();
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictAttempt, setConflictAttempt] =
+    useState<SkillTrainerAttemptState | null>(null);
+  const [submittingConflict, setSubmittingConflict] = useState(false);
   const { openQuotaLimit } = useQuotaLimitModal();
+  const { active, setLocal } = useActiveSkillTrainerAttempt();
+  const refreshedCompletedAttemptRef = useRef<string | null>(null);
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
-  const slug = trainerKeyToSlug(trainerKey);
   const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
 
   const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  const quotaDialogOptions = {
+    dismissAction: { label: "Dismiss", variant: "dismiss" as const },
+  };
+
+  const pendingTrainerLabel = trainer?.name ?? "this skill trainer";
+  const conflictTrainerKey =
+    conflictAttempt?.attempt.config_snapshot.trainer_key ??
+    conflictAttempt?.attempt.trainer_key;
+  const conflictTrainer = trainers?.find((t) => t.key === conflictTrainerKey);
+  const conflictTrainerLabel = conflictTrainer?.name ?? "your current skill trainer";
+  const conflictResumeHref =
+    conflictTrainerKey != null && isUcatSkillTrainerKey(conflictTrainerKey)
+      ? `/skill-trainer/${trainerKeyToSlug(conflictTrainerKey)}/play?attemptId=${conflictAttempt?.attempt.id}`
+      : null;
+
+  useEffect(() => {
+    if (!active?.isCompleted) return;
+    const activeTrainerKey =
+      active.attempt.config_snapshot.trainer_key ?? active.attempt.trainer_key;
+    if (activeTrainerKey !== trainerKey) return;
+    if (refreshedCompletedAttemptRef.current === active.attempt.id) return;
+
+    refreshedCompletedAttemptRef.current = active.attempt.id;
+    void queryClient.invalidateQueries({
+      queryKey: ["skill-trainers", "leaderboard", trainerKey],
+    });
+  }, [active, queryClient, trainerKey]);
+
+  async function startAttempt() {
+    const state = await skillTrainerApi.startAttempt(trainerKey);
+    setLocal(state);
+    const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
+    router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
+  }
 
   async function handleStart() {
     if (
@@ -44,17 +97,20 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
         used: skillTrainerQuota.used,
         limit: skillTrainerQuota.limit,
         period: skillTrainerQuota.period,
-      });
+      }, quotaDialogOptions);
       return;
     }
 
     setStarting(true);
     setError(null);
     try {
-      const state = await skillTrainerApi.startAttempt(trainerKey);
-      const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
-      router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
+      await startAttempt();
     } catch (err) {
+      if (isSkillTrainerAttemptConflictError(err)) {
+        setConflictAttempt(err.attempt);
+        setLocal(err.attempt);
+        return;
+      }
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {
         if (skillTrainerQuota) {
@@ -64,12 +120,33 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
             used: skillTrainerQuota.used,
             limit: skillTrainerQuota.limit,
             period: skillTrainerQuota.period,
-          });
+          }, quotaDialogOptions);
         }
       } else {
         setError(message);
       }
     } finally {
+      setStarting(false);
+    }
+  }
+
+  async function handleSubmitConflictAndStart() {
+    if (!conflictAttempt) return;
+    setSubmittingConflict(true);
+    setError(null);
+    try {
+      const completed = await skillTrainerApi.completeAttempt(conflictAttempt.attempt.id);
+      setLocal(completed);
+      setConflictAttempt(null);
+      await queryClient.invalidateQueries({
+        queryKey: ["skill-trainers", "leaderboard"],
+      });
+      setStarting(true);
+      await startAttempt();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start");
+    } finally {
+      setSubmittingConflict(false);
       setStarting(false);
     }
   }
@@ -122,6 +199,54 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      <AlertDialog
+        open={conflictAttempt != null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setConflictAttempt(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Skill trainer already in progress</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <p>
+                You have an unfinished attempt: <strong>{conflictTrainerLabel}</strong>.
+                Resume it, or submit your current score and start{" "}
+                <strong>{pendingTrainerLabel}</strong>.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConflictAttempt(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!conflictResumeHref}
+              onClick={() => {
+                if (conflictResumeHref) router.push(conflictResumeHref);
+              }}
+            >
+              Resume current attempt
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmitConflictAndStart()}
+              disabled={submittingConflict || starting}
+            >
+              {submittingConflict || starting
+                ? "Submitting..."
+                : "Submit current & start new"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

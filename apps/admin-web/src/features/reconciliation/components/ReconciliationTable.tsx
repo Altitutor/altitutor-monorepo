@@ -18,10 +18,10 @@ import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReconciliationActions } from './ReconciliationActions';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
-import { reconciliationKeys } from '../api/queryKeys';
 import { useSubjects } from '@/features/subjects';
 import { getSubjectColorStyle, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
+import { invalidateTaskAssignmentSurfaces } from '@/shared/lib/query-invalidation';
 import type { DataTableState, Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
@@ -620,7 +620,7 @@ export function UnassignedTasksTable({
           onClose={() => setSelectedTaskId(null)}
           taskId={selectedTaskId}
           onTaskUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.unassignedTasks() });
+            void invalidateTaskAssignmentSurfaces(queryClient);
           }}
         />
       )}

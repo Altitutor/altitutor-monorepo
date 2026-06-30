@@ -53,6 +53,8 @@ export interface UseLogSessionFlowReturn {
   handleAddStaffToSession: (staffId: string) => Promise<void>;
   handleAddStudentToSession: (studentId: string) => Promise<void>;
   handleAddParentToSession: (parentId: string) => Promise<void>;
+  handleRemoveStaffFromSession: (staffId: string) => Promise<void>;
+  handleRemoveStudentFromSession: (studentId: string) => Promise<void>;
   canGoNext: boolean;
 }
 
@@ -229,6 +231,22 @@ export function useLogSessionFlow({
     [formData.sessionId]
   );
 
+  const handleRemoveStaffFromSession = useCallback(
+    async (staffId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.removeStaffFromSession(formData.sessionId, staffId);
+    },
+    [formData.sessionId]
+  );
+
+  const handleRemoveStudentFromSession = useCallback(
+    async (studentId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.removeStudentFromSession(formData.sessionId, studentId);
+    },
+    [formData.sessionId]
+  );
+
   const canGoNext = useMemo(() => {
     return canProceedToNextLogStep(
       currentStep,
@@ -267,6 +285,8 @@ export function useLogSessionFlow({
     handleAddStaffToSession,
     handleAddStudentToSession,
     handleAddParentToSession,
+    handleRemoveStaffFromSession,
+    handleRemoveStudentFromSession,
     canGoNext,
   };
 }

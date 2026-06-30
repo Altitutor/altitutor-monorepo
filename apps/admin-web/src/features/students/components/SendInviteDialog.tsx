@@ -196,12 +196,12 @@ export function SendInviteDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
         className={cn(
-          'sm:max-w-[600px] [&>button]:hidden',
+          'flex flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px] [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
               <Button
@@ -223,7 +223,7 @@ export function SendInviteDialog({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
           {/* Invite URL Display */}
           {isGenerating ? (
             <div className="flex items-center justify-center py-4">
@@ -368,4 +368,3 @@ export function SendInviteDialog({
     </Dialog>
   );
 }
-

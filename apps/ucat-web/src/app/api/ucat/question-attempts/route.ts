@@ -4,10 +4,6 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
-import {
-  checkQuotaForAction,
-  quotaExceededResponse,
-} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -38,11 +34,11 @@ export async function POST(request: NextRequest) {
     questionId: string;
     questionAnswerOptionId: string | null;
     answerSnapshot?: Json | null;
-    timeSpentSeconds?: number | null;
     isFlagged?: boolean;
     wasTimed?: boolean;
     learningModuleBlockId?: string | null;
     mode?: "question" | "question_stem" | "set" | "mock" | "learn";
+    submittedByStem?: boolean;
   };
 
   if (!body.questionId) {
@@ -105,11 +101,6 @@ export async function POST(request: NextRequest) {
           : [],
       ),
     );
-    const latestDeliveredStem = deliveredStems.at(-1);
-    const latestDeliveredQuestionIds = new Set(
-      latestDeliveredStem?.questions?.map((question) => question.id) ?? [],
-    );
-
     if (
       !session ||
       session.completed_at ||
@@ -119,24 +110,6 @@ export async function POST(request: NextRequest) {
         { error: "Question is not part of this practice session" },
         { status: 403 },
       );
-    }
-
-    const hasAnswer =
-      body.questionAnswerOptionId != null || body.answerSnapshot != null;
-    const canFinishLatestUnlimitedStem =
-      Boolean(session.unlimited) &&
-      latestDeliveredQuestionIds.has(body.questionId);
-
-    if (!canFinishLatestUnlimitedStem) {
-      const quotaCheck = await checkQuotaForAction(
-        supabaseAdmin,
-        student.id,
-        "practice",
-        { practiceQuestionId: body.questionId, hasAnswer },
-      );
-      if (!quotaCheck.allowed) {
-        return quotaExceededResponse(quotaCheck.payload);
-      }
     }
   }
 
@@ -177,16 +150,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: existingError.message }, { status: 500 });
   }
 
-  const hasTime =
-    typeof body.timeSpentSeconds === "number" && body.timeSpentSeconds > 0;
   const hasFlag = typeof body.isFlagged === "boolean";
+  const isSubmitted = body.submittedByStem === true;
 
   if (existing) {
     const updatePayload: {
       question_answer_option_id: string | null;
       answer_snapshot: Json | null;
-      is_submitted: boolean;
-      time_spent_seconds?: number | null;
+      is_submitted?: boolean;
       is_flagged?: boolean;
       was_timed?: boolean;
       mode?: "question" | "question_stem" | "set" | "mock" | "learn";
@@ -194,11 +165,10 @@ export async function POST(request: NextRequest) {
     } = {
       question_answer_option_id: body.questionAnswerOptionId,
       answer_snapshot: body.answerSnapshot ?? null,
-      is_submitted: false,
     };
 
-    if (hasTime) {
-      updatePayload.time_spent_seconds = body.timeSpentSeconds ?? null;
+    if (isSubmitted) {
+      updatePayload.is_submitted = true;
     }
 
     if (hasFlag) {
@@ -272,8 +242,8 @@ export async function POST(request: NextRequest) {
     question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,
     is_flagged: hasFlag ? (body.isFlagged ?? false) : false,
-    is_submitted: false,
-    time_spent_seconds: hasTime ? (body.timeSpentSeconds ?? null) : null,
+    is_submitted: isSubmitted,
+    time_spent_seconds: null,
     was_timed: body.wasTimed ?? false,
     mode: body.mode ?? null,
   };
@@ -292,7 +262,9 @@ export async function POST(request: NextRequest) {
   }
 
   const hasAnswer =
-    body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    body.submittedByStem === true ||
+    body.questionAnswerOptionId != null ||
+    body.answerSnapshot != null;
   if (isLearnAttempt && hasAnswer) {
     try {
       await maybeAutoCompleteQuestionBlock(

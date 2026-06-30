@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
-import { buildAttemptState } from "@/lib/ucat/skill-trainer/attempt-service";
+import {
+  buildAttemptState,
+  completeSkillTrainerAttempt,
+} from "@/lib/ucat/skill-trainer/attempt-service";
 
 export async function GET(
   _request: Request,
@@ -50,6 +53,36 @@ export async function GET(
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to load attempt" },
       { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const auth = await requireStudentAdminClient();
+  if (!auth.ok) return auth.response;
+
+  const body = (await request.json().catch(() => ({}))) as {
+    complete?: boolean;
+  };
+  if (!body.complete) {
+    return NextResponse.json({ error: "Unsupported update" }, { status: 400 });
+  }
+
+  try {
+    const state = await completeSkillTrainerAttempt(
+      auth.admin,
+      params.id,
+      auth.studentId,
+    );
+    return NextResponse.json({ attempt: state });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update attempt";
+    return NextResponse.json(
+      { error: message },
+      { status: message === "ATTEMPT_NOT_FOUND" ? 404 : 500 },
     );
   }
 }

@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const currentSegmentEndsAt = await syncExamAttempt(
+  const result = await syncExamAttempt(
     supabaseAdmin,
     student.id,
     body,
@@ -65,5 +65,5 @@ export async function PATCH(request: NextRequest) {
     body.examTiming,
   );
 
-  return NextResponse.json({ success: true, currentSegmentEndsAt });
+  return NextResponse.json({ success: true, ...result });
 }

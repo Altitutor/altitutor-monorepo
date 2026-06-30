@@ -34,12 +34,12 @@ export function useStudentPasswordReset({
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
     
-    if (isRegistered && !hasAccount) {
-      return 'Send invite';
-    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
-      return 'Send registration link';
-    } else {
+    if (hasAccount) {
       return 'Send password reset';
+    } else if (isRegistered) {
+      return 'Send invite';
+    } else {
+      return 'Send registration link';
     }
   }, [student]);
 
@@ -49,18 +49,17 @@ export function useStudentPasswordReset({
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
     
-    if (isRegistered && !hasAccount) {
+    if (hasAccount) {
+      // Student has an auth account, even if profile registration is incomplete.
+      setHasPasswordResetLinkSent(true);
+    } else if (isRegistered) {
       // Case 1: Registered but no account -> Send Invite
       setInviteDialogType('invite');
       setInviteDialogOpen(true);
-    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
-      // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
+    } else {
+      // No account and not registered -> Send Registration Link
       setInviteDialogType('registration');
       setInviteDialogOpen(true);
-    } else {
-      // Case 4: Registered AND has account -> Password Reset (handled by parent component)
-      // This hook just sets the flag, parent handles the actual reset
-      setHasPasswordResetLinkSent(true);
     }
   }, [student]);
 

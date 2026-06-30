@@ -74,7 +74,7 @@ export function Calendar({
         onSelectEvent={onSelectEvent}
         onSelectSlot={onSelectSlot}
         popup
-        className="rounded-md border bg-background shadow-sm"
+        className="rounded-md border bg-background"
       />
     </div>
   )

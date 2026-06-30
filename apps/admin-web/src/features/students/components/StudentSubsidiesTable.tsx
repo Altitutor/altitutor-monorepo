@@ -71,7 +71,7 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
 
   return (
     <>
-      <div className="border rounded-lg">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -162,4 +162,3 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
     </>
   );
 }
-

@@ -2,25 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
   Switch,
   SearchableSelect,
 } from '@altitutor/ui';
-import { Edit2, Plus, Trash2, Phone } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   callRoutingApi,
   type CallRoutingRule,
@@ -28,12 +16,7 @@ import {
   type MessageType,
   type OwnedNumber,
 } from '../api/call-routing';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface CallRoutingRulesTableProps {
   rules: CallRoutingRule[];
@@ -65,16 +48,6 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [editExpanded, setEditExpanded] = useState(false);
-  const [addExpanded, setAddExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!editingRule) setEditExpanded(false);
-  }, [editingRule]);
-
-  useEffect(() => {
-    if (!isAddDialogOpen) setAddExpanded(false);
-  }, [isAddDialogOpen]);
 
   // Form state
   const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string>('');
@@ -179,10 +152,78 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
   };
 
 
-  const rulesByNumber = ownedNumbers.map(number => ({
-    number,
-    rules: rules.filter(r => r.owned_number_id === number.id).sort((a, b) => a.priority - b.priority),
-  }));
+  const getOwnedNumberLabel = (ownedNumberId: string) => {
+    const number = ownedNumbers.find((item) => item.id === ownedNumberId);
+    return number ? (number.label || number.phone_e164 || ownedNumberId) : ownedNumberId;
+  };
+
+  const getRuleTypeLabel = (ruleTypeValue: string) => {
+    return RULE_TYPES.find((type) => type.id === ruleTypeValue)?.label || ruleTypeValue;
+  };
+
+  const getRoutingActionLabel = (rule: CallRoutingRule) => {
+    if (rule.rule_type === 'BUSINESS_HOURS' && rule.forward_to_phone) return rule.forward_to_phone;
+    if (rule.rule_type === 'ON_CALL') return 'Forward to on-call staff';
+    if (rule.rule_type === 'DEFAULT') return rule.message_type === 'AUDIO' ? 'Play audio' : 'Text-to-speech';
+    return '-';
+  };
+
+  const columns: SettingsDataTableColumn<CallRoutingRule>[] = [
+    {
+      key: 'phone_number',
+      label: 'Phone Number',
+      render: (rule) => {
+        const number = ownedNumbers.find((item) => item.id === rule.owned_number_id);
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{number ? (number.label || number.phone_e164 || rule.owned_number_id) : rule.owned_number_id}</span>
+            {number?.is_default ? (
+              <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800">Default</span>
+            ) : null}
+          </div>
+        );
+      },
+      sortValue: (rule) => getOwnedNumberLabel(rule.owned_number_id),
+      filterValue: (rule) => getOwnedNumberLabel(rule.owned_number_id),
+      searchValue: (rule) => getOwnedNumberLabel(rule.owned_number_id),
+    },
+    {
+      key: 'rule_type',
+      label: 'Type',
+      render: (rule) => <span className="font-medium">{getRuleTypeLabel(rule.rule_type)}</span>,
+      sortValue: (rule) => getRuleTypeLabel(rule.rule_type),
+      filterValue: (rule) => rule.rule_type,
+      searchValue: (rule) => getRuleTypeLabel(rule.rule_type),
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      render: (rule) => rule.priority,
+      sortValue: (rule) => rule.priority,
+      searchValue: (rule) => String(rule.priority),
+    },
+    {
+      key: 'routing',
+      label: 'Routing',
+      render: (rule) => <span className="text-sm text-muted-foreground">{getRoutingActionLabel(rule)}</span>,
+      sortValue: (rule) => getRoutingActionLabel(rule),
+      searchValue: (rule) => getRoutingActionLabel(rule),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (rule) => (
+        <span className={`rounded px-2 py-1 text-xs ${
+          rule.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+        }`}>
+          {rule.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+      sortValue: (rule) => Boolean(rule.is_active),
+      filterValue: (rule) => rule.is_active ? 'active' : 'inactive',
+      searchValue: (rule) => rule.is_active ? 'Active' : 'Inactive',
+    },
+  ];
 
   return (
     <>
@@ -199,108 +240,70 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
         </Button>
       </div>
 
-      <div className="space-y-6">
-        {rulesByNumber.map(({ number, rules: numberRules }) => (
-          <div key={number.id} className="border rounded-lg">
-            <div className="p-4 bg-muted/50 border-b">
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span className="font-semibold">{number.label || number.phone_e164}</span>
-                {number.is_default && (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">Default</span>
-                )}
-              </div>
-            </div>
-            {numberRules.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No routing rules configured. Add a rule to get started.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {numberRules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell className="font-medium">
-                        {RULE_TYPES.find(t => t.id === rule.rule_type)?.label || rule.rule_type}
-                      </TableCell>
-                      <TableCell>{rule.priority}</TableCell>
-                      <TableCell>
-                        {rule.rule_type === 'BUSINESS_HOURS' && rule.forward_to_phone && (
-                          <span className="text-sm">{rule.forward_to_phone}</span>
-                        )}
-                        {rule.rule_type === 'ON_CALL' && (
-                          <span className="text-sm text-muted-foreground">Forward to on-call staff</span>
-                        )}
-                        {rule.rule_type === 'DEFAULT' && (
-                          <span className="text-sm text-muted-foreground">
-                            {rule.message_type === 'AUDIO' ? 'Play audio' : 'Text-to-speech'}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          rule.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {rule.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(rule)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(rule.id)}
-                            disabled={deleting === rule.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        ))}
-      </div>
+      <SettingsDataTable
+        data={rules}
+        columns={columns}
+        getRowId={(rule) => rule.id}
+        searchPlaceholder="Search routing rules..."
+        emptyMessage="No routing rules configured. Add a rule to get started."
+        filterKeys={['phone_number', 'rule_type', 'status']}
+        filterDefinitions={[
+          {
+            key: 'phone_number',
+            label: 'Phone Number',
+            options: ownedNumbers.map((number) => ({
+              label: number.label || number.phone_e164 || number.id,
+              value: number.label || number.phone_e164 || number.id,
+            })),
+          },
+          {
+            key: 'rule_type',
+            label: 'Type',
+            options: RULE_TYPES.map((type) => ({ label: type.label, value: type.id })),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'priority', direction: 'asc' }}
+        getActions={(rule) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            description: 'Update this routing rule',
+            onSelect: () => handleEdit(rule),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            description: 'Remove this routing rule',
+            disabled: deleting === rule.id,
+            onSelect: () => handleDelete(rule.id),
+          },
+        ]}
+      />
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingRule} onOpenChange={() => setEditingRule(null)}>
-        <DialogContent
-          className={cn(
-            'max-w-2xl max-h-[90vh] overflow-y-auto',
-            EXPANDABLE_DIALOG_TRANSITION,
-            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Call Routing Rule</DialogTitle>
-                <DialogDescription>
-                  Update the routing rule configuration
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={!!editingRule}
+        onClose={() => setEditingRule(null)}
+        title="Edit Call Routing Rule"
+        subtitle="Update the routing rule configuration"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingRule(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-rule-type">Rule Type</Label>
@@ -422,37 +425,24 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
               <Label htmlFor="edit-is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingRule(null)}>
+      </AdminDialogShell>
+
+      <AdminDialogShell
+        open={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        title="Add Call Routing Rule"
+        subtitle="Create a new routing rule for incoming calls"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleAdd} disabled={saving}>
+              {saving ? 'Creating...' : 'Create'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent
-          className={cn(
-            'max-w-2xl max-h-[90vh] overflow-y-auto',
-            EXPANDABLE_DIALOG_TRANSITION,
-            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Add Call Routing Rule</DialogTitle>
-                <DialogDescription>
-                  Create a new routing rule for incoming calls
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="add-owned-number">Phone Number</Label>
@@ -596,16 +586,7 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
               <Label htmlFor="add-is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={saving}>
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

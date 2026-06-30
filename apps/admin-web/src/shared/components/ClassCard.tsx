@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
+import { clickableCardInteractiveCn, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -122,10 +122,11 @@ export function ClassCard({
         isSelecting
           ? isSelected
             ? 'bg-primary/10 border-primary border-2'
-            : 'hover:bg-muted/50 cursor-pointer'
+            : 'cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : ''
+            ? 'cursor-pointer'
+            : '',
+        (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn,
       )}
       style={{
         ...(subjectColorHex ? { borderColor: subjectColorHex } : {})
@@ -333,4 +334,3 @@ export function ClassCard({
     </div>
   );
 }
-

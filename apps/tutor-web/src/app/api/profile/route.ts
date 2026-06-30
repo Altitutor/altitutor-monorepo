@@ -6,6 +6,8 @@ import type { Database } from '@altitutor/shared';
 // Whitelist of fields that tutors are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
   'phone_number',
+  'profile_bio',
+  'profile_image_file_id',
   'availability_monday',
   'availability_tuesday',
   'availability_wednesday',
@@ -72,6 +74,12 @@ export async function PATCH(request: NextRequest) {
           if (typeof value === 'string' || value === null) {
             updates[field] = value;
           }
+        } else if (field === 'profile_bio' || field === 'profile_image_file_id') {
+          if (typeof value === 'string' || value === null) {
+            updates[field] = field === 'profile_bio' && typeof value === 'string'
+              ? value.slice(0, 1200)
+              : value;
+          }
         } else {
           // All other fields are boolean | null
           if (typeof value === 'boolean' || value === null) {
@@ -91,6 +99,23 @@ export async function PATCH(request: NextRequest) {
     
     // Use service role client to update the staff record
     const serviceClient = getServiceRoleClient();
+
+    if (typeof updates.profile_image_file_id === 'string') {
+      const { data: imageFile, error: imageFileError } = await serviceClient
+        .from('files')
+        .select('id, bucket, mimetype')
+        .eq('id', updates.profile_image_file_id)
+        .eq('bucket', 'staff-profile-images')
+        .like('mimetype', 'image/%')
+        .maybeSingle();
+
+      if (imageFileError || !imageFile) {
+        return NextResponse.json(
+          { error: 'Invalid profile image file' },
+          { status: 400 }
+        );
+      }
+    }
     
     const { data, error } = await serviceClient
       .from('staff')
@@ -117,6 +142,8 @@ export async function PATCH(request: NextRequest) {
         phone: data.phone_number,
         role: data.role,
         status: data.status,
+        profile_bio: data.profile_bio,
+        profile_image_file_id: data.profile_image_file_id,
         availability_monday: data.availability_monday,
         availability_tuesday: data.availability_tuesday,
         availability_wednesday: data.availability_wednesday,
@@ -201,4 +228,3 @@ export async function GET() {
     );
   }
 }
-

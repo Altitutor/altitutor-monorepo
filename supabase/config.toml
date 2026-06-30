@@ -178,27 +178,27 @@ sender_name = "Altitutor"
 # Email templates with modern design
 [auth.email.template.confirmation]
 subject = "Confirm Your Signup - Altitutor"
-content_path = "./supabase/templates/confirmation.html"
+content_path = "./supabase/templates-rendered/confirmation.html"
 
 [auth.email.template.invite]
 subject = "You Have Been Invited to Altitutor"
-content_path = "./supabase/templates/invite.html"
+content_path = "./supabase/templates-rendered/invite.html"
 
 [auth.email.template.magic_link]
 subject = "Your Magic Link - Altitutor"
-content_path = "./supabase/templates/magic_link.html"
+content_path = "./supabase/templates-rendered/magic_link.html"
 
 [auth.email.template.recovery]
 subject = "Reset Your Password - Altitutor"
-content_path = "./supabase/templates/recovery.html"
+content_path = "./supabase/templates-rendered/recovery.html"
 
 [auth.email.template.email_change]
 subject = "Confirm Email Change - Altitutor"
-content_path = "./supabase/templates/email_change.html"
+content_path = "./supabase/templates-rendered/email_change.html"
 
 [auth.email.template.reauthentication]
 subject = "Confirm Your Identity - Altitutor"
-content_path = "./supabase/templates/reauthentication.html"
+content_path = "./supabase/templates-rendered/reauthentication.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

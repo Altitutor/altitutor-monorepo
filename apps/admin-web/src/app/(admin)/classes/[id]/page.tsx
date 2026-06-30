@@ -22,7 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
-import { useClassDetails, classesKeys, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
+import { useClassDetails, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -33,6 +33,11 @@ import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/Class
 import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
+import { AdminLoadingSkeleton } from '@/shared/components';
+import {
+  invalidateClassDetail,
+  invalidateClassSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -75,7 +80,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
       };
       await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
+      await invalidateClassDetail(queryClient, classData.id);
       
       setIsEditing(false);
       
@@ -98,8 +103,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
     
     try {
       await classesApi.assignStaff(classData.id, staffId);
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       toast({
         title: 'Success',
         description: 'Staff assigned successfully.',
@@ -119,8 +123,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
     
     try {
       await classesApi.unassignStaff(classData.id, staffId);
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       toast({
         title: 'Success',
         description: 'Staff removed successfully.',
@@ -160,7 +163,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleClassUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(id) });
+    void invalidateClassDetail(queryClient, id);
   };
 
   // Centralized action handlers
@@ -173,13 +176,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   });
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!classData) {

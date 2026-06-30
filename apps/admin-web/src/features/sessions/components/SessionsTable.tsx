@@ -63,6 +63,7 @@ type SessionsTableProps = {
   skipUrlSync?: boolean; // Keep table state local when embedded in modals
   hideToolbar?: boolean;
   hidePagination?: boolean;
+  fillHeight?: boolean;
   attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
@@ -107,6 +108,7 @@ export function SessionsTable({
   skipUrlSync = false,
   hideToolbar = false,
   hidePagination = false,
+  fillHeight = false,
   attendanceView,
   onUndoLogAbsenceStudent,
   onUndoLogAbsenceStaff,
@@ -369,9 +371,17 @@ export function SessionsTable({
   }
 
   return (
-    <div className={showTableChrome || showPagination ? 'space-y-4' : undefined}>
+    <div
+      className={cn(
+        fillHeight
+          ? cn('flex h-full min-h-0 flex-col', (showTableChrome || showPagination) && 'gap-4')
+          : showTableChrome || showPagination
+            ? 'space-y-4'
+            : undefined,
+      )}
+    >
       {showTableChrome && (
-        <div className="flex flex-col gap-2">
+        <div className={cn('flex flex-col gap-2', fillHeight && 'shrink-0 pt-1.5')}>
           <DataTableToolbar
             state={state}
             onSearchChange={setSearch}
@@ -402,9 +412,19 @@ export function SessionsTable({
         </div>
       )}
 
-      <div className="rounded-md border">
+      <div
+        className={cn(
+          'rounded-md border overflow-hidden',
+          fillHeight && 'min-h-0 flex-1 overflow-auto [&>div]:overflow-visible',
+        )}
+      >
         <Table>
-          <TableHeader>
+          <TableHeader
+            className={cn(
+              fillHeight &&
+                '[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card',
+            )}
+          >
             <TableRow>
               {state.visibleColumns.includes('date') && (
                 <TableHead className="cursor-pointer" onClick={() => setSort('start_at', state.sortBy === 'start_at' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>

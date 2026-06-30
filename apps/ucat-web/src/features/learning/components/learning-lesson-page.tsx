@@ -192,7 +192,6 @@ function LessonBlockContent({
   block,
   onBlockProgress,
   onSkillTrainerComplete,
-  onQuestionProgress,
 }: {
   block: LearningModuleBlockRow;
   onBlockProgress: (
@@ -201,7 +200,6 @@ function LessonBlockContent({
     interactionState?: Json,
   ) => void;
   onSkillTrainerComplete: (blockId: string) => void;
-  onQuestionProgress: () => void;
 }) {
   return (
     <>
@@ -226,7 +224,13 @@ function LessonBlockContent({
         />
       ) : null}
       {block.block_type === "question_stem" || block.block_type === "question" ? (
-        <LearnQuestionBlock block={block} onProgressChange={onQuestionProgress} />
+        <LearnQuestionBlock
+          block={block}
+          onProgressChange={() => {
+            if (!block.id) return;
+            onBlockProgress(block.id, true, { completedFromQuestionEngine: true });
+          }}
+        />
       ) : null}
       {block.block_type === "skill_trainer_set" && block.id ? (
         <LearnSkillTrainerBlock
@@ -442,7 +446,6 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
                     block={activeBlock}
                     onBlockProgress={handleBlockProgress}
                     onSkillTrainerComplete={handleSkillTrainerComplete}
-                    onQuestionProgress={refreshLessonProgress}
                   />
                 </AnimatedStepPanel>
               ) : null}
@@ -460,7 +463,6 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
                       block={block}
                       onBlockProgress={handleBlockProgress}
                       onSkillTrainerComplete={handleSkillTrainerComplete}
-                      onQuestionProgress={refreshLessonProgress}
                     />
                   </div>
                 ) : null,

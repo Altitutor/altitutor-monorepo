@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus } from 'lucide-react';
-import { Button } from '@altitutor/ui';
-import { AdminPageActionButton } from '@/shared/components';
+import { Plus } from 'lucide-react';
+import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import { AutomationRulesList } from '@/features/automation/components/AutomationRulesList';
 import { CreateAutomationRuleWizard } from '@/features/automation/components/CreateAutomationRuleWizard';
 import { EditAutomationRuleDialog } from '@/features/automation/components/EditAutomationRuleDialog';
@@ -14,7 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 export const dynamic = 'force-dynamic';
 
 export default function AutomationSettingsPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [isCreateWizardOpen, setIsCreateWizardOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutomationRuleWithActions | null>(null);
@@ -30,26 +27,16 @@ export default function AutomationSettingsPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Automation Rules</h1>
-          </div>
+      <SettingsPageHeader
+        title="Automation Rules"
+        actions={(
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
             label="Create Rule"
             onClick={() => setIsCreateWizardOpen(true)}
           />
-        </div>
-      </div>
+        )}
+      />
 
       <AutomationRulesList
         onCreateRule={() => setIsCreateWizardOpen(true)}

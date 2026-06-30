@@ -90,7 +90,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         className="toaster group"
         toastOptions={{
           classNames: {
-            toast: "border-border bg-card text-card-foreground shadow-lg",
+            toast: "border-border bg-card text-card-foreground",
             title: "text-foreground",
             description: "text-muted-foreground",
             actionButton:

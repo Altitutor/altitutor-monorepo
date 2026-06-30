@@ -11,6 +11,7 @@ import {
 } from "@altitutor/ui";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { formatQuotaUsageLabel } from "@/features/ucat-access/lib/format-quota-period";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
@@ -98,6 +99,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium">{entry.label}</p>
+              <QuotaAreaInfoButton area={entry.area} label={entry.label} />
               {entry.atLimit ? (
                 <Badge variant="destructive" className="text-[10px]">
                   Limit reached
@@ -149,7 +151,10 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
             return (
               <li key={entry.area} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium">{entry.label}</span>
+                  <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+                    <span className="truncate">{entry.label}</span>
+                    <QuotaAreaInfoButton area={entry.area} label={entry.label} />
+                  </span>
                   <span className="text-muted-foreground">
                     {formatQuotaUsageLabel(entry.used, entry.limit, entry.period)}
                   </span>

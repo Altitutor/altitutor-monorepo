@@ -32,7 +32,8 @@ const config = {
     },
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-big-calendar|date-fns|@tiptap|marked)/)',
+    'node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked)@)',
+    'node_modules/(?!.pnpm|react-big-calendar|date-fns|@tiptap|marked)',
   ],
 };
 

@@ -24,9 +24,6 @@ export async function POST(
     return NextResponse.json({ attempt: state });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Action failed";
-    if (message === "COOLDOWN_ACTIVE") {
-      return NextResponse.json({ error: message }, { status: 429 });
-    }
     if (message === "ATTEMPT_NOT_FOUND") {
       return NextResponse.json({ error: message }, { status: 404 });
     }

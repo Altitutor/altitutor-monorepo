@@ -2,6 +2,14 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import type { Tables } from '@altitutor/shared'
 import type React from 'react'
+import {
+  clickableCardFocusRingCn as uiClickableCardFocusRingCn,
+  navActiveStyles,
+  navHoverStyles,
+  navItemTransitionStyles,
+  navLinkActiveStyles,
+  navLinkInactiveStyles,
+} from '@altitutor/ui';
 
 /**
  * Safely extract error message from unknown error type
@@ -80,13 +88,32 @@ export function formatDateTime(date: Date | string): string {
   });
 }
 
+/** Admin cards keep a flat hover state: no lift and no reveal chevron. */
+export const clickableCardHoverCn = 'hover:bg-muted/50 dark:hover:bg-muted/80';
+
+/** Same as hover, for cards with overlay links (focus-within). */
+export const clickableCardFocusWithinCn = 'focus-within:bg-muted/50 dark:focus-within:bg-muted/80';
+
+/** Combined hover + focus-within for admin interactive cards. */
+export const clickableCardInteractiveCn = cn(
+  clickableCardHoverCn,
+  clickableCardFocusWithinCn,
+);
+
+/** Append extra classes to interactive card styles. */
+export function clickableCardInteractiveWith(...parts: Array<string | undefined>) {
+  return cn(clickableCardInteractiveCn, ...parts);
+}
+
+export const clickableCardFocusRingCn = uiClickableCardFocusRingCn;
+
 export {
   navActiveStyles,
   navHoverStyles,
   navItemTransitionStyles,
   navLinkActiveStyles,
   navLinkInactiveStyles,
-} from '@altitutor/ui'; 
+}; 
 
 /**
  * Calculate luminance from RGB values using WCAG formula

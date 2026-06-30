@@ -44,6 +44,7 @@ import { TopicsHierarchy, AddTopicModal } from '@/features/topics';
 import { useTopics } from '@/features/topics/hooks';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 const CURRICULUM_OPTIONS: { id: string; label: string }[] = [
   { id: 'SACE', label: 'SACE' },
@@ -231,13 +232,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   });
 
   if (loading && !subject) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (error || !subject) {

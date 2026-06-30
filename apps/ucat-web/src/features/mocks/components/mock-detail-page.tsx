@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import type {
@@ -9,6 +9,10 @@ import type {
   MockAttemptWithBreakdown,
 } from "@/features/mocks/api/mocks-api";
 import { useMockAttemptsWithBreakdown, useMocks } from "@/features/mocks";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
+import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import {
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
@@ -46,9 +50,14 @@ export function MockDetailPage({
   backLabel: backLabelProp,
   sessionEntryContext,
 }: MockDetailPageProps) {
+  const router = useRouter();
+  const { openQuotaLimit } = useQuotaLimitModal();
+  const { data: quota } = useQuotaUsage();
+  const { active: activeExamAttempt } = useActiveExamAttempt();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
   const attemptsHeadingId = useId();
+  const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
 
   const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 3 : 1;
   const backHref =
@@ -164,6 +173,25 @@ export function MockDetailPage({
       ? attempts[0].sectionScores
       : [];
 
+  const handleLaunchMock = () => {
+    const canResumeCurrentAttempt =
+      activeExamAttempt?.kind === "mock" &&
+      activeExamAttempt.resourceId === mockId;
+    if (
+      !canResumeCurrentAttempt &&
+      (mockQuota?.disabled || mockQuota?.atLimit)
+    ) {
+      openQuotaLimit(quotaPayloadFromUsage(mockQuota), {
+        dismissAction: {
+          label: "Dismiss",
+          variant: "dismiss",
+        },
+      });
+      return;
+    }
+    router.push(`/exam/mocks?id=${encodeURIComponent(mockId)}`);
+  };
+
   return (
     <div className="space-y-6">
       <UcatPageHeader
@@ -204,10 +232,7 @@ export function MockDetailPage({
       </section>
 
       {attempts.length > 0 ? (
-        <section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -216,73 +241,74 @@ export function MockDetailPage({
           </h2>
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] caption-bottom text-sm">
-              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
-                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                    Date
-                  </th>
-                  {sectionColumns.map((sec: MockAttemptSectionScore) => (
-                    <th
-                      key={sec.sectionNumber}
-                      className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"
-                    >
-                      {sec.sectionName}
+              <table className="w-full min-w-[400px] caption-bottom text-sm">
+                <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
+                  <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                      Date
                     </th>
-                  ))}
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Score
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Scaled
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {attempts.map((a: MockAttemptWithBreakdown) => (
-                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
-                    <td className="p-4 align-middle">
-                      {new Date(a.attemptedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    {a.sectionScores.map((sec: MockAttemptSectionScore) => (
-                      <td
+                    {sectionColumns.map((sec: MockAttemptSectionScore) => (
+                      <th
                         key={sec.sectionNumber}
-                        className="p-4 align-middle text-right"
+                        className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"
                       >
-                        {sec.scorePoints != null && sec.totalPoints != null
-                          ? `${sec.scorePoints}/${sec.totalPoints}`
+                        {sec.sectionName}
+                      </th>
+                    ))}
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Score
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Scaled
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.map((a: MockAttemptWithBreakdown) => (
+                    <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
+                      <td className="p-4 align-middle">
+                        {new Date(a.attemptedAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      {a.sectionScores.map((sec: MockAttemptSectionScore) => (
+                        <td
+                          key={sec.sectionNumber}
+                          className="p-4 align-middle text-right"
+                        >
+                          {sec.scorePoints != null && sec.totalPoints != null
+                            ? `${sec.scorePoints}/${sec.totalPoints}`
+                            : "—"}
+                        </td>
+                      ))}
+                      <td className="p-4 align-middle text-right">
+                        {a.scorePoints != null && a.totalPoints != null
+                          ? `${a.scorePoints} / ${a.totalPoints}`
                           : "—"}
                       </td>
-                    ))}
-                    <td className="p-4 align-middle text-right">
-                      {a.scorePoints != null && a.totalPoints != null
-                        ? `${a.scorePoints} / ${a.totalPoints}`
-                        : "—"}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      {a.scaledScore != null && a.scaledScoreMax != null
-                        ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
-                        : a.scaledScore != null
-                          ? String(Math.round(a.scaledScore))
-                          : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <td className="p-4 align-middle text-right">
+                        {a.scaledScore != null && a.scaledScoreMax != null
+                          ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
+                          : a.scaledScore != null
+                            ? String(Math.round(a.scaledScore))
+                            : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
       ) : null}
 
       <div className="flex justify-end">
-        <Button asChild className={UCAT_PRIMARY_ACTION_BUTTON}>
-          <Link href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}>
-            Launch mock
-          </Link>
+        <Button
+          className={UCAT_PRIMARY_ACTION_BUTTON}
+          onClick={handleLaunchMock}
+        >
+          Launch mock
         </Button>
       </div>
     </div>

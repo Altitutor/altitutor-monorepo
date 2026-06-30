@@ -2,25 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
   Switch,
 } from '@altitutor/ui';
-import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { openingHoursApi, type OpeningHoursRow } from '../api/opening-hours';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface OpeningHoursTableProps {
   openingHours: OpeningHoursRow[];
@@ -37,6 +25,10 @@ const DAY_NAMES = [
   { value: 5, label: 'Friday' },
   { value: 6, label: 'Saturday' },
 ];
+
+type OpeningHoursDisplayRow =
+  | { id: string; day: number; dayLabel: string; kind: 'empty' }
+  | { id: string; day: number; dayLabel: string; kind: 'hours'; hours: OpeningHoursRow };
 
 export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: OpeningHoursTableProps) {
   const [editingHours, setEditingHours] = useState<OpeningHoursRow | null>(null);
@@ -113,6 +105,25 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
   };
 
+  const rows: OpeningHoursDisplayRow[] = DAY_NAMES.flatMap<OpeningHoursDisplayRow>((day) => {
+    const hoursList = getHoursForDay(day.value);
+    if (hoursList.length === 0) {
+      return [{ id: `empty-${day.value}`, day: day.value, dayLabel: day.label, kind: 'empty' as const }];
+    }
+    return hoursList.map((hours) => ({
+      id: hours.id,
+      day: day.value,
+      dayLabel: day.label,
+      kind: 'hours' as const,
+      hours,
+    }));
+  });
+
+  const openAddForDay = (day: number) => {
+    setSelectedDay(day);
+    setIsAddDialogOpen(true);
+  };
+
   // Trigger add dialog when onCreateTrigger changes
   useEffect(() => {
     if (onCreateTrigger && onCreateTrigger > 0) {
@@ -121,118 +132,121 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onCreateTrigger]);
 
+  const columns: SettingsDataTableColumn<OpeningHoursDisplayRow>[] = [
+    {
+      key: 'day',
+      label: 'Day',
+      render: (row) => <span className="font-medium">{row.dayLabel}</span>,
+      sortValue: (row) => row.day,
+      filterValue: (row) => row.dayLabel,
+      searchValue: (row) => row.dayLabel,
+    },
+    {
+      key: 'start_time',
+      label: 'Start Time',
+      render: (row) => row.kind === 'hours' ? row.hours.start_time : <span className="text-muted-foreground">No opening hours set</span>,
+      sortValue: (row) => row.kind === 'hours' ? row.hours.start_time : '',
+      searchValue: (row) => row.kind === 'hours' ? row.hours.start_time : 'No opening hours set',
+    },
+    {
+      key: 'end_time',
+      label: 'End Time',
+      render: (row) => row.kind === 'hours' ? row.hours.end_time : '-',
+      sortValue: (row) => row.kind === 'hours' ? row.hours.end_time : '',
+      searchValue: (row) => row.kind === 'hours' ? row.hours.end_time : '',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => {
+        if (row.kind === 'empty') return <span className="text-muted-foreground">-</span>;
+        return (
+          <span className={`px-2 py-1 rounded text-xs ${
+            row.hours.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          }`}>
+            {row.hours.is_active ? 'Active' : 'Inactive'}
+          </span>
+        );
+      },
+      sortValue: (row) => row.kind === 'hours' ? Boolean(row.hours.is_active) : false,
+      filterValue: (row) => row.kind === 'hours' && row.hours.is_active ? 'active' : row.kind === 'hours' ? 'inactive' : 'empty',
+      searchValue: (row) => row.kind === 'hours' && row.hours.is_active ? 'Active' : row.kind === 'hours' ? 'Inactive' : '',
+    },
+  ];
+
   return (
     <>
-      <div className="rounded-md border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Day</TableHead>
-              <TableHead>Start Time</TableHead>
-              <TableHead>End Time</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {DAY_NAMES.map((day) => {
-              const hoursList = getHoursForDay(day.value);
-              const hasHours = hoursList.length > 0;
-              
-              // If no hours, show a single row with "Add" button
-              if (!hasHours) {
-                return (
-                  <TableRow key={day.value}>
-                    <TableCell className="font-medium">{day.label}</TableCell>
-                    <TableCell colSpan={2}>
-                      <span className="text-muted-foreground">No opening hours set</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-muted-foreground">-</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedDay(day.value);
-                          setIsAddDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              }
-              
-              // Show all hours for this day, with day name only on first row
-              return hoursList.map((hours, index) => (
-                <TableRow key={`${day.value}-${hours.id}`}>
-                  {index === 0 && (
-                    <TableCell className="font-medium" rowSpan={hoursList.length}>
-                      {day.label}
-                    </TableCell>
-                  )}
-                  <TableCell>{hours.start_time}</TableCell>
-                  <TableCell>{hours.end_time}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      hours.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {hours.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(hours)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(hours.id)}
-                        disabled={deleting === hours.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {index === hoursList.length - 1 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedDay(day.value);
-                            setIsAddDialogOpen(true);
-                          }}
-                          className="ml-2"
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add Range
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ));
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        searchPlaceholder="Search opening hours..."
+        filterKeys={['day', 'status']}
+        filterDefinitions={[
+          {
+            key: 'day',
+            label: 'Day',
+            options: DAY_NAMES.map((day) => ({ label: day.label, value: day.label })),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+              { label: 'No hours set', value: 'empty' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'day', direction: 'asc' }}
+        getActions={(row) => {
+          if (row.kind === 'empty') {
+            return [
+              {
+                id: 'add',
+                label: 'Add range',
+                onSelect: () => openAddForDay(row.day),
+              },
+            ];
+          }
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingHours} onOpenChange={() => setEditingHours(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Opening Hours</DialogTitle>
-            <DialogDescription>
-              Update opening hours for {editingHours && getDayName(editingHours.day_of_week)}
-            </DialogDescription>
-          </DialogHeader>
+          return [
+            {
+              id: 'edit',
+              label: 'Edit',
+              onSelect: () => handleEdit(row.hours),
+            },
+            {
+              id: 'add-range',
+              label: 'Add range',
+              onSelect: () => openAddForDay(row.day),
+            },
+            {
+              id: 'delete',
+              label: 'Delete',
+              disabled: deleting === row.hours.id,
+              onSelect: () => handleDelete(row.hours.id),
+            },
+          ];
+        }}
+      />
+
+      <AdminDialogShell
+        open={!!editingHours}
+        onClose={() => setEditingHours(null)}
+        title="Edit Opening Hours"
+        subtitle={`Update opening hours for ${editingHours ? getDayName(editingHours.day_of_week) : ''}`}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingHours(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="start-time">Start Time</Label>
@@ -263,26 +277,24 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
               <Label htmlFor="is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingHours(null)}>
+      </AdminDialogShell>
+
+      <AdminDialogShell
+        open={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        title="Add Opening Hours"
+        subtitle="Set opening hours for a specific day of the week. You can add multiple time ranges per day to create lunch breaks automatically."
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleAdd} disabled={saving}>
+              {saving ? 'Creating...' : 'Create'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Opening Hours</DialogTitle>
-            <DialogDescription>
-              Set opening hours for a specific day of the week. You can add multiple time ranges per day (e.g., 9-12 and 1-4) to create lunch breaks automatically.
-            </DialogDescription>
-          </DialogHeader>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="day">Day</Label>
@@ -329,17 +341,7 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
               <Label htmlFor="add-is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={saving}>
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }
-

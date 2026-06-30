@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
-import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp } from 'lucide-react';
@@ -12,8 +12,6 @@ import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
-import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
-import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
@@ -29,12 +27,13 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb, AdminUrlSyncBoundary } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
+import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
 import { format } from 'date-fns';
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
-  onToggle: () => void;
 }
 
 type NavItem = 
@@ -257,7 +256,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
       
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-bg dark:ring-white/10 md:hidden",
+          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl bg-card ring-1 ring-black/10 transition-transform duration-300 ease-out dark:ring-white/10 md:hidden",
           dragStartYRef.current != null && "transition-none",
           isOpen ? "translate-y-0" : "translate-y-full"
         )}
@@ -265,7 +264,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
       >
         <div className="flex flex-col h-full">
           <div
-            className="flex h-14 touch-pan-y items-center border-b px-4 dark:border-brand-dark-border"
+            className="flex h-14 touch-pan-y items-center border-b px-4"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -309,7 +308,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             </nav>
           </ScrollArea>
           
-          <div className="border-t dark:border-brand-dark-border p-2">
+          <div className="border-t p-2">
             <Link 
               href="/settings"
               className={cn(
@@ -329,34 +328,18 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
   );
 }
 
-function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
+function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
   const pathname = usePathname();
   
   return (
     <div 
       className={cn(
-        "hidden md:flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
+        "hidden md:flex flex-col bg-card h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[250px]",
         className
       )} 
       {...props}
     >
-      <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onToggle} 
-          className="mr-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
-        >
-          <AnimatedHamburgerIcon isOpen={!collapsed} />
-        </Button>
-        {!collapsed && (
-          <div className="flex items-center overflow-hidden min-w-0 transition-opacity duration-300">
-            <h2 className="text-lg font-semibold whitespace-nowrap">Altitutor Admin</h2>
-          </div>
-        )}
-      </div>
-      
       <ScrollArea className="flex-1">
         <nav className="flex flex-col gap-1 p-2">
           {navItems.map((item, index) => {
@@ -379,8 +362,8 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
             
             const Icon = item.icon;
             const itemHref = getNavItemHref(item);
-            return (
-              <Link 
+            const link = (
+              <Link
                 key={item.href} 
                 href={itemHref}
                 className={cn(
@@ -397,26 +380,63 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                 )}
               </Link>
             );
+
+            if (!collapsed) {
+              return link;
+            }
+
+            return (
+              <TooltipProvider key={item.href} delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={10}>
+                    {item.title}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
           })}
         </nav>
       </ScrollArea>
       
-      <div className="border-t dark:border-brand-dark-border p-2">
-        <Link 
+      <div className="border-t p-2">
+        {collapsed ? (
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/settings"
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
+                    pathname === '/settings'
+                      ? navLinkActiveStyles
+                      : navLinkInactiveStyles,
+                    "justify-center px-0"
+                  )}
+                >
+                  <Settings className="h-6 w-6" />
+                  <span className="sr-only">Settings</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>
+                Settings
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Link 
           href="/settings"
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
             pathname === '/settings'
               ? navLinkActiveStyles
               : navLinkInactiveStyles,
-            collapsed && "justify-center px-0"
           )}
         >
-          <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-          {!collapsed && (
-            <span className="whitespace-nowrap overflow-hidden">Settings</span>
-          )}
-        </Link>
+          <Settings className="h-5 w-5" />
+          <span className="whitespace-nowrap overflow-hidden">Settings</span>
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -452,17 +472,13 @@ function AdminLayoutContent({
     checkInPrefill,
     closeCheckInModal,
   } = useQuickActions();
-  const [collapsed, setCollapsed] = useState(false);
+  const { sidebarCollapsed: collapsed } = useAdminShell();
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
   const showBreadcrumbs = pathname !== '/messages';
-  
-  const toggleSidebar = () => {
-    setCollapsed(!collapsed);
-  };
   
   return (
     <>
@@ -471,15 +487,17 @@ function AdminLayoutContent({
         isOpen={isCommandPaletteOpen}
         onClose={closeCommandPalette}
       />
-      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden">
-        <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
-        <div className="flex-1 overflow-auto relative">
-          {showBreadcrumbs && (
-            <div className="px-6 pt-6 pb-0">
-              <Breadcrumb items={breadcrumbs} />
-            </div>
-          )}
-          <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
+        <SidebarNav collapsed={collapsed} />
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="relative h-full overflow-auto rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70 md:rounded-tr-none">
+            {showBreadcrumbs && (
+              <div className="px-6 pt-6 pb-0">
+                <Breadcrumb items={breadcrumbs} />
+              </div>
+            )}
+            <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+          </div>
           {/* Quick action modals */}
           {currentStaff?.id && (
             <>
@@ -537,8 +555,7 @@ function AdminLayoutContent({
                 sessionType={checkInSessionType}
                 initialPrefill={checkInPrefill}
                 onCreated={(sessionId, staffIds) => {
-                  void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
-                  void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
+                  void invalidateCheckInSurfaces(queryClient);
                   if (checkInSessionType === 'CHECK_IN') {
                     for (const staffId of staffIds) {
                       void queryClient.invalidateQueries({

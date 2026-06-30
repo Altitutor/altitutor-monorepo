@@ -347,17 +347,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     setPage(1);
   }, [state.search, state.filters, setPage]);
 
-  // Listen for open-class-modal events (e.g. from toast "View class" button)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { id } = (e as CustomEvent<{ id: string }>).detail;
-      setSelectedClass({ id } as MinimalClass);
-      setIsDetailModalOpen(true);
-    };
-    window.addEventListener('open-class-modal', handler);
-    return () => window.removeEventListener('open-class-modal', handler);
-  }, []);
-  
   const getDayOfWeek = (day: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[day] || 'Unknown';

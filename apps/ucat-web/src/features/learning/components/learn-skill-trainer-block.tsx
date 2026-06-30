@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@altitutor/ui";
 import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
+import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 
@@ -17,6 +18,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const trainerKey = (block.content as { trainerKey?: string } | null)?.trainerKey;
+  const { setLocal } = useActiveSkillTrainerAttempt();
 
   const handleComplete = useCallback(() => {
     onComplete?.();
@@ -41,6 +43,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
         skillTrainerSetId: block.skill_trainer_set_id,
         learningModuleBlockId: block.id,
       });
+      setLocal(state);
       setAttemptId(state.attempt.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start skill trainer");

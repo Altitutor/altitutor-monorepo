@@ -1,25 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
-import { X, Settings2 } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Settings2 } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 import { SearchableSelect } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { useCreateTemplate, useUpdateTemplate } from '../../api/templates';
@@ -51,11 +38,6 @@ export function CreateEditTemplateDialog({
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [previewMessage, setPreviewMessage] = useState('');
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
   const { data: studentClasses = [], isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
@@ -218,157 +200,132 @@ export function CreateEditTemplateDialog({
   const characterCount = content.length;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-        onKeyDown={handleKeyDown}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
-                  {isSystemTemplate && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
-                      <Settings2 className="h-3 w-3" />
-                      System template
-                    </span>
-                  )}
-                </div>
-                <DialogDescription>
-                  {template
-                    ? 'Update your message template. Variables will be replaced when sending messages.'
-                    : 'Create a new message template. Use variables to personalize messages for each student.'}
-                </DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0 flex flex-col lg:flex-row">
-          {/* Left Panel - Main editing area (independently scrollable) */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 lg:border-r min-w-0">
-            <div className="space-y-2">
-              <Label htmlFor="template-name">Template Name</Label>
-              <Input
-                id="template-name"
-                ref={nameInputRef}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Welcome Message"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="template-content">Content</Label>
-              <Textarea
-                id="template-content"
-                ref={contentTextareaRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}..."
-                className="min-h-[300px] resize-none"
-                disabled={isLoading}
-              />
-              
-              {/* Variable insertion buttons */}
-              <div className="space-y-2">
-                <div className="flex gap-2 flex-wrap">
-                  {(systemVariables ?? [
-                    'first_name',
-                    'last_name',
-                    'classes',
-                    'sender_name',
-                    'registration_link',
-                    'invite_link',
-                    'forgot_password_link',
-                  ]).map((variable) => (
-                    <Button
-                      key={variable}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleInsertVariable(variable)}
-                      disabled={isLoading}
-                    >
-                      {`{${variable}}`}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Click to insert variables at cursor position
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Note: Link variables ({'{registration_link}'}, {'{invite_link}'}, {'{forgot_password_link}'}) require tokens/links to be generated when sending messages.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {characterCount} character{characterCount !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - Preview (independently scrollable) */}
-          <div className="flex-1 lg:flex-[0_0_40%] overflow-y-auto p-6 space-y-6 lg:border-l min-w-0">
-            <div className="space-y-2">
-              <Label>Preview with Sample Data</Label>
-              <SearchableSelect<Tables<'students'>>
-                items={sampleStudents}
-                value={selectedStudent ?? null}
-                onValueChange={(student) => setSelectedStudentId(student?.id ?? '')}
-                getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
-                getItemId={(s) => s.id}
-                placeholder={sampleStudents.length === 0 ? 'No students available' : 'Select a student'}
-                disabled={isLoadingStudents || sampleStudents.length === 0}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div className="bg-muted/20 rounded-lg p-4 border min-h-[200px]">
-                {isLoadingClasses ? (
-                  <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
-                    Loading preview...
-                  </div>
-                ) : (
-                  <div className="flex justify-start">
-                    <div className="bg-brand-lightBlue text-brand-dark-bg p-3 rounded-lg max-w-[90%]">
-                      <p className="whitespace-pre-wrap text-sm">{previewMessage || 'Start typing to see preview...'}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title={template ? 'Edit Template' : 'Create Template'}
+      subtitle={
+        template
+          ? 'Update your message template. Variables will be replaced when sending messages.'
+          : 'Create a new message template. Use variables to personalize messages for each student.'
+      }
+      contentClassName="md:max-w-4xl"
+      headerActions={
+        isSystemTemplate ? (
+          <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            <Settings2 className="h-3 w-3" />
+            System template
+          </span>
+        ) : null
+      }
+      footer={(
+        <>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isLoading || !name.trim() || !content.trim()}>
             {isLoading ? 'Saving...' : 'Save'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      <div className="flex min-h-[calc(90vh-10rem)] flex-col lg:flex-row" onKeyDown={handleKeyDown}>
+        {/* Left Panel - Main editing area (independently scrollable) */}
+        <div className="min-w-0 flex-1 space-y-6 overflow-y-auto py-2 lg:pr-6">
+          <div className="space-y-2">
+            <Label htmlFor="template-name">Template Name</Label>
+            <Input
+              id="template-name"
+              ref={nameInputRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Welcome Message"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="template-content">Content</Label>
+            <Textarea
+              id="template-content"
+              ref={contentTextareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}..."
+              className="min-h-[300px] resize-none"
+              disabled={isLoading}
+            />
+
+            {/* Variable insertion buttons */}
+            <div className="space-y-2">
+              <div className="flex gap-2 flex-wrap">
+                {(systemVariables ?? [
+                  'first_name',
+                  'last_name',
+                  'classes',
+                  'sender_name',
+                  'registration_link',
+                  'invite_link',
+                  'forgot_password_link',
+                ]).map((variable) => (
+                  <Button
+                    key={variable}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInsertVariable(variable)}
+                    disabled={isLoading}
+                  >
+                    {`{${variable}}`}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Click to insert variables at cursor position
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Note: Link variables ({'{registration_link}'}, {'{invite_link}'}, {'{forgot_password_link}'}) require tokens/links to be generated when sending messages.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {characterCount} character{characterCount !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Preview (independently scrollable) */}
+        <div className="min-w-0 flex-1 space-y-6 overflow-y-auto py-2 lg:flex-[0_0_40%] lg:border-l lg:pl-6">
+          <div className="space-y-2">
+            <Label>Preview with Sample Data</Label>
+            <SearchableSelect<Tables<'students'>>
+              items={sampleStudents}
+              value={selectedStudent ?? null}
+              onValueChange={(student) => setSelectedStudentId(student?.id ?? '')}
+              getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+              getItemId={(s) => s.id}
+              placeholder={sampleStudents.length === 0 ? 'No students available' : 'Select a student'}
+              disabled={isLoadingStudents || sampleStudents.length === 0}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div className="bg-muted/20 rounded-lg p-4 border min-h-[200px]">
+              {isLoadingClasses ? (
+                <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
+                  Loading preview...
+                </div>
+              ) : (
+                <div className="flex justify-start">
+                  <div className="bg-brand-lightBlue text-brand-dark-bg p-3 rounded-lg max-w-[90%]">
+                    <p className="whitespace-pre-wrap text-sm">{previewMessage || 'Start typing to see preview...'}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </AdminDialogShell>
   );
 }
-
-
-

@@ -28,6 +28,11 @@ export type StudentQuotaContext = {
   onboardingCompleted: boolean;
 };
 
+export type UcatQuotaResetEntitlementSummary = {
+  availableCount: number;
+  nextExpiresAt: string | null;
+};
+
 async function loadQuotaConfig(
   supabase: AdminClient,
 ): Promise<UcatFreeQuotaConfig> {
@@ -41,6 +46,54 @@ async function loadQuotaConfig(
     .maybeSingle();
 
   return mapQuotaConfigRow(data);
+}
+
+function laterIsoDate(a: string, b: string | null): string {
+  if (!b) return a;
+  return new Date(b).getTime() > new Date(a).getTime() ? b : a;
+}
+
+async function getQuotaCountStart(
+  supabase: AdminClient,
+  ctx: StudentQuotaContext,
+  area: UcatQuotaArea,
+  config: UcatFreeQuotaConfig,
+): Promise<string> {
+  const { period } = getAreaConfig(config, area);
+  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+
+  const { data, error } = await supabase.rpc(
+    "get_ucat_free_quota_reset_boundary",
+    {
+      p_student_id: ctx.studentId,
+      p_quota_area: area,
+    },
+  );
+
+  if (error) throw new Error(error.message);
+  return laterIsoDate(periodStart, data);
+}
+
+export async function getAvailableQuotaResetEntitlementSummary(
+  supabase: AdminClient,
+  studentId: string,
+): Promise<UcatQuotaResetEntitlementSummary> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("ucat_free_quota_reset_entitlements")
+    .select("id, expires_at")
+    .eq("student_id", studentId)
+    .is("used_at", null)
+    .gte("expires_at", now)
+    .order("expires_at", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return {
+    availableCount: data?.length ?? 0,
+    nextExpiresAt: data?.[0]?.expires_at ?? null,
+  };
 }
 
 export async function resolveStudentQuotaContext(
@@ -82,22 +135,22 @@ export async function countQuotaUsage(
   area: UcatQuotaArea,
   config: UcatFreeQuotaConfig,
 ): Promise<number> {
-  const { limit, period } = getAreaConfig(config, area);
+  const { limit } = getAreaConfig(config, area);
   if (limit <= 0) return 0;
 
-  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+  const countStart = await getQuotaCountStart(supabase, ctx, area, config);
 
   switch (area) {
     case "practice":
-      return countPracticeUsage(supabase, ctx.studentId, periodStart);
+      return countPracticeUsage(supabase, ctx.studentId, countStart);
     case "sets":
-      return countStandaloneSetStarts(supabase, ctx.studentId, periodStart);
+      return countStandaloneSetStarts(supabase, ctx.studentId, countStart);
     case "mocks":
-      return countMockStarts(supabase, ctx.studentId, periodStart);
+      return countMockStarts(supabase, ctx.studentId, countStart);
     case "learn":
-      return countLearnStarts(supabase, ctx.studentId, periodStart);
+      return countLearnStarts(supabase, ctx.studentId, countStart);
     case "skill_trainer":
-      return countSkillTrainerStarts(supabase, ctx.studentId, periodStart);
+      return countSkillTrainerStarts(supabase, ctx.studentId, countStart);
   }
 }
 
@@ -158,7 +211,9 @@ async function countPracticeUsage(
     .eq("student_id", studentId)
     .not("student_practice_session_id", "is", null)
     .is("student_question_set_attempt_id", null)
-    .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
+    .or(
+      "question_answer_option_id.not.is.null,answer_snapshot.not.is.null,is_submitted.eq.true",
+    )
     .gte("attempted_at", periodStart);
 
   if (error) throw new Error(error.message);
@@ -239,6 +294,10 @@ export async function getQuotaUsageForStudent(
     isQuotaExempt: ctx.isQuotaExempt,
     unlimitedTrialEligible: ctx.unlimitedTrialEligible,
     onboardingCompleted: ctx.onboardingCompleted,
+    quotaResetEntitlement: await getAvailableQuotaResetEntitlementSummary(
+      supabase,
+      studentId,
+    ),
     areas: areaUsages,
   };
 }
@@ -296,8 +355,7 @@ export async function countNewPracticeQuestionsForStudent(
   if (uniqueQuestionIds.length === 0) return 0;
 
   const config = await loadQuotaConfig(supabase);
-  const { period } = getAreaConfig(config, "practice");
-  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+  const periodStart = await getQuotaCountStart(supabase, ctx, "practice", config);
 
   const { data, error } = await supabase
     .from("student_question_attempts")
@@ -306,7 +364,9 @@ export async function countNewPracticeQuestionsForStudent(
     .in("question_id", uniqueQuestionIds)
     .not("student_practice_session_id", "is", null)
     .is("student_question_set_attempt_id", null)
-    .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
+    .or(
+      "question_answer_option_id.not.is.null,answer_snapshot.not.is.null,is_submitted.eq.true",
+    )
     .gte("attempted_at", periodStart);
 
   if (error) throw new Error(error.message);
@@ -446,7 +506,12 @@ async function checkPracticeSubmitQuota(
 
   if (!hasAnswer) return { allowed: true };
 
-  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+  const countStart = await getQuotaCountStart(
+    supabase,
+    ctx,
+    "practice",
+    config,
+  );
 
   const { data: existing } = await supabase
     .from("student_question_attempts")
@@ -455,13 +520,15 @@ async function checkPracticeSubmitQuota(
     .eq("question_id", questionId)
     .not("student_practice_session_id", "is", null)
     .is("student_question_set_attempt_id", null)
-    .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
-    .gte("attempted_at", periodStart)
+    .or(
+      "question_answer_option_id.not.is.null,answer_snapshot.not.is.null,is_submitted.eq.true",
+    )
+    .gte("attempted_at", countStart)
     .maybeSingle();
 
   if (existing) return { allowed: true };
 
-  const used = await countPracticeUsage(supabase, ctx.studentId, periodStart);
+  const used = await countPracticeUsage(supabase, ctx.studentId, countStart);
   if (used >= limit) {
     return {
       allowed: false,
@@ -499,19 +566,18 @@ async function checkLearnStartQuota(
     };
   }
 
-  const periodStart = getQuotaPeriodStart(period, ctx.timezone).toISOString();
+  const countStart = await getQuotaCountStart(supabase, ctx, "learn", config);
 
   const { data: existing } = await supabase
     .from("ucat_student_learning_module_progress")
     .select("id")
     .eq("student_id", ctx.studentId)
     .eq("learning_module_id", lessonId)
-    .gte("started_at", periodStart)
     .maybeSingle();
 
   if (existing) return { allowed: true };
 
-  const used = await countLearnStarts(supabase, ctx.studentId, periodStart);
+  const used = await countLearnStarts(supabase, ctx.studentId, countStart);
   if (used >= limit) {
     return {
       allowed: false,

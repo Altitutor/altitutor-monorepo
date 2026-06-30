@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type {
   QuestionEngineExam,
@@ -14,14 +14,6 @@ import {
   QuotaExceededError,
   assertOkOrQuotaExceeded,
 } from "@/lib/ucat/quota/parse-quota-error";
-
-type CreateMockAttemptResponse = {
-  id: string;
-};
-
-type CreateSetAttemptResponse = {
-  id: string;
-};
 
 type QuestionAttemptMode =
   | "question"
@@ -37,10 +29,10 @@ type UpsertQuestionAttemptInput = {
   questionId: string;
   questionAnswerOptionId: string | null;
   answerSnapshot?: unknown;
-  timeSpentSeconds?: number | null;
   isFlagged?: boolean;
   wasTimed?: boolean;
   mode?: QuestionAttemptMode;
+  submittedByStem?: boolean;
 };
 
 type CompleteSetAttemptInput = {
@@ -99,37 +91,6 @@ function getWasTimedForSet(
   return false;
 }
 
-function getWasTimedForSetId(
-  mode: QuestionEngineMode,
-  exam: QuestionEngineExam | undefined,
-  questionSetId: string,
-): boolean {
-  if (!exam) return false;
-  if (mode === "set") {
-    const limit = exam.setModeTiming?.setTimeLimitSeconds ?? 0;
-    return limit > 0;
-  }
-  if (mode === "mock" && exam.mockTimingSegments) {
-    const firstQuestion = exam.questions.find(
-      (q) => q.questionSetId === questionSetId,
-    );
-    if (!firstQuestion) return false;
-    const questionIndex = exam.questions.findIndex(
-      (q) => q.id === firstQuestion.id,
-    );
-    if (questionIndex < 0) return false;
-    const segment = exam.mockTimingSegments.find(
-      (s) =>
-        s.type === "questions" &&
-        questionIndex >= s.questionStartIndex &&
-        questionIndex <= s.questionEndIndex,
-    );
-    if (!segment || segment.type !== "questions") return false;
-    return (segment.timeLimitSeconds ?? 0) > 0;
-  }
-  return false;
-}
-
 function toDbMode(mode: QuestionEngineMode): QuestionAttemptMode {
   switch (mode) {
     case "questionStem":
@@ -152,6 +113,7 @@ export function useQuestionEnginePersistence({
   practiceSessionId,
   learningModuleBlockId,
   onLearnProgress,
+  disableQuestionAttemptLogging = false,
   examAttemptManaged = false,
   managedExamAttempt = null,
 }: {
@@ -161,6 +123,7 @@ export function useQuestionEnginePersistence({
   practiceSessionId?: string | null;
   learningModuleBlockId?: string | null;
   onLearnProgress?: () => void;
+  disableQuestionAttemptLogging?: boolean;
   /** When true, set/mock attempts are created by exam-attempt lifecycle only. */
   examAttemptManaged?: boolean;
   managedExamAttempt?: {
@@ -187,62 +150,6 @@ export function useQuestionEnginePersistence({
   const attemptStateRef = useRef<SetAttemptState>({
     mockAttemptId: null,
     setAttemptIdsBySetId: new Map(),
-  });
-
-  const examSourceSetId = useMemo(() => {
-    if (!exam) return null;
-    if (mode === "set") {
-      return exam.sourceId;
-    }
-    return null;
-  }, [exam, mode]);
-
-  const createMockAttempt = useMutation<
-    CreateMockAttemptResponse,
-    Error,
-    { mockId: string }
-  >({
-    mutationFn: async ({ mockId }) => {
-      const response = await fetch("/api/ucat/mock-attempts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ mockId }),
-      });
-      if (!response.ok) {
-        await assertOkOrQuotaExceeded(response);
-        throw new Error("Failed to create mock attempt");
-      }
-      return response.json();
-    },
-    onError: handleQuotaError,
-  });
-
-  const createSetAttempt = useMutation<
-    CreateSetAttemptResponse,
-    Error,
-    { questionSetId: string; mockAttemptId?: string | null; wasTimed?: boolean }
-  >({
-    mutationFn: async ({ questionSetId, mockAttemptId, wasTimed }) => {
-      const response = await fetch("/api/ucat/set-attempts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionSetId,
-          mockAttemptId: mockAttemptId ?? null,
-          wasTimed: wasTimed ?? false,
-        }),
-      });
-      if (!response.ok) {
-        await assertOkOrQuotaExceeded(response);
-        throw new Error("Failed to create set attempt");
-      }
-      return response.json();
-    },
-    onError: handleQuotaError,
   });
 
   const upsertQuestionAttempt = useMutation<
@@ -358,133 +265,6 @@ export function useQuestionEnginePersistence({
     },
   });
 
-  useEffect(() => {
-    if (!isStudentEngine || examAttemptManaged) return;
-    if (!exam) return;
-
-    if (mode === "set") {
-      if (!examSourceSetId) return;
-      const existingSetAttemptId =
-        attemptStateRef.current.setAttemptIdsBySetId.get(examSourceSetId);
-      if (existingSetAttemptId || createSetAttempt.isPending) return;
-
-      const wasTimed = getWasTimedForSetId(mode, exam, examSourceSetId);
-      createSetAttempt.mutate(
-        { questionSetId: examSourceSetId, mockAttemptId: null, wasTimed },
-        {
-          onSuccess: (data) => {
-            attemptStateRef.current.setAttemptIdsBySetId.set(
-              examSourceSetId,
-              data.id,
-            );
-          },
-        },
-      );
-      return;
-    }
-
-    if (mode === "mock") {
-      if (!exam.sourceId) return;
-      if (attemptStateRef.current.mockAttemptId || createMockAttempt.isPending)
-        return;
-
-      createMockAttempt.mutate(
-        { mockId: exam.sourceId },
-        {
-          onSuccess: (data) => {
-            attemptStateRef.current.mockAttemptId = data.id;
-          },
-        },
-      );
-    }
-  }, [
-    exam,
-    examSourceSetId,
-    mode,
-    isStudentEngine,
-    examAttemptManaged,
-    createSetAttempt,
-    createMockAttempt,
-  ]);
-
-  const ensureSetAttemptForQuestion = useCallback(
-    (question: QuestionItem | undefined): string | null => {
-      if (!isStudentEngine) return null;
-      if (!exam || !question) return null;
-
-      const setId = question.questionSetId;
-      const existingId =
-        attemptStateRef.current.setAttemptIdsBySetId.get(setId);
-      if (existingId) return existingId;
-
-      if (mode === "mock") {
-        if (!attemptStateRef.current.mockAttemptId) {
-          if (
-            !examAttemptManaged &&
-            exam.sourceId &&
-            !createMockAttempt.isPending &&
-            !attemptStateRef.current.mockAttemptId
-          ) {
-            createMockAttempt.mutate(
-              { mockId: exam.sourceId },
-              {
-                onSuccess: (data) => {
-                  attemptStateRef.current.mockAttemptId = data.id;
-                },
-              },
-            );
-          }
-          return null;
-        }
-
-        const mockAttemptId = attemptStateRef.current.mockAttemptId;
-        const wasTimed = getWasTimedForSetId(mode, exam, setId);
-        createSetAttempt.mutate(
-          { questionSetId: setId, mockAttemptId, wasTimed },
-          {
-            onSuccess: (data) => {
-              attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id);
-            },
-          },
-        );
-        return null;
-      }
-
-      if (mode === "set") {
-        if (examAttemptManaged) {
-          return (
-            attemptStateRef.current.setAttemptIdsBySetId.get(setId) ?? null
-          );
-        }
-        if (!createSetAttempt.isPending) {
-          const wasTimed = getWasTimedForSetId(mode, exam, setId);
-          createSetAttempt.mutate(
-            { questionSetId: setId, mockAttemptId: null, wasTimed },
-            {
-              onSuccess: (data) => {
-                attemptStateRef.current.setAttemptIdsBySetId.set(
-                  setId,
-                  data.id,
-                );
-              },
-            },
-          );
-        }
-        return null;
-      }
-
-      return null;
-    },
-    [
-      exam,
-      isStudentEngine,
-      mode,
-      createSetAttempt,
-      createMockAttempt,
-      examAttemptManaged,
-    ],
-  );
-
   const withLearnContext = useCallback(
     (input: UpsertQuestionAttemptInput): UpsertQuestionAttemptInput => {
       if (!learningModuleBlockId) return input;
@@ -506,6 +286,7 @@ export function useQuestionEnginePersistence({
     isFlagged: boolean,
   ) {
     if (!isStudentEngine) return;
+    if (disableQuestionAttemptLogging) return;
     if (!exam) return;
 
     const question = findQuestion(exam, questionId);
@@ -553,10 +334,9 @@ export function useQuestionEnginePersistence({
 
     if (!question) return;
 
-    const setAttemptIdExisting =
-      attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId);
     const setAttemptId =
-      setAttemptIdExisting ?? ensureSetAttemptForQuestion(question);
+      attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId) ??
+      null;
     if (!setAttemptId) return;
 
     const wasTimed = getWasTimedForSet(mode, exam, question);
@@ -567,227 +347,6 @@ export function useQuestionEnginePersistence({
       mode: toDbMode(mode),
     });
   }
-
-  const questionTimingRef = useRef<{
-    currentQuestionId: string | null;
-    startedAt: number | null;
-    accumulatedSecondsByQuestionId: Map<string, number>;
-  }>({
-    currentQuestionId: null,
-    startedAt: null,
-    accumulatedSecondsByQuestionId: new Map(),
-  });
-
-  useEffect(() => {
-    if (!isStudentEngine) return;
-    if (!exam) return;
-
-    if (state.phase !== "question") {
-      const t = questionTimingRef.current;
-      if (t.currentQuestionId && t.startedAt != null) {
-        const elapsedSeconds = Math.max(
-          0,
-          Math.round((Date.now() - t.startedAt) / 1000),
-        );
-        const prevTotal =
-          t.accumulatedSecondsByQuestionId.get(t.currentQuestionId) ?? 0;
-        const newTotal = prevTotal + elapsedSeconds;
-        t.accumulatedSecondsByQuestionId.set(t.currentQuestionId, newTotal);
-        const prevAnswerOptionId = state.selectedAnswers[t.currentQuestionId];
-        const question = findQuestion(exam, t.currentQuestionId);
-        const syllogismSnapshot = (
-          state as QuestionEngineState & {
-            syllogismSnapshots?: Record<string, Record<string, boolean>>;
-          }
-        ).syllogismSnapshots?.[t.currentQuestionId];
-        const hasSyllogismAnswer =
-          question?.questionType === "syllogism" &&
-          syllogismSnapshot &&
-          Object.keys(syllogismSnapshot).length > 0;
-        const setAttemptId = question
-          ? (attemptStateRef.current.setAttemptIdsBySetId.get(
-              question.questionSetId,
-            ) ?? ensureSetAttemptForQuestion(question))
-          : null;
-        const canRecord =
-          (prevAnswerOptionId || hasSyllogismAnswer) &&
-          question &&
-          (setAttemptId || practiceSessionId || learningModuleBlockId);
-
-        if (canRecord) {
-          const isFlagged = state.flaggedIds.includes(t.currentQuestionId);
-          const isSyllogism = question.questionType === "syllogism";
-          const wasTimed = practiceSessionId
-            ? false
-            : getWasTimedForSet(mode, exam, question);
-          const base: UpsertQuestionAttemptInput = withLearnContext({
-            studentQuestionSetAttemptId: setAttemptId ?? null,
-            studentPracticeSessionId: practiceSessionId ?? undefined,
-            questionId: t.currentQuestionId,
-            questionAnswerOptionId: isSyllogism
-              ? null
-              : (prevAnswerOptionId ?? null),
-            timeSpentSeconds: newTotal,
-            isFlagged,
-            answerSnapshot: undefined,
-            wasTimed,
-            mode: toDbMode(mode),
-          });
-          if (isSyllogism && syllogismSnapshot) {
-            base.answerSnapshot = {
-              type: "syllogism_v1",
-              answers: Object.entries(syllogismSnapshot).map(
-                ([optionId, value]) => ({
-                  question_answer_option_id: optionId,
-                  answer: value,
-                }),
-              ),
-            };
-          }
-          upsertQuestionAttempt.mutate(base);
-        }
-        t.currentQuestionId = null;
-        t.startedAt = null;
-      }
-      return;
-    }
-
-    const questions = exam.questions;
-    if (!questions.length) return;
-
-    const currentQuestion = questions[state.currentIndex];
-    if (!currentQuestion) return;
-
-    const timing = questionTimingRef.current;
-    const now = Date.now();
-
-    if (
-      timing.currentQuestionId &&
-      timing.startedAt != null &&
-      timing.currentQuestionId !== currentQuestion.id
-    ) {
-      const elapsedSeconds = Math.max(
-        0,
-        Math.round((now - timing.startedAt) / 1000),
-      );
-      const prevTotal =
-        timing.accumulatedSecondsByQuestionId.get(timing.currentQuestionId) ??
-        0;
-      const newTotal = prevTotal + elapsedSeconds;
-      timing.accumulatedSecondsByQuestionId.set(
-        timing.currentQuestionId,
-        newTotal,
-      );
-
-      const prevAnswerOptionId =
-        state.selectedAnswers[timing.currentQuestionId];
-      const isFlagged = state.flaggedIds.includes(timing.currentQuestionId);
-      const question = findQuestion(exam, timing.currentQuestionId);
-      const syllogismSnapshot = (
-        state as QuestionEngineState & {
-          syllogismSnapshots?: Record<string, Record<string, boolean>>;
-        }
-      ).syllogismSnapshots?.[timing.currentQuestionId];
-      const hasSyllogismAnswer =
-        question?.questionType === "syllogism" &&
-        syllogismSnapshot &&
-        Object.keys(syllogismSnapshot).length > 0;
-      const setAttemptIdExisting = question
-        ? attemptStateRef.current.setAttemptIdsBySetId.get(
-            question.questionSetId,
-          )
-        : undefined;
-      const setAttemptId =
-        setAttemptIdExisting ??
-        (question ? ensureSetAttemptForQuestion(question) : null);
-      const canRecord =
-        (prevAnswerOptionId || hasSyllogismAnswer) &&
-        question &&
-        (setAttemptId || practiceSessionId || learningModuleBlockId);
-
-      if (canRecord) {
-        const isSyllogism = question.questionType === "syllogism";
-        const wasTimed = practiceSessionId
-          ? false
-          : getWasTimedForSet(mode, exam, question);
-        const base: UpsertQuestionAttemptInput = withLearnContext({
-          studentQuestionSetAttemptId: setAttemptId ?? null,
-          studentPracticeSessionId: practiceSessionId ?? undefined,
-          questionId: timing.currentQuestionId,
-          questionAnswerOptionId: isSyllogism
-            ? null
-            : (prevAnswerOptionId ?? null),
-          timeSpentSeconds: newTotal,
-          isFlagged,
-          answerSnapshot: undefined,
-          wasTimed,
-          mode: toDbMode(mode),
-        });
-
-        if (isSyllogism && syllogismSnapshot) {
-          base.answerSnapshot = {
-            type: "syllogism_v1",
-            answers: Object.entries(syllogismSnapshot).map(
-              ([optionId, value]) => ({
-                question_answer_option_id: optionId,
-                answer: value,
-              }),
-            ),
-          };
-        }
-
-        upsertQuestionAttempt.mutate(base);
-      }
-    }
-
-    if (timing.currentQuestionId !== currentQuestion.id) {
-      timing.currentQuestionId = currentQuestion.id;
-      timing.startedAt = now;
-    } else if (timing.startedAt == null) {
-      timing.startedAt = now;
-    }
-  }, [
-    state,
-    exam,
-    mode,
-    isStudentEngine,
-    practiceSessionId,
-    learningModuleBlockId,
-    withLearnContext,
-    ensureSetAttemptForQuestion,
-    upsertQuestionAttempt,
-  ]);
-
-  const getQuestionTimeSpentSeconds = useCallback(
-    (questionIds?: Iterable<string>): number => {
-      const timing = questionTimingRef.current;
-      const ids = questionIds ? new Set(questionIds) : null;
-      let total = 0;
-
-      for (const [
-        questionId,
-        seconds,
-      ] of timing.accumulatedSecondsByQuestionId) {
-        if (!ids || ids.has(questionId)) {
-          total += seconds;
-        }
-      }
-
-      if (
-        timing.currentQuestionId &&
-        timing.startedAt != null &&
-        (!ids || ids.has(timing.currentQuestionId))
-      ) {
-        total += Math.max(
-          0,
-          Math.round((Date.now() - timing.startedAt) / 1000),
-        );
-      }
-
-      return total;
-    },
-    [],
-  );
 
   async function handleExamCompleted(): Promise<{
     earnedDiscount: boolean;
@@ -807,83 +366,8 @@ export function useQuestionEnginePersistence({
       return empty;
     }
 
-    const t = questionTimingRef.current;
-    if (t.currentQuestionId && t.startedAt != null) {
-      const elapsedSeconds = Math.max(
-        0,
-        Math.round((Date.now() - t.startedAt) / 1000),
-      );
-      const prevTotal =
-        t.accumulatedSecondsByQuestionId.get(t.currentQuestionId) ?? 0;
-      const newTotal = prevTotal + elapsedSeconds;
-      const prevAnswerOptionId = state.selectedAnswers[t.currentQuestionId];
-      const question = findQuestion(exam, t.currentQuestionId);
-      const syllogismSnapshot = (
-        state as QuestionEngineState & {
-          syllogismSnapshots?: Record<string, Record<string, boolean>>;
-        }
-      ).syllogismSnapshots?.[t.currentQuestionId];
-      const hasSyllogismAnswer =
-        question?.questionType === "syllogism" &&
-        syllogismSnapshot &&
-        Object.keys(syllogismSnapshot).length > 0;
-      const setAttemptId = question
-        ? (attemptStateRef.current.setAttemptIdsBySetId.get(
-            question.questionSetId,
-          ) ?? ensureSetAttemptForQuestion(question))
-        : null;
-
-      if (
-        (prevAnswerOptionId || hasSyllogismAnswer) &&
-        question &&
-        setAttemptId
-      ) {
-        const isFlagged = state.flaggedIds.includes(t.currentQuestionId);
-        const isSyllogism = question.questionType === "syllogism";
-        const wasTimed = getWasTimedForSet(mode, exam, question);
-        const base: UpsertQuestionAttemptInput = {
-          studentQuestionSetAttemptId: setAttemptId,
-          questionId: t.currentQuestionId,
-          questionAnswerOptionId: isSyllogism
-            ? null
-            : (prevAnswerOptionId ?? null),
-          timeSpentSeconds: newTotal,
-          isFlagged,
-          answerSnapshot: undefined,
-          wasTimed,
-          mode: toDbMode(mode),
-        };
-        if (isSyllogism && syllogismSnapshot) {
-          base.answerSnapshot = {
-            type: "syllogism_v1",
-            answers: Object.entries(syllogismSnapshot).map(
-              ([optionId, value]) => ({
-                question_answer_option_id: optionId,
-                answer: value,
-              }),
-            ),
-          };
-        }
-        await upsertQuestionAttempt.mutateAsync(base);
-      }
-    }
-
     const setIds = new Set<string>();
     exam.questions.forEach((q) => setIds.add(q.questionSetId));
-
-    for (const setId of setIds) {
-      const existing = attemptStateRef.current.setAttemptIdsBySetId.get(setId);
-      if (!existing && !examAttemptManaged) {
-        const wasTimed = getWasTimedForSetId(mode, exam, setId);
-        const data = await createSetAttempt.mutateAsync({
-          questionSetId: setId,
-          mockAttemptId:
-            mode === "mock" ? attemptStateRef.current.mockAttemptId : null,
-          wasTimed,
-        });
-        attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id);
-      }
-    }
 
     if (examAttemptManaged && managedExamAttempt) {
       if (
@@ -914,6 +398,7 @@ export function useQuestionEnginePersistence({
     }
 
     if (mode === "set" || mode === "mock") {
+      const answerUpserts: UpsertQuestionAttemptInput[] = [];
       for (const question of exam.questions) {
         const setAttemptId =
           attemptStateRef.current.setAttemptIdsBySetId.get(
@@ -953,8 +438,11 @@ export function useQuestionEnginePersistence({
             ),
           };
         }
-        await upsertQuestionAttempt.mutateAsync(base);
+        answerUpserts.push(base);
       }
+      await Promise.all(
+        answerUpserts.map((input) => upsertQuestionAttempt.mutateAsync(input)),
+      );
     }
 
     const setAttemptIds = Array.from(setIds)
@@ -1012,20 +500,58 @@ export function useQuestionEnginePersistence({
     };
   }
 
-  function recordAnswersForUnit(startIndex: number, endIndex: number): void {
+  async function recordAnswersForUnit(
+    startIndex: number,
+    endIndex: number,
+  ): Promise<void> {
+    if (disableQuestionAttemptLogging) return;
     if (!exam || !isStudentEngine) return;
     const questions = exam.questions;
-    for (let i = startIndex; i <= endIndex; i++) {
+    const inputs: UpsertQuestionAttemptInput[] = [];
+    for (let i = startIndex; i <= endIndex; i += 1) {
       const q = questions[i];
       if (!q) continue;
       const isFlagged = state.flaggedIds.includes(q.id);
+
+      const base: UpsertQuestionAttemptInput = withLearnContext({
+        studentQuestionSetAttemptId: practiceSessionId ? null : null,
+        studentPracticeSessionId: practiceSessionId ?? undefined,
+        questionId: q.id,
+        questionAnswerOptionId:
+          q.questionType === "syllogism"
+            ? null
+            : (state.selectedAnswers[q.id] ?? null),
+        answerSnapshot: undefined,
+        isFlagged,
+        wasTimed: false,
+        mode: toDbMode(mode),
+        submittedByStem: true,
+      });
+
       if (q.questionType === "syllogism") {
-        recordAnswer(q.id, "", isFlagged);
-      } else {
-        const optId = state.selectedAnswers[q.id] ?? "";
-        recordAnswer(q.id, optId, isFlagged);
+        const snapshot = (
+          state as QuestionEngineState & {
+            syllogismSnapshots?: Record<string, Record<string, boolean>>;
+          }
+        ).syllogismSnapshots?.[q.id];
+
+        if (snapshot) {
+          base.answerSnapshot = {
+            type: "syllogism_v1",
+            answers: Object.entries(snapshot).map(([optionId, value]) => ({
+              question_answer_option_id: optionId,
+              answer: value,
+            })),
+          };
+        }
       }
+
+      inputs.push(base);
     }
+
+    await Promise.all(
+      inputs.map((input) => upsertQuestionAttempt.mutateAsync(input)),
+    );
   }
 
   const attemptIds = useMemo(() => {
@@ -1034,6 +560,23 @@ export function useQuestionEnginePersistence({
         setAttemptId: null as string | null,
         mockAttemptId: null as string | null,
       };
+    if (examAttemptManaged && managedExamAttempt) {
+      if (mode === "set" && managedExamAttempt.kind === "set") {
+        return {
+          setAttemptId:
+            managedExamAttempt.setAttemptIdsBySetId[exam.sourceId] ??
+            managedExamAttempt.attemptId,
+          mockAttemptId: null,
+        };
+      }
+      if (mode === "mock" && managedExamAttempt.kind === "mock") {
+        return {
+          setAttemptId: null,
+          mockAttemptId:
+            managedExamAttempt.mockAttemptId ?? managedExamAttempt.attemptId,
+        };
+      }
+    }
     if (mode === "set") {
       const id =
         attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
@@ -1046,7 +589,7 @@ export function useQuestionEnginePersistence({
       };
     }
     return { setAttemptId: null, mockAttemptId: null };
-  }, [exam, mode]);
+  }, [exam, mode, examAttemptManaged, managedExamAttempt]);
 
   return {
     recordAnswer,
@@ -1055,6 +598,5 @@ export function useQuestionEnginePersistence({
     completePracticeSession,
     attemptIds,
     attemptStateRef,
-    getQuestionTimeSpentSeconds,
   };
 }

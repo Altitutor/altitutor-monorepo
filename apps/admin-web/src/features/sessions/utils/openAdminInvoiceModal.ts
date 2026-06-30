@@ -1,4 +1,4 @@
-/** Opens ViewInvoiceModal via MentionModalProvider (same as mention invoice links). */
+/** Opens ViewInvoiceModal through the root entity modal provider. */
 export function openAdminInvoiceModal(invoiceId: string): void {
   window.dispatchEvent(
     new CustomEvent('mentionClick', {

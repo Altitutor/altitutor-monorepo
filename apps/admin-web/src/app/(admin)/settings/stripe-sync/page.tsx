@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@altitutor/ui';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { StripeSyncTable } from '@/features/stripe-sync/components/StripeSyncTable';
 import { stripeSyncApi } from '@/features/stripe-sync/api/stripe-sync';
+import { SettingsPageHeader } from '@/shared/components';
 
 export default function StripeSyncPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = useState(0);
   const initialStudentId = searchParams.get('studentId');
@@ -36,19 +34,7 @@ export default function StripeSyncPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Stripe Sync</h1>
-        </div>
-      </div>
+      <SettingsPageHeader title="Stripe Sync" />
 
       <StripeSyncTable
         students={students || []}

@@ -22,10 +22,9 @@ import {
   QuotaExceededError,
 } from "@/lib/ucat/quota/parse-quota-error";
 import { sectionLabels } from "@/features/set-generator/model/mock-data";
-import { formatTimeSeconds } from "@/features/progress/lib/format-time";
 import {
   UCAT_CARD_CHROME,
-  UCAT_HEADER_BTN_OUTLINE,
+  UCAT_PRIMARY_ACTION_BUTTON,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -75,6 +74,21 @@ function formatSecondsPerQuestion(seconds: number): string {
   return Number.isInteger(seconds)
     ? `${seconds} sec`
     : `${seconds.toFixed(1)} sec`;
+}
+
+function formatPracticeDuration(seconds: number): string {
+  const rounded = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const remainingSeconds = rounded % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function buildPracticeSessionTitle({
@@ -182,16 +196,18 @@ function PracticeSessionStatsCards({
           <dl className="space-y-2 text-sm">
             <InlineStatRow
               label="Session time"
-              value={formatTimeSeconds(elapsedSeconds)}
+              value={formatPracticeDuration(elapsedSeconds)}
             />
             <InlineStatRow
               label="Question time"
-              value={formatTimeSeconds(answeredTimeSeconds)}
+              value={formatPracticeDuration(answeredTimeSeconds)}
             />
             <InlineStatRow
               label="Average time / question"
               value={
-                averageSeconds != null ? formatTimeSeconds(averageSeconds) : "—"
+                averageSeconds != null
+                  ? formatPracticeDuration(averageSeconds)
+                  : "—"
               }
             />
           </dl>
@@ -205,8 +221,7 @@ function PracticeSessionStatsCards({
           <CardContent className="pt-0">
             <Button
               type="button"
-              variant="outline"
-              className={cn("w-full justify-start", UCAT_HEADER_BTN_OUTLINE)}
+              className={cn(UCAT_PRIMARY_ACTION_BUTTON, "w-full")}
               onClick={onFinishPractice}
             >
               Finish practice

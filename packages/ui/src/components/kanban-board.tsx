@@ -1052,7 +1052,7 @@ function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: S
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-[var(--radius)] transition-shadow hover:shadow-md',
+        'group relative rounded-[var(--radius)] transition-colors hover:bg-muted/40',
         isDragging && 'opacity-30'
       )}
       {...attributes}

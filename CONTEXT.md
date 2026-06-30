@@ -50,6 +50,9 @@
 - **UCAT exam timing segment** — One timed or untimed portion of an exam attempt with its own rules and optional server countdown. Examples: set instructions, set questions, one mock set’s instructions, one mock set’s questions, one practice question unit (single question or whole stem). Timed segments store a server `ends_at` while active; untimed segments have no countdown. The server clock applies to the **current segment only**, not the whole mock or practice session in one lump.
   _Avoid_: Whole-exam timer, session timeout
 
+- **UCAT question active time** — The time attributed to a question while it is the student's current question in an exam timing segment. It continues while the browser tab is backgrounded, pauses only when the student moves to another question or leaves the question segment, and resumes from the accumulated value when the student returns to that question.
+  _Avoid_: Visible time, focus time, dwell time
+
 - **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **finalize** it (submit scoring with answers so far) and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
   _Avoid_: Multiple drafts, parallel mocks
 
@@ -62,8 +65,14 @@
 - **UCAT exam attempt resume snapshot** — Server-persisted JSON of question-engine state for an incomplete attempt: phase, segment position, question index, visited and flagged questions, selected answers, syllogism snapshots, practice-specific position, and current segment `ends_at` when timed. Updated as the student works so reload, new device, or explicit resume restores the same screen. Answer rows in `student_question_attempts` are kept in sync for scoring; the snapshot is the source of truth for UI position.
   _Avoid_: Session storage only, client-only state
 
-- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, timer catch-up forces finalization on the current stem, or they choose **finalize** from the in-progress dialog. Submitting individual stems (answer + feedback) does not complete the session; the student may continue or resume the same session across visits.
+- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done** or chooses **finalize** from the in-progress dialog. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits.
   _Avoid_: Per-stem session, practice attempt per question
+
+- **UCAT Free quota reset entitlement** — A student-held entitlement that a student may explicitly use before its expiry date to make all UCAT Free quota areas count usage from the reset moment rather than from the normal quota-period start. The expiry date lasts until the end of that calendar day in the student's timezone. A student may hold multiple reset entitlements; when they use one, the entitlement expiring soonest is consumed first. It is visible with the student's Free quota status even before they hit a quota wall, is never used silently, and does not delete exam, practice, learn, or trainer history.
+  _Avoid_: Admin reset, quota deletion, free quota override
+
+- **Admin UCAT quota reset** — A staff-only corrective action that immediately resets a selected student's current UCAT Free quota usage for one quota area. It is an operational adjustment tool, not a student-held entitlement and not a Pro access grant.
+  _Avoid_: Quota reset entitlement, Force Pro, manual online access
 
 - **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
   _Avoid_: In progress tab, session storage resume
@@ -85,7 +94,7 @@
 - **Learning module folder** — A learning module that contains only child learning modules in display order. Has no content blocks. Completion progress is derived from its descendants. Browsing or expanding folders does not consume UCAT Free learn quota.
   _Avoid_: Category, module group, container node
 
-- **Learning module lesson** — A learning module that contains only ordered content blocks. Has no child modules. The student lesson view (`/learn/{id}`) applies to lessons only. First open of a lesson in the current quota period consumes one UCAT Free learn quota unit; returning to the same lesson in the same period does not consume again. Tutors configure **lesson display mode** per lesson: **scroll** (all blocks on one page with TOC anchor jumps) or **stepped** (one block at a time with previous/next navigation). Gating (`require_completion_before_next`) applies in both modes — in scroll mode, TOC jumps to a block are blocked until prior gated blocks are complete.
+- **Learning module lesson** — A learning module that contains only ordered content blocks. Has no child modules. The student lesson view (`/learn/{id}`) applies to lessons only. First open of a never-before-viewed lesson in the current quota period consumes one UCAT Free learn quota unit; returning to any previously viewed lesson does not consume future learn quota. Tutors configure **lesson display mode** per lesson: **scroll** (all blocks on one page with TOC anchor jumps) or **stepped** (one block at a time with previous/next navigation). Gating (`require_completion_before_next`) applies in both modes — in scroll mode, TOC jumps to a block are blocked until prior gated blocks are complete.
   _Avoid_: Learning unit, module page, lesson node
 
 - **Learning module lesson display mode** — Tutor-authored setting on each lesson. **Scroll:** all blocks visible on one scrollable page; table of contents jumps to in-page anchors. **Stepped:** one block visible at a time; footer previous/next moves between blocks. Default for new lessons: stepped.
@@ -170,6 +179,9 @@
 
 - **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
   _Avoid_: Individual question playlist, skill trainer set
+
+- **UCAT set instruction section** — The UCAT section whose instructions are shown before a question set. For a multi-section set, this is the section represented by the largest number of stems in that set; ties use the earliest canonical UCAT section order. Its instruction content and instruction timing define the set's instructions segment.
+  _Avoid_: First stem section, arbitrary section
 
 - **Stem not in another set** — A question stem that is not included in any other non-deleted, staff-authored UCAT question set. Student-generated sets do not count; private staff-authored sets do count.
   _Avoid_: Unused question, not attempted, public-only set membership
@@ -343,10 +355,10 @@
 - **Manual online access override** — An admin-granted setting on a student that overrides their Stripe-derived online tier. Values: **Default** (follow Stripe), **Force Free** (UCAT Free even if subscribed), **Force Unlimited** (UCAT Unlimited without a subscription), **Force Pro** (paid UCAT Pro entitlements including human-support, without a subscription). Unlimited trial cannot be forced. Independent of in-person access. No legacy subscriber migration is required — UCAT paid subscriptions are greenfield.
   _Avoid_: Manual grant, comp access
 
-- **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions submitted), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (attempts started). A quota of zero disables that area for UCAT Free students.
+- **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions on submitted practice stems), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (attempts started). A quota of zero disables that area for UCAT Free students.
   _Avoid_: Usage limit, rate limit
 
-- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: first submit on a unique question ID within the period. Sets, mocks, learn modules, and skill trainer attempts: when the attempt is started. Consumption timing is independent per area.
+- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: each new unique question on a submitted practice stem counts, including unanswered questions on that stem. Learn: each never-before-viewed lesson first opened during the quota period counts; reopening a started or complete lesson does not count again in any future period. Sets, mocks, and skill trainer attempts: when the attempt is started. Consumption timing is independent per area.
   _Avoid_: Usage event, quota hit
 
 - **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: fixed practice may start only within the remaining new unique question allowance for the quota period; if the selected batch is larger, the student may confirm a reduced batch capped at that remaining allowance. Unlimited practice lets the student finish all questions on the currently delivered stem, including answers and feedback, then blocks fetching the next stem once the allowance is exhausted. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt to finish; block starting the next one.

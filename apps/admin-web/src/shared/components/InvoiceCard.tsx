@@ -4,7 +4,7 @@ import React from 'react';
 import { FileText, Calendar, CreditCard } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatDate } from '@/shared/utils/datetime';
-import { cn } from '@/shared/utils';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 
 interface InvoiceCardProps {
@@ -34,8 +34,9 @@ export function InvoiceCard({
   return (
     <div
       className={cn(
-        'relative border rounded-lg transition-colors p-3 bg-card overflow-hidden',
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : '',
+        'group relative overflow-hidden rounded-lg border bg-card p-3 transition-all',
+        onClick && 'cursor-pointer',
+        onClick && clickableCardInteractiveCn,
         className
       )}
       onClick={onClick}

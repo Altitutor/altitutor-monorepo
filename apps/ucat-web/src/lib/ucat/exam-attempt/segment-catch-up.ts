@@ -8,6 +8,7 @@ import {
   getNextMockSegment,
   getNextSetSegmentFromReview,
 } from "@/lib/ucat/exam-attempt/timing";
+import { getStemBoundaries } from "@/features/question-engine/lib/practice";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
 
 export type CatchUpResult = {
@@ -37,6 +38,7 @@ function toSnapshot(state: QuestionEngineState): ExamEngineSnapshot {
     viewingQuestionIndex: state.viewingQuestionIndex,
     loadingMoreTargetIndex: state.loadingMoreTargetIndex,
     loadingMoreExcludeStemIds: state.loadingMoreExcludeStemIds,
+    activeQuestionTiming: state.activeQuestionTiming,
   };
 }
 
@@ -48,11 +50,23 @@ function advanceOneSegmentExpiry(
 ): CatchUpResult {
   const working = { ...state, showTimeExpiredDialog: false };
   const nextSegmentStartsAt = new Date(expiredEndsAt).getTime();
+  working.activeQuestionTiming = null;
 
   if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
     if (practice) {
+      const { startIndex, endIndex } = getStemBoundaries(
+        exam.questions,
+        working.currentIndex,
+        exam.sourceType,
+      );
       return {
-        state: { ...working, phase: "practiceComplete" },
+        state: {
+          ...working,
+          phase: "practiceAnswer",
+          practiceAnswerUnitStartIndex: startIndex,
+          practiceAnswerUnitEndIndex: endIndex,
+          viewingQuestionIndex: startIndex,
+        },
         currentSegmentEndsAt: null,
         isComplete: false,
       };

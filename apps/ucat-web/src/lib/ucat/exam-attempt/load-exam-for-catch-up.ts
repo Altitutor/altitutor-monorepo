@@ -8,6 +8,7 @@ import type {
   StoredExamSnapshot,
   StoredExamTiming,
 } from "@/lib/ucat/exam-attempt/service";
+import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 
 type ReaderClient = SupabaseClient;
 
@@ -16,6 +17,45 @@ function hasInstructionsContent(value: unknown): boolean {
   if (typeof value === "string") return value.trim().length > 0;
   if (typeof value === "object") return Object.keys(value as object).length > 0;
   return false;
+}
+
+type StemInstructionRow = {
+  id: string;
+  section_name: string | null;
+  section_instructions_text?: unknown;
+  section_instructions_time_limit_seconds: number | null;
+};
+
+function selectInstructionStem(
+  stems: Array<{ stem_id: string }>,
+  stemRows: StemInstructionRow[],
+): StemInstructionRow | null {
+  const stemById = new Map(stemRows.map((stem) => [stem.id, stem]));
+  const countsBySection = new Map<string, number>();
+  const firstStemBySection = new Map<string, StemInstructionRow>();
+
+  for (const stemMeta of stems) {
+    const stem = stemById.get(stemMeta.stem_id);
+    if (!stem?.section_name) continue;
+    countsBySection.set(
+      stem.section_name,
+      (countsBySection.get(stem.section_name) ?? 0) + 1,
+    );
+    if (!firstStemBySection.has(stem.section_name)) {
+      firstStemBySection.set(stem.section_name, stem);
+    }
+  }
+
+  const selectedSection = [...countsBySection.entries()].sort(
+    ([aName, aCount], [bName, bCount]) =>
+      bCount - aCount ||
+      (SECTION_NAME_TO_NUMBER[aName] ?? Number.MAX_SAFE_INTEGER) -
+        (SECTION_NAME_TO_NUMBER[bName] ?? Number.MAX_SAFE_INTEGER),
+  )[0]?.[0];
+
+  return selectedSection
+    ? (firstStemBySection.get(selectedSection) ?? null)
+    : null;
 }
 
 function stubQuestions(count: number, setId = ""): QuestionItem[] {
@@ -78,19 +118,23 @@ async function loadSetExamForCatchUp(
     .eq("id", setId)
     .maybeSingle();
 
-
   if (error || !setDetail) return null;
 
   const stems = (setDetail.stems ?? []) as Array<{ stem_id: string }>;
-  const firstStemId = stems[0]?.stem_id;
   let instructionsTimeLimitSeconds: number | null = null;
 
-  if (firstStemId) {
-    const { data: stem } = await reader
+  if (stems.length > 0) {
+    const { data: stemRows } = await reader
       .from("vstudent_ucat_question_stem_detail")
-      .select("section_instructions_time_limit_seconds")
-      .eq("id", firstStemId)
-      .maybeSingle();
+      .select("id, section_name, section_instructions_time_limit_seconds")
+      .in(
+        "id",
+        stems.map((stem) => stem.stem_id),
+      );
+    const stem = selectInstructionStem(
+      stems,
+      (stemRows ?? []) as StemInstructionRow[],
+    );
     instructionsTimeLimitSeconds =
       stem?.section_instructions_time_limit_seconds ?? null;
   }
@@ -161,19 +205,24 @@ async function loadMockExamForCatchUp(
       stem_id: string;
       questions_meta: Array<{ id: string }>;
     }>;
-    const firstStemId = stems[0]?.stem_id;
     let instructionsTimeLimitSeconds: number | null = null;
     let sectionInstructionsJson: Record<string, unknown> | null = null;
     let hasInstructions = false;
 
-    if (firstStemId) {
-      const { data: stem } = await reader
+    if (stems.length > 0) {
+      const { data: stemRows } = await reader
         .from("vstudent_ucat_question_stem_detail")
         .select(
-          "section_instructions_text, section_instructions_time_limit_seconds",
+          "id, section_name, section_instructions_text, section_instructions_time_limit_seconds",
         )
-        .eq("id", firstStemId)
-        .maybeSingle();
+        .in(
+          "id",
+          stems.map((stem) => stem.stem_id),
+        );
+      const stem = selectInstructionStem(
+        stems,
+        (stemRows ?? []) as StemInstructionRow[],
+      );
       hasInstructions = hasInstructionsContent(
         stem?.section_instructions_text,
       );
@@ -188,8 +237,7 @@ async function loadMockExamForCatchUp(
     }
 
     const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
-    const isSetTimed =
-      setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
+    const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
 
     if (hasInstructions) {
       instructionsScreens.push({

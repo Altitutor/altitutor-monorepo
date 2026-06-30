@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialog,
 } from '@altitutor/ui';
-import { Plus, Trash2, Loader2, ArrowUpDown, Shield } from 'lucide-react';
+import { Plus, Loader2, ArrowUpDown, Shield } from 'lucide-react';
 import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import {
@@ -41,6 +41,7 @@ import {
   useManualOnlineAccessTable,
   type ManualOnlineAccessSearchScope,
 } from '../hooks/useManualOnlineAccessTable';
+import { SettingsTableActions } from '@/shared/components';
 
 export function UcatOnlineAccessPageContent() {
   const { toast } = useToast();
@@ -352,7 +353,7 @@ export function UcatOnlineAccessPageContent() {
                 </TableHead>
               )}
               {state.visibleColumns.includes('notes') && <TableHead>Notes</TableHead>}
-              <TableHead className="w-[100px] text-right">Actions</TableHead>
+              <TableHead className="w-[56px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -418,16 +419,17 @@ export function UcatOnlineAccessPageContent() {
                       </TableCell>
                     )}
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        aria-label="Remove access"
-                        onClick={() => setRevokeId(row.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <SettingsTableActions
+                        className="flex justify-end"
+                        actions={[
+                          {
+                            id: 'remove-access',
+                            label: 'Remove access',
+                            destructive: true,
+                            onSelect: () => setRevokeId(row.id),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );

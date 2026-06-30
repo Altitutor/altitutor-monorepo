@@ -30,6 +30,7 @@ import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
+  WIZARD_DIALOG_HEIGHT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 
@@ -150,6 +151,22 @@ export function EditTutorLogDialog({
     [tutorLog?.session_id]
   );
 
+  const handleRemoveStaffFromSession = useCallback(
+    async (staffId: string) => {
+      if (!tutorLog?.session_id) return;
+      await sessionsApi.removeStaffFromSession(tutorLog.session_id, staffId);
+    },
+    [tutorLog?.session_id]
+  );
+
+  const handleRemoveStudentFromSession = useCallback(
+    async (studentId: string) => {
+      if (!tutorLog?.session_id) return;
+      await sessionsApi.removeStudentFromSession(tutorLog.session_id, studentId);
+    },
+    [tutorLog?.session_id]
+  );
+
   const isClassSessionType = tutorLog?.session?.type === 'CLASS';
 
   useEffect(() => {
@@ -258,9 +275,9 @@ export function EditTutorLogDialog({
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
         )}
       >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
@@ -340,6 +357,14 @@ export function EditTutorLogDialog({
                       staffAttendance={formData.staffAttendance || []}
                       onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
                       onAddStaffToSession={handleAddStaffToSession}
+                      onRemoveStaffFromSession={async (staffId) => {
+                        await handleRemoveStaffFromSession(staffId);
+                        updateFormData({
+                          staffAttendance: (formData.staffAttendance || []).filter(
+                            (a) => a.staffId !== staffId
+                          ),
+                        });
+                      }}
                       addStaffVariant="search"
                     />
                   )}
@@ -365,6 +390,14 @@ export function EditTutorLogDialog({
                       }
                       addStudentVariant="search"
                       onAddStudentToSession={handleAddStudentToSession}
+                      onRemoveStudentFromSession={async (studentId) => {
+                        await handleRemoveStudentFromSession(studentId);
+                        updateFormData({
+                          studentAttendance: (formData.studentAttendance || []).filter(
+                            (a) => a.studentId !== studentId
+                          ),
+                        });
+                      }}
                       onAddParentToSession={handleAddParentToSession}
                       section="students"
                     />

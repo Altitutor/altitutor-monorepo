@@ -10,6 +10,30 @@ import type {
 } from "@/features/subscription/types/ucat-subscription-billing";
 
 type InvoiceRow = Database["public"]["Views"]["vstudent_invoices"]["Row"];
+type SubscriptionRow =
+  Database["public"]["Views"]["vstudent_subscriptions"]["Row"];
+type SelectedSubscriptionRow = Pick<
+  SubscriptionRow,
+  | "id"
+  | "status"
+  | "current_period_start"
+  | "current_period_end"
+  | "cancel_at_period_end"
+  | "cancel_at"
+  | "stripe_subscription_id"
+  | "stripe_price_id"
+  | "plan_tier"
+  | "billing_interval"
+  | "created_at"
+  | "updated_at"
+>;
+
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
+  "trialing",
+  "active",
+  "past_due",
+  "unpaid",
+]);
 
 async function getUcatSubjectId(
   supabase: SupabaseClient<Database>,
@@ -60,6 +84,66 @@ async function fetchUcatSubscription(
   };
 }
 
+function toSubscriptionRow(
+  subscription: SelectedSubscriptionRow,
+): UcatSubscriptionRow | null {
+  if (
+    !subscription.id ||
+    !subscription.status ||
+    !subscription.stripe_subscription_id
+  ) {
+    return null;
+  }
+
+  return {
+    id: subscription.id,
+    status: subscription.status,
+    current_period_start: subscription.current_period_start,
+    current_period_end: subscription.current_period_end,
+    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    cancel_at: subscription.cancel_at,
+    stripe_subscription_id: subscription.stripe_subscription_id,
+    stripe_price_id: subscription.stripe_price_id,
+    plan_tier: subscription.plan_tier ?? null,
+    billing_interval: subscription.billing_interval ?? null,
+    created_at: subscription.created_at ?? new Date().toISOString(),
+    updated_at: subscription.updated_at ?? new Date().toISOString(),
+  };
+}
+
+async function fetchUcatSubscriptions(
+  supabase: SupabaseClient<Database>,
+): Promise<UcatSubscriptionRow[]> {
+  const ucatSubjectId = await getUcatSubjectId(supabase);
+  if (!ucatSubjectId) return [];
+
+  const { data, error } = await supabase
+    .from("vstudent_subscriptions")
+    .select(
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
+    )
+    .eq("subject_id", ucatSubjectId)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((subscription) => toSubscriptionRow(subscription))
+    .filter((subscription): subscription is UcatSubscriptionRow => {
+      return subscription != null;
+    });
+}
+
+function pickCurrentSubscription(
+  subscriptions: UcatSubscriptionRow[],
+): UcatSubscriptionRow | null {
+  return (
+    subscriptions.find((subscription) =>
+      ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status),
+    ) ?? null
+  );
+}
+
 async function fetchInvoiceItems(
   supabase: SupabaseClient<Database>,
   invoiceId: string,
@@ -100,15 +184,20 @@ function toSubscriptionInvoice(
 
 async function fetchUcatSubscriptionInvoices(
   supabase: SupabaseClient<Database>,
-  subscriptionId: string,
+  subscriptionIds: string[],
 ): Promise<UcatSubscriptionInvoice[]> {
-  const { data: invoices, error } = await supabase
+  let query = supabase
     .from("vstudent_invoices")
     .select("*")
     .eq("billing_source", "subscription")
-    .eq("student_subscription_id", subscriptionId)
     .order("invoice_date", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (subscriptionIds.length > 0) {
+    query = query.in("student_subscription_id", subscriptionIds);
+  }
+
+  const { data: invoices, error } = await query;
 
   if (error) throw error;
 
@@ -131,10 +220,15 @@ async function fetchUcatSubscriptionInvoices(
 export async function fetchSubscriptionBillingForUser(
   supabase: SupabaseClient<Database>,
 ) {
-  const subscription = await fetchUcatSubscription(supabase);
-  const invoices = subscription
-    ? await fetchUcatSubscriptionInvoices(supabase, subscription.id)
-    : [];
+  const subscriptions = await fetchUcatSubscriptions(supabase);
+  const subscription =
+    pickCurrentSubscription(subscriptions) ??
+    (await fetchUcatSubscription(supabase));
+  const subscriptionIds = subscriptions.map((row) => row.id);
+  const invoices = await fetchUcatSubscriptionInvoices(
+    supabase,
+    subscriptionIds,
+  );
 
-  return { subscription, invoices };
+  return { subscription, subscriptions, invoices };
 }

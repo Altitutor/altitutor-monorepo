@@ -11,6 +11,7 @@ import type {
   QuestionEngineMode,
   QuestionItem,
 } from "@/features/question-engine/model/types";
+import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 
 type SetDetailStem = {
   stem_id: string;
@@ -71,6 +72,38 @@ function hasInstructionsContent(value: unknown): boolean {
   const obj = value as Record<string, unknown>;
   const content = obj.content;
   return Array.isArray(content) && content.length > 0;
+}
+
+function selectInstructionStem(
+  set: SetDetailRow,
+  stemDetails: StemDetailRow[],
+): StemDetailRow | null {
+  const stemMap = new Map(stemDetails.map((stem) => [stem.id, stem]));
+  const countsBySection = new Map<string, number>();
+  const firstStemBySection = new Map<string, StemDetailRow>();
+
+  for (const stemMeta of set.stems ?? []) {
+    const stem = stemMap.get(stemMeta.stem_id);
+    if (!stem?.section_name) continue;
+    countsBySection.set(
+      stem.section_name,
+      (countsBySection.get(stem.section_name) ?? 0) + 1,
+    );
+    if (!firstStemBySection.has(stem.section_name)) {
+      firstStemBySection.set(stem.section_name, stem);
+    }
+  }
+
+  const selectedSection = [...countsBySection.entries()].sort(
+    ([aName, aCount], [bName, bCount]) =>
+      bCount - aCount ||
+      (SECTION_NAME_TO_NUMBER[aName] ?? Number.MAX_SAFE_INTEGER) -
+        (SECTION_NAME_TO_NUMBER[bName] ?? Number.MAX_SAFE_INTEGER),
+  )[0]?.[0];
+
+  return selectedSection
+    ? (firstStemBySection.get(selectedSection) ?? null)
+    : null;
 }
 
 type DbQuestionEngineMode = Extract<QuestionEngineMode, "set" | "mock">;
@@ -268,23 +301,23 @@ async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
 
   const questions = mapSetToQuestions(setDetail, stemDetails);
   const instructionsScreens: QuestionEngineExam["instructionsScreens"] = [];
-  const firstStem = stemDetails[0];
+  const instructionStem = selectInstructionStem(setDetail, stemDetails);
   const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
   const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
   if (
-    firstStem &&
-    hasInstructionsContent(firstStem.section_instructions_text)
+    instructionStem &&
+    hasInstructionsContent(instructionStem.section_instructions_text)
   ) {
     instructionsScreens.push({
-      instructionsJson: firstStem.section_instructions_text as Record<
+      instructionsJson: instructionStem.section_instructions_text as Record<
         string,
         unknown
       >,
     });
   }
   const instructionsTimeLimitSeconds =
-    isSetTimed && firstStem
-      ? (firstStem.section_instructions_time_limit_seconds ?? null)
+    isSetTimed && instructionStem
+      ? (instructionStem.section_instructions_time_limit_seconds ?? null)
       : null;
 
   return {
@@ -322,17 +355,22 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
       const questions = mapSetToQuestions(setDetail, stemDetails);
       const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
       const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
-      const firstStem = stemDetails[0];
+      const instructionStem = selectInstructionStem(setDetail, stemDetails);
       const hasInstructions = !!(
-        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
+        instructionStem &&
+        hasInstructionsContent(instructionStem.section_instructions_text)
       );
       const instructionsTimeLimitSeconds =
-        isSetTimed && firstStem
-          ? (firstStem.section_instructions_time_limit_seconds ?? null)
+        isSetTimed && instructionStem
+          ? (instructionStem.section_instructions_time_limit_seconds ?? null)
           : null;
       const sectionInstructionsJson =
-        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
-          ? (firstStem.section_instructions_text as Record<string, unknown>)
+        instructionStem &&
+        hasInstructionsContent(instructionStem.section_instructions_text)
+          ? (instructionStem.section_instructions_text as Record<
+              string,
+              unknown
+            >)
           : null;
       return {
         name:

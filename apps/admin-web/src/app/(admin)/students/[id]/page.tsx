@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import { SendStudentInviteDialog } from '@/features/students/components/SendStudentInviteDialog';
-import { useStudentDetails, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
+import { useStudentDetails } from '@/features/students/hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
   DetailsTab,
@@ -30,12 +30,9 @@ import {
 } from '@/features/students/components/tabs';
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
-import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -52,6 +49,12 @@ import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
+import { AdminLoadingSkeleton } from '@/shared/components';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -60,6 +63,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
@@ -78,7 +82,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const mutations = useStudentMutations({
     studentId: id,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
+      void invalidateStudentDetail(queryClient, id);
       editFlow.reset();
     },
   });
@@ -100,7 +104,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
@@ -136,7 +139,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   };
 
   const handleStudentUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
+    void invalidateStudentDetail(queryClient, id);
   };
 
   // Handle discontinue student. Returns true on success, false otherwise.
@@ -171,7 +174,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         return false;
       }
 
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       handleStudentUpdated();
       toast({
         title: 'Success',
@@ -200,8 +203,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(id) });
-      await queryClient.invalidateQueries({ queryKey: ['students', id, 'classes'] });
+      await invalidateStudentClassSurfaces(queryClient, id);
       setIsEnrollModalOpen(false);
       handleStudentUpdated();
       toast({
@@ -266,28 +268,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     onDelete: modals.openDeleteDialog,
   });
 
-  // Listen for session modal events
-  useEffect(() => {
-    const onOpenSession = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveSessionId(detail.id);
-    };
-    
-    window.addEventListener('open-session-modal', onOpenSession as EventListener);
-    
-    return () => {
-      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
-    };
-  }, []);
-
   if (loadingStudent) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!student) {
@@ -360,11 +342,11 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
             loadingSubjects={false}
             onRemoveSubject={undefined}
-            onViewSubject={modals.openSubjectModal}
+            onViewSubject={entityModals.openSubject}
             addSubjectButton={undefined}
             parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
             onViewParent={(parentId) => {
-              modals.openParentModal(parentId, 'messages');
+              entityModals.openParent(parentId, { defaultTab: 'messages' });
             }}
             onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
             addParentButton={
@@ -429,25 +411,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           <StudentActivityTab studentId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
-
-      {/* Parent Modal */}
-      <ViewParentModal
-        isOpen={modals.parentModalOpen}
-        onClose={modals.closeParentModal}
-        parentId={modals.selectedParentId}
-        onParentUpdated={handleStudentUpdated}
-        defaultTab={modals.parentModalDefaultTab}
-      />
-      
-      {/* Subject Modal */}
-      {modals.selectedSubjectId && (
-        <ViewSubjectModal
-          isOpen={modals.subjectModalOpen}
-          onClose={modals.closeSubjectModal}
-          subjectId={modals.selectedSubjectId}
-          onSubjectUpdated={handleStudentUpdated}
-        />
-      )}
 
       {/* Log Absence Dialog */}
       {currentStaff && (
@@ -525,13 +488,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           </AlertDialogContent>
         </AlertDialog>
       )}
-
-      {/* Session Modal */}
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
 
       {/* Enroll Student Modal */}
       {student && currentStaff && (

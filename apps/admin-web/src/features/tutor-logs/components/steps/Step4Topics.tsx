@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Checkbox } from '@altitutor/ui';
+import { Checkbox, SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
@@ -26,8 +26,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
   const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
 
   // Get subject ID from session data
@@ -100,8 +98,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
         onUpdate([...topics, { topicId, studentIds: [] }]);
       }
     }
-    setSearchTerm('');
-    setShowSearch(false);
   };
 
   if (isLoading) {
@@ -117,6 +113,10 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
       topicCode.toLowerCase().includes(searchLower)
     );
   });
+
+  const availableAdditionalTopics = allTopics.filter(
+    (topic) => topic.subject_id !== subjectId && !isTopicSelected(topic.id)
+  );
 
   const renderFilteredTopicTree = (parentId: string | null, depth: number = 0) => {
     const childTopics = filteredSubjectTopics.filter((t) => t.parent_id === parentId);
@@ -212,52 +212,34 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
         </div>
       )}
 
-      {!showSearch && (
-        <Button variant="outline" onClick={() => setShowSearch(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Topic from Another Subject
-        </Button>
-      )}
-
-      {showSearch && (
-        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search topics..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              autoFocus
-            />
-          </div>
-
-          <div className="max-h-60 overflow-y-auto space-y-1">
-            {allTopics
-              .filter(
-                (topic) =>
-                  !isTopicSelected(topic.id) &&
-                  (searchTerm === '' || topic.name.toLowerCase().includes(searchTerm.toLowerCase()))
-              )
-              .map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => handleAddTopic(topic.id)}
-                  className="w-full text-left p-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded-md transition-colors"
-                >
-                  {topic.name}
-                </button>
-              ))}
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => setShowSearch(false)}>
-            Cancel
+      <SearchableSelect
+        items={availableAdditionalTopics}
+        value={null}
+        onValueChange={(topic) => topic && handleAddTopic(topic.id)}
+        getItemLabel={(topic) => topic.name}
+        getItemId={(topic) => topic.id}
+        getItemValue={(topic) => [topic.name, topic.code ?? ''].filter(Boolean).join(' ')}
+        placeholder="Add topic from another subject"
+        searchPlaceholder="Search topics..."
+        emptyMessage="No topics found"
+        showChevron={false}
+        trigger={
+          <Button type="button" variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Topic from Another Subject
           </Button>
-        </div>
-      )}
+        }
+        contentWidth="min(560px, calc(100vw - 2rem))"
+        renderItem={(topic) => (
+          <div className="min-w-0">
+            <div className="truncate font-medium">{topic.name}</div>
+            {topic.code ? (
+              <div className="truncate text-xs text-muted-foreground">{topic.code}</div>
+            ) : null}
+          </div>
+        )}
+      />
     </div>
   );
 }
-
 

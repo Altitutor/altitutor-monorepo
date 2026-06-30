@@ -254,7 +254,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent
           className={cn(
-            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+            'w-full md:max-w-4xl h-[90vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 gap-0 [&>button]:hidden',
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}
@@ -308,14 +308,14 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden min-h-0">
+          <div className="min-h-0 overflow-hidden">
             {isLoading ? (
               <div className="p-6">Loading project data...</div>
             ) : !project ? (
               <div className="p-6">Project not found</div>
             ) : (
               <Form {...form}>
-                <form className="h-full flex min-w-0">
+                <form className="h-full min-h-0 flex min-w-0 overflow-hidden">
                   <AutoSaveManager
                     form={form}
                     projectId={projectId}
@@ -325,9 +325,8 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                     onSave={handleAutoSave}
                   />
 
-                  <div className="flex-1 flex flex-col min-w-0 border-r">
-                    <ScrollArea className="flex-1 min-w-0 max-w-full">
-                      <div className="p-6 space-y-6">
+                  <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r">
+                    <div className="p-6 space-y-6">
                         <ProjectPropertyPills form={form} enabled={isOpen} />
 
                         <ProjectTitleField
@@ -435,11 +434,10 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </ScrollArea>
+                    </div>
                   </div>
 
-                  <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
+                  <div className="hidden h-full min-h-0 w-80 min-w-[320px] flex-col overflow-hidden border-l md:flex">
                     <div className="flex-1 flex flex-col min-h-0">
                       <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
                         <SegmentedControl
@@ -455,14 +453,14 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
 
                       <div className="flex-1 min-h-0 overflow-hidden">
                         <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
-                          <ScrollArea className="flex-1">
+                          <ScrollArea className="h-full min-h-0 flex-1">
                             <div className="p-6">
                               <ProjectPropertiesFields form={form} />
                             </div>
                           </ScrollArea>
                         </SegmentedTabPanelContent>
                         <SegmentedTabPanelContent when="documents" activeTab={sidebarTab} className="h-full overflow-hidden flex flex-col">
-                          <ScrollArea className="flex-1 min-h-0">
+                          <ScrollArea className="h-full min-h-0 flex-1">
                             <div className="p-2 space-y-0.5">
                               {projectNotes.map((doc) => (
                                 <button

@@ -1,46 +1,90 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { useState } from 'react';
+import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 import { UcatModelConfigForm } from '@/features/ucat-model-config/components/UcatModelConfigForm';
 import { useUcatModelConfig } from '@/features/ucat-model-config/hooks/use-ucat-model-config';
+import type { UcatModelConfigWithSection } from '@/features/ucat-model-config/api/ucat-model-config';
 
 export default function UcatModelConfigPage() {
-  const router = useRouter();
   const { data, isLoading, error } = useUcatModelConfig();
+  const [editingRow, setEditingRow] = useState<UcatModelConfigWithSection | null>(null);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
+
+  const rows = data ?? [];
+  const columns: SettingsDataTableColumn<UcatModelConfigWithSection>[] = [
+    {
+      key: 'section',
+      label: 'Section',
+      render: (row) => <span className="font-medium">{row.sectionName}</span>,
+      sortValue: (row) => row.sectionNumber,
+      searchValue: (row) => row.sectionName,
+    },
+    {
+      key: 'k_prior',
+      label: 'Learning rate prior',
+      render: (row) => row.k_prior,
+      sortValue: (row) => row.k_prior,
+      searchValue: (row) => String(row.k_prior),
+    },
+    {
+      key: 's_inf_uplift',
+      label: 'Ceiling uplift',
+      render: (row) => row.s_inf_uplift,
+      sortValue: (row) => row.s_inf_uplift,
+      searchValue: (row) => String(row.s_inf_uplift),
+    },
+    {
+      key: 'r_noise',
+      label: 'Measurement noise',
+      render: (row) => row.r_noise,
+      sortValue: (row) => row.r_noise,
+      searchValue: (row) => String(row.r_noise),
+    },
+    {
+      key: 'p0',
+      label: 'Initial uncertainty',
+      render: (row) => row.p0,
+      sortValue: (row) => row.p0,
+      searchValue: (row) => String(row.p0),
+    },
+  ];
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">UCAT model config</h1>
-        </div>
-      </div>
+      <SettingsPageHeader title="UCAT model config" />
 
       {error ? <p className="mb-4 text-sm text-destructive">{error.message}</p> : null}
 
-      <div className="grid gap-4">
-        {(data ?? []).map((row) => (
-          <UcatModelConfigForm key={row.id} initial={row} />
-        ))}
-      </div>
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        emptyMessage="No UCAT model config rows found"
+        searchPlaceholder="Search UCAT model config..."
+        filterKeys={[]}
+        defaultSort={{ field: 'section', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingRow(row),
+          },
+        ]}
+      />
+
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow?.sectionName ?? 'Edit UCAT model config'}
+        subtitle={editingRow ? `Section ${editingRow.sectionNumber} cold-start constants` : undefined}
+        contentClassName="md:max-w-3xl"
+      >
+        {editingRow ? <UcatModelConfigForm initial={editingRow} /> : null}
+      </AdminDialogShell>
     </div>
   );
 }

@@ -2,23 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
 } from '@altitutor/ui';
-import { Edit2, Trash2 } from 'lucide-react';
 import type { BlockoutRow } from '../api/blockouts';
 import { useBlockoutForm } from '../hooks/useBlockoutForm';
 import { formatDateRange } from '../utils/dateTimeHelpers';
@@ -26,11 +13,10 @@ import { getStaffNameFromBlockout } from '../utils/blockoutHelpers';
 import type { Tables } from '@altitutor/shared';
 import { StaffSelectorPopover } from './StaffSelectorPopover';
 import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+  AdminDialogShell,
+  SettingsDataTable,
+  type SettingsDataTableColumn,
+} from '@/shared/components';
 
 interface BlockoutDatesTableProps {
   blockouts: BlockoutRow[];
@@ -42,16 +28,6 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
   const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
-  const [editExpanded, setEditExpanded] = useState(false);
-  const [addExpanded, setAddExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!editingBlockout) setEditExpanded(false);
-  }, [editingBlockout]);
-
-  useEffect(() => {
-    if (!isAddDialogOpen) setAddExpanded(false);
-  }, [isAddDialogOpen]);
 
   const {
     staffId,
@@ -126,79 +102,74 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onCreateTrigger]);
 
+  const columns: SettingsDataTableColumn<BlockoutRow>[] = [
+    {
+      key: 'staff',
+      label: 'Staff',
+      render: (blockout) => (
+        <span className="font-medium">{getStaffNameFromBlockout(blockout, blockout.staff_id)}</span>
+      ),
+      sortValue: (blockout) => getStaffNameFromBlockout(blockout, blockout.staff_id),
+      searchValue: (blockout) => getStaffNameFromBlockout(blockout, blockout.staff_id),
+    },
+    {
+      key: 'date_range',
+      label: 'Date Range',
+      render: (blockout) => formatDateRange(blockout.start_at, blockout.end_at),
+      sortValue: (blockout) => blockout.start_at,
+      searchValue: (blockout) => formatDateRange(blockout.start_at, blockout.end_at),
+    },
+    {
+      key: 'reason',
+      label: 'Reason',
+      render: (blockout) => blockout.reason || '-',
+      sortValue: (blockout) => blockout.reason || '',
+      searchValue: (blockout) => blockout.reason || '',
+    },
+  ];
+
   return (
     <>
-      <div className="rounded-md border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Staff</TableHead>
-              <TableHead>Date Range</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {blockouts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No blockouts found
-                </TableCell>
-              </TableRow>
-            ) : (
-              blockouts.map((blockout) => (
-                <TableRow key={blockout.id}>
-                  <TableCell className="font-medium">
-                    {getStaffNameFromBlockout(blockout, blockout.staff_id)}
-                  </TableCell>
-                  <TableCell>{formatDateRange(blockout.start_at, blockout.end_at)}</TableCell>
-                  <TableCell>{blockout.reason || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(blockout)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(blockout.id)}
-                        disabled={deleting === blockout.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <SettingsDataTable
+        data={blockouts}
+        columns={columns}
+        getRowId={(blockout) => blockout.id}
+        emptyMessage="No blockouts found"
+        searchPlaceholder="Search blockouts..."
+        filterKeys={[]}
+        defaultSort={{ field: 'date_range', direction: 'asc' }}
+        getActions={(blockout) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => handleEdit(blockout),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            disabled: deleting === blockout.id,
+            onSelect: () => handleDelete(blockout.id),
+          },
+        ]}
+      />
 
-      {/* Edit Dialog */}
       {editingBlockout && (
-        <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
-          <DialogContent
-            className={cn(
-              EXPANDABLE_DIALOG_TRANSITION,
-              editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-            )}
-          >
-            <DialogHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Edit Blockout</DialogTitle>
-                  <DialogDescription>
-                    Update blockout date range
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
-              </div>
-            </DialogHeader>
+        <AdminDialogShell
+          open={!!editingBlockout}
+          onClose={handleCloseEdit}
+          title="Edit Blockout"
+          subtitle="Update blockout date range"
+          footer={(
+            <>
+              <Button variant="outline" onClick={handleCloseEdit}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          )}
+        >
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-staff">Staff</Label>
@@ -245,37 +216,25 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseEdit}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdminDialogShell>
       )}
 
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={(open) => !open && handleCloseAdd()}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Add Blockout</DialogTitle>
-                <DialogDescription>
-                  Create a new blockout date range for a staff member
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={isAddDialogOpen}
+        onClose={handleCloseAdd}
+        title="Add Blockout"
+        subtitle="Create a new blockout date range for a staff member"
+        footer={(
+          <>
+            <Button variant="outline" onClick={handleCloseAdd}>
+              Cancel
+            </Button>
+            <Button onClick={handleAdd} disabled={saving || !staffId}>
+              {saving ? 'Creating...' : 'Create'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="add-staff">Staff *</Label>
@@ -319,16 +278,7 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseAdd}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={saving || !staffId}>
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

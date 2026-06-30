@@ -20,6 +20,8 @@ type MeetingCombinedAttendanceStepProps = {
   onAddStaffToSession: (staffId: string) => Promise<void>;
   onAddStudentToSession: (studentId: string) => Promise<void>;
   onAddParentToSession: (parentId: string) => Promise<void>;
+  onRemoveStaffFromSession?: (staffId: string) => Promise<void>;
+  onRemoveStudentFromSession?: (studentId: string) => Promise<void>;
 };
 
 export function MeetingCombinedAttendanceStep({
@@ -36,6 +38,8 @@ export function MeetingCombinedAttendanceStep({
   onAddStaffToSession,
   onAddStudentToSession,
   onAddParentToSession,
+  onRemoveStaffFromSession,
+  onRemoveStudentFromSession,
 }: MeetingCombinedAttendanceStepProps) {
   const staffId = currentStaffId || '';
 
@@ -49,6 +53,7 @@ export function MeetingCombinedAttendanceStep({
           staffAttendance={staffAttendance}
           onUpdate={onStaffAttendanceUpdate}
           onAddStaffToSession={onAddStaffToSession}
+          onRemoveStaffFromSession={onRemoveStaffFromSession}
           addStaffVariant="search"
         />
       </section>
@@ -67,6 +72,7 @@ export function MeetingCombinedAttendanceStep({
           onParentAttendanceUpdate={onParentAttendanceUpdate}
           addStudentVariant="search"
           onAddStudentToSession={onAddStudentToSession}
+          onRemoveStudentFromSession={onRemoveStudentFromSession}
           onAddParentToSession={onAddParentToSession}
           section="students"
         />

@@ -140,9 +140,9 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent className="w-full md:max-w-4xl flex flex-col overflow-hidden p-0 sm:!h-[90vh] sm:!max-h-[90vh] [&>button]:hidden">
         {/* Header */}
-        <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex-shrink-0 border-b bg-card">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">

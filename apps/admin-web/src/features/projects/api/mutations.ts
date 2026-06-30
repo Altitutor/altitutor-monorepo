@@ -1,9 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from './projects';
-import { projectKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { ProjectInsert, ProjectUpdate } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
+import {
+  invalidateProjectDetailSurfaces,
+  invalidateProjectListSurfaces,
+  invalidateProjectRemovalSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
@@ -12,7 +16,7 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (project: ProjectInsert) => projectsApi.create(project),
     onSuccess: (createdProject) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      void invalidateProjectListSurfaces(queryClient);
       if (createdProject?.id) {
         showWorkItemCreatedToast({
           toast,
@@ -40,10 +44,7 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: ProjectUpdate }) => projectsApi.update(id, updates),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: projectKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      void invalidateProjectDetailSurfaces(queryClient, id);
     },
     onError: (error: unknown) => {
       toast({
@@ -62,9 +63,7 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: (id: string) => projectsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      void invalidateProjectRemovalSurfaces(queryClient);
       toast({ title: 'Project deleted', description: 'The project has been successfully deleted.' });
     },
     onError: (error: unknown) => {

@@ -2,43 +2,27 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
   SearchableSelect,
 } from '@altitutor/ui';
-import { Edit2, Trash2, Plus } from 'lucide-react';
 import { QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { SUPPORTED_ENTITIES, FilterField, type EntityConfig } from '../config/entities';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 const SCOPE_OPTIONS: { id: string; label: string }[] = [
   { id: 'global', label: 'Global (All Admins)' },
   { id: 'personal', label: 'Personal (Just Me)' },
 ];
 import { cn } from '@/shared/utils';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
 
 interface QuickFiltersTableProps {
   filters: QuickFilter[];
   onUpdate: () => void;
+  onCreateTrigger?: number;
 }
 
 const PLACEHOLDERS = [
@@ -53,7 +37,7 @@ const PLACEHOLDERS = [
   { value: '$THIS_WEEK$', label: 'This Week' },
 ];
 
-export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps) {
+export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickFiltersTableProps) {
   const [editingFilter, setEditingFilter] = useState<QuickFilter | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   
@@ -63,11 +47,11 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     user_id: null,
     config: {},
   });
-  const [expanded, setExpanded] = useState(false);
-
   useEffect(() => {
-    if (!editingFilter && !isCreateDialogOpen) setExpanded(false);
-  }, [editingFilter, isCreateDialogOpen]);
+    if (onCreateTrigger && onCreateTrigger > 0) {
+      setIsCreateDialogOpen(true);
+    }
+  }, [onCreateTrigger]);
 
   const createFilter = useCreateQuickFilter();
   const updateFilter = useUpdateQuickFilter();
@@ -113,6 +97,67 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     }
   };
 
+  const closeDialog = () => {
+    setEditingFilter(null);
+    setIsCreateDialogOpen(false);
+    setFormData({ name: '', target_entity: 'tasks', user_id: null, config: {} });
+  };
+
+  const getEntityLabel = (entityId: string) =>
+    SUPPORTED_ENTITIES.find((entity) => entity.id === entityId)?.label ?? entityId.replace('_', ' ');
+
+  const renderConfig = (filter: QuickFilter) => (
+    <div className="flex flex-wrap gap-1">
+      {Object.entries(filter.config).map(([key, values]) => {
+        const entityConfig = SUPPORTED_ENTITIES.find(e => e.id === filter.target_entity);
+        const field = entityConfig?.fields.find(f => f.key === key);
+        const label = field?.label || key;
+
+        return (
+          <div key={key} className="bg-muted px-1.5 py-0.5 rounded text-[10px] border border-muted-foreground/20">
+            <span className="font-semibold text-muted-foreground uppercase mr-1">{label}:</span>
+            <span>
+              {values.map(v => {
+                if (typeof v === 'string') {
+                  const placeholder = PLACEHOLDERS.find(p => p.value === v);
+                  if (placeholder) return placeholder.label;
+                }
+                const opt = field?.options?.find(o => String(o.value) === String(v));
+                return opt?.label || String(v);
+              }).join(', ')}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const columns: SettingsDataTableColumn<QuickFilter>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      render: (filter) => <span className="font-medium">{filter.name}</span>,
+      sortValue: (filter) => filter.name,
+      searchValue: (filter) => filter.name,
+    },
+    {
+      key: 'entity',
+      label: 'Entity',
+      render: (filter) => <span className="capitalize">{getEntityLabel(filter.target_entity)}</span>,
+      sortValue: (filter) => getEntityLabel(filter.target_entity),
+      filterValue: (filter) => filter.target_entity,
+      searchValue: (filter) => getEntityLabel(filter.target_entity),
+    },
+    {
+      key: 'config',
+      label: 'Config',
+      className: 'max-w-[420px]',
+      render: renderConfig,
+      sortValue: (filter) => Object.keys(filter.config).length,
+      searchValue: (filter) => JSON.stringify(filter.config),
+    },
+  ];
+
   const toggleFilterValue = (field: FilterField, value: string | number) => {
     const fieldKey = field.key;
     const currentConfig = { ...(formData.config || {}) };
@@ -140,115 +185,53 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Quick Filter
-        </Button>
-      </div>
+      <SettingsDataTable
+        data={filters}
+        columns={columns}
+        getRowId={(filter) => filter.id}
+        emptyMessage="No quick filters configured"
+        searchPlaceholder="Search quick filters..."
+        filterKeys={['entity']}
+        filterDefinitions={[
+          {
+            key: 'entity',
+            label: 'Entity',
+            options: SUPPORTED_ENTITIES.map((entity) => ({ label: entity.label, value: entity.id })),
+          },
+        ]}
+        defaultSort={{ field: 'entity', direction: 'asc' }}
+        getActions={(filter) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => handleEdit(filter),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            onSelect: () => handleDelete(filter.id),
+          },
+        ]}
+      />
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Entity</TableHead>
-              <TableHead>Config</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filters.map((filter) => (
-              <TableRow key={filter.id}>
-                <TableCell className="font-medium">{filter.name}</TableCell>
-                <TableCell className="capitalize">{filter.target_entity.replace('_', ' ')}</TableCell>
-                <TableCell className="max-w-[400px]">
-                  <div className="flex flex-wrap gap-1">
-                    {Object.entries(filter.config).map(([key, values]) => {
-                      const entityConfig = SUPPORTED_ENTITIES.find(e => e.id === filter.target_entity);
-                      const field = entityConfig?.fields.find(f => f.key === key);
-                      const label = field?.label || key;
-                      
-                      return (
-                        <div key={key} className="bg-muted px-1.5 py-0.5 rounded text-[10px] border border-muted-foreground/20">
-                          <span className="font-semibold text-muted-foreground uppercase mr-1">{label}:</span>
-                          <span>
-                            {values.map(v => {
-                              if (typeof v === 'string') {
-                                const placeholder = PLACEHOLDERS.find(p => p.value === v);
-                                if (placeholder) return placeholder.label;
-                              }
-                              const opt = field?.options?.find(o => String(o.value) === String(v));
-                              return opt?.label || String(v);
-                            }).join(', ')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEdit(filter)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDelete(filter.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filters.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  No quick filters configured
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog
+      <AdminDialogShell
         open={!!editingFilter || isCreateDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingFilter(null);
-            setIsCreateDialogOpen(false);
-            setFormData({ name: '', target_entity: 'tasks', user_id: null, config: {} });
-          }
-        }}
+        onClose={closeDialog}
+        title={editingFilter ? 'Edit Quick Filter' : 'Create Quick Filter'}
+        subtitle="Configure the quick filter settings. Multiple values for the same property are ORed, and different properties are ANDed."
+        contentClassName="md:max-w-3xl"
+        footer={(
+          <>
+            <Button variant="outline" onClick={closeDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!formData.name || !formData.target_entity}>
+              Save Filter
+            </Button>
+          </>
+        )}
       >
-        <DialogContent
-          className={cn(
-            'max-w-3xl max-h-[90vh] flex flex-col',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>
-              {editingFilter ? 'Edit Quick Filter' : 'Create Quick Filter'}
-            </DialogTitle>
-            <DialogDescription>
-              Configure the quick filter settings. Multiple values for the same property are ORed, and different properties are ANDed.
-            </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
+          <div className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="filter-name">Filter Name</Label>
@@ -385,21 +368,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
               </div>
             </div>
           </div>
-
-          <DialogFooter className="pt-4 border-t">
-            <Button variant="outline" onClick={() => {
-              setEditingFilter(null);
-              setIsCreateDialogOpen(false);
-              setFormData({ name: '', target_entity: 'tasks', user_id: null, config: {} });
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!formData.name || !formData.target_entity}>
-              Save Filter
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

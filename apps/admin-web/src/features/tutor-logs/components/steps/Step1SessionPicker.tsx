@@ -1,9 +1,11 @@
 'use client';
 
 import type { Tables } from '@altitutor/shared';
+import { formatSessionDate, formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { cn } from '@/shared/utils/index';
 import { getShortSessionName } from '@/features/sessions/utils/session-helpers';
+import { formatTime } from '@/shared/utils/datetime';
 import {
   Table,
   TableBody,
@@ -38,6 +40,19 @@ export function Step1SessionPicker({
   const classesById = data?.classesById || {};
   const subjectsById = data?.subjectsById || {};
 
+  const getSessionPickerLabel = (session: Tables<'sessions'>) => {
+    const classData = session.class_id ? classesById[session.class_id] : undefined;
+    const className = classData?.short_name?.trim();
+    const date = session.start_at ? formatSessionDate(session.start_at) : '';
+    const time = formatSessionTimeRangeForDisplay(session, formatTime);
+    const dateTime = [date, time !== '—' ? time : ''].filter(Boolean).join(' · ');
+
+    if (className && dateTime) return `${className} · ${dateTime}`;
+    if (className) return className;
+    if (dateTime) return `${getShortSessionName(session)} · ${dateTime}`;
+    return getShortSessionName(session);
+  };
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>;
   }
@@ -67,8 +82,7 @@ export function Step1SessionPicker({
             <TableBody>
               {sessions.map((session) => {
                 const isSelected = session.id === selectedSessionId;
-                const label =
-                  session.long_name?.trim() || getShortSessionName(session);
+                const label = getSessionPickerLabel(session);
                 return (
                   <TableRow
                     key={session.id}
@@ -91,6 +105,7 @@ export function Step1SessionPicker({
             const isSelected = session.id === selectedSessionId;
             const classData = session.class_id ? classesById[session.class_id] : undefined;
             const subject = classData?.subject_id ? subjectsById[classData.subject_id] : undefined;
+            const sessionLabel = getSessionPickerLabel(session);
             type StaffRow = Tables<'staff'> & { staff?: Tables<'staff'>; planned_absence?: boolean };
             type StudentRow = Tables<'students'> & {
               student?: Tables<'students'>;
@@ -116,6 +131,9 @@ export function Step1SessionPicker({
                 )}
                 onClick={() => onSelectSession(session.id)}
               >
+                <div className="mb-2 rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+                  {sessionLabel}
+                </div>
                 <SessionsCard
                   session={session}
                   classData={classData}
@@ -133,5 +151,4 @@ export function Step1SessionPicker({
     </div>
   );
 }
-
 

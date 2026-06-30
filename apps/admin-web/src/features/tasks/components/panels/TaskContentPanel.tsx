@@ -2,23 +2,17 @@
 
 import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { TaskTitleField, TaskDescriptionField } from '../fields';
 import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
 import { TaskNotes } from '../TaskNotes';
 import type { TaskEditorRef } from '../TaskEditor';
 import type { RichTextEditorRef } from '@altitutor/ui';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewClassModal } from '@/features/classes/components/modal/ViewClassModal';
-import { ViewParentModal } from '@/features/students/components/ViewParentModal';
-import { ViewSubjectModal } from '@/features/subjects/components';
-import { ViewTopicModal, FilePreviewModal } from '@/features/topics/components';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
 import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
@@ -55,49 +49,27 @@ export function TaskContentPanel({
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const internalDescriptionRef = useRef<TaskEditorRef>(null);
   const descriptionFieldRef = descriptionRefProp ?? internalDescriptionRef;
-
-  // Modal state for entity tags
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const entityModals = useEntityModals();
 
   const handleTagClick = useCallback((type: TagEntityType, id: string) => {
-    // Reset all states
-    setSelectedStudentId(null);
-    setSelectedStaffId(null);
-    setSelectedClassId(null);
-    setSelectedParentId(null);
-    setSelectedSubjectId(null);
-    setSelectedTopicId(null);
-    setSelectedSessionId(null);
-    setSelectedFileId(null);
-
-    // Set the appropriate state based on entity type
     if (type === 'student') {
-      setSelectedStudentId(id);
+      entityModals.openStudent(id);
     } else if (type === 'staff') {
-      setSelectedStaffId(id);
+      entityModals.openStaff(id);
     } else if (type === 'class') {
-      setSelectedClassId(id);
+      entityModals.openClass(id);
     } else if (type === 'parent') {
-      setSelectedParentId(id);
+      entityModals.openParent(id);
     } else if (type === 'subject') {
-      setSelectedSubjectId(id);
+      entityModals.openSubject(id);
     } else if (type === 'topic') {
-      setSelectedTopicId(id);
+      entityModals.openTopic(id);
     } else if (type === 'session') {
-      setSelectedSessionId(id);
+      entityModals.openSession(id);
     } else if (type === 'file') {
-      setSelectedFileId(id);
-      // Files use a custom event
-      window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id } }));
+      entityModals.openFile(id);
     }
-  }, []);
+  }, [entityModals]);
 
   // Handle Enter key in title field - move focus to description
   const handleTitleEnter = useCallback(() => {
@@ -108,19 +80,6 @@ export function TaskContentPanel({
       }
     }
   }, [descriptionFieldRef]);
-
-  // Listen for Tiptap mention clicks
-  useEffect(() => {
-    const handleMentionClick = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail && detail.id && detail.type) {
-        handleTagClick(detail.type as TagEntityType, detail.id);
-      }
-    };
-
-    window.addEventListener('mentionClick', handleMentionClick);
-    return () => window.removeEventListener('mentionClick', handleMentionClick);
-  }, [handleTagClick]);
 
   // Auto-focus title field when dialog opens
   useEffect(() => {
@@ -134,7 +93,7 @@ export function TaskContentPanel({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 border-r">
+      <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6 border-r">
         {/* Property Pills - Mobile Only */}
         {selectedAssignee !== undefined && onAssigneeChange && (
           <div className="md:hidden -mt-2">
@@ -192,77 +151,6 @@ export function TaskContentPanel({
         </>
       )}
       </div>
-
-      {/* Entity Modals */}
-      {selectedStudentId && (
-        <ViewStudentModal
-          isOpen={!!selectedStudentId}
-          onClose={() => setSelectedStudentId(null)}
-          studentId={selectedStudentId}
-          onStudentUpdated={() => {}}
-        />
-      )}
-
-      {selectedStaffId && (
-        <ViewStaffModal
-          isOpen={!!selectedStaffId}
-          onClose={() => setSelectedStaffId(null)}
-          staffId={selectedStaffId}
-          onStaffUpdated={() => {}}
-        />
-      )}
-
-      {selectedClassId && (
-        <ViewClassModal
-          isOpen={!!selectedClassId}
-          onClose={() => setSelectedClassId(null)}
-          classId={selectedClassId}
-          onClassUpdated={() => {}}
-        />
-      )}
-
-      {selectedParentId && (
-        <ViewParentModal
-          isOpen={!!selectedParentId}
-          onClose={() => setSelectedParentId(null)}
-          parentId={selectedParentId}
-          onParentUpdated={() => {}}
-        />
-      )}
-
-      {selectedSubjectId && (
-        <ViewSubjectModal
-          isOpen={!!selectedSubjectId}
-          onClose={() => setSelectedSubjectId(null)}
-          subjectId={selectedSubjectId}
-          onSubjectUpdated={() => {}}
-        />
-      )}
-
-      {selectedTopicId && (
-        <ViewTopicModal
-          isOpen={!!selectedTopicId}
-          onClose={() => setSelectedTopicId(null)}
-          topicId={selectedTopicId}
-          onTopicUpdated={() => {}}
-        />
-      )}
-
-      {selectedSessionId && (
-        <SessionModal
-          isOpen={!!selectedSessionId}
-          onClose={() => setSelectedSessionId(null)}
-          sessionId={selectedSessionId}
-        />
-      )}
-
-      {selectedFileId && (
-        <FilePreviewModal
-          isOpen={!!selectedFileId}
-          onClose={() => setSelectedFileId(null)}
-          topicFileId={selectedFileId}
-        />
-      )}
     </>
   );
 }

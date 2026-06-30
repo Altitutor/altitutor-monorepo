@@ -2,7 +2,7 @@
 
 import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import { cn } from '@/shared/utils/index';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskPriority, TaskStatus } from '../types';
 import {
   getPriorityColor,
@@ -58,8 +58,9 @@ export function TaskCard({ task, onClick, visiblePillKeys = [] }: TaskCardProps)
       {...listeners}
       onClick={onClick}
       className={cn(
-        'group bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-primary transition-colors',
+        'group rounded-lg border bg-card p-3 cursor-grab active:cursor-grabbing transition-all',
         'space-y-2',
+        clickableCardInteractiveCn,
         isDragging && 'opacity-50'
       )}
     >

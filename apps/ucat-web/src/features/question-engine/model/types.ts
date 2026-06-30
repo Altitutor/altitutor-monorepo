@@ -253,4 +253,13 @@ export type QuestionEngineState = {
   loadingMoreTargetIndex?: number;
   /** Unlimited mode: stem IDs to exclude when fetching next. */
   loadingMoreExcludeStemIds?: string[];
+  /** Server-owned open interval for question active-time accumulation. */
+  activeQuestionTiming?: {
+    questionId: string;
+    questionSetId: string;
+    mode: QuestionEngineMode;
+    wasTimed: boolean;
+    startedAt: string;
+    segmentEndsAt: string | null;
+  } | null;
 };

@@ -20,7 +20,7 @@ import { useInvoiceActions } from '../hooks/useInvoiceActions';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { formatInvoiceDate, formatInvoiceAmount, calculateLineItemsSubtotal } from '../utils/invoiceFormatters';
 import { formatInvoiceTagText } from '../utils/invoiceTagText';
-import { invoicesKeys } from '../hooks/useInvoicesQuery';
+import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
 
 type ViewInvoiceModalProps = {
   isOpen: boolean;
@@ -170,9 +170,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
         description: 'Payment attempt initiated successfully',
       });
       
-      // Invalidate invoice queries to refresh data
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', invoiceId] });
+      await invalidateInvoiceDetail(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -254,52 +252,53 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
-            <SheetHeader className="mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onClose}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <SheetTitle>Invoice Details</SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-                        <IssuePill
-                          entityType="invoice"
-                          entityId={invoiceId}
-                          enabled={isOpen && !!invoiceId}
-                        />
-                      </div>
-                    </SheetDescription>
-                  </div>
+          <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle>Invoice Details</SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                      <IssuePill
+                        entityType="invoice"
+                        entityId={invoiceId}
+                        enabled={isOpen && !!invoiceId}
+                      />
+                    </div>
+                  </SheetDescription>
                 </div>
-                {invoiceId && (
-                  <ActionsMenu
-                    type="invoice"
-                    entityId={invoiceId}
-                    copyTagDisplayText={formatInvoiceTagText({
-                      invoiceDate: invoice.invoice_date,
-                      lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
-                      status: invoice.status,
-                    })}
-                    isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
-                    addCreditNoteDisabledReason={
-                      isRefunded
-                        ? 'This invoice has already been refunded.'
-                        : 'This invoice has already been fully credited.'
-                    }
-                    {...invoiceActions}
-                  />
-                )}
               </div>
-            </SheetHeader>
+              {invoiceId && (
+                <ActionsMenu
+                  type="invoice"
+                  entityId={invoiceId}
+                  copyTagDisplayText={formatInvoiceTagText({
+                    invoiceDate: invoice.invoice_date,
+                    lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
+                    status: invoice.status,
+                  })}
+                  isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
+                  addCreditNoteDisabledReason={
+                    isRefunded
+                      ? 'This invoice has already been refunded.'
+                      : 'This invoice has already been fully credited.'
+                  }
+                  {...invoiceActions}
+                />
+              )}
+            </div>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
             
             <div className="space-y-6">
               {/* Invoice Information */}
@@ -629,8 +628,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
           }}
           invoiceItems={invoiceItems}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), invoiceId, 'credit-notes'] });
+            void invalidateInvoiceDetail(queryClient, invoiceId);
           }}
         />
       )}

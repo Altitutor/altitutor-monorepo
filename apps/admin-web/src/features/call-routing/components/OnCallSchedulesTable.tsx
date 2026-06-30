@@ -2,37 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
   Switch,
   SearchableSelect,
 } from '@altitutor/ui';
-import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   callRoutingApi,
   type OnCallSchedule,
 } from '../api/call-routing';
 import { staffApi } from '@/features/staff/api/staff';
 import type { Tables } from '@altitutor/shared';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 const DAY_NAMES = [
   { value: 0, label: 'Sunday' },
@@ -60,16 +43,6 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<Tables<'staff'>[]>([]);
-  const [editExpanded, setEditExpanded] = useState(false);
-  const [addExpanded, setAddExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!editingSchedule) setEditExpanded(false);
-  }, [editingSchedule]);
-
-  useEffect(() => {
-    if (!isAddDialogOpen) setAddExpanded(false);
-  }, [isAddDialogOpen]);
 
   useEffect(() => {
     const loadStaff = async () => {
@@ -163,16 +136,52 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
     return staff ? `${staff.first_name} ${staff.last_name}` : staffId;
   };
 
-  // Group schedules by staff
-  const schedulesByStaff = staffList
-    .map(staff => ({
-      staff,
-      schedules: schedules.filter(s => s.staff_id === staff.id).sort((a, b) => {
-        if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
-        return a.start_time.localeCompare(b.start_time);
-      }),
-    }))
-    .filter(({ schedules }) => schedules.length > 0);
+  const columns: SettingsDataTableColumn<OnCallSchedule>[] = [
+    {
+      key: 'staff',
+      label: 'Staff',
+      render: (schedule) => <span className="font-medium">{getStaffName(schedule.staff_id)}</span>,
+      sortValue: (schedule) => getStaffName(schedule.staff_id),
+      filterValue: (schedule) => getStaffName(schedule.staff_id),
+      searchValue: (schedule) => getStaffName(schedule.staff_id),
+    },
+    {
+      key: 'day',
+      label: 'Day',
+      render: (schedule) => <span className="font-medium">{getDayName(schedule.day_of_week)}</span>,
+      sortValue: (schedule) => schedule.day_of_week,
+      filterValue: (schedule) => getDayName(schedule.day_of_week),
+      searchValue: (schedule) => getDayName(schedule.day_of_week),
+    },
+    {
+      key: 'start_time',
+      label: 'Start Time',
+      render: (schedule) => schedule.start_time,
+      sortValue: (schedule) => schedule.start_time,
+      searchValue: (schedule) => schedule.start_time,
+    },
+    {
+      key: 'end_time',
+      label: 'End Time',
+      render: (schedule) => schedule.end_time,
+      sortValue: (schedule) => schedule.end_time,
+      searchValue: (schedule) => schedule.end_time,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (schedule) => (
+        <span className={`rounded px-2 py-1 text-xs ${
+          schedule.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+        }`}>
+          {schedule.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+      sortValue: (schedule) => Boolean(schedule.is_active),
+      filterValue: (schedule) => schedule.is_active ? 'active' : 'inactive',
+      searchValue: (schedule) => schedule.is_active ? 'Active' : 'Inactive',
+    },
+  ];
 
   return (
     <>
@@ -189,89 +198,70 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
         </Button>
       </div>
 
-      {schedulesByStaff.length === 0 ? (
-        <div className="border rounded-lg p-8 text-center text-muted-foreground">
-          No on-call schedules configured. Add a schedule to get started.
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {schedulesByStaff.map(({ staff, schedules: staffSchedules }) => (
-            <div key={staff.id} className="border rounded-lg">
-              <div className="p-4 bg-muted/50 border-b">
-                <span className="font-semibold">{staff.first_name} {staff.last_name}</span>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Day</TableHead>
-                    <TableHead>Start Time</TableHead>
-                    <TableHead>End Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staffSchedules.map((schedule) => (
-                    <TableRow key={schedule.id}>
-                      <TableCell className="font-medium">
-                        {getDayName(schedule.day_of_week)}
-                      </TableCell>
-                      <TableCell>{schedule.start_time}</TableCell>
-                      <TableCell>{schedule.end_time}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          schedule.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {schedule.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(schedule)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(schedule.id)}
-                            disabled={deleting === schedule.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ))}
-        </div>
-      )}
+      <SettingsDataTable
+        data={schedules}
+        columns={columns}
+        getRowId={(schedule) => schedule.id}
+        searchPlaceholder="Search on-call schedules..."
+        emptyMessage="No on-call schedules configured. Add a schedule to get started."
+        filterKeys={['staff', 'day', 'status']}
+        filterDefinitions={[
+          {
+            key: 'staff',
+            label: 'Staff',
+            options: staffList.map((staff) => ({
+              label: `${staff.first_name} ${staff.last_name}`,
+              value: `${staff.first_name} ${staff.last_name}`,
+            })),
+          },
+          {
+            key: 'day',
+            label: 'Day',
+            options: DAY_NAMES.map((day) => ({ label: day.label, value: day.label })),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'day', direction: 'asc' }}
+        getActions={(schedule) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            description: 'Update this on-call schedule',
+            onSelect: () => handleEdit(schedule),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            description: 'Remove this on-call schedule',
+            disabled: deleting === schedule.id,
+            onSelect: () => handleDelete(schedule.id),
+          },
+        ]}
+      />
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit On-Call Schedule</DialogTitle>
-                <DialogDescription>
-                  Update the on-call schedule for {editingSchedule && getStaffName(editingSchedule.staff_id)}
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={!!editingSchedule}
+        onClose={() => setEditingSchedule(null)}
+        title="Edit On-Call Schedule"
+        subtitle={`Update the on-call schedule for ${editingSchedule ? getStaffName(editingSchedule.staff_id) : ''}`}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingSchedule(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-day">Day</Label>
@@ -314,36 +304,24 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
               <Label htmlFor="edit-is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSchedule(null)}>
+      </AdminDialogShell>
+
+      <AdminDialogShell
+        open={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        title="Add On-Call Schedule"
+        subtitle="Set a recurring weekly on-call schedule for a staff member"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleAdd} disabled={saving}>
+              {saving ? 'Creating...' : 'Create'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={(open) => setIsAddDialogOpen(open)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Add On-Call Schedule</DialogTitle>
-                <DialogDescription>
-                  Set a recurring weekly on-call schedule for a staff member
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="add-staff">Staff Member</Label>
@@ -398,16 +376,7 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
               <Label htmlFor="add-is-active">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={saving}>
-              {saving ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

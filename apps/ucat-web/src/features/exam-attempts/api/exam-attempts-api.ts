@@ -52,7 +52,10 @@ export async function syncExamAttempt(
     examTiming?: StoredExamSnapshot["examTiming"];
     mockAttemptId?: string | null;
   },
-): Promise<{ currentSegmentEndsAt: string | null }> {
+): Promise<{
+  currentSegmentEndsAt: string | null;
+  setAttemptIdsBySetId?: Record<string, string>;
+}> {
   const response = await fetch("/api/ucat/exam-attempts/sync", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

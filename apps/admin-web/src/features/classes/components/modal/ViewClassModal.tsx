@@ -21,7 +21,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '../../hooks/useClassActions';
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
-import { useClassDetails, classesKeys, useDeleteClass } from '../../hooks/useClassesQuery';
+import { useClassDetails, useDeleteClass } from '../../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -32,11 +32,11 @@ import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 import { IssuePill } from '@/features/issues';
+import {
+  invalidateClassDetail,
+  invalidateClassSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -69,16 +69,6 @@ export function ViewClassModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -123,8 +113,7 @@ export function ViewClassModal({
       };
       await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       
-      // Invalidate class details to refetch full data including subject relationship
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
+      await invalidateClassDetail(queryClient, classData.id);
       
       // Reset edit mode
       setIsEditing(false);
@@ -152,9 +141,7 @@ export function ViewClassModal({
     
     try {
       await classesApi.assignStaff(classData.id, staffId);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       onClassUpdated();
       toast({
         title: 'Success',
@@ -176,9 +163,7 @@ export function ViewClassModal({
     
     try {
       await classesApi.unassignStaff(classData.id, staffId);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       onClassUpdated();
       toast({
         title: 'Success',
@@ -231,32 +216,6 @@ export function ViewClassModal({
           </SheetContent>
         </Sheet>
 
-        {/* Nested Session Modal */}
-        <SessionModal
-          isOpen={!!nestedSessionId}
-          sessionId={nestedSessionId}
-          onClose={() => setNestedSessionId(null)}
-        />
-
-        {/* Nested Staff Modal */}
-        {nestedStaffId && (
-          <ViewStaffModal
-            isOpen={!!nestedStaffId}
-            staffId={nestedStaffId}
-            onClose={() => setNestedStaffId(null)}
-            onStaffUpdated={onClassUpdated}
-          />
-        )}
-
-        {/* Nested Student Modal */}
-        {nestedStudentId && (
-          <ViewStudentModal
-            isOpen={!!nestedStudentId}
-            studentId={nestedStudentId}
-            onClose={() => setNestedStudentId(null)}
-            onStudentUpdated={onClassUpdated}
-          />
-        )}
       </>
     );
   }
@@ -267,7 +226,7 @@ export function ViewClassModal({
       <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
         <div className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
-          <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+          <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
             <SheetHeader className="px-6 pt-6 pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1">
@@ -413,33 +372,6 @@ export function ViewClassModal({
         )}
       </SheetContent>
     </Sheet>
-
-    {/* Nested Session Modal */}
-    <SessionModal
-      isOpen={!!nestedSessionId}
-      sessionId={nestedSessionId}
-      onClose={() => setNestedSessionId(null)}
-    />
-
-    {/* Nested Staff Modal */}
-    {nestedStaffId && (
-      <ViewStaffModal
-        isOpen={!!nestedStaffId}
-        staffId={nestedStaffId}
-        onClose={() => setNestedStaffId(null)}
-        onStaffUpdated={onClassUpdated}
-      />
-    )}
-
-    {/* Nested Student Modal */}
-    {nestedStudentId && (
-      <ViewStudentModal
-        isOpen={!!nestedStudentId}
-        studentId={nestedStudentId}
-        onClose={() => setNestedStudentId(null)}
-        onStudentUpdated={onClassUpdated}
-      />
-    )}
 
     {/* Delete confirmation dialog */}
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {

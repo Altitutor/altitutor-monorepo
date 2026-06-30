@@ -1,20 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
 } from '@/features/ucat-subscription-config/api/ucat-subscription-config';
 import { UcatFreeQuotaConfigForm } from '@/features/ucat-subscription-config/components/UcatFreeQuotaConfigForm';
 
+type SettingsRow = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+const SETTINGS_ROWS: SettingsRow[] = [
+  {
+    id: 'free-tier-quotas',
+    name: 'Free tier quotas',
+    description: 'Per-area usage limits for UCAT Free students.',
+  },
+];
+
 export default function UcatFreeTierSettingsPage() {
-  const router = useRouter();
   const [config, setConfig] = useState<UcatSubscriptionConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<SettingsRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,34 +50,60 @@ export default function UcatFreeTierSettingsPage() {
   }, [load]);
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
+
+  const columns: SettingsDataTableColumn<SettingsRow>[] = [
+    {
+      key: 'name',
+      label: 'Setting',
+      render: (row) => <span className="font-medium">{row.name}</span>,
+      sortValue: (row) => row.name,
+      searchValue: (row) => row.name,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+      sortValue: (row) => row.description,
+      searchValue: (row) => row.description,
+    },
+  ];
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">UCAT Free tier</h1>
-        </div>
-      </div>
+      <SettingsPageHeader title="UCAT Free tier" />
 
       {loadError && !config ? (
         <p className="mb-4 text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      {config ? <UcatFreeQuotaConfigForm initial={config} onSaved={load} /> : null}
+      <SettingsDataTable
+        data={SETTINGS_ROWS}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filterKeys={[]}
+        searchPlaceholder="Search UCAT Free tier settings..."
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            disabled: !config,
+            onSelect: () => setEditingRow(row),
+          },
+        ]}
+      />
+
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow?.name ?? 'Edit UCAT Free tier'}
+        subtitle={editingRow?.description}
+        contentClassName="md:max-w-4xl"
+      >
+        {config ? <UcatFreeQuotaConfigForm initial={config} onSaved={load} /> : null}
+      </AdminDialogShell>
     </div>
   );
 }

@@ -14,7 +14,6 @@ export type SkillTrainerCatalogRow = {
   section_number: number;
   sort_order: number;
   time_limit_seconds: number;
-  wrong_cooldown_seconds: number;
   streak_enabled: boolean;
 };
 
@@ -25,6 +24,23 @@ export type LeaderboardEntry = {
   achieved_at: string;
   rank: number;
 };
+
+export type SkillTrainerAttemptConflictError = Error & {
+  code: "ANOTHER_ATTEMPT_IN_PROGRESS";
+  attempt: SkillTrainerAttemptState;
+  activeTrainerKey?: string;
+};
+
+export function isSkillTrainerAttemptConflictError(
+  error: unknown,
+): error is SkillTrainerAttemptConflictError {
+  return (
+    error instanceof Error &&
+    (error as Partial<SkillTrainerAttemptConflictError>).code ===
+      "ANOTHER_ATTEMPT_IN_PROGRESS" &&
+    (error as Partial<SkillTrainerAttemptConflictError>).attempt != null
+  );
+}
 
 export const skillTrainerApi = {
   async listTrainers(): Promise<SkillTrainerCatalogRow[]> {
@@ -48,8 +64,36 @@ export const skillTrainerApi = {
       body: JSON.stringify({ trainerKey }),
     });
     if (!res.ok) {
-      const json = (await res.json()) as { error?: string; code?: string };
+      const json = (await res.json()) as {
+        error?: string;
+        code?: string;
+        activeTrainerKey?: string;
+        attempt?: SkillTrainerAttemptState;
+      };
+      if (res.status === 409 && json.attempt) {
+        const error = new Error(
+          json.error ?? "ANOTHER_ATTEMPT_IN_PROGRESS",
+        ) as SkillTrainerAttemptConflictError;
+        error.code = "ANOTHER_ATTEMPT_IN_PROGRESS";
+        error.attempt = json.attempt;
+        error.activeTrainerKey = json.activeTrainerKey;
+        throw error;
+      }
       throw new Error(json.error ?? "Failed to start attempt");
+    }
+    const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
+    return json.attempt;
+  },
+
+  async completeAttempt(attemptId: string): Promise<SkillTrainerAttemptState> {
+    const res = await fetch(`/api/ucat/skill-trainer-attempts/${attemptId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ complete: true }),
+    });
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string };
+      throw new Error(json.error ?? "Failed to submit attempt");
     }
     const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
     return json.attempt;

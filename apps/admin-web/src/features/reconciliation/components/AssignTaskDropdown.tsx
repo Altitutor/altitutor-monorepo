@@ -6,8 +6,8 @@ import { User, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import { useUpdateTask } from '@/features/tasks/api/mutations';
-import { reconciliationKeys } from '../api/queryKeys';
 import type { Tables } from '@altitutor/shared';
+import { invalidateTaskAssignmentSurfaces } from '@/shared/lib/query-invalidation';
 
 interface AssignTaskDropdownProps {
   taskId: string;
@@ -34,7 +34,7 @@ export function AssignTaskDropdown({ taskId }: AssignTaskDropdownProps) {
         id: taskId,
         updates: { assigned_to: staff.id },
       });
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.unassignedTasks() });
+      void invalidateTaskAssignmentSurfaces(queryClient);
       setOpen(false);
     } catch {
       // Error toast is handled by useUpdateTask

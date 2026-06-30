@@ -133,6 +133,13 @@ export type Database = {
             foreignKeyName: "activity_events_performed_by_fkey"
             columns: ["performed_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "activity_events_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -205,6 +212,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "activity_events_staff_id_fkey"
@@ -313,6 +327,13 @@ export type Database = {
             foreignKeyName: "admin_shifts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -375,6 +396,13 @@ export type Database = {
             foreignKeyName: "admin_shifts_staff_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -391,6 +419,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "admin_shifts_staff_staff_id_fkey"
@@ -540,6 +575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "automation_rules_created_by_fkey"
@@ -948,6 +990,13 @@ export type Database = {
             foreignKeyName: "booking_staff_unavailability_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -964,6 +1013,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
@@ -1095,6 +1151,13 @@ export type Database = {
             foreignKeyName: "classes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1212,6 +1275,13 @@ export type Database = {
             foreignKeyName: "class_assignments_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "class_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1233,6 +1303,13 @@ export type Database = {
             foreignKeyName: "classes_staff_assigned_by_fkey"
             columns: ["assigned_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_staff_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1254,6 +1331,13 @@ export type Database = {
             foreignKeyName: "classes_staff_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1270,6 +1354,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_staff_unassigned_by_fkey"
+            columns: ["unassigned_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "classes_staff_unassigned_by_fkey"
@@ -1406,6 +1497,13 @@ export type Database = {
             foreignKeyName: "classes_students_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1427,6 +1525,13 @@ export type Database = {
             foreignKeyName: "classes_students_enrolled_by_fkey"
             columns: ["enrolled_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_students_enrolled_by_fkey"
+            columns: ["enrolled_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1443,6 +1548,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_students_unenrolled_by_fkey"
+            columns: ["unenrolled_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "classes_students_unenrolled_by_fkey"
@@ -1514,6 +1626,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "contacts_staff_id_fkey"
@@ -1620,6 +1739,13 @@ export type Database = {
             foreignKeyName: "conversation_reads_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1696,6 +1822,13 @@ export type Database = {
             foreignKeyName: "conversations_assigned_staff_id_fkey"
             columns: ["assigned_staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -1719,6 +1852,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "conversations_created_by_staff_id_fkey"
@@ -1995,6 +2135,13 @@ export type Database = {
             foreignKeyName: "draft_class_plans_applied_by_fkey"
             columns: ["applied_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -2011,6 +2158,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "draft_class_plans_created_by_fkey"
@@ -2138,6 +2292,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "draft_classes_staff_staff_id_fkey"
@@ -2280,6 +2441,13 @@ export type Database = {
             foreignKeyName: "files_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -2383,6 +2551,13 @@ export type Database = {
             foreignKeyName: "flashcards_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -2399,6 +2574,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "flashcards_deleted_by_fkey"
@@ -2469,6 +2651,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "flashcards_updated_by_fkey"
@@ -3078,6 +3267,13 @@ export type Database = {
             foreignKeyName: "issue_tags_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -3198,6 +3394,13 @@ export type Database = {
             foreignKeyName: "issues_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "issues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -3214,6 +3417,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "issues_resolved_by_fkey"
@@ -3310,6 +3520,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "message_templates_created_by_fkey"
@@ -3420,6 +3637,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "messages_created_by_staff_id_fkey"
@@ -3543,6 +3767,13 @@ export type Database = {
             foreignKeyName: "note_document_edit_locks_locked_by_fkey"
             columns: ["locked_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "note_document_edit_locks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -3602,6 +3833,13 @@ export type Database = {
             foreignKeyName: "notes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -3646,6 +3884,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_daily_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "notes_daily_updated_by_fkey"
@@ -3715,6 +3960,13 @@ export type Database = {
             foreignKeyName: "notes_documents_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notes_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -3745,6 +3997,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "notes_documents_updated_by_fkey"
@@ -3794,6 +4053,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "notes_folders_created_by_fkey"
@@ -3869,6 +4135,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "notifications_staff_id_fkey"
@@ -3959,6 +4232,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "on_call_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "on_call_schedules_staff_id_fkey"
@@ -4098,6 +4378,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "parents_created_by_fkey"
@@ -4261,6 +4548,13 @@ export type Database = {
             foreignKeyName: "projects_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4277,6 +4571,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey"
+            columns: ["project_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "projects_project_lead_id_fkey"
@@ -4349,6 +4650,13 @@ export type Database = {
             foreignKeyName: "question_answer_options_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_answer_options_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4365,6 +4673,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_answer_options_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_answer_options_deleted_by_fkey"
@@ -4393,6 +4708,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_answer_options_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_answer_options_updated_by_fkey"
@@ -4474,6 +4796,13 @@ export type Database = {
             foreignKeyName: "question_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4495,6 +4824,13 @@ export type Database = {
             foreignKeyName: "question_sets_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4511,6 +4847,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_sets_updated_by_fkey"
@@ -4566,6 +4909,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_sets_ucat_mocks_created_by_fkey"
@@ -4662,6 +5012,13 @@ export type Database = {
             foreignKeyName: "question_sets_ucat_mocks_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_ucat_mocks_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4715,6 +5072,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stem_categories_created_by_fkey"
@@ -4792,6 +5156,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stem_categories_updated_by_fkey"
@@ -4876,6 +5247,13 @@ export type Database = {
             foreignKeyName: "question_stems_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4897,6 +5275,13 @@ export type Database = {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -4913,6 +5298,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_deleted_by_fkey"
@@ -4990,6 +5382,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -5139,6 +5538,13 @@ export type Database = {
             foreignKeyName: "question_stems_question_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -5244,6 +5650,13 @@ export type Database = {
             foreignKeyName: "question_stems_question_sets_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -5297,6 +5710,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_tags_created_by_fkey"
@@ -5367,6 +5787,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_tags_updated_by_fkey"
@@ -5460,6 +5887,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_question_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "questions_question_tags_created_by_fkey"
@@ -5560,6 +5994,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rich_text_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "rich_text_templates_created_by_fkey"
@@ -5732,6 +6173,13 @@ export type Database = {
             foreignKeyName: "sessions_files_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -5843,6 +6291,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "sessions_parents_created_by_fkey"
@@ -5977,6 +6432,13 @@ export type Database = {
             foreignKeyName: "sessions_staff_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -5993,6 +6455,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_planned_absence_logged_by_fkey"
+            columns: ["planned_absence_logged_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "sessions_staff_planned_absence_logged_by_fkey"
@@ -6063,6 +6532,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "sessions_staff_staff_id_fkey"
@@ -6154,6 +6630,13 @@ export type Database = {
             foreignKeyName: "sessions_students_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -6175,6 +6658,13 @@ export type Database = {
             foreignKeyName: "sessions_students_credited_by_fkey"
             columns: ["credited_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_credited_by_fkey"
+            columns: ["credited_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -6191,6 +6681,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_planned_absence_logged_by_fkey"
+            columns: ["planned_absence_logged_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "sessions_students_planned_absence_logged_by_fkey"
@@ -6387,6 +6884,13 @@ export type Database = {
             foreignKeyName: "slot_reservations_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -6445,6 +6949,8 @@ export type Database = {
           notes: string | null
           office_key_number: number | null
           phone_number: string | null
+          profile_bio: string | null
+          profile_image_file_id: string | null
           role: string
           status: string
           subsidy_interview_availability: boolean | null
@@ -6476,6 +6982,8 @@ export type Database = {
           notes?: string | null
           office_key_number?: number | null
           phone_number?: string | null
+          profile_bio?: string | null
+          profile_image_file_id?: string | null
           role: string
           status: string
           subsidy_interview_availability?: boolean | null
@@ -6507,6 +7015,8 @@ export type Database = {
           notes?: string | null
           office_key_number?: number | null
           phone_number?: string | null
+          profile_bio?: string | null
+          profile_image_file_id?: string | null
           role?: string
           status?: string
           subsidy_interview_availability?: boolean | null
@@ -6528,6 +7038,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_pay_tiers"
             referencedColumns: ["tier_number"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
         ]
       }
@@ -6569,6 +7100,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "staff_files_created_by_fkey"
@@ -6616,6 +7154,13 @@ export type Database = {
             foreignKeyName: "staff_files_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_files_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -6651,6 +7196,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_notepad_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "staff_notepad_staff_id_fkey"
@@ -6769,6 +7321,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_subjects_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "staff_subjects_staff_id_fkey"
@@ -6905,6 +7464,13 @@ export type Database = {
             foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -6921,6 +7487,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "staff_tier_promotions_staff_id_fkey"
@@ -7969,6 +8542,13 @@ export type Database = {
             foreignKeyName: "student_subsidies_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8358,6 +8938,13 @@ export type Database = {
             foreignKeyName: "students_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8473,6 +9060,13 @@ export type Database = {
             foreignKeyName: "students_online_access_manual_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "students_online_access_manual_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8573,6 +9167,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_subjects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "students_subjects_created_by_fkey"
@@ -8725,6 +9326,13 @@ export type Database = {
             foreignKeyName: "subjects_files_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "subjects_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8852,6 +9460,13 @@ export type Database = {
             foreignKeyName: "tasks_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8873,6 +9488,13 @@ export type Database = {
             foreignKeyName: "tasks_completed_by_fkey"
             columns: ["completed_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -8889,6 +9511,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "tasks_created_by_fkey"
@@ -8975,6 +9604,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "topics_created_by_fkey"
@@ -9109,6 +9745,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "topics_files_created_by_fkey"
@@ -9254,6 +9897,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -9355,6 +10005,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_parent_attendance_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -9438,6 +10095,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_staff_attendance_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -9509,6 +10173,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "tutor_logs_student_attendance_created_by_fkey"
@@ -9614,6 +10285,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_created_by_fkey"
@@ -9738,6 +10416,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -9836,6 +10521,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_students_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -9915,6 +10607,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_students_created_by_fkey"
@@ -10029,6 +10728,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_model_profiles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_model_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10052,6 +10758,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_model_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_model_profiles_updated_by_fkey"
@@ -10118,6 +10831,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_prompt_layers_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10134,6 +10854,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_prompt_layers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_prompt_layers_updated_by_fkey"
@@ -10203,6 +10930,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_providers_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10219,6 +10953,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_providers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_providers_updated_by_fkey"
@@ -10292,6 +11033,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_runs_created_by_fkey"
@@ -10381,6 +11129,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_runs_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_runs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10439,6 +11194,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_settings_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10455,6 +11217,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_settings_updated_by_fkey"
@@ -10524,6 +11293,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_system_prompts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_system_prompts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10540,6 +11316,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_system_prompts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_ai_generation_system_prompts_updated_by_fkey"
@@ -10612,6 +11395,13 @@ export type Database = {
             foreignKeyName: "ucat_ai_generation_usage_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_ai_generation_usage_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10635,6 +11425,242 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ucat_ai_generation_providers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_free_quota_reset_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string
+          granted_by_staff_id: string | null
+          id: string
+          student_id: string
+          updated_at: string
+          used_at: string | null
+          used_by_student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          granted_by_staff_id?: string | null
+          id?: string
+          student_id: string
+          updated_at?: string
+          used_at?: string | null
+          used_by_student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          granted_by_staff_id?: string | null
+          id?: string
+          student_id?: string
+          updated_at?: string
+          used_at?: string | null
+          used_by_student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_free_quota_reset_events: {
+        Row: {
+          created_at: string
+          created_by_staff_id: string | null
+          entitlement_id: string | null
+          id: string
+          quota_area: string | null
+          reset_at: string
+          source: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_staff_id?: string | null
+          entitlement_id?: string | null
+          id?: string
+          quota_area?: string | null
+          reset_at?: string
+          source: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_staff_id?: string | null
+          entitlement_id?: string | null
+          id?: string
+          quota_area?: string | null
+          reset_at?: string
+          source?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_entitlement_id_fkey"
+            columns: ["entitlement_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_free_quota_reset_entitlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -10869,6 +11895,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_modules_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -10885,6 +11918,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_learning_modules_deleted_by_fkey"
@@ -10967,6 +12007,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_modules_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11028,6 +12075,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11049,6 +12103,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11065,6 +12126,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_mocks_updated_by_fkey"
@@ -11266,6 +12334,13 @@ export type Database = {
             foreignKeyName: "ucat_questions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_questions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11282,6 +12357,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_questions_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_questions_deleted_by_fkey"
@@ -11357,6 +12439,13 @@ export type Database = {
             foreignKeyName: "ucat_questions_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_questions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11427,6 +12516,13 @@ export type Database = {
             foreignKeyName: "ucat_sections_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11443,6 +12539,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sections_updated_by_fkey"
@@ -11501,6 +12604,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sessions_resources_created_by_fkey"
@@ -11832,6 +12942,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_items_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11853,6 +12970,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_items_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11869,6 +12993,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_items_deleted_by_fkey"
@@ -11960,6 +13091,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_items_updated_by_fkey"
@@ -12082,6 +13220,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -12098,6 +13243,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
@@ -12140,6 +13292,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
@@ -12878,6 +14037,43 @@ export type Database = {
           },
         ]
       }
+      vmarketing_staff_profiles: {
+        Row: {
+          first_name: string | null
+          last_name: string | null
+          profile_bio: string | null
+          profile_image_bucket: string | null
+          profile_image_file_id: string | null
+          profile_image_metadata: Json | null
+          profile_image_mimetype: string | null
+          profile_image_storage_path: string | null
+          staff_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+        ]
+      }
       vstaff_flashcard_topics: {
         Row: {
           description: string | null
@@ -12994,6 +14190,13 @@ export type Database = {
             foreignKeyName: "flashcards_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -13010,6 +14213,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "flashcards_deleted_by_fkey"
@@ -13080,6 +14290,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "flashcards_updated_by_fkey"
@@ -13318,6 +14535,13 @@ export type Database = {
             foreignKeyName: "classes_students_enrolled_by_fkey"
             columns: ["enrolled_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "classes_students_enrolled_by_fkey"
+            columns: ["enrolled_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -13334,6 +14558,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_students_unenrolled_by_fkey"
+            columns: ["unenrolled_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "classes_students_unenrolled_by_fkey"
@@ -14247,6 +15478,13 @@ export type Database = {
             foreignKeyName: "slot_reservations_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -14504,6 +15742,13 @@ export type Database = {
             foreignKeyName: "topics_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -14616,6 +15861,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "topics_files_created_by_fkey"
@@ -15062,6 +16314,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_mocks_created_by_fkey"
@@ -16157,6 +17416,13 @@ export type Database = {
             foreignKeyName: "ucat_sections_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -16173,6 +17439,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sections_updated_by_fkey"
@@ -16209,6 +17482,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sessions_resources_created_by_fkey"
@@ -16508,6 +17788,13 @@ export type Database = {
             foreignKeyName: "booking_staff_unavailability_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -16524,6 +17811,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
@@ -16681,6 +17975,13 @@ export type Database = {
             foreignKeyName: "notes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -16741,6 +18042,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "notifications_staff_id_fkey"
@@ -16889,6 +18197,8 @@ export type Database = {
           id: string | null
           last_name: string | null
           phone: string | null
+          profile_bio: string | null
+          profile_image_file_id: string | null
           role: string | null
           status: string | null
           updated_at: string | null
@@ -16910,6 +18220,8 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: string | null
+          profile_bio?: string | null
+          profile_image_file_id?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
@@ -16931,12 +18243,36 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: string | null
+          profile_bio?: string | null
+          profile_image_file_id?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+        ]
       }
       vtutor_session_detail: {
         Row: {
@@ -17178,6 +18514,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_credited_by_fkey"
+            columns: ["credited_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "sessions_students_credited_by_fkey"
@@ -17453,6 +18796,13 @@ export type Database = {
             foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -17469,6 +18819,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "staff_tier_promotions_staff_id_fkey"
@@ -17609,6 +18966,13 @@ export type Database = {
             foreignKeyName: "topics_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -17721,6 +19085,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "topics_files_created_by_fkey"
@@ -17873,6 +19244,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "tutor_logs_created_by_fkey"
@@ -18108,6 +19486,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_modules_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18124,6 +19509,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_learning_modules_deleted_by_fkey"
@@ -18206,6 +19598,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_modules_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_modules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18270,6 +19669,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18291,6 +19697,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18307,6 +19720,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_mocks_updated_by_fkey"
@@ -18373,6 +19793,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18394,6 +19821,13 @@ export type Database = {
             foreignKeyName: "ucat_mocks_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18410,6 +19844,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_mocks_updated_by_fkey"
@@ -18485,6 +19926,13 @@ export type Database = {
             foreignKeyName: "question_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18506,6 +19954,13 @@ export type Database = {
             foreignKeyName: "question_sets_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18522,6 +19977,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_sets_updated_by_fkey"
@@ -18574,6 +20036,13 @@ export type Database = {
             foreignKeyName: "question_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18595,6 +20064,13 @@ export type Database = {
             foreignKeyName: "question_sets_deleted_by_fkey"
             columns: ["deleted_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_sets_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18611,6 +20087,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_sets_updated_by_fkey"
@@ -18677,6 +20160,13 @@ export type Database = {
             foreignKeyName: "question_stem_categories_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18754,6 +20244,13 @@ export type Database = {
             foreignKeyName: "question_stem_categories_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18802,6 +20299,13 @@ export type Database = {
             foreignKeyName: "question_stems_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18823,6 +20327,13 @@ export type Database = {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18839,6 +20350,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_deleted_by_fkey"
@@ -18916,6 +20434,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -18977,6 +20502,13 @@ export type Database = {
             foreignKeyName: "question_stems_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -18998,6 +20530,13 @@ export type Database = {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19014,6 +20553,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_deleted_by_fkey"
@@ -19091,6 +20637,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -19152,6 +20705,13 @@ export type Database = {
             foreignKeyName: "question_stems_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19173,6 +20733,13 @@ export type Database = {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19189,6 +20756,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_deleted_by_fkey"
@@ -19266,6 +20840,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -19327,6 +20908,13 @@ export type Database = {
             foreignKeyName: "question_stems_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19348,6 +20936,13 @@ export type Database = {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19364,6 +20959,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_stems_deleted_by_fkey"
@@ -19446,6 +21048,13 @@ export type Database = {
             foreignKeyName: "question_stems_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19502,6 +21111,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "question_tags_created_by_fkey"
@@ -19577,6 +21193,13 @@ export type Database = {
             foreignKeyName: "question_tags_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "question_tags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19647,6 +21270,13 @@ export type Database = {
             foreignKeyName: "ucat_sections_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -19663,6 +21293,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sections_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sections_updated_by_fkey"
@@ -19721,6 +21358,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_sessions_resources_created_by_fkey"
@@ -20026,6 +21670,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_items_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -20047,6 +21698,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_items_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -20063,6 +21721,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_items_deleted_by_fkey"
@@ -20159,6 +21824,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_items_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -20242,6 +21914,13 @@ export type Database = {
             foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -20258,6 +21937,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
@@ -20300,6 +21986,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
@@ -21404,6 +23097,10 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_ucat_free_quota_reset_boundary: {
+        Args: { p_quota_area: string; p_student_id: string }
+        Returns: string
+      }
       get_ucat_stem_id_from_image_path: {
         Args: { file_path: string }
         Returns: string
@@ -21939,6 +23636,10 @@ export type Database = {
       undo_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
+      }
+      use_ucat_free_quota_reset_entitlement: {
+        Args: { p_student_id: string }
+        Returns: string
       }
       user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {

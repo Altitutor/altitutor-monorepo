@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopicsTable, AddTopicModal } from '@/features/topics';
 import { Button } from '@altitutor/ui';
-import { AdminPageActionButton } from '@/shared/components';
+import { AdminLoadingSkeleton, AdminPageActionButton } from '@/shared/components';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import { Loader2 } from 'lucide-react';
 
 export default function SubjectTopicsPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -27,13 +26,7 @@ export default function SubjectTopicsPage({ params }: { params: { id: string } }
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   if (!subject) {

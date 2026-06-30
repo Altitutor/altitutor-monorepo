@@ -63,5 +63,8 @@ altitutor-admin-obsidian-vault/
 .turbo/
 **/.turbo/
 
+# Rendered Supabase email templates (generated from templates/)
+supabase/templates-rendered/
+
 # Reference code
 ref/
