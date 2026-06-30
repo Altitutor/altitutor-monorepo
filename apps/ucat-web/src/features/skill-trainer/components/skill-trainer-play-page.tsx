@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CalculatorMathsTrainer,
   FindConceptTrainer,
@@ -16,7 +17,10 @@ import { RichContentBlock } from "@/features/question-engine/components/rich-con
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
 import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
-import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
+import type {
+  SkillTrainerAttemptState,
+  SubmitActionPayload,
+} from "@/features/skill-trainer/types/attempt";
 import {
   asCalculatorMathsContent,
   asFindConceptContent,
@@ -25,10 +29,8 @@ import {
   asNumpadSpeedContent,
   asQuickSyllogismContent,
 } from "@/features/skill-trainer/lib/content-guards";
-import { useCooldownActive } from "@/features/skill-trainer/hooks/use-cooldown-active";
 import { useLeaveGuard } from "@/features/skill-trainer/hooks/use-leave-guard";
 import { createCalculatorEngine } from "@/features/skill-trainer/lib/calculator-engine";
-import { CooldownOverlay } from "@/features/skill-trainer/components/cooldown-overlay";
 import { SkillTrainerCompleteScreen } from "@/features/skill-trainer/components/skill-trainer-complete-screen";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
 
@@ -57,20 +59,180 @@ function useAttemptTimer(state: SkillTrainerAttemptState | null, onExpire: () =>
   return remaining;
 }
 
+type ActionFeedback = "correct" | "incorrect";
+
 function useActionFeedback() {
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
+  const clearFeedbackTimeoutRef = useRef<number | null>(null);
+
+  const showFeedback = useCallback((nextFeedback: ActionFeedback) => {
+    if (clearFeedbackTimeoutRef.current != null) {
+      window.clearTimeout(clearFeedbackTimeoutRef.current);
+    }
+    setFeedback(nextFeedback);
+    clearFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setFeedback(null);
+      clearFeedbackTimeoutRef.current = null;
+    }, 600);
+  }, []);
 
   const trackResult = useCallback((state: SkillTrainerAttemptState, prev: SkillTrainerAttemptState) => {
     const delta = state.attempt.score - prev.attempt.score;
     if (delta > 0) {
-      setFeedback("correct");
+      showFeedback("correct");
     } else if (delta < 0) {
-      setFeedback("incorrect");
+      showFeedback("incorrect");
     }
-    window.setTimeout(() => setFeedback(null), 600);
+  }, [showFeedback]);
+
+  useEffect(() => {
+    return () => {
+      if (clearFeedbackTimeoutRef.current != null) {
+        window.clearTimeout(clearFeedbackTimeoutRef.current);
+      }
+    };
   }, []);
 
-  return { feedback, trackResult };
+  return { feedback, showFeedback, trackResult };
+}
+
+function getLocalActionFeedback(
+  trainerKey: UcatSkillTrainerKey,
+  state: SkillTrainerAttemptState,
+  payload: SubmitActionPayload,
+): ActionFeedback | null {
+  switch (trainerKey) {
+    case "find_word": {
+      if (payload.type !== "place_word") return null;
+      const content = asFindWordContent(state.currentItem?.content);
+      const keyword = content?.keywords.find((k) => k.id === payload.keyword_id);
+      return keyword?.target_sentence_index === payload.sentence_index
+        ? "correct"
+        : "incorrect";
+    }
+    case "find_concept": {
+      const content = asFindConceptContent(state.currentItem?.content);
+      if (!content) return null;
+      const foundIndexes =
+        state.attempt.progress?.type === "find_concept"
+          ? state.attempt.progress.found_occurrence_indexes
+          : [];
+      if (payload.type === "click_occurrence") {
+        const valid =
+          payload.occurrence_index >= 0 &&
+          payload.occurrence_index < (content.occurrences ?? []).length &&
+          !foundIndexes.includes(payload.occurrence_index);
+        return valid ? "correct" : "incorrect";
+      }
+      if (payload.type === "submit_concept") {
+        return foundIndexes.length === (content.occurrences ?? []).length
+          ? "correct"
+          : "incorrect";
+      }
+      return null;
+    }
+    case "quick_syllogism": {
+      if (payload.type !== "syllogism_answer") return null;
+      const content = asQuickSyllogismContent(state.currentItem?.content);
+      if (!content) return null;
+      return payload.answer === content.answer ? "correct" : "incorrect";
+    }
+    case "mental_maths": {
+      if (payload.type !== "numeric_answer") return null;
+      const content = asMentalMathsContent(state.currentItem?.content);
+      if (!content) return null;
+      return Math.abs(payload.answer - content.answer) < 0.001
+        ? "correct"
+        : "incorrect";
+    }
+    case "numpad_speed": {
+      if (payload.type !== "numpad_sequence") return null;
+      const content = asNumpadSpeedContent(state.currentItem?.content);
+      if (!content) return null;
+      const expected = content.button_sequence.filter((btn) => btn !== "=");
+      const submitted = payload.sequence.filter((btn) => btn !== "=");
+      const correct =
+        submitted.length === expected.length &&
+        submitted.every((btn, index) => btn === expected[index]);
+      return correct ? "correct" : "incorrect";
+    }
+    case "calculator_maths": {
+      if (payload.type !== "numeric_answer") return null;
+      const content = asCalculatorMathsContent(state.currentItem?.content);
+      if (!content) return null;
+      return Math.abs(payload.answer - content.answer) < 0.001
+        ? "correct"
+        : "incorrect";
+    }
+  }
+}
+
+function isItemCompletingAction(
+  trainerKey: UcatSkillTrainerKey,
+  state: SkillTrainerAttemptState,
+  payload: SubmitActionPayload,
+): boolean {
+  switch (trainerKey) {
+    case "find_word": {
+      if (payload.type !== "place_word") return false;
+      const content = asFindWordContent(state.currentItem?.content);
+      if (!content) return false;
+      const keyword = content.keywords.find((k) => k.id === payload.keyword_id);
+      if (!keyword || keyword.target_sentence_index !== payload.sentence_index) return false;
+      const placedIds =
+        state.attempt.progress?.type === "find_word"
+          ? state.attempt.progress.placed_keyword_ids
+          : [];
+      const nextPlacedIds = new Set([...placedIds, payload.keyword_id]);
+      return nextPlacedIds.size >= content.keywords.length;
+    }
+    case "find_concept": {
+      if (payload.type !== "submit_concept") return false;
+      const content = asFindConceptContent(state.currentItem?.content);
+      if (!content) return false;
+      const foundIndexes =
+        state.attempt.progress?.type === "find_concept"
+          ? state.attempt.progress.found_occurrence_indexes
+          : [];
+      return foundIndexes.length === (content.occurrences ?? []).length;
+    }
+    case "quick_syllogism": {
+      if (payload.type !== "syllogism_answer") return false;
+      const content = asQuickSyllogismContent(state.currentItem?.content);
+      return Boolean(content && payload.answer === content.answer);
+    }
+    case "mental_maths":
+      return payload.type === "numeric_answer";
+    case "numpad_speed": {
+      if (payload.type !== "numpad_sequence") return false;
+      const content = asNumpadSpeedContent(state.currentItem?.content);
+      if (!content) return false;
+      const expected = content.button_sequence.filter((btn) => btn !== "=");
+      const submitted = payload.sequence.filter((btn) => btn !== "=");
+      return (
+        submitted.length === expected.length &&
+        submitted.every((btn, index) => btn === expected[index])
+      );
+    }
+    case "calculator_maths":
+      return payload.type === "numeric_answer";
+  }
+}
+
+function advanceToPrefetchedItem(
+  state: SkillTrainerAttemptState,
+): SkillTrainerAttemptState | null {
+  if (!state.nextItem) return null;
+  return {
+    ...state,
+    attempt: {
+      ...state.attempt,
+      current_item_index: state.attempt.current_item_index + 1,
+      progress: null,
+    },
+    currentItem: state.nextItem,
+    nextItem: null,
+  };
 }
 
 export function SkillTrainerPlayPage({
@@ -86,6 +248,7 @@ export function SkillTrainerPlayPage({
   onComplete?: () => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const slug = trainerKeyToSlug(trainerKey);
   const [state, setState] = useState<SkillTrainerAttemptState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +261,7 @@ export function SkillTrainerPlayPage({
   const [draggingKeywordId, setDraggingKeywordId] = useState<string | null>(null);
   const [answerFocus, setAnswerFocus] = useState(false);
   const [actionInFlight, setActionInFlight] = useState(false);
+  const [optimisticAdvanced, setOptimisticAdvanced] = useState(false);
   const actionInFlightRef = useRef(false);
   const numpadInputRef = useRef<string[]>([]);
   const sidebarOverride = useSidebarOverride();
@@ -105,7 +269,7 @@ export function SkillTrainerPlayPage({
     setLocal: setActiveSkillTrainerAttempt,
     clearLocal: clearActiveSkillTrainerAttempt,
   } = useActiveSkillTrainerAttempt();
-  const { feedback, trackResult } = useActionFeedback();
+  const { feedback, showFeedback, trackResult } = useActionFeedback();
   const inProgress = Boolean(state && !state.isCompleted && !embedded);
   const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
 
@@ -114,11 +278,20 @@ export function SkillTrainerPlayPage({
     setState(next);
     if (next.isCompleted) {
       clearActiveSkillTrainerAttempt();
+      await queryClient.invalidateQueries({
+        queryKey: ["skill-trainers", "leaderboard", trainerKey],
+      });
     } else {
       setActiveSkillTrainerAttempt(next);
     }
     return next;
-  }, [attemptId, clearActiveSkillTrainerAttempt, setActiveSkillTrainerAttempt]);
+  }, [
+    attemptId,
+    clearActiveSkillTrainerAttempt,
+    queryClient,
+    setActiveSkillTrainerAttempt,
+    trainerKey,
+  ]);
 
   useEffect(() => {
     void (async () => {
@@ -136,12 +309,6 @@ export function SkillTrainerPlayPage({
 
   const remaining = useAttemptTimer(state, onExpire);
 
-  const cooldownUntil =
-    state?.attempt.progress && "cooldown_until" in state.attempt.progress
-      ? state.attempt.progress.cooldown_until
-      : null;
-  const cooldownActive = useCooldownActive(cooldownUntil);
-
   const resetActionInputs = useCallback(() => {
     setNumericInput("");
     setNumpadInput([]);
@@ -152,37 +319,62 @@ export function SkillTrainerPlayPage({
   }, [calcEngine]);
 
   const submit = useCallback(
-    async (payload: Parameters<typeof skillTrainerApi.submitAction>[1]) => {
+    async (payload: SubmitActionPayload) => {
       if (!state || actionInFlightRef.current) return;
       actionInFlightRef.current = true;
       setActionInFlight(true);
+      setOptimisticAdvanced(false);
       setActionError(null);
       resetActionInputs();
       const prev = state;
+      const localFeedback = getLocalActionFeedback(trainerKey, state, payload);
+      if (localFeedback) {
+        showFeedback(localFeedback);
+      }
+      const optimisticNext =
+        isItemCompletingAction(trainerKey, state, payload) && state.nextItem
+          ? advanceToPrefetchedItem(state)
+          : null;
+      if (optimisticNext) {
+        setState(optimisticNext);
+        setOptimisticAdvanced(true);
+      }
       try {
         const next = await skillTrainerApi.submitAction(attemptId, payload);
-        trackResult(next, prev);
+        if (!localFeedback) {
+          trackResult(next, prev);
+        }
         setState(next);
         if (next.isCompleted) {
           clearActiveSkillTrainerAttempt();
+          await queryClient.invalidateQueries({
+            queryKey: ["skill-trainers", "leaderboard", trainerKey],
+          });
         } else {
           setActiveSkillTrainerAttempt(next);
         }
         if (next.isCompleted) return;
       } catch (err) {
+        if (optimisticNext) {
+          setState(prev);
+        }
         setActionError(err instanceof Error ? err.message : "Action failed");
       } finally {
         actionInFlightRef.current = false;
         setActionInFlight(false);
+        setOptimisticAdvanced(false);
       }
     },
     [
       attemptId,
       clearActiveSkillTrainerAttempt,
+      queryClient,
       resetActionInputs,
       setActiveSkillTrainerAttempt,
+      showFeedback,
       state,
       trackResult,
+      trainerKey,
     ],
   );
 
@@ -312,17 +504,10 @@ export function SkillTrainerPlayPage({
 
   const score = state.attempt.score;
   const streak = state.attempt.streak_count;
-  const disabled = cooldownActive || actionInFlight;
+  const disabled = actionInFlight && !optimisticAdvanced;
 
   return (
     <div className="space-y-4">
-      {cooldownActive && cooldownUntil ? (
-        <CooldownOverlay
-          until={cooldownUntil}
-          durationSeconds={state.attempt.config_snapshot.wrong_cooldown_seconds}
-        />
-      ) : null}
-
       <SkillTrainerScoreBar
         remaining={remaining}
         score={score}

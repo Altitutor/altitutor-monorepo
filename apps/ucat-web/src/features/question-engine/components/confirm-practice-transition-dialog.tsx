@@ -66,10 +66,12 @@ export function ConfirmNextStemDialog({
 export function ConfirmFinishPracticeDialog({
   onConfirm,
   onCancel,
+  isSubmitting = false,
   submitsCurrentStem = false,
 }: {
   onConfirm: () => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
   submitsCurrentStem?: boolean;
 }) {
   return (
@@ -84,12 +86,26 @@ export function ConfirmFinishPracticeDialog({
       }
       actions={
         <>
-          <UcatExamActionButton borders="all" onClick={onConfirm}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
             <span>
-              <span className="underline">Y</span>es
+              {isSubmitting ? (
+                "Finishing..."
+              ) : (
+                <>
+                  <span className="underline">Y</span>es
+                </>
+              )}
             </span>
           </UcatExamActionButton>
-          <UcatExamActionButton borders="all" onClick={onCancel}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
             <span>
               <span className="underline">N</span>o
             </span>

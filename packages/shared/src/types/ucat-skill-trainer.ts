@@ -18,7 +18,6 @@ export type SkillTrainerStreakStep = {
 
 export type SkillTrainerConfigSnapshot = {
   time_limit_seconds: number;
-  wrong_cooldown_seconds: number;
   points_correct: number;
   points_wrong: number;
   streak_enabled: boolean;
@@ -79,9 +78,7 @@ export type SkillTrainerItemContent =
   | NumpadSpeedItemContent
   | CalculatorMathsItemContent;
 
-export type SkillTrainerAttemptProgress = {
-  cooldown_until?: string | null;
-} & (
+export type SkillTrainerAttemptProgress =
   | {
       type: "find_word";
       placed_keyword_ids: string[];
@@ -101,8 +98,7 @@ export type SkillTrainerAttemptProgress = {
     }
   | {
       type: "calculator_maths";
-    }
-);
+    };
 
 export function isUcatSkillTrainerKey(value: string): value is UcatSkillTrainerKey {
   return (UCAT_SKILL_TRAINER_KEYS as readonly string[]).includes(value);

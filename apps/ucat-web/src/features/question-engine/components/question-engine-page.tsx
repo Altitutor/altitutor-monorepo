@@ -221,6 +221,22 @@ function QuestionEngineLoadingSkeleton({
   );
 }
 
+function QuestionEngineFinalizingOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 grid place-items-center bg-black/25 p-6"
+      aria-busy="true"
+      aria-live="polite"
+      role="status"
+    >
+      <div className="min-w-64 border-2 border-slate-900 bg-white px-6 py-5 text-center text-black shadow-lg">
+        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-900" />
+        <p className="text-sm font-semibold">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export type PracticeEngineLiveStats = {
   answeredCount: number;
   correctCount: number;
@@ -411,6 +427,8 @@ export function QuestionEnginePage({
   const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
     useState(false);
   const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
+  const [isFinalizingExam, setIsFinalizingExam] = useState(false);
+  const [isFinishingPractice, setIsFinishingPractice] = useState(false);
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
@@ -487,6 +505,16 @@ export function QuestionEnginePage({
       practiceSessionId,
       attemptStateRef,
     });
+
+  useEffect(() => {
+    const href =
+      managedExamAttempt?.resultsHref ??
+      (practiceSessionId
+        ? `/progress/practice-sessions/${practiceSessionId}`
+        : null);
+    if (!href) return;
+    router.prefetch(href);
+  }, [managedExamAttempt?.resultsHref, practiceSessionId, router]);
 
   const markingOrQuestionIndex =
     state.phase === "question"
@@ -716,35 +744,41 @@ export function QuestionEnginePage({
   );
 
   const completeExamAndMaybeRedirect = useCallback(async () => {
-    const { earnedDiscount, discountCents, redirectHref } =
-      await handleExamCompleted();
-    if (examAttemptManaged) {
-      if (managedExamAttempt) {
-        try {
-          await finalizeExamAttempt({
-            kind: managedExamAttempt.kind,
-            attemptId: managedExamAttempt.attemptId,
-          });
-        } catch {
-          // Completion may already be persisted via handleExamCompleted.
+    setIsFinalizingExam(true);
+    try {
+      const { earnedDiscount, discountCents, redirectHref } =
+        await handleExamCompleted();
+      if (examAttemptManaged) {
+        if (managedExamAttempt) {
+          try {
+            await finalizeExamAttempt({
+              kind: managedExamAttempt.kind,
+              attemptId: managedExamAttempt.attemptId,
+            });
+          } catch {
+            // Completion may already be persisted via handleExamCompleted.
+          }
         }
+        clearActiveExamAttempt();
+        await refreshActiveExamAttempt();
       }
-      clearActiveExamAttempt();
-      await refreshActiveExamAttempt();
+      if (earnedDiscount && discountCents > 0) {
+        toast({
+          title: "Practice day discount earned!",
+          description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
+        });
+      }
+      if (redirectHref) {
+        skipBeforeUnloadRef.current = true;
+        clearActiveExamAttempt();
+        router.push(redirectHref);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      setIsFinalizingExam(false);
+      throw error;
     }
-    if (earnedDiscount && discountCents > 0) {
-      toast({
-        title: "Practice day discount earned!",
-        description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-      });
-    }
-    if (redirectHref) {
-      skipBeforeUnloadRef.current = true;
-      clearActiveExamAttempt();
-      router.push(redirectHref);
-      return true;
-    }
-    return false;
   }, [
     handleExamCompleted,
     examAttemptManaged,
@@ -756,6 +790,7 @@ export function QuestionEnginePage({
   ]);
 
   const handleEndReview = useCallback(async () => {
+    if (isFinalizingExam) return;
     if (!exam) return;
     if (
       exam.sourceType === "mock" &&
@@ -840,7 +875,9 @@ export function QuestionEnginePage({
       viewingQuestionIndex: null,
     }));
     setShowSubmitSetDialog(false);
+    setIsFinalizingExam(false);
   }, [
+    isFinalizingExam,
     exam,
     state.mockCurrentSetIndex,
     completeExamAndMaybeRedirect,
@@ -916,73 +953,82 @@ export function QuestionEnginePage({
     practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0;
 
   const handleFinishPractice = useCallback(async () => {
+    if (isFinishingPractice) return;
     if (!isPracticeMode || !exam) return;
+    setIsFinishingPractice(true);
     const qs = exam.questions;
-    if (state.phase === "question") {
-      const { startIndex, endIndex } = getStemBoundaries(
-        qs,
-        state.currentIndex,
-        mode as "questions" | "questionStem",
-      );
-      await recordAnswersForUnit(startIndex, endIndex);
-      if (learningModuleBlockId && disableQuestionAttemptLogging) {
-        onLearnProgress?.();
-      }
-      setSubmittedPracticeQuestionIds((current) => {
-        const next = new Set(current);
-        for (let index = startIndex; index <= endIndex; index++) {
-          const questionId = qs[index]?.id;
-          if (questionId) next.add(questionId);
+    try {
+      if (state.phase === "question") {
+        const { startIndex, endIndex } = getStemBoundaries(
+          qs,
+          state.currentIndex,
+          mode as "questions" | "questionStem",
+        );
+        await recordAnswersForUnit(startIndex, endIndex);
+        if (learningModuleBlockId && disableQuestionAttemptLogging) {
+          onLearnProgress?.();
         }
-        return next;
-      });
-    }
-
-    if (practiceSessionId && practiceMarkingResult) {
-      const questionScores = practiceMarkingResult.rows.map((r) => ({
-        questionId: r.question.id,
-        score: r.points,
-      }));
-      try {
-        const res = await completePracticeSession.mutateAsync({
-          sessionId: practiceSessionId,
-          scorePoints: practiceMarkingResult.totalRawScore,
-          totalPoints: practiceMarkingResult.maxRawScore,
-          questionCount: qs.length,
-          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
-          questionScores,
+        setSubmittedPracticeQuestionIds((current) => {
+          const next = new Set(current);
+          for (let index = startIndex; index <= endIndex; index++) {
+            const questionId = qs[index]?.id;
+            if (questionId) next.add(questionId);
+          }
+          return next;
         });
-        if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
-          toast({
-            title: "Practice day discount earned!",
-            description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
-          });
-        }
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
-          queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
-        ]);
-      } catch {
-        // Session complete may fail; still navigate to session when we have an id
       }
-      await refreshActiveExamAttempt();
-    }
 
-    if (practiceSessionId) {
-      clearActiveExamAttempt();
-      skipBeforeUnloadRef.current = true;
-      router.push(`/progress/practice-sessions/${practiceSessionId}`);
-      return;
-    }
+      if (practiceSessionId && practiceMarkingResult) {
+        const questionScores = practiceMarkingResult.rows.map((r) => ({
+          questionId: r.question.id,
+          score: r.points,
+        }));
+        try {
+          const res = await completePracticeSession.mutateAsync({
+            sessionId: practiceSessionId,
+            scorePoints: practiceMarkingResult.totalRawScore,
+            totalPoints: practiceMarkingResult.maxRawScore,
+            questionCount: qs.length,
+            stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
+            questionScores,
+          });
+          if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
+            toast({
+              title: "Practice day discount earned!",
+              description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
+            });
+          }
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+            queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+          ]);
+        } catch {
+          // Session complete may fail; still navigate to session when we have an id.
+        }
+        await refreshActiveExamAttempt();
+      }
 
-    setState((current) => ({
-      ...current,
-      phase: "practiceComplete",
-      viewingQuestionIndex: null,
-      practiceAnswerUnitStartIndex: undefined,
-      practiceAnswerUnitEndIndex: undefined,
-    }));
+      if (practiceSessionId) {
+        clearActiveExamAttempt();
+        skipBeforeUnloadRef.current = true;
+        router.push(`/progress/practice-sessions/${practiceSessionId}`);
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        phase: "practiceComplete",
+        viewingQuestionIndex: null,
+        practiceAnswerUnitStartIndex: undefined,
+        practiceAnswerUnitEndIndex: undefined,
+      }));
+      setIsFinishingPractice(false);
+    } catch (error) {
+      setIsFinishingPractice(false);
+      throw error;
+    }
   }, [
+    isFinishingPractice,
     isPracticeMode,
     exam,
     state.phase,
@@ -1682,7 +1728,7 @@ export function QuestionEnginePage({
         if (learningModuleBlockId && disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
-        await Promise.all([
+        void Promise.all([
           queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
           queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
         ]);
@@ -1725,6 +1771,7 @@ export function QuestionEnginePage({
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
         }));
+        setIsFinalizingExam(false);
       });
       return;
     }
@@ -1747,6 +1794,7 @@ export function QuestionEnginePage({
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
         }));
+        setIsFinalizingExam(false);
       });
       return;
     }
@@ -1862,6 +1910,7 @@ export function QuestionEnginePage({
           <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
             <ConfirmFinishPracticeDialog
               submitsCurrentStem={state.phase === "question"}
+              isSubmitting={isFinishingPractice}
               onConfirm={() =>
                 void runWithLag(() => {
                   setShowConfirmFinishPracticeDialog(false);
@@ -1917,6 +1966,7 @@ export function QuestionEnginePage({
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <EndReviewDialog
               incompleteCount={incompleteCount}
+              isSubmitting={isFinalizingExam}
               onConfirm={() => void runWithLag(handleEndReview)}
               onCancel={() =>
                 void runWithLag(() =>
@@ -1933,6 +1983,7 @@ export function QuestionEnginePage({
         {showSubmitSetDialog ? (
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <SubmitSetDialog
+              isSubmitting={isFinalizingExam}
               onConfirm={() =>
                 void runWithLag(() => {
                   setShowSubmitSetDialog(false);
@@ -1944,6 +1995,14 @@ export function QuestionEnginePage({
               }
             />
           </div>
+        ) : null}
+
+        {isFinalizingExam ? (
+          <QuestionEngineFinalizingOverlay label="Submitting attempt..." />
+        ) : null}
+
+        {isFinishingPractice ? (
+          <QuestionEngineFinalizingOverlay label="Finishing practice..." />
         ) : null}
 
         {state.showNoFlaggedDialog ? (

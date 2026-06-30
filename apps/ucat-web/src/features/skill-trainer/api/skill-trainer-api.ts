@@ -14,7 +14,6 @@ export type SkillTrainerCatalogRow = {
   section_number: number;
   sort_order: number;
   time_limit_seconds: number;
-  wrong_cooldown_seconds: number;
   streak_enabled: boolean;
 };
 

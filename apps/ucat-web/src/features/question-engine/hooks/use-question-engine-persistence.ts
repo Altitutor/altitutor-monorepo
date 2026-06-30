@@ -398,6 +398,7 @@ export function useQuestionEnginePersistence({
     }
 
     if (mode === "set" || mode === "mock") {
+      const answerUpserts: UpsertQuestionAttemptInput[] = [];
       for (const question of exam.questions) {
         const setAttemptId =
           attemptStateRef.current.setAttemptIdsBySetId.get(
@@ -437,8 +438,11 @@ export function useQuestionEnginePersistence({
             ),
           };
         }
-        await upsertQuestionAttempt.mutateAsync(base);
+        answerUpserts.push(base);
       }
+      await Promise.all(
+        answerUpserts.map((input) => upsertQuestionAttempt.mutateAsync(input)),
+      );
     }
 
     const setAttemptIds = Array.from(setIds)

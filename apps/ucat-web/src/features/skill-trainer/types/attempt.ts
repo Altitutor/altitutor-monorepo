@@ -31,6 +31,10 @@ export type SkillTrainerAttemptState = {
     id: string;
     content: Record<string, unknown>;
   } | null;
+  nextItem: {
+    id: string;
+    content: Record<string, unknown>;
+  } | null;
   remainingSeconds: number;
   isExpired: boolean;
   isCompleted: boolean;
