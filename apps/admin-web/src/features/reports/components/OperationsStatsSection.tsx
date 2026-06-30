@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   useIssuesReport,
   useTasksReport,
@@ -8,9 +7,7 @@ import {
 } from '../hooks/useIssuesReport';
 import { IssuesReportChart } from './IssuesReportChart';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
-import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
-import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
-import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface OperationsStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -18,12 +15,7 @@ interface OperationsStatsSectionProps {
 }
 
 export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsStatsSectionProps) {
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
-  const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const entityModals = useEntityModals();
 
   const { data: issuesData, isLoading: issuesLoading, error: issuesError } = useIssuesReport(
     dateRange.start,
@@ -44,15 +36,12 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
   }) => {
     const kind = entity.link?.kind ?? 'issue';
     if (kind === 'issue') {
-      setSelectedIssueId(entity.id);
-      setIsIssueDialogOpen(true);
+      entityModals.openIssue(entity.id);
     } else if (kind === 'project') {
-      setSelectedProjectId(entity.id);
-      setIsProjectDialogOpen(true);
+      entityModals.openProject(entity.id);
     } else if (kind === 'task') {
       const taskId = entity.link?.taskId ?? entity.id;
-      setSelectedTaskId(taskId);
-      setIsTaskDialogOpen(true);
+      entityModals.openTask(taskId);
     }
   };
 
@@ -228,32 +217,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
           </div>
         )}
     </div>
-
-    <EditIssueDialog
-      isOpen={isIssueDialogOpen}
-      onClose={() => {
-        setIsIssueDialogOpen(false);
-        setSelectedIssueId(null);
-      }}
-      issueId={selectedIssueId}
-      onIssueUpdated={() => {}}
-    />
-    <EditProjectDialog
-      isOpen={isProjectDialogOpen}
-      onClose={() => {
-        setIsProjectDialogOpen(false);
-        setSelectedProjectId(null);
-      }}
-      projectId={selectedProjectId}
-    />
-    <EditTaskDialog
-      isOpen={isTaskDialogOpen}
-      onClose={() => {
-        setIsTaskDialogOpen(false);
-        setSelectedTaskId(null);
-      }}
-      taskId={selectedTaskId}
-    />
     </>
   );
 }

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (existing && !existing.completed_at) {
       const state = await buildAttemptState(auth.admin, existing);
       if (!state.isCompleted) {
-        if (existing.trainer_key !== body.trainerKey && isLearnContext) {
+        if (existing.trainer_key !== body.trainerKey) {
           return NextResponse.json(
             {
               error: "ANOTHER_ATTEMPT_IN_PROGRESS",

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { ReportEntityLink } from '../types';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 import {
@@ -9,10 +8,7 @@ import {
   useMarketingStatsReport,
 } from '../hooks/useAdditionalReports';
 import { IssuesReportChart } from './IssuesReportChart';
-import { ViewStudentModal } from '@/features/students';
-import { ViewClassModal } from '@/features/classes';
-import { ViewStaffModal } from '@/features/staff';
-import { SessionModal } from '@/features/sessions';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface SchedulingStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -20,10 +16,7 @@ interface SchedulingStatsSectionProps {
 }
 
 export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingStatsSectionProps) {
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const entityModals = useEntityModals();
 
   const { data: studentData, isLoading: studentLoading, error: studentError } =
     useStudentStatsReport(dateRange.start, dateRange.end);
@@ -44,18 +37,18 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
         link.kind === 'unenrolment') &&
       link.studentId
     ) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     } else if (
       (link.kind === 'class' || link.kind === 'enrolment') &&
       link.classId
     ) {
-      setSelectedClassId(link.classId);
+      entityModals.openClass(link.classId);
     } else if (link.kind === 'staff' && link.staffId) {
-      setSelectedStaffId(link.staffId);
+      entityModals.openStaff(link.staffId);
     } else if ((link.kind === 'absence' || link.kind === 'staff') && link.sessionId) {
-      setSelectedSessionId(link.sessionId);
+      entityModals.openSession(link.sessionId);
     } else if (link.studentId) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     }
   };
 
@@ -274,33 +267,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
             </div>
           )}
       </div>
-
-      <ViewStudentModal
-        isOpen={!!selectedStudentId}
-        onClose={() => setSelectedStudentId(null)}
-        studentId={selectedStudentId}
-        onStudentUpdated={() => {}}
-      />
-
-      <ViewClassModal
-        isOpen={!!selectedClassId}
-        onClose={() => setSelectedClassId(null)}
-        classId={selectedClassId}
-        onClassUpdated={() => {}}
-      />
-
-      <ViewStaffModal
-        isOpen={!!selectedStaffId}
-        staffId={selectedStaffId}
-        onClose={() => setSelectedStaffId(null)}
-        onStaffUpdated={() => {}}
-      />
-
-      <SessionModal
-        isOpen={!!selectedSessionId}
-        sessionId={selectedSessionId}
-        onClose={() => setSelectedSessionId(null)}
-      />
     </>
   );
 }

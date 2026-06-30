@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface ClassSessionsTabProps {
   classData: Tables<'classes'>;
@@ -11,17 +12,19 @@ interface ClassSessionsTabProps {
 }
 
 export function ClassSessionsTab({ classData }: ClassSessionsTabProps) {
+  const entityModals = useEntityModals();
+
   const handleOpenSession = useCallback((sessionId: string) => {
-    window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-  }, []);
+    entityModals.openSession(sessionId);
+  }, [entityModals]);
 
   const handleOpenStudent = useCallback((studentId: string) => {
-    window.dispatchEvent(new CustomEvent('open-student-modal', { detail: { id: studentId } }));
-  }, []);
+    entityModals.openStudent(studentId);
+  }, [entityModals]);
 
   const handleOpenStaff = useCallback((staffId: string) => {
-    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
-  }, []);
+    entityModals.openStaff(staffId);
+  }, [entityModals]);
 
   return (
     <div className="h-full min-h-0 flex flex-col space-y-4">

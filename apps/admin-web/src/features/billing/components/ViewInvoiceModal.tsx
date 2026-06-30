@@ -20,7 +20,7 @@ import { useInvoiceActions } from '../hooks/useInvoiceActions';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { formatInvoiceDate, formatInvoiceAmount, calculateLineItemsSubtotal } from '../utils/invoiceFormatters';
 import { formatInvoiceTagText } from '../utils/invoiceTagText';
-import { invoicesKeys } from '../hooks/useInvoicesQuery';
+import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
 
 type ViewInvoiceModalProps = {
   isOpen: boolean;
@@ -170,9 +170,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
         description: 'Payment attempt initiated successfully',
       });
       
-      // Invalidate invoice queries to refresh data
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', invoiceId] });
+      await invalidateInvoiceDetail(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -630,8 +628,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
           }}
           invoiceItems={invoiceItems}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), invoiceId, 'credit-notes'] });
+            void invalidateInvoiceDetail(queryClient, invoiceId);
           }}
         />
       )}

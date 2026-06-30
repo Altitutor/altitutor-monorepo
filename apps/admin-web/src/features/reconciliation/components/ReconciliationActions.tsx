@@ -11,7 +11,6 @@ import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useDeleteMessage } from '@/features/messages/api/mutations';
 import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
-import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -23,6 +22,10 @@ import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issu
 import type { JSONContent } from '@altitutor/ui';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
+import {
+  invalidateInvoiceReconciliationSurfaces,
+  invalidateUnpaidInvoiceReconciliationSurfaces,
+} from '@/shared/lib/query-invalidation';
 import type {
   UninvoicedSession,
   VoidInvoiceSession,
@@ -172,9 +175,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       return response.json();
     },
     onSuccess: (data: { invoiceId?: string } | null | undefined) => {
-      // Invalidate reconciliation queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.voidInvoiceSessions() });
+      void invalidateInvoiceReconciliationSurfaces(queryClient);
       toast({
         title: 'Success',
         description: (
@@ -217,8 +218,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       return response.json() as Promise<{ ok: boolean }>;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.voidInvoiceSessions() });
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      void invalidateInvoiceReconciliationSurfaces(queryClient);
       toast({
         title: 'Deleted',
         description: 'Void invoice rows were soft-deleted in the database.',
@@ -260,8 +260,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         description: recipientText,
       });
       
-      // Invalidate reconciliation queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.unpaidInvoices() });
+      void invalidateUnpaidInvoiceReconciliationSurfaces(queryClient);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -321,8 +320,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         description: 'Payment attempt initiated successfully',
       });
       
-      // Invalidate reconciliation queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.unpaidInvoices() });
+      void invalidateUnpaidInvoiceReconciliationSurfaces(queryClient);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({

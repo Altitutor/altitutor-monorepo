@@ -24,8 +24,8 @@ import { useToast } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { invoicesKeys } from '@/features/billing/hooks/useInvoicesQuery';
 import { AdminLoadingSkeleton } from '@/shared/components';
+import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
 
 export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -126,9 +126,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         description: 'Payment attempt initiated successfully',
       });
       
-      // Invalidate invoice queries to refresh data
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', id] });
+      await invalidateInvoiceDetail(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -465,8 +463,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
           }}
           invoiceItems={invoiceItems}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), id, 'credit-notes'] });
+            void invalidateInvoiceDetail(queryClient, id);
           }}
         />
       )}

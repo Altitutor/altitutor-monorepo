@@ -31,6 +31,7 @@ import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
+  WIZARD_DIALOG_HEIGHT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 
@@ -593,9 +594,9 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
         )}
       >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
@@ -625,4 +626,3 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     </Dialog>
   );
 }
-

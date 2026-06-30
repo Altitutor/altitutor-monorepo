@@ -10,6 +10,7 @@ import { useUndoStaffAbsences } from '@/features/sessions/hooks/useStaffAbsences
 import { useRemoveStaffFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type StaffUndoTarget = {
   entityType: 'staff';
@@ -43,18 +44,19 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
   const removeStaffMutation = useRemoveStaffFromSession();
   const queryClient = useQueryClient();
+  const entityModals = useEntityModals();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {
       onOpenSession(sessionId);
     } else {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+      entityModals.openSession(sessionId);
     }
-  }, [onOpenSession]);
+  }, [entityModals, onOpenSession]);
 
   const handleOpenStudent = useCallback((studentId: string) => {
-    window.dispatchEvent(new CustomEvent('open-student-modal', { detail: { id: studentId } }));
-  }, []);
+    entityModals.openStudent(studentId);
+  }, [entityModals]);
 
   const handleUndoLogAbsenceStaff = useCallback((payload: {
     staffId: string;

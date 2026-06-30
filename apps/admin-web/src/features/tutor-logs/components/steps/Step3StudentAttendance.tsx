@@ -1,7 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Button, Checkbox, Input } from '@altitutor/ui';
+import {
+  Button,
+  Checkbox,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+} from '@altitutor/ui';
 import {
   Table,
   TableBody,
@@ -10,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui';
-import { X, Search, Plus } from 'lucide-react';
+import { MoreHorizontal, Search, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useStudentAttendance, type StudentAttendanceItem } from '../../hooks/useStudentAttendance';
 import { MeetingEntitySearchAdd } from '@/features/sessions/components/MeetingEntitySearchAdd';
@@ -36,6 +44,7 @@ type Step3StudentAttendanceProps = {
   onParentAttendanceUpdate?: (parentAttendance: ParentAttendanceItem[]) => void;
   addStudentVariant?: 'legacy' | 'search';
   onAddStudentToSession?: (studentId: string) => Promise<void>;
+  onRemoveStudentFromSession?: (studentId: string) => Promise<void>;
   onAddParentToSession?: (parentId: string) => Promise<void>;
   /** Default `both`: student + parent blocks. Use split sections in meeting combined step. */
   section?: 'both' | 'students' | 'parents';
@@ -52,6 +61,7 @@ export function Step3StudentAttendance({
   onParentAttendanceUpdate,
   addStudentVariant = 'legacy',
   onAddStudentToSession,
+  onRemoveStudentFromSession,
   onAddParentToSession,
   section = 'both',
 }: Step3StudentAttendanceProps) {
@@ -67,7 +77,6 @@ export function Step3StudentAttendance({
     setSearchTerm,
     handleAttendanceChange,
     handleAddStudent,
-    handleRemoveStudent,
     getStudentAttendance,
   } = useStudentAttendance({
     sessionId,
@@ -127,6 +136,16 @@ export function Step3StudentAttendance({
     onParentAttendanceUpdate([...others, { parentId, attended }]);
   };
 
+  const handleRemoveStudent = async (studentId: string) => {
+    if (onRemoveStudentFromSession) {
+      await onRemoveStudentFromSession(studentId);
+      await queryClient.invalidateQueries({
+        queryKey: [...sessionsKeys.detail(sessionId), 'forLogging'],
+      });
+    }
+    onUpdate(studentAttendance.filter((sa) => sa.studentId !== studentId));
+  };
+
   if (section === 'parents' && !showParents) {
     return null;
   }
@@ -142,11 +161,11 @@ export function Step3StudentAttendance({
               <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-0 w-[40%]">Student</TableHead>
+                    <TableHead className="min-w-0 w-[38%]">Student</TableHead>
                     {allowAbsenceLogging ? (
                       <>
-                        <TableHead className="min-w-0 w-[30%]">Planned attendance</TableHead>
-                        <TableHead className="min-w-0 w-[30%]">Actual attendance</TableHead>
+                        <TableHead className="min-w-0 w-[29%]">Planned attendance</TableHead>
+                        <TableHead className="min-w-0 w-[25%]">Actual attendance</TableHead>
                       </>
                     ) : (
                       <TableHead className="min-w-0 w-[35%]">Planned</TableHead>
@@ -154,6 +173,7 @@ export function Step3StudentAttendance({
                     {!allowAbsenceLogging ? (
                       <TableHead className="min-w-0 w-[25%]">Actual</TableHead>
                     ) : null}
+                    <TableHead className="w-12" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -179,18 +199,6 @@ export function Step3StudentAttendance({
                             <span className="truncate">
                               {data.student.first_name} {data.student.last_name}
                             </span>
-                            {isDraftExtra ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 shrink-0 p-0"
-                                onClick={() => handleRemoveStudent(data.student.id)}
-                                aria-label="Remove student from log"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            ) : null}
                           </div>
                         </TableCell>
                         {allowAbsenceLogging ? (
@@ -211,6 +219,30 @@ export function Step3StudentAttendance({
                             <TableCell className="min-w-0 align-middle">{actualCheckbox}</TableCell>
                           </>
                         )}
+                        <TableCell className="align-middle text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={`Actions for ${data.student.first_name} ${data.student.last_name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => void handleRemoveStudent(data.student.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {isDraftExtra ? 'Remove student from log' : 'Remove student'}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
                     );
                   })}

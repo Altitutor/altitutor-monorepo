@@ -14,9 +14,13 @@ import { ClassCard } from '@/shared/components/ClassCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
-import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
+import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
 type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
@@ -168,10 +172,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -198,9 +199,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.changeClass(params);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -227,9 +226,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -269,7 +266,7 @@ export function ClassesTab({
   const handleAddSubject = async (subject: Tables<'subjects'>) => {
     try {
       await studentsApi.assignSubjectToStudent(student.id, subject.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -300,7 +297,7 @@ export function ClassesTab({
 
     try {
       await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -321,7 +318,7 @@ export function ClassesTab({
     try {
       setIsReEnrolling(true);
       await studentsApi.reEnrollStudent(student.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -352,7 +349,7 @@ export function ClassesTab({
       <div className="flex-1 flex justify-center items-center">
         <div className="text-center">
           <p className="text-red-500 mb-2">Failed to load classes</p>
-          <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] })}>
+          <Button variant="outline" onClick={() => void invalidateStudentClassSurfaces(queryClient, student.id)}>
             Try Again
           </Button>
         </div>
@@ -592,9 +589,7 @@ export function ClassesTab({
               setSelectedClassId(null);
             }}
             onClassUpdated={() => {
-              // Refresh student classes when class is updated
-              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+              void invalidateStudentClassSurfaces(queryClient, student.id);
             }}
           />
         )}

@@ -31,10 +31,6 @@ import { AdminShiftStaffTab } from './tabs/AdminShiftStaffTab';
 import { AdminShiftSessionsTab } from './tabs/AdminShiftSessionsTab';
 import { AdminShiftActivityTab } from './tabs/AdminShiftActivityTab';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewAdminShiftModalProps {
   isOpen: boolean;
@@ -66,16 +62,6 @@ export function ViewAdminShiftModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
   
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
@@ -236,32 +222,6 @@ export function ViewAdminShiftModal({
           </SheetContent>
         </Sheet>
 
-        {/* Nested Session Modal */}
-        <SessionModal
-          isOpen={!!nestedSessionId}
-          sessionId={nestedSessionId}
-          onClose={() => setNestedSessionId(null)}
-        />
-
-        {/* Nested Staff Modal */}
-        {nestedStaffId && (
-          <ViewStaffModal
-            isOpen={!!nestedStaffId}
-            staffId={nestedStaffId}
-            onClose={() => setNestedStaffId(null)}
-            onStaffUpdated={onAdminShiftUpdated}
-          />
-        )}
-
-        {/* Nested Student Modal */}
-        {nestedStudentId && (
-          <ViewStudentModal
-            isOpen={!!nestedStudentId}
-            studentId={nestedStudentId}
-            onClose={() => setNestedStudentId(null)}
-            onStudentUpdated={onAdminShiftUpdated}
-          />
-        )}
       </>
     );
   }
@@ -393,33 +353,6 @@ export function ViewAdminShiftModal({
         )}
       </SheetContent>
     </Sheet>
-
-    {/* Nested Session Modal */}
-    <SessionModal
-      isOpen={!!nestedSessionId}
-      sessionId={nestedSessionId}
-      onClose={() => setNestedSessionId(null)}
-    />
-
-    {/* Nested Staff Modal */}
-    {nestedStaffId && (
-      <ViewStaffModal
-        isOpen={!!nestedStaffId}
-        staffId={nestedStaffId}
-        onClose={() => setNestedStaffId(null)}
-        onStaffUpdated={onAdminShiftUpdated}
-      />
-    )}
-
-    {/* Nested Student Modal */}
-    {nestedStudentId && (
-      <ViewStudentModal
-        isOpen={!!nestedStudentId}
-        studentId={nestedStudentId}
-        onClose={() => setNestedStudentId(null)}
-        onStudentUpdated={onAdminShiftUpdated}
-      />
-    )}
 
     {/* Delete confirmation dialog */}
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {

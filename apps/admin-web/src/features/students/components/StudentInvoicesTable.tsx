@@ -22,7 +22,6 @@ import {
   toInvoiceStatusPayload,
   ViewInvoiceModal,
   CreditNoteDialog,
-  invoicesKeys,
 } from '@/features/billing';
 import { useCreditNotesByInvoice } from '@/features/billing/hooks/useCreditNotesByInvoice';
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared';
@@ -33,6 +32,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateInvoiceSurfaces } from '@/shared/lib/query-invalidation';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -168,8 +168,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         description: recipientText,
       });
 
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+      await invalidateInvoiceSurfaces(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -201,8 +200,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         description: 'Payment attempt initiated successfully',
       });
 
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+      await invalidateInvoiceSurfaces(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -458,8 +456,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
             }}
             invoiceItems={items}
             onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(creditNoteInvoiceId) });
-              queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+              void invalidateInvoiceSurfaces(queryClient, creditNoteInvoiceId);
             }}
           />
         );

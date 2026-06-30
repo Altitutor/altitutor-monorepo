@@ -127,7 +127,7 @@ export default function UcatQuotasSettingsPage() {
     setVisibleColumns,
     resetFilters,
   } = useDataTable({
-    defaultFilters: { status: ['ACTIVE', 'TRIAL'] },
+    defaultFilters: {},
     defaultSort: { field: 'first_name', direction: 'asc' },
     defaultVisibleColumns: columnDefinitions.map((column) => column.key),
     filterKeys: ['status'],

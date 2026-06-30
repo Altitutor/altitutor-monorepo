@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
@@ -23,16 +23,15 @@ import {
   Input,
 } from "@altitutor/ui";
 import { SendInviteDialog } from '@/features/staff/components/modal/SendInviteDialog';
-import { useStaffDetails, staffKeys } from '@/features/staff/hooks/useStaffQuery';
+import { useStaffDetails } from '@/features/staff/hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
 import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
+import { SubjectSearchPopover } from '@/features/subjects/components';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { StaffFiles } from '@/features/staff/components/StaffFiles';
 import {
   useStaffEditFlow,
@@ -42,6 +41,8 @@ import {
   useStaffConversation,
 } from '@/features/staff/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
 export default function StaffDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -49,6 +50,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // Data fetching
   const { data: staffData, isLoading } = useStaffDetails(id, !!id);
@@ -68,7 +70,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const mutations = useStaffMutations({
     staffId: id,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(id) });
+      void invalidateStaffDetail(queryClient, id);
       editFlow.reset();
     },
   });
@@ -112,7 +114,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
@@ -150,22 +151,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleStaffUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(id) });
+    void invalidateStaffDetail(queryClient, id);
   };
-
-  // Listen for session modal events
-  useEffect(() => {
-    const onOpenSession = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveSessionId(detail.id);
-    };
-    
-    window.addEventListener('open-session-modal', onOpenSession as EventListener);
-    
-    return () => {
-      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
-    };
-  }, []);
 
   if (isLoading) {
     return <AdminLoadingSkeleton />;
@@ -241,7 +228,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
             staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
             loadingSubjects={isLoading}
             onRemoveSubject={editFlow.removeSubject}
-            onViewSubject={modals.openSubjectModal}
+            onViewSubject={entityModals.openSubject}
             addSubjectButton={
               <SubjectSearchPopover
                 selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
@@ -308,16 +295,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           <StaffActivityTab staffId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
-
-      {/* Subject Modal */}
-      {modals.selectedSubjectId && (
-        <ViewSubjectModal
-          isOpen={modals.subjectModalOpen}
-          onClose={modals.closeSubjectModal}
-          subjectId={modals.selectedSubjectId}
-          onSubjectUpdated={handleStaffUpdated}
-        />
-      )}
 
       {/* Log Staff Absence Dialog */}
       {currentStaff && (
@@ -392,13 +369,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           </AlertDialogContent>
         </AlertDialog>
       )}
-
-      {/* Session Modal */}
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
     </div>
   );
 }

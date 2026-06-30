@@ -9,9 +9,9 @@ import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/fe
 import { classesApi } from '@/shared/api';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from "@altitutor/ui";
-import { classesKeys } from '../../../hooks/useClassesQuery';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
+import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
@@ -84,9 +84,7 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.classId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, params.classId);
       onStudentsUpdated?.();
       toast({
         title: 'Success',
@@ -113,10 +111,10 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.changeClass(params);
-      // Invalidate both old and new class details, and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.oldClassId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.newClassId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await Promise.all([
+        invalidateClassSurfaces(queryClient, params.oldClassId),
+        invalidateClassSurfaces(queryClient, params.newClassId),
+      ]);
       onStudentsUpdated?.();
       toast({
         title: 'Success',
@@ -143,9 +141,7 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.classId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, params.classId);
       onStudentsUpdated?.();
       toast({
         title: 'Success',

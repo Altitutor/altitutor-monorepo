@@ -4,7 +4,10 @@ import type { JSONContent } from '@tiptap/core';
 import type { Tables } from '@altitutor/shared';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
-import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentSessionSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 interface UseUnenrollFlowProps {
   isOpen: boolean;
@@ -56,13 +59,10 @@ export function useUnenrollFlow({
         staffId: currentStaffId,
       });
       
-      // Invalidate student classes queries
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
-      
-      // Invalidate student sessions queries
-      await queryClient.invalidateQueries({ queryKey: sessionsKeys.forStudent(student.id) });
-      await queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      await Promise.all([
+        invalidateStudentClassSurfaces(queryClient, student.id),
+        invalidateStudentSessionSurfaces(queryClient, student.id),
+      ]);
       
       setUnenrollmentSuccess(true);
     } catch (error) {
@@ -79,4 +79,3 @@ export function useUnenrollFlow({
     unenrollmentSuccess,
   };
 }
-

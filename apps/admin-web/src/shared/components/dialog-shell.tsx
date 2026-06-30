@@ -45,7 +45,7 @@ export function AdminDialogShell({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:p-0 md:max-w-2xl [&>button]:hidden',
+          'flex w-full flex-col gap-0 overflow-hidden p-0 sm:p-0 md:max-w-2xl [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS,
           contentClassName,

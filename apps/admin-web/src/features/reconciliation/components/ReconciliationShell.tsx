@@ -4,9 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SegmentedControl } from '@altitutor/ui';
-import { reconciliationKeys } from '../api/queryKeys';
 import { useReconciliationTabCounts } from '../api/queries';
-import { projectKeys } from '@/features/projects/api/queryKeys';
 import { ReconciliationHandlersProvider } from './ReconciliationActions';
 import {
   useReconciliationModals,
@@ -24,6 +22,11 @@ import { ViewClassModal } from '@/features/classes';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import { AssignStaffModalWrapper } from './AssignStaffModalWrapper';
 import { EnrollStudentModalWrapper } from './EnrollStudentModalWrapper';
+import {
+  invalidateReconciliationProjectSurfaces,
+  invalidateReconciliationSurfaces,
+  invalidateUnloggedSessionSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 const NAV = [
   { segment: 'financial', href: '/reconciliation/financial', label: 'Financial' },
@@ -57,34 +60,32 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
 
   const handleCloseLogSession = () => {
     modals.handleCloseLogSession();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.unloggedSessions() });
-    void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
+    void invalidateUnloggedSessionSurfaces(queryClient);
   };
 
   const handleCloseStudent = () => {
     modals.handleCloseStudent();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+    void invalidateReconciliationSurfaces(queryClient);
   };
 
   const handleCloseClass = () => {
     modals.handleCloseClass();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+    void invalidateReconciliationSurfaces(queryClient);
   };
 
   const handleCloseStaff = () => {
     modals.handleCloseStaff();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+    void invalidateReconciliationSurfaces(queryClient);
   };
 
   const handleCloseProject = () => {
     modals.handleCloseProject();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-    queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    void invalidateReconciliationProjectSurfaces(queryClient);
   };
 
   const handleCloseParent = () => {
     modals.handleCloseParent();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+    void invalidateReconciliationSurfaces(queryClient);
   };
 
   const handleAssignStaff = async (params: {
@@ -184,7 +185,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           onClose={handleCloseStudent}
           studentId={modals.selectedStudentId}
           onStudentUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -193,7 +194,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           onClose={handleCloseParent}
           parentId={modals.selectedParentId}
           onParentUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -225,7 +226,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           staffId={modals.selectedStaffId}
           onClose={handleCloseStaff}
           onStaffUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -234,7 +235,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           classId={modals.selectedClassId}
           onClose={handleCloseClass}
           onClassUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 

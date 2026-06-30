@@ -10,6 +10,7 @@ import { useUndoAbsences } from '@/features/sessions/hooks/useAbsences';
 import { useRemoveStudentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type StudentUndoTarget = {
   entityType: 'student';
@@ -43,18 +44,19 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
   const undoAbsenceMutation = useUndoAbsences();
   const removeStudentMutation = useRemoveStudentFromSession();
   const queryClient = useQueryClient();
+  const entityModals = useEntityModals();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {
       onOpenSession(sessionId);
     } else {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+      entityModals.openSession(sessionId);
     }
-  }, [onOpenSession]);
+  }, [entityModals, onOpenSession]);
 
   const handleOpenStaff = useCallback((staffId: string) => {
-    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
-  }, []);
+    entityModals.openStaff(staffId);
+  }, [entityModals]);
 
   const handleUndoLogAbsenceStudent = useCallback((payload: {
     studentId: string;

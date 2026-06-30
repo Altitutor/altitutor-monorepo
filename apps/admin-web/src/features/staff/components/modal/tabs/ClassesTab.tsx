@@ -12,7 +12,7 @@ import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
-import { useStaffWithSubjectsById, staffKeys } from '@/features/staff/hooks/useStaffQuery';
+import { useStaffWithSubjectsById } from '@/features/staff/hooks/useStaffQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import { staffApi } from '@/features/staff/api/staff';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
@@ -20,6 +20,7 @@ import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { AssignStaffModal } from '@/features/enrollments';
+import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
 type ViewMode = 'table' | 'calendar';
 
@@ -184,9 +185,7 @@ export function ClassesTab({
         await staffApi.removeSubjectFromStaff(staff.id, subject.id);
       }
 
-      // Invalidate queries to refetch
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detail(staff.id) });
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staff.id) });
+      await invalidateStaffDetail(queryClient, staff.id);
       await queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
       
       setIsEditingSubjects(false);

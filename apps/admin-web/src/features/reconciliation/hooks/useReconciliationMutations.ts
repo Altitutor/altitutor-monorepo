@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { classesApi } from '@/features/classes/api';
-import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
+import { invalidateReconciliationSurfaces } from '@/shared/lib/query-invalidation';
 
 /**
  * Hook for assigning staff to a class with automatic query invalidation
@@ -20,7 +20,7 @@ export function useAssignStaffMutation() {
       return classesApi.assignStaff(params.classId, params.staffId, params.currentStaffId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+      void invalidateReconciliationSurfaces(queryClient);
       toast({
         title: 'Success',
         description: 'Staff assigned successfully',
@@ -53,7 +53,7 @@ export function useEnrollStudentMutation() {
       return classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+      void invalidateReconciliationSurfaces(queryClient);
       toast({
         title: 'Success',
         description: 'Student enrolled successfully',

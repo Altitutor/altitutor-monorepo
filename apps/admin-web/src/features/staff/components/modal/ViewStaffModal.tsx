@@ -15,7 +15,6 @@ import { MessagesTabContent } from '@/features/messages/components/MessagesTabCo
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffFiles } from '../StaffFiles';
 import { useQueryClient } from '@tanstack/react-query';
-import { staffKeys } from '../../hooks/useStaffQuery';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 import { StaffPayTierTab } from './tabs/StaffPayTierTab';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components';
@@ -33,8 +32,6 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { SendInviteDialog } from './SendInviteDialog';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
@@ -42,9 +39,10 @@ import {
   useStaffModals,
   useStaffConversation,
 } from '../../hooks';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 import { IssuePill } from '@/features/issues';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -67,6 +65,7 @@ export function ViewStaffModal({
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // React Query hooks - fetch data only when modal is open and staffId exists
   const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
@@ -87,7 +86,7 @@ export function ViewStaffModal({
     staffId: staffId || '',
     onSuccess: () => {
       if (staffId) {
-        queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
+        void invalidateStaffDetail(queryClient, staffId);
       }
       editFlow.reset();
       onStaffUpdated();
@@ -139,16 +138,6 @@ export function ViewStaffModal({
   const [activeTab, setActiveTab] = useState('details');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
-
   // Reset state when modal closes; honour initialTab when opening
   useEffect(() => {
     if (!isOpen) {
@@ -311,7 +300,7 @@ export function ViewStaffModal({
                         staffId={staffId}
                         staffFirstName={staffMember.first_name}
                         staffLastName={staffMember.last_name}
-                        onOpenSession={(sessionId) => setNestedSessionId(sessionId)}
+                        onOpenSession={entityModals.openSession}
                       />
                     )}
                   </div>
@@ -334,9 +323,7 @@ export function ViewStaffModal({
                     {staffMember && (
                       <StaffSessionsTab 
                         staff={staffMember} 
-                        onOpenSession={(sessionId) => {
-                          window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-                        }}
+                        onOpenSession={entityModals.openSession}
                       />
                     )}
                   </div>
@@ -400,7 +387,7 @@ export function ViewStaffModal({
           subjectId={modals.selectedSubjectId}
           onSubjectUpdated={() => {
             if (staffId) {
-              queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
+              void invalidateStaffDetail(queryClient, staffId);
             }
           }}
         />
@@ -483,32 +470,6 @@ export function ViewStaffModal({
         );
       })()}
 
-      {/* Nested Session Modal */}
-      <SessionModal
-        isOpen={!!nestedSessionId}
-        sessionId={nestedSessionId}
-        onClose={() => setNestedSessionId(null)}
-      />
-
-      {/* Nested Staff Modal */}
-      {nestedStaffId && (
-        <ViewStaffModal
-          isOpen={!!nestedStaffId}
-          staffId={nestedStaffId}
-          onClose={() => setNestedStaffId(null)}
-          onStaffUpdated={onStaffUpdated}
-        />
-      )}
-
-      {/* Nested Student Modal */}
-      {nestedStudentId && (
-        <ViewStudentModal
-          isOpen={!!nestedStudentId}
-          studentId={nestedStudentId}
-          onClose={() => setNestedStudentId(null)}
-          onStudentUpdated={onStaffUpdated}
-        />
-      )}
     </>
   );
 } 

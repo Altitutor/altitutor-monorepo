@@ -1,10 +1,17 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Checkbox, SearchableSelect } from '@altitutor/ui';
+import {
+  Checkbox,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  SearchableSelect,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Plus, Search } from 'lucide-react';
+import { MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -43,6 +50,7 @@ type Step2StaffAttendanceProps = {
   staffAttendance: StaffAttendanceItem[];
   onUpdate: (staffAttendance: StaffAttendanceItem[]) => void;
   onAddStaffToSession?: (staffId: string) => Promise<void>;
+  onRemoveStaffFromSession?: (staffId: string) => Promise<void>;
   /** Use SearchableSelect-based add (meeting log flow). Default: legacy search input + cards. */
   addStaffVariant?: 'legacy' | 'search';
 };
@@ -54,6 +62,7 @@ export function Step2StaffAttendance({
   staffAttendance,
   onUpdate,
   onAddStaffToSession,
+  onRemoveStaffFromSession,
   addStaffVariant = 'legacy',
 }: Step2StaffAttendanceProps) {
   const queryClient = useQueryClient();
@@ -166,6 +175,16 @@ export function Step2StaffAttendance({
     setAvailableStaff([]);
   };
 
+  const handleRemoveStaff = async (staffId: string) => {
+    if (onRemoveStaffFromSession) {
+      await onRemoveStaffFromSession(staffId);
+      queryClient.invalidateQueries({
+        queryKey: [...sessionsKeys.detail(sessionId), 'forLogging'],
+      });
+    }
+    onUpdate(staffAttendance.filter((sa) => sa.staffId !== staffId));
+  };
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
@@ -181,15 +200,16 @@ export function Step2StaffAttendance({
           <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-0 w-[36%]">Staff</TableHead>
+                <TableHead className="min-w-0 w-[34%]">Staff</TableHead>
                 {allowAbsenceLogging ? (
                   <>
-                    <TableHead className="min-w-0 w-[32%]">Planned attendance</TableHead>
-                    <TableHead className="min-w-0 w-[32%]">Actual attendance</TableHead>
+                    <TableHead className="min-w-0 w-[30%]">Planned attendance</TableHead>
+                    <TableHead className="min-w-0 w-[28%]">Actual attendance</TableHead>
                   </>
                 ) : (
                   <TableHead className="min-w-0">Attendance</TableHead>
                 )}
+                <TableHead className="w-12" aria-label="Actions" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -250,6 +270,30 @@ export function Step2StaffAttendance({
                     ) : (
                       <TableCell className="min-w-0 align-middle">{actualCell}</TableCell>
                     )}
+                    <TableCell className="align-middle text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Actions for ${data.staff.first_name} ${data.staff.last_name}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => void handleRemoveStaff(data.staff.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remove staff
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}

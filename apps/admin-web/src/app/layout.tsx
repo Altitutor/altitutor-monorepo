@@ -9,10 +9,10 @@ import { ConditionalNavbar } from '@/shared/components/layouts/ConditionalNavbar
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
-import { MentionModalProvider } from '@/shared/components/MentionModalProvider';
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
+import { EntityModalProvider } from '@/shared/contexts/EntityModalContext'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 import { AdminShellProvider } from '@/shared/contexts/AdminShellContext'
 
@@ -53,14 +53,14 @@ export default function RootLayout({
                     <CommandPaletteProvider>
                       <QuickActionsProvider>
                         <AdminShellProvider>
-                          <MentionModalProvider>
+                          <EntityModalProvider>
                             <div className="flex flex-col min-h-dvh bg-background">
                               <ConditionalNavbar />
                               <MainContentWrapper>
                                 {children}
                               </MainContentWrapper>
                             </div>
-                          </MentionModalProvider>
+                          </EntityModalProvider>
                         </AdminShellProvider>
                       </QuickActionsProvider>
                     </CommandPaletteProvider>

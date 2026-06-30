@@ -9,8 +9,6 @@ import { useSessionActions } from '@/features/sessions/hooks/useSessionActions';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/shared/hooks';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
@@ -29,12 +27,14 @@ import {
   processSessionStaff,
 } from '@/features/sessions/utils';
 import { AdminLoadingSkeleton } from '@/shared/components';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
+  const entityModals = useEntityModals();
 
   // Business logic hooks
   const sessionData = useSessionData({
@@ -69,7 +69,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   };
 
   const handleOpenStaff = (staffId: string) => {
-    modals.openStaffModal(staffId);
+    entityModals.openStaff(staffId);
   };
 
   const handleOpenTopic = (topicId: string) => {
@@ -84,7 +84,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   };
 
   const handleOpenFile = (fileId: string) => {
-    window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id: fileId } }));
+    entityModals.openFilePreview(fileId);
   };
 
   const handleOpenClass = (classId: string) => {
@@ -196,7 +196,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
             isSessionInPast={helpers.isSessionInPast}
             currentStaff={null}
             onOpenSession={handleOpenSession}
-            onOpenStudent={modals.openStudentModal}
+            onOpenStudent={entityModals.openStudent}
             onOpenStaff={handleOpenStaff}
             onOpenClass={handleOpenClass}
             onMessageStudent={handleMessageStudent}
@@ -210,26 +210,6 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           <SessionActivityTab sessionId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
-
-      {/* Student Modal */}
-      {modals.selectedStudentId && (
-        <ViewStudentModal
-          isOpen={modals.isStudentModalOpen}
-          onClose={modals.closeStudentModal}
-          studentId={modals.selectedStudentId}
-          onStudentUpdated={() => {}}
-        />
-      )}
-
-      {/* Staff Modal */}
-      {modals.selectedStaffId && (
-        <ViewStaffModal
-          isOpen={modals.isStaffModalOpen}
-          onClose={modals.closeStaffModal}
-          staffId={modals.selectedStaffId}
-          onStaffUpdated={() => {}}
-        />
-      )}
 
       {/* Log Session Modal */}
       {currentStaff && (

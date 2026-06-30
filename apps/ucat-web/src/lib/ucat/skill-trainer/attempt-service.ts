@@ -137,6 +137,49 @@ export async function finalizeAttemptIfExpired(
   return mapAttemptRow(data ?? attempt, attempt.trainer_key);
 }
 
+export async function completeSkillTrainerAttempt(
+  supabase: AdminClient,
+  attemptId: string,
+  studentId: string,
+): Promise<SkillTrainerAttemptState> {
+  const { data: rawAttempt, error: loadError } = await supabase
+    .from("student_skill_trainer_attempts")
+    .select("*, ucat_skill_trainers(key)")
+    .eq("id", attemptId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+
+  if (loadError) throw new Error(loadError.message);
+  if (!rawAttempt) throw new Error("ATTEMPT_NOT_FOUND");
+
+  const trainerKey = (rawAttempt as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  const attempt = mapAttemptRow(rawAttempt as Record<string, unknown>, trainerKey);
+
+  if (attempt.completed_at) {
+    return buildAttemptState(supabase, attempt);
+  }
+
+  const { data, error } = await supabase
+    .from("student_skill_trainer_attempts")
+    .update({
+      completed_at: new Date().toISOString(),
+      progress: null,
+    })
+    .eq("id", attempt.id)
+    .eq("student_id", studentId)
+    .select("*, ucat_skill_trainers(key)")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("ATTEMPT_NOT_FOUND");
+
+  const completedTrainerKey = (data as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  return buildAttemptState(
+    supabase,
+    mapAttemptRow(data as Record<string, unknown>, completedTrainerKey),
+  );
+}
+
 function mapAttemptRow(
   row: Record<string, unknown>,
   trainerKey?: string,

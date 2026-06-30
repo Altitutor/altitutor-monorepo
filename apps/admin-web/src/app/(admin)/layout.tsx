@@ -12,8 +12,6 @@ import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
-import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
-import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
@@ -30,6 +28,7 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb, AdminUrlSyncBoundary } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
 import { format } from 'date-fns';
 import type { LucideIcon } from 'lucide-react';
 
@@ -556,8 +555,7 @@ function AdminLayoutContent({
                 sessionType={checkInSessionType}
                 initialPrefill={checkInPrefill}
                 onCreated={(sessionId, staffIds) => {
-                  void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
-                  void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
+                  void invalidateCheckInSurfaces(queryClient);
                   if (checkInSessionType === 'CHECK_IN') {
                     for (const staffId of staffIds) {
                       void queryClient.invalidateQueries({

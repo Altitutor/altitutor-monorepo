@@ -6,9 +6,9 @@ import {
   useDeleteStaff,
   useAssignSubjectToStaff,
   useRemoveSubjectFromStaff,
-  staffKeys,
 } from './useStaffQuery';
 import type { StaffDetailsFormData } from '../components/modal/tabs';
+import { invalidateStaffSurfaces } from '@/shared/lib/query-invalidation';
 
 interface UseStaffMutationsProps {
   staffId: string;
@@ -85,9 +85,7 @@ export function useStaffMutations({
         await removeSubjectMutation.mutateAsync({ staffId, subjectId });
       }
       
-      // Invalidate queries
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
-      await queryClient.invalidateQueries({ queryKey: staffKeys.minimal({}) });
+      await invalidateStaffSurfaces(queryClient, staffId);
       
       toast({
         title: 'Staff updated',

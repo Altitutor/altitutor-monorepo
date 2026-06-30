@@ -18,6 +18,7 @@ import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
+  COMPACT_WIZARD_DIALOG_HEIGHT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import type { Tables } from '@altitutor/shared';
 import { staffApi } from '@/features/staff/api/staff';
@@ -127,12 +128,12 @@ export function AddStaffToSessionModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-3xl h-[80vh] flex flex-col p-0 [&>button]:hidden',
+          'w-full md:max-w-3xl flex flex-col p-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : COMPACT_WIZARD_DIALOG_HEIGHT_CLASS
         )}
       >
-        <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex-shrink-0 border-b bg-card">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">

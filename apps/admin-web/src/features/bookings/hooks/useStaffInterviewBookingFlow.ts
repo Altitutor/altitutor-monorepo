@@ -2,10 +2,12 @@ import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { createStaffInterview } from '../api/staff-interview';
-import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
-import { staffKeys } from '@/features/staff/hooks/useStaffQuery';
 import { getErrorMessage } from '@/shared/utils';
 import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
+import {
+  invalidateSessionListSurfaces,
+  invalidateStaffListSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 const STAFF_INTERVIEW_STEPS = [
   { id: 'interviewee', title: 'Select Candidate' },
@@ -58,8 +60,10 @@ export function useStaffInterviewBookingFlow({
   const createMutation = useMutation({
     mutationFn: createStaffInterview,
     onSuccess: (sessionId) => {
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
+      void Promise.all([
+        invalidateSessionListSurfaces(queryClient),
+        invalidateStaffListSurfaces(queryClient),
+      ]);
       showSessionBookedToast({
         toast,
         sessionId,

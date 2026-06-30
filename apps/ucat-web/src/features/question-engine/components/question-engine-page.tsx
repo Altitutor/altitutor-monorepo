@@ -559,6 +559,18 @@ export function QuestionEnginePage({
       : null;
   const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
   const reviewTimedExpiryRef = useRef(false);
+  const awaitingServerSegmentStartRef = useRef(false);
+  const displayRemainingSeconds =
+    exam && isTimed
+      ? (examAttemptManaged &&
+        (!serverSegmentEndsAt || awaitingServerSegmentStartRef.current)
+          ? getRemainingSeconds(exam, state, state.timerStartedAt, null)
+          : remainingSeconds)
+      : null;
+
+  useEffect(() => {
+    awaitingServerSegmentStartRef.current = false;
+  }, [serverSegmentEndsAt]);
 
   useEffect(() => {
     if (!isTimed) return;
@@ -576,6 +588,7 @@ export function QuestionEnginePage({
     timeExpiredFiredRef.current = String(segmentKey);
 
     if (state.phase === "instructions") {
+      awaitingServerSegmentStartRef.current = examAttemptManaged;
       setState((prev) => {
         const next = { ...prev, phase: "question" as const };
         if (exam!.sourceType === "set") {
@@ -606,6 +619,10 @@ export function QuestionEnginePage({
       return;
     }
 
+    if (examAttemptManaged && awaitingServerSegmentStartRef.current) {
+      return;
+    }
+
     if (state.phase === "question" && exam.sourceType === "set") {
       setState((prev) => ({
         ...prev,
@@ -631,6 +648,7 @@ export function QuestionEnginePage({
     remainingSeconds,
     segmentKey,
     state.phase,
+    examAttemptManaged,
     setState,
     handleExamCompleted,
   ]);
@@ -1969,14 +1987,14 @@ export function QuestionEnginePage({
 
   const headerRight = (
     <div className="flex flex-col items-end gap-0.5">
-      {isTimed && remainingSeconds !== null ? (
+      {isTimed && displayRemainingSeconds !== null ? (
         <div
           className="text-[12pt] font-normal"
           role="timer"
-          aria-label={`Time remaining ${formatTimeRemaining(remainingSeconds)}`}
+          aria-label={`Time remaining ${formatTimeRemaining(displayRemainingSeconds)}`}
         >
           <span className="mr-1">Time Remaining</span>
-          <span>{formatTimeRemaining(remainingSeconds)}</span>
+          <span>{formatTimeRemaining(displayRemainingSeconds)}</span>
         </div>
       ) : null}
       {!isInstructionsPhase && !isReviewScreen ? (
@@ -2010,7 +2028,7 @@ export function QuestionEnginePage({
           }
           sectionTitleRight={
             isReviewScreen
-              ? isTimed && remainingSeconds !== null
+              ? isTimed && displayRemainingSeconds !== null
                 ? headerRight
                 : null
               : !isInstructionsPhase || isTimed

@@ -299,12 +299,15 @@ export async function GET(request: NextRequest) {
   const search = params.get('search')?.trim() ?? '';
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
   const pageSize = Math.min(100, Math.max(10, Number(params.get('pageSize') ?? '50') || 50));
-  const statuses = (params.get('status')?.split(',').filter(Boolean) ?? ['ACTIVE', 'TRIAL']);
+  const statuses = params.get('status')?.split(',').filter(Boolean) ?? [];
 
   let query = supabaseAdmin!
     .from('students')
-    .select('id, first_name, last_name, email, status, timezone')
-    .in('status', statuses);
+    .select('id, first_name, last_name, email, status, timezone');
+
+  if (statuses.length > 0) {
+    query = query.in('status', statuses);
+  }
 
   if (search) {
     const q = `%${search}%`;
