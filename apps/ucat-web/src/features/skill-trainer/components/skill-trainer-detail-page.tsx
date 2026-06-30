@@ -28,7 +28,6 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
   const { openQuotaLimit } = useQuotaLimitModal();
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
-  const slug = trainerKeyToSlug(trainerKey);
   const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
 
   const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");

@@ -21,6 +21,11 @@
     "db:committypes": "supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.1.0",
+    "eslint-plugin-storybook": "^0.12.0",
     "supabase": "^2.108.0",
     "turbo": "^2.10.0"
   },

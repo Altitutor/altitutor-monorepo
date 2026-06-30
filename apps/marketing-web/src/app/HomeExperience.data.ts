@@ -62,10 +62,10 @@ export const protocolCards = [
 ];
 
 export const steps = [
-  "You use the link above to book a trial session with one of our tutors. During the trial session, our tutors explain how our programmes work and we organise availability.",
+  "Click the link above to book a trial session with one of our tutors. During the trial session, our tutors explain how our programmes work and we organise availability.",
   "You study 1-on-1 with our tutors for a few sessions to catch up to the level of one of our classes. After these sessions, you get integrated into an appropriate class, with other students at your learning ability.",
-  "In class each week, your tutor teaches you content ahead of your school, using notes, practice questions and practice exams.",
-  "At any time, you can access our online resources for free, which include notes, practice questions, tests and exams for every topic.",
+  "In class each week, your tutor teaches you content ahead of your school, using notes, practice questions and practice exams. Because you’ve already learnt the content with us, learning content at school become easy, and you can focus on remembering the content rather than trying to learn it for the first time.",
+  "At any time, you can access our online resources for free, which include notes, practice questions, tests and exams for every topic. Whenever you have an assignment or struggle with content in school, you come to our free homework help session. During this time, our friendly tutors help you with schoolwork and draft your assignments, for free!",
   "The money you pay for each session is used to pay for tuition for our students in our subsidy programme.",
 ];
 

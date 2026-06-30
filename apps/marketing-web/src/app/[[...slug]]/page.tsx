@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import clsx from "clsx";
 import { notFound } from "next/navigation";
+import { Facebook, Instagram, Linkedin, Twitter, Youtube, type LucideIcon } from "lucide-react";
 import { HomeExperience } from "../HomeExperience";
 import { MarketingNav } from "../MarketingNav";
 import { MarketingMotion } from "../MarketingMotion";
@@ -22,13 +23,34 @@ type PageProps = {
   };
 };
 
-const SOCIAL_LINKS = [
-  ["Facebook", "https://www.facebook.com/altitutoreducation/"],
-  ["Instagram", "https://www.instagram.com/altitutor/"],
-  ["TikTok", "https://www.tiktok.com/@altitutor"],
-  ["LinkedIn", "https://www.linkedin.com/company/altitutor/"],
-  ["YouTube", "https://www.youtube.com/channel/UCtHb57z0bE-caSB76YguEMA"],
-] as const;
+type SocialIcon = LucideIcon | typeof TikTokIcon;
+
+const SOCIAL_LINKS: Array<[string, SocialIcon, string]> = [
+  ["Instagram", Instagram, "https://www.instagram.com/altitutor/"],
+  ["Facebook", Facebook, "https://www.facebook.com/altitutoreducation/"],
+  ["Twitter", Twitter, "https://twitter.com/Altitutor"],
+  ["YouTube", Youtube, "https://www.youtube.com/@altitutor"],
+  ["TikTok", TikTokIcon, "https://www.tiktok.com/@altitutor"],
+  ["LinkedIn", Linkedin, "https://www.linkedin.com/company/altitutor/"],
+];
+
+function TikTokIcon({ size = 18, ...props }: { size?: number; "aria-hidden"?: boolean }) {
+  return (
+    <svg
+      fill="none"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M15.2 3c.28 2.38 1.62 3.8 3.92 3.96v3.07a6.82 6.82 0 0 1-3.84-1.18v5.76c0 2.92-1.76 5.39-4.57 6.06-1.83.44-3.6.05-5.08-1.18-2.82-2.36-2.1-6.8 1.34-8.19a6.5 6.5 0 0 1 3.07-.37v3.18c-.28-.08-.55-.13-.83-.13-1.39-.02-2.45.84-2.56 2.08-.12 1.36.78 2.43 2.16 2.55 1.52.13 2.6-.83 2.63-2.45.03-2.8 0-5.58 0-8.37V3h3.76Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 function normalizePath(path: string) {
   if (!path || path === "/") return "/";
@@ -124,6 +146,7 @@ export default async function MarketingRoute({ params }: PageProps) {
   const structuredData = getStructuredData(page);
   const isHome = page.path === "/";
   const staffProfiles = page.path === "/about/" ? await getMarketingStaffProfiles() : [];
+  const currentYear = new Date().getFullYear();
 
   return (
     <MarketingMotion>
@@ -139,7 +162,10 @@ export default async function MarketingRoute({ params }: PageProps) {
       <main className={styles.site}>
         <MarketingNav />
 
-        <section id={isHome ? "alti-home" : undefined} className={clsx(styles.hero, isHome && styles.heroTextOnly)}>
+        <section
+          id={isHome ? "alti-home" : undefined}
+          className={clsx(styles.hero, isHome && styles.heroTextOnly, !isHome && !page.hero.image && styles.heroNoMedia)}
+        >
           {isHome ? (
             <Image
               className={styles.heroBackground}
@@ -171,13 +197,9 @@ export default async function MarketingRoute({ params }: PageProps) {
               </MarketingButton>
             </div>
           </div>
-          {!isHome ? (
-            <div className={styles.heroMedia} aria-hidden={!page.hero.image} data-hero-reveal>
-              {page.hero.image ? (
-                <Image src={page.hero.image} alt="" fill sizes="(min-width: 1024px) 42vw, 100vw" />
-              ) : (
-                <div className={styles.heroMark}>A</div>
-              )}
+          {!isHome && page.hero.image ? (
+            <div className={styles.heroMedia} aria-hidden data-hero-reveal>
+              <Image src={page.hero.image} alt="" fill sizes="(min-width: 1024px) 42vw, 100vw" />
             </div>
           ) : null}
         </section>
@@ -186,9 +208,11 @@ export default async function MarketingRoute({ params }: PageProps) {
           <HomeExperience />
         ) : (
           <div className={styles.pageShell}>
-            <MarketingPageContent page={page} />
-
-            {staffProfiles.length > 0 ? <StaffProfilesSection profiles={staffProfiles} /> : null}
+            {page.path === "/about/" ? (
+              <AboutPageContent profiles={staffProfiles} />
+            ) : (
+              <MarketingPageContent page={page} />
+            )}
 
             <section className={styles.cta} data-reveal>
               <p className="marketing-kicker">Start with a real lesson</p>
@@ -205,41 +229,44 @@ export default async function MarketingRoute({ params }: PageProps) {
       </main>
 
       <footer className={styles.footer}>
-        <div>
-          <MarketingHeading variant="footer">Altitutor.</MarketingHeading>
-          <p className={styles.footerTagline}>Adelaide tutoring for students who want schoolwork to become easier.</p>
-          <p className={styles.footerStatus}><span /> System Operational</p>
-          <address>
-            Level 1, 17A Solomon St
-            <br />
-            Adelaide SA 5000
-          </address>
-          <p>Copyright © 2021 Altitutor Pty Ltd</p>
-          <p>ACN: 639 197 167</p>
-          <div className={styles.footerSocials}>
-            {SOCIAL_LINKS.map(([label, href]) => (
-              <a key={href} href={href}>
-                {label}
-              </a>
-            ))}
+        <div className={styles.footerMain}>
+          <div>
+            <MarketingHeading variant="footer">Altitutor.</MarketingHeading>
+            <p className={styles.footerTagline}>A mission-driven non-profit providing accessible education for all students.</p>
+            <address>
+              Level 1, 17A Solomon St
+              <br />
+              Adelaide SA 5000
+            </address>
+            <div className={styles.footerSocials} aria-label="Altitutor social links">
+              {SOCIAL_LINKS.map(([label, Icon, href]) => (
+                <a key={href} href={href} aria-label={label} target="_blank" rel="noreferrer">
+                  <Icon aria-hidden size={18} strokeWidth={2} />
+                </a>
+              ))}
+            </div>
           </div>
+          <nav aria-label="Education links">
+            <MarketingHeading as="h3" variant="footer">Education</MarketingHeading>
+            {COURSE_LINKS.map(([href, label]) => (
+              <Link key={href} href={href}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <nav aria-label="Company links">
+            <MarketingHeading as="h3" variant="footer">Company</MarketingHeading>
+            <Link href="/about/">About us</Link>
+            <Link href="/about/testimonials/">Testimonials</Link>
+            <Link href="/about/subsidy/">Tuition subsidy</Link>
+            <Link href="/about/apply/">Work with us</Link>
+            <Link href="/about/contact/">Contact us</Link>
+          </nav>
         </div>
-        <nav aria-label="Education links">
-          <MarketingHeading as="h3" variant="footer">Education</MarketingHeading>
-          {COURSE_LINKS.map(([href, label]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <nav aria-label="Company links">
-          <MarketingHeading as="h3" variant="footer">Company</MarketingHeading>
-          <Link href="/about/">About us</Link>
-          <Link href="/about/testimonials/">Testimonials</Link>
-          <Link href="/about/subsidy/">Tuition subsidy</Link>
-          <Link href="/about/apply/">Work with us</Link>
-          <Link href="/about/contact/">Contact us</Link>
-        </nav>
+        <div className={styles.footerMeta}>
+          <p>ACN: 639 197 167</p>
+          <p>Copyright © {currentYear} Altitutor Pty Ltd</p>
+        </div>
       </footer>
     </MarketingMotion>
   );
@@ -247,28 +274,267 @@ export default async function MarketingRoute({ params }: PageProps) {
 
 function MarketingPageContent({ page }: { page: MarketingPage }) {
   return (
-    <article className={styles.content} data-page-path={page.path} data-reveal>
-      {page.sections.map((section) => (
-        <MarketingContentSection key={section.heading} section={section} />
+    <article className={styles.content} data-page-path={page.path}>
+      {page.sections.map((section, index) => (
+        <MarketingContentSection key={section.heading} section={section} index={index} />
       ))}
     </article>
   );
 }
 
-function MarketingContentSection({ section }: { section: MarketingPageSection }) {
+const aboutValues = [
+  {
+    label: "01",
+    title: "Fairness and equality",
+    description:
+      "Altitutor is not-for-profit, with revenue directed back into teaching and a subsidy program for students who need free or reduced-cost support.",
+    href: "/about/subsidy/",
+  },
+  {
+    label: "02",
+    title: "Transparency",
+    description:
+      "Parents can organise a meeting with their child's tutor during the week, so questions, progress and concerns do not wait for the next invoice cycle.",
+  },
+  {
+    label: "03",
+    title: "Student enjoyment",
+    description:
+      "Lessons are designed so students want to come to tutoring, with confident teaching programs, optional extension resources and a more human learning environment.",
+  },
+  {
+    label: "04",
+    title: "Community",
+    description:
+      "Students learn with peers, help each other, join end-of-year events and often return as tutors after graduating.",
+    href: "/about/testimonials/",
+  },
+];
+
+const teachingMethods = [
+  "1.5 hour sessions that give students enough time to learn deeply without losing focus.",
+  "Small classes grouped by level and learning ability, so students can learn from each other.",
+  "Study methods used by tutors and past students to achieve excellent results.",
+  "Two-tutor sessions that preserve individual help inside a collaborative class.",
+  "Comprehensive notes, practice questions, tests and exams ready for students to use.",
+];
+
+const inClassSteps = [
+  {
+    title: "Revision and consolidation",
+    description:
+      "Students begin each lesson with revision sheets or flashcards so content stays active long before exams arrive.",
+  },
+  {
+    title: "Learning ahead",
+    description:
+      "Tutors teach course content ahead of school using notes and practice questions, making school lessons easier to absorb.",
+  },
+  {
+    title: "Assessment preparation",
+    description:
+      "After each topic, students work through topic tests and assessment strategies until they feel ready to move forward.",
+  },
+];
+
+const outOfClassSupport = [
+  {
+    title: "Homework help session",
+    description:
+      "Weekly students can attend a free 3-hour homework help class for assessment preparation, assignment drafting and catch-up support.",
+  },
+  {
+    title: "24/7 guidance",
+    description:
+      "Students have unlimited access to the question helpline, where they can ask tutors questions during the week.",
+  },
+  {
+    title: "Online resources",
+    description:
+      "Enrolled students receive access to notes, video lessons, flashcards, practice questions, tests and exams for their courses.",
+  },
+];
+
+const charities = [
+  "The Salvation Army Red Shield Appeal",
+  "Alongsiders International",
+  "Cancer Council",
+  "CBM Australia",
+  "Cambodian Harvest",
+  "Soddo Christian Hospital",
+];
+
+function AboutPageContent({ profiles }: { profiles: MarketingStaffProfile[] }) {
   return (
-    <MarketingCard as="section" className={styles.richSection}>
-      {section.eyebrow ? <p className="marketing-kicker">{section.eyebrow}</p> : null}
-      <MarketingHeading>{section.heading}</MarketingHeading>
-      {section.body?.map((paragraph) => (
-        <p key={paragraph}>{paragraph}</p>
-      ))}
+    <>
+      <section className={styles.aboutIntro} data-reveal>
+        <div>
+          <p className="marketing-kicker">Founded by tutors</p>
+          <MarketingHeading>
+            A complete education,
+            <span> without losing the student.</span>
+          </MarketingHeading>
+        </div>
+        <div className={styles.aboutIntroCopy}>
+          <p>
+            Altitutor was founded by a group of tutors who wanted a better way to do tuition. Individual tutors can struggle to provide complete support, while larger companies can lose the personal learning relationship.
+          </p>
+          <p>
+            We built a model that combines both: small classes, tailored guidance, strong resources and a not-for-profit structure that helps families access tutoring when money would otherwise get in the way.
+          </p>
+        </div>
+      </section>
+
+      <section className={styles.aboutManifesto} data-reveal>
+        <div className={styles.aboutManifestoTexture} aria-hidden />
+        <div className={styles.aboutManifestoInner}>
+          <p>Most tutoring is built around expensive access and private advantage.</p>
+          <MarketingHeading as="h2" variant="display">
+            Altitutor exists to make excellent teaching more accessible.
+          </MarketingHeading>
+          <p>
+            Tutoring is lucrative. We know. Altitutor does not want to be another tutoring company chasing profit; revenue goes back into teaching students who cannot afford support.
+          </p>
+        </div>
+      </section>
+
+      <section className={styles.aboutSection} data-reveal>
+        <div className={styles.aboutSectionHeader}>
+          <p className="marketing-kicker">Our values</p>
+          <MarketingHeading>
+            High standards,
+            <span> wider access.</span>
+          </MarketingHeading>
+        </div>
+        <div className={styles.aboutValueGrid}>
+          {aboutValues.map((value) => (
+            <MarketingCard className={styles.aboutValueCard} key={value.title}>
+              <span>{value.label}</span>
+              <MarketingHeading as="h3" variant="card">{value.title}</MarketingHeading>
+              <p>{value.description}</p>
+              {value.href ? (
+                <MarketingButton href={value.href} variant="outline">
+                  Learn more
+                </MarketingButton>
+              ) : null}
+            </MarketingCard>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.aboutMethod} data-reveal>
+        <div className={styles.aboutMethodCopy}>
+          <p className="marketing-kicker">Our teaching method</p>
+          <MarketingHeading>
+            The best way to judge us is to try a lesson.
+          </MarketingHeading>
+          <p>
+            A free trial session gives students and parents a direct sample of how we teach. These are the principles behind the model.
+          </p>
+          <MarketingButton href={PRODUCT_LINKS.trialBooking}>
+            Book a trial session
+          </MarketingButton>
+        </div>
+        <ol className={styles.aboutMethodList}>
+          {teachingMethods.map((method) => (
+            <li key={method}>{method}</li>
+          ))}
+        </ol>
+      </section>
+
+      <section className={styles.aboutLearningGrid} data-reveal>
+        <div className={styles.aboutLearningPanel}>
+          <p className="marketing-kicker">In class</p>
+          <MarketingHeading as="h2" variant="display">Students learn ahead of school.</MarketingHeading>
+          {inClassSteps.map((step, index) => (
+            <div className={styles.aboutLearningStep} key={step.title}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <MarketingHeading as="h3" variant="card">{step.title}</MarketingHeading>
+                <p>{step.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className={styles.aboutLearningPanel}>
+          <p className="marketing-kicker">Out of class</p>
+          <MarketingHeading as="h2" variant="display">Support continues through the week.</MarketingHeading>
+          {outOfClassSupport.map((item) => (
+            <MarketingCard className={styles.aboutSupportCard} key={item.title}>
+              <MarketingHeading as="h3" variant="card">{item.title}</MarketingHeading>
+              <p>{item.description}</p>
+            </MarketingCard>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.teamLead} data-reveal>
+        <div>
+          <p className="marketing-kicker">Our team</p>
+          <MarketingHeading>
+            Students taught by people who care where they end up.
+          </MarketingHeading>
+        </div>
+        <div>
+          <p>
+            Our team is made up of passionate, driven people who want students to improve their scores and join a community of young learners.
+          </p>
+          <MarketingButton href="/about/apply/" variant="outline">
+            Work with us
+          </MarketingButton>
+        </div>
+      </section>
+
+      {profiles.length > 0 ? <StaffProfilesSection profiles={profiles} /> : null}
+
+      <section className={styles.aboutCharities} data-reveal>
+        <div>
+          <p className="marketing-kicker">Charities we support</p>
+          <MarketingHeading>
+            Students help decide where giving goes.
+          </MarketingHeading>
+          <p>
+            A significant portion of revenue each term is donated to a charity that students vote for from causes we believe in.
+          </p>
+        </div>
+        <div className={styles.aboutCharityGrid}>
+          {charities.map((charity) => (
+            <span key={charity}>{charity}</span>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function MarketingContentSection({ section, index }: { section: MarketingPageSection; index: number }) {
+  const hasCards = Boolean(section.cards?.length);
+  const hasList = Boolean(section.list?.length);
+
+  return (
+    <section
+      className={clsx(
+        styles.richSection,
+        index === 0 && styles.richSectionIntro,
+        hasCards && styles.richSectionWithCards,
+        hasList && styles.richSectionWithList,
+        index % 3 === 1 && styles.richSectionTint,
+      )}
+      data-reveal
+    >
+      <div className={styles.richCopy}>
+        {section.eyebrow ? <p className="marketing-kicker">{section.eyebrow}</p> : null}
+        <MarketingHeading>{section.heading}</MarketingHeading>
+        {section.body?.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
       {section.list ? (
-        <ul>
+        <ol className={styles.richList}>
           {section.list.map((item) => (
             <li key={item}>{item}</li>
           ))}
-        </ul>
+        </ol>
       ) : null}
       {section.cards ? (
         <div className={styles.richGrid}>
@@ -278,14 +544,14 @@ function MarketingContentSection({ section }: { section: MarketingPageSection })
               <p>{card.description}</p>
               {card.href ? (
                 <MarketingButton href={card.href}>
-                  Learn more
+                  {card.actionLabel ?? "Learn more"}
                 </MarketingButton>
               ) : null}
             </MarketingCard>
           ))}
         </div>
       ) : null}
-    </MarketingCard>
+    </section>
   );
 }
 

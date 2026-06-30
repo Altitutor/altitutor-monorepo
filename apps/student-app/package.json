@@ -38,6 +38,15 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "@types/react-dom": "~19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
+    "eslint": "^8.57.1",
+    "eslint-config-expo": "^56.0.4",
+    "eslint-import-resolver-typescript": "^3.10.1",
+    "eslint-plugin-expo": "^1.0.3",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -46,7 +55,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "build": "expo export",
     "test": "echo \"No student-app tests configured yet\""

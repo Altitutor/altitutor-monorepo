@@ -18,7 +18,11 @@ export function MarketingMotion({ children }: { children: React.ReactNode }) {
     let ticking = false;
     const updateNav = () => {
       ticking = false;
-      nav?.toggleAttribute("data-scrolled", window.scrollY > 100);
+      if (window.scrollY > 100) {
+        nav?.setAttribute("data-scrolled", "true");
+      } else {
+        nav?.removeAttribute("data-scrolled");
+      }
     };
     const onScroll = () => {
       if (ticking) return;

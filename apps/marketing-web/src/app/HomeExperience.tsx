@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PRODUCT_LINKS } from "@/lib/site";
 import {
   diagnosticLabels,
@@ -14,7 +14,7 @@ import {
   telemetryMessages,
   testimonialRows,
 } from "./HomeExperience.data";
-import { MarketingActionButton, MarketingButton, MarketingCard, MarketingHeading } from "./MarketingUI";
+import { MarketingButton, MarketingCard, MarketingHeading } from "./MarketingUI";
 import styles from "./HomeExperience.module.css";
 
 export function HomeExperience() {
@@ -71,9 +71,9 @@ function HomeSectionIndicator() {
 
 function FeaturesSection() {
   return (
-    <section id="overview" className={styles.section} data-reveal>
+    <section id="overview" className={styles.section}>
       <div className={styles.sectionHeader}>
-        <p className="marketing-kicker">Interactive functional artifacts</p>
+        <p className="marketing-kicker">Overview</p>
         <MarketingHeading>
           Want to achieve
           <span> better results?</span>
@@ -89,88 +89,40 @@ function FeaturesSection() {
 }
 
 function DiagnosticShuffler() {
-  const [labels, setLabels] = useState(diagnosticLabels);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setLabels((current) => {
-        const next = [...current];
-        next.unshift(next.pop() ?? "");
-        return next;
-      });
-    }, 3000);
-    return () => window.clearInterval(interval);
-  }, []);
-
   return (
     <MarketingCard className={styles.artifactCard}>
       <div>
         <p className={styles.artifactLabel}>Weekly classes</p>
         <MarketingHeading as="h3" variant="card">Weekly tuition</MarketingHeading>
         <p>
-          Whether you&apos;re struggling to pass or want to achieve top scores, our weekly classes ensure students not only improve their results, but find the content they&apos;re learning easy.
+          Whether you&apos;re struggling to pass or want to achieve top scores, our weekly classes ensure students not only improve their results, but find the content they&apos;re learning easy. We offer weekly classes for year 7-10 Maths and Science, SACE Stage 1 and 2 and IB Maths, Physics, Chemistry and Biology.
         </p>
         <MarketingButton href="/classes/weekly-classes/">
           Explore weekly classes
         </MarketingButton>
-      </div>
-      <div className={styles.diagnosticStack} aria-hidden>
-        {labels.map((label, index) => (
-          <div className={styles.diagnosticStackItem} data-index={index} key={label}>
-            <span>0{index + 1}</span>
-            {label}
-          </div>
-        ))}
       </div>
     </MarketingCard>
   );
 }
 
 function TelemetryTypewriter() {
-  const [messageIndex, setMessageIndex] = useState(0);
-  const [charCount, setCharCount] = useState(0);
-  const message = telemetryMessages[messageIndex];
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      if (charCount < message.length) {
-        setCharCount((count) => count + 1);
-      } else {
-        window.setTimeout(() => {
-          setMessageIndex((index) => (index + 1) % telemetryMessages.length);
-          setCharCount(0);
-        }, 900);
-      }
-    }, charCount < message.length ? 32 : 900);
-    return () => window.clearTimeout(timeout);
-  }, [charCount, message.length]);
-
   return (
     <MarketingCard className={clsx(styles.artifactCard, styles.telemetryCard)}>
       <div>
-        <div className={styles.liveFeedLabel}>
-          <span />
-          Live Feed
-        </div>
+        <p className={styles.artifactLabel}>UCAT prep</p>
         <MarketingHeading as="h3" variant="card">UCAT prep</MarketingHeading>
         <p>
-          Whatever stage you&apos;re at in your preparation, we&apos;ve got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types.
+          Whatever stage you&apos;re at in your preparation, we&apos;ve got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types, and finishes with you confidently smashing through sections in the appropriate time.
         </p>
         <MarketingButton href="/classes/ucatprep/">
           Explore UCAT prep
         </MarketingButton>
       </div>
-      <pre aria-label="Live text feed">
-        {message.slice(0, charCount)}
-        <span className={styles.typeCursor}>|</span>
-      </pre>
     </MarketingCard>
   );
 }
 
 function SchedulerCard() {
-  const cells = useMemo(() => scheduleDays.map((day, index) => ({ day, active: index === 3 })), []);
-
   return (
     <MarketingCard className={styles.artifactCard}>
       <div>
@@ -182,21 +134,6 @@ function SchedulerCard() {
         <MarketingButton href="/classes/english-assignment-drafting/">
           Explore drafting
         </MarketingButton>
-      </div>
-      <div className={styles.schedulerUi} aria-hidden>
-        <div className={styles.schedulerGrid}>
-          {cells.map((cell, index) => (
-            <span className={cell.active ? styles.activeCell : undefined} key={`${cell.day}-${index}`}>
-              {cell.day}
-            </span>
-          ))}
-        </div>
-        <MarketingActionButton>
-          Save
-        </MarketingActionButton>
-        <svg className={styles.schedulerCursor} viewBox="0 0 40 40">
-          <path d="M8 4 31 24 19 26 14 37Z" />
-        </svg>
       </div>
     </MarketingCard>
   );
@@ -302,46 +239,66 @@ function ProtocolSection() {
         </MarketingHeading>
       </div>
       <div className={styles.supportGrid}>
-      {protocolCards.map((card) => (
-        <MarketingCard className={styles.supportCard} key={card.number}>
-          <div className={styles.supportCopy}>
-            <span>{card.number}</span>
-            <MarketingHeading as="h3" variant="card">{card.title}</MarketingHeading>
-            <p>{card.description}</p>
-          </div>
-          <ProtocolMotif motif={card.motif} />
-        </MarketingCard>
-      ))}
+        {protocolCards.map((card) => (
+          <MarketingCard className={clsx(styles.supportCard, styles[`supportCard_${card.motif}`])} key={card.number}>
+            <div className={styles.supportCopy}>
+              <span>{card.number}</span>
+              <MarketingHeading as="h3" variant="card">{card.title}</MarketingHeading>
+              <p>{card.description}</p>
+            </div>
+            <ProtocolMotif motif={card.motif} title={card.title} />
+          </MarketingCard>
+        ))}
       </div>
     </section>
   );
 }
 
-function ProtocolMotif({ motif }: { motif: string }) {
+function ProtocolMotif({ motif, title }: { motif: string; title: string }) {
+  if (motif === "helix") {
+    return (
+      <div className={clsx(styles.protocolArtifact, styles.helpArtifact)} aria-label={title}>
+        <div className={styles.helpBoard}>
+          <span>Q</span>
+          <span>A</span>
+          <span>?</span>
+        </div>
+        <div className={styles.helpPulse} />
+      </div>
+    );
+  }
+
   if (motif === "scan") {
     return (
-      <svg className={clsx(styles.protocolMotif, styles.scan)} viewBox="0 0 420 420" aria-hidden>
-        {Array.from({ length: 64 }).map((_, index) => (
-          <circle key={index} cx={42 + (index % 8) * 48} cy={42 + Math.floor(index / 8) * 48} r="4" />
+      <div className={clsx(styles.protocolArtifact, styles.trustArtifact)} aria-label={title}>
+        {diagnosticLabels.map((label, index) => (
+          <div className={styles.trustStackItem} data-index={index} key={label}>
+            <span>0{index + 1}</span>
+            {label}
+          </div>
         ))}
-        <rect x="22" y="0" width="376" height="18" />
-      </svg>
+      </div>
     );
   }
+
   if (motif === "wave") {
     return (
-      <svg className={clsx(styles.protocolMotif, styles.wave)} viewBox="0 0 420 420" aria-hidden>
-        <path d="M22 230h76l22-72 52 152 42-190 42 110h142" />
-      </svg>
+      <div className={clsx(styles.protocolArtifact, styles.resourceArtifact)} aria-label={title}>
+        {telemetryMessages.map((message, index) => (
+          <span data-index={index} key={message}>{message}</span>
+        ))}
+      </div>
     );
   }
+
   return (
-    <svg className={clsx(styles.protocolMotif, styles.orbit)} viewBox="0 0 420 420" aria-hidden>
-      <circle cx="210" cy="210" r="104" />
-      <circle cx="210" cy="210" r="154" />
-      <path d="M118 118c80 34 144 34 184 0M118 302c80-34 144-34 184 0" />
-      <circle cx="304" cy="116" r="14" />
-    </svg>
+    <div className={clsx(styles.protocolArtifact, styles.personalArtifact)} aria-label={title}>
+      {scheduleDays.map((day, index) => (
+        <span className={index === 3 ? styles.activeCell : undefined} key={`${day}-${index}`}>
+          {day}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -397,7 +354,7 @@ function MembershipSection() {
       <div className={styles.membershipGrid}>
         <MarketingCard>
           <p>In-person pathway</p>
-          <MarketingHeading as="h3" variant="display">Book a trial session</MarketingHeading>
+          <MarketingHeading as="h3" variant="card">Book a trial session</MarketingHeading>
           <span>Free 1 hour trial</span>
           <p>
             Meet with one of our tutors to discuss availability, logistics and whether you would like to continue with us.
@@ -408,7 +365,7 @@ function MembershipSection() {
         </MarketingCard>
         <MarketingCard tone="dark">
           <p>Online resources</p>
-          <MarketingHeading as="h3" variant="display">Register as an online student</MarketingHeading>
+          <MarketingHeading as="h3" variant="card">Register as an online student</MarketingHeading>
           <span>Student portal access</span>
           <p>
             Access online resources, ask questions in subject help groups and contact tutors for at-home support.

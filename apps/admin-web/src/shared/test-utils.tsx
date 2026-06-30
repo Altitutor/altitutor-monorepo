@@ -15,7 +15,7 @@ const MockToastProvider = ({ children }: { children: React.ReactNode }) => {
   try {
     // Dynamic import would be async, so we use require for synchronous check
     // This is acceptable in test utilities where we need to conditionally load modules
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const uiModule = require('@altitutor/ui');
     const RealToastProvider = uiModule.ToastProvider;
     if (RealToastProvider && typeof RealToastProvider === 'function') {

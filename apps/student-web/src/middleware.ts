@@ -7,6 +7,13 @@ import type { PostgrestError } from '@supabase/supabase-js';
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
+  if (pathname.startsWith('/auth/callback&')) {
+    const redirectUrl = new URL(req.url);
+    redirectUrl.pathname = '/auth/callback';
+    redirectUrl.search = pathname.slice('/auth/callback&'.length);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   const isPublicPath =
     pathname === '/' ||
     pathname.startsWith('/login') ||

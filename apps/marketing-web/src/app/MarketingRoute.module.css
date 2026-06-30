@@ -25,8 +25,8 @@
   gap: clamp(2rem, 6vw, 5rem);
   align-items: center;
   overflow: hidden;
-  border-bottom-left-radius: clamp(2.75rem, 6vw, 4rem);
-  border-bottom-right-radius: clamp(2.75rem, 6vw, 4rem);
+  border-bottom-left-radius: var(--marketing-card-radius);
+  border-bottom-right-radius: var(--marketing-card-radius);
   background:
     radial-gradient(circle at 72% 46%, rgb(146 185 198 / 20%), transparent 23rem),
     linear-gradient(135deg, rgb(10 41 65 / 97%), rgb(26 26 26 / 96%));
@@ -74,6 +74,14 @@
 .heroTextOnly .heroCopy {
   max-width: min(78rem, 100%);
   padding-bottom: clamp(5rem, 12vh, 10rem);
+}
+
+.heroNoMedia {
+  grid-template-columns: 1fr;
+}
+
+.heroNoMedia .heroCopy {
+  max-width: min(72rem, 100%);
 }
 
 .hero h1 {
@@ -126,6 +134,13 @@
   flex-wrap: wrap;
   gap: 0.85rem;
   margin-top: clamp(1.6rem, 4vw, 2.5rem);
+}
+
+.heroActions [data-marketing-button] {
+  min-height: 3.45rem;
+  padding: 1rem 2rem;
+  font-size: clamp(1rem, 1.5vw, 1.125rem);
+  font-weight: 800;
 }
 
 .hero [data-button-variant="filled"],
@@ -188,16 +203,41 @@
 .content {
   position: relative;
   width: min(1180px, calc(100% - 2rem));
-  margin: clamp(3rem, 8vw, 7rem) auto;
+  margin: clamp(4rem, 9vw, 7rem) auto;
 }
 
 .richSection {
-  margin: 0 0 clamp(1.25rem, 3vw, 2.25rem);
-  border: var(--marketing-card-border);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(22rem, 1fr);
+  gap: clamp(1.75rem, 5vw, 4rem);
+  align-items: start;
+  margin: 0 0 clamp(3rem, 8vw, 6rem);
+}
+
+.richSectionIntro {
+  align-items: end;
+}
+
+.richSectionTint {
   border-radius: var(--marketing-card-radius);
-  background: rgb(251 250 246 / 72%);
-  padding: clamp(1rem, 2vw, 1.35rem);
+  background:
+    radial-gradient(circle at 92% 12%, rgb(146 185 198 / 16%), transparent 19rem),
+    rgb(255 255 255 / 48%);
+  padding: clamp(1.25rem, 4vw, 3rem);
   box-shadow: 0 24px 70px rgb(10 41 65 / 7%);
+}
+
+.richSectionWithCards {
+  grid-template-columns: 1fr;
+}
+
+.richSectionWithCards .richCopy {
+  max-width: 58rem;
+}
+
+.richCopy {
+  min-width: 0;
 }
 
 .richGrid {
@@ -217,6 +257,13 @@
   background: rgb(255 255 255 / 50%);
   padding: clamp(1.1rem, 2vw, 1.6rem);
   box-shadow: var(--marketing-card-shadow);
+  transition: border-color 420ms var(--ease), box-shadow 420ms var(--ease), transform 420ms var(--ease);
+}
+
+.richCard:hover {
+  border-color: rgb(146 185 198 / 48%);
+  box-shadow: 0 28px 84px rgb(10 41 65 / 13%);
+  transform: translateY(-4px);
 }
 
 .richSection :where(h1, h2, h3, h4, h5, h6) {
@@ -239,13 +286,13 @@
 }
 
 .richSection :where(p, li) {
-  max-width: 68ch;
   color: var(--ink-soft);
   font-size: clamp(0.98rem, 1.05vw, 1.08rem);
   line-height: 1.78;
 }
 
 .richSection p {
+  max-width: 68ch;
   margin: 0 0 1rem;
 }
 
@@ -254,13 +301,34 @@
   font-weight: 800;
 }
 
-.richSection :where(ul, ol) {
-  margin: 0.75rem 0 1.25rem;
-  padding-left: 1.25rem;
+.richList {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: rich-list;
 }
 
-.richSection li + li {
-  margin-top: 0.55rem;
+.richList li {
+  position: relative;
+  min-height: 4.5rem;
+  border-left: 1px solid rgb(10 41 65 / 14%);
+  padding: 0.1rem 0 1rem 4rem;
+  counter-increment: rich-list;
+}
+
+.richList li::before {
+  content: counter(rich-list, decimal-leading-zero);
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  color: var(--navy);
+  font-family: var(--font-marketing-display);
+  font-size: 2.1rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .richSection a {
@@ -269,6 +337,339 @@
   text-decoration-color: rgb(146 185 198 / 65%);
   text-decoration-thickness: 0.12em;
   text-underline-offset: 0.22em;
+}
+
+.aboutIntro,
+.aboutSection,
+.aboutMethod,
+.aboutLearningGrid,
+.teamLead,
+.aboutCharities {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.aboutIntro {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(22rem, 0.72fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: end;
+  padding: clamp(5rem, 10vw, 8rem) 0 clamp(3rem, 7vw, 6rem);
+}
+
+.aboutIntro [data-marketing-title],
+.aboutSectionHeader [data-marketing-title],
+.teamLead [data-marketing-title],
+.aboutCharities [data-marketing-title] {
+  color: var(--navy);
+}
+
+.aboutIntroCopy {
+  border-left: 1px solid rgb(10 41 65 / 14%);
+  padding-left: clamp(1.25rem, 3vw, 2rem);
+}
+
+.aboutIntroCopy p,
+.aboutMethodCopy p,
+.teamLead p,
+.aboutCharities p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.25vw, 1.14rem);
+  line-height: 1.75;
+}
+
+.aboutIntroCopy p + p {
+  margin-top: 1.1rem;
+}
+
+.aboutManifesto {
+  position: relative;
+  display: flex;
+  min-height: 86svh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--marketing-card-radius);
+  background: var(--charcoal);
+  color: var(--paper);
+  margin: 0 auto clamp(4rem, 9vw, 8rem);
+  padding: clamp(5rem, 12vw, 9rem) clamp(1.25rem, 7vw, 6rem);
+  text-align: center;
+  width: min(1320px, calc(100% - 2rem));
+}
+
+.aboutManifestoTexture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image: url("/images/landing/background-alt-scaled.jpg");
+  background-position: center;
+  background-size: cover;
+  filter: grayscale(1);
+}
+
+.aboutManifestoTexture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 20%, rgb(146 185 198 / 24%), transparent 22rem),
+    linear-gradient(0deg, #1a1a1a, rgb(26 26 26 / 34%));
+}
+
+.aboutManifestoInner {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 74rem);
+}
+
+.aboutManifesto p {
+  max-width: 44rem;
+  margin: 0 auto;
+  color: rgb(251 250 246 / 72%);
+  font-size: clamp(1rem, 1.5vw, 1.18rem);
+  line-height: 1.72;
+}
+
+.aboutManifesto [data-marketing-title] {
+  max-width: 14ch;
+  margin: 1.3rem auto 1.8rem;
+  color: var(--paper);
+  font-size: clamp(2.6rem, 6vw, 5.7rem);
+  line-height: 0.94;
+}
+
+.aboutSection {
+  padding-bottom: clamp(4rem, 9vw, 7rem);
+}
+
+.aboutSectionHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: clamp(1.5rem, 5vw, 4rem);
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
+}
+
+.aboutSectionHeader [data-marketing-title] {
+  max-width: 12ch;
+}
+
+.aboutValueGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.9rem, 2vw, 1.35rem);
+}
+
+.aboutValueCard {
+  display: flex;
+  min-height: 25rem;
+  flex-direction: column;
+  overflow: hidden;
+  padding: clamp(1.2rem, 2vw, 1.7rem);
+  transition: border-color 420ms var(--ease), box-shadow 420ms var(--ease), transform 420ms var(--ease);
+}
+
+.aboutValueCard:hover {
+  border-color: rgb(146 185 198 / 48%);
+  box-shadow: 0 28px 84px rgb(10 41 65 / 13%);
+  transform: translateY(-4px);
+}
+
+.aboutValueCard > span,
+.aboutLearningStep > span {
+  color: var(--accent);
+  font-family: var(--font-marketing-mono);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.aboutValueCard [data-marketing-title] {
+  margin-top: 1rem;
+  color: var(--navy);
+}
+
+.aboutValueCard p,
+.aboutLearningStep p,
+.aboutSupportCard p {
+  color: var(--ink-soft);
+  line-height: 1.68;
+}
+
+.aboutValueCard p {
+  margin: 1rem 0 1.5rem;
+}
+
+.aboutValueCard [data-marketing-button],
+.teamLead [data-marketing-button] {
+  margin-top: auto;
+  border-color: rgb(10 41 65 / 20%);
+  background: rgb(10 41 65 / 4%);
+  color: var(--navy);
+}
+
+.aboutValueCard [data-marketing-button]::after,
+.teamLead [data-marketing-button]::after {
+  background: rgb(146 185 198 / 18%);
+}
+
+.aboutMethod {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(24rem, 1fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: start;
+  border-radius: var(--marketing-card-radius);
+  background:
+    radial-gradient(circle at 92% 12%, rgb(146 185 198 / 18%), transparent 19rem),
+    rgb(255 255 255 / 54%);
+  padding: clamp(1.25rem, 4vw, 3rem);
+  box-shadow: 0 24px 70px rgb(10 41 65 / 7%);
+}
+
+.aboutMethodCopy {
+  position: sticky;
+  top: 6rem;
+}
+
+.aboutMethodCopy [data-marketing-title] {
+  margin-bottom: 1.1rem;
+  color: var(--navy);
+}
+
+.aboutMethodCopy [data-marketing-button] {
+  margin-top: 1.6rem;
+  color: var(--charcoal);
+}
+
+.aboutMethodList {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: method;
+}
+
+.aboutMethodList li {
+  position: relative;
+  min-height: 5rem;
+  border-left: 1px solid rgb(10 41 65 / 14%);
+  padding: 0.15rem 0 1rem 4rem;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.2vw, 1.12rem);
+  line-height: 1.65;
+  counter-increment: method;
+}
+
+.aboutMethodList li::before {
+  content: counter(method, decimal-leading-zero);
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  color: var(--navy);
+  font-family: var(--font-marketing-display);
+  font-size: 2.3rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.aboutLearningGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+  padding: clamp(4rem, 9vw, 7rem) 0;
+}
+
+.aboutLearningPanel {
+  border-radius: var(--marketing-card-radius);
+  background: rgb(251 250 246 / 72%);
+  padding: clamp(1.2rem, 3vw, 2rem);
+  box-shadow: 0 24px 70px rgb(10 41 65 / 7%);
+}
+
+.aboutLearningPanel:nth-child(1) {
+  background: var(--navy);
+  color: var(--paper);
+}
+
+.aboutLearningPanel:nth-child(1) [data-marketing-title],
+.aboutLearningPanel:nth-child(1) .aboutLearningStep p {
+  color: var(--paper);
+}
+
+.aboutLearningPanel:nth-child(1) .aboutLearningStep p {
+  opacity: 0.72;
+}
+
+.aboutLearningPanel > [data-marketing-title] {
+  margin-bottom: clamp(1.6rem, 4vw, 2.6rem);
+  color: var(--navy);
+}
+
+.aboutLearningStep {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 1rem;
+  border-top: 1px solid rgb(255 255 255 / 14%);
+  padding: 1.25rem 0;
+}
+
+.aboutLearningStep p,
+.aboutSupportCard p {
+  margin: 0.75rem 0 0;
+}
+
+.aboutSupportCard {
+  margin-top: 1rem;
+  padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.teamLead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.72fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: end;
+  padding-bottom: clamp(2rem, 5vw, 3.5rem);
+}
+
+.teamLead [data-marketing-button] {
+  margin-top: 1.4rem;
+}
+
+.aboutCharities {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(22rem, 1fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  margin-bottom: clamp(3rem, 8vw, 6rem);
+  border-top: 1px solid rgb(10 41 65 / 10%);
+  padding-top: clamp(3rem, 8vw, 6rem);
+}
+
+.aboutCharities p {
+  margin-top: 1rem;
+}
+
+.aboutCharityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.aboutCharityGrid span {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  border: 1px solid rgb(10 41 65 / 10%);
+  border-radius: 1.1rem;
+  background: rgb(255 255 255 / 48%);
+  color: var(--navy);
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 1rem;
 }
 
 .staff {
@@ -362,9 +763,9 @@
 }
 
 .footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(12rem, 0.8fr));
-  gap: clamp(2rem, 5vw, 4rem);
+  position: relative;
+  z-index: 20;
+  overflow: hidden;
   border-top-left-radius: 4rem;
   border-top-right-radius: 4rem;
   background:
@@ -372,6 +773,15 @@
     var(--charcoal);
   color: rgb(251 250 246 / 72%);
   padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 6vw, 5rem);
+  box-shadow: 0 -20px 40px rgb(0 0 0 / 50%);
+}
+
+.footerMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(12rem, 0.8fr));
+  gap: clamp(2rem, 5vw, 4rem);
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  padding-bottom: clamp(2rem, 5vw, 4rem);
 }
 
 .footer h2,
@@ -420,33 +830,36 @@
   line-height: 1.6;
 }
 
-.footerStatus {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-top: 1.25rem !important;
-  color: rgb(251 250 246 / 80%);
-  font-family: var(--font-marketing-mono);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-}
-
-.footerStatus span {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  background: #54d66b;
-  box-shadow: 0 0 0 0 rgb(84 214 107 / 55%);
-  animation: operational-pulse 1.8s infinite;
-}
-
 .footerSocials {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
+  gap: 1rem;
   margin-top: 1.3rem;
-  font-size: 0.86rem;
-  font-weight: 800;
+}
+
+.footerSocials a {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  color: rgb(251 250 246 / 60%);
+  line-height: 1;
+}
+
+.footerSocials a:hover {
+  color: white;
+  transform: translateY(-2px);
+}
+
+.footerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: clamp(1.25rem, 3vw, 2rem);
+  color: rgb(251 250 246 / 48%);
+  font-size: 0.9rem;
 }
 
 @media (max-width: 980px) {
@@ -454,6 +867,23 @@
     min-height: 100svh;
     grid-template-columns: 1fr;
     padding-bottom: 2rem;
+  }
+
+  .aboutIntro,
+  .richSection,
+  .aboutMethod,
+  .aboutLearningGrid,
+  .teamLead,
+  .aboutCharities {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutMethodCopy {
+    position: static;
+  }
+
+  .aboutValueGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -469,7 +899,7 @@
 
 @media (max-width: 900px) {
   .hero {
-    border-radius: 0 0 3.2rem 3.2rem;
+    border-radius: 0 0 var(--marketing-card-radius) var(--marketing-card-radius);
   }
 
   .heroTextOnly .heroCopy {
@@ -477,7 +907,7 @@
   }
 
   .richGrid,
-  .footer {
+  .footerMain {
     grid-template-columns: 1fr;
   }
 
@@ -490,8 +920,8 @@
   .hero {
     min-height: 100svh;
     overflow: hidden;
-    border-bottom-left-radius: 2.25rem;
-    border-bottom-right-radius: 2.25rem;
+    border-bottom-left-radius: var(--marketing-card-radius);
+    border-bottom-right-radius: var(--marketing-card-radius);
     padding-inline: 1rem;
   }
 
@@ -526,12 +956,70 @@
 
   .content,
   .staff,
-  .cta {
+  .cta,
+  .aboutIntro,
+  .aboutSection,
+  .aboutMethod,
+  .aboutLearningGrid,
+  .teamLead,
+  .aboutCharities {
     width: calc(100% - 1rem);
   }
 
   .richSection :where(h1, h2) {
     font-size: clamp(2.1rem, 13vw, 3.5rem);
+  }
+
+  .aboutIntro {
+    padding-top: 3.5rem;
+  }
+
+  .aboutIntroCopy {
+    border-left: 0;
+    border-top: 1px solid rgb(10 41 65 / 14%);
+    padding-top: 1.2rem;
+    padding-left: 0;
+  }
+
+  .aboutManifesto {
+    width: calc(100% - 1rem);
+    min-height: 72svh;
+    border-radius: 1.8rem;
+  }
+
+  .aboutManifesto [data-marketing-title] {
+    font-size: clamp(2.6rem, 13vw, 4.2rem);
+  }
+
+  .aboutSectionHeader {
+    display: block;
+  }
+
+  .aboutValueGrid,
+  .aboutCharityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutValueCard {
+    min-height: 0;
+  }
+
+  .aboutMethod {
+    border-radius: 1.5rem;
+  }
+
+  .aboutMethodList li {
+    min-height: 0;
+    padding-left: 3.3rem;
+  }
+
+  .richSectionTint {
+    border-radius: 1.5rem;
+  }
+
+  .richList li {
+    min-height: 0;
+    padding-left: 3.2rem;
   }
 
   .staffProfile {

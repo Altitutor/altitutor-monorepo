@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
@@ -210,10 +211,13 @@ export function DetailsTab({ profile }: DetailsTabProps) {
         <div className="text-sm font-medium">Profile Picture:</div>
         <div>
           {profileImageUrl ? (
-            <img
+            <Image
               src={profileImageUrl}
               alt={`${profile.first_name} ${profile.last_name}`}
+              width={80}
+              height={80}
               className="h-20 w-20 rounded-full object-cover"
+              unoptimized
             />
           ) : (
             '-'
@@ -257,7 +261,6 @@ export function DetailsTab({ profile }: DetailsTabProps) {
     </div>
   );
 }
-
 
 
 

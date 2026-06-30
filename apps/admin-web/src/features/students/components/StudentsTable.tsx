@@ -293,14 +293,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
     
-    if (isRegistered && !hasAccount) {
+    if (hasAccount) {
+      handlePasswordResetRequest(student);
+    } else if (isRegistered) {
       setInviteDialogType('invite');
       setInviteDialogOpen(true);
-    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+    } else {
       setInviteDialogType('registration');
       setInviteDialogOpen(true);
-    } else {
-      handlePasswordResetRequest(student);
     }
   };
 
@@ -308,12 +308,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
     
-    if (isRegistered && !hasAccount) {
-      return 'Send invite';
-    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
-      return 'Send registration link';
-    } else {
+    if (hasAccount) {
       return 'Send password reset';
+    } else if (isRegistered) {
+      return 'Send invite';
+    } else {
+      return 'Send registration link';
     }
   };
 

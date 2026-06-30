@@ -11,6 +11,7 @@ import styles from "./MarketingNav.module.css";
 
 export function MarketingNav() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isCoursesOpen, setIsCoursesOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -39,7 +40,11 @@ export function MarketingNav() {
     };
   }, [isOpen]);
 
-  const closeMenu = () => setIsOpen(false);
+  const closeMenu = () => {
+    setIsOpen(false);
+    setIsCoursesOpen(false);
+  };
+  const closeCourses = () => setIsCoursesOpen(false);
   const mobileMenu = (
     <div className={clsx(styles.mobileMenu, isOpen && styles.mobileMenuOpen)} aria-hidden={!isOpen}>
       <nav aria-label="Mobile primary navigation">
@@ -70,11 +75,24 @@ export function MarketingNav() {
         <nav className={styles.links} aria-label="Primary navigation">
           {NAV_ITEMS.map((item) =>
             item.href === "/classes/" ? (
-              <div className={styles.dropdown} key={item.href}>
-                <Link href={item.href}>{item.label}</Link>
-                <div className={styles.menu}>
+              <div
+                className={styles.dropdown}
+                key={item.href}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    closeCourses();
+                  }
+                }}
+                onFocus={() => setIsCoursesOpen(true)}
+                onMouseEnter={() => setIsCoursesOpen(true)}
+                onMouseLeave={closeCourses}
+              >
+                <Link href={item.href} onClick={closeCourses}>
+                  {item.label}
+                </Link>
+                <div className={clsx(styles.menu, isCoursesOpen && styles.menuOpen)}>
                   {COURSE_LINKS.map(([href, label]) => (
-                    <Link href={href} key={href}>
+                    <Link href={href} key={href} onClick={closeCourses}>
                       {label}
                     </Link>
                   ))}
