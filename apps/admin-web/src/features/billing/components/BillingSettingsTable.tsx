@@ -2,24 +2,12 @@
 
 import { useState } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
 } from '@altitutor/ui';
-import { Edit2 } from 'lucide-react';
 import { billingSettingsApi, type BillingSettingsRow } from '../api/billing-settings';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface BillingSettingsTableProps {
   settings: BillingSettingsRow[];
@@ -57,67 +45,65 @@ export function BillingSettingsTable({ settings, onUpdate }: BillingSettingsTabl
       .join(' ');
   };
 
+  const columns: SettingsDataTableColumn<BillingSettingsRow>[] = [
+    {
+      key: 'setting',
+      label: 'Setting',
+      render: (setting) => <span className="font-medium">{formatSettingKey(setting.setting_key)}</span>,
+      sortValue: (setting) => formatSettingKey(setting.setting_key),
+      searchValue: (setting) => `${formatSettingKey(setting.setting_key)} ${setting.setting_key}`,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (setting) => <span className="text-muted-foreground">{setting.description}</span>,
+      sortValue: (setting) => setting.description ?? '',
+      searchValue: (setting) => setting.description ?? '',
+    },
+    {
+      key: 'value',
+      label: 'Value',
+      render: (setting) => setting.setting_value,
+      sortValue: (setting) => setting.setting_value,
+      searchValue: (setting) => setting.setting_value,
+    },
+  ];
+
   return (
     <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Setting</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Value</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {settings.map((setting) => (
-              <TableRow key={setting.id}>
-                <TableCell className="font-medium">
-                  {formatSettingKey(setting.setting_key)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {setting.description}
-                </TableCell>
-                <TableCell>{setting.setting_value}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEdit(setting)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {settings.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No billing settings configured
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <SettingsDataTable
+        data={settings}
+        columns={columns}
+        getRowId={(setting) => setting.id}
+        emptyMessage="No billing settings configured"
+        searchPlaceholder="Search billing settings..."
+        filterKeys={[]}
+        defaultSort={{ field: 'setting', direction: 'asc' }}
+        getActions={(setting) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => handleEdit(setting),
+          },
+        ]}
+      />
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingSetting} onOpenChange={() => setEditingSetting(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Billing Setting</DialogTitle>
-            <DialogDescription>
-              {editingSetting && (
-                <>
-                  Update {formatSettingKey(editingSetting.setting_key)}
-                  <br />
-                  <span className="text-xs text-muted-foreground mt-1 block">
-                    {editingSetting.description}
-                  </span>
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
+      <AdminDialogShell
+        open={!!editingSetting}
+        onClose={() => setEditingSetting(null)}
+        title="Edit Billing Setting"
+        subtitle={editingSetting ? `${formatSettingKey(editingSetting.setting_key)} - ${editingSetting.description}` : undefined}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingSetting(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !settingValue}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-setting-value">Value</Label>
@@ -130,16 +116,7 @@ export function BillingSettingsTable({ settings, onUpdate }: BillingSettingsTabl
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSetting(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !settingValue}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

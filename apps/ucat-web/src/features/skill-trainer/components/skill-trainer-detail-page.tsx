@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
+import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
@@ -21,16 +23,35 @@ import { cn } from "@/lib/utils";
 
 export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTrainerKey }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: trainers } = useSkillTrainers();
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { openQuotaLimit } = useQuotaLimitModal();
+  const { active, setLocal } = useActiveSkillTrainerAttempt();
+  const refreshedCompletedAttemptRef = useRef<string | null>(null);
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
   const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
 
   const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  const quotaDialogOptions = {
+    dismissAction: { label: "Dismiss", variant: "dismiss" as const },
+  };
+
+  useEffect(() => {
+    if (!active?.isCompleted) return;
+    const activeTrainerKey =
+      active.attempt.config_snapshot.trainer_key ?? active.attempt.trainer_key;
+    if (activeTrainerKey !== trainerKey) return;
+    if (refreshedCompletedAttemptRef.current === active.attempt.id) return;
+
+    refreshedCompletedAttemptRef.current = active.attempt.id;
+    void queryClient.invalidateQueries({
+      queryKey: ["skill-trainers", "leaderboard", trainerKey],
+    });
+  }, [active, queryClient, trainerKey]);
 
   async function handleStart() {
     if (
@@ -43,7 +64,7 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
         used: skillTrainerQuota.used,
         limit: skillTrainerQuota.limit,
         period: skillTrainerQuota.period,
-      });
+      }, quotaDialogOptions);
       return;
     }
 
@@ -51,6 +72,7 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
     setError(null);
     try {
       const state = await skillTrainerApi.startAttempt(trainerKey);
+      setLocal(state);
       const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
       router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
     } catch (err) {
@@ -63,7 +85,7 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
             used: skillTrainerQuota.used,
             limit: skillTrainerQuota.limit,
             period: skillTrainerQuota.period,
-          });
+          }, quotaDialogOptions);
         }
       } else {
         setError(message);

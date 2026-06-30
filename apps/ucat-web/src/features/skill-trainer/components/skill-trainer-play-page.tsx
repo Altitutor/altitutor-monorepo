@@ -14,6 +14,7 @@ import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
+import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
 import {
@@ -96,8 +97,14 @@ export function SkillTrainerPlayPage({
   const [selectedKeywordId, setSelectedKeywordId] = useState<string | null>(null);
   const [draggingKeywordId, setDraggingKeywordId] = useState<string | null>(null);
   const [answerFocus, setAnswerFocus] = useState(false);
+  const [actionInFlight, setActionInFlight] = useState(false);
+  const actionInFlightRef = useRef(false);
   const numpadInputRef = useRef<string[]>([]);
   const sidebarOverride = useSidebarOverride();
+  const {
+    setLocal: setActiveSkillTrainerAttempt,
+    clearLocal: clearActiveSkillTrainerAttempt,
+  } = useActiveSkillTrainerAttempt();
   const { feedback, trackResult } = useActionFeedback();
   const inProgress = Boolean(state && !state.isCompleted && !embedded);
   const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
@@ -105,8 +112,13 @@ export function SkillTrainerPlayPage({
   const refresh = useCallback(async () => {
     const next = await skillTrainerApi.getAttempt(attemptId);
     setState(next);
+    if (next.isCompleted) {
+      clearActiveSkillTrainerAttempt();
+    } else {
+      setActiveSkillTrainerAttempt(next);
+    }
     return next;
-  }, [attemptId]);
+  }, [attemptId, clearActiveSkillTrainerAttempt, setActiveSkillTrainerAttempt]);
 
   useEffect(() => {
     void (async () => {
@@ -130,26 +142,48 @@ export function SkillTrainerPlayPage({
       : null;
   const cooldownActive = useCooldownActive(cooldownUntil);
 
+  const resetActionInputs = useCallback(() => {
+    setNumericInput("");
+    setNumpadInput([]);
+    numpadInputRef.current = [];
+    setSelectedKeywordId(null);
+    calcEngine.reset();
+    setCalcDisplay("0");
+  }, [calcEngine]);
+
   const submit = useCallback(
     async (payload: Parameters<typeof skillTrainerApi.submitAction>[1]) => {
-      if (!state) return;
+      if (!state || actionInFlightRef.current) return;
+      actionInFlightRef.current = true;
+      setActionInFlight(true);
       setActionError(null);
+      resetActionInputs();
       const prev = state;
       try {
         const next = await skillTrainerApi.submitAction(attemptId, payload);
         trackResult(next, prev);
         setState(next);
-        setNumericInput("");
-        setNumpadInput([]);
-        setSelectedKeywordId(null);
-        calcEngine.reset();
-        setCalcDisplay("0");
+        if (next.isCompleted) {
+          clearActiveSkillTrainerAttempt();
+        } else {
+          setActiveSkillTrainerAttempt(next);
+        }
         if (next.isCompleted) return;
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Action failed");
+      } finally {
+        actionInFlightRef.current = false;
+        setActionInFlight(false);
       }
     },
-    [attemptId, calcEngine, state, trackResult],
+    [
+      attemptId,
+      clearActiveSkillTrainerAttempt,
+      resetActionInputs,
+      setActiveSkillTrainerAttempt,
+      state,
+      trackResult,
+    ],
   );
 
   const handleCalcKey = useCallback(
@@ -278,7 +312,7 @@ export function SkillTrainerPlayPage({
 
   const score = state.attempt.score;
   const streak = state.attempt.streak_count;
-  const disabled = cooldownActive;
+  const disabled = cooldownActive || actionInFlight;
 
   return (
     <div className="space-y-4">

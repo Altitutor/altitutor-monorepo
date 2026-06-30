@@ -15,6 +15,7 @@ import {
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { fetchPracticeDiscountProgress } from "@/features/subscription/api/fetch-practice-discount-progress";
 import { computePracticeDiscountPricing } from "@/features/subscription/lib/pricing";
+import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
 import {
   getSubscriptionEndDateIso,
   isSubscriptionCancelScheduled,
@@ -27,6 +28,7 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import type { UcatSubscriptionDetails } from "@/features/subscription/types/ucat-subscription-billing";
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "active",
@@ -34,6 +36,81 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "past_due",
   "unpaid",
 ]);
+
+function formatSubscriptionPeriod(subscription: UcatSubscriptionDetails) {
+  const start = subscription.current_period_start
+    ? formatInvoiceDate(subscription.current_period_start.slice(0, 10))
+    : "-";
+  const end = subscription.current_period_end
+    ? formatInvoiceDate(subscription.current_period_end.slice(0, 10))
+    : "-";
+
+  if (start === "-" && end === "-") return "-";
+  return `${start} - ${end}`;
+}
+
+function formatSubscriptionPlan(subscription: UcatSubscriptionDetails) {
+  if (!subscription.plan_tier) return "UCAT online";
+  return (
+    UCAT_ONLINE_TIER_LABELS[subscription.plan_tier] ??
+    `UCAT ${subscription.plan_tier}`
+  );
+}
+
+function PastSubscriptionsSection({
+  subscriptions,
+}: {
+  subscriptions: UcatSubscriptionDetails[];
+}) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-2xl font-semibold tracking-tight">
+        Past subscriptions
+      </h2>
+      <div className="space-y-3">
+        {subscriptions.length === 0 ? (
+          <div
+            className={cn(
+              "rounded-ucatShell p-4 text-sm text-muted-foreground",
+              UCAT_SURFACE_CARD,
+            )}
+          >
+            No past subscriptions yet.
+          </div>
+        ) : (
+          subscriptions.map((subscription) => (
+            <div
+              key={subscription.id}
+              className={cn(
+                "rounded-ucatShell flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between",
+                UCAT_SURFACE_CARD,
+              )}
+            >
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">
+                    {formatSubscriptionPlan(subscription)}
+                  </p>
+                  <Badge variant="secondary">
+                    {formatSubscriptionStatus(subscription.status)}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {formatSubscriptionPeriod(subscription)}
+                </p>
+              </div>
+              {subscription.billing_interval ? (
+                <p className="text-sm text-muted-foreground">
+                  {subscription.billing_interval}
+                </p>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
 
 export function SubscriptionBillingSection() {
   const { data, isLoading, error } = useUcatSubscriptionBilling();
@@ -70,10 +147,14 @@ export function SubscriptionBillingSection() {
   }, []);
 
   const subscription = data?.subscription ?? null;
+  const subscriptions = data?.subscriptions ?? [];
   const invoices = data?.invoices ?? [];
   const isActive =
     subscription != null &&
     ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
+  const pastSubscriptions = subscriptions.filter(
+    (row) => row.id !== subscription?.id || !isActive,
+  );
 
   const cancelEndDate = subscription
     ? getSubscriptionEndDateIso(subscription)
@@ -120,23 +201,32 @@ export function SubscriptionBillingSection() {
 
   if (!subscription) {
     return (
-      <div
-        className={cn(
-          "rounded-ucatShell p-6",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
-      >
-        <p className="text-muted-foreground">
-          You do not have an active UCAT online subscription yet.
-        </p>
-        <Button
-          type="button"
-          className={cn("mt-4", UCAT_PRIMARY_ACTION_BUTTON)}
-          onClick={() => openPlanPicker({ title: "Choose your plan" })}
+      <div className="space-y-6">
+        <div
+          className={cn(
+            "rounded-ucatShell p-6",
+            UCAT_SURFACE_CARD,
+            UCAT_SURFACE_MOTION,
+          )}
         >
-          View plans
-        </Button>
+          <p className="text-muted-foreground">
+            You do not have an active UCAT online subscription yet.
+          </p>
+          <Button
+            type="button"
+            className={cn("mt-4", UCAT_PRIMARY_ACTION_BUTTON)}
+            onClick={() => openPlanPicker({ title: "Choose your plan" })}
+          >
+            View plans
+          </Button>
+        </div>
+
+        <PastSubscriptionsSection subscriptions={pastSubscriptions} />
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold tracking-tight">Invoices</h2>
+          <SubscriptionInvoicesTable invoices={invoices} />
+        </section>
       </div>
     );
   }
@@ -257,6 +347,8 @@ export function SubscriptionBillingSection() {
           <p className="mt-4 text-sm text-destructive">{portalError}</p>
         ) : null}
       </div>
+
+      <PastSubscriptionsSection subscriptions={pastSubscriptions} />
 
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold tracking-tight">Invoices</h2>

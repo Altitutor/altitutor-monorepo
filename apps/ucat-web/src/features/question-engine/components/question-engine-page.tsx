@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -51,10 +51,7 @@ import { ReviewBody } from "@/features/question-engine/components/review-body";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
-import {
-  getIncompleteCount,
-  getReviewQuestionStatus,
-} from "@/features/question-engine/lib/review";
+import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
   formatTimeRemaining,
   getCurrentMockSegment,
@@ -233,6 +230,24 @@ export type PracticeEngineLiveStats = {
   totalQuestionLabel: string;
 };
 
+type PracticeQuestionTimingResponse = {
+  secondsByQuestionId: Record<string, number>;
+  submittedQuestionIds: string[];
+  totalSeconds: number;
+};
+
+async function fetchPracticeQuestionTiming(
+  practiceSessionId: string,
+): Promise<PracticeQuestionTimingResponse> {
+  const response = await fetch(
+    `/api/ucat/practice-sessions/${encodeURIComponent(practiceSessionId)}/question-timing`,
+  );
+  if (!response.ok) {
+    throw new Error("Failed to load practice question timing");
+  }
+  return response.json() as Promise<PracticeQuestionTimingResponse>;
+}
+
 export function QuestionEnginePage({
   mode,
   sourceId,
@@ -249,6 +264,7 @@ export function QuestionEnginePage({
   practiceQuotaReached,
   learningModuleBlockId,
   onLearnProgress,
+  disableQuestionAttemptLogging = false,
   embeddedInLesson = false,
   onRegisterFinishPracticeDialog,
 }: {
@@ -276,16 +292,33 @@ export function QuestionEnginePage({
   ) => Promise<QuestionStemWithQuestions[] | null>;
   /** Unlimited practice: quota was reached while trying to fetch the next stem. */
   practiceQuotaReached?: QuotaExceededPayload | null;
-  /** Learn lesson block: links attempts to this block and skips practice quota. */
+  /** Learn lesson block context. Only question/questionStem modes are supported. */
   learningModuleBlockId?: string;
-  /** Called after learn attempts are recorded (e.g. to refresh lesson progress). */
+  /** Called after a learn block is submitted or expires. */
   onLearnProgress?: () => void;
+  /** Learn lesson blocks can use the practice UI without persisting question-attempt rows. */
+  disableQuestionAttemptLogging?: boolean;
   /** Shorter viewport when practice engine is embedded inside a lesson block card. */
   embeddedInLesson?: boolean;
   /** Parent can call the registered opener to show the finish-practice confirmation dialog. */
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
 }) {
+  const invalidLearningMode =
+    learningModuleBlockId &&
+    mode !== "questions" &&
+    mode !== "questionStem";
+
   const queryClient = useQueryClient();
+  const practiceTimingQueryKey = useMemo(
+    () => ["ucat", "practice-question-timing", practiceSessionId] as const,
+    [practiceSessionId],
+  );
+  const practiceTimingQuery = useQuery({
+    queryKey: practiceTimingQueryKey,
+    queryFn: () => fetchPracticeQuestionTiming(practiceSessionId!),
+    enabled: practice && practiceSessionId != null && !embeddedInLesson,
+    refetchInterval: practice && practiceSessionId != null ? 5000 : false,
+  });
   const query = useQuestionEngineData({
     mode,
     setId: mode === "set" ? sourceId : undefined,
@@ -378,6 +411,8 @@ export function QuestionEnginePage({
   const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
     useState(false);
   const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
+  const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
+    useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
 
   const openFinishPracticeDialog = useCallback(() => {
@@ -387,6 +422,10 @@ export function QuestionEnginePage({
   useEffect(() => {
     onRegisterFinishPracticeDialog?.(openFinishPracticeDialog);
   }, [onRegisterFinishPracticeDialog, openFinishPracticeDialog]);
+
+  useEffect(() => {
+    setSubmittedPracticeQuestionIds(new Set());
+  }, [exam?.sourceId, practiceSessionId]);
 
   const examAttemptManaged =
     !learningModuleBlockId &&
@@ -424,7 +463,6 @@ export function QuestionEnginePage({
     completePracticeSession,
     attemptIds,
     attemptStateRef,
-    getQuestionTimeSpentSeconds,
   } = useQuestionEnginePersistence({
     mode,
     exam,
@@ -432,6 +470,7 @@ export function QuestionEnginePage({
     practiceSessionId,
     learningModuleBlockId,
     onLearnProgress,
+    disableQuestionAttemptLogging,
     examAttemptManaged,
     managedExamAttempt,
   });
@@ -867,7 +906,18 @@ export function QuestionEnginePage({
         state.currentIndex,
         mode as "questions" | "questionStem",
       );
-      recordAnswersForUnit(startIndex, endIndex);
+      await recordAnswersForUnit(startIndex, endIndex);
+      if (learningModuleBlockId && disableQuestionAttemptLogging) {
+        onLearnProgress?.();
+      }
+      setSubmittedPracticeQuestionIds((current) => {
+        const next = new Set(current);
+        for (let index = startIndex; index <= endIndex; index++) {
+          const questionId = qs[index]?.id;
+          if (questionId) next.add(questionId);
+        }
+        return next;
+      });
     }
 
     if (practiceSessionId && practiceMarkingResult) {
@@ -890,7 +940,10 @@ export function QuestionEnginePage({
             description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
           });
         }
-        await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+          queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+        ]);
       } catch {
         // Session complete may fail; still navigate to session when we have an id
       }
@@ -918,6 +971,9 @@ export function QuestionEnginePage({
     state.currentIndex,
     mode,
     recordAnswersForUnit,
+    learningModuleBlockId,
+    disableQuestionAttemptLogging,
+    onLearnProgress,
     practiceSessionId,
     practiceMarkingResult,
     completePracticeSession,
@@ -926,9 +982,48 @@ export function QuestionEnginePage({
     setState,
     toast,
     queryClient,
+    practiceTimingQueryKey,
     router,
     refreshActiveExamAttempt,
     clearActiveExamAttempt,
+  ]);
+
+  const submitCurrentPracticeUnit = useCallback(async () => {
+    if (!exam) return;
+    const { startIndex, endIndex } = getStemBoundaries(
+      questions,
+      state.currentIndex,
+      mode as "questions" | "questionStem",
+    );
+    await recordAnswersForUnit(startIndex, endIndex);
+    if (learningModuleBlockId && disableQuestionAttemptLogging) {
+      onLearnProgress?.();
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+      queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+    ]);
+    setSubmittedPracticeQuestionIds((current) => {
+      const next = new Set(current);
+      for (let index = startIndex; index <= endIndex; index++) {
+        const questionId = questions[index]?.id;
+        if (questionId) next.add(questionId);
+      }
+      return next;
+    });
+    handlePracticeSubmit();
+  }, [
+    exam,
+    questions,
+    state.currentIndex,
+    mode,
+    recordAnswersForUnit,
+    learningModuleBlockId,
+    disableQuestionAttemptLogging,
+    onLearnProgress,
+    queryClient,
+    practiceTimingQueryKey,
+    handlePracticeSubmit,
   ]);
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
@@ -1026,14 +1121,10 @@ export function QuestionEnginePage({
         if (shortcutKey === "alt+y") {
           event.preventDefault();
           if (showConfirmSubmitDialog) {
-            const { startIndex, endIndex } = getStemBoundaries(
-              questions,
-              state.currentIndex,
-              mode as "questions" | "questionStem",
-            );
-            recordAnswersForUnit(startIndex, endIndex);
-            handlePracticeSubmit();
-            setShowConfirmSubmitDialog(false);
+            void (async () => {
+              await submitCurrentPracticeUnit();
+              setShowConfirmSubmitDialog(false);
+            })();
           } else if (showConfirmFinishPracticeDialog) {
             setShowConfirmFinishPracticeDialog(false);
             void handleFinishPractice();
@@ -1117,13 +1208,7 @@ export function QuestionEnginePage({
         if (confirmPracticeTransitions) {
           setShowConfirmSubmitDialog(true);
         } else {
-          const { startIndex, endIndex } = getStemBoundaries(
-            questions,
-            state.currentIndex,
-            mode as "questions" | "questionStem",
-          );
-          recordAnswersForUnit(startIndex, endIndex);
-          handlePracticeSubmit();
+          submitCurrentPracticeUnit();
         }
         return;
       }
@@ -1221,13 +1306,7 @@ export function QuestionEnginePage({
               if (confirmPracticeTransitions) {
                 setShowConfirmSubmitDialog(true);
               } else {
-                const { startIndex, endIndex } = getStemBoundaries(
-                  questions,
-                  state.currentIndex,
-                  mode as "questions" | "questionStem",
-                );
-                recordAnswersForUnit(startIndex, endIndex);
-                handlePracticeSubmit();
+                submitCurrentPracticeUnit();
               }
             } else if (isPracticeMode && state.phase === "practiceAnswer") {
               const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
@@ -1290,6 +1369,7 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     handlePracticeSubmit,
+    submitCurrentPracticeUnit,
     isPracticeMode,
     isLastQuestionOfCurrentUnit,
     confirmPracticeTransitions,
@@ -1317,25 +1397,22 @@ export function QuestionEnginePage({
       return;
     }
 
-    const answeredRows = questions.filter(
-      (question) =>
-        getReviewQuestionStatus(
-          question,
-          state.visitedQuestionIds,
-          state.selectedAnswers,
-          state.syllogismSnapshots,
-        ) === "complete",
+    const submittedIds = new Set([
+      ...submittedPracticeQuestionIds,
+      ...(practiceTimingQuery.data?.submittedQuestionIds ?? []),
+    ]);
+    const submittedRows = questions.filter((question) =>
+      submittedIds.has(question.id),
     );
     const markingResult = computeMarkingResult(
       questions,
       state.selectedAnswers,
       state.syllogismSnapshots,
     );
-    const answeredIds = new Set(answeredRows.map((question) => question.id));
     const correctCount = markingResult.rows.filter(
-      (row) => answeredIds.has(row.question.id) && row.points > 0,
+      (row) => submittedIds.has(row.question.id) && row.points > 0,
     ).length;
-    const answeredCount = answeredRows.length;
+    const answeredCount = submittedRows.length;
     const progressIndex =
       state.phase === "practiceAnswer" && state.viewingQuestionIndex != null
         ? state.viewingQuestionIndex
@@ -1344,12 +1421,18 @@ export function QuestionEnginePage({
       Math.max(progressIndex + 1, 1),
       Math.max(questions.length, 1),
     );
+    const totalAnsweredTimeSeconds = Array.from(submittedIds).reduce(
+      (total, questionId) =>
+        total +
+        (practiceTimingQuery.data?.secondsByQuestionId[questionId] ?? 0),
+      0,
+    );
 
     onPracticeStatsChange({
       answeredCount,
       correctCount,
       incorrectCount: Math.max(0, answeredCount - correctCount),
-      totalAnsweredTimeSeconds: getQuestionTimeSpentSeconds(answeredIds),
+      totalAnsweredTimeSeconds,
       currentQuestionNumber,
       totalQuestionLabel: onNeedMoreStems
         ? "Unlimited"
@@ -1368,8 +1451,17 @@ export function QuestionEnginePage({
     state.viewingQuestionIndex,
     effectiveCurrentIndex,
     onNeedMoreStems,
-    getQuestionTimeSpentSeconds,
+    practiceTimingQuery.data,
+    submittedPracticeQuestionIds,
   ]);
+
+  if (invalidLearningMode) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        Learning module questions must use question or question stem mode.
+      </div>
+    );
+  }
 
   if (launchGateKind && launchGate.isCheckingLaunch) {
     return (
@@ -1562,13 +1654,28 @@ export function QuestionEnginePage({
 
     // Practice mode (questions/questionStem): transition to answer view
     if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
-      void runWithLag(() => {
+      void runWithLag(async () => {
         const { startIndex, endIndex } = getStemBoundaries(
           questions,
           state.currentIndex,
           exam.sourceType as "questions" | "questionStem",
         );
-        recordAnswersForUnit(startIndex, endIndex);
+        await recordAnswersForUnit(startIndex, endIndex);
+        if (learningModuleBlockId && disableQuestionAttemptLogging) {
+          onLearnProgress?.();
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+          queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+        ]);
+        setSubmittedPracticeQuestionIds((current) => {
+          const next = new Set(current);
+          for (let index = startIndex; index <= endIndex; index++) {
+            const questionId = questions[index]?.id;
+            if (questionId) next.add(questionId);
+          }
+          return next;
+        });
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1709,14 +1816,8 @@ export function QuestionEnginePage({
           <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
             <ConfirmSubmitDialog
               onConfirm={() =>
-                void runWithLag(() => {
-                  const { startIndex, endIndex } = getStemBoundaries(
-                    questions,
-                    state.currentIndex,
-                    mode as "questions" | "questionStem",
-                  );
-                  recordAnswersForUnit(startIndex, endIndex);
-                  handlePracticeSubmit();
+                void runWithLag(async () => {
+                  await submitCurrentPracticeUnit();
                   setShowConfirmSubmitDialog(false);
                 })
               }
@@ -1742,6 +1843,7 @@ export function QuestionEnginePage({
         {showConfirmFinishPracticeDialog ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
             <ConfirmFinishPracticeDialog
+              submitsCurrentStem={state.phase === "question"}
               onConfirm={() =>
                 void runWithLag(() => {
                   setShowConfirmFinishPracticeDialog(false);
@@ -2315,13 +2417,7 @@ export function QuestionEnginePage({
                         if (confirmPracticeTransitions) {
                           setShowConfirmSubmitDialog(true);
                         } else {
-                          const { startIndex, endIndex } = getStemBoundaries(
-                            questions,
-                            state.currentIndex,
-                            mode as "questions" | "questionStem",
-                          );
-                          recordAnswersForUnit(startIndex, endIndex);
-                          handlePracticeSubmit();
+                          submitCurrentPracticeUnit();
                         }
                       } else {
                         goNext();

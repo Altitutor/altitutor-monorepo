@@ -2,16 +2,33 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Badge } from "@altitutor/ui";
 import { BookOpen, ChevronRight } from "lucide-react";
 import type { LearningModuleTreeNode } from "@/features/learning/types";
 import { cn } from "@/lib/utils";
 
 function progressLabel(node: LearningModuleTreeNode): string {
   const percent = Number(node.completion_percent ?? 0);
-  if (node.kind === "lesson") {
-    return node.completed_at ? "Complete" : `${percent}%`;
-  }
   return `${percent}%`;
+}
+
+function LessonStatusBadge({ node }: { node: LearningModuleTreeNode }) {
+  if (node.kind !== "lesson") return null;
+  if (node.completed_at) {
+    return (
+      <Badge variant="secondary" className="shrink-0 text-[10px]">
+        Complete
+      </Badge>
+    );
+  }
+  if (node.started_at) {
+    return (
+      <Badge variant="outline" className="shrink-0 text-[10px]">
+        Started
+      </Badge>
+    );
+  }
+  return null;
 }
 
 function LearningModuleCatalogTreeNode({
@@ -79,6 +96,7 @@ function LearningModuleCatalogTreeNode({
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+              <LessonStatusBadge node={node} />
               <span className="text-xs tabular-nums">{progressLabel(node)}</span>
               <ChevronRight className="size-4" />
             </span>

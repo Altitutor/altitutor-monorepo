@@ -97,7 +97,7 @@ export function ExamAttemptHeaderPill() {
       ? getRemainingSecondsFromEndsAt(active.currentSegmentEndsAt)
       : null;
   const actionHref = atResults ? active.resultsHref : active.resumeHref;
-  const actionLabel = atResults ? "View results" : "Resume";
+  const actionLabel = atResults ? "View attempt" : "Resume";
 
   return (
     <HeaderStatusPill

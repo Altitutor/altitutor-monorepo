@@ -2,31 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
   SearchableSelect,
 } from '@altitutor/ui';
-import { Edit2 } from 'lucide-react';
 import { pricingApi, type BillingPricingRow } from '../api/pricing';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface BillingPricingTableProps {
   pricing: BillingPricingRow[];
@@ -38,10 +20,9 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
   const [hourlyRateCents, setHourlyRateCents] = useState<number>(0);
   const [currency, setCurrency] = useState<string>('AUD');
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (!editingPricing) setExpanded(false);
+    if (!editingPricing) setHourlyRateCents(0);
   }, [editingPricing]);
 
   const handleEdit = (p: BillingPricingRow) => {
@@ -71,69 +52,85 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
     return type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
+  const columns: SettingsDataTableColumn<BillingPricingRow>[] = [
+    {
+      key: 'billing_type',
+      label: 'Billing Type',
+      render: (pricingRow) => <span className="font-medium">{formatBillingType(pricingRow.billing_type)}</span>,
+      sortValue: (pricingRow) => formatBillingType(pricingRow.billing_type),
+      filterValue: (pricingRow) => pricingRow.billing_type,
+      searchValue: (pricingRow) => formatBillingType(pricingRow.billing_type),
+    },
+    {
+      key: 'hourly_rate',
+      label: 'Hourly Rate',
+      render: (pricingRow) => `$${(pricingRow.hourly_rate_cents / 100).toFixed(2)}/hour`,
+      sortValue: (pricingRow) => pricingRow.hourly_rate_cents,
+      searchValue: (pricingRow) => String(pricingRow.hourly_rate_cents / 100),
+    },
+    {
+      key: 'currency',
+      label: 'Currency',
+      render: (pricingRow) => pricingRow.currency,
+      sortValue: (pricingRow) => pricingRow.currency,
+      filterValue: (pricingRow) => pricingRow.currency,
+      searchValue: (pricingRow) => pricingRow.currency,
+    },
+  ];
+
   return (
     <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Billing Type</TableHead>
-              <TableHead>Hourly Rate</TableHead>
-              <TableHead>Currency</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pricing.map((p) => (
-              <TableRow key={p.billing_type}>
-                <TableCell className="font-medium">
-                  {formatBillingType(p.billing_type)}
-                </TableCell>
-                <TableCell>
-                  ${(p.hourly_rate_cents / 100).toFixed(2)}/hour
-                </TableCell>
-                <TableCell>{p.currency}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEdit(p)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {pricing.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No billing pricing configured
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <SettingsDataTable
+        data={pricing}
+        columns={columns}
+        getRowId={(pricingRow) => pricingRow.billing_type}
+        emptyMessage="No billing pricing configured"
+        searchPlaceholder="Search billing pricing..."
+        filterKeys={['billing_type', 'currency']}
+        filterDefinitions={[
+          {
+            key: 'billing_type',
+            label: 'Billing Type',
+            options: pricing.map((pricingRow) => ({
+              label: formatBillingType(pricingRow.billing_type),
+              value: pricingRow.billing_type,
+            })),
+          },
+          {
+            key: 'currency',
+            label: 'Currency',
+            options: Array.from(new Set(pricing.map((pricingRow) => pricingRow.currency))).map((value) => ({
+              label: value,
+              value,
+            })),
+          },
+        ]}
+        defaultSort={{ field: 'billing_type', direction: 'asc' }}
+        getActions={(pricingRow) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => handleEdit(pricingRow),
+          },
+        ]}
+      />
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingPricing} onOpenChange={() => setEditingPricing(null)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Billing Pricing</DialogTitle>
-                <DialogDescription>
-                  Update the hourly rate for {editingPricing && formatBillingType(editingPricing.billing_type)}
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={!!editingPricing}
+        onClose={() => setEditingPricing(null)}
+        title="Edit Billing Pricing"
+        subtitle={editingPricing ? `Update the hourly rate for ${formatBillingType(editingPricing.billing_type)}` : undefined}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingPricing(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-hourly-rate">Hourly Rate</Label>
@@ -168,16 +165,7 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingPricing(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }

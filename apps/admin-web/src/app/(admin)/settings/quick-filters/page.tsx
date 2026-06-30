@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { quickFiltersApi } from '@/features/quick-filters/api/quick-filters';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { QuickFiltersTable } from '@/features/quick-filters/components/QuickFiltersTable';
+import { Loader2, Plus } from 'lucide-react';
+import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import type { QuickFilter } from '@altitutor/shared';
 
 export default function QuickFiltersSettingsPage() {
-  const router = useRouter();
-  const [, setFilters] = useState<QuickFilter[]>([]);
+  const [filters, setFilters] = useState<QuickFilter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createButtonClick, setCreateButtonClick] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -39,19 +39,18 @@ export default function QuickFiltersSettingsPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Quick Filters</h1>
-        </div>
-      </div>
+      <SettingsPageHeader
+        title="Quick Filters"
+        actions={(
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add Quick Filter"
+            onClick={() => setCreateButtonClick((prev) => prev + 1)}
+          />
+        )}
+      />
+
+      <QuickFiltersTable filters={filters} onUpdate={loadData} onCreateTrigger={createButtonClick} />
     </div>
   );
 }

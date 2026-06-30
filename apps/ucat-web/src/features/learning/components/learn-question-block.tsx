@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { QuestionEnginePage } from "@/features/question-engine/components/question-engine-page";
 import type {
   QuestionEngineQuestion,
@@ -25,6 +27,7 @@ type LoadState =
 
 export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlockProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
+  const [resetVersion, setResetVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,38 +65,55 @@ export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlo
   }
 
   return (
-    <div
-      className={cn(
-        "h-[min(70vh,640px)] min-h-[420px] overflow-hidden rounded-lg border",
-      )}
-    >
-      <UcatLagProvider>
-        {loadState.status === "stem" ? (
-          <QuestionEnginePage
-            mode="questionStem"
-            sourceId={`learn-block-${block.id}`}
-            questionStems={[loadState.stem]}
-            practice
-            confirmPracticeTransitions={false}
-            timePerQuestionSeconds={null}
-            learningModuleBlockId={block.id ?? undefined}
-            onLearnProgress={onProgressChange}
-            embeddedInLesson
-          />
-        ) : (
-          <QuestionEnginePage
-            mode="questions"
-            sourceId={`learn-block-${block.id}`}
-            standaloneQuestions={[loadState.question]}
-            practice
-            confirmPracticeTransitions={false}
-            timePerQuestionSeconds={null}
-            learningModuleBlockId={block.id ?? undefined}
-            onLearnProgress={onProgressChange}
-            embeddedInLesson
-          />
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setResetVersion((version) => version + 1)}
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Reset
+        </Button>
+      </div>
+      <div
+        className={cn(
+          "h-[min(70vh,640px)] min-h-[420px] overflow-hidden rounded-lg border",
         )}
-      </UcatLagProvider>
+      >
+        <UcatLagProvider>
+          {loadState.status === "stem" ? (
+            <QuestionEnginePage
+              key={`stem-${block.id}-${resetVersion}`}
+              mode="questionStem"
+              sourceId={`learn-block-${block.id}`}
+              questionStems={[loadState.stem]}
+              practice
+              confirmPracticeTransitions={false}
+              timePerQuestionSeconds={null}
+              learningModuleBlockId={block.id ?? undefined}
+              onLearnProgress={onProgressChange}
+              disableQuestionAttemptLogging
+              embeddedInLesson
+            />
+          ) : (
+            <QuestionEnginePage
+              key={`question-${block.id}-${resetVersion}`}
+              mode="questions"
+              sourceId={`learn-block-${block.id}`}
+              standaloneQuestions={[loadState.question]}
+              practice
+              confirmPracticeTransitions={false}
+              timePerQuestionSeconds={null}
+              learningModuleBlockId={block.id ?? undefined}
+              onLearnProgress={onProgressChange}
+              disableQuestionAttemptLogging
+              embeddedInLesson
+            />
+          )}
+        </UcatLagProvider>
+      </div>
     </div>
   );
 }

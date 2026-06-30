@@ -404,7 +404,7 @@ async function completeCurrentItem(
   itemId: string,
   scoreDelta: number,
   result: Record<string, unknown>,
-  allItemIds: string[],
+  loadAllItemIds: () => Promise<string[]>,
 ): Promise<AttemptRow> {
   await supabase.from("student_skill_trainer_attempt_items").insert({
     skill_trainer_attempt_id: attempt.id,
@@ -414,29 +414,42 @@ async function completeCurrentItem(
   });
 
   const newScore = Number(attempt.score) + scoreDelta;
-  const { queue, currentIndex } = advanceQueue(
-    parseQueue(attempt.item_queue_snapshot),
-    attempt.current_item_index,
-    allItemIds,
-    itemId,
-  );
+  const currentQueue = parseQueue(attempt.item_queue_snapshot);
+  let queue = currentQueue;
+  let currentIndex = attempt.current_item_index + 1;
+  if (currentIndex >= currentQueue.length) {
+    const allItemIds = await loadAllItemIds();
+    const advanced = advanceQueue(
+      currentQueue,
+      attempt.current_item_index,
+      allItemIds,
+      itemId,
+    );
+    queue = advanced.queue;
+    currentIndex = advanced.currentIndex;
+  }
 
   const trainerKey = attempt.config_snapshot.trainer_key;
-  const { data, error } = await supabase
+  const nextProgress = defaultProgress(trainerKey);
+  const { error } = await supabase
     .from("student_skill_trainer_attempts")
     .update({
       score: newScore,
       streak_count: attempt.streak_count,
       item_queue_snapshot: queue,
       current_item_index: currentIndex,
-      progress: defaultProgress(trainerKey),
+      progress: nextProgress,
     })
-    .eq("id", attempt.id)
-    .select("*")
-    .maybeSingle();
+    .eq("id", attempt.id);
 
   if (error) throw new Error(error.message);
-  return mapAttemptRow(data as Record<string, unknown>, trainerKey);
+  return {
+    ...attempt,
+    score: newScore,
+    item_queue_snapshot: queue,
+    current_item_index: currentIndex,
+    progress: nextProgress,
+  };
 }
 
 export async function submitSkillTrainerAction(
@@ -489,7 +502,7 @@ export async function submitSkillTrainerAction(
   if (!currentItem) throw new Error("ITEM_NOT_FOUND");
 
   const config = attempt.config_snapshot;
-  const allItemIds = await loadApprovedItemIds(supabase, rawAttempt.skill_trainer_id);
+  const loadAllItemIds = () => loadApprovedItemIds(supabase, rawAttempt.skill_trainer_id);
 
   let scoreDelta = 0;
   let newStreak = attempt.streak_count;
@@ -644,27 +657,25 @@ export async function submitSkillTrainerAction(
       currentItemId,
       scoreDelta,
       { action: payload.type, correct: scoreDelta >= 0 },
-      allItemIds,
+      loadAllItemIds,
     );
     return buildAttemptState(supabase, { ...updated, streak_count: newStreak });
   }
 
   const partialScore = Number(attempt.score) + scoreDelta;
-  const { data: updated, error: updateError } = await supabase
+  const { error: updateError } = await supabase
     .from("student_skill_trainer_attempts")
     .update({
       score: partialScore,
       streak_count: newStreak,
       progress,
     })
-    .eq("id", attempt.id)
-    .select("*")
-    .maybeSingle();
+    .eq("id", attempt.id);
 
   if (updateError) throw new Error(updateError.message);
 
   return buildAttemptState(supabase, {
-    ...mapAttemptRow(updated as Record<string, unknown>, resolvedTrainerKey),
+    ...attempt,
     progress,
     streak_count: newStreak,
     score: partialScore,

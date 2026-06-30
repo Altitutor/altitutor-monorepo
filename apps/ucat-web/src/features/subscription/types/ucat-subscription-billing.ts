@@ -33,5 +33,6 @@ export type UcatSubscriptionInvoice = {
 
 export type UcatSubscriptionBillingResponse = {
   subscription: UcatSubscriptionDetails | null;
+  subscriptions: UcatSubscriptionDetails[];
   invoices: UcatSubscriptionInvoice[];
 };

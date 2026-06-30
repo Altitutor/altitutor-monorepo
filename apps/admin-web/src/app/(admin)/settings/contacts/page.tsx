@@ -1,18 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ContactsTable } from '@/features/contacts/components';
 import { contactsApi } from '@/features/contacts/api';
 import { generateVcf, downloadVcf } from '@/features/contacts/utils';
-import { Loader2, ArrowLeft, Download } from 'lucide-react';
-import { Button } from '@altitutor/ui';
-import { AdminPageActionButton } from '@/shared/components';
+import { Loader2, Download } from 'lucide-react';
+import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import { useToast } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 
 export default function ContactsPage() {
-  const router = useRouter();
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
 
@@ -65,19 +62,7 @@ export default function ContactsPage() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/settings')}
-            className="border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Contacts</h1>
-          </div>
-        </div>
+        <SettingsPageHeader title="Contacts" />
         <div className="text-destructive">
           Failed to load contacts: {(error as Error).message}
         </div>
@@ -87,27 +72,17 @@ export default function ContactsPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
-          </div>
+      <SettingsPageHeader
+        title="Contacts"
+        actions={(
           <AdminPageActionButton
             icon={isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             label="Export VCF"
             onClick={handleExport}
             disabled={isExporting || !contacts || contacts.length === 0}
           />
-        </div>
-      </div>
+        )}
+      />
 
       <ContactsTable
         contacts={contacts || []}

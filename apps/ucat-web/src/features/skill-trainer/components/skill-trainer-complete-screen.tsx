@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { trainerKeyToSlug, type UcatSkillTrainerKey } from "@altitutor/shared";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
+import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
@@ -26,8 +27,12 @@ export function SkillTrainerCompleteScreen({
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { openQuotaLimit } = useQuotaLimitModal();
+  const { setLocal } = useActiveSkillTrainerAttempt();
 
   const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  const quotaDialogOptions = {
+    dismissAction: { label: "Dismiss", variant: "dismiss" as const },
+  };
 
   async function handlePlayAgain() {
     if (
@@ -40,7 +45,7 @@ export function SkillTrainerCompleteScreen({
         used: skillTrainerQuota.used,
         limit: skillTrainerQuota.limit,
         period: skillTrainerQuota.period,
-      });
+      }, quotaDialogOptions);
       return;
     }
 
@@ -49,6 +54,7 @@ export function SkillTrainerCompleteScreen({
     try {
       onLeave();
       const state = await skillTrainerApi.startAttempt(trainerKey);
+      setLocal(state);
       const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
       router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
     } catch (err) {
@@ -61,7 +67,7 @@ export function SkillTrainerCompleteScreen({
             used: skillTrainerQuota.used,
             limit: skillTrainerQuota.limit,
             period: skillTrainerQuota.period,
-          });
+          }, quotaDialogOptions);
         }
       } else {
         setError(message);

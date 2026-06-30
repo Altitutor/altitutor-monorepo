@@ -66,14 +66,22 @@ export function ConfirmNextStemDialog({
 export function ConfirmFinishPracticeDialog({
   onConfirm,
   onCancel,
+  submitsCurrentStem = false,
 }: {
   onConfirm: () => void;
   onCancel: () => void;
+  submitsCurrentStem?: boolean;
 }) {
   return (
     <QuestionEngineDialog
       title="Finish practice"
-      message={<p>Are you sure you want to finish this practice session?</p>}
+      message={
+        <p>
+          {submitsCurrentStem
+            ? "Finishing now will submit the current stem. Blank questions will count as attempted."
+            : "Are you sure you want to finish this practice session?"}
+        </p>
+      }
       actions={
         <>
           <UcatExamActionButton borders="all" onClick={onConfirm}>

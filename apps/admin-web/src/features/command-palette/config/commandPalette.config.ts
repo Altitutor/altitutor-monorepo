@@ -172,6 +172,13 @@ export const additionalPages: CommandPalettePage[] = [
     keywords: ['ucat', 'free', 'tier', 'quota', 'limit', 'practice', 'sets', 'mocks'],
   },
   {
+    id: 'settings-ucat-quotas',
+    title: 'UCAT quotas',
+    href: '/settings/ucat-quotas',
+    icon: GraduationCap,
+    keywords: ['ucat', 'free', 'tier', 'quota', 'reset', 'student'],
+  },
+  {
     id: 'settings-manual-online-access',
     title: 'Manual online access',
     href: '/settings/manual-online-access',

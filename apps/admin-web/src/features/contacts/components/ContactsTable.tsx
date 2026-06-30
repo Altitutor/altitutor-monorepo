@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
+import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 import type { ContactWithRelations } from '../api/contacts';
 
 interface ContactsTableProps {
@@ -60,42 +53,58 @@ export function ContactsTable({ contacts }: ContactsTableProps) {
     return colors[type] || colors.OTHER;
   };
 
+  const columns: SettingsDataTableColumn<ContactWithRelations>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      render: (contact) => <span className="font-medium">{getContactDisplayName(contact)}</span>,
+      sortValue: getContactDisplayName,
+      searchValue: getContactDisplayName,
+    },
+    {
+      key: 'phone',
+      label: 'Phone',
+      render: (contact) => contact.phone_e164,
+      sortValue: (contact) => contact.phone_e164,
+      searchValue: (contact) => contact.phone_e164,
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      render: (contact) => getContactEmail(contact) || '-',
+      sortValue: (contact) => getContactEmail(contact) || '',
+      searchValue: (contact) => getContactEmail(contact) || '',
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      render: (contact) => (
+        <span className={`px-2 py-1 rounded text-xs ${getContactTypeBadge(contact.contact_type)}`}>
+          {contact.contact_type}
+        </span>
+      ),
+      sortValue: (contact) => contact.contact_type,
+      filterValue: (contact) => contact.contact_type,
+      searchValue: (contact) => contact.contact_type,
+    },
+  ];
+
   return (
-    <>
-      {contacts.length === 0 ? (
-        <div className="border rounded-lg p-8 text-center text-muted-foreground">
-          No contacts found.
-        </div>
-      ) : (
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Type</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium">
-                    {getContactDisplayName(contact)}
-                  </TableCell>
-                  <TableCell>{contact.phone_e164}</TableCell>
-                  <TableCell>{getContactEmail(contact) || '-'}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${getContactTypeBadge(contact.contact_type)}`}>
-                      {contact.contact_type}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </>
+    <SettingsDataTable
+      data={contacts}
+      columns={columns}
+      getRowId={(contact) => contact.id}
+      emptyMessage="No contacts found."
+      searchPlaceholder="Search contacts..."
+      filterKeys={['type']}
+      filterDefinitions={[
+        {
+          key: 'type',
+          label: 'Type',
+          options: ['STUDENT', 'PARENT', 'STAFF', 'LEAD', 'OTHER'].map((value) => ({ label: value, value })),
+        },
+      ]}
+      defaultSort={{ field: 'name', direction: 'asc' }}
+    />
   );
 }

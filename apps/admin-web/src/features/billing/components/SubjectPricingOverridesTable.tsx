@@ -1,34 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Input,
   Button,
   SearchableSelect,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
 } from '@altitutor/ui';
-import { Edit2, Trash2, Plus, Search } from 'lucide-react';
 import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '../api/subject-pricing-overrides';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 const BILLING_TYPE_OPTIONS: { value: 'CLASS' | 'EXAM_COURSE' | 'DRAFTING'; label: string }[] = [
   { value: 'CLASS', label: 'CLASS' },
@@ -39,10 +21,10 @@ const BILLING_TYPE_OPTIONS: { value: 'CLASS' | 'EXAM_COURSE' | 'DRAFTING'; label
 interface SubjectPricingOverridesTableProps {
   overrides: SubjectPricingOverrideRow[];
   onUpdate: () => void;
+  onCreateTrigger?: number;
 }
 
-export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPricingOverridesTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function SubjectPricingOverridesTable({ overrides, onUpdate, onCreateTrigger }: SubjectPricingOverridesTableProps) {
   const [editingOverride, setEditingOverride] = useState<SubjectPricingOverrideRow | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [hourlyRateCents, setHourlyRateCents] = useState<number>(0);
@@ -53,16 +35,6 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
   const [deleting, setDeleting] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [editExpanded, setEditExpanded] = useState(false);
-  const [createExpanded, setCreateExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!editingOverride) setEditExpanded(false);
-  }, [editingOverride]);
-
-  useEffect(() => {
-    if (!isCreating) setCreateExpanded(false);
-  }, [isCreating]);
 
   // Load subjects for dropdown
   const loadSubjects = async () => {
@@ -76,16 +48,6 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
       setLoadingSubjects(false);
     }
   };
-
-  const filtered = useMemo(() => {
-    if (!searchTerm) return overrides;
-    const lower = searchTerm.toLowerCase();
-    return overrides.filter(
-      (o) =>
-        o.subject.name.toLowerCase().includes(lower) ||
-        o.billing_type.toLowerCase().includes(lower)
-    );
-  }, [overrides, searchTerm]);
 
   const handleEdit = (override: SubjectPricingOverrideRow) => {
     setEditingOverride(override);
@@ -162,97 +124,102 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
     return parts.join(' ');
   };
 
+  useEffect(() => {
+    if (onCreateTrigger && onCreateTrigger > 0) {
+      handleCreate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCreateTrigger]);
+
+  const columns: SettingsDataTableColumn<SubjectPricingOverrideRow>[] = [
+    {
+      key: 'subject',
+      label: 'Subject',
+      render: (override) => <span className="font-medium">{formatSubjectName(override.subject)}</span>,
+      sortValue: (override) => formatSubjectName(override.subject),
+      searchValue: (override) => formatSubjectName(override.subject),
+    },
+    {
+      key: 'billing_type',
+      label: 'Billing Type',
+      render: (override) => override.billing_type,
+      sortValue: (override) => override.billing_type,
+      filterValue: (override) => override.billing_type,
+      searchValue: (override) => override.billing_type,
+    },
+    {
+      key: 'hourly_rate',
+      label: 'Hourly Rate (AUD)',
+      render: (override) => `$${(override.hourly_rate_cents / 100).toFixed(2)}/hour`,
+      sortValue: (override) => override.hourly_rate_cents,
+      searchValue: (override) => String(override.hourly_rate_cents / 100),
+    },
+    {
+      key: 'currency',
+      label: 'Currency',
+      render: (override) => override.currency,
+      sortValue: (override) => override.currency,
+      filterValue: (override) => override.currency,
+      searchValue: (override) => override.currency,
+    },
+  ];
+
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by subject name or billing type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Override
-        </Button>
-      </div>
+      <SettingsDataTable
+        data={overrides}
+        columns={columns}
+        getRowId={(override) => override.id}
+        emptyMessage="No subject pricing overrides yet"
+        searchPlaceholder="Search by subject name or billing type..."
+        filterKeys={['billing_type', 'currency']}
+        filterDefinitions={[
+          {
+            key: 'billing_type',
+            label: 'Billing Type',
+            options: BILLING_TYPE_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+          },
+          {
+            key: 'currency',
+            label: 'Currency',
+            options: Array.from(new Set(overrides.map((override) => override.currency))).map((value) => ({
+              label: value,
+              value,
+            })),
+          },
+        ]}
+        defaultSort={{ field: 'subject', direction: 'asc' }}
+        getActions={(override) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => handleEdit(override),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            disabled: deleting === override.id,
+            onSelect: () => handleDelete(override.id),
+          },
+        ]}
+      />
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Subject</TableHead>
-              <TableHead>Billing Type</TableHead>
-              <TableHead>Hourly Rate (AUD)</TableHead>
-              <TableHead>Currency</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((override) => (
-              <TableRow key={override.id}>
-                <TableCell className="font-medium">
-                  {formatSubjectName(override.subject)}
-                </TableCell>
-                <TableCell>{override.billing_type}</TableCell>
-                <TableCell>
-                  ${(override.hourly_rate_cents / 100).toFixed(2)}/hour
-                </TableCell>
-                <TableCell>{override.currency}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEdit(override)}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(override.id)}
-                      disabled={deleting === override.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  {searchTerm ? 'No overrides found matching your search' : 'No subject pricing overrides yet'}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editingOverride} onOpenChange={(open) => !open && setEditingOverride(null)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Pricing Override</DialogTitle>
-                <DialogDescription>
-              Update the hourly rate override for {editingOverride && formatSubjectName(editingOverride.subject)} ({editingOverride?.billing_type})
-            </DialogDescription>
-              </div>
-              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={!!editingOverride}
+        onClose={() => setEditingOverride(null)}
+        title="Edit Pricing Override"
+        subtitle={editingOverride ? `Update the hourly rate override for ${formatSubjectName(editingOverride.subject)} (${editingOverride.billing_type})` : undefined}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setEditingOverride(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-hourly-rate">Hourly Rate (AUD)</Label>
@@ -278,36 +245,24 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingOverride(null)}>
+      </AdminDialogShell>
+
+      <AdminDialogShell
+        open={isCreating}
+        onClose={() => setIsCreating(false)}
+        title="Create Pricing Override"
+        subtitle="Create a subject-specific hourly rate override"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setIsCreating(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleCreateSave} disabled={saving || !selectedSubjectId}>
+              {saving ? 'Creating...' : 'Create Override'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Dialog */}
-      <Dialog open={isCreating} onOpenChange={(open) => setIsCreating(open)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            createExpanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Create Pricing Override</DialogTitle>
-                <DialogDescription>
-                  Create a subject-specific hourly rate override
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={createExpanded} onToggle={() => setCreateExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+          </>
+        )}
+      >
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="create-subject">Subject</Label>
@@ -362,17 +317,7 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreating(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSave} disabled={saving || !selectedSubjectId}>
-              {saving ? 'Creating...' : 'Create Override'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </AdminDialogShell>
     </>
   );
 }
-

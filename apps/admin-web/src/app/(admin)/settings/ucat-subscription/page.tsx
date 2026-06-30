@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
+import { AdminDialogShell, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
@@ -12,11 +11,35 @@ import { UcatSubscriptionConfigForm } from '@/features/ucat-subscription-config/
 import { UcatPlanPricesForm } from '@/features/ucat-subscription-config/components/UcatPlanPricesForm';
 import { UcatPracticeDayDiscountForm } from '@/features/ucat-subscription-config/components/UcatPracticeDayDiscountForm';
 
+type SubscriptionSettingsRow = {
+  id: 'subscription' | 'discounts' | 'prices';
+  name: string;
+  description: string;
+};
+
+const SETTINGS_ROWS: SubscriptionSettingsRow[] = [
+  {
+    id: 'subscription',
+    name: 'Subscription config',
+    description: 'Pro trial, weekly and monthly pricing, and Stripe price IDs.',
+  },
+  {
+    id: 'discounts',
+    name: 'Practice day discount',
+    description: 'Configure practice-day discounts.',
+  },
+  {
+    id: 'prices',
+    name: 'Plan prices',
+    description: 'Configure UCAT plan price records.',
+  },
+];
+
 export default function UcatSubscriptionSettingsPage() {
-  const router = useRouter();
   const [config, setConfig] = useState<UcatSubscriptionConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<SubscriptionSettingsRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,29 +70,68 @@ export default function UcatSubscriptionSettingsPage() {
     );
   }
 
+  const columns: SettingsDataTableColumn<SubscriptionSettingsRow>[] = [
+    {
+      key: 'name',
+      label: 'Setting',
+      render: (row) => <span className="font-medium">{row.name}</span>,
+      sortValue: (row) => row.name,
+      searchValue: (row) => row.name,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+      sortValue: (row) => row.description,
+      searchValue: (row) => row.description,
+    },
+  ];
+
+  const renderEditor = () => {
+    if (!editingRow) return null;
+    if (editingRow.id === 'subscription') {
+      return config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null;
+    }
+    if (editingRow.id === 'discounts') {
+      return <UcatPracticeDayDiscountForm />;
+    }
+    return <UcatPlanPricesForm />;
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">UCAT subscription</h1>
-        </div>
-      </div>
+      <SettingsPageHeader title="UCAT subscription" />
 
       {loadError && !config ? (
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      {config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null}
-      <UcatPracticeDayDiscountForm />
-      <UcatPlanPricesForm />
+      <SettingsDataTable
+        data={SETTINGS_ROWS}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filterKeys={[]}
+        searchPlaceholder="Search UCAT subscription settings..."
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            disabled: row.id === 'subscription' && !config,
+            onSelect: () => setEditingRow(row),
+          },
+        ]}
+      />
+
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow?.name ?? 'Edit UCAT subscription'}
+        subtitle={editingRow?.description}
+        contentClassName="md:max-w-5xl"
+      >
+        {renderEditor()}
+      </AdminDialogShell>
     </div>
   );
 }

@@ -2,17 +2,11 @@
 
 import { useState } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Button,
   Badge,
 } from '@altitutor/ui';
-import { Star, StarOff, Loader2 } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { phoneNumbersApi, type OwnedNumber } from '../api/phone-numbers';
+import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface PhoneNumbersTableProps {
   numbers: OwnedNumber[];
@@ -48,68 +42,96 @@ export function PhoneNumbersTable({ numbers, onUpdate }: PhoneNumbersTableProps)
     return number.provider === 'IMESSAGE' ? 'iMessage' : 'Twilio';
   };
 
-  if (numbers.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No phone numbers configured
-      </div>
-    );
-  }
+  const columns: SettingsDataTableColumn<OwnedNumber>[] = [
+    {
+      key: 'number',
+      label: 'Number/Sender ID',
+      render: (number) => <span className="font-medium">{getDisplayValue(number)}</span>,
+      sortValue: getDisplayValue,
+      searchValue: getDisplayValue,
+    },
+    {
+      key: 'label',
+      label: 'Label',
+      render: (number) => number.label || '-',
+      sortValue: (number) => number.label || '',
+      searchValue: (number) => number.label || '',
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      render: (number) => <Badge variant="outline">{getTypeLabel(number)}</Badge>,
+      sortValue: getTypeLabel,
+      filterValue: getTypeLabel,
+      searchValue: getTypeLabel,
+    },
+    {
+      key: 'provider',
+      label: 'Provider',
+      render: (number) => number.provider ? <Badge variant="secondary">{number.provider}</Badge> : '-',
+      sortValue: (number) => number.provider || '',
+      filterValue: (number) => number.provider || '',
+      searchValue: (number) => number.provider || '',
+    },
+    {
+      key: 'default',
+      label: 'Default',
+      className: 'text-right',
+      render: (number) =>
+        number.is_default ? (
+          <Badge variant="default" className="gap-1">
+            <Star className="h-3 w-3 fill-current" />
+            Default
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+      sortValue: (number) => number.is_default,
+      filterValue: (number) => number.is_default ? 'default' : 'not-default',
+      searchValue: (number) => number.is_default ? 'default' : '',
+    },
+  ];
 
   return (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Number/Sender ID</TableHead>
-            <TableHead>Label</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Provider</TableHead>
-            <TableHead className="text-right">Default</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {numbers.map((number) => (
-            <TableRow key={number.id}>
-              <TableCell className="font-medium">
-                {getDisplayValue(number)}
-              </TableCell>
-              <TableCell>{number.label || '-'}</TableCell>
-              <TableCell>
-                <Badge variant="outline">{getTypeLabel(number)}</Badge>
-              </TableCell>
-              <TableCell>
-                {number.provider && (
-                  <Badge variant="secondary">{number.provider}</Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                {number.is_default ? (
-                  <Badge variant="default" className="gap-1">
-                    <Star className="h-3 w-3 fill-current" />
-                    Default
-                  </Badge>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSetDefault(number.id)}
-                    disabled={settingDefault === number.id}
-                    className="gap-1"
-                  >
-                    {settingDefault === number.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <StarOff className="h-4 w-4" />
-                    )}
-                    Set Default
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <SettingsDataTable
+      data={numbers}
+      columns={columns}
+      getRowId={(number) => number.id}
+      emptyMessage="No phone numbers configured"
+      searchPlaceholder="Search phone numbers..."
+      filterKeys={['type', 'provider', 'default']}
+      filterDefinitions={[
+        {
+          key: 'type',
+          label: 'Type',
+          options: ['Alphanumeric', 'iMessage', 'Twilio'].map((value) => ({ label: value, value })),
+        },
+        {
+          key: 'provider',
+          label: 'Provider',
+          options: Array.from(new Set(numbers.map((number) => number.provider).filter(Boolean))).map((value) => ({
+            label: String(value),
+            value: String(value),
+          })),
+        },
+        {
+          key: 'default',
+          label: 'Default',
+          options: [
+            { label: 'Default', value: 'default' },
+            { label: 'Not default', value: 'not-default' },
+          ],
+        },
+      ]}
+      defaultSort={{ field: 'number', direction: 'asc' }}
+      getActions={(number) => [
+        {
+          id: 'set-default',
+          label: 'Set default',
+          disabled: number.is_default || settingDefault === number.id,
+          onSelect: () => handleSetDefault(number.id),
+        },
+      ]}
+    />
   );
 }

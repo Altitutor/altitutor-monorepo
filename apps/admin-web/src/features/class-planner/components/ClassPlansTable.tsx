@@ -1,30 +1,16 @@
 'use client';
 
 import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@altitutor/ui';
-import { MoreVertical, Plus, Edit, Copy, Trash2, Play } from 'lucide-react';
 import { useClassPlans, useDeleteClassPlan, useDuplicateClassPlan } from '../hooks/useClassPlansQuery';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from '@altitutor/ui';
 import type { DraftClassPlan } from '../api/classPlans';
+import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface ClassPlansTableProps {
   onCreatePlan: () => void;
@@ -109,6 +95,38 @@ export function ClassPlansTable({ onCreatePlan }: ClassPlansTableProps) {
     }
   };
 
+  const columns: SettingsDataTableColumn<DraftClassPlan>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      render: (plan) => <span className="font-medium">{plan.name}</span>,
+      sortValue: (plan) => plan.name,
+      searchValue: (plan) => plan.name,
+    },
+    {
+      key: 'year',
+      label: 'Year',
+      render: (plan) => plan.year,
+      sortValue: (plan) => plan.year,
+      searchValue: (plan) => String(plan.year),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (plan) => getStatusBadge(plan.status),
+      sortValue: (plan) => plan.status || 'DRAFT',
+      filterValue: (plan) => plan.status || 'DRAFT',
+      searchValue: (plan) => plan.status || 'DRAFT',
+    },
+    {
+      key: 'created_at',
+      label: 'Created',
+      render: (plan) => plan.created_at ? format(new Date(plan.created_at), 'MMM d, yyyy') : '-',
+      sortValue: (plan) => plan.created_at ?? '',
+      searchValue: (plan) => plan.created_at ? format(new Date(plan.created_at), 'MMM d, yyyy') : '',
+    },
+  ];
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -130,83 +148,54 @@ export function ClassPlansTable({ onCreatePlan }: ClassPlansTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Class Plans</h2>
-        <Button onClick={onCreatePlan}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Class Plan
-        </Button>
-      </div>
-
       {!plans || plans.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-lg mb-2">No class plans yet</p>
           <p className="text-sm mb-4">Create your first class plan to get started</p>
-          <Button onClick={onCreatePlan}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Class Plan
-          </Button>
+          <Button onClick={onCreatePlan}>Create Class Plan</Button>
         </div>
       ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Year</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans.map((plan) => (
-                <TableRow key={plan.id}>
-                  <TableCell className="font-medium">{plan.name}</TableCell>
-                  <TableCell>{plan.year}</TableCell>
-                  <TableCell>{getStatusBadge(plan.status)}</TableCell>
-                  <TableCell>
-                    {plan.created_at
-                      ? format(new Date(plan.created_at), 'MMM d, yyyy')
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(plan.id)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(plan)}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        {plan.status === 'DRAFT' && (
-                          <DropdownMenuItem onClick={() => handleApply(plan.id)}>
-                            <Play className="h-4 w-4 mr-2" />
-                            Apply Plan
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(plan)}
-                          className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <SettingsDataTable
+          data={plans}
+          columns={columns}
+          getRowId={(plan) => plan.id}
+          emptyMessage="No class plans yet"
+          searchPlaceholder="Search class plans..."
+          filterKeys={['status']}
+          filterDefinitions={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: ['DRAFT', 'APPLIED', 'ARCHIVED'].map((value) => ({ label: value, value })),
+            },
+          ]}
+          defaultSort={{ field: 'name', direction: 'asc' }}
+          getActions={(plan) => [
+            {
+              id: 'edit',
+              label: 'Edit',
+              onSelect: () => handleEdit(plan.id),
+            },
+            {
+              id: 'duplicate',
+              label: 'Duplicate',
+              onSelect: () => handleDuplicate(plan),
+            },
+            ...(plan.status === 'DRAFT'
+              ? [{
+                  id: 'apply',
+                  label: 'Apply Plan',
+                  onSelect: () => handleApply(plan.id),
+                }]
+              : []),
+            {
+              id: 'delete',
+              label: 'Delete',
+              disabled: deleteMutation.isPending,
+              onSelect: () => handleDelete(plan),
+            },
+          ]}
+        />
       )}
     </div>
   );

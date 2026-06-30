@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   Clock,
   Ban,
@@ -17,7 +16,7 @@ import {
   TrendingUp,
   Layers,
 } from 'lucide-react';
-import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
+import { AdminSettingsCard } from '@/shared/components';
 
 export default function SettingsPage() {
   const settingsSections = [
@@ -124,6 +123,12 @@ export default function SettingsPage() {
           icon: GraduationCap,
         },
         {
+          title: 'UCAT quotas',
+          description: 'View Free tier quota usage, grant quota resets, and reset individual quota areas',
+          href: '/settings/ucat-quotas',
+          icon: GraduationCap,
+        },
+        {
           title: 'UCAT skill trainers',
           description: 'Enable trainers and configure timing, scoring, and cooldowns',
           href: '/settings/ucat-skill-trainers',
@@ -183,22 +188,15 @@ export default function SettingsPage() {
           <div key={section.title}>
             <h2 className="text-xl font-semibold mb-4">{section.title}</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                      <CardHeader>
-                        <div className="flex items-center gap-3">
-                          <Icon className="h-5 w-5 text-muted-foreground" />
-                          <CardTitle className="text-lg">{item.title}</CardTitle>
-                        </div>
-                        <CardDescription>{item.description}</CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </Link>
-                );
-              })}
+              {section.items.map((item) => (
+                <AdminSettingsCard
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  title={item.title}
+                  description={item.description}
+                />
+              ))}
             </div>
           </div>
         ))}
@@ -206,4 +204,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

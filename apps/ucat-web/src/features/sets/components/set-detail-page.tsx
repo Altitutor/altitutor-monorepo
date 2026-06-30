@@ -1,10 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
+import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
+import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import {
   extractTextFromRichJson,
   type JsonLike,
@@ -54,6 +58,10 @@ export function SetDetailPage({
   backLabel: backLabelProp,
   sessionEntryContext,
 }: SetDetailPageProps) {
+  const router = useRouter();
+  const { openQuotaLimit } = useQuotaLimitModal();
+  const { data: quota } = useQuotaUsage();
+  const { active: activeExamAttempt } = useActiveExamAttempt();
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
   const attemptsHeadingId = useId();
@@ -62,6 +70,7 @@ export function SetDetailPage({
     () => (sets ?? []).find((item) => item.id === setId),
     [sets, setId],
   );
+  const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
 
   const backHref =
     backHrefProp ??
@@ -85,6 +94,22 @@ export function SetDetailPage({
         : sectionNumber != null
           ? 3
           : 1;
+
+  const handleLaunchSet = () => {
+    const canResumeCurrentAttempt =
+      activeExamAttempt?.kind === "set" &&
+      activeExamAttempt.resourceId === setId;
+    if (!canResumeCurrentAttempt && (setQuota?.disabled || setQuota?.atLimit)) {
+      openQuotaLimit(quotaPayloadFromUsage(setQuota), {
+        dismissAction: {
+          label: "Dismiss",
+          variant: "dismiss",
+        },
+      });
+      return;
+    }
+    router.push(`/exam/sets?id=${encodeURIComponent(setId)}`);
+  };
 
   if (isLoading) {
     return (
@@ -249,10 +274,7 @@ export function SetDetailPage({
       </section>
 
       {attempts.length > 0 ? (
-        <section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -261,60 +283,61 @@ export function SetDetailPage({
           </h2>
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] caption-bottom text-sm">
-              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
-                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Score
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Scaled
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {attempts.map((a: SetAttemptRow) => (
-                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
-                    <td className="p-4 align-middle">
-                      {new Date(a.attemptedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      {a.scorePoints != null && a.totalPoints != null
-                        ? `${a.scorePoints} / ${a.totalPoints}`
-                        : "—"}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      {a.scaledScore != null ? a.scaledScore : "—"}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      <UcatTableRowActionLink
-                        href={setAttemptHref(a.id)}
-                        label="View attempt"
-                      />
-                    </td>
+              <table className="w-full min-w-[420px] caption-bottom text-sm">
+                <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
+                  <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Score
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Scaled
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {attempts.map((a: SetAttemptRow) => (
+                    <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
+                      <td className="p-4 align-middle">
+                        {new Date(a.attemptedAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {a.scorePoints != null && a.totalPoints != null
+                          ? `${a.scorePoints} / ${a.totalPoints}`
+                          : "—"}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {a.scaledScore != null ? a.scaledScore : "—"}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        <UcatTableRowActionLink
+                          href={setAttemptHref(a.id)}
+                          label="View attempt"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
       ) : null}
 
       <div className="flex justify-end">
-        <Button asChild className={UCAT_PRIMARY_ACTION_BUTTON}>
-          <Link href={`/exam/sets?id=${encodeURIComponent(set.id)}`}>
-            Launch set
-          </Link>
+        <Button
+          className={UCAT_PRIMARY_ACTION_BUTTON}
+          onClick={handleLaunchSet}
+        >
+          Launch set
         </Button>
       </div>
     </div>

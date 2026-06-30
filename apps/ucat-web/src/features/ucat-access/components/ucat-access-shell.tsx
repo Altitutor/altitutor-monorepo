@@ -2,6 +2,7 @@
 
 import { Suspense, type ReactNode } from "react";
 import { ActiveExamAttemptProvider } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { ActiveSkillTrainerAttemptProvider } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 import { InPersonUpsellDialog } from "@/features/ucat-access/components/in-person-upsell-dialog";
 import { PlanPickerDialog } from "@/features/ucat-access/components/plan-picker-dialog";
@@ -19,14 +20,16 @@ export function UcatAccessShell({ children }: UcatAccessShellProps) {
     <QuotaLimitProvider>
       <UpsellDialogProvider>
         <ActiveExamAttemptProvider>
-          <OnboardingGateRedirect />
-          <Suspense fallback={null}>
-            <UpsellQueryParamSync />
-          </Suspense>
-          {children}
-          <QuotaLimitModal />
-          <PlanPickerDialog />
-          <InPersonUpsellDialog />
+          <ActiveSkillTrainerAttemptProvider>
+            <OnboardingGateRedirect />
+            <Suspense fallback={null}>
+              <UpsellQueryParamSync />
+            </Suspense>
+            {children}
+            <QuotaLimitModal />
+            <PlanPickerDialog />
+            <InPersonUpsellDialog />
+          </ActiveSkillTrainerAttemptProvider>
         </ActiveExamAttemptProvider>
       </UpsellDialogProvider>
     </QuotaLimitProvider>

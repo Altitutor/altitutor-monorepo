@@ -2,24 +2,6 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { SkeletonTable } from '@altitutor/ui';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@altitutor/ui';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -29,21 +11,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { Search, ArrowUpDown, MoreVertical, Edit, Copy, Trash2, Settings2 } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { useMessageTemplates, useDeleteTemplate, useCreateTemplate } from '../../api/templates';
 import { truncatePreview } from '../../utils/templateHelpers';
 import { useToast } from '@altitutor/ui';
 import { CreateEditTemplateDialog } from './CreateEditTemplateDialog';
 import type { Tables } from '@altitutor/shared';
-import { useDebounce } from '@/shared/hooks';
-import { cn, getErrorMessage } from '@/shared/utils';
+import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
+import { getErrorMessage } from '@/shared/utils';
 
 interface TemplatesTableProps {
   onRefresh?: number;
   onCreateTrigger?: number;
 }
-
-type SortField = 'name' | 'created_at';
 
 export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: TemplatesTableProps) {
   const { data: templates, isLoading, refetch } = useMessageTemplates();
@@ -51,66 +31,12 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
   const createMutation = useCreateTemplate();
   const { toast } = useToast();
   
-  const [searchTerm, setSearchTerm] = useState('');
-  const [templateFilter, setTemplateFilter] = useState<'all' | 'user' | 'system'>('all');
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedTemplate, setSelectedTemplate] = useState<Tables<'message_templates'> | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [deleteTemplateName, setDeleteTemplateName] = useState<string>('');
 
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-  // Filter and sort templates
-  const filteredAndSortedTemplates = useMemo(() => {
-    if (!templates) return [];
-
-    let result = [...templates];
-
-    // Apply template type filter (user vs system)
-    if (templateFilter === 'user') {
-      result = result.filter((t) => !t.template_key);
-    } else if (templateFilter === 'system') {
-      result = result.filter((t) => !!t.template_key);
-    }
-
-    // Apply search filter
-    if (debouncedSearchTerm) {
-      const searchLower = debouncedSearchTerm.toLowerCase();
-      result = result.filter(
-        (template) =>
-          template.name.toLowerCase().includes(searchLower) ||
-          template.content.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      
-      if (sortField === 'name') {
-        comparison = (a.name || '').localeCompare(b.name || '');
-      } else if (sortField === 'created_at') {
-        const aDate = new Date(a.created_at || 0).getTime();
-        const bDate = new Date(b.created_at || 0).getTime();
-        comparison = aDate - bDate;
-      }
-
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [templates, templateFilter, debouncedSearchTerm, sortField, sortDirection]);
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
+  const tableData = useMemo(() => templates ?? [], [templates]);
 
   const handleEdit = (template: Tables<'message_templates'>) => {
     setSelectedTemplate(template);
@@ -175,11 +101,6 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
     refetch();
   };
 
-  const handleNewTemplate = () => {
-    setSelectedTemplate(null);
-    setIsEditDialogOpen(true);
-  };
-
   // Trigger create dialog when onCreateTrigger changes
   useEffect(() => {
     if (onCreateTrigger && onCreateTrigger > 0) {
@@ -210,174 +131,109 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
     );
   };
 
-  // Loading state
-  if (isLoading && !templates) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search templates..."
-              className="pl-8"
-              value=""
-              disabled
-            />
-          </div>
-        </div>
-        <SkeletonTable rows={8} columns={4} />
-      </div>
-    );
-  }
+  const columns: SettingsDataTableColumn<Tables<'message_templates'>>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      render: (template) => (
+        <button
+          type="button"
+          className="flex items-center gap-2 text-left font-medium hover:underline"
+          onClick={() => handleEdit(template)}
+        >
+          <span>{template.name}</span>
+          {isSystemTemplate(template) ? (
+            <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+              <Settings2 className="h-3 w-3" />
+              System
+            </span>
+          ) : null}
+        </button>
+      ),
+      sortValue: (template) => template.name || '',
+      searchValue: (template) => template.name || '',
+    },
+    {
+      key: 'preview',
+      label: 'Preview',
+      className: 'max-w-[560px] text-sm text-muted-foreground',
+      render: (template) => renderPreview(template.content),
+      sortable: false,
+      searchValue: (template) => template.content || '',
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      render: (template) => (isSystemTemplate(template) ? 'System' : 'User'),
+      sortValue: (template) => (isSystemTemplate(template) ? 'System' : 'User'),
+      filterValue: (template) => (isSystemTemplate(template) ? 'system' : 'user'),
+      searchValue: (template) => (isSystemTemplate(template) ? 'System template' : 'User template'),
+      visibleByDefault: false,
+    },
+    {
+      key: 'created_at',
+      label: 'Created',
+      render: (template) => template.created_at ? new Date(template.created_at).toLocaleDateString() : '-',
+      sortValue: (template) => template.created_at ? new Date(template.created_at) : null,
+      searchValue: (template) => template.created_at || '',
+      visibleByDefault: false,
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search templates..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex rounded-md border p-0.5">
-            <button
-              type="button"
-              onClick={() => setTemplateFilter('all')}
-              className={cn(
-                'px-3 py-1.5 text-sm rounded',
-                templateFilter === 'all'
-                  ? 'bg-muted font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => setTemplateFilter('user')}
-              className={cn(
-                'px-3 py-1.5 text-sm rounded',
-                templateFilter === 'user'
-                  ? 'bg-muted font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              User
-            </button>
-            <button
-              type="button"
-              onClick={() => setTemplateFilter('system')}
-              className={cn(
-                'px-3 py-1.5 text-sm rounded',
-                templateFilter === 'system'
-                  ? 'bg-muted font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              System
-            </button>
-          </div>
-        </div>
-      </div>
+    <>
+      <SettingsDataTable
+        data={tableData}
+        columns={columns}
+        getRowId={(template) => template.id}
+        emptyMessage={isLoading ? 'Loading templates...' : 'No templates found.'}
+        searchPlaceholder="Search templates..."
+        filterKeys={['type']}
+        filterDefinitions={[
+          {
+            key: 'type',
+            label: 'Type',
+            options: [
+              { label: 'User', value: 'user' },
+              { label: 'System', value: 'system' },
+            ],
+          },
+        ]}
+        sortOptions={[
+          { key: 'name', label: 'Name' },
+          { key: 'created_at', label: 'Created' },
+          { key: 'type', label: 'Type' },
+        ]}
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        isLoading={isLoading}
+        getActions={(template) => {
+          const actions = [
+            {
+              id: 'edit',
+              label: 'Edit',
+              description: 'Update this message template',
+              onSelect: () => handleEdit(template),
+            },
+            {
+              id: 'duplicate',
+              label: 'Duplicate',
+              description: 'Create a user template copy',
+              onSelect: () => handleDuplicate(template),
+            },
+          ];
 
-      <div className="rounded-md border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead 
-                className="cursor-pointer" 
-                onClick={() => handleSort('name')}
-              >
-                Name
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'name' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead>Preview</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredAndSortedTemplates.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center h-24">
-                  {isLoading ? (
-                    'Loading templates...'
-                  ) : searchTerm ? (
-                    'No templates match your search'
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <p className="text-muted-foreground">No templates found.</p>
-                      <Button onClick={handleNewTemplate} variant="outline" size="sm">
-                        Create your first template
-                      </Button>
-                    </div>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredAndSortedTemplates.map((template) => (
-                <TableRow
-                  key={template.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleEdit(template)}
-                >
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {template.name}
-                      {isSystemTemplate(template) && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
-                          <Settings2 className="h-3 w-3" />
-                          System
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {renderPreview(template.content)}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(template)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(template)}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        {!isSystemTemplate(template) && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteClick(template)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+          if (!isSystemTemplate(template)) {
+            actions.push({
+              id: 'delete',
+              label: 'Delete',
+              description: 'Permanently delete this template',
+              onSelect: () => handleDeleteClick(template),
+            });
+          }
+
+          return actions;
+        }}
+      />
 
       {/* Create/Edit Dialog */}
       <CreateEditTemplateDialog
@@ -416,8 +272,6 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
-
-

@@ -1,33 +1,72 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, FileText } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { useState } from 'react';
 import { BillingPolicyEditor } from '@/features/policies/components/BillingPolicyEditor';
+import { AdminDialogShell, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+
+type PolicySettingsRow = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+const POLICY_ROWS: PolicySettingsRow[] = [
+  {
+    id: 'billing_policy',
+    name: 'Billing Policy',
+    description: 'Policy shown to students during registration before payment method setup.',
+  },
+];
 
 export default function PoliciesPage() {
-  const router = useRouter();
+  const [editingPolicy, setEditingPolicy] = useState<PolicySettingsRow | null>(null);
+
+  const columns: SettingsDataTableColumn<PolicySettingsRow>[] = [
+    {
+      key: 'name',
+      label: 'Policy',
+      render: (row) => <span className="font-medium">{row.name}</span>,
+      sortValue: (row) => row.name,
+      searchValue: (row) => row.name,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+      sortValue: (row) => row.description,
+      searchValue: (row) => row.description,
+    },
+  ];
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/settings')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <FileText className="h-8 w-8" />
-            Policies
-          </h1>
-        </div>
-      </div>
+      <SettingsPageHeader title="Policies" />
 
-      <BillingPolicyEditor />
+      <SettingsDataTable
+        data={POLICY_ROWS}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filterKeys={[]}
+        searchPlaceholder="Search policies..."
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingPolicy(row),
+          },
+        ]}
+      />
+
+      <AdminDialogShell
+        open={!!editingPolicy}
+        onClose={() => setEditingPolicy(null)}
+        title={editingPolicy?.name ?? 'Edit Policy'}
+        subtitle={editingPolicy?.description}
+        contentClassName="md:max-w-5xl"
+      >
+        <BillingPolicyEditor />
+      </AdminDialogShell>
     </div>
   );
 }
