@@ -17,6 +17,8 @@ export interface UploadFileResult {
   url: string;
 }
 
+const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 /**
  * Upload a file to the resources bucket
  */
@@ -46,6 +48,44 @@ export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions
     .from('resources')
     .getPublicUrl(path);
   
+  return {
+    path: data.path,
+    url: urlData.publicUrl,
+  };
+}
+
+export async function uploadStaffProfileImage({
+  staffId,
+  file,
+}: {
+  staffId: string;
+  file: File;
+}): Promise<UploadFileResult> {
+  if (!IMAGE_MIME_TYPES.has(file.type)) {
+    throw new Error('Please choose a JPEG, PNG, or WebP image.');
+  }
+
+  const supabase = getSupabaseClient();
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${staffId}/${timestamp}_${sanitizedFilename}`;
+
+  const { data, error } = await supabase.storage
+    .from('staff-profile-images')
+    .upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Storage upload error:', error);
+    throw new Error(`Failed to upload image: ${error.message}`);
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('staff-profile-images')
+    .getPublicUrl(path);
+
   return {
     path: data.path,
     url: urlData.publicUrl,
@@ -249,4 +289,3 @@ export async function listSessionFiles(sessionId: string): Promise<Array<{ name:
   
   return data || [];
 }
-

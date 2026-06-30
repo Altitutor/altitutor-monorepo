@@ -11,7 +11,8 @@ export type StorageBucket =
   | 'session-files'
   | 'staff-files'
   | 'student-files'
-  | 'admin-rich-text-images';
+  | 'admin-rich-text-images'
+  | 'staff-profile-images';
 
 export interface UploadFileOptions {
   subjectId: string;
@@ -247,6 +248,14 @@ export async function uploadStaffFile({ staffId, file }: UploadStaffFileOptions)
   return uploadToBucket('staff-files', path, file);
 }
 
+export async function uploadStaffProfileImage({ staffId, file }: UploadStaffFileOptions): Promise<UploadFileResult> {
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${staffId}/${timestamp}_${sanitizedFilename}`;
+
+  return uploadToBucket('staff-profile-images', path, file);
+}
+
 /**
  * Get a signed URL for a staff file (valid for specified duration, default 1 hour)
  * Convenience wrapper for backward compatibility
@@ -262,4 +271,3 @@ export async function getStaffFileSignedUrl(path: string, expiresIn: number = 36
 export async function deleteStaffFile(path: string): Promise<void> {
   return deleteFromBucket('staff-files', path);
 }
-

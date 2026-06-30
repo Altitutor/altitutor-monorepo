@@ -5,6 +5,13 @@ import type { Database } from "@altitutor/shared";
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
 
+  if (pathname.startsWith("/auth/callback&")) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.pathname = "/auth/callback";
+    redirectUrl.search = pathname.slice("/auth/callback&".length);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   // PKCE magic links: do not run Supabase session logic here. getUser() refreshes cookies and
   // can clear PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
   if (pathname === "/auth/callback") {

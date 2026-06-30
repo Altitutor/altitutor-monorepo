@@ -14,6 +14,7 @@ module.exports = {
     "^.+\\.(t|j)sx?$": ["@swc/jest"],
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(react-big-calendar|date-fns|@tiptap|marked)/)",
+    "node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked)@)",
+    "node_modules/(?!.pnpm|react-big-calendar|date-fns|@tiptap|marked)",
   ],
 };

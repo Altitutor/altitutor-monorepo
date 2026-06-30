@@ -17,12 +17,9 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
 
-interface ClassesTableProps {
-}
-
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export function ClassesTable({}: ClassesTableProps) {
+export function ClassesTable() {
   const { data: classes, isLoading, error } = useStudentClasses();
   const [searchTerm] = useState('');
 
@@ -139,4 +136,3 @@ export function ClassesTable({}: ClassesTableProps) {
     </div>
   );
 }
-

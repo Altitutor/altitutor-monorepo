@@ -1,4 +1,4 @@
-import SegmentedControl from '@expo/ui/community/segmented-control';
+import { SegmentedControl } from '@expo/ui/community/segmented-control';
 import { useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 

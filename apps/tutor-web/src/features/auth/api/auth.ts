@@ -41,16 +41,16 @@ export const authApi = {
     if (typeof window === 'undefined') {
       throw new Error('This method must be called from the browser');
     }
-    
-    const supabase = getSupabaseClient();
 
-    const { error } = await (supabase as SupabaseClient<Database>).auth.resetPasswordForEmail(
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
       data.email,
       {
         redirectTo: `${window.location.origin}/auth/callback`,
       }
     );
-    
+
     if (error) {
       console.error('Password reset request error:', error);
       throw new Error(error.message || 'Failed to send password reset email');
@@ -65,10 +65,10 @@ export const authApi = {
    */
   confirmPasswordReset: async (data: PasswordResetConfirmRequest) => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
 
       // First, check if we have a valid session from the reset token
-      const { data: { session }, error: sessionError } = await (supabase as SupabaseClient<Database>).auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         console.error('Session error during password reset:', sessionError);
@@ -80,7 +80,7 @@ export const authApi = {
       }
 
       // Update the user's password
-      const { data: updateData, error: updateError } = await (supabase as SupabaseClient<Database>).auth.updateUser({
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         password: data.password
       });
       
@@ -101,7 +101,7 @@ export const authApi = {
         throw new Error('Failed to update password. Please try again.');
       }
 
-      await (supabase as SupabaseClient<Database>).auth.signOut();
+      await supabase.auth.signOut();
 
       return { 
         message: 'Password updated successfully',

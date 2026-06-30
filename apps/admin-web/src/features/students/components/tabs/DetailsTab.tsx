@@ -390,14 +390,12 @@ export function DetailsTab({
                     );
                   }
                   
-                  // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
-                  if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+                  // Case 2: No account and not registered -> Send Registration Link
+                  if (!hasAccount && !isRegistered) {
                     return (
                       <div className="space-y-4">
                         <p className="text-sm text-muted-foreground">
-                          {hasAccount 
-                            ? 'This student has an account but has not completed registration. Send them a registration link to complete the process.'
-                            : 'This student has not completed registration. Send them a registration link to complete account setup and registration.'}
+                          This student has not completed registration. Send them a registration link to complete account setup and registration.
                         </p>
                         
                         <Button
@@ -422,7 +420,7 @@ export function DetailsTab({
                     );
                   }
                   
-                  // Case 4: Registered AND has account -> Show Reset Password
+                  // Case 3: Has account -> Show Reset Password
                   return (
                     <AdminPasswordResetSection
                       userId={student.user_id}
@@ -783,14 +781,12 @@ export function DetailsTab({
             );
           }
           
-          // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
-          if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+          // Case 2: No account and not registered -> Send Registration Link
+          if (!hasAccount && !isRegistered) {
             return (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  {hasAccount 
-                    ? 'This student has an account but has not completed registration. Send them a registration link to complete the process.'
-                    : 'This student has not completed registration. Send them a registration link to complete account setup and registration.'}
+                  This student has not completed registration. Send them a registration link to complete account setup and registration.
                 </p>
                 
                 <Button
@@ -815,7 +811,7 @@ export function DetailsTab({
             );
           }
           
-          // Case 4: Registered AND has account -> Show Reset Password
+          // Case 3: Has account -> Show Reset Password
           return (
             <AdminPasswordResetSection
               userId={student.user_id}
