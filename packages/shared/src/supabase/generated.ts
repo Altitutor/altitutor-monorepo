@@ -3762,6 +3762,13 @@ export type Database = {
             foreignKeyName: "note_document_edit_locks_locked_by_fkey"
             columns: ["locked_by"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "note_document_edit_locks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
             referencedRelation: "vtutor_pay_tier_profile"
             referencedColumns: ["staff_id"]
           },
@@ -11413,6 +11420,242 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ucat_ai_generation_providers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_free_quota_reset_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string
+          granted_by_staff_id: string | null
+          id: string
+          student_id: string
+          updated_at: string
+          used_at: string | null
+          used_by_student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          granted_by_staff_id?: string | null
+          id?: string
+          student_id: string
+          updated_at?: string
+          used_at?: string | null
+          used_by_student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          granted_by_staff_id?: string | null
+          id?: string
+          student_id?: string
+          updated_at?: string
+          used_at?: string | null
+          used_by_student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_granted_by_staff_id_fkey"
+            columns: ["granted_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_used_by_student_id_fkey"
+            columns: ["used_by_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_free_quota_reset_events: {
+        Row: {
+          created_at: string
+          created_by_staff_id: string | null
+          entitlement_id: string | null
+          id: string
+          quota_area: string | null
+          reset_at: string
+          source: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_staff_id?: string | null
+          entitlement_id?: string | null
+          id?: string
+          quota_area?: string | null
+          reset_at?: string
+          source: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_staff_id?: string | null
+          entitlement_id?: string | null
+          id?: string
+          quota_area?: string | null
+          reset_at?: string
+          source?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_entitlement_id_fkey"
+            columns: ["entitlement_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_free_quota_reset_entitlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -22849,6 +23092,10 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_ucat_free_quota_reset_boundary: {
+        Args: { p_quota_area: string; p_student_id: string }
+        Returns: string
+      }
       get_ucat_stem_id_from_image_path: {
         Args: { file_path: string }
         Returns: string
@@ -23309,7 +23556,6 @@ export type Database = {
       tutor_ucat_upsert_mock:
         | {
             Args: {
-              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -23319,6 +23565,7 @@ export type Database = {
           }
         | {
             Args: {
+              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -23384,6 +23631,10 @@ export type Database = {
       undo_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
+      }
+      use_ucat_free_quota_reset_entitlement: {
+        Args: { p_student_id: string }
+        Returns: string
       }
       user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
