@@ -14,6 +14,7 @@ import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
+import { AdminShellProvider } from '@/shared/contexts/AdminShellContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -51,14 +52,16 @@ export default function RootLayout({
                   <MobileMenuProvider>
                     <CommandPaletteProvider>
                       <QuickActionsProvider>
-                        <MentionModalProvider>
-                          <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
-                            <ConditionalNavbar />
-                            <MainContentWrapper>
-                              {children}
-                            </MainContentWrapper>
-                          </div>
-                        </MentionModalProvider>
+                        <AdminShellProvider>
+                          <MentionModalProvider>
+                            <div className="flex flex-col min-h-dvh bg-background">
+                              <ConditionalNavbar />
+                              <MainContentWrapper>
+                                {children}
+                              </MainContentWrapper>
+                            </div>
+                          </MentionModalProvider>
+                        </AdminShellProvider>
                       </QuickActionsProvider>
                     </CommandPaletteProvider>
                   </MobileMenuProvider>

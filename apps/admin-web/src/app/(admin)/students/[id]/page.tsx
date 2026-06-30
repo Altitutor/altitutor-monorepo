@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -52,6 +52,7 @@ import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -281,13 +282,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   }, []);
 
   if (loadingStudent) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!student) {

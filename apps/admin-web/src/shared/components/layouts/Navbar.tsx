@@ -5,14 +5,19 @@ import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useRouter } from 'next/navigation';
-import { Bug, LogOut, User } from 'lucide-react';
+import { Bug, Laptop, LogOut, Moon, Palette, Sun, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   AnimatedHamburgerIcon,
   FeedbackDialog,
@@ -27,13 +32,15 @@ import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 import { DashboardDatePicker } from './DashboardDatePicker';
 import { MessagesDropdown } from '@/features/messages/components/MessagesDropdown';
+import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 
 export function Navbar() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme, theme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
+  const { sidebarCollapsed, toggleSidebar } = useAdminShell();
   const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -88,8 +95,8 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
-      <div className="container mx-auto px-4 h-full flex items-center gap-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] bg-card">
+      <div className="h-full w-full px-4 flex items-center gap-4">
         {/* Mobile Hamburger Menu Button */}
         {user && (
           <Button
@@ -102,9 +109,21 @@ export function Navbar() {
             <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
           </Button>
         )}
+
+        {user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="hidden h-9 w-9 flex-shrink-0 md:inline-flex"
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <AnimatedHamburgerIcon isOpen={!sidebarCollapsed} />
+          </Button>
+        )}
         
         {/* Desktop Logo - hidden on mobile */}
-        <div className="hidden md:flex items-center gap-3 min-w-[220px]">
+        <div className="hidden md:flex items-center gap-3 min-w-[180px]">
           <div className="h-12 flex items-center gap-1">
             <Image 
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
@@ -161,7 +180,7 @@ export function Navbar() {
                   <span className="hidden sm:inline">{getFullName()}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 max-w-[calc(100vw-2rem)]" collisionPadding={16}>
+              <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-2rem)]" collisionPadding={16}>
                 <DropdownMenuItem asChild>
                   <Link href="/my-account" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
@@ -169,15 +188,28 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
-                  Light Theme
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
-                  Dark Theme
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
-                  System Theme
-                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="cursor-pointer">
+                    <Palette className="mr-2 h-4 w-4" />
+                    Appearance
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-44">
+                    <DropdownMenuRadioGroup value={theme ?? 'system'} onValueChange={setTheme}>
+                      <DropdownMenuRadioItem value="light" className="cursor-pointer">
+                        <Sun className="mr-2 h-4 w-4" />
+                        Light
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="dark" className="cursor-pointer">
+                        <Moon className="mr-2 h-4 w-4" />
+                        Dark
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="system" className="cursor-pointer">
+                        <Laptop className="mr-2 h-4 w-4" />
+                        System
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => setFeedbackKind('bug')}

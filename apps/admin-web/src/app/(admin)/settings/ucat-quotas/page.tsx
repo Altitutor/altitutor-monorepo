@@ -384,6 +384,12 @@ export default function UcatQuotasSettingsPage() {
                           searchPlaceholder="Search actions..."
                           align="end"
                           contentWidth="260px"
+                          renderItem={(item) => (
+                            <div className="flex min-w-0 items-center gap-2">
+                              <RotateCcw className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                          )}
                           trigger={
                             <Button type="button" variant="outline" size="icon" aria-label={`Quota actions for ${studentName(row)}`}>
                               <MoreHorizontal className="h-4 w-4" />

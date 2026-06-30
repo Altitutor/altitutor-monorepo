@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@altitutor/ui';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSessionActions } from '@/features/sessions/hooks/useSessionActions';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -28,6 +28,7 @@ import {
   processSessionStudents,
   processSessionStaff,
 } from '@/features/sessions/utils';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -113,13 +114,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   };
 
   if (sessionData.isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!sessionData.data || !sessionData.data.session) {

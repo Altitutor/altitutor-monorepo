@@ -24,14 +24,15 @@ export function ClassSessionsTab({ classData }: ClassSessionsTabProps) {
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="h-full min-h-0 flex flex-col space-y-4">
       {/* Sessions Table */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <SessionsTable
           classId={classData.id}
           onOpenSession={handleOpenSession}
           onOpenStudent={handleOpenStudent}
           onOpenStaff={handleOpenStaff}
+          fillHeight={true}
         />
       </div>
     </div>

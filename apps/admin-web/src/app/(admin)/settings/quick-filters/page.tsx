@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { quickFiltersApi } from '@/features/quick-filters/api/quick-filters';
 import { QuickFiltersTable } from '@/features/quick-filters/components/QuickFiltersTable';
-import { Loader2, Plus } from 'lucide-react';
-import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
+import { Plus } from 'lucide-react';
+import { AdminLoadingSkeleton, AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import type { QuickFilter } from '@altitutor/shared';
 
 export default function QuickFiltersSettingsPage() {
@@ -30,11 +30,7 @@ export default function QuickFiltersSettingsPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

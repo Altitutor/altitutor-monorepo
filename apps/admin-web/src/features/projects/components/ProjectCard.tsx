@@ -2,7 +2,7 @@
 
 import { Calendar, Circle, Clock3, CheckCircle2, Flag } from 'lucide-react';
 import type { ProjectWithLead, ProjectStatus, ProjectPriority } from '../types';
-import { cn } from '@/shared/utils';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
@@ -42,7 +42,10 @@ export function ProjectCard({ project, onClick, visiblePillKeys = [] }: ProjectC
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col gap-2 p-3 bg-card border rounded-lg hover:border-primary transition-colors cursor-pointer"
+      className={cn(
+        'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',
+        clickableCardInteractiveCn,
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">

@@ -7,9 +7,9 @@ import { BillingSettingsTable } from '@/features/billing/components/BillingSetti
 import { pricingApi, type BillingPricingRow } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
 import { billingSettingsApi, type BillingSettingsRow } from '@/features/billing/api/billing-settings';
-import { Loader2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
-import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 
 export default function BillingSettingsPage() {
   const [activeTab, setActiveTab] = useState('pricing');
@@ -63,11 +63,7 @@ export default function BillingSettingsPage() {
   }, [loadData]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

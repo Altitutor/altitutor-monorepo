@@ -5,7 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { getSubjectColorStyle } from '@/shared/utils';
+import { cn, getSubjectColorStyle, clickableCardInteractiveCn } from '@/shared/utils';
 
 interface StaffCardProps {
   staff: Tables<'staff'>;
@@ -40,15 +40,17 @@ export function StaffCard({
 
   return (
     <div
-      className={`relative flex items-start gap-3 p-3 border rounded-lg transition-colors ${
+      className={cn(
+        'group relative flex items-start gap-3 rounded-lg border bg-card p-3 transition-all',
         isSelecting
           ? isSelected
             ? 'border-primary bg-primary/5'
-            : 'hover:bg-muted/50 cursor-pointer'
+            : 'cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : 'bg-background'
-      }`}
+            ? 'cursor-pointer'
+            : '',
+        (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn,
+      )}
       onClick={isSelecting || onClick ? onClick : undefined}
     >
       <div className="flex-shrink-0">
@@ -74,7 +76,7 @@ export function StaffCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
-                  variant="ghost" 
+                  variant="outline"
                   size="icon" 
                   className="h-8 w-8 flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
@@ -128,4 +130,3 @@ export function StaffCard({
     </div>
   );
 }
-

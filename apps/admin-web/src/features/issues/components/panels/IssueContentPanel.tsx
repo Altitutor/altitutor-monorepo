@@ -113,8 +113,8 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
   }
 
   return (
-    <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0">
-      <div className="flex-1 flex flex-col min-h-0">
+    <div className="hidden h-full min-h-0 w-80 flex-shrink-0 flex-col overflow-hidden border-l min-w-0 md:flex">
+      <div className="h-full flex-1 flex flex-col min-h-0">
         <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10 px-6 pb-4 pt-4">
           <SegmentedControl
             fullWidth

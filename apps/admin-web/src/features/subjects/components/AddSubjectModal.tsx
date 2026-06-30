@@ -104,12 +104,12 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100dvh] overflow-y-auto">
-        <SheetHeader className="mb-6">
+      <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0">
+        <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
           <SheetTitle className="text-xl">Add New Subject</SheetTitle>
         </SheetHeader>
         
-        <form onSubmit={handleSubmit} className="pb-20">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 pb-24">
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
@@ -188,7 +188,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
         </form>
         
         {/* Action buttons at the bottom */}
-        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-card">
           <div className="flex w-full justify-end gap-2">
             <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
               Cancel

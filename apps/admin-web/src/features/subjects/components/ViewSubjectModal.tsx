@@ -262,46 +262,46 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         if (!isOpen) onClose();
       }}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
-            <SheetHeader className="mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onClose}
-                    className="shrink-0"
+          <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle className="text-xl">
+                    {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+                  </SheetTitle>
+                  <SheetDescription
+                    className={cn(
+                      !loading && subject
+                        ? 'text-lg font-medium text-foreground'
+                        : 'sr-only'
+                    )}
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <SheetTitle className="text-xl">
-                      {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-                    </SheetTitle>
-                    <SheetDescription
-                      className={cn(
-                        !loading && subject
-                          ? 'text-lg font-medium text-foreground'
-                          : 'sr-only'
-                      )}
-                    >
-                      {loading
-                        ? 'Loading subject details.'
-                        : subject?.name ?? 'Subject details'}
-                    </SheetDescription>
-                  </div>
+                    {loading
+                      ? 'Loading subject details.'
+                      : subject?.name ?? 'Subject details'}
+                  </SheetDescription>
                 </div>
-                {subjectId && !isEditing && (
-                  <ActionsMenu
-                    type="subject"
-                    entityId={subjectId}
-                    copyTagDisplayText={subject?.short_name || subject?.name || subjectId}
-                    {...subjectActions}
-                  />
-                )}
               </div>
-            </SheetHeader>
+              {subjectId && !isEditing && (
+                <ActionsMenu
+                  type="subject"
+                  entityId={subjectId}
+                  copyTagDisplayText={subject?.short_name || subject?.name || subjectId}
+                  {...subjectActions}
+                />
+              )}
+            </div>
+          </SheetHeader>
 
+          <div className="flex-1 overflow-y-auto p-6">
             {loading ? (
               <div className="flex justify-center items-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -579,7 +579,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         
           {/* Action buttons at the bottom - sticky footer */}
         {!loading && subject && isEditing && (
-          <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+          <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-card mt-auto shrink-0">
             <div className="flex w-full justify-between">
               <Button 
                 variant="destructive" 

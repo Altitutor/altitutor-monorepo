@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { Tables } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatDate } from '@/shared/utils/datetime';
-import { getSubjectColorStyle } from '@/shared/utils';
+import { cn, getSubjectColorStyle, clickableCardInteractiveCn } from '@/shared/utils';
 
 interface StudentCardProps {
   student: Tables<'students'>;
@@ -46,15 +46,17 @@ export function StudentCard({
 
   return (
     <div
-      className={`relative flex items-start gap-3 p-3 border rounded-lg transition-colors ${
+      className={cn(
+        'group relative flex items-start gap-3 rounded-lg border bg-card p-3 transition-all',
         isSelecting
           ? isSelected
             ? 'border-primary bg-primary/5'
-            : 'hover:bg-muted/50 cursor-pointer'
+            : 'cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : 'bg-background'
-      }`}
+            ? 'cursor-pointer'
+            : '',
+        (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn,
+      )}
       onClick={isSelecting || onClick ? onClick : undefined}
     >
       <div className="flex-shrink-0">
@@ -88,7 +90,7 @@ export function StudentCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
-                  variant="ghost" 
+                  variant="outline"
                   size="icon" 
                   className="h-8 w-8 flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
@@ -166,4 +168,3 @@ export function StudentCard({
     </div>
   );
 }
-

@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies (for pnpm db:types / shared build)
@@ -37,6 +37,9 @@ jobs:
 
       - name: Confirm Supabase CLI version
         run: supabase --version
+
+      - name: Render email templates
+        run: pnpm db:email-templates
 
       - name: Start Supabase and apply migrations
         run: |

@@ -184,7 +184,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          'w-full md:max-w-4xl h-[90vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 gap-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
@@ -246,14 +246,14 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden min-h-0 min-w-0">
+          <div className="min-h-0 min-w-0 overflow-hidden">
             {isLoading ? (
               <div className="p-6">Loading issue data...</div>
             ) : !issue ? (
               <div className="p-6">Issue not found</div>
             ) : (
-              <div className="h-full flex min-w-0">
-                <form className="flex-1 flex min-h-0 min-w-0">
+              <div className="h-full min-h-0 flex min-w-0 overflow-hidden">
+                <form className="h-full flex-1 flex min-h-0 min-w-0 overflow-hidden">
                   <AutoSaveManager
                     form={form}
                     issueId={issueId}

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { PhoneNumbersTable } from '@/features/phone-numbers';
 import { phoneNumbersApi, type OwnedNumber } from '@/features/phone-numbers';
-import { Loader2 } from 'lucide-react';
-import { SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
 
 export default function PhoneNumbersPage() {
   const [numbers, setNumbers] = useState<OwnedNumber[]>([]);
@@ -28,11 +27,7 @@ export default function PhoneNumbersPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

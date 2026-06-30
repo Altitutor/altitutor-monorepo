@@ -33,6 +33,7 @@ import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/Class
 import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -173,13 +174,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   });
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!classData) {

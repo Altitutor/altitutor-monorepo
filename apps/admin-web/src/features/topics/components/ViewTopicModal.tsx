@@ -223,7 +223,7 @@ export function ViewTopicModal({
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
-          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
+          <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
                 <Button
@@ -642,7 +642,7 @@ export function ViewTopicModal({
           
           {/* Action buttons at the bottom */}
           {!isLoading && topic && isEditing && (
-            <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+            <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-card mt-auto shrink-0">
               <div className="flex w-full justify-between">
                 <Button 
                   type="button" 

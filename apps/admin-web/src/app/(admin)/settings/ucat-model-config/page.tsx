@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { AdminDialogShell, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 import { UcatModelConfigForm } from '@/features/ucat-model-config/components/UcatModelConfigForm';
 import { useUcatModelConfig } from '@/features/ucat-model-config/hooks/use-ucat-model-config';
 import type { UcatModelConfigWithSection } from '@/features/ucat-model-config/api/ucat-model-config';
@@ -12,11 +11,7 @@ export default function UcatModelConfigPage() {
   const [editingRow, setEditingRow] = useState<UcatModelConfigWithSection | null>(null);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   const rows = data ?? [];

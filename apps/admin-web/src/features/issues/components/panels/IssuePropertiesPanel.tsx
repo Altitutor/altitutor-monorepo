@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useCallback, memo } from 'react';
-import { ScrollArea, Separator } from '@altitutor/ui';
+import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
@@ -55,9 +55,8 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
 
   return (
     <>
-      <div className="flex-1 flex flex-col min-w-0 border-r">
-        <ScrollArea className="flex-1 min-w-0 max-w-full">
-          <div className="p-6 space-y-6">
+      <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r">
+        <div className="p-6 space-y-6">
             {/* Status and Title */}
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -130,8 +129,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
                 />
               </div>
             )}
-          </div>
-        </ScrollArea>
+        </div>
       </div>
     </>
   );

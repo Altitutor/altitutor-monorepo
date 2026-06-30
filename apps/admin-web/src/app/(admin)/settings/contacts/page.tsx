@@ -5,7 +5,7 @@ import { ContactsTable } from '@/features/contacts/components';
 import { contactsApi } from '@/features/contacts/api';
 import { generateVcf, downloadVcf } from '@/features/contacts/utils';
 import { Loader2, Download } from 'lucide-react';
-import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import { useToast } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 
@@ -52,11 +52,7 @@ export default function ContactsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   if (error) {

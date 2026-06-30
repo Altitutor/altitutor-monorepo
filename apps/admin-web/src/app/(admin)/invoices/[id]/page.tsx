@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Button, Separator, Badge } from '@altitutor/ui';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
@@ -25,6 +25,7 @@ import { getErrorMessage } from '@/shared/utils';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invoicesKeys } from '@/features/billing/hooks/useInvoicesQuery';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -166,13 +167,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const hasCreditBalance = amountPaidFromBalanceCents > 0;
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!invoice) {

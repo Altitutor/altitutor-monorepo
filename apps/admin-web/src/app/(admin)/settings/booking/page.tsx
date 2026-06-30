@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BookingSettingsTable } from '@/features/bookings/components/BookingSettingsTable';
 import { bookingSettingsApi, type BookingSettingsRow } from '@/features/bookings/api/settings';
-import { Loader2 } from 'lucide-react';
-import { SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
 
 export default function BookingSettingsPage() {
   const [settings, setSettings] = useState<BookingSettingsRow[]>([]);
@@ -28,11 +27,7 @@ export default function BookingSettingsPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

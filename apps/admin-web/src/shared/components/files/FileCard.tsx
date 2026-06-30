@@ -32,7 +32,7 @@ import {
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { FilePreviewModal } from './FilePreviewModal';
 import type { Enums, Tables } from '@altitutor/shared';
@@ -191,7 +191,10 @@ export function FileCard({
   return (
     <>
       <div
-        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+        className={cn(
+          'group flex cursor-pointer items-center justify-between rounded-lg border bg-card p-3 transition-all',
+          clickableCardInteractiveCn,
+        )}
         onClick={handleCardClick}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -214,10 +217,10 @@ export function FileCard({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="outline"
+                size="icon"
                 onClick={(e) => e.stopPropagation()}
-                className="flex-shrink-0"
+                className="h-8 w-8 flex-shrink-0"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>

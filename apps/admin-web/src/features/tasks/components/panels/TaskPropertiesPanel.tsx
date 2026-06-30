@@ -38,7 +38,7 @@ export function TaskPropertiesPanel({
   enabled = true,
 }: TaskPropertiesPanelProps) {
   return (
-    <div className="hidden md:block w-80 border-l flex-shrink-0 overflow-y-auto p-6 space-y-6">
+    <div className="hidden h-full min-h-0 w-80 flex-shrink-0 overflow-y-auto overscroll-contain border-l p-6 space-y-6 md:block">
       <TaskStatusField form={form} taskStatus={taskStatus} />
       <TaskPriorityField form={form} />
       <TaskAssigneeField

@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { AdminDialogShell, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
@@ -63,11 +62,7 @@ export default function UcatSubscriptionSettingsPage() {
   }, [load]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   const columns: SettingsDataTableColumn<SubscriptionSettingsRow>[] = [

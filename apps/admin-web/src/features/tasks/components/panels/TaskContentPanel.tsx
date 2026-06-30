@@ -134,7 +134,7 @@ export function TaskContentPanel({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 border-r">
+      <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6 border-r">
         {/* Property Pills - Mobile Only */}
         {selectedAssignee !== undefined && onAssigneeChange && (
           <div className="md:hidden -mt-2">

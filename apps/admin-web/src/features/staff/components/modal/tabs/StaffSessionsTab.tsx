@@ -86,7 +86,7 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="h-full min-h-0 flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <SegmentedControl
           value={viewMode}
@@ -109,12 +109,13 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
       )}
 
       {viewMode === 'table' && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <SessionsTable
             staffId={staff.id}
             onOpenSession={handleOpenSession}
             onOpenStudent={handleOpenStudent}
             skipUrlSync={true}
+            fillHeight={true}
             attendanceView="staff"
             onUndoLogAbsenceStaff={handleUndoLogAbsenceStaff}
             onRemoveStaffFromSession={handleRemoveStaffFromSession}

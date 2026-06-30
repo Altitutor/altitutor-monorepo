@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { OpeningHoursTable } from '@/features/bookings/components/OpeningHoursTable';
 import { openingHoursApi, type OpeningHoursRow } from '@/features/bookings/api/opening-hours';
-import { Loader2, Plus } from 'lucide-react';
-import { AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
+import { Plus } from 'lucide-react';
+import { AdminLoadingSkeleton, AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 
 export default function OpeningHoursPage() {
   const [openingHours, setOpeningHours] = useState<OpeningHoursRow[]>([]);
@@ -29,11 +29,7 @@ export default function OpeningHoursPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

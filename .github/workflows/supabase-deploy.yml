@@ -35,6 +35,9 @@ jobs:
       - name: Confirm Supabase CLI version
         run: supabase --version
 
+      - name: Render email templates
+        run: bash supabase/scripts/render-email-templates.sh
+
       - name: Export CLI env (PROJECT_ID, DB_PASSWORD)
         run: |
           echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV

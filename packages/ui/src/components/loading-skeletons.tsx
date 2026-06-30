@@ -72,7 +72,7 @@ export function SkeletonPageHeader({ showBack = false }: { showBack?: boolean })
 export function SkeletonAuthCard() {
   return (
     <LoadingStatus label="Loading">
-      <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8 shadow-sm">
+      <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8">
         <div className="space-y-2 text-center">
           <Skeleton className="mx-auto h-8 w-48" />
           <Skeleton className="mx-auto h-4 w-64 max-w-full" />

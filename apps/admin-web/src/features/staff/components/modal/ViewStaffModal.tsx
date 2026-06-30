@@ -212,7 +212,7 @@ export function ViewStaffModal({
           ) : (
             <div className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
-              <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+              <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CallRoutingRulesTable, OnCallSchedulesTable } from '@/features/call-routing';
 import { callRoutingApi, type CallRoutingRule, type OnCallSchedule, type OwnedNumber } from '@/features/call-routing/api';
-import { Loader2 } from 'lucide-react';
-import { SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
 
 export default function CallRoutingPage() {
   const [rules, setRules] = useState<CallRoutingRule[]>([]);
@@ -36,11 +35,7 @@ export default function CallRoutingPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="table" />;
   }
 
   return (

@@ -262,7 +262,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          'w-full md:max-w-4xl h-[90vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 gap-0 [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
@@ -323,15 +323,15 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div className="min-h-0 overflow-hidden">
           {isLoading ? (
             <div className="p-6">Loading task data...</div>
           ) : !task ? (
             <div className="p-6">Task not found</div>
           ) : (
-            <div className="h-full flex">
+            <div className="h-full min-h-0 flex overflow-hidden">
               <Form {...form}>
-                <form className="flex-1 flex min-h-0">
+                <form className="h-full flex-1 flex min-h-0 overflow-hidden">
                   <AutoSaveManager
                     form={form}
                     taskId={taskId}
