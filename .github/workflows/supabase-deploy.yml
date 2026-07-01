@@ -66,6 +66,7 @@ jobs:
           fi
 
       - name: Deploy configuration
+        timeout-minutes: 10
         run: |
           echo "📝 Deploying configuration changes..."
           cd supabase

@@ -1,3 +1,4 @@
+import type { Json } from "@altitutor/shared";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -132,13 +133,7 @@ export async function PATCH(
 
   const sessionId = params.id;
 
-  const { data: session, error: sessionError } = await (
-    supabaseAdmin! as {
-      from: (
-        t: string,
-      ) => ReturnType<NonNullable<typeof supabaseAdmin>["from"]>;
-    }
-  )
+  const { data: session, error: sessionError } = await supabaseAdmin
     .from("student_practice_sessions")
     .select("id, student_id, completed_at")
     .eq("id", sessionId)
@@ -156,8 +151,7 @@ export async function PATCH(
     );
   }
 
-  const sessionData = session as { completed_at?: string | null };
-  if (sessionData.completed_at) {
+  if (session.completed_at) {
     return NextResponse.json(
       { error: "Practice session already completed" },
       { status: 400 },
@@ -167,7 +161,7 @@ export async function PATCH(
   const scorePoints = body.scorePoints ?? 0;
   const totalPoints = body.totalPoints ?? 0;
   const questionCount = body.questionCount ?? 0;
-  const stemsSnapshot = body.stemsSnapshot ?? null;
+  const stemsSnapshot = (body.stemsSnapshot ?? null) as Json | null;
   const questionScores = body.questionScores ?? [];
 
   const { data: attempts, error: attemptsError } = await supabaseAdmin
@@ -202,13 +196,7 @@ export async function PATCH(
     }
   }
 
-  const { error: updateError } = await (
-    supabaseAdmin! as {
-      from: (
-        t: string,
-      ) => ReturnType<NonNullable<typeof supabaseAdmin>["from"]>;
-    }
-  )
+  const { error: updateError } = await supabaseAdmin
     .from("student_practice_sessions")
     .update({
       completed_at: new Date().toISOString(),

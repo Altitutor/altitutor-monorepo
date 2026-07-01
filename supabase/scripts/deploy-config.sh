@@ -93,7 +93,7 @@ cp "$TEMP_CONFIG" config.toml
 
 # Push the configuration
 echo "🚀 Pushing configuration to Supabase..."
-supabase config push --project-ref "$PROJECT_REF"
+supabase config push --project-ref "$PROJECT_REF" --yes
 
 # Restore the original config file
 git checkout config.toml
