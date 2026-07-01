@@ -47,7 +47,6 @@ export function snapshotSettings(input: {
   parentId: string | null
   index: number
   isPrivate: boolean
-  displayMode: string
 }): string {
   return JSON.stringify(input)
 }

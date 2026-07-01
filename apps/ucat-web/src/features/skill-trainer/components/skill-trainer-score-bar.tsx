@@ -44,7 +44,7 @@ export function SkillTrainerScoreBar({
   streak: number;
   streakEnabled: boolean;
   feedback: "correct" | "incorrect" | null;
-  onExit: () => void;
+  onExit?: () => void;
 }) {
   const showStreak = streakEnabled && streak >= 2;
 
@@ -66,16 +66,18 @@ export function SkillTrainerScoreBar({
           </div>
         ) : null}
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="gap-1.5 text-muted-foreground hover:text-foreground"
-        onClick={onExit}
-      >
-        <LogOut className="h-4 w-4" aria-hidden />
-        Exit
-      </Button>
+      {onExit ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
+          onClick={onExit}
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          Exit
+        </Button>
+      ) : null}
     </div>
   );
 }

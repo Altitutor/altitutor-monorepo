@@ -96,6 +96,7 @@ export type UcatQuestionCatalogItem = {
   id: string
   label: string
   stemId: string
+  questionIndex: number
   sectionName: string
   questionType: string
 }
@@ -122,11 +123,12 @@ export function useUcatQuestionCatalog(enabled: boolean) {
 
         for (const question of questions) {
           if (!question.id || question.deleted_at) continue
-          const questionIndex = (question.index ?? 0) + 1
+          const questionIndex = question.index ?? 0
           items.push({
             id: question.id,
-            label: `${stemPreview} · Q${questionIndex} (${question.question_type ?? 'unknown'})`,
+            label: `${stemPreview} · Q${questionIndex + 1} (${question.question_type ?? 'unknown'})`,
             stemId: row.id,
+            questionIndex,
             sectionName: row.section_name ?? 'Unknown section',
             questionType: question.question_type ?? 'unknown',
           })

@@ -3,14 +3,21 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import type { Editor } from '@tiptap/react'
-import { Button, Input, Label, SearchableSelect, Switch, useToast } from '@altitutor/ui'
+import { Button, Input, Label, Switch, useToast } from '@altitutor/ui'
 import { ArrowDown, ArrowUp, Loader2, Trash2, Upload } from 'lucide-react'
 import { uploadLearningModuleFile } from '@/features/ucat/learning-modules/api/files'
 import {
   BLOCK_TYPE_LABELS,
   type DraftBlock,
 } from '@/features/ucat/learning-modules/lib/learning-module-editor-types'
-import type { UcatQuestionCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import type {
+  UcatQuestionCatalogItem,
+  UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  LearningModuleQuestionResourcePicker,
+  LearningModuleSkillTrainerSetPicker,
+} from '@/features/ucat/learning-modules/components/UcatLearningModuleBlockResourcePicker'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
@@ -18,17 +25,14 @@ import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
-type StemOption = { id: string; text: string }
-
 type UcatLearningModuleBlockCardProps = {
   block: DraftBlock
   index: number
   totalBlocks: number
   moduleId: string | null
-  stemOptions: StemOption[]
+  stemOptions: UcatStemCatalogItem[]
   questionOptions: UcatQuestionCatalogItem[]
   skillTrainerSets: UcatSkillTrainerSetRow[]
-  popoverContainer?: HTMLElement | null
   isHighlighted?: boolean
   onUpdate: (patch: Partial<DraftBlock>) => void
   onMoveUp: () => void
@@ -49,7 +53,6 @@ export const UcatLearningModuleBlockCard = forwardRef<
     stemOptions,
     questionOptions,
     skillTrainerSets,
-    popoverContainer,
     isHighlighted,
     onUpdate,
     onMoveUp,
@@ -67,35 +70,6 @@ export const UcatLearningModuleBlockCard = forwardRef<
     if (!isHighlighted || !ref || typeof ref === 'function') return
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [isHighlighted, ref])
-
-  const selectedStem =
-    block.question_stem_id != null
-      ? (stemOptions.find((s) => s.id === block.question_stem_id) ?? {
-          id: block.question_stem_id,
-          text: block.question_stem_id,
-        })
-      : null
-
-  const selectedQuestion =
-    block.question_id != null
-      ? (questionOptions.find((q) => q.id === block.question_id) ?? {
-          id: block.question_id,
-          label: block.question_id,
-          stemId: '',
-          sectionName: '',
-          questionType: '',
-        })
-      : null
-
-  const selectedSkillTrainerSet =
-    block.skill_trainer_set_id != null
-      ? (skillTrainerSets
-          .filter((s) => s.id === block.skill_trainer_set_id)
-          .map((s) => ({ id: s.id, label: `${s.trainer_name}: ${s.name}` }))[0] ?? {
-          id: block.skill_trainer_set_id,
-          label: block.skill_trainer_set_id,
-        })
-      : null
 
   async function handleFileUpload(file: File) {
     if (!moduleId) {
@@ -261,72 +235,43 @@ export const UcatLearningModuleBlockCard = forwardRef<
         ) : null}
 
         {block.block_type === 'question_stem' ? (
-          <div className="space-y-2">
-            <Label>Question stem</Label>
-            <SearchableSelect<{ id: string; text: string }>
-              items={stemOptions}
-              value={selectedStem}
-              onValueChange={(item) =>
-                onUpdate({
-                  question_stem_id: item?.id ?? null,
-                })
-              }
-              getItemLabel={(s) => (s.text.length > 40 ? `${s.text.slice(0, 37)}…` : s.text)}
-              getItemId={(s) => s.id}
-              placeholder="Select stem"
-              searchPlaceholder="Search stems..."
-              allowClear
-              popoverContainer={popoverContainer}
-            />
-          </div>
+          <LearningModuleQuestionResourcePicker
+            type="question_stem"
+            stemOptions={stemOptions}
+            questionOptions={questionOptions}
+            selectedStemId={block.question_stem_id ?? null}
+            selectedQuestionId={null}
+            onSelectStem={(stemId) => onUpdate({ question_stem_id: stemId })}
+            onSelectQuestion={() => {}}
+          />
         ) : null}
 
         {block.block_type === 'question' ? (
-          <div className="space-y-2">
-            <Label>Question</Label>
-            <SearchableSelect<UcatQuestionCatalogItem>
-              items={questionOptions}
-              value={selectedQuestion}
-              onValueChange={(item) => onUpdate({ question_id: item?.id ?? null })}
-              getItemLabel={(q) => q.label}
-              getItemId={(q) => q.id}
-              getItemValue={(q) => `${q.label} ${q.sectionName} ${q.questionType}`}
-              placeholder="Select question"
-              searchPlaceholder="Search questions..."
-              allowClear
-              popoverContainer={popoverContainer}
-            />
-          </div>
+          <LearningModuleQuestionResourcePicker
+            type="question"
+            stemOptions={stemOptions}
+            questionOptions={questionOptions}
+            selectedStemId={null}
+            selectedQuestionId={block.question_id ?? null}
+            onSelectStem={() => {}}
+            onSelectQuestion={(questionId) => onUpdate({ question_id: questionId })}
+          />
         ) : null}
 
         {block.block_type === 'skill_trainer_set' ? (
-          <div className="space-y-2">
-            <Label>Skill trainer set</Label>
-            <SearchableSelect<{ id: string; label: string }>
-              items={skillTrainerSets.map((s) => ({
-                id: s.id,
-                label: `${s.trainer_name}: ${s.name}`,
-              }))}
-              value={selectedSkillTrainerSet}
-              onValueChange={(item) => {
-                const setId = item?.id ?? null
-                const set = skillTrainerSets.find((s) => s.id === setId)
-                onUpdate({
-                  skill_trainer_set_id: setId,
-                  content: {
-                    ...block.content,
-                    trainerKey: set?.trainer_key ?? undefined,
-                  },
-                })
-              }}
-              getItemLabel={(s) => s.label}
-              getItemId={(s) => s.id}
-              placeholder="Select set"
-              searchPlaceholder="Search sets..."
-              allowClear
-              popoverContainer={popoverContainer}
-            />
-          </div>
+          <LearningModuleSkillTrainerSetPicker
+            sets={skillTrainerSets}
+            selectedSetId={block.skill_trainer_set_id ?? null}
+            onSelect={(set) =>
+              onUpdate({
+                skill_trainer_set_id: set?.id ?? null,
+                content: {
+                  ...block.content,
+                  trainerKey: set?.trainer_key ?? undefined,
+                },
+              })
+            }
+          />
         ) : null}
       </div>
     </div>

@@ -8,6 +8,9 @@ export type LessonNavEntry = {
   id: string;
   label: string;
   href: string;
+  kind: LearningModuleRow["kind"];
+  started_at: string | null;
+  completed_at: string | null;
 };
 
 function walkLessonNodes(
@@ -20,6 +23,9 @@ function walkLessonNodes(
         id: node.id,
         label: node.title ?? "Lesson",
         href: `/learn/${node.id}`,
+        kind: node.kind,
+        started_at: node.started_at,
+        completed_at: node.completed_at,
       });
     }
     if (node.children.length > 0) {

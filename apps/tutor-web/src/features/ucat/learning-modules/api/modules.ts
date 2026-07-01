@@ -18,7 +18,6 @@ function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
     parent_ucat_learning_module_id: (row.parent_ucat_learning_module_id as string | null) ?? null,
     index: (row.index as number) ?? 0,
     is_private: !!row.is_private,
-    display_mode: (row.display_mode as UcatLearningModuleRow['display_mode']) ?? null,
     section_name: (row.section_name as string | null) ?? null,
     section_number: (row.section_number as number | null) ?? null,
     child_count: (row.child_count as number) ?? 0,
@@ -111,6 +110,18 @@ export const ucatLearningModulesApi = {
     if (!res.ok) {
       const json = (await res.json()) as { error?: string }
       throw new Error(json.error ?? 'Failed to save blocks')
+    }
+  },
+
+  async reorder(items: Array<{ id: string; index: number }>): Promise<void> {
+    const res = await fetch('/api/ucat/learning-modules/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    })
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string }
+      throw new Error(json.error ?? 'Failed to reorder learning modules')
     }
   },
 

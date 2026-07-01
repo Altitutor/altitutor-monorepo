@@ -25,18 +25,6 @@ export function useLearningLesson(lessonId: string | null) {
   });
 }
 
-export function useStartLesson(lessonId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => learningApi.startLesson(lessonId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
-      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
-      queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
-    },
-  });
-}
-
 export function useUpdateBlockProgress(lessonId: string) {
   const queryClient = useQueryClient();
   return useMutation({

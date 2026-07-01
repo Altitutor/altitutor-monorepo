@@ -130,7 +130,7 @@ export default function SettingsPage() {
         },
         {
           title: 'UCAT skill trainers',
-          description: 'Enable trainers and configure timing, scoring, and cooldowns',
+          description: 'Enable trainers and configure timing, scoring, and speed bonuses',
           href: '/settings/ucat-skill-trainers',
           icon: GraduationCap,
         },

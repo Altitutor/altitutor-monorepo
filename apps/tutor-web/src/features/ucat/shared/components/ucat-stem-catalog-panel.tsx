@@ -27,6 +27,9 @@ import { cn, formatDateTime } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary, tutorTransition } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
 
+const EMPTY_STEM_EXCLUDED_IDS: string[] = []
+const EMPTY_CATEGORY_PATH_LOOKUP = new Map<string, string>()
+
 function stemShowsColumn(visibleColumns: string[], key: string) {
   return visibleColumns.length === 0 || visibleColumns.includes(key)
 }
@@ -214,7 +217,7 @@ type UcatStemCatalogListPanelProps = {
 
 export function UcatStemCatalogListPanel({
   stems,
-  excludedIds = [],
+  excludedIds = EMPTY_STEM_EXCLUDED_IDS,
   includedIds,
   search,
   onSearchChange,
@@ -222,7 +225,7 @@ export function UcatStemCatalogListPanel({
   onFiltersChange,
   filterDefinitions,
   columnDefinitions = stemCatalogColumnDefinitions,
-  categoryPathLookup = new Map(),
+  categoryPathLookup = EMPTY_CATEGORY_PATH_LOOKUP,
   filterSearchValues,
   onFilterSearchChange,
   isLoading = false,

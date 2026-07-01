@@ -104,7 +104,6 @@ export function UcatLearningModuleEditorShell({
           <UcatLearningModuleLessonPreview
             title={editor.title}
             description={editor.description}
-            displayMode={editor.displayMode}
             blocks={editor.draftBlocks}
             stemOptions={stemOptions}
             questionOptions={questionOptions}
@@ -148,7 +147,6 @@ export function UcatLearningModuleEditorShell({
                       stemOptions={stemOptions}
                       questionOptions={questionOptions}
                       skillTrainerSets={skillTrainerSets ?? []}
-                      popoverContainer={popoverContainer}
                       isHighlighted={editor.selectedBlockId === block.clientId}
                       onUpdate={(patch) => editor.updateBlock(block.clientId, patch)}
                       onMoveUp={() => editor.moveBlock(index, index - 1)}
@@ -185,23 +183,22 @@ export function UcatLearningModuleEditorShell({
         ) : null}
 
         <UcatLearningModuleSettingsPanel
+          moduleId={editor.moduleId}
           kind={editor.kind}
           title={editor.title}
           description={editor.description}
           sectionId={editor.sectionId}
           parentId={editor.parentId}
-          index={editor.index}
           isPrivate={editor.isPrivate}
-          displayMode={editor.displayMode}
           onTitleChange={editor.setTitle}
           onDescriptionChange={editor.setDescription}
           onSectionIdChange={editor.setSectionId}
           onParentIdChange={editor.setParentId}
-          onIndexChange={editor.setIndex}
           onIsPrivateChange={editor.setIsPrivate}
-          onDisplayModeChange={editor.setDisplayMode}
           sections={sectionOptions}
+          modules={editor.allModules}
           folderOptions={editor.folderOptions}
+          onSaveSectionOrder={editor.saveModuleOrder}
           editorMode={editorMode}
           onEditorModeChange={setEditorMode}
         />

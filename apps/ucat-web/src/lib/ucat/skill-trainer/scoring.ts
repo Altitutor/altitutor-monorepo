@@ -72,3 +72,19 @@ export function applyCorrectScore(
 export function applyWrongScore(config: SkillTrainerConfigSnapshot): number {
   return -Math.abs(config.points_wrong);
 }
+
+export function calculateSpeedBonus(
+  config: SkillTrainerConfigSnapshot,
+  itemStartedAt: string | null | undefined,
+  completedAt = new Date(),
+): number {
+  if (!config.speed_bonus_enabled || config.speed_bonus_max_points <= 0) return 0;
+  if (!itemStartedAt || config.speed_bonus_window_seconds <= 0) return 0;
+
+  const elapsedSeconds = (completedAt.getTime() - new Date(itemStartedAt).getTime()) / 1000;
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return 0;
+  if (elapsedSeconds >= config.speed_bonus_window_seconds) return 0;
+
+  const remainingRatio = 1 - elapsedSeconds / config.speed_bonus_window_seconds;
+  return Math.max(1, Math.round(config.speed_bonus_max_points * remainingRatio));
+}

@@ -358,17 +358,11 @@ export function useExamAttemptLifecycle({
       if (error instanceof QuotaExceededError) {
         beginBlockedRef.current = true;
         syncBlockedRef.current = true;
-        const returnHref =
-          kind === "mock"
-            ? `/mocks/${encodeURIComponent(resourceId)}`
-            : kind === "set"
-              ? `/sets/${encodeURIComponent(resourceId)}`
-              : "/dashboard";
         openQuotaLimit(error.payload, {
           dismissAction: {
-            label: kind === "mock" ? "Back to mock" : "Back to set",
-            onDismiss: () => router.replace(returnHref),
-            variant: "dismiss",
+            label: "Back to dashboard",
+            onDismiss: () => router.replace("/dashboard"),
+            variant: "dashboard",
           },
         });
         return;

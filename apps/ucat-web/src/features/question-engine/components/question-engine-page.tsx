@@ -91,7 +91,7 @@ export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
   "mx-auto h-[calc(100dvh-7rem)] max-h-[calc(100dvh-7rem)] w-full min-h-0 overflow-hidden";
 
 export const LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS =
-  "mx-auto h-full max-h-full w-full min-h-0 overflow-hidden";
+  "mx-auto h-[min(760px,calc(100dvh-8rem))] min-h-[520px] w-full overflow-hidden";
 
 function QuestionEngineLoadingContentSkeleton() {
   return (
@@ -1671,6 +1671,8 @@ export function QuestionEnginePage({
   const hasPreviousInstructions = false;
   const showReadyToBeginDialog =
     state.phase === "intro" || state.showReadyDialog;
+  const showFinishPracticeControls = isPracticeMode && !embeddedInLesson;
+
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
@@ -2197,7 +2199,7 @@ export function QuestionEnginePage({
               >
                 <span className="text-[14pt]">Back to results</span>
               </UcatExamActionButton>
-            ) : isPracticeMode &&
+            ) : showFinishPracticeControls &&
               (state.phase === "question" ||
                 (state.phase === "practiceAnswer" &&
                   !isLastSetPracticeAnswerScreen)) ? (
@@ -2258,7 +2260,7 @@ export function QuestionEnginePage({
                     </span>
                   </UcatExamActionButton>
                 ) : null}
-                {isLastSetPracticeAnswerScreen ? (
+                {isLastSetPracticeAnswerScreen && showFinishPracticeControls ? (
                   <UcatExamActionButton
                     onClick={() =>
                       void runWithLag(() => openFinishPracticeDialog())

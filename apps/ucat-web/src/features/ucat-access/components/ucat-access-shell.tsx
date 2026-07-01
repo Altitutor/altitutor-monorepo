@@ -7,6 +7,7 @@ import { OnboardingGateRedirect } from "@/features/ucat-access/components/onboar
 import { InPersonUpsellDialog } from "@/features/ucat-access/components/in-person-upsell-dialog";
 import { PlanPickerDialog } from "@/features/ucat-access/components/plan-picker-dialog";
 import { QuotaLimitModal } from "@/features/ucat-access/components/quota-limit-modal";
+import { QuotaRouteGuard } from "@/features/ucat-access/components/quota-route-guard";
 import { UpsellQueryParamSync } from "@/features/ucat-access/components/upsell-query-param-sync";
 import { QuotaLimitProvider } from "@/features/ucat-access/context/quota-limit-context";
 import { UpsellDialogProvider } from "@/features/ucat-access/context/upsell-dialog-context";
@@ -24,6 +25,9 @@ export function UcatAccessShell({ children }: UcatAccessShellProps) {
             <OnboardingGateRedirect />
             <Suspense fallback={null}>
               <UpsellQueryParamSync />
+            </Suspense>
+            <Suspense fallback={null}>
+              <QuotaRouteGuard />
             </Suspense>
             {children}
             <QuotaLimitModal />

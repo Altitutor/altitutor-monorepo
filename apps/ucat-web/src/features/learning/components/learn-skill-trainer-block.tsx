@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@altitutor/ui";
 import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
-import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
+import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
+import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 
 type LearnSkillTrainerBlockProps = {
@@ -13,43 +14,78 @@ type LearnSkillTrainerBlockProps = {
   onComplete?: () => void;
 };
 
+type PreparedSession = {
+  session: SkillTrainerAttemptState;
+  items: Array<{ id: string; content: Record<string, unknown> }>;
+  trainerName: string;
+  setName: string | null;
+};
+
 export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerBlockProps) {
-  const [starting, setStarting] = useState(false);
-  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [prepared, setPrepared] = useState<PreparedSession | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [startedSession, setStartedSession] = useState<PreparedSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const trainerKey = (block.content as { trainerKey?: string } | null)?.trainerKey;
-  const { setLocal } = useActiveSkillTrainerAttempt();
 
   const handleComplete = useCallback(() => {
     onComplete?.();
   }, [onComplete]);
 
   useEffect(() => {
-    setAttemptId(null);
+    let cancelled = false;
+    setPrepared(null);
+    setStartedSession(null);
     setError(null);
-  }, [block.id]);
+    if (!block.id || !trainerKey || !isUcatSkillTrainerKey(trainerKey)) return;
+    setLoading(true);
 
-  async function handleStart() {
-    if (!block.id || !block.skill_trainer_set_id || !trainerKey) return;
-    if (!isUcatSkillTrainerKey(trainerKey)) {
-      setError("Unsupported skill trainer.");
-      return;
-    }
-    setStarting(true);
-    setError(null);
-    try {
-      const state = await skillTrainerApi.startSetAttempt({
+    void skillTrainerApi
+      .prepareLearningModuleSetSession({
         trainerKey,
-        skillTrainerSetId: block.skill_trainer_set_id,
         learningModuleBlockId: block.id,
+      })
+      .then((session) => {
+        if (!cancelled) setPrepared(session);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load skill trainer");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      setLocal(state);
-      setAttemptId(state.attempt.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start skill trainer");
-    } finally {
-      setStarting(false);
-    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [block.id, trainerKey]);
+
+  function handleStart() {
+    if (!prepared) return;
+    const startedAt = new Date();
+    const timeLimit = prepared.session.attempt.config_snapshot.time_limit_seconds;
+    setStartedSession({
+      ...prepared,
+      session: {
+        ...prepared.session,
+        attempt: {
+          ...prepared.session.attempt,
+          started_at: startedAt.toISOString(),
+          ends_at: new Date(startedAt.getTime() + timeLimit * 1000).toISOString(),
+          score: 0,
+          streak_count: 0,
+          current_item_index: 0,
+          completed_at: null,
+        },
+        currentItem: prepared.items[0] ?? null,
+        nextItem: prepared.items[1] ?? null,
+        remainingSeconds: timeLimit,
+        isExpired: false,
+        isCompleted: false,
+      },
+    });
   }
 
   if (!trainerKey || !block.skill_trainer_set_id) {
@@ -60,25 +96,47 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     return <p className="text-sm text-destructive">Unsupported skill trainer.</p>;
   }
 
-  if (!attemptId) {
+  if (startedSession) {
     return (
-      <div className="space-y-3">
-        <Button onClick={handleStart} disabled={starting}>
-          {starting ? "Starting…" : "Start skill trainer"}
-        </Button>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="min-h-[520px] rounded-lg border p-4">
+        <SkillTrainerPlayPage
+          key={startedSession.session.attempt.started_at ?? "started"}
+          trainerKey={trainerKey}
+          embedded
+          initialState={startedSession.session}
+          localItems={startedSession.items}
+          onComplete={handleComplete}
+          onRestart={handleStart}
+        />
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <SkillTrainerPlayPage
-        trainerKey={trainerKey}
-        attemptId={attemptId}
-        embedded
-        onComplete={handleComplete}
+    <div className="flex min-h-[520px] flex-col rounded-lg border p-4">
+      <SkillTrainerScoreBar
+        remaining={prepared?.session.attempt.config_snapshot.time_limit_seconds ?? 0}
+        score={0}
+        streak={0}
+        streakEnabled={Boolean(prepared?.session.attempt.config_snapshot.streak_enabled)}
+        feedback={null}
       />
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+        <div className="space-y-1">
+          <p className="text-xl font-semibold">
+            {prepared?.trainerName ?? "Skill trainer"}
+          </p>
+          {prepared?.setName ? (
+            <p className="text-sm text-muted-foreground">{prepared.setName}</p>
+          ) : null}
+        </div>
+        <div className="flex justify-center">
+          <Button onClick={handleStart} disabled={loading || !prepared}>
+            {loading ? "Loading…" : "Start skill trainer"}
+          </Button>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
     </div>
   );
 }

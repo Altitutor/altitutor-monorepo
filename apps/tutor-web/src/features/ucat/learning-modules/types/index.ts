@@ -1,7 +1,6 @@
 import type { Json } from '@altitutor/shared'
 
 export type UcatLearningModuleKind = 'folder' | 'lesson'
-export type UcatLearningModuleDisplayMode = 'scroll' | 'stepped'
 
 export type UcatLearningModuleBlockType =
   | 'text'
@@ -20,7 +19,6 @@ export type UcatLearningModuleRow = {
   parent_ucat_learning_module_id: string | null
   index: number
   is_private: boolean
-  display_mode: UcatLearningModuleDisplayMode | null
   section_name: string | null
   section_number: number | null
   child_count: number
@@ -62,5 +60,4 @@ export type UcatLearningModuleUpsertPayload = {
   parentId?: string | null
   index?: number
   isPrivate?: boolean
-  displayMode?: UcatLearningModuleDisplayMode
 }

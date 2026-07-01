@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Json } from "@altitutor/shared";
-import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import type { UcatBreadcrumbItem } from "@/features/layout/components/ucat-page-header";
 import { UcatPageHeader } from "@/features/layout";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
@@ -16,9 +16,9 @@ import {
   useMarkBlockComplete,
   useMarkLessonComplete,
   useResetLessonProgress,
-  useStartLesson,
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
+import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
@@ -31,11 +31,28 @@ import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
+import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type LearningLessonPageProps = {
   lessonId: string;
 };
+
+const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
+  "text-foreground",
+  "[&_.ProseMirror]:leading-relaxed",
+  "[&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:leading-tight",
+  "[&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-5 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:leading-tight",
+  "[&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:leading-snug",
+  "[&_.ProseMirror_blockquote]:my-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-primary/30 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-muted-foreground",
+  "[&_.ProseMirror_pre]:my-4 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-md [&_.ProseMirror_pre]:bg-primary/10 [&_.ProseMirror_pre]:p-3 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm",
+  "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-primary/10 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-[0.9em]",
+  "[&_.ProseMirror_pre_code]:bg-transparent [&_.ProseMirror_pre_code]:p-0",
+  "[&_.ProseMirror_table]:my-4 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border",
+  "[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold",
+  "[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
+);
 
 function getVideoEmbedUrl(url: string): string | null {
   try {
@@ -63,7 +80,6 @@ function TextBlock({
   block: LearningModuleBlockRow;
   onScrolledToBottom: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const reportedRef = useRef(false);
   const onScrolledToBottomRef = useRef(onScrolledToBottom);
   onScrolledToBottomRef.current = onScrolledToBottom;
@@ -75,31 +91,19 @@ function TextBlock({
   }, [block.id]);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      if (reportedRef.current) return;
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollHeight <= clientHeight + 4) {
-        reportedRef.current = true;
-        onScrolledToBottomRef.current();
-        return;
-      }
-      if (scrollTop + clientHeight >= scrollHeight - 8) {
-        reportedRef.current = true;
-        onScrolledToBottomRef.current();
-      }
-    };
-
-    el.addEventListener("scroll", handleScroll);
-    handleScroll();
-    return () => el.removeEventListener("scroll", handleScroll);
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    onScrolledToBottomRef.current();
   }, [block.id]);
 
   return (
-    <div ref={ref} className="max-h-[60vh] overflow-auto pr-2">
-      <RichContentBlock json={body ?? null} plainText="" />
+    <div className="pr-2">
+      <RichContentBlock
+        json={body ?? null}
+        plainText=""
+        className={LEARNING_TEXT_CONTENT_CLASSNAME}
+        paragraphSpacing
+      />
     </div>
   );
 }
@@ -153,7 +157,13 @@ function FileBlock({
   const onViewedRef = useRef(onViewed);
   onViewedRef.current = onViewed;
   const content = (block.content ?? {}) as { url?: string; label?: string };
-  const label = content.label ?? "Open file";
+  const label = content.label ?? "Lesson file";
+  const fileUrl = block.id
+    ? `/api/ucat/learning-modules/blocks/${encodeURIComponent(block.id)}/file`
+    : content.url;
+  const downloadUrl = fileUrl
+    ? `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=1`
+    : null;
 
   useEffect(() => {
     reportedRef.current = false;
@@ -167,20 +177,23 @@ function FileBlock({
 
   return (
     <div className="space-y-3">
-      {content.url ? (
+      {fileUrl ? (
+        <div className="flex justify-end">
+          <Button asChild variant="outline" size="sm" onClick={markViewed}>
+            <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer">
+              <Download className="mr-2 h-4 w-4" />
+              download
+            </a>
+          </Button>
+        </div>
+      ) : null}
+      {fileUrl ? (
         <iframe
-          src={content.url}
+          src={fileUrl}
           title={label}
           className="h-[50vh] w-full rounded-lg border"
           onLoad={markViewed}
         />
-      ) : null}
-      {content.url ? (
-        <Button asChild variant="outline" onClick={markViewed}>
-          <a href={content.url} target="_blank" rel="noreferrer">
-            {label}
-          </a>
-        </Button>
       ) : (
         <p className="text-sm text-muted-foreground">File not configured.</p>
       )}
@@ -246,30 +259,36 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useLearningLesson(lessonId);
   const { data: allModules } = useLearningModules();
-  const startLesson = useStartLesson(lessonId);
   const updateProgress = useUpdateBlockProgress(lessonId);
   const markBlockComplete = useMarkBlockComplete(lessonId);
   const markLessonComplete = useMarkLessonComplete(lessonId);
   const resetLessonProgress = useResetLessonProgress(lessonId);
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState(1);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
+  const { openQuotaLimit } = useQuotaLimitModal();
 
   useEffect(() => {
     setActiveIndex(0);
-    setSlideDirection(1);
   }, [lessonId]);
 
   useEffect(() => {
-    startLesson.mutate();
-  }, [lessonId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!(error instanceof QuotaExceededError)) return;
+    openQuotaLimit(error.payload, {
+      dismissAction: { label: "Dismiss", variant: "dismiss" },
+    });
+  }, [error, openQuotaLimit]);
+
+  useEffect(() => {
+    if (!data?.module.started_at) return;
+    void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+    void queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
+  }, [data?.module.started_at, queryClient]);
 
   const blocks = useMemo(() => data?.blocks ?? [], [data?.blocks]);
   const lesson = data?.module;
-  const displayMode = lesson?.display_mode ?? "stepped";
   const completionPercent = Number(lesson?.completion_percent ?? 0);
   const isLessonComplete =
     lesson?.completed_at != null || completionPercent >= 100;
@@ -362,17 +381,13 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
 
   const goToBlock = useCallback(
     (index: number) => {
-      setSlideDirection(index > activeIndex ? 1 : -1);
       setActiveIndex(index);
-
-      if (displayMode === "scroll") {
-        const block = blocks[index];
-        if (!block?.id) return;
-        const element = blockRefs.current.get(block.id);
-        element?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      const block = blocks[index];
+      if (!block?.id) return;
+      const element = blockRefs.current.get(block.id);
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
-    [activeIndex, blocks, displayMode],
+    [blocks],
   );
 
   const handleMarkBlockComplete = useCallback(
@@ -397,7 +412,6 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
       onSuccess: () => {
         setCompleteDialogOpen(false);
         setActiveIndex(0);
-        setSlideDirection(1);
       },
     });
   }, [markLessonComplete]);
@@ -407,7 +421,6 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
       onSuccess: () => {
         setIncompleteDialogOpen(false);
         setActiveIndex(0);
-        setSlideDirection(1);
       },
     });
   }, [resetLessonProgress]);
@@ -415,11 +428,12 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   if (isLoading) {
     return <LearningLessonPageSkeleton />;
   }
+  if (error instanceof QuotaExceededError) {
+    return <p className="text-sm text-muted-foreground">Learning module limit reached.</p>;
+  }
   if (error || !lesson) {
     return <p className="text-sm text-destructive">Lesson not found.</p>;
   }
-
-  const activeBlock = blocks[activeIndex];
 
   return (
     <motion.div
@@ -438,37 +452,24 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
             breadcrumbItems={breadcrumbItems}
           />
 
-          {displayMode === "stepped" ? (
-            <div className="min-h-[200px]">
-              {activeBlock ? (
-                <AnimatedStepPanel stepKey={activeIndex} direction={slideDirection}>
+          <div className="space-y-10">
+            {blocks.map((block) =>
+              block.id ? (
+                <div
+                  key={block.id}
+                  ref={(element) => setBlockRef(block.id!, element)}
+                  className="scroll-mt-24"
+                >
                   <LessonBlockContent
-                    block={activeBlock}
+                    block={block}
                     onBlockProgress={handleBlockProgress}
                     onSkillTrainerComplete={handleSkillTrainerComplete}
                   />
-                </AnimatedStepPanel>
-              ) : null}
-            </div>
-          ) : (
-            <div className="space-y-10">
-              {blocks.map((block) =>
-                block.id ? (
-                  <div
-                    key={block.id}
-                    ref={(element) => setBlockRef(block.id!, element)}
-                    className="scroll-mt-24"
-                  >
-                    <LessonBlockContent
-                      block={block}
-                      onBlockProgress={handleBlockProgress}
-                      onSkillTrainerComplete={handleSkillTrainerComplete}
-                    />
-                  </div>
-                ) : null,
-              )}
-            </div>
-          )}
+                </div>
+              ) : null,
+            )}
+          </div>
+
         </motion.div>
 
         <motion.div variants={itemVariants}>

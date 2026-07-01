@@ -20,6 +20,7 @@ export type SkillTrainerAttemptState = {
     streak_count: number;
     item_queue_snapshot: string[];
     current_item_index: number;
+    current_item_started_at: string | null;
     progress: SkillTrainerAttemptProgress | null;
     config_snapshot: SkillTrainerConfigSnapshot;
     ends_at: string;

@@ -142,7 +142,7 @@
 - **Skill trainer item** — One unit of drill content within a skill trainer type (e.g. one VR passage with keywords and hit targets, one maths question, one calculator button sequence). Authored for the skill trainer bank only; not an exam question stem.
   _Avoid_: Trainer question, drill stem
 
-- **Skill trainer config** — Admin-editable timing and scoring rules for one skill trainer type (time limit, cooldowns, base points, streak rules). Snapshotted when an attempt starts. Interaction tolerances (e.g. hitbox padding around a target sentence) and formulaic scoring for item complexity (mental maths difficulty, numpad sequence length) are computed in application code, not admin settings.
+- **Skill trainer config** — Admin-editable timing and scoring rules for one skill trainer type (time limit, base points, wrong-answer penalty, streak rules, speed bonus window/max points). Snapshotted when an attempt starts. Interaction tolerances (e.g. hitbox padding around a target sentence) and formulaic scoring for item complexity (mental maths difficulty, numpad sequence length) are computed in application code, not admin settings.
   _Avoid_: Trainer settings, game config
 
 - **Skill trainer target** — A correct interaction location within a skill trainer item (e.g. the sentence containing a keyword, or one occurrence of a concept in a passage). Stored as authored metadata on the item; click/drag tolerance padding is a fixed UI constant, not configurable per trainer. Find the word: target sentence index within the passage. Find the concept: character offsets (plain text) per occurrence.

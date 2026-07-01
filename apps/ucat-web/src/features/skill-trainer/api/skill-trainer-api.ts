@@ -117,6 +117,31 @@ export const skillTrainerApi = {
     return json.attempt;
   },
 
+  async prepareLearningModuleSetSession(input: {
+    trainerKey: string;
+    learningModuleBlockId: string;
+  }): Promise<{
+    session: SkillTrainerAttemptState;
+    items: Array<{ id: string; content: Record<string, unknown> }>;
+    trainerName: string;
+    setName: string | null;
+  }> {
+    const params = new URLSearchParams({ trainerKey: input.trainerKey });
+    const res = await fetch(
+      `/api/ucat/learning-modules/blocks/${input.learningModuleBlockId}/skill-trainer-session?${params.toString()}`,
+    );
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(json.error ?? "Failed to load skill trainer");
+    }
+    return (await res.json()) as {
+      session: SkillTrainerAttemptState;
+      items: Array<{ id: string; content: Record<string, unknown> }>;
+      trainerName: string;
+      setName: string | null;
+    };
+  },
+
   async getAttempt(attemptId: string): Promise<SkillTrainerAttemptState> {
     const res = await fetch(`/api/ucat/skill-trainer-attempts/${attemptId}`);
     if (!res.ok) throw new Error("Failed to load attempt");

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { RotateCcw } from "lucide-react";
 import {
   CalculatorMathsTrainer,
   FindConceptTrainer,
@@ -11,6 +12,7 @@ import {
   NumpadTrainer,
   QuickSyllogismTrainer,
 } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
 import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
@@ -33,24 +35,40 @@ import { useLeaveGuard } from "@/features/skill-trainer/hooks/use-leave-guard";
 import { createCalculatorEngine } from "@/features/skill-trainer/lib/calculator-engine";
 import { SkillTrainerCompleteScreen } from "@/features/skill-trainer/components/skill-trainer-complete-screen";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
+import {
+  expireLocalSkillTrainerSession,
+  submitLocalSkillTrainerAction,
+} from "@/features/skill-trainer/lib/local-session";
 
 const LEAVE_MESSAGE =
   "Leave this skill trainer? Your timed run will keep going in the background.";
 
+function getAttemptRemainingSeconds(state: SkillTrainerAttemptState): number {
+  const endsAtMs = Date.parse(state.attempt.ends_at);
+  if (Number.isNaN(endsAtMs)) return state.remainingSeconds;
+  return Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000));
+}
+
 function useAttemptTimer(state: SkillTrainerAttemptState | null, onExpire: () => void) {
   const [remaining, setRemaining] = useState(state?.remainingSeconds ?? 0);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
     if (!state) return;
-    setRemaining(state.remainingSeconds);
-    if (state.isCompleted) return;
+    expiredRef.current = false;
+    setRemaining(state.isCompleted ? state.remainingSeconds : getAttemptRemainingSeconds(state));
+    if (state.isCompleted) {
+      expiredRef.current = true;
+      return;
+    }
 
     const interval = window.setInterval(() => {
-      setRemaining((prev) => {
-        const next = Math.max(0, prev - 1);
-        if (next === 0) onExpire();
-        return next;
-      });
+      const next = getAttemptRemainingSeconds(state);
+      setRemaining(next);
+      if (next === 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        onExpire();
+      }
     }, 1000);
 
     return () => window.clearInterval(interval);
@@ -239,19 +257,27 @@ export function SkillTrainerPlayPage({
   trainerKey,
   attemptId,
   embedded = false,
+  initialState,
+  localItems,
   onComplete,
+  onRestart,
 }: {
   trainerKey: UcatSkillTrainerKey;
-  attemptId: string;
+  attemptId?: string;
   /** In-lesson embed: skip shell chrome and call onComplete when finished. */
   embedded?: boolean;
+  initialState?: SkillTrainerAttemptState;
+  localItems?: Array<{ id: string; content: Record<string, unknown> }>;
   onComplete?: () => void;
+  onRestart?: () => void;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const slug = trainerKeyToSlug(trainerKey);
-  const [state, setState] = useState<SkillTrainerAttemptState | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<SkillTrainerAttemptState | null>(
+    initialState ?? null,
+  );
+  const [loading, setLoading] = useState(initialState == null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [numericInput, setNumericInput] = useState("");
   const [numpadInput, setNumpadInput] = useState<string[]>([]);
@@ -263,6 +289,8 @@ export function SkillTrainerPlayPage({
   const [actionInFlight, setActionInFlight] = useState(false);
   const [optimisticAdvanced, setOptimisticAdvanced] = useState(false);
   const actionInFlightRef = useRef(false);
+  const stateRef = useRef<SkillTrainerAttemptState | null>(initialState ?? null);
+  const completionNotifiedRef = useRef<string | null>(null);
   const numpadInputRef = useRef<string[]>([]);
   const sidebarOverride = useSidebarOverride();
   const {
@@ -270,12 +298,37 @@ export function SkillTrainerPlayPage({
     clearLocal: clearActiveSkillTrainerAttempt,
   } = useActiveSkillTrainerAttempt();
   const { feedback, showFeedback, trackResult } = useActionFeedback();
+  const localItemsById = useMemo(
+    () => new Map((localItems ?? []).map((item) => [item.id, item])),
+    [localItems],
+  );
+  const localMode = initialState != null;
   const inProgress = Boolean(state && !state.isCompleted && !embedded);
   const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
 
-  const refresh = useCallback(async () => {
-    const next = await skillTrainerApi.getAttempt(attemptId);
+  const applyState = useCallback((next: SkillTrainerAttemptState | null) => {
+    stateRef.current = next;
     setState(next);
+  }, []);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const refresh = useCallback(async () => {
+    if (localMode) {
+      if (initialState) {
+        setState((current) => {
+          const next = current ?? initialState;
+          stateRef.current = next;
+          return next;
+        });
+      }
+      return initialState;
+    }
+    if (!attemptId) return null;
+    const next = await skillTrainerApi.getAttempt(attemptId);
+    applyState(next);
     if (next.isCompleted) {
       clearActiveSkillTrainerAttempt();
       await queryClient.invalidateQueries({
@@ -287,7 +340,10 @@ export function SkillTrainerPlayPage({
     return next;
   }, [
     attemptId,
+    applyState,
     clearActiveSkillTrainerAttempt,
+    initialState,
+    localMode,
     queryClient,
     setActiveSkillTrainerAttempt,
     trainerKey,
@@ -304,8 +360,19 @@ export function SkillTrainerPlayPage({
   }, [refresh]);
 
   const onExpire = useCallback(() => {
+    if (localMode) {
+      setState((current) => {
+        const next =
+          current && !current.isCompleted
+            ? expireLocalSkillTrainerSession(current)
+            : current;
+        stateRef.current = next;
+        return next;
+      });
+      return;
+    }
     void refresh();
-  }, [refresh]);
+  }, [localMode, refresh]);
 
   const remaining = useAttemptTimer(state, onExpire);
 
@@ -320,31 +387,49 @@ export function SkillTrainerPlayPage({
 
   const submit = useCallback(
     async (payload: SubmitActionPayload) => {
-      if (!state || actionInFlightRef.current) return;
+      const currentState = stateRef.current;
+      if (!currentState || currentState.isCompleted || actionInFlightRef.current) return;
       actionInFlightRef.current = true;
       setActionInFlight(true);
       setOptimisticAdvanced(false);
       setActionError(null);
       resetActionInputs();
-      const prev = state;
-      const localFeedback = getLocalActionFeedback(trainerKey, state, payload);
+      const prev = currentState;
+      const localFeedback = getLocalActionFeedback(trainerKey, currentState, payload);
       if (localFeedback) {
         showFeedback(localFeedback);
       }
       const optimisticNext =
-        isItemCompletingAction(trainerKey, state, payload) && state.nextItem
-          ? advanceToPrefetchedItem(state)
+        !localMode &&
+        isItemCompletingAction(trainerKey, currentState, payload) &&
+        currentState.nextItem
+          ? advanceToPrefetchedItem(currentState)
           : null;
       if (optimisticNext) {
-        setState(optimisticNext);
+        applyState(optimisticNext);
         setOptimisticAdvanced(true);
       }
       try {
+        if (localMode) {
+          const next = submitLocalSkillTrainerAction(
+            prev,
+            trainerKey,
+            payload,
+            localItemsById,
+            { completeOnQueueEnd: false },
+          );
+          if (!localFeedback) {
+            trackResult(next, prev);
+          }
+          applyState(next);
+          return;
+        }
+        if (!attemptId) throw new Error("Attempt not found");
         const next = await skillTrainerApi.submitAction(attemptId, payload);
         if (!localFeedback) {
           trackResult(next, prev);
         }
-        setState(next);
+        applyState(next);
         if (next.isCompleted) {
           clearActiveSkillTrainerAttempt();
           await queryClient.invalidateQueries({
@@ -356,7 +441,7 @@ export function SkillTrainerPlayPage({
         if (next.isCompleted) return;
       } catch (err) {
         if (optimisticNext) {
-          setState(prev);
+          applyState(prev);
         }
         setActionError(err instanceof Error ? err.message : "Action failed");
       } finally {
@@ -367,12 +452,14 @@ export function SkillTrainerPlayPage({
     },
     [
       attemptId,
+      applyState,
       clearActiveSkillTrainerAttempt,
+      localItemsById,
+      localMode,
       queryClient,
       resetActionInputs,
       setActiveSkillTrainerAttempt,
       showFeedback,
-      state,
       trackResult,
       trainerKey,
     ],
@@ -398,6 +485,7 @@ export function SkillTrainerPlayPage({
     (state?.attempt.trainer_key && isUcatSkillTrainerKey(state.attempt.trainer_key)
       ? state.attempt.trainer_key
       : null);
+  const completedAttemptId = state?.isCompleted ? state.attempt.id : null;
   const trainerMismatch =
     activeTrainerKey != null && activeTrainerKey !== trainerKey;
   const hasRenderableContent =
@@ -429,13 +517,17 @@ export function SkillTrainerPlayPage({
   }, [sidebarOverride, state?.isCompleted, embedded]);
 
   useEffect(() => {
-    if (state?.isCompleted) {
-      void refresh();
-      if (embedded) {
+    if (completedAttemptId) {
+      if (completionNotifiedRef.current === completedAttemptId) return;
+      completionNotifiedRef.current = completedAttemptId;
+      if (!localMode) {
+        void refresh();
+      }
+      if (embedded || localMode) {
         onComplete?.();
       }
     }
-  }, [state?.isCompleted, refresh, embedded, onComplete]);
+  }, [completedAttemptId, refresh, embedded, localMode, onComplete]);
 
   useEffect(() => {
     if (!state || !trainerMismatch || embedded || !activeTrainerKey) return;
@@ -485,11 +577,27 @@ export function SkillTrainerPlayPage({
   if (state.isCompleted) {
     if (embedded) {
       return (
-        <div className="space-y-3 p-4 text-center">
-          <p className="text-lg font-semibold">Skill trainer complete</p>
-          <p className="text-sm text-muted-foreground">
-            Final score: {state.attempt.score}
-          </p>
+        <div className="flex min-h-[488px] flex-col gap-4">
+          <SkillTrainerScoreBar
+            remaining={0}
+            score={state.attempt.score}
+            streak={state.attempt.streak_count}
+            streakEnabled={state.attempt.config_snapshot.streak_enabled}
+            feedback={null}
+          />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div className="space-y-2">
+              <p className="text-xl font-semibold">Skill trainer complete</p>
+              <p className="text-4xl font-bold tabular-nums">{state.attempt.score}</p>
+              <p className="text-sm text-muted-foreground">Final score</p>
+            </div>
+            {onRestart ? (
+              <Button type="button" className="gap-2" onClick={onRestart}>
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                Restart
+              </Button>
+            ) : null}
+          </div>
         </div>
       );
     }
@@ -514,7 +622,7 @@ export function SkillTrainerPlayPage({
         streak={streak}
         streakEnabled={state.attempt.config_snapshot.streak_enabled}
         feedback={feedback}
-        onExit={handleExit}
+        onExit={embedded ? undefined : handleExit}
       />
 
       {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}

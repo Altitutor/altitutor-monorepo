@@ -56,6 +56,17 @@ export function useReplaceUcatLearningModuleBlocks() {
   })
 }
 
+export function useReorderUcatLearningModules() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (items: Array<{ id: string; index: number }>) =>
+      ucatLearningModulesApi.reorder(items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
+    },
+  })
+}
+
 export function useDeleteUcatLearningModule() {
   const queryClient = useQueryClient()
   return useMutation({

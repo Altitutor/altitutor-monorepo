@@ -51,7 +51,14 @@ type SetAttemptAnalysisChartProps = {
 const RESULT_COLORS = ATTEMPT_CHART_RESULT_COLORS;
 const RESULT_LABELS = ATTEMPT_CHART_RESULT_LABELS;
 
+const CHART_HEIGHT = 320;
+const CHART_TOP_PADDING = 24;
+const CHART_BODY_HEIGHT = CHART_HEIGHT - CHART_TOP_PADDING;
+const CHART_TOP_MARGIN = 5;
 const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
+const X_AXIS_HEIGHT = 30;
+const X_AXIS_RESERVED_HEIGHT =
+  X_AXIS_HEIGHT + ATTEMPT_CHART_LAYOUT.questionNumberOffset + 2;
 
 export function SetAttemptAnalysisChart({
   data,
@@ -85,6 +92,7 @@ export function SetAttemptAnalysisChart({
   const stemRanges = computeStemRanges(chartData);
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1);
+  const yAxisMax = maxTime * 1.1;
   const chartWidth = Math.max(600, chartData.length * 24);
   const marginHorizontal = 10;
   const barWidth =
@@ -93,9 +101,12 @@ export function SetAttemptAnalysisChart({
       : 24;
   const yAxisWidth = 52;
 
-  const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
-    Math.round(t * maxTime * 1.1),
-  );
+  const yAxisTicks = [1, 0.75, 0.5, 0.25, 0].map((t) => t * yAxisMax);
+  const yAxisPlotHeight =
+    CHART_BODY_HEIGHT -
+    CHART_TOP_MARGIN -
+    CHART_BOTTOM_MARGIN -
+    X_AXIS_RESERVED_HEIGHT;
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -223,13 +234,21 @@ export function SetAttemptAnalysisChart({
           ),
         )}
       </div>
-      <div className="flex h-[320px] min-h-0 pt-6">
+      <div className="flex min-h-0 pt-6" style={{ height: CHART_HEIGHT }}>
         <div
-          className="flex shrink-0 flex-col justify-between border-r border-border bg-card pr-2 pt-1 pb-8 text-right text-xs text-muted-foreground"
-          style={{ width: yAxisWidth }}
+          className="relative shrink-0 border-r border-border bg-card pr-2 text-right text-xs text-muted-foreground"
+          style={{ width: yAxisWidth, height: CHART_BODY_HEIGHT }}
         >
-          {yAxisTicks.map((t) => (
-            <span key={t} className="tabular-nums">
+          {yAxisTicks.map((t, index) => (
+            <span
+              key={`${index}-${t}`}
+              className="absolute right-2 -translate-y-1/2 tabular-nums"
+              style={{
+                top:
+                  CHART_TOP_MARGIN +
+                  ((yAxisMax - t) / yAxisMax) * yAxisPlotHeight,
+              }}
+            >
               {formatTimeSeconds(t)}
             </span>
           ))}
@@ -245,12 +264,18 @@ export function SetAttemptAnalysisChart({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: CHART_BOTTOM_MARGIN }}
+                margin={{
+                  top: CHART_TOP_MARGIN,
+                  right: 5,
+                  left: 5,
+                  bottom: CHART_BOTTOM_MARGIN,
+                }}
                 barCategoryGap={0}
                 barGap={0}
               >
                 <XAxis
                   dataKey="name"
+                  height={X_AXIS_HEIGHT}
                   stroke="currentColor"
                   className="text-muted-foreground"
                   interval={0}
@@ -274,7 +299,7 @@ export function SetAttemptAnalysisChart({
                   }}
                 />
                 <YAxis
-                  domain={[0, maxTime * 1.1]}
+                  domain={[0, yAxisMax]}
                   width={0}
                   tick={false}
                   axisLine={false}

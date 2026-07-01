@@ -12,9 +12,6 @@ export type LearningModuleBlockType =
 export type LearningModuleKind =
   Database["public"]["Enums"]["ucat_learning_module_kind"];
 
-export type LearningModuleDisplayMode =
-  Database["public"]["Enums"]["ucat_learning_module_display_mode"];
-
 export type LearningModuleTreeNode = LearningModuleRow & {
   children: LearningModuleTreeNode[];
 };

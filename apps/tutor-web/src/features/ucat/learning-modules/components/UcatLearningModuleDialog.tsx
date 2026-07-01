@@ -49,8 +49,13 @@ export function UcatLearningModuleDialog({
     if (!moduleId) return
     try {
       await editor.saveAll()
+      onClose()
     } catch (e) {
-      toast({ title: 'Save failed', description: String(e), variant: 'destructive' })
+      toast({
+        title: 'Save failed',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -114,7 +119,7 @@ export function UcatLearningModuleDialog({
       subtitle="Edit lesson blocks and module settings"
       onSave={handleSave}
       saveLabel="Save"
-      saveDisabled={!editor.hasUnsavedChanges}
+      saveDisabled={false}
       isSaving={editor.isSaving}
       hideCancel
       headerActions={headerActions}

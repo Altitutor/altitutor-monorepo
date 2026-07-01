@@ -22,6 +22,7 @@ export type { SkillTrainerAttemptState, SubmitActionPayload };
 import {
   applyCorrectScore,
   applyWrongScore,
+  calculateSpeedBonus,
   normalizeScoreDelta,
   scoreMentalMathsItem,
   scoreNumpadItem,
@@ -37,6 +38,7 @@ type AttemptRow = {
   streak_count: number;
   item_queue_snapshot: string[];
   current_item_index: number;
+  current_item_started_at: string | null;
   progress: SkillTrainerAttemptProgress | null;
   config_snapshot: SkillTrainerConfigSnapshot;
   ends_at: string;
@@ -66,6 +68,9 @@ function parseConfig(snapshot: unknown, trainerKey: UcatSkillTrainerKey): SkillT
       { min_streak: 3, multiplier: 1.5 },
       { min_streak: 5, multiplier: 2 },
     ],
+    speed_bonus_enabled: raw.speed_bonus_enabled ?? false,
+    speed_bonus_max_points: raw.speed_bonus_max_points ?? 0,
+    speed_bonus_window_seconds: raw.speed_bonus_window_seconds ?? 8,
     trainer_key: trainerKey,
   };
 }
@@ -77,6 +82,9 @@ function buildConfigSnapshot(
     points_wrong: number;
     streak_enabled: boolean;
     streak_multiplier_steps: unknown;
+    speed_bonus_enabled?: boolean | null;
+    speed_bonus_max_points?: number | null;
+    speed_bonus_window_seconds?: number | null;
   },
   trainerKey: UcatSkillTrainerKey,
 ): SkillTrainerConfigSnapshot {
@@ -87,6 +95,9 @@ function buildConfigSnapshot(
     // All trainer types use streak scoring; multiplier steps still come from admin config.
     streak_enabled: true,
     streak_multiplier_steps: (configRow.streak_multiplier_steps ?? []) as SkillTrainerConfigSnapshot["streak_multiplier_steps"],
+    speed_bonus_enabled: configRow.speed_bonus_enabled ?? false,
+    speed_bonus_max_points: Number(configRow.speed_bonus_max_points ?? 0),
+    speed_bonus_window_seconds: Number(configRow.speed_bonus_window_seconds ?? 8),
     trainer_key: trainerKey,
   };
 }
@@ -193,6 +204,7 @@ function mapAttemptRow(
     streak_count: Number(row.streak_count),
     item_queue_snapshot: parseQueue(row.item_queue_snapshot),
     current_item_index: Number(row.current_item_index),
+    current_item_started_at: (row.current_item_started_at as string | null) ?? null,
     progress: (row.progress as SkillTrainerAttemptProgress | null) ?? null,
     config_snapshot: parseConfig(row.config_snapshot, key),
     ends_at: row.ends_at as string,
@@ -359,6 +371,7 @@ export async function startSkillTrainerSetAttempt(
   const configSnapshot = buildConfigSnapshot(configRow, trainer.key);
 
   const endsAt = new Date(Date.now() + configSnapshot.time_limit_seconds * 1000).toISOString();
+  const firstItemStartedAt = new Date().toISOString();
 
   const { data: inserted, error: insertError } = await supabase
     .from("student_skill_trainer_attempts")
@@ -367,6 +380,7 @@ export async function startSkillTrainerSetAttempt(
       skill_trainer_id: trainer.id,
       item_queue_snapshot: itemIds,
       current_item_index: 0,
+      current_item_started_at: firstItemStartedAt,
       progress: defaultProgress(trainer.key),
       config_snapshot: configSnapshot,
       ends_at: endsAt,
@@ -420,6 +434,7 @@ export async function startSkillTrainerAttempt(
   const configSnapshot = buildConfigSnapshot(configRow, trainer.key);
 
   const endsAt = new Date(Date.now() + configSnapshot.time_limit_seconds * 1000).toISOString();
+  const firstItemStartedAt = new Date().toISOString();
   const queue = buildItemQueue(itemIds);
 
   const { data: inserted, error: insertError } = await supabase
@@ -429,6 +444,7 @@ export async function startSkillTrainerAttempt(
       skill_trainer_id: trainer.id,
       item_queue_snapshot: queue,
       current_item_index: 0,
+      current_item_started_at: firstItemStartedAt,
       progress: defaultProgress(trainer.key),
       config_snapshot: configSnapshot,
       ends_at: endsAt,
@@ -483,6 +499,7 @@ async function completeCurrentItem(
 
   const trainerKey = attempt.config_snapshot.trainer_key;
   const nextProgress = defaultProgress(trainerKey);
+  const nextItemStartedAt = new Date().toISOString();
   const { error } = await supabase
     .from("student_skill_trainer_attempts")
     .update({
@@ -490,6 +507,7 @@ async function completeCurrentItem(
       streak_count: attempt.streak_count,
       item_queue_snapshot: queue,
       current_item_index: currentIndex,
+      current_item_started_at: nextItemStartedAt,
       progress: nextProgress,
     })
     .eq("id", attempt.id);
@@ -500,6 +518,7 @@ async function completeCurrentItem(
     score: newScore,
     item_queue_snapshot: queue,
     current_item_index: currentIndex,
+    current_item_started_at: nextItemStartedAt,
     progress: nextProgress,
   };
 }
@@ -695,12 +714,19 @@ export async function submitSkillTrainerAction(
   }
 
   if (itemCompleted) {
+    const speedBonus = scoreDelta > 0
+      ? normalizeScoreDelta(
+          resolvedTrainerKey,
+          calculateSpeedBonus(config, attempt.current_item_started_at),
+        )
+      : 0;
+    const finalScoreDelta = scoreDelta + speedBonus;
     const updated = await completeCurrentItem(
       supabase,
       { ...attempt, streak_count: newStreak },
       currentItemId,
-      scoreDelta,
-      { action: payload.type, correct: scoreDelta >= 0 },
+      finalScoreDelta,
+      { action: payload.type, correct: scoreDelta >= 0, speed_bonus: speedBonus },
       loadAllItemIds,
     );
     return buildAttemptState(supabase, { ...updated, streak_count: newStreak });

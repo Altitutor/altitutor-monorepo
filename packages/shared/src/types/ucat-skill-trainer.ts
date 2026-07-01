@@ -22,6 +22,9 @@ export type SkillTrainerConfigSnapshot = {
   points_wrong: number;
   streak_enabled: boolean;
   streak_multiplier_steps: SkillTrainerStreakStep[];
+  speed_bonus_enabled: boolean;
+  speed_bonus_max_points: number;
+  speed_bonus_window_seconds: number;
   trainer_key: UcatSkillTrainerKey;
 };
 

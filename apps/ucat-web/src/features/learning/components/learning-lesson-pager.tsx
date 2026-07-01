@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useLearnQuotaGate } from "@/features/learning/hooks/use-learn-quota-gate";
 import type { LessonNavEntry } from "@/features/learning/lib/flatten-lessons-for-nav";
+import { cn } from "@/lib/utils";
 
 type LearningLessonPagerProps = {
   prev: LessonNavEntry | null;
@@ -11,6 +12,8 @@ type LearningLessonPagerProps = {
 };
 
 export function LearningLessonPager({ prev, next }: LearningLessonPagerProps) {
+  const { guardLessonClick } = useLearnQuotaGate();
+
   if (!prev && !next) return null;
 
   const cardClass = cn(
@@ -26,7 +29,11 @@ export function LearningLessonPager({ prev, next }: LearningLessonPagerProps) {
   return (
     <nav aria-label="Lesson navigation" className="flex gap-3">
       {prev ? (
-        <Link href={prev.href} className={cn(cardClass, "flex-1")}>
+        <Link
+          href={prev.href}
+          onClick={(event) => guardLessonClick(event, prev)}
+          className={cn(cardClass, "flex-1")}
+        >
           <div className={eyebrowClass}>
             <ArrowLeft className="h-3 w-3 shrink-0 transition-transform duration-300 ease-out group-hover:-translate-x-0.5 group-hover:text-foreground" />
             <span>Previous</span>
@@ -36,7 +43,11 @@ export function LearningLessonPager({ prev, next }: LearningLessonPagerProps) {
       ) : null}
 
       {next ? (
-        <Link href={next.href} className={cn(cardClass, "flex-1 text-right")}>
+        <Link
+          href={next.href}
+          onClick={(event) => guardLessonClick(event, next)}
+          className={cn(cardClass, "flex-1 text-right")}
+        >
           <div className={cn(eyebrowClass, "justify-end")}>
             <span>Next</span>
             <ArrowRight className="h-3 w-3 shrink-0 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:text-foreground" />
