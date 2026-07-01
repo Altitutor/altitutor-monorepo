@@ -36,7 +36,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000003',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"71 × 11","answer":781,"difficulty":"medium"}'::jsonb,
+    '{"expression":"70 × 11","answer":770,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -52,7 +52,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000005',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"19 × 12 - 20 ÷ 5","answer":224,"difficulty":"hard"}'::jsonb,
+    '{"expression":"25 × 6 - 20 ÷ 5","answer":146,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -116,7 +116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000000d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"66 × 9","answer":594,"difficulty":"medium"}'::jsonb,
+    '{"expression":"65 × 9","answer":585,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -132,7 +132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000000f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 8 - 21 ÷ 7","answer":173,"difficulty":"hard"}'::jsonb,
+    '{"expression":"40 × 4 - 21 ÷ 7","answer":157,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -164,7 +164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000013',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"48 × 21","answer":1008,"difficulty":"medium"}'::jsonb,
+    '{"expression":"50 × 21","answer":1050,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -204,7 +204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000018',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"88 × 11","answer":968,"difficulty":"medium"}'::jsonb,
+    '{"expression":"90 × 11","answer":990,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -236,7 +236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000001c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"51 × 9","answer":459,"difficulty":"medium"}'::jsonb,
+    '{"expression":"50 × 9","answer":450,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -268,7 +268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000020',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 × 12","answer":216,"difficulty":"easy"}'::jsonb,
+    '{"expression":"9 × 12","answer":108,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -276,7 +276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000021',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"39 × 21","answer":819,"difficulty":"medium"}'::jsonb,
+    '{"expression":"40 × 21","answer":840,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -356,7 +356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000002b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"65 × 9","answer":585,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(1 + 13) ÷ 2","answer":7,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -364,7 +364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000002c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(1 + 13) ÷ 2","answer":7,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(27 + 5) ÷ 4","answer":8,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -372,7 +372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000002d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(22 + 5) × 2 - 22","answer":32,"difficulty":"hard"}'::jsonb,
+    '{"expression":"15 × 8 - 28 ÷ 7","answer":116,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -380,7 +380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000002e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 + 19 - 12","answer":25,"difficulty":"easy"}'::jsonb,
+    '{"expression":"12 × 15","answer":180,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -388,7 +388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000002f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 20","answer":240,"difficulty":"easy"}'::jsonb,
+    '{"expression":"65 × 11","answer":715,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -396,7 +396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000030',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(112 + 8) ÷ 6","answer":20,"difficulty":"medium"}'::jsonb,
+    '{"expression":"14 × 4 + 36","answer":92,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -404,7 +404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000031',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"14 × 4 + 36","answer":92,"difficulty":"medium"}'::jsonb,
+    '{"expression":"10% of 210","answer":21,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -412,7 +412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000032',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16% of 550","answer":88,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(31 + 6) × 5 - 31","answer":154,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -420,7 +420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000033',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 + 10 - 13","answer":9,"difficulty":"easy"}'::jsonb,
+    '{"expression":"22 + 17 - 15","answer":24,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -428,7 +428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000034',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"87 × 11","answer":957,"difficulty":"medium"}'::jsonb,
+    '{"expression":"45 × 9","answer":405,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -436,7 +436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000035',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"21 × 7 + 14","answer":161,"difficulty":"medium"}'::jsonb,
+    '{"expression":"25 × 21","answer":525,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -444,7 +444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000036',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"26 × 21","answer":546,"difficulty":"medium"}'::jsonb,
+    '{"expression":"32 × 8 - 56 ÷ 7","answer":248,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -452,7 +452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000037',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 15 - 56 ÷ 7","answer":292,"difficulty":"hard"}'::jsonb,
+    '{"expression":"32 + 18 - 4","answer":46,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -460,7 +460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000038',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"32 + 18 - 4","answer":46,"difficulty":"easy"}'::jsonb,
+    '{"expression":"52 ÷ 4","answer":13,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -468,7 +468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000039',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(26 + 16) ÷ 3","answer":14,"difficulty":"medium"}'::jsonb,
+    '{"expression":"65 × 21","answer":1365,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -476,7 +476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(108 + 6) ÷ 6","answer":19,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(21 + 9) ÷ 2","answer":15,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -484,7 +484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10% of 280","answer":28,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(18 + 8) × 6 - 18","answer":138,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -492,7 +492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"37.5% of 144","answer":54,"difficulty":"hard"}'::jsonb,
+    '{"expression":"16 × 15","answer":240,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -500,7 +500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16 × 15","answer":240,"difficulty":"easy"}'::jsonb,
+    '{"expression":"138 ÷ 6","answer":23,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -508,7 +508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"53 × 21","answer":1113,"difficulty":"medium"}'::jsonb,
+    '{"expression":"80 × 11","answer":880,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -516,7 +516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000003f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"78 × 11","answer":858,"difficulty":"medium"}'::jsonb,
+    '{"expression":"75 × 11","answer":825,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -524,7 +524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000040',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"73 × 11","answer":803,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(27 + 5) × 2 - 27","answer":37,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -532,7 +532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000041',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(27 + 5) × 2 - 27","answer":37,"difficulty":"hard"}'::jsonb,
+    '{"expression":"14 + 15 - 15","answer":14,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -540,7 +540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000042',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 15","answer":180,"difficulty":"easy"}'::jsonb,
+    '{"expression":"10 × 3 + 27","answer":57,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -548,7 +548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000043',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"9 × 6 + 32","answer":86,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(96 + 4) ÷ 5","answer":20,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -556,7 +556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000044',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10 × 3 + 27","answer":57,"difficulty":"medium"}'::jsonb,
+    '{"expression":"35 × 19","answer":665,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -564,7 +564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000045',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(96 + 4) ÷ 5","answer":20,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(129 - 15) ÷ 6","answer":19,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -572,7 +572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000046',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(145 - 33) ÷ 8","answer":14,"difficulty":"hard"}'::jsonb,
+    '{"expression":"7 × 20","answer":140,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -580,7 +580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000047',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"7 × 12","answer":84,"difficulty":"easy"}'::jsonb,
+    '{"expression":"13 × 3 + 12","answer":51,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -588,7 +588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000048',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(34 + 16) ÷ 5","answer":10,"difficulty":"medium"}'::jsonb,
+    '{"expression":"25 × 9","answer":225,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -596,7 +596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000049',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(28 + 8) ÷ 4","answer":9,"difficulty":"medium"}'::jsonb,
+    '{"expression":"22 × 3 - 21 ÷ 7","answer":63,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -604,7 +604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"8 × 9 + 13","answer":85,"difficulty":"medium"}'::jsonb,
+    '{"expression":"47 + 20 - 14","answer":53,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -612,7 +612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 12 - 21 ÷ 3","answer":137,"difficulty":"hard"}'::jsonb,
+    '{"expression":"11 × 25","answer":275,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -620,7 +620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 + 24 - 15","answer":27,"difficulty":"easy"}'::jsonb,
+    '{"expression":"5% of 280","answer":14,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -628,7 +628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(85 + 11) ÷ 4","answer":24,"difficulty":"medium"}'::jsonb,
+    '{"expression":"20 × 9 + 33","answer":213,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -636,7 +636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5% of 280","answer":14,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(82 - 10) ÷ 8","answer":9,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -644,7 +644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000004f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 9 + 33","answer":213,"difficulty":"medium"}'::jsonb,
+    '{"expression":"5 × 25","answer":125,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -652,7 +652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000050',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(82 - 10) ÷ 8","answer":9,"difficulty":"hard"}'::jsonb,
+    '{"expression":"48 ÷ 6","answer":8,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -660,7 +660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000051',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5 × 25","answer":125,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(38 + 10) ÷ 4","answer":12,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -668,7 +668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000052',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(21 + 11) ÷ 4","answer":8,"difficulty":"medium"}'::jsonb,
+    '{"expression":"23 × 8 + 29","answer":213,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -676,7 +676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000053',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10% of 190","answer":19,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(99 - 35) ÷ 4","answer":16,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -684,7 +684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000054',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"23 × 8 + 29","answer":213,"difficulty":"medium"}'::jsonb,
+    '{"expression":"15 + 12 - 5","answer":22,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -692,7 +692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000055',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(99 - 35) ÷ 4","answer":16,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(112 + 13) ÷ 5","answer":25,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -700,7 +700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000056',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15 + 12 - 5","answer":22,"difficulty":"easy"}'::jsonb,
+    '{"expression":"20 × 11","answer":220,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -708,7 +708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000057',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(112 + 13) ÷ 5","answer":25,"difficulty":"medium"}'::jsonb,
+    '{"expression":"8 × 9 + 22","answer":94,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -716,7 +716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000058',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"24 × 11","answer":264,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(122 - 10) ÷ 4","answer":28,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -724,7 +724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000059',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"11 × 18 - 40 ÷ 5","answer":190,"difficulty":"hard"}'::jsonb,
+    '{"expression":"5 × 15","answer":75,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -732,7 +732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"21 ÷ 3","answer":7,"difficulty":"easy"}'::jsonb,
+    '{"expression":"14 × 6 + 33","answer":117,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -740,7 +740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5 × 15","answer":75,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(59 + 13) ÷ 4","answer":18,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -748,7 +748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"14 × 6 + 33","answer":117,"difficulty":"medium"}'::jsonb,
+    '{"expression":"5% of 340","answer":17,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -756,7 +756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(59 + 13) ÷ 4","answer":18,"difficulty":"medium"}'::jsonb,
+    '{"expression":"20% of 160","answer":32,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -764,7 +764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12.5% of 144","answer":18,"difficulty":"hard"}'::jsonb,
+    '{"expression":"35 + 14 - 13","answer":36,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -772,7 +772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000005f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"35 + 14 - 13","answer":36,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(67 + 13) ÷ 4","answer":20,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -780,7 +780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000060',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(67 + 13) ÷ 4","answer":20,"difficulty":"medium"}'::jsonb,
+    '{"expression":"75 × 21","answer":1575,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -788,7 +788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000061',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"75 × 21","answer":1575,"difficulty":"medium"}'::jsonb,
+    '{"expression":"22 × 4 + 27","answer":115,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -796,7 +796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000062',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 4 + 27","answer":115,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(23 + 13) × 3 - 23","answer":85,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -804,7 +804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000063',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(23 + 13) × 3 - 23","answer":85,"difficulty":"hard"}'::jsonb,
+    '{"expression":"30 + 19 - 18","answer":31,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -812,7 +812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000064',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"30 + 19 - 18","answer":31,"difficulty":"easy"}'::jsonb,
+    '{"expression":"15% of 540","answer":81,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -820,7 +820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000065',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 540","answer":81,"difficulty":"medium"}'::jsonb,
+    '{"expression":"10 × 8 + 14","answer":94,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -828,7 +828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000066',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10 × 8 + 14","answer":94,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12.5% of 144","answer":18,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -836,7 +836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000067',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"73 × 21","answer":1533,"difficulty":"medium"}'::jsonb,
+    '{"expression":"7 × 12","answer":84,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -844,7 +844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000068',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 12","answer":144,"difficulty":"easy"}'::jsonb,
+    '{"expression":"20% of 45","answer":9,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -852,7 +852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000069',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 45","answer":9,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(41 + 7) ÷ 4","answer":12,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -860,7 +860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(41 + 7) ÷ 4","answer":12,"difficulty":"medium"}'::jsonb,
+    '{"expression":"20% of 150","answer":30,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -868,7 +868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"38 × 19","answer":722,"difficulty":"medium"}'::jsonb,
+    '{"expression":"11 × 15","answer":165,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -876,7 +876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 150","answer":30,"difficulty":"hard"}'::jsonb,
+    '{"expression":"20 + 20 - 10","answer":30,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -884,7 +884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"11 × 15","answer":165,"difficulty":"easy"}'::jsonb,
+    '{"expression":"30 × 19","answer":570,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -892,7 +892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"11 × 8 + 24","answer":112,"difficulty":"medium"}'::jsonb,
+    '{"expression":"15% of 480","answer":72,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -900,7 +900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000006f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"32 × 19","answer":608,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(19 + 7) × 2 - 19","answer":33,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -908,7 +908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000070',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 480","answer":72,"difficulty":"medium"}'::jsonb,
+    '{"expression":"7 × 25","answer":175,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -916,7 +916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000071',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(19 + 7) × 2 - 19","answer":33,"difficulty":"hard"}'::jsonb,
+    '{"expression":"78 ÷ 6","answer":13,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -924,7 +924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000072',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"7 × 25","answer":175,"difficulty":"easy"}'::jsonb,
+    '{"expression":"15% of 240","answer":36,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -932,7 +932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000073',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"56 × 11","answer":616,"difficulty":"medium"}'::jsonb,
+    '{"expression":"25% of 128","answer":32,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -940,7 +940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000074',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 240","answer":36,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(116 - 26) ÷ 6","answer":15,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -948,7 +948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000075',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 128","answer":32,"difficulty":"medium"}'::jsonb,
+    '{"expression":"5 × 12","answer":60,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -956,7 +956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000076',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(116 - 26) ÷ 6","answer":15,"difficulty":"hard"}'::jsonb,
+    '{"expression":"31 + 6 - 8","answer":29,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -964,7 +964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000077',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"8 × 12","answer":96,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(38 + 12) ÷ 2","answer":25,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -972,7 +972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000078',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16 × 3 + 20","answer":68,"difficulty":"medium"}'::jsonb,
+    '{"expression":"9 × 6 + 34","answer":88,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -980,7 +980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000079',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(38 + 12) ÷ 2","answer":25,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(32 + 7) × 6 - 32","answer":202,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -988,7 +988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"9 × 6 + 34","answer":88,"difficulty":"medium"}'::jsonb,
+    '{"expression":"7 × 11","answer":77,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -996,7 +996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(32 + 7) × 6 - 32","answer":202,"difficulty":"hard"}'::jsonb,
+    '{"expression":"38 + 23 - 11","answer":50,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1004,7 +1004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 11","answer":132,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(12 + 16) ÷ 4","answer":7,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1012,7 +1012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 9 + 24","answer":204,"difficulty":"medium"}'::jsonb,
+    '{"expression":"55 × 19","answer":1045,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1020,7 +1020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(12 + 16) ÷ 4","answer":7,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12.5% of 248","answer":31,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1028,7 +1028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000007f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"55 × 19","answer":1045,"difficulty":"medium"}'::jsonb,
+    '{"expression":"13 + 16 - 6","answer":23,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1036,7 +1036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000080',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12.5% of 248","answer":31,"difficulty":"hard"}'::jsonb,
+    '{"expression":"16 × 8 + 27","answer":155,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1044,7 +1044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000081',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"13 + 16 - 6","answer":23,"difficulty":"easy"}'::jsonb,
+    '{"expression":"20 × 21","answer":420,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1052,7 +1052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000082',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(29 + 7) ÷ 3","answer":12,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(58 + 18) ÷ 4","answer":19,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1060,7 +1060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000083',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 130","answer":26,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(15 + 10) × 3 - 15","answer":60,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1068,7 +1068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000084',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 21","answer":420,"difficulty":"medium"}'::jsonb,
+    '{"expression":"13 + 13 - 15","answer":11,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1076,7 +1076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000085',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(23 + 14) × 4 - 23","answer":125,"difficulty":"hard"}'::jsonb,
+    '{"expression":"20% of 155","answer":31,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1084,7 +1084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000086',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"7 × 11","answer":77,"difficulty":"easy"}'::jsonb,
+    '{"expression":"23 × 5 + 15","answer":130,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1092,7 +1092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000087',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(8 + 10) ÷ 3","answer":6,"difficulty":"medium"}'::jsonb,
+    '{"expression":"20% of 60","answer":12,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1100,7 +1100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000088',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"42 × 19","answer":798,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(213 - 33) ÷ 12","answer":15,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1108,7 +1108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000089',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"21 × 21","answer":441,"difficulty":"medium"}'::jsonb,
+    '{"expression":"8 × 12","answer":96,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1116,7 +1116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12.5% of 136","answer":17,"difficulty":"hard"}'::jsonb,
+    '{"expression":"24 × 8 + 35","answer":227,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1124,7 +1124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16 × 11","answer":176,"difficulty":"easy"}'::jsonb,
+    '{"expression":"10% of 120","answer":12,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1132,7 +1132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 132","answer":33,"difficulty":"medium"}'::jsonb,
+    '{"expression":"80 × 21","answer":1680,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1140,7 +1140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(66 + 6) ÷ 3","answer":24,"difficulty":"medium"}'::jsonb,
+    '{"expression":"40 × 5 - 32 ÷ 8","answer":196,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1148,7 +1148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"78 × 21","answer":1638,"difficulty":"medium"}'::jsonb,
+    '{"expression":"64 ÷ 8","answer":8,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1156,7 +1156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000008f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16% of 350","answer":56,"difficulty":"hard"}'::jsonb,
+    '{"expression":"70 × 21","answer":1470,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1164,7 +1164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000090',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"216 ÷ 9","answer":24,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(68 + 8) ÷ 4","answer":19,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1172,7 +1172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000091',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 5 + 30","answer":140,"difficulty":"medium"}'::jsonb,
+    '{"expression":"8 × 9 + 26","answer":98,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1180,7 +1180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000092',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 100","answer":25,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(92 - 36) ÷ 4","answer":14,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1188,7 +1188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000093',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"21 × 8 + 36","answer":204,"difficulty":"medium"}'::jsonb,
+    '{"expression":"42 ÷ 6","answer":7,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1196,7 +1196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000094',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(22 + 8) × 4 - 22","answer":98,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(76 + 8) ÷ 6","answer":14,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1204,7 +1204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000095',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 + 23 - 12","answer":23,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(36 + 16) ÷ 2","answer":26,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1212,7 +1212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000096',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"38 × 9","answer":342,"difficulty":"medium"}'::jsonb,
+    '{"expression":"5% of 480","answer":24,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1220,7 +1220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000097',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"80 × 19","answer":1520,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(124 - 32) ÷ 4","answer":23,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1228,7 +1228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000098',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"17 × 8 + 21","answer":157,"difficulty":"medium"}'::jsonb,
+    '{"expression":"14 + 19 - 18","answer":15,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1236,7 +1236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-400000000099',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 44","answer":11,"difficulty":"hard"}'::jsonb,
+    '{"expression":"25% of 88","answer":22,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1244,7 +1244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009a',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"90 ÷ 9","answer":10,"difficulty":"easy"}'::jsonb,
+    '{"expression":"8 × 7 + 21","answer":77,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1252,7 +1252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009b',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"17 × 8 + 30","answer":166,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(15 + 5) ÷ 2","answer":10,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1260,7 +1260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009c',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 4 + 13","answer":101,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(18 + 6) × 6 - 18","answer":126,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1268,7 +1268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009d',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(62 + 16) ÷ 6","answer":13,"difficulty":"medium"}'::jsonb,
+    '{"expression":"216 ÷ 12","answer":18,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1276,7 +1276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009e',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(15 + 11) × 2 - 15","answer":37,"difficulty":"hard"}'::jsonb,
+    '{"expression":"10% of 260","answer":26,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1284,7 +1284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-40000000009f',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5 × 20","answer":100,"difficulty":"easy"}'::jsonb,
+    '{"expression":"20 × 9","answer":180,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1292,7 +1292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10 × 8 + 18","answer":98,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(40 + 14) ÷ 3","answer":18,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1300,7 +1300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a1',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"30 × 21","answer":630,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(16 + 6) × 6 - 16","answer":116,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1308,7 +1308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a2',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"67 × 11","answer":737,"difficulty":"medium"}'::jsonb,
+    '{"expression":"56 ÷ 4","answer":14,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1316,7 +1316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a3',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"19 × 17 - 9 ÷ 3","answer":320,"difficulty":"hard"}'::jsonb,
+    '{"expression":"5% of 640","answer":32,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1324,7 +1324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a4',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"64 ÷ 4","answer":16,"difficulty":"easy"}'::jsonb,
+    '{"expression":"10% of 150","answer":15,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1332,7 +1332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a5',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(22 + 18) ÷ 5","answer":8,"difficulty":"medium"}'::jsonb,
+    '{"expression":"85 × 19","answer":1615,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1340,7 +1340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a6',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"21 × 4 + 23","answer":107,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12.5% of 136","answer":17,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1348,7 +1348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a7',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5% of 640","answer":32,"difficulty":"medium"}'::jsonb,
+    '{"expression":"16 + 12 - 18","answer":10,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1356,7 +1356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a8',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16% of 400","answer":64,"difficulty":"hard"}'::jsonb,
+    '{"expression":"10 × 9 + 20","answer":110,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1364,7 +1364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000a9',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"192 ÷ 12","answer":16,"difficulty":"easy"}'::jsonb,
+    '{"expression":"20% of 80","answer":16,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1372,7 +1372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000aa',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5% of 320","answer":16,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(263 - 35) ÷ 12","answer":19,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1380,7 +1380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ab',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10 × 5 + 36","answer":86,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12 × 25","answer":300,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1388,7 +1388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ac',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"13 × 18 - 20 ÷ 5","answer":230,"difficulty":"hard"}'::jsonb,
+    '{"expression":"38 + 20 - 10","answer":48,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1396,7 +1396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ad',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16 × 12","answer":192,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(31 + 5) ÷ 3","answer":12,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1404,7 +1404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ae',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 × 25","answer":450,"difficulty":"easy"}'::jsonb,
+    '{"expression":"22 × 7 + 13","answer":167,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1412,7 +1412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000af',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 8 + 23","answer":183,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12 × 9 - 35 ÷ 7","answer":103,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1420,7 +1420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"64 × 21","answer":1344,"difficulty":"medium"}'::jsonb,
+    '{"expression":"14 + 17 - 6","answer":25,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1428,7 +1428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b1',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(20 + 5) × 3 - 20","answer":55,"difficulty":"hard"}'::jsonb,
+    '{"expression":"85 × 11","answer":935,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1436,7 +1436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b2',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"42 + 18 - 4","answer":56,"difficulty":"easy"}'::jsonb,
+    '{"expression":"60 × 21","answer":1260,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1444,7 +1444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b3',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"8 × 9 + 28","answer":100,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(90 + 10) ÷ 5","answer":20,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1452,7 +1452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b4',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"5% of 180","answer":9,"difficulty":"medium"}'::jsonb,
+    '{"expression":"30 × 6 - 15 ÷ 5","answer":177,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1460,7 +1460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b5',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(58 + 17) ÷ 3","answer":25,"difficulty":"medium"}'::jsonb,
+    '{"expression":"23 + 9 - 5","answer":27,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1468,7 +1468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b6',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"37.5% of 200","answer":75,"difficulty":"hard"}'::jsonb,
+    '{"expression":"10 × 8 + 31","answer":111,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1476,7 +1476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b7',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"162 ÷ 9","answer":18,"difficulty":"easy"}'::jsonb,
+    '{"expression":"50 × 11","answer":550,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1484,7 +1484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b8',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(31 + 13) ÷ 4","answer":11,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12.5% of 216","answer":27,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1492,7 +1492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000b9',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(37 + 7) ÷ 4","answer":11,"difficulty":"medium"}'::jsonb,
+    '{"expression":"45 ÷ 5","answer":9,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1500,7 +1500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ba',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"10% of 120","answer":12,"difficulty":"medium"}'::jsonb,
+    '{"expression":"36 ÷ 6","answer":6,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1508,7 +1508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000bb',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"13 × 15 - 72 ÷ 8","answer":186,"difficulty":"hard"}'::jsonb,
+    '{"expression":"17 × 9 + 29","answer":182,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1516,7 +1516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000bc',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"17 × 11","answer":187,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(49 + 16) ÷ 5","answer":13,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1524,7 +1524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000bd',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 340","answer":51,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(189 - 27) ÷ 6","answer":27,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1532,7 +1532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000be',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 × 9 + 20","answer":182,"difficulty":"medium"}'::jsonb,
+    '{"expression":"15 + 7 - 8","answer":14,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1540,7 +1540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000bf',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20 × 6 + 13","answer":133,"difficulty":"medium"}'::jsonb,
+    '{"expression":"8 × 25","answer":200,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1548,7 +1548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"18 × 17 - 42 ÷ 7","answer":300,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(112 + 8) ÷ 5","answer":24,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1556,7 +1556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c1',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"180 ÷ 12","answer":15,"difficulty":"easy"}'::jsonb,
+    '{"expression":"40 × 19","answer":760,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1564,7 +1564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c2',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(10 + 6) ÷ 2","answer":8,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(18 + 11) × 5 - 18","answer":127,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1572,7 +1572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c3',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 620","answer":93,"difficulty":"medium"}'::jsonb,
+    '{"expression":"35 + 24 - 16","answer":43,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1580,7 +1580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c4',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 140","answer":28,"difficulty":"hard"}'::jsonb,
+    '{"expression":"25% of 64","answer":16,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1588,7 +1588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c5',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"115 ÷ 5","answer":23,"difficulty":"easy"}'::jsonb,
+    '{"expression":"24 × 7 + 24","answer":192,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1596,7 +1596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c6',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"34 + 15 - 6","answer":43,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(21 + 9) × 4 - 21","answer":99,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1604,7 +1604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c7',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(63 + 7) ÷ 5","answer":14,"difficulty":"medium"}'::jsonb,
+    '{"expression":"45 ÷ 3","answer":15,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1612,7 +1612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c8',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(22 + 18) ÷ 2","answer":20,"difficulty":"medium"}'::jsonb,
+    '{"expression":"20% of 145","answer":29,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1620,7 +1620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000c9',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(208 - 16) ÷ 12","answer":16,"difficulty":"hard"}'::jsonb,
+    '{"expression":"20% of 180","answer":36,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1628,7 +1628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ca',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"48 + 18 - 10","answer":56,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(135 - 15) ÷ 8","answer":15,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1636,7 +1636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000cb',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"76 ÷ 4","answer":19,"difficulty":"easy"}'::jsonb,
+    '{"expression":"22 + 24 - 4","answer":42,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1644,7 +1644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000cc',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(49 + 11) ÷ 4","answer":15,"difficulty":"medium"}'::jsonb,
+    '{"expression":"6 × 20","answer":120,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1652,7 +1652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000cd',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 11","answer":242,"difficulty":"medium"}'::jsonb,
+    '{"expression":"80 × 19","answer":1520,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1660,7 +1660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ce',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(270 - 18) ÷ 12","answer":21,"difficulty":"hard"}'::jsonb,
+    '{"expression":"13 × 9 + 15","answer":132,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1668,7 +1668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000cf',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"126 ÷ 9","answer":14,"difficulty":"easy"}'::jsonb,
+    '{"expression":"(202 - 10) ÷ 8","answer":24,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1676,7 +1676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"276 ÷ 12","answer":23,"difficulty":"easy"}'::jsonb,
+    '{"expression":"36 + 20 - 18","answer":38,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1684,7 +1684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d1',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"9 × 8 + 20","answer":92,"difficulty":"medium"}'::jsonb,
+    '{"expression":"45 × 19","answer":855,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1692,7 +1692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d2',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(13 + 8) ÷ 3","answer":7,"difficulty":"medium"}'::jsonb,
+    '{"expression":"15% of 640","answer":96,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1700,7 +1700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d3',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(89 - 29) ÷ 6","answer":10,"difficulty":"hard"}'::jsonb,
+    '{"expression":"55 × 9","answer":495,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1708,7 +1708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d4',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"47 + 22 - 13","answer":56,"difficulty":"easy"}'::jsonb,
+    '{"expression":"22 × 8 - 35 ÷ 7","answer":171,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1716,7 +1716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d5',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"24 + 24 - 5","answer":43,"difficulty":"easy"}'::jsonb,
+    '{"expression":"85 ÷ 5","answer":17,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1724,7 +1724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d6',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 105","answer":21,"difficulty":"medium"}'::jsonb,
+    '{"expression":"13 × 7 + 16","answer":107,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1732,7 +1732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d7',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"76 × 19","answer":1444,"difficulty":"medium"}'::jsonb,
+    '{"expression":"35 × 11","answer":385,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1740,7 +1740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d8',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"14 × 14 - 72 ÷ 8","answer":187,"difficulty":"hard"}'::jsonb,
+    '{"expression":"37.5% of 208","answer":78,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1748,7 +1748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000d9',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"80 ÷ 5","answer":16,"difficulty":"easy"}'::jsonb,
+    '{"expression":"115 ÷ 5","answer":23,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1756,7 +1756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000da',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"53 × 9","answer":477,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(75 + 17) ÷ 4","answer":23,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1764,7 +1764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000db',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15 × 8 + 26","answer":146,"difficulty":"medium"}'::jsonb,
+    '{"expression":"55 × 21","answer":1155,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1772,7 +1772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000dc',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 76","answer":19,"difficulty":"medium"}'::jsonb,
+    '{"expression":"45 × 21","answer":945,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1780,7 +1780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000dd',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(14 + 12) × 3 - 14","answer":64,"difficulty":"hard"}'::jsonb,
+    '{"expression":"16 × 7 - 16 ÷ 8","answer":110,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1788,7 +1788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000de',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"28 + 18 - 5","answer":41,"difficulty":"easy"}'::jsonb,
+    '{"expression":"55 ÷ 5","answer":11,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1796,7 +1796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000df',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"36 × 11","answer":396,"difficulty":"medium"}'::jsonb,
+    '{"expression":"10% of 240","answer":24,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1804,7 +1804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(90 + 14) ÷ 4","answer":26,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(57 + 9) ÷ 6","answer":11,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1812,7 +1812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e1',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 136","answer":34,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(27 + 11) × 4 - 27","answer":125,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1820,7 +1820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e2',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"132 ÷ 6","answer":22,"difficulty":"easy"}'::jsonb,
+    '{"expression":"47 + 11 - 15","answer":43,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1828,7 +1828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e3',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"44 × 21","answer":924,"difficulty":"medium"}'::jsonb,
+    '{"expression":"192 ÷ 12","answer":16,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1836,7 +1836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e4',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"11 × 7 + 32","answer":109,"difficulty":"medium"}'::jsonb,
+    '{"expression":"16 × 8 + 28","answer":156,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1844,7 +1844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e5',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"22 × 5 + 18","answer":128,"difficulty":"medium"}'::jsonb,
+    '{"expression":"12 × 4 + 15","answer":63,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1852,7 +1852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e6',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"16% of 625","answer":100,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(28 + 11) × 3 - 28","answer":89,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1860,7 +1860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e7',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"120 ÷ 12","answer":10,"difficulty":"easy"}'::jsonb,
+    '{"expression":"108 ÷ 6","answer":18,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1868,7 +1868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e8',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"20% of 145","answer":29,"difficulty":"medium"}'::jsonb,
+    '{"expression":"39 + 12 - 10","answer":41,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1876,7 +1876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000e9',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"15% of 560","answer":84,"difficulty":"medium"}'::jsonb,
+    '{"expression":"21 × 9 + 28","answer":217,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1884,7 +1884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ea',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(17 + 18) ÷ 5","answer":7,"difficulty":"medium"}'::jsonb,
+    '{"expression":"15 × 3 + 17","answer":62,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1892,7 +1892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000eb',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"25% of 124","answer":31,"difficulty":"hard"}'::jsonb,
+    '{"expression":"(239 - 31) ÷ 8","answer":26,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1900,7 +1900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ec',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"80 ÷ 8","answer":10,"difficulty":"easy"}'::jsonb,
+    '{"expression":"10 × 20","answer":200,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1908,7 +1908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ed',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"12 × 4 + 15","answer":63,"difficulty":"medium"}'::jsonb,
+    '{"expression":"(57 + 13) ÷ 5","answer":14,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1916,7 +1916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ee',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(47 + 13) ÷ 5","answer":12,"difficulty":"medium"}'::jsonb,
+    '{"expression":"85 × 9","answer":765,"difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1924,7 +1924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000ef',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"(23 + 6) × 5 - 23","answer":122,"difficulty":"hard"}'::jsonb,
+    '{"expression":"18 × 8 - 9 ÷ 3","answer":141,"difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1932,7 +1932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-4000000000f0',
     'a1000001-0000-4000-8000-000000000004',
-    '{"expression":"70 ÷ 5","answer":14,"difficulty":"easy"}'::jsonb,
+    '{"expression":"27 ÷ 3","answer":9,"difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1940,7 +1940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000001',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","8","×","4","3",".","2"],"label":"88 × 43.2","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","4","×","5","3"],"label":"44 × 53","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1948,7 +1948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000002',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","×","3","7"],"label":"86 × 37","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","9","-","9","6","-","2","2"],"label":"89 - 96 - 22","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1956,7 +1956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000003',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","5","1","M+","6","1","1","M+","MRC","×","9","3","9"],"label":"651 M+ 611 M+ MRC × 939","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","5",".","3","÷","7","8","7","÷","8","6",".","6","÷","7","9","4"],"label":"85.3 ÷ 787 ÷ 86.6 ÷ 794","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1964,7 +1964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000004',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","0","4","M+","3","8","0","M+","MRC","÷","1","8","8"],"label":"704 M+ 380 M+ MRC ÷ 188","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","6","9","+","5","8",".","8","-","5","4","4"],"label":"269 + 58.8 - 544","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1972,7 +1972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000005',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","6",".","1","M+","7","9",".","1","M+","MRC","-","4","3","9"],"label":"76.1 M+ 79.1 M+ MRC - 439","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["1","7",".","4","×","1","1",".","6","×","6","8",".","5","-","6","9","5","-","5","0","0"],"label":"17.4 × 11.6 × 68.5 - 695 - 500","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1980,7 +1980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000006',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3","-","3","6","×","4","5"],"label":"63 - 36 × 45","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","7",".","5","-","3","8"],"label":"87.5 - 38","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1988,7 +1988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000007',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","6","÷","8","5",".","3","÷","7","8"],"label":"56 ÷ 85.3 ÷ 78","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","3",".","1","×","5","×","8","9"],"label":"73.1 × 5 × 89","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -1996,7 +1996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000008',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3","1","÷","7","9","4","÷","7","8",".","3"],"label":"631 ÷ 794 ÷ 78.3","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","1","9","-","4","4","-","8","3","0"],"label":"219 - 44 - 830","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2004,7 +2004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000009',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","7","9","-","5","4","4","-","1","9","9"],"label":"879 - 544 - 199","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","1","8","×","6","2","8","÷","1","1","4"],"label":"518 × 628 ÷ 114","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2012,7 +2012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","0","4","+","5","6","7","-","5","5","5","-","6","9","5"],"label":"304 + 567 - 555 - 695","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["7","3","7","÷","4","4","5","×","6","8","5","-","9","7","9","+","3","5","7"],"label":"737 ÷ 445 × 685 - 979 + 357","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2020,7 +2020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","0","-","8","7",".","5"],"label":"50 - 87.5","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","8","+","7","4"],"label":"38 + 74","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2028,7 +2028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","8","÷","7","3",".","1"],"label":"38 ÷ 73.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","3",".","2","-","5","3","-","5","5",".","1"],"label":"23.2 - 53 - 55.1","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2036,7 +2036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","2",".","5","÷","5","5","÷","2","7","3","-","3","2",".","7"],"label":"62.5 ÷ 55 ÷ 273 - 32.7","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","6","8","×","3","9","3","+","6","9","2"],"label":"868 × 393 + 692","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2044,7 +2044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","0",".","5","×","6","2","8","÷","1","1","4","-","5","2","9"],"label":"80.5 × 628 ÷ 114 - 529","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","6","1","÷","3","4","3","÷","2","8"],"label":"161 ÷ 343 ÷ 28","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2052,7 +2052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000000f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","4","5","×","6","8","5","-","9","7","9","+","3","5","7","-","3","7","7"],"label":"445 × 685 - 979 + 357 - 377","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","8","7","÷","6","1",".","8","-","4","2","0","-","8","9","6","-","1","6","2"],"label":"287 ÷ 61.8 - 420 - 896 - 162","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2060,7 +2060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000010',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","4","÷","2","3",".","2"],"label":"74 ÷ 23.2","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","4","×","1","3","×","3","2"],"label":"14 × 13 × 32","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2068,7 +2068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000011',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","3","-","5","5",".","1"],"label":"53 - 55.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","8","+","3","6"],"label":"98 + 36","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2076,7 +2076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000012',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","8","×","3","9","3","+","6","9","2"],"label":"868 × 393 + 692","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","M+","8","3","9","M+","MRC","+","9","9","9"],"label":"5 M+ 839 M+ MRC + 999","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2084,7 +2084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000013',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","6","1","÷","3","4","3","÷","2","8"],"label":"161 ÷ 343 ÷ 28","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","+","8","4","7","+","4","7","4","÷","9","1",".","3"],"label":"2 + 847 + 474 ÷ 91.3","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2092,7 +2092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000014',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","8","7","÷","6","1",".","8","-","4","2","0","-","8","9","6","-","1","6","2"],"label":"287 ÷ 61.8 - 420 - 896 - 162","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["1","3",".","2","÷","8","2","7","+","3","9","0","÷","2","4","9","×","9","1","2"],"label":"13.2 ÷ 827 + 390 ÷ 249 × 912","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2100,7 +2100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000015',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","4","×","1","3","×","3","2"],"label":"14 × 13 × 32","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","8",".","2","-","1","8","+","7"],"label":"18.2 - 18 + 7","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2108,7 +2108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000016',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","8","+","3","6"],"label":"98 + 36","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","8",".","6","×","8","3"],"label":"68.6 × 83","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2116,7 +2116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000017',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","M+","8","3","9","M+","MRC","+","9","9","9"],"label":"5 M+ 839 M+ MRC + 999","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","2","0","+","3","8","5","+","3","2","0"],"label":"920 + 385 + 320","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2124,7 +2124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000018',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","+","8","4","7","+","4","7","4","÷","9","1",".","3"],"label":"2 + 847 + 474 ÷ 91.3","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","5","5","÷","4","4","9","+","7","7","8"],"label":"255 ÷ 449 + 778","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2132,7 +2132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000019',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","3",".","2","÷","8","2","7","+","3","9","0","÷","2","4","9","×","9","1","2"],"label":"13.2 ÷ 827 + 390 ÷ 249 × 912","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","2","÷","3","8",".","5","×","3","4","3","-","3","8","4","-","2","4","5"],"label":"22 ÷ 38.5 × 343 - 384 - 245","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2140,7 +2140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","8",".","2","-","1","8","+","7"],"label":"18.2 - 18 + 7","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","6","-","6","1"],"label":"86 - 61","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2148,7 +2148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","8",".","6","×","8","3"],"label":"68.6 × 83","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","×","3","+","3","7"],"label":"7 × 3 + 37","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2156,7 +2156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","2","0","+","3","8","5","+","3","2","0"],"label":"920 + 385 + 320","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","6","8","-","1","9",".","9","÷","2","1","0","+","6","3","9"],"label":"968 - 19.9 ÷ 210 + 639","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2164,7 +2164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","5","5","÷","4","4","9","+","7","7","8"],"label":"255 ÷ 449 + 778","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","5",".","3","+","2","5","0","+","5","3","5"],"label":"15.3 + 250 + 535","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2172,7 +2172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","÷","3","8",".","5","×","3","4","3","-","3","8","4","-","2","4","5"],"label":"22 ÷ 38.5 × 343 - 384 - 245","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["4","8","0","+","6","+","2","9",".","4","×","6","3","4"],"label":"480 + 6 + 29.4 × 634","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2180,7 +2180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000001f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","-","6","1"],"label":"86 - 61","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","+","6","1"],"label":"4 + 61","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2188,7 +2188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000020',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","×","3","+","3","7"],"label":"7 × 3 + 37","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","1","×","2","6",".","1"],"label":"91 × 26.1","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2196,7 +2196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000021',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","6","8","-","1","9",".","9","÷","2","1","0","+","6","3","9"],"label":"968 - 19.9 ÷ 210 + 639","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","9","+","4","8","×","2","0",".","6"],"label":"89 + 48 × 20.6","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2204,7 +2204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000022',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","5",".","3","+","2","5","0","+","5","3","5"],"label":"15.3 + 250 + 535","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","0","4","+","1","2",".","6","+","9","6"],"label":"504 + 12.6 + 96","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2212,7 +2212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000023',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","8","0","+","6","+","2","9",".","4","×","6","3","4"],"label":"480 + 6 + 29.4 × 634","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["3",".","5","÷","1","6","2","-","5","3","5","+","9","5","0"],"label":"3.5 ÷ 162 - 535 + 950","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2220,7 +2220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000024',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","+","6","1"],"label":"4 + 61","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","-","2","3"],"label":"1 - 23","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2228,7 +2228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000025',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","1","×","2","6",".","1"],"label":"91 × 26.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","4","÷","5","5"],"label":"54 ÷ 55","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2236,7 +2236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000026',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","9","+","4","8","×","2","0",".","6"],"label":"89 + 48 × 20.6","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","3","4","M+","4","8","8","M+","MRC","+","7","6","7"],"label":"934 M+ 488 M+ MRC + 767","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2244,7 +2244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000027',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","0","4","+","1","2",".","6","+","9","6"],"label":"504 + 12.6 + 96","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4","7",".","6","-","4","1",".","4","÷","7","1",".","4","-","3","8",".","6"],"label":"47.6 - 41.4 ÷ 71.4 - 38.6","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2252,7 +2252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000028',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3",".","5","÷","1","6","2","-","5","3","5","+","9","5","0"],"label":"3.5 ÷ 162 - 535 + 950","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","9","1","-","6","3","÷","7","0","8","-","9","4","6","×","9","2",".","3"],"label":"291 - 63 ÷ 708 - 946 × 92.3","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2260,7 +2260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000029',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","-","2","3"],"label":"1 - 23","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","4","+","7","1","÷","2","0"],"label":"44 + 71 ÷ 20","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2268,7 +2268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","4","÷","5","5"],"label":"54 ÷ 55","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","6","÷","2","2"],"label":"36 ÷ 22","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2276,7 +2276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","3","4","M+","4","8","8","M+","MRC","+","7","6","7"],"label":"934 M+ 488 M+ MRC + 767","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","1","6","-","8","6","8","÷","2","0","8","÷","6","0","8"],"label":"916 - 868 ÷ 208 ÷ 608","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2284,7 +2284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","7",".","6","-","4","1",".","4","÷","7","1",".","4","-","3","8",".","6"],"label":"47.6 - 41.4 ÷ 71.4 - 38.6","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","6",".","4","×","8","9",".","2","-","4","1",".","2"],"label":"96.4 × 89.2 - 41.2","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2292,7 +2292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","9","1","-","6","3","÷","7","0","8","-","9","4","6","×","9","2",".","3"],"label":"291 - 63 ÷ 708 - 946 × 92.3","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","5",".","2","÷","3","7","5","÷","2","5",".","3","-","6","8","5"],"label":"65.2 ÷ 375 ÷ 25.3 - 685","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2300,7 +2300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","4","+","7","1","÷","2","0"],"label":"44 + 71 ÷ 20","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","9","+","4","+","8","9"],"label":"89 + 4 + 89","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2308,7 +2308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000002f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","6","÷","2","2"],"label":"36 ÷ 22","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","9","-","4","0","-","4","3"],"label":"99 - 40 - 43","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2316,7 +2316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000030',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","1","6","-","8","6","8","÷","2","0","8","÷","6","0","8"],"label":"916 - 868 ÷ 208 ÷ 608","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","7","7","-","3","3","6","÷","2","6","1"],"label":"777 - 336 ÷ 261","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2324,7 +2324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000031',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","6",".","4","×","8","9",".","2","-","4","1",".","2"],"label":"96.4 × 89.2 - 41.2","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","8","9","×","4","6","-","6","6","9"],"label":"189 × 46 - 669","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2332,7 +2332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000032',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","5",".","2","÷","3","7","5","÷","2","5",".","3","-","6","8","5"],"label":"65.2 ÷ 375 ÷ 25.3 - 685","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","3",".","9","÷","9","4","÷","2","5",".","8","÷","8","0",".","9"],"label":"63.9 ÷ 94 ÷ 25.8 ÷ 80.9","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2340,7 +2340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000033',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","9","+","4","+","8","9"],"label":"89 + 4 + 89","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","9","÷","5","6",".","8","+","8","7"],"label":"59 ÷ 56.8 + 87","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2348,7 +2348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000034',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","9","-","4","0","-","4","3"],"label":"99 - 40 - 43","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","8","-","2","6",".","6"],"label":"38 - 26.6","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2356,7 +2356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000035',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","7","7","-","3","3","6","÷","2","6","1"],"label":"777 - 336 ÷ 261","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","8","6","×","7","4","7","×","6","8",".","9","+","1","4","1"],"label":"986 × 747 × 68.9 + 141","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2364,7 +2364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000036',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","8","9","×","4","6","-","6","6","9"],"label":"189 × 46 - 669","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","5","7","×","7","0","7","×","4","1",".","1","+","1","4",".","3"],"label":"557 × 707 × 41.1 + 14.3","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2372,7 +2372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000037',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3",".","9","÷","9","4","÷","2","5",".","8","÷","8","0",".","9"],"label":"63.9 ÷ 94 ÷ 25.8 ÷ 80.9","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["3","0","1","+","7","0","6","÷","3","6",".","5","÷","5","9","9","+","2","7","4"],"label":"301 + 706 ÷ 36.5 ÷ 599 + 274","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2380,7 +2380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000038',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","9","÷","5","6",".","8","+","8","7"],"label":"59 ÷ 56.8 + 87","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","+","7","0","÷","3","4",".","9"],"label":"8 + 70 ÷ 34.9","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2388,7 +2388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000039',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","8","-","2","6",".","6"],"label":"38 - 26.6","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","2","×","9","7",".","4","×","1","3",".","6"],"label":"32 × 97.4 × 13.6","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2396,7 +2396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","8","6","×","7","4","7","×","6","8",".","9","+","1","4","1"],"label":"986 × 747 × 68.9 + 141","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","6",".","4","×","1","3","9","÷","1","8",".","6","+","5","7","5"],"label":"66.4 × 139 ÷ 18.6 + 575","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2404,7 +2404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","5","7","×","7","0","7","×","4","1",".","1","+","1","4",".","3"],"label":"557 × 707 × 41.1 + 14.3","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","6","3","×","6","5","2","÷","2","5","3","×","5","6","3"],"label":"163 × 652 ÷ 253 × 563","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2412,7 +2412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","0","1","+","7","0","6","÷","3","6",".","5","÷","5","9","9","+","2","7","4"],"label":"301 + 706 ÷ 36.5 ÷ 599 + 274","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","0","4","-","9","×","1","1",".","3","+","1","3","1","+","4","6",".","9"],"label":"804 - 9 × 11.3 + 131 + 46.9","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2420,7 +2420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","+","7","0","÷","3","4",".","9"],"label":"8 + 70 ÷ 34.9","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","2","÷","5","3","÷","6","3"],"label":"32 ÷ 53 ÷ 63","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2428,7 +2428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","2","×","9","7",".","4","×","1","3",".","6"],"label":"32 × 97.4 × 13.6","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","2","÷","9","5",".","2"],"label":"22 ÷ 95.2","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2436,7 +2436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000003f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","6",".","4","×","1","3","9","÷","1","8",".","6","+","5","7","5"],"label":"66.4 × 139 ÷ 18.6 + 575","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","0","6","M+","6","5",".","9","M-","MRC","-","7","7","5"],"label":"706 M+ 65.9 M- MRC - 775","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2444,7 +2444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000040',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","6","3","×","6","5","2","÷","2","5","3","×","5","6","3"],"label":"163 × 652 ÷ 253 × 563","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","5","0","-","8","0","7","+","4","4","6","-","2","1","9"],"label":"550 - 807 + 446 - 219","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2452,7 +2452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000041',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","0","4","-","9","×","1","1",".","3","+","1","3","1","+","4","6",".","9"],"label":"804 - 9 × 11.3 + 131 + 46.9","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","3","9","÷","1","4","6","-","3","0","×","3","1","8"],"label":"839 ÷ 146 - 30 × 318","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2460,7 +2460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000042',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","2","÷","5","3","÷","6","3"],"label":"32 ÷ 53 ÷ 63","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","9",".","6","-","9","5","÷","8","7"],"label":"29.6 - 95 ÷ 87","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2468,7 +2468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000043',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","÷","9","5",".","2"],"label":"22 ÷ 95.2","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","9","÷","5","7","-","8","3"],"label":"49 ÷ 57 - 83","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2476,7 +2476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000044',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","0","6","M+","6","5",".","9","M-","MRC","-","7","7","5"],"label":"706 M+ 65.9 M- MRC - 775","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","1","3","M+","6","1","5","M-","MRC","+","1",".","4"],"label":"213 M+ 615 M- MRC + 1.4","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2484,7 +2484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000045',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","5","0","-","8","0","7","+","4","4","6","-","2","1","9"],"label":"550 - 807 + 446 - 219","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","8","6","-","2","0","5","÷","4","7","8"],"label":"386 - 205 ÷ 478","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2492,7 +2492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000046',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","3","9","÷","1","4","6","-","3","0","×","3","1","8"],"label":"839 ÷ 146 - 30 × 318","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["7","1","5","×","2","6","6","÷","2","0","0","-","8","3","4"],"label":"715 × 266 ÷ 200 - 834","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2500,7 +2500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000047',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","9",".","6","-","9","5","÷","8","7"],"label":"29.6 - 95 ÷ 87","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","1","×","4","0","-","6","3",".","1"],"label":"61 × 40 - 63.1","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2508,7 +2508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000048',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","9","÷","5","7","-","8","3"],"label":"49 ÷ 57 - 83","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","7","÷","1","4","-","4","9",".","4"],"label":"77 ÷ 14 - 49.4","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2516,7 +2516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000049',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","1","3","M+","6","1","5","M-","MRC","+","1",".","4"],"label":"213 M+ 615 M- MRC + 1.4","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","3","2","×","4","4","1","-","7","2","5"],"label":"232 × 441 - 725","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2524,7 +2524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","8","6","-","2","0","5","÷","4","7","8"],"label":"386 - 205 ÷ 478","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","9","8","M+","5","0","2","M+","MRC","+","2","8","4"],"label":"998 M+ 502 M+ MRC + 284","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2532,7 +2532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","1","5","×","2","6","6","÷","2","0","0","-","8","3","4"],"label":"715 × 266 ÷ 200 - 834","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["5","1","0","+","5","3","2","-","8","1",".","2","×","8","0","4","÷","6","5",".","8"],"label":"510 + 532 - 81.2 × 804 ÷ 65.8","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2540,7 +2540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","1","×","4","0","-","6","3",".","1"],"label":"61 × 40 - 63.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","-","3","5","-","9","0",".","5"],"label":"5 - 35 - 90.5","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2548,7 +2548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","7","÷","1","4","-","4","9",".","4"],"label":"77 ÷ 14 - 49.4","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","5","-","9","0","÷","8","8"],"label":"55 - 90 ÷ 88","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2556,7 +2556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","3","2","×","4","4","1","-","7","2","5"],"label":"232 × 441 - 725","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","3","1","M+","5","6","7","M-","MRC","-","3","8","3"],"label":"931 M+ 567 M- MRC - 383","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2564,7 +2564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000004f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","9","8","M+","5","0","2","M+","MRC","+","2","8","4"],"label":"998 M+ 502 M+ MRC + 284","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","7","3","÷","9","1","7","+","4","2","2","×","8","0","5"],"label":"873 ÷ 917 + 422 × 805","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2572,7 +2572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000050',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","1","0","+","5","3","2","-","8","1",".","2","×","8","0","4","÷","6","5",".","8"],"label":"510 + 532 - 81.2 × 804 ÷ 65.8","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["9","7",".","7","+","5","6","8","-","5","2","6","÷","4","7","5","×","5","9","5"],"label":"97.7 + 568 - 526 ÷ 475 × 595","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2580,7 +2580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000051',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","-","3","5","-","9","0",".","5"],"label":"5 - 35 - 90.5","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","7","×","7","3","-","7","6"],"label":"67 × 73 - 76","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2588,7 +2588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000052',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","5","-","9","0","÷","8","8"],"label":"55 - 90 ÷ 88","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","9","+","4","4"],"label":"69 + 44","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2596,7 +2596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000053',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","3","1","M+","5","6","7","M-","MRC","-","3","8","3"],"label":"931 M+ 567 M- MRC - 383","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","0","9","-","8","1","8","-","1","0","4","×","3","9","7"],"label":"109 - 818 - 104 × 397","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2604,7 +2604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000054',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","7","3","÷","9","1","7","+","4","2","2","×","8","0","5"],"label":"873 ÷ 917 + 422 × 805","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","1","M+","1","4",".","9","M+","MRC","+","8","2","8"],"label":"21 M+ 14.9 M+ MRC + 828","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2612,7 +2612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000055',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","7",".","7","+","5","6","8","-","5","2","6","÷","4","7","5","×","5","9","5"],"label":"97.7 + 568 - 526 ÷ 475 × 595","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","1","0","-","1","6","+","1","3","8","-","8","7",".","8","+","4","3",".","3"],"label":"810 - 16 + 138 - 87.8 + 43.3","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2620,7 +2620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000056',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","7","×","7","3","-","7","6"],"label":"67 × 73 - 76","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","7",".","4","×","4","6"],"label":"67.4 × 46","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2628,7 +2628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000057',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","9","+","4","4"],"label":"69 + 44","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","9","×","5","0","+","2","9"],"label":"69 × 50 + 29","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2636,7 +2636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000058',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","0","9","-","8","1","8","-","1","0","4","×","3","9","7"],"label":"109 - 818 - 104 × 397","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","2","8","-","1","8","4","÷","6",".","8","+","6","1","2"],"label":"828 - 184 ÷ 6.8 + 612","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2644,7 +2644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000059',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","1","M+","1","4",".","9","M+","MRC","+","8","2","8"],"label":"21 M+ 14.9 M+ MRC + 828","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","7","0","÷","5","5","3","-","4","0","9"],"label":"870 ÷ 553 - 409","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2652,7 +2652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","1","0","-","1","6","+","1","3","8","-","8","7",".","8","+","4","3",".","3"],"label":"810 - 16 + 138 - 87.8 + 43.3","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","5","3","M+","7","9",".","6","M+","MRC","÷","2","7",".","3"],"label":"853 M+ 79.6 M+ MRC ÷ 27.3","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2660,7 +2660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","7",".","4","×","4","6"],"label":"67.4 × 46","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","1","+","5","0"],"label":"91 + 50","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2668,7 +2668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","9","×","5","0","+","2","9"],"label":"69 × 50 + 29","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","3","+","2","2"],"label":"13 + 22","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2676,7 +2676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","2","8","-","1","8","4","÷","6",".","8","+","6","1","2"],"label":"828 - 184 ÷ 6.8 + 612","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","6","0","-","8","7","1","-","2","4","1"],"label":"260 - 871 - 241","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2684,7 +2684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","7","0","÷","5","5","3","-","4","0","9"],"label":"870 ÷ 553 - 409","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","5","6","÷","6","3","1","×","9","9","6","-","6","1","9"],"label":"356 ÷ 631 × 996 - 619","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2692,7 +2692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000005f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","5","3","M+","7","9",".","6","M+","MRC","÷","2","7",".","3"],"label":"853 M+ 79.6 M+ MRC ÷ 27.3","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","5","1","×","7","6","6","+","3","6","2","+","2","1",".","1"],"label":"651 × 766 + 362 + 21.1","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2700,7 +2700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000060',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","1","+","5","0"],"label":"91 + 50","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","8",".","5","+","7","5","÷","4","9"],"label":"38.5 + 75 ÷ 49","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2708,7 +2708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000061',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","3","+","2","2"],"label":"13 + 22","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","7","×","8","5",".","5","×","1","3",".","9"],"label":"77 × 85.5 × 13.9","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2716,7 +2716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000062',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","6","0","-","8","7","1","-","2","4","1"],"label":"260 - 871 - 241","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","6","1","+","2","7",".","7","×","6","2","0"],"label":"361 + 27.7 × 620","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2724,7 +2724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000063',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","5","6","÷","6","3","1","×","9","9","6","-","6","1","9"],"label":"356 ÷ 631 × 996 - 619","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","1","6","×","1","1","2","×","2","8","9","+","6","8","0"],"label":"116 × 112 × 289 + 680","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2732,7 +2732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000064',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","5","1","×","7","6","6","+","3","6","2","+","2","1",".","1"],"label":"651 × 766 + 362 + 21.1","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["4","2","1","M+","4","7","1","M+","MRC","+","8","7",".","1","+","4","8","7"],"label":"421 M+ 471 M+ MRC + 87.1 + 487","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2740,7 +2740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000065',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","8",".","5","+","7","5","÷","4","9"],"label":"38.5 + 75 ÷ 49","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","9","÷","1","0"],"label":"39 ÷ 10","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2748,7 +2748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000066',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","7","×","8","5",".","5","×","1","3",".","9"],"label":"77 × 85.5 × 13.9","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","5","÷","5","8"],"label":"15 ÷ 58","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2756,7 +2756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000067',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","6","1","+","2","7",".","7","×","6","2","0"],"label":"361 + 27.7 × 620","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","9","5","÷","6","2","4","÷","1","5","5"],"label":"395 ÷ 624 ÷ 155","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2764,7 +2764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000068',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","1","6","×","1","1","2","×","2","8","9","+","6","8","0"],"label":"116 × 112 × 289 + 680","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","2","2","-","7","9","0","-","9","8","4"],"label":"822 - 790 - 984","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2772,7 +2772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000069',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","2","1","M+","4","7","1","M+","MRC","+","8","7",".","1","+","4","8","7"],"label":"421 M+ 471 M+ MRC + 87.1 + 487","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["7","2","7","÷","5",".","6","+","7","4",".","2","+","1","7",".","3"],"label":"727 ÷ 5.6 + 74.2 + 17.3","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2780,7 +2780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","9","÷","1","0"],"label":"39 ÷ 10","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","4","×","3","×","1","8"],"label":"14 × 3 × 18","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2788,7 +2788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","5","÷","5","8"],"label":"15 ÷ 58","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","4","×","9","7"],"label":"54 × 97","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2796,7 +2796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","9","5","÷","6","2","4","÷","1","5","5"],"label":"395 ÷ 624 ÷ 155","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","1","7","+","1","8","2","÷","4","7","3","×","9","7","1"],"label":"617 + 182 ÷ 473 × 971","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2804,7 +2804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","2","2","-","7","9","0","-","9","8","4"],"label":"822 - 790 - 984","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","1","1","×","4","9","9","+","9","0","2"],"label":"211 × 499 + 902","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2812,7 +2812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","2","7","÷","5",".","6","+","7","4",".","2","+","1","7",".","3"],"label":"727 ÷ 5.6 + 74.2 + 17.3","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["9","8","0","-","8",".","5","-","3","2","5","÷","4","5","1","+","8","9","8"],"label":"980 - 8.5 - 325 ÷ 451 + 898","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2820,7 +2820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000006f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","4","×","3","×","1","8"],"label":"14 × 3 × 18","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","9","-","9","0","+","9","1"],"label":"19 - 90 + 91","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2828,7 +2828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000070',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","4","×","9","7"],"label":"54 × 97","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","8","+","6","8","×","6","4",".","1"],"label":"78 + 68 × 64.1","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2836,7 +2836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000071',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","1","7","+","1","8","2","÷","4","7","3","×","9","7","1"],"label":"617 + 182 ÷ 473 × 971","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","4","9","÷","5","5","6","×","3","6","1"],"label":"949 ÷ 556 × 361","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2844,7 +2844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000072',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","1","1","×","4","9","9","+","9","0","2"],"label":"211 × 499 + 902","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7",".","9","×","3","9","0","-","8","7","9","÷","8","3"],"label":"7.9 × 390 - 879 ÷ 83","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2852,7 +2852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000073',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","8","0","-","8",".","5","-","3","2","5","÷","4","5","1","+","8","9","8"],"label":"980 - 8.5 - 325 ÷ 451 + 898","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","2","2","÷","4","0","3","-","9","2","9","÷","2","4","8","×","1","5","3"],"label":"222 ÷ 403 - 929 ÷ 248 × 153","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2860,7 +2860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000074',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","9","-","9","0","+","9","1"],"label":"19 - 90 + 91","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","7","-","9","1"],"label":"77 - 91","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2868,7 +2868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000075',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","8","+","6","8","×","6","4",".","1"],"label":"78 + 68 × 64.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","4","+","4","4"],"label":"74 + 44","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2876,7 +2876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000076',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","4","9","÷","5","5","6","×","3","6","1"],"label":"949 ÷ 556 × 361","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","1",".","3","M+","8","7","5","M-","MRC","-","8","3","0"],"label":"71.3 M+ 875 M- MRC - 830","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2884,7 +2884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000077',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7",".","9","×","3","9","0","-","8","7","9","÷","8","3"],"label":"7.9 × 390 - 879 ÷ 83","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4","1",".","2","-","1","6","5","-","7","1",".","9","÷","3","2",".","8"],"label":"41.2 - 165 - 71.9 ÷ 32.8","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2892,7 +2892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000078',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","2","÷","4","0","3","-","9","2","9","÷","2","4","8","×","1","5","3"],"label":"222 ÷ 403 - 929 ÷ 248 × 153","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["5","6",".","2","÷","9","8",".","5","×","5","3",".","3","÷","3","2","4"],"label":"56.2 ÷ 98.5 × 53.3 ÷ 324","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2900,7 +2900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000079',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","7","-","9","1"],"label":"77 - 91","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","9","+","5","5",".","4","÷","2","6"],"label":"69 + 55.4 ÷ 26","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2908,7 +2908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","4","+","4","4"],"label":"74 + 44","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","2","-","5","2"],"label":"42 - 52","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2916,7 +2916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","1",".","3","M+","8","7","5","M-","MRC","-","8","3","0"],"label":"71.3 M+ 875 M- MRC - 830","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","9","4","÷","7","0","3","÷","1","9","4"],"label":"594 ÷ 703 ÷ 194","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2924,7 +2924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","1",".","2","-","1","6","5","-","7","1",".","9","÷","3","2",".","8"],"label":"41.2 - 165 - 71.9 ÷ 32.8","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","5","1","-","1","4","4","×","8","7",".","5","-","3","0","6"],"label":"351 - 144 × 87.5 - 306","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2932,7 +2932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","6",".","2","÷","9","8",".","5","×","5","3",".","3","÷","3","2","4"],"label":"56.2 ÷ 98.5 × 53.3 ÷ 324","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","0","2","-","7","8","7","+","4","0","7","÷","3","1","9"],"label":"802 - 787 + 407 ÷ 319","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2940,7 +2940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","9","+","5","5",".","4","÷","2","6"],"label":"69 + 55.4 ÷ 26","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","4","÷","8","2"],"label":"54 ÷ 82","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2948,7 +2948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000007f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","2","-","5","2"],"label":"42 - 52","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","3",".","6","+","5","4","-","1","2"],"label":"63.6 + 54 - 12","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2956,7 +2956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000080',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","9","4","÷","7","0","3","÷","1","9","4"],"label":"594 ÷ 703 ÷ 194","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","7","8","×","6","3","9","-","2","2","4","+","5","9","8"],"label":"578 × 639 - 224 + 598","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2964,7 +2964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000081',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","5","1","-","1","4","4","×","8","7",".","5","-","3","0","6"],"label":"351 - 144 × 87.5 - 306","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","1","3","+","6","9",".","7","-","2","9","0","-","9","0","3"],"label":"613 + 69.7 - 290 - 903","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2972,7 +2972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000082',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","0","2","-","7","8","7","+","4","0","7","÷","3","1","9"],"label":"802 - 787 + 407 ÷ 319","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["4","9","2","+","9","4","2","+","3","6",".","7","÷","4","4","1"],"label":"492 + 942 + 36.7 ÷ 441","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2980,7 +2980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000083',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","4","÷","8","2"],"label":"54 ÷ 82","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","9","÷","3","2"],"label":"19 ÷ 32","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2988,7 +2988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000084',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3",".","6","+","5","4","-","1","2"],"label":"63.6 + 54 - 12","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","3",".","7","÷","1","3"],"label":"83.7 ÷ 13","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -2996,7 +2996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000085',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","7","8","×","6","3","9","-","2","2","4","+","5","9","8"],"label":"578 × 639 - 224 + 598","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","0","3","+","5","1",".","4","×","2","0","0","-","6","9","9"],"label":"503 + 51.4 × 200 - 699","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3004,7 +3004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000086',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","1","3","+","6","9",".","7","-","2","9","0","-","9","0","3"],"label":"613 + 69.7 - 290 - 903","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","1","5","M+","1","9","4","M+","MRC","+","5","1","1"],"label":"515 M+ 194 M+ MRC + 511","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3012,7 +3012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000087',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","9","2","+","9","4","2","+","3","6",".","7","÷","4","4","1"],"label":"492 + 942 + 36.7 ÷ 441","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["1","0","2","÷","4","2","9","-","8","9","×","5","8","1"],"label":"102 ÷ 429 - 89 × 581","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3020,7 +3020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000088',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","9","÷","3","2"],"label":"19 ÷ 32","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","6","-","9","4","÷","7","7",".","5"],"label":"46 - 94 ÷ 77.5","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3028,7 +3028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000089',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","3",".","7","÷","1","3"],"label":"83.7 ÷ 13","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","9","+","8","5"],"label":"79 + 85","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3036,7 +3036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","0","3","+","5","1",".","4","×","2","0","0","-","6","9","9"],"label":"503 + 51.4 × 200 - 699","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","7","8","×","5","0","÷","8","3","0"],"label":"778 × 50 ÷ 830","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3044,7 +3044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","1","5","M+","1","9","4","M+","MRC","+","5","1","1"],"label":"515 M+ 194 M+ MRC + 511","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","6","÷","8","8","÷","8","1","3"],"label":"86 ÷ 88 ÷ 813","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3052,7 +3052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","0","2","÷","4","2","9","-","8","9","×","5","8","1"],"label":"102 ÷ 429 - 89 × 581","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","2","×","5","0","6","+","6","3",".","9","÷","1","0","9"],"label":"22 × 506 + 63.9 ÷ 109","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3060,7 +3060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","6","-","9","4","÷","7","7",".","5"],"label":"46 - 94 ÷ 77.5","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","3","+","6","2",".","2","+","9",".","7"],"label":"73 + 62.2 + 9.7","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3068,7 +3068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","9","+","8","5"],"label":"79 + 85","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["7","2","+","8","1"],"label":"72 + 81","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3076,7 +3076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000008f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","7","8","×","5","0","÷","8","3","0"],"label":"778 × 50 ÷ 830","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","2",".","2","M+","5","7",".","3","M+","MRC","÷","4","5","2"],"label":"52.2 M+ 57.3 M+ MRC ÷ 452","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3084,7 +3084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000090',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","÷","8","8","÷","8","1","3"],"label":"86 ÷ 88 ÷ 813","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","5",".","1","÷","5","3",".","4","-","9","2","6"],"label":"15.1 ÷ 53.4 - 926","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3092,7 +3092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000091',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","×","5","0","6","+","6","3",".","9","÷","1","0","9"],"label":"22 × 506 + 63.9 ÷ 109","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["7","3","8","×","6","5","2","+","6","2","7","÷","3","6",".","1"],"label":"738 × 652 + 627 ÷ 36.1","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3100,7 +3100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000092',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","3","+","6","2",".","2","+","9",".","7"],"label":"73 + 62.2 + 9.7","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","×","6","3"],"label":"2 × 63","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3108,7 +3108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000093',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","2","+","8","1"],"label":"72 + 81","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","0",".","3","×","2","+","5","7"],"label":"60.3 × 2 + 57","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3116,7 +3116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000094',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","2",".","2","M+","5","7",".","3","M+","MRC","÷","4","5","2"],"label":"52.2 M+ 57.3 M+ MRC ÷ 452","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","7","÷","4","5","+","8","2","7"],"label":"97 ÷ 45 + 827","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3124,7 +3124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000095',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","5",".","1","÷","5","3",".","4","-","9","2","6"],"label":"15.1 ÷ 53.4 - 926","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4",".","5","-","7","5",".","3","-","7","8"],"label":"4.5 - 75.3 - 78","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3132,7 +3132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000096',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","3","8","×","6","5","2","+","6","2","7","÷","3","6",".","1"],"label":"738 × 652 + 627 ÷ 36.1","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["3","6","9","÷","5","7","3","+","5","4","3","-","8","1","7","÷","2","3"],"label":"369 ÷ 573 + 543 - 817 ÷ 23","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3140,7 +3140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000097',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","×","6","3"],"label":"2 × 63","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","0","÷","2","3","×","5","5",".","5"],"label":"30 ÷ 23 × 55.5","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3148,7 +3148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000098',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","0",".","3","×","2","+","5","7"],"label":"60.3 × 2 + 57","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","0","×","4","7"],"label":"10 × 47","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3156,7 +3156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-500000000099',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","7","÷","4","5","+","8","2","7"],"label":"97 ÷ 45 + 827","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","1","4","-","8","8",".","2","÷","5","5","8","-","3","6","2"],"label":"114 - 88.2 ÷ 558 - 362","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3164,7 +3164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009a',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4",".","5","-","7","5",".","3","-","7","8"],"label":"4.5 - 75.3 - 78","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","9","6","+","7","7","0","÷","8","2","5","×","3","9","2"],"label":"696 + 770 ÷ 825 × 392","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3172,7 +3172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009b',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","6","9","÷","5","7","3","+","5","4","3","-","8","1","7","÷","2","3"],"label":"369 ÷ 573 + 543 - 817 ÷ 23","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["1",".","3","÷","4","0",".","4","×","4","7",".","7","÷","6","3","5","+","9","3",".","9"],"label":"1.3 ÷ 40.4 × 47.7 ÷ 635 + 93.9","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3180,7 +3180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009c',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","0","÷","2","3","×","5","5",".","5"],"label":"30 ÷ 23 × 55.5","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","6","÷","4","4"],"label":"46 ÷ 44","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3188,7 +3188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009d',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","0","×","4","7"],"label":"10 × 47","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","6",".","8","÷","6","5"],"label":"66.8 ÷ 65","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3196,7 +3196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009e',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","1","4","-","8","8",".","2","÷","5","5","8","-","3","6","2"],"label":"114 - 88.2 ÷ 558 - 362","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","6","1","÷","9","8","8","÷","9","5","5"],"label":"661 ÷ 988 ÷ 955","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3204,7 +3204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-50000000009f',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","9","6","+","7","7","0","÷","8","2","5","×","3","9","2"],"label":"696 + 770 ÷ 825 × 392","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","2","2","×","3","2","÷","3","7","8","-","6","0","0"],"label":"222 × 32 ÷ 378 - 600","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3212,7 +3212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1",".","3","÷","4","0",".","4","×","4","7",".","7","÷","6","3","5","+","9","3",".","9"],"label":"1.3 ÷ 40.4 × 47.7 ÷ 635 + 93.9","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","9",".","5","+","3","9",".","4","-","5","6","4","×","3","1","5","+","1","4","2"],"label":"29.5 + 39.4 - 564 × 315 + 142","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3220,7 +3220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a1',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","6","÷","4","4"],"label":"46 ÷ 44","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","2","+","2","0","÷","5","9"],"label":"62 + 20 ÷ 59","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3228,7 +3228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a2',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","6",".","8","÷","6","5"],"label":"66.8 ÷ 65","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","0","-","5","6"],"label":"90 - 56","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3236,7 +3236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a3',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","6","1","÷","9","8","8","÷","9","5","5"],"label":"661 ÷ 988 ÷ 955","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4","5",".","2","×","6","8","4","÷","3","1","÷","8","4","4"],"label":"45.2 × 684 ÷ 31 ÷ 844","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3244,7 +3244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a4',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","2","×","3","2","÷","3","7","8","-","6","0","0"],"label":"222 × 32 ÷ 378 - 600","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","6","5","M+","9","9","9","M+","MRC","÷","6","1",".","9"],"label":"865 M+ 999 M+ MRC ÷ 61.9","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3252,7 +3252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a5',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","9",".","5","+","3","9",".","4","-","5","6","4","×","3","1","5","+","1","4","2"],"label":"29.5 + 39.4 - 564 × 315 + 142","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","0","÷","5","9","1","÷","2","3","7","÷","1","5","6","-","7","1","5"],"label":"80 ÷ 591 ÷ 237 ÷ 156 - 715","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3260,7 +3260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a6',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","2","+","2","0","÷","5","9"],"label":"62 + 20 ÷ 59","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","0","+","5","6"],"label":"10 + 56","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3268,7 +3268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a7',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","0","-","5","6"],"label":"90 - 56","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","4","+","8","9"],"label":"14 + 89","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3276,7 +3276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a8',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","5",".","2","×","6","8","4","÷","3","1","÷","8","4","4"],"label":"45.2 × 684 ÷ 31 ÷ 844","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","9","5","×","8",".","3","÷","3","4","2"],"label":"595 × 8.3 ÷ 342","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3284,7 +3284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000a9',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","5","M+","9","9","9","M+","MRC","÷","6","1",".","9"],"label":"865 M+ 999 M+ MRC ÷ 61.9","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","2","7","-","5","5","6","×","7","9",".","7","-","9","9"],"label":"627 - 556 × 79.7 - 99","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3292,7 +3292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000aa',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","0","÷","5","9","1","÷","2","3","7","÷","1","5","6","-","7","1","5"],"label":"80 ÷ 591 ÷ 237 ÷ 156 - 715","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","3",".","8","×","5","8",".","5","÷","2","3","6","×","4","2"],"label":"63.8 × 58.5 ÷ 236 × 42","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3300,7 +3300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ab',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","0","+","5","6"],"label":"10 + 56","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","-","9","9"],"label":"6 - 99","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3308,7 +3308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ac',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","4","+","8","9"],"label":"14 + 89","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","5",".","9","-","3","2"],"label":"55.9 - 32","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3316,7 +3316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ad',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","9","5","×","8",".","3","÷","3","4","2"],"label":"595 × 8.3 ÷ 342","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","0","7","M+","3","5","7","M+","MRC","-","9","7","0"],"label":"707 M+ 357 M+ MRC - 970","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3324,7 +3324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ae',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","2","7","-","5","5","6","×","7","9",".","7","-","9","9"],"label":"627 - 556 × 79.7 - 99","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","6",".","9","×","1","5","4","+","6","9","0","+","6","8",".","6"],"label":"56.9 × 154 + 690 + 68.6","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3332,7 +3332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000af',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3",".","8","×","5","8",".","5","÷","2","3","6","×","4","2"],"label":"63.8 × 58.5 ÷ 236 × 42","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["4","6","5","+","7","4",".","5","×","4","4","×","1","9","0","÷","3","4",".","8"],"label":"465 + 74.5 × 44 × 190 ÷ 34.8","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3340,7 +3340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","-","9","9"],"label":"6 - 99","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","÷","2","2",".","1"],"label":"5 ÷ 22.1","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3348,7 +3348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b1',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","5",".","9","-","3","2"],"label":"55.9 - 32","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","8","×","7","1","÷","8","2",".","5"],"label":"18 × 71 ÷ 82.5","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3356,7 +3356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b2',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","0","7","M+","3","5","7","M+","MRC","-","9","7","0"],"label":"707 M+ 357 M+ MRC - 970","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","1","5","×","6","2","1","÷","2","5","2"],"label":"815 × 621 ÷ 252","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3364,7 +3364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b3',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","6",".","9","×","1","5","4","+","6","9","0","+","6","8",".","6"],"label":"56.9 × 154 + 690 + 68.6","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","7","9","×","3","6","2","+","9","9","6"],"label":"279 × 362 + 996","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3372,7 +3372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b4',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","6","5","+","7","4",".","5","×","4","4","×","1","9","0","÷","3","4",".","8"],"label":"465 + 74.5 × 44 × 190 ÷ 34.8","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","×","7","3","2","+","5","1","2","×","3","8","9"],"label":"6 × 732 + 512 × 389","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3380,7 +3380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b5',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","÷","2","2",".","1"],"label":"5 ÷ 22.1","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","5","×","8","7"],"label":"25 × 87","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3388,7 +3388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b6',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","8","×","7","1","÷","8","2",".","5"],"label":"18 × 71 ÷ 82.5","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","0","-","8","7","÷","3","7"],"label":"30 - 87 ÷ 37","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3396,7 +3396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b7',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","1","5","×","6","2","1","÷","2","5","2"],"label":"815 × 621 ÷ 252","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","3","6","-","1","5",".","3","-","4","6","4","×","1","3","2"],"label":"536 - 15.3 - 464 × 132","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3404,7 +3404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b8',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","7","9","×","3","6","2","+","9","9","6"],"label":"279 × 362 + 996","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","0","7","M+","4","M+","MRC","-","9","9",".","3"],"label":"607 M+ 4 M+ MRC - 99.3","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3412,7 +3412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000b9',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","×","7","3","2","+","5","1","2","×","3","8","9"],"label":"6 × 732 + 512 × 389","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["3","8",".","6","M+","4","1",".","5","M+","MRC","+","1","1",".","5"],"label":"38.6 M+ 41.5 M+ MRC + 11.5","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3420,7 +3420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ba',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","5","×","8","7"],"label":"25 × 87","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","÷","1","4"],"label":"4 ÷ 14","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3428,7 +3428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000bb',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","0","-","8","7","÷","3","7"],"label":"30 - 87 ÷ 37","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","0","×","2","3","-","7","9"],"label":"60 × 23 - 79","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3436,7 +3436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000bc',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","3","6","-","1","5",".","3","-","4","6","4","×","1","3","2"],"label":"536 - 15.3 - 464 × 132","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","8","2","×","1","8","4","÷","4","9","4","-","7","6","9"],"label":"782 × 184 ÷ 494 - 769","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3444,7 +3444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000bd',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","0","7","M+","4","M+","MRC","-","9","9",".","3"],"label":"607 M+ 4 M+ MRC - 99.3","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4","2","1","÷","8","6","8","+","5","8",".","6","-","3","4","3"],"label":"421 ÷ 868 + 58.6 - 343","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3452,7 +3452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000be',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","8",".","6","M+","4","1",".","5","M+","MRC","+","1","1",".","5"],"label":"38.6 M+ 41.5 M+ MRC + 11.5","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["2","7",".","9","-","1","1","8","×","7","4","0","-","3","3","0","÷","3","2",".","8"],"label":"27.9 - 118 × 740 - 330 ÷ 32.8","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3460,7 +3460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000bf',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","÷","1","4"],"label":"4 ÷ 14","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","2","×","8","8","+","8","2"],"label":"62 × 88 + 82","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3468,7 +3468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","0","×","2","3","-","7","9"],"label":"60 × 23 - 79","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","7","+","8","+","3","2"],"label":"17 + 8 + 32","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3476,7 +3476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c1',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","8","2","×","1","8","4","÷","4","9","4","-","7","6","9"],"label":"782 × 184 ÷ 494 - 769","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","2","2","×","7","8","7","×","9","4","0"],"label":"822 × 787 × 940","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3484,7 +3484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c2',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","2","1","÷","8","6","8","+","5","8",".","6","-","3","4","3"],"label":"421 ÷ 868 + 58.6 - 343","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["7","2","2","÷","8","3","7","-","5","8","4","×","4","8","2"],"label":"722 ÷ 837 - 584 × 482","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3492,7 +3492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c3',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","7",".","9","-","1","1","8","×","7","4","0","-","3","3","0","÷","3","2",".","8"],"label":"27.9 - 118 × 740 - 330 ÷ 32.8","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","3","1","-","1","6","9","×","3","6",".","1","÷","3","8","4","+","5","3","1"],"label":"631 - 169 × 36.1 ÷ 384 + 531","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3500,7 +3500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c4',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","2","×","8","8","+","8","2"],"label":"62 × 88 + 82","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","1",".","7","×","2","2","÷","1","1"],"label":"61.7 × 22 ÷ 11","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3508,7 +3508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c5',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","7","+","8","+","3","2"],"label":"17 + 8 + 32","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","4","÷","3"],"label":"14 ÷ 3","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3516,7 +3516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c6',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","2","2","×","7","8","7","×","9","4","0"],"label":"822 × 787 × 940","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","2","0","×","1","7","8","+","6","3","2","×","1","6","9"],"label":"220 × 178 + 632 × 169","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3524,7 +3524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c7',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","2","2","÷","8","3","7","-","5","8","4","×","4","8","2"],"label":"722 ÷ 837 - 584 × 482","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","5","8","×","9","8","0","-","3","5","9"],"label":"658 × 980 - 359","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3532,7 +3532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c8',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3","1","-","1","6","9","×","3","6",".","1","÷","3","8","4","+","5","3","1"],"label":"631 - 169 × 36.1 ÷ 384 + 531","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["7","6","8","÷","4","6","8","÷","7","6","+","8","2","2","+","1","0",".","7"],"label":"768 ÷ 468 ÷ 76 + 822 + 10.7","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3540,7 +3540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000c9',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","1",".","7","×","2","2","÷","1","1"],"label":"61.7 × 22 ÷ 11","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","+","2","4"],"label":"3 + 24","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3548,7 +3548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ca',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","4","÷","3"],"label":"14 ÷ 3","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["2","8","-","4","5"],"label":"28 - 45","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3556,7 +3556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000cb',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","2","0","×","1","7","8","+","6","3","2","×","1","6","9"],"label":"220 × 178 + 632 × 169","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","4",".","1","M+","1","6","2","M+","MRC","×","8","3","1"],"label":"64.1 M+ 162 M+ MRC × 831","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3564,7 +3564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000cc',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","5","8","×","9","8","0","-","3","5","9"],"label":"658 × 980 - 359","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["2","9","M+","7","8","8","M-","MRC","-","7","6","4"],"label":"29 M+ 788 M- MRC - 764","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3572,7 +3572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000cd',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["7","6","8","÷","4","6","8","÷","7","6","+","8","2","2","+","1","0",".","7"],"label":"768 ÷ 468 ÷ 76 + 822 + 10.7","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","6","8","÷","2","6",".","4","-","5","4","5","×","8","2",".","6","-","2","2",".","3"],"label":"868 ÷ 26.4 - 545 × 82.6 - 22.3","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3580,7 +3580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ce',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","+","2","4"],"label":"3 + 24","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","2","-","8","2","+","4","4"],"label":"32 - 82 + 44","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3588,7 +3588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000cf',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","8","-","4","5"],"label":"28 - 45","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","×","3","2"],"label":"9 × 32","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3596,7 +3596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","4",".","1","M+","1","6","2","M+","MRC","×","8","3","1"],"label":"64.1 M+ 162 M+ MRC × 831","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","1","÷","9","6","3","-","2","1"],"label":"11 ÷ 963 - 21","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3604,7 +3604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d1',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["2","9","M+","7","8","8","M-","MRC","-","7","6","4"],"label":"29 M+ 788 M- MRC - 764","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["3","4","0","÷","8","4","4","-","7","8","9"],"label":"340 ÷ 844 - 789","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3612,7 +3612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d2',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","8","÷","2","6",".","4","-","5","4","5","×","8","2",".","6","-","2","2",".","3"],"label":"868 ÷ 26.4 - 545 × 82.6 - 22.3","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["5","8","0","×","1","3","6","+","8","6","7","÷","1","9","7","×","2","1",".","9"],"label":"580 × 136 + 867 ÷ 197 × 21.9","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3620,7 +3620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d3',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","2","-","8","2","+","4","4"],"label":"32 - 82 + 44","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","-","8","1","÷","8","3"],"label":"9 - 81 ÷ 83","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3628,7 +3628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d4',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","×","3","2"],"label":"9 × 32","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["4","7",".","7","+","5","5"],"label":"47.7 + 55","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3636,7 +3636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d5',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","1","÷","9","6","3","-","2","1"],"label":"11 ÷ 963 - 21","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["4","2","5","×","8","6","7","×","1","7","3"],"label":"425 × 867 × 173","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3644,7 +3644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d6',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","4","0","÷","8","4","4","-","7","8","9"],"label":"340 ÷ 844 - 789","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["9","3","1","M+","4","9","2","M+","MRC","-","6","9","3"],"label":"931 M+ 492 M+ MRC - 693","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3652,7 +3652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d7',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","8","0","×","1","3","6","+","8","6","7","÷","1","9","7","×","2","1",".","9"],"label":"580 × 136 + 867 ÷ 197 × 21.9","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","6","3","-","3","6","+","2","2","7","+","7","1","5","×","5",".","5"],"label":"863 - 36 + 227 + 715 × 5.5","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3660,7 +3660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d8',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","-","8","1","÷","8","3"],"label":"9 - 81 ÷ 83","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["8","×","5","1","×","7"],"label":"8 × 51 × 7","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3668,7 +3668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000d9',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","7",".","7","+","5","5"],"label":"47.7 + 55","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","8","-","3","5"],"label":"18 - 35","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3676,7 +3676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000da',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["4","2","5","×","8","6","7","×","1","7","3"],"label":"425 × 867 × 173","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","1",".","5","-","5",".","1","-","1","9","6","+","9","7"],"label":"51.5 - 5.1 - 196 + 97","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3684,7 +3684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000db',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","3","1","M+","4","9","2","M+","MRC","-","6","9","3"],"label":"931 M+ 492 M+ MRC - 693","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","0","6","+","6","3","1","+","5","2",".","6","-","2","0",".","1"],"label":"806 + 631 + 52.6 - 20.1","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3692,7 +3692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000dc',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","6","3","-","3","6","+","2","2","7","+","7","1","5","×","5",".","5"],"label":"863 - 36 + 227 + 715 × 5.5","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","4","-","2","5",".","1","-","8","1",".","2","-","3","2","1"],"label":"84 - 25.1 - 81.2 - 321","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3700,7 +3700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000dd',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","×","5","1","×","7"],"label":"8 × 51 × 7","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["5","0","÷","6","4","+","4","1"],"label":"50 ÷ 64 + 41","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3708,7 +3708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000de',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","8","-","3","5"],"label":"18 - 35","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","9","+","9","1","×","9","9"],"label":"39 + 91 × 99","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3716,7 +3716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000df',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","1",".","5","-","5",".","1","-","1","9","6","+","9","7"],"label":"51.5 - 5.1 - 196 + 97","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","5","6","+","9","4","9","+","2","6","8","+","6","0",".","1"],"label":"556 + 949 + 268 + 60.1","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3724,7 +3724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","0","6","+","6","3","1","+","5","2",".","6","-","2","0",".","1"],"label":"806 + 631 + 52.6 - 20.1","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["5","1","0","×","8","5","+","4","6","5"],"label":"510 × 85 + 465","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3732,7 +3732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e1',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","4","-","2","5",".","1","-","8","1",".","2","-","3","2","1"],"label":"84 - 25.1 - 81.2 - 321","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","3",".","4","×","3",".","2","+","9","0","2","÷","5","2","6","+","5","8","6"],"label":"83.4 × 3.2 + 902 ÷ 526 + 586","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3740,7 +3740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e2',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","0","÷","6","4","+","4","1"],"label":"50 ÷ 64 + 41","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","0","×","7","6"],"label":"90 × 76","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3748,7 +3748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e3',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","9","+","9","1","×","9","9"],"label":"39 + 91 × 99","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6","3","×","1","9"],"label":"63 × 19","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3756,7 +3756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e4',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","5","6","+","9","4","9","+","2","6","8","+","6","0",".","1"],"label":"556 + 949 + 268 + 60.1","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","4","+","2","9","6","×","5","5","9","×","2","4","7"],"label":"84 + 296 × 559 × 247","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3764,7 +3764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e5',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["5","1","0","×","8","5","+","4","6","5"],"label":"510 × 85 + 465","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","4","4","+","6","3","0","-","6","4","9"],"label":"144 + 630 - 649","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3772,7 +3772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e6',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","3",".","4","×","3",".","2","+","9","0","2","÷","5","2","6","+","5","8","6"],"label":"83.4 × 3.2 + 902 ÷ 526 + 586","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["3","9","0","+","6","8","7","×","6","9","8","×","1","4","7","×","8","7",".","4"],"label":"390 + 687 × 698 × 147 × 87.4","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3780,7 +3780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e7',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["9","0","×","7","6"],"label":"90 × 76","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["1","0","+","4","0"],"label":"10 + 40","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3788,7 +3788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e8',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["6","3","×","1","9"],"label":"63 × 19","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["3","÷","9","7"],"label":"3 ÷ 97","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3796,7 +3796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000e9',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","4","+","2","9","6","×","5","5","9","×","2","4","7"],"label":"84 + 296 × 559 × 247","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["8","1","5","M+","1","9","9","M-","MRC","÷","9","7","7"],"label":"815 M+ 199 M- MRC ÷ 977","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3804,7 +3804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ea',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","4","4","+","6","3","0","-","6","4","9"],"label":"144 + 630 - 649","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["1","8","3","M+","2","6","1","M+","MRC","×","7","2"],"label":"183 M+ 261 M+ MRC × 72","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3812,7 +3812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000eb',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","9","0","+","6","8","7","×","6","9","8","×","1","4","7","×","8","7",".","4"],"label":"390 + 687 × 698 × 147 × 87.4","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["8","7","×","3","9","÷","1","6","3","-","5","9",".","8","+","1","6",".","6"],"label":"87 × 39 ÷ 163 - 59.8 + 16.6","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3820,7 +3820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ec',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","0","+","4","0"],"label":"10 + 40","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["9","3","×","8","7","×","1","7"],"label":"93 × 87 × 17","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3828,7 +3828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ed',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["3","÷","9","7"],"label":"3 ÷ 97","difficulty":"easy"}'::jsonb,
+    '{"button_sequence":["6",".","4","×","7","3","+","7","9"],"label":"6.4 × 73 + 79","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3836,7 +3836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ee',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","1","5","M+","1","9","9","M-","MRC","÷","9","7","7"],"label":"815 M+ 199 M- MRC ÷ 977","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","0","4","-","1","1","6","÷","4","6","1","+","9","4","5"],"label":"604 - 116 ÷ 461 + 945","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3844,7 +3844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000ef',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["1","8","3","M+","2","6","1","M+","MRC","×","7","2"],"label":"183 M+ 261 M+ MRC × 72","difficulty":"medium"}'::jsonb,
+    '{"button_sequence":["6","1","3","×","5","1","2","+","5","7","0","×","3","7","9"],"label":"613 × 512 + 570 × 379","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3852,7 +3852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-5000000000f0',
     'a1000001-0000-4000-8000-000000000005',
-    '{"button_sequence":["8","7","×","3","9","÷","1","6","3","-","5","9",".","8","+","1","6",".","6"],"label":"87 × 39 ÷ 163 - 59.8 + 16.6","difficulty":"hard"}'::jsonb,
+    '{"button_sequence":["6","2","8","+","8","7","5","-","1","0","8","×","4","0","9","×","6","1",".","2"],"label":"628 + 875 - 108 × 409 × 61.2","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3860,7 +3860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000001',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 34 cm by 11 cm. Find its perimeter.","answer":90,"category":"geometry","difficulty":"easy"}'::jsonb,
+    '{"expression":"A value of 387 increases by 10%. What is the new value? Give your answer to 2 d.p. if needed.","answer":425.7,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3868,7 +3868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000002',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 9 red and 6 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.6,"category":"probability","difficulty":"easy"}'::jsonb,
+    '{"expression":"A value of 244 increases by 10%. What is the new value? Give your answer to 2 d.p. if needed.","answer":268.4,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3876,7 +3876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000003',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:6. If A = 18, what is B?","answer":36,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A rectangle is 32 cm by 13 cm. Find its area.","answer":416,"category":"geometry","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3884,7 +3884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000004',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(152 - 61) × 7","answer":637,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"4.2 × 5.5","answer":23.1,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3892,7 +3892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000005',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(203 - 77) × 6","answer":756,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 2:6. If A = 14, what is B?","answer":42,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3900,7 +3900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000006',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3712 metres to kilometres, to 2 d.p.","answer":3.71,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 6x + 25 = 97.","answer":12,"category":"algebra","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3908,7 +3908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000007',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 18, 20, 34, 42, 79.","answer":61,"category":"basic_stats","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the range of 32, 51, 61, 65, 73.","answer":41,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3916,7 +3916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000008',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 7x + 14 = 42.","answer":4,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 398 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":537.3,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3924,7 +3924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000009',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 8590 metres to kilometres, to 2 d.p.","answer":8.59,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 5:9. If A = 60, what is B?","answer":108,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3932,7 +3932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/3 of 114?","answer":76,"category":"fractions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 69 minutes to hours, to 2 d.p.","answer":1.15,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3940,7 +3940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3756 metres to kilometres, to 2 d.p.","answer":3.76,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $280. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":238,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3948,7 +3948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 20% of 451? Give your answer to 2 d.p. if needed.","answer":90.2,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the range of 24, 33, 64, 66, 71.","answer":47,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3956,7 +3956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 306 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":420.75,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the range of 29, 34, 37, 57, 73.","answer":44,"category":"basic_stats","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3964,7 +3964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"2.1 × 6.6","answer":13.86,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 77, 68, 15, 71.","answer":57.75,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3972,7 +3972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000000f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 118 minutes to hours, to 2 d.p.","answer":1.97,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"190 + 45 × 13","answer":775,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3980,7 +3980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000010',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 156 increases by 25%. What is the new value? Give your answer to 2 d.p. if needed.","answer":195,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"123 + 91 × 2","answer":305,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3988,7 +3988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000011',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 170 increases by 20%. What is the new value? Give your answer to 2 d.p. if needed.","answer":204,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"A rectangle is 16 cm by 6 cm. Find its area.","answer":96,"category":"geometry","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -3996,7 +3996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000012',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"240 + 47 × 13","answer":851,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 2/5 of 120?","answer":48,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4004,7 +4004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000013',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.2 × 5.5","answer":23.1,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel at 80 km/h for 2.5 hours. What distance is covered?","answer":200,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4012,7 +4012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000014',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:6. If A = 14, what is B?","answer":42,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"220 + 34 × 3","answer":322,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4020,7 +4020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000015',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 6x + 25 = 97.","answer":12,"category":"algebra","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $89 after a 20% discount. How much was discounted, to the nearest cent?","answer":22.25,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4028,7 +4028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000016',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 32, 51, 61, 65, 73.","answer":41,"category":"basic_stats","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 7/12 of 672?","answer":392,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4036,7 +4036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000017',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 398 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":537.3,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"6.3 × 5.4","answer":34.02,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4044,7 +4044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000018',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:9. If A = 60, what is B?","answer":108,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $148. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":130.24,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4052,7 +4052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000019',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 69 minutes to hours, to 2 d.p.","answer":1.15,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the range of 20, 21, 57, 57, 77.","answer":57,"category":"basic_stats","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4060,7 +4060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $280. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":238,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 5x + 20 = 35.","answer":3,"category":"algebra","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4068,7 +4068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 24, 33, 64, 66, 71.","answer":47,"category":"basic_stats","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 3182 mL to litres, to 2 d.p.","answer":3.18,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4076,7 +4076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 29, 34, 37, 57, 73.","answer":44,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 35% of 161? Give your answer to 2 d.p. if needed.","answer":56.35,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4084,7 +4084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 77, 68, 15, 71.","answer":57.75,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 55, 23, 32, 16.","answer":31.5,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4092,7 +4092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"190 + 45 × 13","answer":775,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the mean of 63, 22, 71, 34, 27.","answer":43.4,"category":"averages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4100,7 +4100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000001f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"123 + 91 × 2","answer":305,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"217 + 62 × 6","answer":589,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4108,7 +4108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000020',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 16 cm by 6 cm. Find its area.","answer":96,"category":"geometry","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 4x + 27 = 67.","answer":10,"category":"algebra","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4116,7 +4116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000021',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/5 of 120?","answer":48,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $325. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":276.25,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4124,7 +4124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000022',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 80 km/h for 2.5 hours. What distance is covered?","answer":200,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"4.5 × 20","answer":90,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4132,7 +4132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000023',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"220 + 34 × 3","answer":322,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $175 after a 25% discount. How much was discounted, to the nearest cent?","answer":58.33,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4140,7 +4140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000024',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $89 after a 20% discount. How much was discounted, to the nearest cent?","answer":22.25,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 88 minutes to hours, to 2 d.p.","answer":1.47,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4148,7 +4148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000025',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 7/12 of 672?","answer":392,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"32"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"49"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"64"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":145,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4156,7 +4156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000026',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"6.3 × 5.4","answer":34.02,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel at 90 km/h for 2.5 hours. What distance is covered?","answer":225,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4164,7 +4164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000027',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $148. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":130.24,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 12% of 279? Give your answer to 2 d.p. if needed.","answer":33.48,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4172,7 +4172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000028',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 20, 21, 57, 57, 77.","answer":57,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"(135 - 17) × 8","answer":944,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4180,7 +4180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000029',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 5x + 20 = 35.","answer":3,"category":"algebra","difficulty":"easy"}'::jsonb,
+    '{"expression":"126 + 13 × 10","answer":256,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4188,7 +4188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3182 mL to litres, to 2 d.p.","answer":3.18,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A bag has 4 red and 7 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.36,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4196,7 +4196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 35% of 161? Give your answer to 2 d.p. if needed.","answer":56.35,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 2/5 of 245?","answer":98,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4204,7 +4204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 55, 23, 32, 16.","answer":31.5,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 35% of 401? Give your answer to 2 d.p. if needed.","answer":140.35,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4212,7 +4212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 63, 22, 71, 34, 27.","answer":43.4,"category":"averages","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 5:7. If A = 60, what is B?","answer":84,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4220,7 +4220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"217 + 62 × 6","answer":589,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"A rectangle is 26 cm by 6 cm. Find its area.","answer":156,"category":"geometry","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4228,7 +4228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000002f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 4x + 27 = 67.","answer":10,"category":"algebra","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 3/5 of 180?","answer":108,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4236,7 +4236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000030',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $325. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":276.25,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 163 minutes to hours, to 2 d.p.","answer":2.72,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4244,7 +4244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000031',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.5 × 20","answer":90,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"(214 - 9) × 2","answer":410,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4252,7 +4252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000032',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $175 after a 25% discount. How much was discounted, to the nearest cent?","answer":58.33,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $157 after a 15% discount. How much was discounted, to the nearest cent?","answer":27.71,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4260,7 +4260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000033',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 88 minutes to hours, to 2 d.p.","answer":1.47,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A bag has 9 red and 3 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.75,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4268,7 +4268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000034',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 32, Tue 49, Wed 64. What is the total for the three days?","answer":145,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $325. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":308.75,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4276,7 +4276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000035',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 90 km/h for 2.5 hours. What distance is covered?","answer":225,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 3:6. If A = 42, what is B?","answer":84,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4284,7 +4284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000036',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 12% of 279? Give your answer to 2 d.p. if needed.","answer":33.48,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 2/4 of 204?","answer":102,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4292,7 +4292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000037',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(135 - 17) × 8","answer":944,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"143 + 84 × 12","answer":1151,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4300,7 +4300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000038',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"126 + 13 × 10","answer":256,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 25% of 235? Give your answer to 2 d.p. if needed.","answer":58.75,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4308,7 +4308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000039',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 4 red and 7 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.36,"category":"probability","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 10% of 95? Give your answer to 2 d.p. if needed.","answer":9.5,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4316,7 +4316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/5 of 245?","answer":98,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"146 + 11 × 10","answer":256,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4324,7 +4324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 35% of 401? Give your answer to 2 d.p. if needed.","answer":140.35,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 28, 52, 84, 63.","answer":56.75,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4332,7 +4332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:7. If A = 60, what is B?","answer":84,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"A rectangle is 17 cm by 15 cm. Find its area.","answer":255,"category":"geometry","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4340,7 +4340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 26 cm by 6 cm. Find its area.","answer":156,"category":"geometry","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 69, 69, 71, 81.","answer":72.5,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4348,7 +4348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 3/5 of 180?","answer":108,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 4:5. If A = 72, what is B?","answer":90,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4356,7 +4356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000003f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 163 minutes to hours, to 2 d.p.","answer":2.72,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 23, 43, 13, 73.","answer":38,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4364,7 +4364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000040',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(214 - 9) × 2","answer":410,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"7.7 × 50","answer":385,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4372,7 +4372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000041',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $157 after a 15% discount. How much was discounted, to the nearest cent?","answer":27.71,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"Travel at 50 km/h for 1.5 hours. What distance is covered?","answer":75,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4380,7 +4380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000042',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 9 red and 3 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.75,"category":"probability","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 86, 31, 13, 49.","answer":44.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4388,7 +4388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000043',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $325. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":308.75,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel at 90 km/h for 0.5 hours. What distance is covered?","answer":45,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4396,7 +4396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000044',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:6. If A = 42, what is B?","answer":84,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 22, 69, 48, 85.","answer":56,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4404,7 +4404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000045',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/4 of 204?","answer":102,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A bag has 9 red and 6 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.6,"category":"probability","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4412,7 +4412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000046',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"143 + 84 × 12","answer":1151,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"A bag has 6 red and 6 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4420,7 +4420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000047',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 25% of 235? Give your answer to 2 d.p. if needed.","answer":58.75,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $71 after a 5% discount. How much was discounted, to the nearest cent?","answer":3.74,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4428,7 +4428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000048',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 10% of 95? Give your answer to 2 d.p. if needed.","answer":9.5,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 4/5 of 105?","answer":84,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4436,7 +4436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000049',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"146 + 11 × 10","answer":256,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 247 increases by 22%. What is the new value? Give your answer to 2 d.p. if needed.","answer":301.34,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4444,7 +4444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 28, 52, 84, 63.","answer":56.75,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 87, 78, 44, 77.","answer":71.5,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4452,7 +4452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 17 cm by 15 cm. Find its area.","answer":255,"category":"geometry","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the mean of 55, 82, 88, 83, 56.","answer":72.8,"category":"averages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4460,7 +4460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 69, 69, 71, 81.","answer":72.5,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 4:6. If A = 52, what is B?","answer":78,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4468,7 +4468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:5. If A = 72, what is B?","answer":90,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 5:3. If A = 70, what is B?","answer":42,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4476,7 +4476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 23, 43, 13, 73.","answer":38,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 125 minutes to hours, to 2 d.p.","answer":2.08,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4484,7 +4484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000004f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"7.7 × 50","answer":385,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"179 + 89 × 5","answer":624,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4492,7 +4492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000050',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 50 km/h for 1.5 hours. What distance is covered?","answer":75,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 5:9. If A = 45, what is B?","answer":81,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4500,7 +4500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000051',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 86, 31, 13, 49.","answer":44.75,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 3/5 of 55?","answer":33,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4508,7 +4508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000052',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 90 km/h for 0.5 hours. What distance is covered?","answer":45,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 4/6 of 360?","answer":240,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4516,7 +4516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000053',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 22, 69, 48, 85.","answer":56,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 4/5 of 110?","answer":88,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4524,7 +4524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000054',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 6 red and 6 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
+    '{"expression":"(180 - 88) × 5","answer":460,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4532,7 +4532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000055',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $71 after a 5% discount. How much was discounted, to the nearest cent?","answer":3.74,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 3:8. If A = 27, what is B?","answer":72,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4540,7 +4540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000056',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 4/5 of 105?","answer":84,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"(165 - 8) × 5","answer":785,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4548,7 +4548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000057',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 247 increases by 22%. What is the new value? Give your answer to 2 d.p. if needed.","answer":301.34,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"8.9 × 3.1","answer":27.59,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4556,7 +4556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000058',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 87, 78, 44, 77.","answer":71.5,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 3/10 of 440?","answer":132,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4564,7 +4564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000059',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 55, 82, 88, 83.","answer":77,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 46, 51, 88, 35.","answer":55,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4572,7 +4572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:6. If A = 60, what is B?","answer":72,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 3890 mL to litres, to 2 d.p.","answer":3.89,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4580,7 +4580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 5873 metres to kilometres, to 2 d.p.","answer":5.87,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 6236 metres to kilometres, to 2 d.p.","answer":6.24,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4588,7 +4588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(197 - 61) × 5","answer":680,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $201. It is discounted by 10%. What is the sale price, to the nearest cent?","answer":180.9,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4596,7 +4596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"179 + 89 × 5","answer":624,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 3:8. If A = 42, what is B?","answer":112,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4604,7 +4604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:9. If A = 45, what is B?","answer":81,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:6. If A = 60, what is B?","answer":90,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4612,7 +4612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000005f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 3/5 of 55?","answer":33,"category":"fractions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the range of 17, 23, 29, 59, 67.","answer":50,"category":"basic_stats","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4620,7 +4620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000060',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 4/6 of 360?","answer":240,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 50% of 268? Give your answer to 2 d.p. if needed.","answer":134,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4628,7 +4628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000061',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 4/5 of 110?","answer":88,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 5/8 of 248?","answer":155,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4636,7 +4636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000062',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(180 - 88) × 5","answer":460,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 2/3 of 33?","answer":22,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4644,7 +4644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000063',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:8. If A = 27, what is B?","answer":72,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 46, 53, 42, 44.","answer":46.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4652,7 +4652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000064',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(165 - 8) × 5","answer":785,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"(188 - 75) × 3","answer":339,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4660,7 +4660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000065',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"8.9 × 3.1","answer":27.59,"category":"decimals","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the range of 14, 37, 39, 58, 64.","answer":50,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4668,7 +4668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000066',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 3/10 of 440?","answer":132,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 52, 15, 37, 56.","answer":40,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4676,7 +4676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000067',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 46, 51, 88, 35.","answer":55,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $56. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":53.2,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4684,7 +4684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000068',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3890 mL to litres, to 2 d.p.","answer":3.89,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 2/4 of 72?","answer":36,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4692,7 +4692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000069',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 6236 metres to kilometres, to 2 d.p.","answer":6.24,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the range of 19, 28, 47, 72, 80.","answer":61,"category":"basic_stats","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4700,7 +4700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $201. It is discounted by 10%. What is the sale price, to the nearest cent?","answer":180.9,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $381. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":335.28,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4708,7 +4708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:8. If A = 42, what is B?","answer":112,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $299. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":254.15,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4716,7 +4716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:6. If A = 60, what is B?","answer":90,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"75"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"48"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"66"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":189,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4724,7 +4724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 17, 23, 29, 59, 67.","answer":50,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 7205 metres to kilometres, to 2 d.p.","answer":7.21,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4732,7 +4732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 37.5% of 580? Give your answer to 2 d.p. if needed.","answer":217.5,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"A value of 837 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":1129.95,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4740,7 +4740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000006f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 5/8 of 248?","answer":155,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 8x + 11 = 43.","answer":4,"category":"algebra","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4748,7 +4748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000070',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/3 of 33?","answer":22,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the median of 14, 49, 49, 63, 78.","answer":49,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4756,7 +4756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000071',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 46, 53, 42, 44.","answer":46.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"2.1 × 5.2","answer":10.92,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4764,7 +4764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000072',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(188 - 75) × 3","answer":339,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"124 + 57 × 14","answer":922,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4772,7 +4772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000073',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 14, 37, 39, 58, 64.","answer":50,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $171. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":145.35,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4780,7 +4780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000074',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 52, 15, 37, 56.","answer":40,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 20, 25, 16, 25.","answer":21.5,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4788,7 +4788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000075',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $56. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":53.2,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 65, 49, 82, 87.","answer":70.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4796,7 +4796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000076',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/4 of 72?","answer":36,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"2.4 × 20","answer":48,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4804,7 +4804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000077',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 19, 28, 47, 72, 80.","answer":61,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the median of 44, 47, 51, 51, 59.","answer":51,"category":"basic_stats","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4812,7 +4812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000078',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $381. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":335.28,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 5147 metres to kilometres, to 2 d.p.","answer":5.15,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4820,7 +4820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000079',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $299. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":254.15,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the median of 18, 21, 49, 63, 65.","answer":49,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4828,7 +4828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 75, Tue 48, Wed 66. What is the total for the three days?","answer":189,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 59, 84, 72, 36.","answer":62.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4836,7 +4836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 7205 metres to kilometres, to 2 d.p.","answer":7.21,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 300 km at 100 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4844,7 +4844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 364 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":491.4,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 49, 83, 22, 69.","answer":55.75,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4852,7 +4852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 8x + 11 = 51.","answer":5,"category":"algebra","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 4:6. If A = 24, what is B?","answer":36,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4860,7 +4860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 14, 49, 49, 63, 78.","answer":49,"category":"basic_stats","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 69, 81, 48, 85.","answer":70.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4868,7 +4868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000007f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"2.1 × 5.2","answer":10.92,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"2.1 × 3.4","answer":7.14,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4876,7 +4876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000080',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"124 + 57 × 14","answer":922,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 175 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":240.63,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4884,7 +4884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000081',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $171. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":145.35,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 7:5. If A = 35, what is B?","answer":25,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4892,7 +4892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000082',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 20, 25, 16, 25, 34.","answer":24,"category":"averages","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 35% of 208? Give your answer to 2 d.p. if needed.","answer":72.8,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4900,7 +4900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000083',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 180 km at 60 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 17, 53, 58, 67.","answer":48.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4908,7 +4908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000084',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"2.4 × 20","answer":48,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 67, 29, 55, 79.","answer":57.5,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4916,7 +4916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000085',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 44, 47, 51, 51, 59.","answer":51,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"199 + 34 × 5","answer":369,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4924,7 +4924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000086',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 5147 metres to kilometres, to 2 d.p.","answer":5.15,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 37.5 km at 50 km/h. How many hours does it take?","answer":0.75,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4932,7 +4932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000087',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 18, 21, 49, 63, 65.","answer":49,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 2/10 of 490?","answer":98,"category":"fractions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4940,7 +4940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000088',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 59, 84, 72, 36.","answer":62.75,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the range of 10, 17, 36, 51, 64.","answer":54,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4948,7 +4948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000089',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 300 km at 100 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 32, 31, 57, 77.","answer":49.25,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4956,7 +4956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 49, 83, 22, 69.","answer":55.75,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 18% of 414? Give your answer to 2 d.p. if needed.","answer":74.52,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4964,7 +4964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:6. If A = 24, what is B?","answer":36,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 61, 12, 88, 69.","answer":57.5,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4972,7 +4972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 69, 81, 48, 85, 42.","answer":65,"category":"averages","difficulty":"hard"}'::jsonb,
+    '{"expression":"(124 - 49) × 11","answer":825,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4980,7 +4980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"135 + 25 × 8","answer":335,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"1.8 × 6.3","answer":11.34,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4988,7 +4988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 12% of 460? Give your answer to 2 d.p. if needed.","answer":55.2,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 81, 80, 78, 30.","answer":67.25,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -4996,7 +4996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000008f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 3x + 10 = 31.","answer":7,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 8/10 of 220?","answer":176,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5004,7 +5004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000090',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"213 + 50 × 5","answer":463,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"4.9 × 2.8","answer":13.72,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5012,7 +5012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000091',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:8. If A = 40, what is B?","answer":64,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the median of 16, 29, 41, 41, 53.","answer":41,"category":"basic_stats","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5020,7 +5020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000092',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 80 km at 40 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"A value of 481 increases by 50%. What is the new value? Give your answer to 2 d.p. if needed.","answer":721.5,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5028,7 +5028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000093',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"199 + 34 × 5","answer":369,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"108 + 27 × 14","answer":486,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5036,7 +5036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000094',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 37.5 km at 50 km/h. How many hours does it take?","answer":0.75,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 76, 34, 61, 37.","answer":52,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5044,7 +5044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000095',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/10 of 490?","answer":98,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A bag has 8 red and 8 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5052,7 +5052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000096',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 10, 17, 36, 51, 64.","answer":54,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 120 minutes to hours, to 2 d.p.","answer":2,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5060,7 +5060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000097',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 32, 31, 57, 77.","answer":49.25,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 6:4. If A = 60, what is B?","answer":40,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5068,7 +5068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000098',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 18% of 414? Give your answer to 2 d.p. if needed.","answer":74.52,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 2491 mL to litres, to 2 d.p.","answer":2.49,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5076,7 +5076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000099',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 61, 12, 88, 69.","answer":57.5,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A rectangle is 32 cm by 22 cm. Find its perimeter.","answer":108,"category":"geometry","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5084,7 +5084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(124 - 49) × 11","answer":825,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 394 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":531.9,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5092,7 +5092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"1.8 × 6.3","answer":11.34,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 35% of 1165? Give your answer to 2 d.p. if needed.","answer":407.75,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5100,7 +5100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 81, 80, 78, 30.","answer":67.25,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"2.6 × 3.7","answer":9.62,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5108,7 +5108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 8/10 of 220?","answer":176,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:3. If A = 40, what is B?","answer":30,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5116,7 +5116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.9 × 2.8","answer":13.72,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"9 × 10","answer":90,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5124,7 +5124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000009f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 16, 29, 41, 41, 53.","answer":41,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"(103 - 27) × 11","answer":836,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5132,7 +5132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 1148 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":1578.5,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 2:8. If A = 22, what is B?","answer":88,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5140,7 +5140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"108 + 27 × 14","answer":486,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"4.7 × 10","answer":47,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5148,7 +5148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 76, 34, 61, 37.","answer":52,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 3409 mL to litres, to 2 d.p.","answer":3.41,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5156,7 +5156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 8 red and 8 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 240 km at 80 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5164,7 +5164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 120 minutes to hours, to 2 d.p.","answer":2,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 2:3. If A = 28, what is B?","answer":42,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5172,7 +5172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:4. If A = 60, what is B?","answer":40,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the mean of 86, 63, 75, 28, 61.","answer":62.6,"category":"averages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5180,7 +5180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 2491 mL to litres, to 2 d.p.","answer":2.49,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 56, 15, 47, 33.","answer":37.75,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5188,7 +5188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 32 cm by 22 cm. Find its perimeter.","answer":108,"category":"geometry","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 21, 62, 87, 20.","answer":47.5,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5196,7 +5196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 394 increases by 35%. What is the new value? Give your answer to 2 d.p. if needed.","answer":531.9,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 36, 62, 47, 88.","answer":58.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5204,7 +5204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000a9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 35% of 487? Give your answer to 2 d.p. if needed.","answer":170.45,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 100 km at 50 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5212,7 +5212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000aa',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"2.6 × 3.7","answer":9.62,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"expression":"A value of 1026 increases by 22%. What is the new value? Give your answer to 2 d.p. if needed.","answer":1251.72,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5220,7 +5220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ab',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:3. If A = 40, what is B?","answer":30,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"A bag has 5 red and 5 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5228,7 +5228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ac',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"9 × 10","answer":90,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 489 increases by 20%. What is the new value? Give your answer to 2 d.p. if needed.","answer":586.8,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5236,7 +5236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ad',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(103 - 27) × 11","answer":836,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 6:3. If A = 42, what is B?","answer":21,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5244,7 +5244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ae',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:8. If A = 22, what is B?","answer":88,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:7. If A = 20, what is B?","answer":35,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5252,7 +5252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000af',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.7 × 10","answer":47,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $280 after a 25% discount. How much was discounted, to the nearest cent?","answer":93.33,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5260,7 +5260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3409 mL to litres, to 2 d.p.","answer":3.41,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 57, 76, 76, 64.","answer":68.25,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5268,7 +5268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 240 km at 80 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"74"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"47"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"70"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":191,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5276,7 +5276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:3. If A = 28, what is B?","answer":42,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 30 km at 60 km/h. How many hours does it take?","answer":0.5,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5284,7 +5284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 86, 63, 75, 28.","answer":63,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 3/12 of 252?","answer":63,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5292,7 +5292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 111 minutes to hours, to 2 d.p.","answer":1.85,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Travel 45 km at 30 km/h. How many hours does it take?","answer":1.5,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5300,7 +5300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"163 + 30 × 5","answer":313,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 39, 35, 20, 50.","answer":36,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5308,7 +5308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 745 mL to litres, to 2 d.p.","answer":0.75,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:6. If A = 32, what is B?","answer":48,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5316,7 +5316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 36, 62, 47, 88.","answer":58.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $248. It is discounted by 20%. What is the sale price, to the nearest cent?","answer":198.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5324,7 +5324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 100 km at 50 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 3191 metres to kilometres, to 2 d.p.","answer":3.19,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5332,7 +5332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000b9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 1026 increases by 22%. What is the new value? Give your answer to 2 d.p. if needed.","answer":1251.72,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"Travel 20 km at 40 km/h. How many hours does it take?","answer":0.5,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5340,7 +5340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ba',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 5 red and 5 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"easy"}'::jsonb,
+    '{"expression":"A rectangle is 26 cm by 15 cm. Find its area.","answer":390,"category":"geometry","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5348,7 +5348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000bb',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 489 increases by 15%. What is the new value? Give your answer to 2 d.p. if needed.","answer":562.35,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 20% of 226? Give your answer to 2 d.p. if needed.","answer":45.2,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5356,7 +5356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000bc',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:3. If A = 42, what is B?","answer":21,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"(220 - 75) × 13","answer":1885,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5364,7 +5364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000bd',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:7. If A = 20, what is B?","answer":35,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 2:3. If A = 22, what is B?","answer":33,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5372,7 +5372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000be',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $280 after a 25% discount. How much was discounted, to the nearest cent?","answer":93.33,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 6:6. If A = 42, what is B?","answer":42,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5380,7 +5380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000bf',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 57, 76, 76, 64.","answer":68.25,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"57"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"72"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"54"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":183,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5388,7 +5388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 74, Tue 47, Wed 70. What is the total for the three days?","answer":191,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 486 increases by 10%. What is the new value? Give your answer to 2 d.p. if needed.","answer":534.6,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5396,7 +5396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 30 km at 60 km/h. How many hours does it take?","answer":0.5,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"(210 - 30) × 3","answer":540,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5404,7 +5404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 3/12 of 252?","answer":63,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"4.1 × 50","answer":205,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5412,7 +5412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 45 km at 30 km/h. How many hours does it take?","answer":1.5,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 7:8. If A = 119, what is B?","answer":136,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5420,7 +5420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 39, 35, 20, 50.","answer":36,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"(207 - 80) × 12","answer":1524,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5428,7 +5428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:6. If A = 32, what is B?","answer":48,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 87, 74, 17, 58.","answer":59,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5436,7 +5436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $248. It is discounted by 20%. What is the sale price, to the nearest cent?","answer":198.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 7:8. If A = 112, what is B?","answer":128,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5444,7 +5444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3191 metres to kilometres, to 2 d.p.","answer":3.19,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"138 + 52 × 4","answer":346,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5452,7 +5452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 20 km at 40 km/h. How many hours does it take?","answer":0.5,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 3:4. If A = 33, what is B?","answer":44,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5460,7 +5460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000c9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 26 cm by 15 cm. Find its area.","answer":390,"category":"geometry","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 2/3 of 36?","answer":24,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5468,7 +5468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ca',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 18% of 226? Give your answer to 2 d.p. if needed.","answer":40.68,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 218 increases by 20%. What is the new value? Give your answer to 2 d.p. if needed.","answer":261.6,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5476,7 +5476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000cb',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(220 - 75) × 13","answer":1885,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 440 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":605,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5484,7 +5484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000cc',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:3. If A = 22, what is B?","answer":33,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"68"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"21"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"58"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":147,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5492,7 +5492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000cd',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:6. If A = 42, what is B?","answer":42,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $65. It is discounted by 25%. What is the sale price, to the nearest cent?","answer":48.75,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5500,7 +5500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ce',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 57, Tue 72, Wed 54. What is the total for the three days?","answer":183,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 75, 29, 56, 80.","answer":60,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5508,7 +5508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000cf',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 486 increases by 15%. What is the new value? Give your answer to 2 d.p. if needed.","answer":558.9,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"171 + 20 × 10","answer":371,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5516,7 +5516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(210 - 30) × 3","answer":540,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"Solve for x: 5x + 16 = 56.","answer":8,"category":"algebra","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5524,7 +5524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.1 × 50","answer":205,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"(227 - 34) × 6","answer":1158,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5532,7 +5532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 7:8. If A = 119, what is B?","answer":136,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"207 + 84 × 8","answer":879,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5540,7 +5540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(207 - 80) × 12","answer":1524,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"181 + 90 × 8","answer":901,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5548,7 +5548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 87, 74, 17, 58.","answer":59,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:3. If A = 48, what is B?","answer":36,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5556,7 +5556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 7:8. If A = 112, what is B?","answer":128,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 7/12 of 168?","answer":98,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5564,7 +5564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"138 + 52 × 4","answer":346,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 50, 33, 33, 80.","answer":49,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5572,7 +5572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:4. If A = 33, what is B?","answer":44,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $53. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":50.35,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5580,7 +5580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/3 of 36?","answer":24,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A bag has 9 red and 8 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.53,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5588,7 +5588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000d9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 218 increases by 18%. What is the new value? Give your answer to 2 d.p. if needed.","answer":257.24,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:4. If A = 60, what is B?","answer":60,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5596,7 +5596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000da',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 440 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":605,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 26, 88, 68, 59.","answer":60.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5604,7 +5604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000db',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 68, Tue 21, Wed 58. What is the total for the three days?","answer":147,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 67, 74, 69, 56.","answer":66.5,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5612,7 +5612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000dc',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $65. It is discounted by 25%. What is the sale price, to the nearest cent?","answer":48.75,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"Travel at 40 km/h for 3 hours. What distance is covered?","answer":120,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5620,7 +5620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000dd',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 75, 29, 56, 80.","answer":60,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"(227 - 14) × 11","answer":2343,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5628,7 +5628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000de',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"171 + 20 × 10","answer":371,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 2385 mL to litres, to 2 d.p.","answer":2.38,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5636,7 +5636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000df',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 5x + 16 = 56.","answer":8,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 2:8. If A = 16, what is B?","answer":64,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5644,7 +5644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(227 - 34) × 6","answer":1158,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"(237 - 24) × 5","answer":1065,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5652,7 +5652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"207 + 84 × 8","answer":879,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 4:7. If A = 32, what is B?","answer":56,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5660,7 +5660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"181 + 90 × 8","answer":901,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 3501 mL to litres, to 2 d.p.","answer":3.5,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5668,7 +5668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:3. If A = 48, what is B?","answer":36,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 15% of 406? Give your answer to 2 d.p. if needed.","answer":60.9,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5676,7 +5676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 7/12 of 168?","answer":98,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"(107 - 75) × 2","answer":64,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5684,7 +5684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 50, 33, 33, 80.","answer":49,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Solve for x: 7x + 3 = 59.","answer":8,"category":"algebra","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5692,7 +5692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $53. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":50.35,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $107 after a 20% discount. How much was discounted, to the nearest cent?","answer":26.75,"category":"financial_maths","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5700,7 +5700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 9 red and 8 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.53,"category":"probability","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel 135 km at 90 km/h. How many hours does it take?","answer":1.5,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5708,7 +5708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:4. If A = 60, what is B?","answer":60,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"142 + 12 × 3","answer":178,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5716,7 +5716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000e9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 26, 88, 68, 59.","answer":60.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 1/3 of 69?","answer":23,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5724,7 +5724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ea',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 67, 74, 69, 56, 67.","answer":66.6,"category":"averages","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 12% of 482? Give your answer to 2 d.p. if needed.","answer":57.84,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5732,7 +5732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000eb',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 447 increases by 20%. What is the new value? Give your answer to 2 d.p. if needed.","answer":536.4,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"A rectangle is 26 cm by 9 cm. Find its perimeter.","answer":70,"category":"geometry","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5740,7 +5740,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ec',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 16, 57, 60, 61, 68.","answer":52,"category":"basic_stats","difficulty":"easy"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"71"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"36"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"94"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":201,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5748,7 +5748,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ed',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:8. If A = 16, what is B?","answer":64,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"121 + 62 × 4","answer":369,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5756,7 +5756,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ee',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(237 - 24) × 5","answer":1065,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 30, 22, 41, 50.","answer":35.75,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5764,7 +5764,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ef',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:7. If A = 32, what is B?","answer":56,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 5:4. If A = 85, what is B?","answer":68,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5772,7 +5772,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f0',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3501 mL to litres, to 2 d.p.","answer":3.5,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 6:5. If A = 108, what is B?","answer":90,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5780,7 +5780,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f1',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 10% of 406? Give your answer to 2 d.p. if needed.","answer":40.6,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 4:6. If A = 72, what is B?","answer":108,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5788,7 +5788,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f2',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(107 - 75) × 2","answer":64,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"(196 - 64) × 8","answer":1056,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5796,7 +5796,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f3',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 7x + 3 = 59.","answer":8,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 2:7. If A = 26, what is B?","answer":91,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5804,7 +5804,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f4',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $107 after a 20% discount. How much was discounted, to the nearest cent?","answer":26.75,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 2/5 of 95?","answer":38,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5812,7 +5812,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f5',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 135 km at 90 km/h. How many hours does it take?","answer":1.5,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 35% of 961? Give your answer to 2 d.p. if needed.","answer":336.35,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5820,7 +5820,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f6',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"142 + 12 × 3","answer":178,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 58, 38, 18, 84.","answer":49.5,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5828,7 +5828,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f7',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 1/3 of 69?","answer":23,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 35% of 109? Give your answer to 2 d.p. if needed.","answer":38.15,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5836,7 +5836,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f8',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 12% of 482? Give your answer to 2 d.p. if needed.","answer":57.84,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 4/8 of 176?","answer":88,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5844,7 +5844,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000f9',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 26 cm by 9 cm. Find its perimeter.","answer":70,"category":"geometry","difficulty":"hard"}'::jsonb,
+    '{"expression":"234 + 22 × 2","answer":278,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5852,7 +5852,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000fa',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 71, Tue 36, Wed 94. What is the total for the three days?","answer":201,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
+    '{"expression":"6.8 × 25","answer":170,"category":"decimals","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5860,7 +5860,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000fb',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"121 + 62 × 4","answer":369,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"123 + 30 × 5","answer":273,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5868,7 +5868,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000fc',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 30, 22, 41, 50.","answer":35.75,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 86, 39, 78, 62.","answer":66.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5876,7 +5876,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000fd',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:4. If A = 85, what is B?","answer":68,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"118 + 32 × 4","answer":246,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5884,7 +5884,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000fe',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:5. If A = 108, what is B?","answer":90,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"expression":"Travel 180 km at 90 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5892,7 +5892,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-6000000000ff',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:6. If A = 72, what is B?","answer":108,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 41 minutes to hours, to 2 d.p.","answer":0.68,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5900,7 +5900,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000100',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(196 - 64) × 8","answer":1056,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 6:9. If A = 96, what is B?","answer":144,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5908,7 +5908,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000101',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:7. If A = 26, what is B?","answer":91,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 3:9. If A = 27, what is B?","answer":81,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5916,7 +5916,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000102',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/5 of 95?","answer":38,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $152. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":144.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5924,7 +5924,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000103',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 35% of 961? Give your answer to 2 d.p. if needed.","answer":336.35,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 8150 metres to kilometres, to 2 d.p.","answer":8.15,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5932,7 +5932,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000104',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 58, 38, 18, 84.","answer":49.5,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 37.5% of 1151? Give your answer to 2 d.p. if needed.","answer":431.63,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5940,7 +5940,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000105',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 25% of 109? Give your answer to 2 d.p. if needed.","answer":27.25,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"9 × 9","answer":81,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5948,7 +5948,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000106',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 4/8 of 176?","answer":88,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 1/3 of 159?","answer":53,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5956,7 +5956,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000107',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"234 + 22 × 2","answer":278,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 15% of 393? Give your answer to 2 d.p. if needed.","answer":58.95,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5964,7 +5964,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000108',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"6.8 × 25","answer":170,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $218. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":191.84,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5972,7 +5972,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000109',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"123 + 30 × 5","answer":273,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 62 minutes to hours, to 2 d.p.","answer":1.03,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5980,7 +5980,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 86, 39, 78, 62.","answer":66.25,"category":"averages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 334 metres to kilometres, to 2 d.p.","answer":0.33,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5988,7 +5988,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"118 + 32 × 4","answer":246,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"5.2 × 3.9","answer":20.28,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -5996,7 +5996,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 180 km at 90 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 86, 63, 48, 17.","answer":53.5,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6004,7 +6004,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 41 minutes to hours, to 2 d.p.","answer":0.68,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"A bag has 4 red and 4 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6012,7 +6012,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:9. If A = 96, what is B?","answer":144,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 12% of 292? Give your answer to 2 d.p. if needed.","answer":35.04,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6020,7 +6020,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000010f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:9. If A = 27, what is B?","answer":81,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"71"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"76"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"75"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":222,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6028,7 +6028,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000110',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $152. It is discounted by 5%. What is the sale price, to the nearest cent?","answer":144.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 11/12 of 432?","answer":396,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6036,7 +6036,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000111',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 8150 metres to kilometres, to 2 d.p.","answer":8.15,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the range of 12, 22, 32, 37, 52.","answer":40,"category":"basic_stats","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6044,7 +6044,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000112',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 37.5% of 1151? Give your answer to 2 d.p. if needed.","answer":431.63,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"A:B = 6:3. If A = 90, what is B?","answer":45,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6052,7 +6052,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000113',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"9 × 9","answer":81,"category":"decimals","difficulty":"easy"}'::jsonb,
+    '{"expression":"9.3 × 10","answer":93,"category":"decimals","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6060,7 +6060,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000114',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 1/3 of 159?","answer":53,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"236 + 82 × 5","answer":646,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6068,7 +6068,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000115',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 15% of 393? Give your answer to 2 d.p. if needed.","answer":58.95,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Solve for x: 6x + 4 = 76.","answer":12,"category":"algebra","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6076,7 +6076,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000116',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $218. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":191.84,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 18% of 494? Give your answer to 2 d.p. if needed.","answer":88.92,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6084,7 +6084,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000117',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 62 minutes to hours, to 2 d.p.","answer":1.03,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the mean of 21, 43, 23, 34.","answer":30.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6092,7 +6092,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000118',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 334 metres to kilometres, to 2 d.p.","answer":0.33,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the mean of 30, 20, 51, 24, 34.","answer":31.8,"category":"averages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6100,7 +6100,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000119',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"5.2 × 3.9","answer":20.28,"category":"decimals","difficulty":"easy"}'::jsonb,
+    '{"expression":"An item costs $383. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":325.55,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6108,7 +6108,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 86, 63, 48, 17.","answer":53.5,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"147 + 52 × 7","answer":511,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6116,7 +6116,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 4 red and 4 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
+    '{"expression":"A rectangle is 6 cm by 14 cm. Find its area.","answer":84,"category":"geometry","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6124,7 +6124,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 12% of 292? Give your answer to 2 d.p. if needed.","answer":35.04,"category":"percentages","difficulty":"hard"}'::jsonb,
+    '{"expression":"An item costs $304 after a 20% discount. How much was discounted, to the nearest cent?","answer":76,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6132,7 +6132,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 71, Tue 76, Wed 75. What is the total for the three days?","answer":222,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 5x + 20 = 85.","answer":13,"category":"algebra","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6140,7 +6140,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 11/12 of 432?","answer":396,"category":"fractions","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 5:8. If A = 85, what is B?","answer":136,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6148,7 +6148,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000011f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 12, 22, 32, 37, 52.","answer":40,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 90 km at 30 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6156,7 +6156,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000120',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 6:3. If A = 90, what is B?","answer":45,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 3:7. If A = 39, what is B?","answer":91,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6164,7 +6164,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000121',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"9.3 × 10","answer":93,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 91 minutes to hours, to 2 d.p.","answer":1.52,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6172,7 +6172,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000122',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"236 + 82 × 5","answer":646,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel at 60 km/h for 0.75 hours. What distance is covered?","answer":45,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6180,7 +6180,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000123',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 6x + 4 = 76.","answer":12,"category":"algebra","difficulty":"easy"}'::jsonb,
+    '{"expression":"A:B = 2:3. If A = 24, what is B?","answer":36,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6188,7 +6188,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000124',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 18% of 494? Give your answer to 2 d.p. if needed.","answer":88.92,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel at 90 km/h for 0.75 hours. What distance is covered?","answer":67.5,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6196,7 +6196,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000125',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 21, 43, 23, 34.","answer":30.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 58, 33, 24, 70.","answer":46.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6204,7 +6204,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000126',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 30, 20, 51, 24, 34.","answer":31.8,"category":"averages","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 3655 metres to kilometres, to 2 d.p.","answer":3.66,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6212,7 +6212,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000127',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $383. It is discounted by 15%. What is the sale price, to the nearest cent?","answer":325.55,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"198 + 46 × 9","answer":612,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6220,7 +6220,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000128',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"147 + 52 × 7","answer":511,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel at 30 km/h for 0.5 hours. What distance is covered?","answer":15,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6228,7 +6228,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000129',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 6 cm by 14 cm. Find its area.","answer":84,"category":"geometry","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 37.5% of 450? Give your answer to 2 d.p. if needed.","answer":168.75,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6236,7 +6236,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $304 after a 20% discount. How much was discounted, to the nearest cent?","answer":76,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 47, 25, 52, 17.","answer":35.25,"category":"averages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6244,7 +6244,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 5x + 20 = 85.","answer":13,"category":"algebra","difficulty":"hard"}'::jsonb,
+    '{"expression":"A value of 489 increases by 15%. What is the new value? Give your answer to 2 d.p. if needed.","answer":562.35,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6252,7 +6252,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:8. If A = 85, what is B?","answer":136,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 2043 mL to litres, to 2 d.p.","answer":2.04,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6260,7 +6260,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 90 km at 30 km/h. How many hours does it take?","answer":3,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the median of 24, 50, 58, 59, 62.","answer":58,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6268,7 +6268,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:7. If A = 39, what is B?","answer":91,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"(229 - 87) × 10","answer":1420,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6276,7 +6276,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000012f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 91 minutes to hours, to 2 d.p.","answer":1.52,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A bag has 7 red and 5 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.58,"category":"probability","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6284,7 +6284,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000130',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 60 km/h for 0.75 hours. What distance is covered?","answer":45,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
+    '{"expression":"4.6 × 4.7","answer":21.62,"category":"decimals","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6292,7 +6292,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000131',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 2:3. If A = 24, what is B?","answer":36,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"What is 37.5% of 638? Give your answer to 2 d.p. if needed.","answer":239.25,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6300,7 +6300,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000132',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 90 km/h for 0.75 hours. What distance is covered?","answer":67.5,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"227 + 36 × 2","answer":299,"category":"arithmetic","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6308,7 +6308,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000133',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 58, 33, 24, 70.","answer":46.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:9. If A = 44, what is B?","answer":99,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6316,7 +6316,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000134',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3655 metres to kilometres, to 2 d.p.","answer":3.66,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $380 after a 15% discount. How much was discounted, to the nearest cent?","answer":67.06,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6324,7 +6324,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000135',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"198 + 46 × 9","answer":612,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"Convert 1316 metres to kilometres, to 2 d.p.","answer":1.32,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6332,7 +6332,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000136',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel at 30 km/h for 0.5 hours. What distance is covered?","answer":15,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 3311 mL to litres, to 2 d.p.","answer":3.31,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6340,7 +6340,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000137',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 50% of 450? Give your answer to 2 d.p. if needed.","answer":225,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the range of 19, 29, 31, 47, 74.","answer":55,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6348,7 +6348,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000138',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 47, 25, 52, 17.","answer":35.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 403 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":451.36,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6356,7 +6356,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000139',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 2043 mL to litres, to 2 d.p.","answer":2.04,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 8405 metres to kilometres, to 2 d.p.","answer":8.4,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6364,7 +6364,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 24, 50, 58, 59, 62.","answer":58,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"A value of 84 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":115.5,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6372,7 +6372,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(229 - 87) × 10","answer":1420,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 8x + 6 = 94.","answer":11,"category":"algebra","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6380,7 +6380,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 7 red and 5 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.58,"category":"probability","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 50% of 450? Give your answer to 2 d.p. if needed.","answer":225,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6388,7 +6388,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"4.6 × 4.7","answer":21.62,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"(112 - 55) × 2","answer":114,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6396,7 +6396,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 37.5% of 289? Give your answer to 2 d.p. if needed.","answer":108.38,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $123. It is discounted by 20%. What is the sale price, to the nearest cent?","answer":98.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6404,7 +6404,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000013f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"227 + 36 × 2","answer":299,"category":"arithmetic","difficulty":"hard"}'::jsonb,
+    '{"expression":"A value of 1146 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":1283.52,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6412,7 +6412,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000140',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:9. If A = 44, what is B?","answer":99,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel 200 km at 80 km/h. How many hours does it take?","answer":2.5,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6420,7 +6420,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000141',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $380 after a 15% discount. How much was discounted, to the nearest cent?","answer":67.06,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 3/5 of 185?","answer":111,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6428,7 +6428,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000142',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 1316 metres to kilometres, to 2 d.p.","answer":1.32,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Solve for x: 5x + 32 = 67.","answer":7,"category":"algebra","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6436,7 +6436,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000143',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 3311 mL to litres, to 2 d.p.","answer":3.31,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 3:6. If A = 45, what is B?","answer":90,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6444,7 +6444,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000144',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the range of 19, 29, 31, 47, 74.","answer":55,"category":"basic_stats","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 12% of 753? Give your answer to 2 d.p. if needed.","answer":90.36,"category":"percentages","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6452,7 +6452,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000145',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 403 increases by 10%. What is the new value? Give your answer to 2 d.p. if needed.","answer":443.3,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"Find the median of 31, 38, 49, 53, 79.","answer":49,"category":"basic_stats","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6460,7 +6460,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000146',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 8405 metres to kilometres, to 2 d.p.","answer":8.4,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $395. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":347.6,"category":"financial_maths","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6468,7 +6468,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000147',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 84 increases by 37.5%. What is the new value? Give your answer to 2 d.p. if needed.","answer":115.5,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"(228 - 87) × 8","answer":1128,"category":"arithmetic","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6476,7 +6476,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000148',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 8x + 6 = 70.","answer":8,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 98 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":109.76,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6484,7 +6484,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000149',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(112 - 55) × 2","answer":114,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"Convert 643 mL to litres, to 2 d.p.","answer":0.64,"category":"unit_conversions","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6492,7 +6492,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $123. It is discounted by 20%. What is the sale price, to the nearest cent?","answer":98.4,"category":"financial_maths","difficulty":"medium"}'::jsonb,
+    '{"expression":"A bag has 7 red and 9 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.44,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6500,7 +6500,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 480 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":537.6,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 5:8. If A = 25, what is B?","answer":40,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6508,7 +6508,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 200 km at 80 km/h. How many hours does it take?","answer":2.5,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
+    '{"expression":"An item costs $243. It is discounted by 25%. What is the sale price, to the nearest cent?","answer":182.25,"category":"financial_maths","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6516,7 +6516,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 3/5 of 185?","answer":111,"category":"fractions","difficulty":"hard"}'::jsonb,
+    '{"expression":"Find the median of 20, 30, 45, 50, 53.","answer":45,"category":"basic_stats","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6524,7 +6524,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 5x + 32 = 67.","answer":7,"category":"algebra","difficulty":"easy"}'::jsonb,
+    '{"expression":"1.9 × 1.9","answer":3.61,"category":"decimals","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6532,7 +6532,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000014f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 3:6. If A = 45, what is B?","answer":90,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 51, 19, 16, 27.","answer":28.25,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6540,7 +6540,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000150',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 12% of 332? Give your answer to 2 d.p. if needed.","answer":39.84,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"1.4 × 4.2","answer":5.88,"category":"decimals","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6548,7 +6548,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000151',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 31, 38, 49, 53, 79.","answer":49,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"29"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"52"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"49"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":130,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6556,7 +6556,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000152',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $395. It is discounted by 12%. What is the sale price, to the nearest cent?","answer":347.6,"category":"financial_maths","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 2/10 of 250?","answer":50,"category":"fractions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6564,7 +6564,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000153',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(228 - 87) × 8","answer":1128,"category":"arithmetic","difficulty":"easy"}'::jsonb,
+    '{"expression":"(133 - 66) × 2","answer":134,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6572,7 +6572,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000154',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 98 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":109.76,"category":"percentages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 423 metres to kilometres, to 2 d.p.","answer":0.42,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6580,7 +6580,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000155',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 643 mL to litres, to 2 d.p.","answer":0.64,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"A rectangle is 23 cm by 8 cm. Find its area.","answer":184,"category":"geometry","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6588,7 +6588,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000156',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A bag has 7 red and 9 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.44,"category":"probability","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 470 increases by 12%. What is the new value? Give your answer to 2 d.p. if needed.","answer":526.4,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6596,7 +6596,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000157',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 5:8. If A = 25, what is B?","answer":40,"category":"proportion_ratios","difficulty":"hard"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"53"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"24"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"94"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":171,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6604,7 +6604,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000158',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"An item costs $243. It is discounted by 25%. What is the sale price, to the nearest cent?","answer":182.25,"category":"financial_maths","difficulty":"easy"}'::jsonb,
+    '{"expression":"Solve for x: 7x + 10 = 73.","answer":9,"category":"algebra","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6612,7 +6612,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000159',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the median of 20, 30, 45, 50, 53.","answer":45,"category":"basic_stats","difficulty":"medium"}'::jsonb,
+    '{"expression":"Find the mean of 27, 86, 38, 33.","answer":46,"category":"averages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6620,7 +6620,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015a',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"1.9 × 1.9","answer":3.61,"category":"decimals","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel 200 km at 100 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6628,7 +6628,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015b',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 51, 19, 16, 27.","answer":28.25,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"A:B = 4:9. If A = 60, what is B?","answer":135,"category":"proportion_ratios","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6636,7 +6636,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015c',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"1.4 × 4.2","answer":5.88,"category":"decimals","difficulty":"hard"}'::jsonb,
+    '{"question":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The table shows the number of bookings over three days."}]},{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Day"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Bookings"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Mon"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"79"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Tue"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"68"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Wed"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"77"}]}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"What is the total number of bookings?"}]}]},"answer":224,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6644,7 +6644,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015d',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 29, Tue 52, Wed 49. What is the total for the three days?","answer":130,"category":"graphs_tables","difficulty":"easy"}'::jsonb,
+    '{"expression":"Travel 15 km at 30 km/h. How many hours does it take?","answer":0.5,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6652,7 +6652,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015e',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"What is 2/10 of 250?","answer":50,"category":"fractions","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 10% of 160? Give your answer to 2 d.p. if needed.","answer":16,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6660,7 +6660,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-60000000015f',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"(133 - 66) × 2","answer":134,"category":"arithmetic","difficulty":"medium"}'::jsonb,
+    '{"expression":"What is 4/10 of 330?","answer":132,"category":"fractions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6668,7 +6668,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000160',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Convert 423 metres to kilometres, to 2 d.p.","answer":0.42,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
+    '{"expression":"Travel at 30 km/h for 3 hours. What distance is covered?","answer":90,"category":"speed_distance_time","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6676,7 +6676,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000161',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A rectangle is 23 cm by 8 cm. Find its area.","answer":184,"category":"geometry","difficulty":"hard"}'::jsonb,
+    '{"expression":"A bag has 3 red and 3 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.5,"category":"probability","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6684,7 +6684,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000162',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A value of 470 increases by 10%. What is the new value? Give your answer to 2 d.p. if needed.","answer":517,"category":"percentages","difficulty":"easy"}'::jsonb,
+    '{"expression":"154 + 48 × 14","answer":826,"category":"arithmetic","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6692,7 +6692,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000163',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 53, Tue 24, Wed 94. What is the total for the three days?","answer":171,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 121 minutes to hours, to 2 d.p.","answer":2.02,"category":"unit_conversions","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6700,7 +6700,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000164',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Solve for x: 7x + 10 = 52.","answer":6,"category":"algebra","difficulty":"medium"}'::jsonb,
+    '{"expression":"A bag has 4 red and 3 blue counters. What is P(red), as a decimal to 2 d.p.?","answer":0.57,"category":"probability","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6708,7 +6708,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000165',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Find the mean of 27, 86, 38, 33.","answer":46,"category":"averages","difficulty":"medium"}'::jsonb,
+    '{"expression":"Convert 520 mL to litres, to 2 d.p.","answer":0.52,"category":"unit_conversions","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6716,7 +6716,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000166',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Travel 200 km at 100 km/h. How many hours does it take?","answer":2,"category":"speed_distance_time","difficulty":"hard"}'::jsonb,
+    '{"expression":"What is 15% of 408? Give your answer to 2 d.p. if needed.","answer":61.2,"category":"percentages","difficulty":"medium"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6724,7 +6724,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000167',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"A:B = 4:9. If A = 60, what is B?","answer":135,"category":"proportion_ratios","difficulty":"easy"}'::jsonb,
+    '{"expression":"5.2 × 7.7","answer":40.04,"category":"decimals","difficulty":"hard"}'::jsonb,
     true,
     'approved',
     NOW()
@@ -6732,7 +6732,7 @@ VALUES
   (
     'c1000001-0000-4000-8000-600000000168',
     'a1000001-0000-4000-8000-000000000006',
-    '{"expression":"Table: Mon 79, Tue 68, Wed 77. What is the total for the three days?","answer":224,"category":"graphs_tables","difficulty":"medium"}'::jsonb,
+    '{"expression":"A value of 194 increases by 25%. What is the new value? Give your answer to 2 d.p. if needed.","answer":242.5,"category":"percentages","difficulty":"easy"}'::jsonb,
     true,
     'approved',
     NOW()

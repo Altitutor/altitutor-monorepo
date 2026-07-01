@@ -111,7 +111,7 @@
 - **Learning module skill trainer block** — A learning module block that references one skill trainer type. The student runs a timed embedded skill trainer session using a random queue from approved active items in that trainer's bank. Block completion when that learn-context session completes (time expiry or current run finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
   _Avoid_: Embedded trainer game, inline drill
 
-- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references a question stem; the student works through all questions on that stem. **Question block:** references one question; stem context is shown when the question belongs to a stem. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references an approved question stem; the student works through all questions on that stem. **Question block:** references one approved question; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its approved referenced assessment content without making that content part of the general question bank. Answers submitted from learn blocks do not consume UCAT Free practice quota.
   _Avoid_: Practice embed, inline quiz
 
 - **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
@@ -202,6 +202,9 @@
 
 - **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
   _Avoid_: Auto-published question, synthetic question
+
+- **AI lesson text drafting** — A tutor-requested draft or rewrite of a learning module text block. It uses the surrounding lesson as context, updates only the tutor's unsaved lesson draft until the tutor accepts and saves, and does not itself approve or publish learning content.
+  _Avoid_: Auto-authored lesson, published AI lesson, question generation
 
 - **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Regeneration, new question generation, answer-key generation

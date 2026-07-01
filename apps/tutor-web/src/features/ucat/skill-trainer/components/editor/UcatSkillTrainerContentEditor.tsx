@@ -30,6 +30,8 @@ const OCCURRENCE_HIGHLIGHT_CLASS =
 
 type OccurrenceRange = { start: number; end: number }
 
+const EMPTY_OCCURRENCES: OccurrenceRange[] = []
+
 function buildOccurrenceSegments(plain: string, occurrences: OccurrenceRange[]) {
   const segments: Array<{ text: string; highlighted?: boolean }> = []
   let cursor = 0
@@ -182,7 +184,11 @@ function FindWordEditor({ form }: Props) {
 }
 
 function FindConceptEditor({ form }: Props) {
-  const occurrences = form.watch('occurrences') ?? []
+  const watchedOccurrences = form.watch('occurrences')
+  const occurrences = useMemo(
+    () => watchedOccurrences ?? EMPTY_OCCURRENCES,
+    [watchedOccurrences]
+  )
   const passage = (form.watch('passage') ?? EMPTY_DOC) as Record<string, unknown>
   const plainPassage = useMemo(
     () => extractSkillTrainerPlainText(passage, { blockSeparator: '\n' }),

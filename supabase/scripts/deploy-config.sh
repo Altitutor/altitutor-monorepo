@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deploy configuration with environment variable substitution
+# Deploy hosted Auth configuration via the Supabase Management API.
 # Usage: ./scripts/deploy-config.sh <project-ref>
 
 set -e
@@ -15,34 +15,27 @@ fi
 
 echo "📝 Deploying configuration to project: $PROJECT_REF"
 
-# Create a temporary config file with environment variables substituted
-TEMP_CONFIG=$(mktemp)
-cp config.toml "$TEMP_CONFIG"
-
-# Substitute environment variables
-echo "🔄 Substituting environment variables..."
-
 # Email credentials - RESEND_API_KEY is required
 if [ -z "$RESEND_API_KEY" ]; then
     echo "❌ Error: RESEND_API_KEY environment variable is not set"
     echo "Please set RESEND_API_KEY in your GitHub Actions secrets"
-    rm -f "$TEMP_CONFIG"
     exit 1
 fi
 
-sed -i.bak "s|env(RESEND_API_KEY)|$RESEND_API_KEY|g" "$TEMP_CONFIG"
-echo "✅ Substituted RESEND_API_KEY"
-
-# Verify substitution worked
-if grep -q "env(RESEND_API_KEY)" "$TEMP_CONFIG"; then
-    echo "❌ Error: RESEND_API_KEY substitution failed"
-    rm -f "$TEMP_CONFIG" "$TEMP_CONFIG.bak"
+if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+    echo "❌ Error: SUPABASE_ACCESS_TOKEN environment variable is not set"
+    echo "Please set SUPABASE_ACCESS_TOKEN in your GitHub Actions secrets"
     exit 1
 fi
 
-# Enable SMTP in production
-sed -i.bak 's|enabled = false  # Set to true in production|enabled = true|g' "$TEMP_CONFIG"
-echo "✅ Enabled SMTP for production"
+if ! command -v jq >/dev/null 2>&1; then
+    echo "❌ Error: jq is required to build the Management API payload"
+    exit 1
+fi
+
+echo "✅ Using RESEND_API_KEY from environment"
+echo "✅ Using SUPABASE_ACCESS_TOKEN from environment"
+echo "✅ Enabling custom SMTP for hosted Supabase Auth"
 
 # CI sets SUPABASE_CONFIG_ENV to production (main) or development (develop) — see supabase-deploy.yml.
 # For manual runs, default to production so localhost-heavy dev redirects are not applied by accident.
@@ -55,7 +48,6 @@ if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
 else
   AUTH_EMAIL_SENT_LIMIT="${AUTH_EMAIL_SENT_LIMIT:-100}"
 fi
-sed -i.bak "s|^email_sent = .*|email_sent = $AUTH_EMAIL_SENT_LIMIT|g" "$TEMP_CONFIG"
 echo "✅ Set auth.rate_limit.email_sent to $AUTH_EMAIL_SENT_LIMIT for $SUPABASE_CONFIG_ENV"
 
 # Portal base URLs: use GitHub Environment variables when hosts differ from defaults.
@@ -66,40 +58,83 @@ if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
   TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.development.altitutor.com}"
   UCAT_URL="${NEXT_PUBLIC_UCAT_URL:-https://ucat.development.altitutor.com}"
   # Local apps hitting the remote *dev* Supabase project (magic links, OAuth callbacks).
-  LOCALHOST_AUTH_REDIRECTS=', "http://localhost:3000/auth/callback", "http://localhost:3000/**", "http://localhost:3001/auth/callback", "http://localhost:3001/**", "http://localhost:3002/auth/callback", "http://localhost:3002/**", "http://localhost:3004/auth/callback", "http://localhost:3004/**"'
+  LOCALHOST_AUTH_REDIRECTS=",http://localhost:3000/auth/callback,http://localhost:3000/**,http://localhost:3001/auth/callback,http://localhost:3001/**,http://localhost:3002/auth/callback,http://localhost:3002/**,http://localhost:3004/auth/callback,http://localhost:3004/**"
 else
   ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
   STUDENT_URL="${NEXT_PUBLIC_STUDENT_URL:-https://student.altitutor.com}"
   TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.altitutor.com}"
   UCAT_URL="${NEXT_PUBLIC_UCAT_URL:-https://ucat.altitutor.com}"
   # Optional local UCAT smoke tests against prod auth; omit other ports on prod for a tighter allowlist.
-  LOCALHOST_AUTH_REDIRECTS=', "http://localhost:3004/auth/callback", "http://localhost:3004/**"'
+  LOCALHOST_AUTH_REDIRECTS=",http://localhost:3004/auth/callback,http://localhost:3004/**"
 fi
 
 # Default site_url (fallback when redirect_to is missing / invalid) follows admin portal for this env.
 PROD_SITE_URL="$ADMIN_URL"
-sed -i.bak "s|site_url = \"http://localhost:3000\"|site_url = \"$PROD_SITE_URL\"|g" "$TEMP_CONFIG"
 echo "✅ Updated site_url to $PROD_SITE_URL"
 
-# Build additional_redirect_urls: deployed portals + localhost (dev) or minimal localhost (prod).
-REDIRECT_URLS="[\"$ADMIN_URL/auth/callback\", \"$STUDENT_URL/auth/callback\", \"$TUTOR_URL/auth/callback\", \"$UCAT_URL/auth/callback\", \"$ADMIN_URL/**\", \"$STUDENT_URL/**\", \"$TUTOR_URL/**\", \"$UCAT_URL/**\"$LOCALHOST_AUTH_REDIRECTS]"
-
-# Replace the empty additional_redirect_urls array
-sed -i.bak "s|additional_redirect_urls = \[\]|additional_redirect_urls = $REDIRECT_URLS|g" "$TEMP_CONFIG"
+# Build the hosted Auth URI allow-list. The Management API expects this as a comma-separated string.
+REDIRECT_URLS="$ADMIN_URL/auth/callback,$STUDENT_URL/auth/callback,$TUTOR_URL/auth/callback,$UCAT_URL/auth/callback,$ADMIN_URL/**,$STUDENT_URL/**,$TUTOR_URL/**,$UCAT_URL/**$LOCALHOST_AUTH_REDIRECTS"
 echo "✅ Updated additional_redirect_urls (portals + localhost rules for $SUPABASE_CONFIG_ENV)"
 
-# Copy the processed config to the current directory temporarily
-cp "$TEMP_CONFIG" config.toml
+PAYLOAD=$(jq -n \
+  --arg site_url "$PROD_SITE_URL" \
+  --arg uri_allow_list "$REDIRECT_URLS" \
+  --arg resend_api_key "$RESEND_API_KEY" \
+  --argjson rate_limit_email_sent "$AUTH_EMAIL_SENT_LIMIT" \
+  '{
+    site_url: $site_url,
+    uri_allow_list: $uri_allow_list,
+    rate_limit_email_sent: $rate_limit_email_sent,
+    smtp_host: "smtp.resend.com",
+    smtp_port: "587",
+    smtp_user: "resend",
+    smtp_pass: $resend_api_key,
+    smtp_admin_email: "noreply@altitutor.com",
+    smtp_sender_name: "Altitutor",
+    disable_signup: false,
+    jwt_exp: 3600,
+    external_anonymous_users_enabled: false,
+    external_email_enabled: true,
+    external_phone_enabled: false,
+    refresh_token_rotation_enabled: true,
+    security_refresh_token_reuse_interval: 10,
+    mailer_secure_email_change_enabled: true,
+    mailer_autoconfirm: false,
+    security_update_password_require_reauthentication: false,
+    password_min_length: 6,
+    password_required_characters: "",
+    mfa_max_enrolled_factors: 10,
+    mfa_totp_enroll_enabled: false,
+    mfa_totp_verify_enabled: false,
+    mfa_phone_enroll_enabled: false,
+    mfa_phone_verify_enabled: false
+  }')
 
-# Push the configuration
-echo "🚀 Pushing configuration to Supabase..."
-supabase config push --project-ref "$PROJECT_REF" --yes
+echo "🚀 Patching hosted Auth configuration via Supabase Management API..."
+echo "📋 Payload keys:"
+echo "$PAYLOAD" | jq 'keys'
 
-# Restore the original config file
-git checkout config.toml
-echo "✅ Restored original config.toml"
+RESPONSE=$(curl -sS -w "\n%{http_code}" -X PATCH \
+    "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
+    -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$PAYLOAD")
 
-# Clean up
-rm -f "$TEMP_CONFIG" "$TEMP_CONFIG.bak"
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+    echo "✅ Hosted Auth configuration updated successfully"
+    echo "$BODY" | jq -r '
+        if .site_url then "  ✅ site_url: \(.site_url)" else empty end,
+        if .uri_allow_list then "  ✅ uri_allow_list updated" else empty end,
+        if .rate_limit_email_sent then "  ✅ rate_limit_email_sent: \(.rate_limit_email_sent)" else empty end,
+        if .smtp_host then "  ✅ smtp_host: \(.smtp_host)" else empty end
+    ' 2>/dev/null || true
+else
+    echo "❌ Error deploying Auth configuration. HTTP $HTTP_CODE"
+    echo "Response: $BODY"
+    exit 1
+fi
 
 echo "🎉 Configuration deployment completed successfully!"

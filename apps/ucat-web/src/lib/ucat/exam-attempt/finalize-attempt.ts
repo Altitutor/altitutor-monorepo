@@ -122,8 +122,14 @@ async function completeStudentMockAttempt(
   for (const answer of finalAnswers ?? []) {
     if (!answer.questionSetId) continue;
     const list = answersByQuestionSetId.get(answer.questionSetId) ?? [];
-    const { questionSetId: _questionSetId, ...attemptAnswer } = answer;
-    list.push(attemptAnswer);
+    list.push({
+      questionId: answer.questionId,
+      questionAnswerOptionId: answer.questionAnswerOptionId,
+      answerSnapshot: answer.answerSnapshot,
+      isFlagged: answer.isFlagged,
+      wasTimed: answer.wasTimed,
+      mode: answer.mode,
+    });
     answersByQuestionSetId.set(answer.questionSetId, list);
   }
 

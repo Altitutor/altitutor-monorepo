@@ -357,7 +357,7 @@ export function useQuestionEnginePersistence({
       }
     }
 
-    let finalAnswers: FinalExamQuestionAttemptInput[] = [];
+    const finalAnswers: FinalExamQuestionAttemptInput[] = [];
     if (mode === "set" || mode === "mock") {
       for (const question of exam.questions) {
         const selectedOptionId = state.selectedAnswers[question.id];

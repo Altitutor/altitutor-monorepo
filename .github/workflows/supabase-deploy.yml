@@ -68,6 +68,9 @@ jobs:
             done
           fi
 
+      - name: Install jq (for Supabase Management API deploys)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Deploy configuration
         timeout-minutes: 10
         run: |
@@ -76,9 +79,6 @@ jobs:
           ./scripts/deploy-config.sh $SUPABASE_PROJECT_ID
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
-      - name: Install jq (for email template deployment)
-        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Deploy email templates
         run: |

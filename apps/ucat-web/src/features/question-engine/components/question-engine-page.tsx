@@ -432,6 +432,8 @@ export function QuestionEnginePage({
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
+  const engineStateRef = useRef(state);
+  engineStateRef.current = state;
   const expiredMockNextSegmentRef = useRef<{
     segment: ReturnType<typeof getNextMockSegment>;
     startedAt: number;
@@ -656,7 +658,10 @@ export function QuestionEnginePage({
 
     expiredMockNextSegmentRef.current =
       exam.sourceType === "mock"
-        ? { segment: getNextMockSegment(exam, state), startedAt: Date.now() }
+        ? {
+            segment: getNextMockSegment(exam, engineStateRef.current),
+            startedAt: Date.now(),
+          }
         : null;
 
     if (state.phase === "question" && exam.sourceType === "set") {

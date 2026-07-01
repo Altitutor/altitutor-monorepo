@@ -36,6 +36,8 @@ type SeedItem =
   | CalculatorMathsSeedItem
   | NumpadSpeedSeedItem;
 
+type RichNode = Record<string, unknown>;
+
 const TRAINER_IDS: Record<TrainerKey, string> = {
   mental_maths: "a1000001-0000-4000-8000-000000000004",
   numpad_speed: "a1000001-0000-4000-8000-000000000005",
@@ -175,7 +177,7 @@ function mentalTemplate(
     },
     () => {
       const n = pick(rng, [11, 12, 15, 20, 25]);
-      const a = rng.int(4, 18);
+      const a = n === 11 || n === 12 ? rng.int(4, 9) : rng.int(4, 18);
       return { expression: `${a} × ${n}`, answer: a * n };
     },
     () => {
@@ -204,15 +206,19 @@ function mentalTemplate(
       return { expression: `(${a} + ${b}) ÷ ${c}`, answer };
     },
     () => {
-      const base = rng.int(20, 90);
+      const base = pick(rng, [
+        20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90,
+      ]);
       const delta = pick(rng, [9, 11, 19, 21]);
       return { expression: `${base} × ${delta}`, answer: base * delta };
     },
   ];
   const hard = [
     () => {
-      const a = rng.int(11, 24);
-      const b = rng.int(6, 18);
+      const a = pick(rng, [
+        12, 14, 15, 16, 18, 20, 21, 22, 24, 25, 30, 32, 35, 40, 45, 50,
+      ]);
+      const b = pick(rng, [3, 4, 5, 6, 7, 8, 9]);
       const c = rng.int(3, 9);
       const quotient = rng.int(2, 9);
       const d = c * quotient;
@@ -299,6 +305,40 @@ function calculatorTemplate(
 ): CalculatorMathsItemContent {
   const make = CALCULATOR_TEMPLATES[category];
   return { ...make(rng, difficulty), category, difficulty };
+}
+
+function docNode(content: RichNode[]): RichNode {
+  return { type: "doc", content };
+}
+
+function paragraphNode(text: string): RichNode {
+  return {
+    type: "paragraph",
+    content: text ? [{ type: "text", text }] : [],
+  };
+}
+
+function tableCell(text: string, header = false): RichNode {
+  return {
+    type: header ? "tableHeader" : "tableCell",
+    content: [paragraphNode(text)],
+  };
+}
+
+function tableNode(columns: string[], rows: string[][]): RichNode {
+  return {
+    type: "table",
+    content: [
+      {
+        type: "tableRow",
+        content: columns.map((column) => tableCell(column, true)),
+      },
+      ...rows.map((row) => ({
+        type: "tableRow",
+        content: columns.map((_, index) => tableCell(row[index] ?? "")),
+      })),
+    ],
+  };
 }
 
 const CALCULATOR_TEMPLATES: Record<
@@ -431,12 +471,22 @@ const CALCULATOR_TEMPLATES: Record<
     };
   },
   graphs_tables: (rng) => {
-    const mon = rng.int(20, 80);
-    const tue = rng.int(20, 90);
-    const wed = rng.int(20, 100);
+    const rows = [
+      ["Mon", rng.int(20, 80)],
+      ["Tue", rng.int(20, 90)],
+      ["Wed", rng.int(20, 100)],
+    ] as const;
+    const answer = rows.reduce((sum, row) => sum + row[1], 0);
     return {
-      expression: `Table: Mon ${mon}, Tue ${tue}, Wed ${wed}. What is the total for the three days?`,
-      answer: mon + tue + wed,
+      question: docNode([
+        paragraphNode("The table shows the number of bookings over three days."),
+        tableNode(
+          ["Day", "Bookings"],
+          rows.map(([day, bookings]) => [day, String(bookings)]),
+        ),
+        paragraphNode("What is the total number of bookings?"),
+      ]),
+      answer,
     };
   },
   proportion_ratios: (rng) => {
