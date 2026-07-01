@@ -23491,6 +23491,10 @@ export type Database = {
         Args: { p_stem_ids: string[] }
         Returns: undefined
       }
+      tutor_ucat_reorder_learning_modules: {
+        Args: { p_items: Json }
+        Returns: undefined
+      }
       tutor_ucat_replace_learning_module_blocks: {
         Args: { p_blocks: Json; p_module_id: string }
         Returns: undefined
