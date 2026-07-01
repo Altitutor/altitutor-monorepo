@@ -5204,7 +5204,9 @@ export type Database = {
           is_private: boolean
           question_stem_category_id: string | null
           section_id: string
+          source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
           stem_text: Json
+          tutor_source_note: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -5222,7 +5224,9 @@ export type Database = {
           is_private?: boolean
           question_stem_category_id?: string | null
           section_id: string
+          source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           stem_text: Json
+          tutor_source_note?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -5240,7 +5244,9 @@ export type Database = {
           is_private?: boolean
           question_stem_category_id?: string | null
           section_id?: string
+          source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           stem_text?: Json
+          tutor_source_note?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -12334,6 +12340,7 @@ export type Database = {
       }
       ucat_questions: {
         Row: {
+          ai_generation_metadata: Json | null
           answer_explanation: Json | null
           created_at: string | null
           created_by: string | null
@@ -12345,11 +12352,13 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
+          source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds: number | null
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
+          ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
           created_at?: string | null
           created_by?: string | null
@@ -12361,11 +12370,13 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
+          source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
+          ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
           created_at?: string | null
           created_by?: string | null
@@ -12377,6 +12388,7 @@ export type Database = {
           question_stem_id?: string
           question_text?: Json
           question_type?: Database["public"]["Enums"]["ucat_question_type"]
+          source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -20605,7 +20617,11 @@ export type Database = {
           section_id: string | null
           section_name: string | null
           section_number: number | null
+          source_channel:
+            | Database["public"]["Enums"]["ucat_question_source_channel"]
+            | null
           stem_text: Json | null
+          tutor_source_note: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -20806,7 +20822,11 @@ export type Database = {
           section_number: number | null
           set_ids: Json | null
           set_names: Json | null
+          source_channel:
+            | Database["public"]["Enums"]["ucat_question_source_channel"]
+            | null
           stem_text: Json | null
+          tutor_source_note: string | null
           updated_at: string | null
           updated_by: string | null
           updated_by_first_name: string | null
@@ -21009,7 +21029,11 @@ export type Database = {
           section_number: number | null
           set_ids: Json | null
           set_names: Json | null
+          source_channel:
+            | Database["public"]["Enums"]["ucat_question_source_channel"]
+            | null
           stem_text: Json | null
+          tutor_source_note: string | null
           updated_at: string | null
           updated_by: string | null
           updated_by_first_name: string | null
@@ -21212,7 +21236,11 @@ export type Database = {
           section_number: number | null
           set_ids: Json | null
           set_names: Json | null
+          source_channel:
+            | Database["public"]["Enums"]["ucat_question_source_channel"]
+            | null
           stem_text: Json | null
+          tutor_source_note: string | null
           updated_at: string | null
           updated_by: string | null
           updated_by_first_name: string | null
@@ -23993,8 +24021,10 @@ export type Database = {
           p_question_stem_category_id: string
           p_questions: Json
           p_section_id: string
+          p_source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           p_stem_id: string
           p_stem_text: Json
+          p_tutor_source_note?: string
         }
         Returns: string
       }
@@ -24105,6 +24135,10 @@ export type Database = {
         | "question"
         | "skill_trainer_set"
       ucat_learning_module_kind: "folder" | "lesson"
+      ucat_question_source_channel:
+        | "individual"
+        | "bulk_import"
+        | "ai_generation"
       ucat_question_type: "multiple_choice" | "syllogism"
     }
     CompositeTypes: {
@@ -24283,6 +24317,11 @@ export const Constants = {
         "skill_trainer_set",
       ],
       ucat_learning_module_kind: ["folder", "lesson"],
+      ucat_question_source_channel: [
+        "individual",
+        "bulk_import",
+        "ai_generation",
+      ],
       ucat_question_type: ["multiple_choice", "syllogism"],
     },
   },
