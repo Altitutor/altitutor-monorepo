@@ -29,8 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # CLI version resolved from pnpm-lock.yaml (see supabase/setup-cli@v2)
       - uses: supabase/setup-cli@v2
+        with:
+          # v2.108.0 fails config push on some projects while reading Storage config:
+          # SchemaError(Missing key at ["databasePoolMode"])
+          version: 2.107.0
 
       - name: Confirm Supabase CLI version
         run: supabase --version

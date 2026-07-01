@@ -1,32 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
+import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
 } from '@/features/ucat-subscription-config/api/ucat-subscription-config';
 import { UcatFreeQuotaConfigForm } from '@/features/ucat-subscription-config/components/UcatFreeQuotaConfigForm';
+import { UcatFreeTierStudentsTable } from '@/features/ucat-free-tier/components/UcatFreeTierStudentsTable';
 
-type SettingsRow = {
-  id: string;
-  name: string;
-  description: string;
-};
-
-const SETTINGS_ROWS: SettingsRow[] = [
-  {
-    id: 'free-tier-quotas',
-    name: 'Free tier quotas',
-    description: 'Per-area usage limits for UCAT Free students.',
-  },
-];
+const VALID_TABS = ['quotas', 'students'] as const;
+type FreeTierTab = (typeof VALID_TABS)[number];
 
 export default function UcatFreeTierSettingsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [config, setConfig] = useState<UcatSubscriptionConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [editingRow, setEditingRow] = useState<SettingsRow | null>(null);
+  const tabParam = searchParams.get('tab');
+  const activeTab: FreeTierTab = VALID_TABS.includes(tabParam as FreeTierTab) ? (tabParam as FreeTierTab) : 'quotas';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,61 +45,45 @@ export default function UcatFreeTierSettingsPage() {
     void load();
   }, [load]);
 
+  function handleTabChange(value: string) {
+    const nextTab = VALID_TABS.includes(value as FreeTierTab) ? (value as FreeTierTab) : 'quotas';
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextTab === 'quotas') params.delete('tab');
+    else params.set('tab', nextTab);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
   if (loading) {
     return <AdminLoadingSkeleton variant="table" />;
   }
 
-  const columns: SettingsDataTableColumn<SettingsRow>[] = [
-    {
-      key: 'name',
-      label: 'Setting',
-      render: (row) => <span className="font-medium">{row.name}</span>,
-      sortValue: (row) => row.name,
-      searchValue: (row) => row.name,
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      render: (row) => <span className="text-muted-foreground">{row.description}</span>,
-      sortValue: (row) => row.description,
-      searchValue: (row) => row.description,
-    },
-  ];
-
   return (
-    <div className="p-6">
+    <div className="space-y-6 p-6">
       <SettingsPageHeader title="UCAT Free tier" />
 
       {loadError && !config ? (
-        <p className="mb-4 text-sm text-destructive">{loadError}</p>
+        <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      <SettingsDataTable
-        data={SETTINGS_ROWS}
-        columns={columns}
-        getRowId={(row) => row.id}
-        filterKeys={[]}
-        searchPlaceholder="Search UCAT Free tier settings..."
-        defaultSort={{ field: 'name', direction: 'asc' }}
-        getActions={(row) => [
-          {
-            id: 'edit',
-            label: 'Edit',
-            disabled: !config,
-            onSelect: () => setEditingRow(row),
-          },
+      <SegmentedControl
+        className="w-full max-w-md min-w-0"
+        fullWidth
+        value={activeTab}
+        onValueChange={handleTabChange}
+        options={[
+          { value: 'quotas', label: 'Quotas' },
+          { value: 'students', label: 'Students' },
         ]}
       />
 
-      <AdminDialogShell
-        open={!!editingRow}
-        onClose={() => setEditingRow(null)}
-        title={editingRow?.name ?? 'Edit UCAT Free tier'}
-        subtitle={editingRow?.description}
-        contentClassName="md:max-w-4xl"
-      >
+      <SegmentedTabPanelContent when="quotas" activeTab={activeTab}>
         {config ? <UcatFreeQuotaConfigForm initial={config} onSaved={load} /> : null}
-      </AdminDialogShell>
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-4">
+        <UcatFreeTierStudentsTable />
+      </SegmentedTabPanelContent>
     </div>
   );
 }

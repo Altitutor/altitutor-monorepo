@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Loader2, MoreHorizontal, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,8 +103,7 @@ function studentName(row: QuotaRow) {
   return `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || row.email || row.id;
 }
 
-export default function UcatQuotasSettingsPage() {
-  const router = useRouter();
+export function UcatFreeTierStudentsTable() {
   const { toast } = useToast();
   const [rows, setRows] = useState<QuotaRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -148,12 +146,12 @@ export default function UcatQuotasSettingsPage() {
         total?: number;
         error?: string;
       };
-      if (!response.ok) throw new Error(body.error ?? 'Failed to load UCAT quotas');
+      if (!response.ok) throw new Error(body.error ?? 'Failed to load UCAT Free tier students');
       setRows(body.rows ?? []);
       setTotal(body.total ?? 0);
     } catch (error) {
       toast({
-        title: 'Failed to load UCAT quotas',
+        title: 'Failed to load UCAT Free tier students',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -250,14 +248,8 @@ export default function UcatQuotasSettingsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.push('/settings')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">UCAT quotas</h1>
-        </div>
+    <>
+      <div className="flex items-center justify-end">
         <Button
           type="button"
           variant="outline"
@@ -455,6 +447,6 @@ export default function UcatQuotasSettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

@@ -118,14 +118,8 @@ export default function SettingsPage() {
         },
         {
           title: 'UCAT Free tier',
-          description: 'Per-area usage limits for UCAT Free students (practice, sets, mocks, learn, skill trainer)',
+          description: 'Per-area Free tier limits, student quota usage, and quota resets',
           href: '/settings/ucat-free-tier',
-          icon: GraduationCap,
-        },
-        {
-          title: 'UCAT quotas',
-          description: 'View Free tier quota usage, grant quota resets, and reset individual quota areas',
-          href: '/settings/ucat-quotas',
           icon: GraduationCap,
         },
         {

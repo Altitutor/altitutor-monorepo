@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@altitutor/shared";
 import {
   computeMaxRawScore,
   computeRawScore,
@@ -20,6 +21,15 @@ type OptionRow = {
   question_id: string;
   index: number;
   is_answer: boolean;
+};
+
+export type FinalQuestionAttemptInput = {
+  questionId: string;
+  questionAnswerOptionId: string | null;
+  answerSnapshot?: Json | null;
+  isFlagged?: boolean;
+  wasTimed?: boolean;
+  mode?: "question" | "question_stem" | "set" | "mock" | "learn";
 };
 
 function buildQuestionMeta(
@@ -47,10 +57,131 @@ function buildQuestionMeta(
   });
 }
 
+export async function persistFinalQuestionAttempts(
+  admin: AdminClient,
+  studentId: string,
+  setAttemptId: string,
+  answers: FinalQuestionAttemptInput[] | undefined,
+): Promise<void> {
+  const finalAnswers = (answers ?? []).filter((answer) => answer.questionId);
+  if (finalAnswers.length === 0) return;
+
+  const questionIds = [
+    ...new Set(finalAnswers.map((answer) => answer.questionId)),
+  ];
+  const { data: existing, error: existingError } = await admin
+    .from("student_question_attempts")
+    .select("id, question_id")
+    .eq("student_id", studentId)
+    .eq("student_question_set_attempt_id", setAttemptId)
+    .in("question_id", questionIds);
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const existingByQuestionId = new Map<string, Array<{ id: string }>>();
+  for (const row of existing ?? []) {
+    const list = existingByQuestionId.get(row.question_id) ?? [];
+    list.push({ id: row.id });
+    existingByQuestionId.set(row.question_id, list);
+  }
+
+  const updates: Array<{
+    id: string;
+    question_id: string;
+    student_id: string;
+    question_answer_option_id: string | null;
+    answer_snapshot: Json | null;
+    is_flagged?: boolean;
+    is_submitted: boolean;
+    was_timed?: boolean;
+    mode?: "question" | "question_stem" | "set" | "mock" | "learn";
+  }> = [];
+  const inserts: Array<{
+    student_id: string;
+    student_question_set_attempt_id: string;
+    student_practice_session_id: null;
+    learning_module_block_id: null;
+    question_id: string;
+    question_answer_option_id: string | null;
+    answer_snapshot: Json | null;
+    is_flagged: boolean;
+    is_submitted: boolean;
+    time_spent_seconds: null;
+    was_timed: boolean;
+    mode: "question" | "question_stem" | "set" | "mock" | "learn" | null;
+  }> = [];
+
+  for (const answer of finalAnswers) {
+    const rows = existingByQuestionId.get(answer.questionId) ?? [];
+    const base = {
+      question_answer_option_id: answer.questionAnswerOptionId,
+      answer_snapshot: answer.answerSnapshot ?? null,
+      is_submitted: true,
+      ...(typeof answer.isFlagged === "boolean"
+        ? { is_flagged: answer.isFlagged }
+        : {}),
+      ...(typeof answer.wasTimed === "boolean"
+        ? { was_timed: answer.wasTimed }
+        : {}),
+      ...(answer.mode ? { mode: answer.mode } : {}),
+    };
+
+    if (rows.length > 0) {
+      for (const row of rows) {
+        updates.push({
+          id: row.id,
+          question_id: answer.questionId,
+          student_id: studentId,
+          ...base,
+        });
+      }
+      continue;
+    }
+
+    inserts.push({
+      student_id: studentId,
+      student_question_set_attempt_id: setAttemptId,
+      student_practice_session_id: null,
+      learning_module_block_id: null,
+      question_id: answer.questionId,
+      question_answer_option_id: answer.questionAnswerOptionId,
+      answer_snapshot: answer.answerSnapshot ?? null,
+      is_flagged: answer.isFlagged ?? false,
+      is_submitted: true,
+      time_spent_seconds: null,
+      was_timed: answer.wasTimed ?? false,
+      mode: answer.mode ?? null,
+    });
+  }
+
+  if (updates.length > 0) {
+    const { error: updateError } = await admin
+      .from("student_question_attempts")
+      .upsert(updates, { onConflict: "id" });
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+  }
+
+  if (inserts.length > 0) {
+    const { error: insertError } = await admin
+      .from("student_question_attempts")
+      .insert(inserts);
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+  }
+}
+
 export async function completeStudentSetAttempt(
   admin: AdminClient,
   studentId: string,
   attemptId: string,
+  finalAnswers?: FinalQuestionAttemptInput[],
 ): Promise<{ earnedDiscount: boolean; discountCents: number }> {
   const { data: attempt, error: attemptError } = await admin
     .from("student_question_set_attempts")
@@ -76,6 +207,13 @@ export async function completeStudentSetAttempt(
     Math.floor((now.getTime() - attemptedAt.getTime()) / 1000),
   );
 
+  const questionSetId = attempt.question_set_id;
+  if (!questionSetId) {
+    throw new Error("Set attempt has no question set");
+  }
+
+  await persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers);
+
   const { data: questionAttempts, error: questionAttemptsError } = await admin
     .from("student_question_attempts")
     .select(
@@ -86,11 +224,6 @@ export async function completeStudentSetAttempt(
 
   if (questionAttemptsError) {
     throw new Error(questionAttemptsError.message);
-  }
-
-  const questionSetId = attempt.question_set_id;
-  if (!questionSetId) {
-    throw new Error("Set attempt has no question set");
   }
 
   const { data: setStems, error: setStemsError } = await admin

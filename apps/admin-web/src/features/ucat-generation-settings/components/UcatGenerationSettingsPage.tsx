@@ -49,6 +49,13 @@ type ScopeOption = {
   label: string;
 };
 
+type GeneralSettingRow = {
+  key: keyof Pick<UcatGenerationSettings, 'max_requested_stems_per_run' | 'daily_token_budget' | 'daily_cost_budget_cents'>;
+  label: string;
+  value: string;
+  description: string;
+};
+
 const VALID_TABS = ['general', 'providers', 'models', 'prompts'] as const;
 type SettingsTab = (typeof VALID_TABS)[number];
 
@@ -109,7 +116,17 @@ function FieldLabel({
   );
 }
 
-function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings; onSaved: () => void }) {
+function GeneralSettingsDialog({
+  open,
+  settings,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  settings: UcatGenerationSettings;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
   const [maxStems, setMaxStems] = useState(String(settings.max_requested_stems_per_run));
   const [dailyTokens, setDailyTokens] = useState(settings.daily_token_budget == null ? '' : String(settings.daily_token_budget));
   const [dailyCost, setDailyCost] = useState(
@@ -117,6 +134,14 @@ function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings;
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setMaxStems(String(settings.max_requested_stems_per_run));
+    setDailyTokens(settings.daily_token_budget == null ? '' : String(settings.daily_token_budget));
+    setDailyCost(settings.daily_cost_budget_cents == null ? '' : String(Math.round(settings.daily_cost_budget_cents / 100)));
+    setError(null);
+  }, [open, settings]);
 
   async function save() {
     setSaving(true);
@@ -127,7 +152,8 @@ function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings;
         daily_token_budget: parseNullableInt(dailyTokens),
         daily_cost_budget_cents: dailyCost.trim() ? Math.round(Number.parseFloat(dailyCost) * 100) : null,
       });
-      onSaved();
+      await onSaved();
+      onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save generation settings');
     } finally {
@@ -136,103 +162,252 @@ function SettingsForm({ settings, onSaved }: { settings: UcatGenerationSettings;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Budgets and run limits</CardTitle>
-        <CardDescription>Global caps used by tutor-web generation runs.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <FieldLabel
-              label="Max requested stems"
-              description="The largest number of question stems a tutor can request in one generation run. Lower values limit request duration and peak API usage."
-              htmlFor="max-requested-stems"
-            />
-            <Input id="max-requested-stems" type="number" min={1} max={50} value={maxStems} onChange={(e) => setMaxStems(e.target.value)} />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
+        <DialogHeader className="border-b px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+            <div>
+              <DialogTitle>Budgets and run limits</DialogTitle>
+              <DialogDescription>Global caps used by tutor-web generation runs.</DialogDescription>
+            </div>
           </div>
-          <div className="space-y-2">
-            <FieldLabel
-              label="Daily token budget"
-              description="Stops new generation calls after the total provider-reported input and output tokens for the day reaches this amount. Leave blank for no token cap."
-              htmlFor="daily-token-budget"
-            />
-            <Input id="daily-token-budget" value={dailyTokens} onChange={(e) => setDailyTokens(e.target.value)} placeholder="No cap" />
+        </DialogHeader>
+        <div className="space-y-4 p-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <FieldLabel
+                label="Max requested stems"
+                description="The largest number of question stems a tutor can request in one generation run. Lower values limit request duration and peak API usage."
+                htmlFor="max-requested-stems"
+              />
+              <Input id="max-requested-stems" type="number" min={1} max={50} value={maxStems} onChange={(e) => setMaxStems(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel
+                label="Daily token budget"
+                description="Stops new generation calls after the total provider-reported input and output tokens for the day reaches this amount. Leave blank for no token cap."
+                htmlFor="daily-token-budget"
+              />
+              <Input id="daily-token-budget" value={dailyTokens} onChange={(e) => setDailyTokens(e.target.value)} placeholder="No cap" />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel
+                label="Daily cost budget ($)"
+                description="Stops new generation calls after recorded estimated API cost reaches this daily amount. Leave blank for no cost cap."
+                htmlFor="daily-cost-budget"
+              />
+              <Input id="daily-cost-budget" value={dailyCost} onChange={(e) => setDailyCost(e.target.value)} placeholder="No cap" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <FieldLabel
-              label="Daily cost budget ($)"
-              description="Stops new generation calls after recorded estimated API cost reaches this daily amount. Leave blank for no cost cap."
-              htmlFor="daily-cost-budget"
-            />
-            <Input id="daily-cost-budget" value={dailyCost} onChange={(e) => setDailyCost(e.target.value)} placeholder="No cap" />
-          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="button" onClick={save} disabled={saving}>
-          {saving ? 'Saving...' : 'Save budgets'}
-        </Button>
-      </CardContent>
-    </Card>
+        <DialogFooter className="border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button type="button" onClick={save} disabled={saving}>
+            {saving ? 'Saving...' : 'Save budgets'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function ProviderCard({ provider, onSaved }: { provider: UcatGenerationProvider; onSaved: () => void }) {
-  const [form, setForm] = useState(provider);
+function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationSettings; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const rows = useMemo<GeneralSettingRow[]>(
+    () => [
+      {
+        key: 'max_requested_stems_per_run',
+        label: 'Max requested stems',
+        value: String(settings.max_requested_stems_per_run),
+        description: 'Largest number of question stems a tutor can request in one generation run.',
+      },
+      {
+        key: 'daily_token_budget',
+        label: 'Daily token budget',
+        value: settings.daily_token_budget == null ? 'No cap' : settings.daily_token_budget.toLocaleString(),
+        description: 'Stops new generation calls when the daily provider-reported token total reaches this amount.',
+      },
+      {
+        key: 'daily_cost_budget_cents',
+        label: 'Daily cost budget',
+        value: settings.daily_cost_budget_cents == null ? 'No cap' : `$${(settings.daily_cost_budget_cents / 100).toFixed(2)}`,
+        description: 'Stops new generation calls when recorded estimated API cost reaches this daily amount.',
+      },
+    ],
+    [settings],
+  );
+  const columns = useMemo<ColumnDef<GeneralSettingRow>[]>(
+    () => [
+      { accessorKey: 'label', header: 'Setting', cell: ({ row }) => <span className="font-medium">{row.original.label}</span> },
+      { accessorKey: 'value', header: 'Value' },
+      { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground">{row.original.description}</span> },
+    ],
+    [],
+  );
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Budgets and run limits</CardTitle>
+              <CardDescription>Global caps used by tutor-web generation runs.</CardDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={() => setEditing(true)}>
+              Edit settings
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            data={rows}
+            searchKey="label"
+            pagination="external"
+            bodyRowClassName="cursor-pointer"
+            onRowClick={() => setEditing(true)}
+          />
+        </CardContent>
+      </Card>
+      <GeneralSettingsDialog open={editing} settings={settings} onSaved={onSaved} onOpenChange={setEditing} />
+    </>
+  );
+}
+
+function ProviderDialog({
+  provider,
+  onOpenChange,
+  onSaved,
+}: {
+  provider: UcatGenerationProvider | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<UcatGenerationProvider | null>(provider);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(provider);
   }, [provider]);
 
   async function save() {
+    if (!form || !provider) return;
     setSaving(true);
+    setError(null);
     try {
       await ucatGenerationSettingsApi.updateProvider(provider.id, form);
-      onSaved();
+      await onSaved();
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save provider');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{provider.name}</CardTitle>
-        <CardDescription>Secret value is read server-side from {provider.secret_env_var_name}.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Name</Label>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Provider key</Label>
-          <Input value={form.provider_key} onChange={(e) => setForm({ ...form, provider_key: e.target.value })} />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label>Base URL</Label>
-          <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Secret env var</Label>
-          <Input value={form.secret_env_var_name} onChange={(e) => setForm({ ...form, secret_env_var_name: e.target.value })} />
-        </div>
-        <label className="flex items-center gap-2 pt-8 text-sm">
-          <input
-            type="checkbox"
-            checked={form.is_enabled}
-            onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })}
-          />
-          Enabled
-        </label>
-        <div className="md:col-span-2">
-          <Button type="button" onClick={save} disabled={saving}>
+    <Dialog open={!!provider} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
+        <DialogHeader className="border-b px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+            <div>
+              <DialogTitle>{provider?.name ?? 'Edit provider'}</DialogTitle>
+              <DialogDescription>Secret value is read server-side from {provider?.secret_env_var_name ?? 'the configured env var'}.</DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+        {form ? (
+          <div className="grid gap-4 p-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Provider key</Label>
+              <Input value={form.provider_key} onChange={(e) => setForm({ ...form, provider_key: e.target.value })} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Base URL</Label>
+              <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Secret env var</Label>
+              <Input value={form.secret_env_var_name} onChange={(e) => setForm({ ...form, secret_env_var_name: e.target.value })} />
+            </div>
+            <label className="flex items-center gap-2 pt-8 text-sm">
+              <input
+                type="checkbox"
+                checked={form.is_enabled}
+                onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })}
+              />
+              Enabled
+            </label>
+            {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
+          </div>
+        ) : null}
+        <DialogFooter className="border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button
+            type="button"
+            onClick={save}
+            disabled={saving || !form?.name.trim() || !form?.provider_key.trim() || !form?.base_url.trim() || !form?.secret_env_var_name.trim()}
+          >
             {saving ? 'Saving...' : 'Save provider'}
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProvidersTable({ providers, onSaved }: { providers: UcatGenerationProvider[]; onSaved: () => void }) {
+  const [editingProvider, setEditingProvider] = useState<UcatGenerationProvider | null>(null);
+  const columns = useMemo<ColumnDef<UcatGenerationProvider>[]>(
+    () => [
+      { accessorKey: 'name', header: 'Provider', cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
+      { accessorKey: 'provider_key', header: 'Key' },
+      { accessorKey: 'base_url', header: 'Base URL', cell: ({ row }) => <span className="line-clamp-1 max-w-md text-muted-foreground">{row.original.base_url}</span> },
+      { accessorKey: 'secret_env_var_name', header: 'Secret env var' },
+      { accessorKey: 'is_enabled', header: 'Status', cell: ({ row }) => row.original.is_enabled ? 'Enabled' : 'Disabled' },
+    ],
+    [],
+  );
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Providers</CardTitle>
+          <CardDescription>API endpoints and server-side credential bindings used by model profiles.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            data={providers}
+            searchKey="name"
+            pagination="external"
+            bodyRowClassName="cursor-pointer"
+            onRowClick={setEditingProvider}
+          />
+        </CardContent>
+      </Card>
+      <ProviderDialog
+        provider={editingProvider}
+        onSaved={onSaved}
+        onOpenChange={(open) => {
+          if (!open) setEditingProvider(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -803,13 +978,11 @@ export function UcatGenerationSettingsPage() {
       />
 
       <SegmentedTabPanelContent when="general" activeTab={activeTab}>
-        <SettingsForm settings={bundle.settings} onSaved={() => load(false)} />
+        <GeneralSettingsTable settings={bundle.settings} onSaved={() => load(false)} />
       </SegmentedTabPanelContent>
 
-      <SegmentedTabPanelContent when="providers" activeTab={activeTab} className="space-y-4">
-        {bundle.providers.map((provider) => (
-          <ProviderCard key={provider.id} provider={provider} onSaved={() => load(false)} />
-        ))}
+      <SegmentedTabPanelContent when="providers" activeTab={activeTab}>
+        <ProvidersTable providers={bundle.providers} onSaved={() => load(false)} />
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="models" activeTab={activeTab} className="space-y-4">

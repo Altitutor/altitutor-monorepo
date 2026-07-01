@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AdminDialogShell, AdminLoadingSkeleton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
+import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
@@ -10,35 +12,18 @@ import { UcatSubscriptionConfigForm } from '@/features/ucat-subscription-config/
 import { UcatPlanPricesForm } from '@/features/ucat-subscription-config/components/UcatPlanPricesForm';
 import { UcatPracticeDayDiscountForm } from '@/features/ucat-subscription-config/components/UcatPracticeDayDiscountForm';
 
-type SubscriptionSettingsRow = {
-  id: 'subscription' | 'discounts' | 'prices';
-  name: string;
-  description: string;
-};
-
-const SETTINGS_ROWS: SubscriptionSettingsRow[] = [
-  {
-    id: 'subscription',
-    name: 'Subscription config',
-    description: 'Pro trial, weekly and monthly pricing, and Stripe price IDs.',
-  },
-  {
-    id: 'discounts',
-    name: 'Practice day discount',
-    description: 'Configure practice-day discounts.',
-  },
-  {
-    id: 'prices',
-    name: 'Plan prices',
-    description: 'Configure UCAT plan price records.',
-  },
-];
+const VALID_TABS = ['subscription', 'discounts', 'prices'] as const;
+type SubscriptionTab = (typeof VALID_TABS)[number];
 
 export default function UcatSubscriptionSettingsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [config, setConfig] = useState<UcatSubscriptionConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [editingRow, setEditingRow] = useState<SubscriptionSettingsRow | null>(null);
+  const tabParam = searchParams.get('tab');
+  const activeTab: SubscriptionTab = VALID_TABS.includes(tabParam as SubscriptionTab) ? (tabParam as SubscriptionTab) : 'subscription';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,72 +46,50 @@ export default function UcatSubscriptionSettingsPage() {
     void load();
   }, [load]);
 
+  function handleTabChange(value: string) {
+    const nextTab = VALID_TABS.includes(value as SubscriptionTab) ? (value as SubscriptionTab) : 'subscription';
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextTab === 'subscription') params.delete('tab');
+    else params.set('tab', nextTab);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
   if (loading) {
     return <AdminLoadingSkeleton variant="table" />;
   }
 
-  const columns: SettingsDataTableColumn<SubscriptionSettingsRow>[] = [
-    {
-      key: 'name',
-      label: 'Setting',
-      render: (row) => <span className="font-medium">{row.name}</span>,
-      sortValue: (row) => row.name,
-      searchValue: (row) => row.name,
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      render: (row) => <span className="text-muted-foreground">{row.description}</span>,
-      sortValue: (row) => row.description,
-      searchValue: (row) => row.description,
-    },
-  ];
-
-  const renderEditor = () => {
-    if (!editingRow) return null;
-    if (editingRow.id === 'subscription') {
-      return config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null;
-    }
-    if (editingRow.id === 'discounts') {
-      return <UcatPracticeDayDiscountForm />;
-    }
-    return <UcatPlanPricesForm />;
-  };
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <SettingsPageHeader title="UCAT subscription" />
 
       {loadError && !config ? (
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      <SettingsDataTable
-        data={SETTINGS_ROWS}
-        columns={columns}
-        getRowId={(row) => row.id}
-        filterKeys={[]}
-        searchPlaceholder="Search UCAT subscription settings..."
-        defaultSort={{ field: 'name', direction: 'asc' }}
-        getActions={(row) => [
-          {
-            id: 'edit',
-            label: 'Edit',
-            disabled: row.id === 'subscription' && !config,
-            onSelect: () => setEditingRow(row),
-          },
+      <SegmentedControl
+        className="w-full max-w-xl min-w-0"
+        fullWidth
+        value={activeTab}
+        onValueChange={handleTabChange}
+        options={[
+          { value: 'subscription', label: 'Subscription' },
+          { value: 'discounts', label: 'Discounts' },
+          { value: 'prices', label: 'Prices' },
         ]}
       />
 
-      <AdminDialogShell
-        open={!!editingRow}
-        onClose={() => setEditingRow(null)}
-        title={editingRow?.name ?? 'Edit UCAT subscription'}
-        subtitle={editingRow?.description}
-        contentClassName="md:max-w-5xl"
-      >
-        {renderEditor()}
-      </AdminDialogShell>
+      <SegmentedTabPanelContent when="subscription" activeTab={activeTab}>
+        {config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null}
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="discounts" activeTab={activeTab}>
+        <UcatPracticeDayDiscountForm />
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="prices" activeTab={activeTab}>
+        <UcatPlanPricesForm />
+      </SegmentedTabPanelContent>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type {
   ExamAttemptKind,
   SyncExamAttemptInput,
 } from "@/lib/ucat/exam-attempt/types";
+import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 
@@ -87,6 +88,7 @@ export function syncExamAttemptKeepalive(
 export async function finalizeExamAttempt(input: {
   kind: ExamAttemptKind;
   attemptId: string;
+  answers?: FinalExamQuestionAttemptInput[];
 }): Promise<unknown> {
   const response = await fetch("/api/ucat/exam-attempts/finalize", {
     method: "POST",

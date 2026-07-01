@@ -169,14 +169,7 @@ export const additionalPages: CommandPalettePage[] = [
     title: 'UCAT Free tier',
     href: '/settings/ucat-free-tier',
     icon: GraduationCap,
-    keywords: ['ucat', 'free', 'tier', 'quota', 'limit', 'practice', 'sets', 'mocks'],
-  },
-  {
-    id: 'settings-ucat-quotas',
-    title: 'UCAT quotas',
-    href: '/settings/ucat-quotas',
-    icon: GraduationCap,
-    keywords: ['ucat', 'free', 'tier', 'quota', 'reset', 'student'],
+    keywords: ['ucat', 'free', 'tier', 'quota', 'limit', 'practice', 'sets', 'mocks', 'reset', 'student'],
   },
   {
     id: 'settings-manual-online-access',

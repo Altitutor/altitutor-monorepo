@@ -748,16 +748,6 @@ export function QuestionEnginePage({
       const { earnedDiscount, discountCents, redirectHref } =
         await handleExamCompleted();
       if (examAttemptManaged) {
-        if (managedExamAttempt) {
-          try {
-            await finalizeExamAttempt({
-              kind: managedExamAttempt.kind,
-              attemptId: managedExamAttempt.attemptId,
-            });
-          } catch {
-            // Completion may already be persisted via handleExamCompleted.
-          }
-        }
         clearActiveExamAttempt();
         await refreshActiveExamAttempt();
       }
@@ -781,7 +771,6 @@ export function QuestionEnginePage({
   }, [
     handleExamCompleted,
     examAttemptManaged,
-    managedExamAttempt,
     clearActiveExamAttempt,
     refreshActiveExamAttempt,
     toast,

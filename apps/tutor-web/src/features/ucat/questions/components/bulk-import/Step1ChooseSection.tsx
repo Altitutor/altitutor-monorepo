@@ -57,7 +57,7 @@ export function Step1ChooseSection({
             className="min-h-24"
             value={tutorSourceNote}
             onChange={(event) => onTutorSourceNoteChange(event.target.value)}
-            placeholder="e.g. Medify mock 3, official practice bank, in-house worksheet"
+            placeholder="e.g. Altitutor mock 3, official practice bank, in-house worksheet"
           />
         </label>
       </div>
