@@ -8,7 +8,7 @@ export type UcatLearningModuleBlockType =
   | 'file'
   | 'question_stem'
   | 'question'
-  | 'skill_trainer_set'
+  | 'skill_trainer'
 
 export type UcatLearningModuleRow = {
   id: string
@@ -36,7 +36,7 @@ export type UcatLearningModuleBlockRow = {
   question_stem_id: string | null
   question_id: string | null
   file_id: string | null
-  skill_trainer_set_id: string | null
+  skill_trainer_id: string | null
 }
 
 /** Payload sent to tutor_ucat_replace_learning_module_blocks */
@@ -48,7 +48,7 @@ export type UcatLearningModuleBlockPayload = {
   question_stem_id?: string | null
   question_id?: string | null
   file_id?: string | null
-  skill_trainer_set_id?: string | null
+  skill_trainer_id?: string | null
 }
 
 export type UcatLearningModuleUpsertPayload = {

@@ -3,26 +3,67 @@
 import type {
   CalculatorMathsItemContent,
   FindConceptItemContent,
+  FindWordKeywordOccurrence,
   FindWordItemContent,
   MentalMathsItemContent,
   NumpadSpeedItemContent,
   QuickSyllogismItemContent,
 } from "@altitutor/shared";
-import { useEffect, useRef, useState } from "react";
+import {
+  findFindWordKeywordOccurrences,
+} from "@altitutor/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { Button } from "../button";
 import { Input } from "../input";
 import { CalcKeyChip, CalcKeyDisplay } from "./calc-key-chip";
 import { EmbeddedCalculator } from "./embedded-calculator";
-import { extractPlainTextFromDoc, hasProseMirrorContent, splitPassageSentences } from "./passage";
+import {
+  extractPlainTextFromDoc,
+  extractPlainTextWithBlockBreaks,
+  hasProseMirrorContent,
+} from "./passage";
 import {
   SkillTrainerRichContent,
   type SkillTrainerRichContentProps,
 } from "./rich-content-block";
 
-const SENTENCE_HIT_PADDING_PX = 6;
+const WORD_HIT_PADDING_PX = 3;
 
 export type SkillTrainerRichContentComponent = React.ComponentType<SkillTrainerRichContentProps>;
+export type SkillTrainerFeedbackOrigin = { x: number; y: number };
+
+type PassageSegment = {
+  text: string;
+  occurrence?: FindWordKeywordOccurrence;
+  occurrenceIndex?: number;
+  found?: boolean;
+};
+
+function splitSegmentsIntoParagraphs(segments: PassageSegment[]): PassageSegment[][] {
+  const paragraphs: PassageSegment[][] = [[]];
+
+  for (const segment of segments) {
+    const parts = segment.text.split(/\r?\n/u);
+    parts.forEach((part, index) => {
+      if (index > 0) paragraphs.push([]);
+      if (part) {
+        paragraphs[paragraphs.length - 1]!.push({ ...segment, text: part });
+      }
+    });
+  }
+
+  return paragraphs;
+}
+
+function getElementCenter(element: HTMLElement | null): SkillTrainerFeedbackOrigin | undefined {
+  if (!element) return undefined;
+  const rect = element.getBoundingClientRect();
+  return {
+    x: Math.round(rect.left + rect.width / 2),
+    y: Math.round(rect.top + rect.height / 2),
+  };
+}
 
 function PassageLayout({
   passage,
@@ -32,11 +73,11 @@ function PassageLayout({
   sidebar: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-[min(70vh,640px)] flex-col gap-4 lg:flex-row">
+    <div className="flex min-h-[min(70vh,640px)] flex-col gap-4 md:flex-row">
       <article className="min-w-0 flex-1 overflow-y-auto rounded-lg p-4 text-sm leading-relaxed">
         {passage}
       </article>
-      <section className="flex w-full flex-col gap-3 rounded-lg p-4 lg:w-[320px] lg:shrink-0">
+      <section className="flex w-full flex-col gap-3 rounded-lg p-4 md:w-[320px] md:shrink-0">
         {sidebar}
       </section>
     </div>
@@ -45,6 +86,7 @@ function PassageLayout({
 
 export function FindWordTrainer({
   content,
+  shuffleKey,
   placedIds,
   selectedKeywordId,
   draggingKeywordId,
@@ -54,78 +96,218 @@ export function FindWordTrainer({
   onPlace,
 }: {
   content: FindWordItemContent;
+  shuffleKey?: string;
   placedIds: string[];
   selectedKeywordId: string | null;
   draggingKeywordId: string | null;
   onSelectKeyword: (id: string | null) => void;
   onDragKeyword: (id: string | null) => void;
   disabled: boolean;
-  onPlace: (keywordId: string, sentenceIndex: number) => void;
+  onPlace: (keywordId: string, characterIndex: number) => void;
 }) {
-  const plain = extractPlainTextFromDoc(content.passage);
-  const sentences = splitPassageSentences(plain);
-  const keywords = content.keywords ?? [];
-  const remaining = keywords.filter((k) => !placedIds.includes(k.id));
+  const plain = extractPlainTextWithBlockBreaks(content.passage);
+  const keywords = useMemo(() => content.keywords ?? [], [content.keywords]);
+  const keywordSignature = useMemo(
+    () => keywords.map((keyword) => keyword.id).join("\u001F"),
+    [keywords],
+  );
+  const [shuffledKeywordIds, setShuffledKeywordIds] = useState<string[]>([]);
+  const displayKeywords = useMemo(() => {
+    const byId = new Map(keywords.map((keyword) => [keyword.id, keyword]));
+    if (
+      shuffledKeywordIds.length !== keywords.length ||
+      shuffledKeywordIds.some((id) => !byId.has(id))
+    ) {
+      return keywords;
+    }
+    return shuffledKeywordIds.map((id) => byId.get(id)).filter(Boolean) as typeof keywords;
+  }, [keywords, shuffledKeywordIds]);
   const activeKeywordId = draggingKeywordId ?? selectedKeywordId;
+  const activeKeyword = keywords.find((keyword) => keyword.id === activeKeywordId) ?? null;
+  const activeOccurrences = useMemo(
+    () => (activeKeyword ? findFindWordKeywordOccurrences(plain, activeKeyword) : []),
+    [activeKeyword, plain],
+  );
 
-  return (
-    <PassageLayout
-      passage={
-        <div className="space-y-1">
-          {sentences.map((sentence, index) => (
-            <p
-              key={index}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (disabled || !draggingKeywordId) return;
-                onPlace(draggingKeywordId, index);
-                onDragKeyword(null);
-                onSelectKeyword(null);
-              }}
-              onClick={() => {
-                if (disabled || !selectedKeywordId) return;
-                onPlace(selectedKeywordId, index);
-                onSelectKeyword(null);
-              }}
-              className={cn(
-                "rounded-sm transition-colors",
-                activeKeywordId ? "cursor-pointer hover:bg-primary/10" : "",
-              )}
-              style={{ padding: SENTENCE_HIT_PADDING_PX }}
-            >
-              {sentence}
+  useEffect(() => {
+    const ids = keywords.map((keyword) => keyword.id);
+    for (let i = ids.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    }
+    setShuffledKeywordIds(ids);
+  }, [shuffleKey, keywordSignature]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (disabled) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (!/^[1-9]$/.test(event.key)) return;
+      const nextKeyword = displayKeywords[Number(event.key) - 1];
+      if (!nextKeyword || placedIds.includes(nextKeyword.id)) return;
+      event.preventDefault();
+      onSelectKeyword(selectedKeywordId === nextKeyword.id ? null : nextKeyword.id);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [disabled, displayKeywords, onSelectKeyword, placedIds, selectedKeywordId]);
+
+  const submitWrongPlacement = () => {
+    const keywordId = draggingKeywordId ?? selectedKeywordId;
+    if (disabled || !keywordId) return;
+    onPlace(keywordId, -1);
+    onDragKeyword(null);
+  };
+
+  const renderPassage = () => {
+    const segments: PassageSegment[] = [];
+    let cursor = 0;
+    for (const occurrence of activeOccurrences) {
+      if (occurrence.start > cursor) {
+        segments.push({ text: plain.slice(cursor, occurrence.start) });
+      }
+      segments.push({
+        text: plain.slice(occurrence.start, occurrence.end),
+        occurrence,
+      });
+      cursor = occurrence.end;
+    }
+    if (!activeKeywordId || activeOccurrences.length === 0) {
+      segments.push({ text: plain || "\u00A0" });
+    } else {
+      if (cursor < plain.length) segments.push({ text: plain.slice(cursor) });
+    }
+
+    const paragraphs = splitSegmentsIntoParagraphs(segments);
+
+    return (
+      <div
+        className={cn(activeKeywordId && !disabled ? "cursor-pointer" : "")}
+        onClick={() => {
+          if (!selectedKeywordId) return;
+          submitWrongPlacement();
+        }}
+        onDragOver={(event) => {
+          if (!draggingKeywordId || disabled) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (!draggingKeywordId) return;
+          submitWrongPlacement();
+        }}
+      >
+        <div className="space-y-4">
+          {paragraphs.map((paragraph, paragraphIndex) => (
+            <p key={paragraphIndex} className="whitespace-pre-wrap">
+              {paragraph.length === 0
+                ? "\u00A0"
+                : paragraph.map((segment, index) =>
+                    segment.occurrence ? (
+                      <button
+                        key={index}
+                        type="button"
+                        disabled={disabled}
+                        onDragOver={(event) => {
+                          if (!draggingKeywordId || disabled) return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (disabled || !draggingKeywordId || draggingKeywordId !== activeKeywordId) return;
+                          onPlace(draggingKeywordId, segment.occurrence!.start);
+                          onDragKeyword(null);
+                          onSelectKeyword(null);
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (disabled || !selectedKeywordId || selectedKeywordId !== activeKeywordId) return;
+                          onPlace(selectedKeywordId, segment.occurrence!.start);
+                          onSelectKeyword(null);
+                        }}
+                        className={cn(
+                          "inline rounded-sm border-0 bg-transparent p-0 align-baseline font-inherit text-inherit leading-inherit",
+                          activeKeywordId && !disabled ? "cursor-pointer" : "",
+                        )}
+                        style={{
+                          marginInline: -WORD_HIT_PADDING_PX,
+                          paddingInline: WORD_HIT_PADDING_PX,
+                          paddingBlock: 0,
+                        }}
+                      >
+                        {segment.text}
+                      </button>
+                    ) : (
+                      <span key={index}>{segment.text}</span>
+                    ),
+                  )}
             </p>
           ))}
         </div>
-      }
+      </div>
+    );
+  };
+
+  return (
+    <PassageLayout
+      passage={renderPassage()}
       sidebar={
         <>
           <p className="text-sm font-medium text-muted-foreground">Keywords</p>
           <div className="flex flex-wrap gap-2">
-            {remaining.map((keyword) => (
-              <button
-                key={keyword.id}
-                type="button"
-                draggable={!disabled}
-                disabled={disabled}
-                onClick={() =>
-                  onSelectKeyword(selectedKeywordId === keyword.id ? null : keyword.id)
-                }
-                onDragStart={() => onDragKeyword(keyword.id)}
-                onDragEnd={() => onDragKeyword(null)}
-                className={cn(
-                  "rounded-md border bg-background px-3 py-2 text-left text-sm shadow-sm transition-colors",
-                  selectedKeywordId === keyword.id
-                    ? "border-primary ring-2 ring-primary/30"
-                    : "border-border hover:border-primary/50",
-                )}
-              >
-                {keyword.text}
-              </button>
-            ))}
+            {displayKeywords.map((keyword, shortcutIndex) => {
+              const placed = placedIds.includes(keyword.id);
+              return (
+                <button
+                  key={keyword.id}
+                  type="button"
+                  draggable={!disabled && !placed}
+                  disabled={disabled || placed}
+                  onClick={() =>
+                    onSelectKeyword(selectedKeywordId === keyword.id ? null : keyword.id)
+                  }
+                  onDragStart={(event) => {
+                    if (placed) {
+                      event.preventDefault();
+                      return;
+                    }
+                    event.dataTransfer.effectAllowed = "move";
+                    onDragKeyword(keyword.id);
+                  }}
+                  onDragEnd={() => onDragKeyword(null)}
+                  className={cn(
+                    "rounded-md border bg-background px-3 py-2 text-left text-sm shadow-sm transition-colors",
+                    placed
+                      ? "border-border bg-muted text-muted-foreground opacity-60"
+                      : selectedKeywordId === keyword.id
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:border-primary/50",
+                  )}
+                >
+                  {shortcutIndex < 9 ? (
+                    <span className="mr-2 inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-muted px-1 text-[11px] font-semibold text-muted-foreground">
+                      {shortcutIndex + 1}
+                    </span>
+                  ) : null}
+                  {keyword.text}
+                </button>
+              );
+            })}
           </div>
           {selectedKeywordId ? (
-            <p className="text-xs text-muted-foreground">Click a sentence where this word appears.</p>
+            <p className="text-xs text-muted-foreground">Click the word where it appears.</p>
           ) : null}
         </>
       }
@@ -146,7 +328,7 @@ function ConceptPassageText({
   disabled: boolean;
   onClickOccurrence: (index: number) => void;
 }) {
-  const segments: Array<{ text: string; occurrenceIndex?: number; found?: boolean }> = [];
+  const segments: PassageSegment[] = [];
   let cursor = 0;
   const sorted = (occurrences ?? [])
     .map((o, index) => ({ ...o, index }))
@@ -165,29 +347,40 @@ function ConceptPassageText({
   }
   if (cursor < plain.length) segments.push({ text: plain.slice(cursor) });
 
+  const paragraphs = splitSegmentsIntoParagraphs(segments);
+
   return (
-    <>
-      {segments.map((seg, i) =>
-        seg.occurrenceIndex != null ? (
-          <button
-            key={i}
-            type="button"
-            disabled={disabled || seg.found}
-            onClick={() => onClickOccurrence(seg.occurrenceIndex!)}
-            className={cn(
-              "inline p-0 align-baseline font-inherit text-inherit leading-inherit",
-              seg.found
-                ? "rounded-sm bg-green-200/80 ring-1 ring-green-600"
-                : "cursor-pointer border-0 bg-transparent",
-            )}
-          >
-            {seg.text}
-          </button>
-        ) : (
-          <span key={i}>{seg.text}</span>
-        ),
-      )}
-    </>
+    <div className="space-y-4">
+      {paragraphs.map((paragraph, paragraphIndex) => (
+        <p key={paragraphIndex} className="whitespace-pre-wrap">
+          {paragraph.length === 0
+            ? "\u00A0"
+            : paragraph.map((seg, i) =>
+                seg.occurrenceIndex != null ? (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={disabled || seg.found}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onClickOccurrence(seg.occurrenceIndex!);
+                    }}
+                    className={cn(
+                      "inline p-0 align-baseline font-inherit leading-inherit",
+                      seg.found
+                        ? "rounded-sm bg-green-500 text-white ring-1 ring-green-500"
+                        : "cursor-pointer border-0 bg-transparent text-inherit",
+                    )}
+                  >
+                    {seg.text}
+                  </button>
+                ) : (
+                  <span key={i}>{seg.text}</span>
+                ),
+              )}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -196,21 +389,27 @@ export function FindConceptTrainer({
   foundIndexes,
   disabled,
   onClickOccurrence,
-  onSubmit,
+  onSkip,
 }: {
   content: FindConceptItemContent;
   foundIndexes: number[];
   disabled: boolean;
   onClickOccurrence: (index: number) => void;
-  onSubmit: () => void;
+  onSkip: () => void;
 }) {
   const plain = extractPlainTextFromDoc(content.passage);
   const occurrences = content.occurrences ?? [];
+  const remainingCount = Math.max(0, occurrences.length - foundIndexes.length);
 
   return (
     <PassageLayout
       passage={
-        <p className="whitespace-pre-wrap">
+        <div
+          className={disabled ? "" : "cursor-pointer"}
+          onClick={() => {
+            if (!disabled) onClickOccurrence(-1);
+          }}
+        >
           <ConceptPassageText
             plain={plain}
             occurrences={occurrences}
@@ -218,16 +417,21 @@ export function FindConceptTrainer({
             disabled={disabled}
             onClickOccurrence={onClickOccurrence}
           />
-        </p>
+        </div>
       }
       sidebar={
         <>
           <p className="text-sm font-medium">Find: {content.concept}</p>
           <p className="text-xs text-muted-foreground">
-            Click every occurrence in the passage, then submit.
+            Click every occurrence in the passage.
           </p>
-          <Button type="button" disabled={disabled} onClick={onSubmit} className="mt-auto">
-            Submit
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={disabled || remainingCount === 0}
+            onClick={onSkip}
+          >
+            Skip
           </Button>
         </>
       }
@@ -329,9 +533,10 @@ export function NumericTrainer({
   onChange: (v: string) => void;
   disabled: boolean;
   allowDecimal?: boolean;
-  onSubmit: () => void;
+  onSubmit: (origin?: SkillTrainerFeedbackOrigin) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (disabled) return;
@@ -356,21 +561,31 @@ export function NumericTrainer({
   return (
     <div className="mx-auto max-w-md space-y-4 py-12 text-center">
       <p className="text-2xl font-medium">{label}</p>
-      <Input
-        ref={inputRef}
-        type="number"
-        step={allowDecimal ? "any" : "1"}
-        value={value}
-        disabled={disabled}
-        autoFocus={!disabled}
+      <div className="flex items-stretch gap-2">
+        <Input
+          ref={inputRef}
+          type="number"
+          step={allowDecimal ? "any" : "1"}
+          value={value}
+          disabled={disabled}
+          autoFocus={!disabled}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") onSubmit();
+          if (e.key === "Enter") onSubmit(getElementCenter(submitButtonRef.current));
         }}
       />
-      <Button type="button" disabled={disabled || !value} onClick={onSubmit}>
-        Submit
-      </Button>
+        <Button
+          ref={submitButtonRef}
+          type="button"
+          disabled={disabled || !value}
+          onClick={() => onSubmit(getElementCenter(submitButtonRef.current))}
+        >
+          Submit
+          <span className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            Enter
+          </span>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -387,43 +602,18 @@ export function NumpadTrainer({
   sequence: string[];
   onCalcKey: (key: string) => void;
   onRemoveKey: (index: number) => void;
-  onSubmit: () => void;
+  onSubmit: (origin?: SkillTrainerFeedbackOrigin) => void;
   disabled: boolean;
 }) {
-  const targetSequence = (content.button_sequence ?? []).filter((btn) => btn !== "=");
-
-  useEffect(() => {
-    if (disabled) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Backspace" && sequence.length > 0) {
-        e.preventDefault();
-        onRemoveKey(sequence.length - 1);
-      }
-      if (e.key === "Enter" || e.key === "=") {
-        e.preventDefault();
-        onSubmit();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [disabled, onRemoveKey, onSubmit, sequence.length]);
+  const targetSequence = content.button_sequence ?? [];
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="flex min-h-[min(70vh,560px)] flex-col gap-4 lg:flex-row">
-      <div className="w-full lg:w-[300px] lg:shrink-0">
-        <EmbeddedCalculator
-          display=""
-          onKey={onCalcKey}
-          onEquals={onSubmit}
-          showDisplay={false}
-          captureKeyboardAlways
-          active={!disabled}
-        />
-      </div>
-      <div className="flex flex-1 flex-col gap-4 p-2">
+    <div className="flex min-h-[calc(100vh-140px)] flex-col gap-4 md:flex-row">
+      <article className="flex min-w-0 flex-1 flex-col items-center gap-6 overflow-y-auto rounded-lg p-6 text-center">
         <div className="space-y-2">
           <p className="text-sm font-medium">Target sequence</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap justify-center gap-1.5">
             {targetSequence.map((label, i) => (
               <CalcKeyDisplay key={`${label}-${i}`} label={label} />
             ))}
@@ -431,7 +621,7 @@ export function NumpadTrainer({
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium">Your sequence</p>
-          <div className="flex min-h-[40px] flex-wrap gap-1.5">
+          <div className="flex min-h-[40px] flex-wrap justify-center gap-1.5">
             {sequence.length === 0 ? (
               <span className="text-sm text-muted-foreground">Press keys on the calculator…</span>
             ) : (
@@ -445,13 +635,33 @@ export function NumpadTrainer({
               ))
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Press = or Enter to submit. Backspace removes the last key.
-          </p>
         </div>
-        {content.label ? (
-          <p className="text-sm text-muted-foreground">{content.label}</p>
-        ) : null}
+        <Button
+          ref={submitButtonRef}
+          type="button"
+          disabled={disabled || sequence.length === 0}
+          onClick={() => onSubmit(getElementCenter(submitButtonRef.current))}
+        >
+          Submit
+          <span className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            Enter
+          </span>
+        </Button>
+      </article>
+      <div className="flex w-full justify-center rounded-lg p-1 md:w-[320px] md:shrink-0">
+        <div className="w-full max-w-[300px]">
+          <EmbeddedCalculator
+            display=""
+            onKey={onCalcKey}
+            onEquals={() => onSubmit(getElementCenter(submitButtonRef.current))}
+            onBackspace={() => {
+              if (sequence.length > 0) onRemoveKey(sequence.length - 1);
+            }}
+            showDisplay={false}
+            captureKeyboardAlways
+            active={!disabled}
+          />
+        </div>
       </div>
     </div>
   );
@@ -479,51 +689,100 @@ export function CalculatorMathsTrainer({
   onChange: (v: string) => void;
   onCalcKey: (key: string) => void;
   disabled: boolean;
-  onSubmit: () => void;
+  onSubmit: (origin?: SkillTrainerFeedbackOrigin) => void;
   RichContent?: SkillTrainerRichContentComponent;
 }) {
   const plainExpression = content.expression ?? extractPlainTextFromDoc(content.question ?? null);
+  const answerInputRef = useRef<HTMLInputElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (disabled || !answerFocused) return;
+    answerInputRef.current?.focus();
+  }, [answerFocused, disabled]);
+
+  useEffect(() => {
+    if (disabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey || (event.code !== "KeyC" && event.key.toLowerCase() !== "c")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (answerFocused) {
+        onCalcFocus();
+      } else {
+        onAnswerFocus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [answerFocused, disabled, onAnswerFocus, onCalcFocus]);
 
   return (
-    <div className="flex min-h-[min(70vh,560px)] flex-col gap-4 lg:flex-row">
-      <article className="min-w-0 flex-1 overflow-y-auto rounded-lg p-4">
-        {hasProseMirrorContent(content.question) ? (
-          <RichContent json={content.question} plainText={plainExpression} />
-        ) : (
-          <p className="text-lg font-medium">{plainExpression}</p>
+    <div className="flex min-h-[calc(100vh-140px)] flex-col gap-4 md:flex-row">
+      <article
+        className={cn(
+          "flex min-w-0 flex-1 cursor-text flex-col items-center gap-4 overflow-y-auto rounded-lg p-6 pt-24 text-center transition-colors",
+          answerFocused ? "ring-2 ring-primary/30" : "",
         )}
+        onClick={() => {
+          onAnswerFocus();
+          answerInputRef.current?.focus();
+        }}
+      >
+        <div className="w-full max-w-lg">
+          {hasProseMirrorContent(content.question) ? (
+            <RichContent json={content.question} plainText={plainExpression} />
+          ) : (
+            <p className="text-2xl font-medium">{plainExpression}</p>
+          )}
+        </div>
+        <div className="w-full max-w-sm space-y-3">
+          <label className="block text-sm font-medium">Your answer</label>
+          <div className="flex items-stretch gap-2">
+            <Input
+              ref={answerInputRef}
+              type="number"
+              step="any"
+              value={value}
+              disabled={disabled}
+              onFocus={onAnswerFocus}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSubmit(getElementCenter(submitButtonRef.current));
+              }}
+            />
+            <Button
+              ref={submitButtonRef}
+              type="button"
+              disabled={disabled || !value}
+              onClick={() => onSubmit(getElementCenter(submitButtonRef.current))}
+            >
+              Submit
+              <span className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                Enter
+              </span>
+            </Button>
+          </div>
+        </div>
       </article>
-      <div className="flex w-full flex-col gap-4 lg:w-[320px] lg:shrink-0">
-        <div onClick={onCalcFocus} onFocus={onCalcFocus}>
+      <div
+        className={cn(
+          "flex w-full flex-col gap-4 rounded-lg p-1 md:w-[320px] md:shrink-0",
+          !answerFocused ? "ring-2 ring-primary/30" : "",
+        )}
+        onClick={onCalcFocus}
+        onFocus={onCalcFocus}
+      >
+        <div>
           <EmbeddedCalculator
             display={calcDisplay}
             onKey={onCalcKey}
+            onBackspace={() => onCalcKey("Backspace")}
+            captureKeyboardAlways
             active={!answerFocused && !disabled}
           />
         </div>
-        <div
-          className={cn(
-            "rounded-lg border p-3 transition-colors",
-            answerFocused ? "border-primary ring-2 ring-primary/30" : "border-border",
-          )}
-          onClick={onAnswerFocus}
-        >
-          <label className="mb-2 block text-sm font-medium">Your answer</label>
-          <Input
-            type="number"
-            step="any"
-            value={value}
-            disabled={disabled}
-            onFocus={onAnswerFocus}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onSubmit();
-            }}
-          />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Click here to type your answer, or click the calculator to use it.
-          </p>
-        </div>
+        <p className="text-center text-xs text-muted-foreground">Alt+C switches input focus.</p>
       </div>
     </div>
   );
@@ -542,7 +801,7 @@ export function MentalMathsTrainer({
   inputKey: string;
   onChange: (v: string) => void;
   disabled: boolean;
-  onSubmit: () => void;
+  onSubmit: (origin?: SkillTrainerFeedbackOrigin) => void;
 }) {
   return (
     <NumericTrainer

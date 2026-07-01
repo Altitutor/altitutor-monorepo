@@ -4,9 +4,9 @@ import type {
 } from "@altitutor/shared";
 
 export type SubmitActionPayload =
-  | { type: "place_word"; keyword_id: string; sentence_index: number }
+  | { type: "place_word"; keyword_id: string; character_index: number }
   | { type: "click_occurrence"; occurrence_index: number }
-  | { type: "submit_concept" }
+  | { type: "skip_concept" }
   | { type: "syllogism_answer"; answer: boolean }
   | { type: "numeric_answer"; answer: number }
   | { type: "numpad_sequence"; sequence: string[] };

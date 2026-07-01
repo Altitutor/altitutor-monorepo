@@ -447,14 +447,24 @@ export function useExamAttemptLifecycle({
 
     if (previousSegmentKey === null) return;
     const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
+    const localSegmentEndsAt =
+      limit != null && limit > 0 && state.timerStartedAt != null
+        ? new Date(state.timerStartedAt + limit * 1000).toISOString()
+        : null;
+    const shouldPreserveLocalElapsed =
+      localSegmentEndsAt != null && Date.now() - state.timerStartedAt! > 1000;
     segmentStartPendingRef.current = true;
     setServerSegmentEndsAt(null);
     void syncExamAttempt({
       kind,
       attemptId: attemptIdRef.current,
       engineSnapshot: toExamEngineSnapshot(state),
-      currentSegmentEndsAt: null,
-      startSegmentTimeLimitSeconds: limit,
+      currentSegmentEndsAt: shouldPreserveLocalElapsed
+        ? localSegmentEndsAt
+        : null,
+      startSegmentTimeLimitSeconds: shouldPreserveLocalElapsed
+        ? undefined
+        : limit,
       setAttemptIdsBySetId: Object.fromEntries(
         attemptStateRef.current.setAttemptIdsBySetId.entries(),
       ),

@@ -111,15 +111,9 @@ export default function SettingsPage() {
       title: 'UCAT',
       items: [
         {
-          title: 'UCAT subscription',
-          description: 'Pro trial, weekly and monthly pricing, practice-day discounts, and Stripe price IDs',
-          href: '/settings/ucat-subscription',
-          icon: GraduationCap,
-        },
-        {
-          title: 'UCAT Free tier',
-          description: 'Per-area Free tier limits, student quota usage, and quota resets',
-          href: '/settings/ucat-free-tier',
+          title: 'UCAT billing',
+          description: 'Subscription settings, prices, discounts, Free tier quotas, and quota resets',
+          href: '/settings/ucat-billing',
           icon: GraduationCap,
         },
         {

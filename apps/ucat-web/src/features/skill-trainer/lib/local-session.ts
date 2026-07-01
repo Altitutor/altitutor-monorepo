@@ -8,6 +8,10 @@ import type {
   SkillTrainerAttemptProgress,
   UcatSkillTrainerKey,
 } from "@altitutor/shared";
+import {
+  extractSkillTrainerPlainText,
+  findFindWordKeywordOccurrences,
+} from "@altitutor/shared";
 import type {
   SkillTrainerAttemptState,
   SubmitActionPayload,
@@ -95,7 +99,16 @@ export function submitLocalSkillTrainerAction(
       const placedIds =
         progress.type === "find_word" ? progress.placed_keyword_ids : [];
 
-      if (!keyword || keyword.target_sentence_index !== payload.sentence_index) {
+      const plain = extractSkillTrainerPlainText(content.passage, { blockSeparator: "\n" });
+      const validTarget = keyword
+        ? findFindWordKeywordOccurrences(plain, keyword).some(
+            (occurrence) =>
+              payload.character_index >= occurrence.start &&
+              payload.character_index < occurrence.end,
+          )
+        : false;
+
+      if (!keyword || !validTarget) {
         newStreak = 0;
         scoreDelta = normalizeScoreDelta(trainerKey, applyWrongScore(config));
         nextProgress = { type: "find_word", placed_keyword_ids: placedIds };
@@ -121,6 +134,15 @@ export function submitLocalSkillTrainerAction(
       const found =
         progress.type === "find_concept" ? progress.found_occurrence_indexes : [];
 
+      if (payload.type === "skip_concept") {
+        const missingCount = Math.max(0, occurrences.length - found.length);
+        newStreak = 0;
+        scoreDelta = normalizeScoreDelta(trainerKey, applyWrongScore(config)) * missingCount;
+        nextProgress = { type: "find_concept", found_occurrence_indexes: found };
+        itemCompleted = true;
+        break;
+      }
+
       if (payload.type === "click_occurrence") {
         const valid =
           payload.occurrence_index >= 0 &&
@@ -141,22 +163,13 @@ export function submitLocalSkillTrainerAction(
           type: "find_concept",
           found_occurrence_indexes: [...found, payload.occurrence_index],
         };
+        if (nextProgress.found_occurrence_indexes.length >= occurrences.length) {
+          itemCompleted = true;
+          scoreDelta += normalizeScoreDelta(trainerKey, 20);
+        }
         break;
       }
 
-      if (payload.type !== "submit_concept") return state;
-      if (found.length !== occurrences.length) {
-        newStreak = 0;
-        scoreDelta = normalizeScoreDelta(trainerKey, applyWrongScore(config));
-        nextProgress = { type: "find_concept", found_occurrence_indexes: found };
-        break;
-      }
-      itemCompleted = true;
-      newStreak += 1;
-      scoreDelta = normalizeScoreDelta(
-        trainerKey,
-        applyCorrectScore(20, config, newStreak),
-      );
       break;
     }
     case "quick_syllogism": {
@@ -174,7 +187,7 @@ export function submitLocalSkillTrainerAction(
         scoreDelta = normalizeScoreDelta(trainerKey, applyWrongScore(config));
         nextProgress = { type: "quick_syllogism" };
       }
-      itemCompleted = correct;
+      itemCompleted = true;
       break;
     }
     case "mental_maths": {
@@ -213,7 +226,7 @@ export function submitLocalSkillTrainerAction(
         scoreDelta = normalizeScoreDelta(trainerKey, applyWrongScore(config));
         nextProgress = { type: "numpad_speed" };
       }
-      itemCompleted = correct;
+      itemCompleted = true;
       break;
     }
     case "calculator_maths": {

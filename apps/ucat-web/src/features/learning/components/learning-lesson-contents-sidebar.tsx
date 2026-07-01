@@ -14,7 +14,7 @@ function canManuallyCompleteBlock(block: LearningModuleBlockRow): boolean {
   return (
     block.block_type !== "question_stem" &&
     block.block_type !== "question" &&
-    block.block_type !== "skill_trainer_set"
+    block.block_type !== "skill_trainer"
   );
 }
 

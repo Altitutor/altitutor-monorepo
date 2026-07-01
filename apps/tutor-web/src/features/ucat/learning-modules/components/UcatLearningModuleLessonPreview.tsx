@@ -10,7 +10,6 @@ import {
   useUcatQuestionDetail,
   type UcatQuestionCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import {
   BLOCK_TYPE_LABELS,
   type DraftBlock,
@@ -26,7 +25,13 @@ type UcatLearningModuleLessonPreviewProps = {
   blocks: DraftBlock[]
   stemOptions?: StemOption[]
   questionOptions?: UcatQuestionCatalogItem[]
-  skillTrainerSets?: UcatSkillTrainerSetRow[]
+  skillTrainers?: SkillTrainerOption[]
+}
+
+type SkillTrainerOption = {
+  id: string
+  key: string | null
+  name: string | null
 }
 
 const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
@@ -71,7 +76,7 @@ function canManuallyCompleteBlock(block: DraftBlock): boolean {
   return (
     block.block_type !== 'question_stem' &&
     block.block_type !== 'question' &&
-    block.block_type !== 'skill_trainer_set'
+    block.block_type !== 'skill_trainer'
   )
 }
 
@@ -247,15 +252,15 @@ function LinkedQuestionPreview({
 
 function SkillTrainerPreview({
   block,
-  skillTrainerSets,
+  skillTrainers,
 }: {
   block: DraftBlock
-  skillTrainerSets: UcatSkillTrainerSetRow[]
+  skillTrainers: SkillTrainerOption[]
 }) {
-  const set = skillTrainerSets.find((item) => item.id === block.skill_trainer_set_id)
-  const label = set ? `${set.trainer_name}: ${set.name}` : block.skill_trainer_set_id
+  const trainer = skillTrainers.find((item) => item.id === block.skill_trainer_id)
+  const label = trainer?.name ?? trainer?.key ?? block.skill_trainer_id
 
-  if (!block.skill_trainer_set_id) {
+  if (!block.skill_trainer_id) {
     return <p className="text-sm text-muted-foreground">Skill trainer not configured.</p>
   }
 
@@ -265,7 +270,7 @@ function SkillTrainerPreview({
         Start skill trainer
       </Button>
       <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
-        In ucat-web this starts the embedded skill trainer set.
+        In ucat-web this starts a random skill trainer run.
         {label ? <span className="mt-2 block text-foreground">{label}</span> : null}
       </div>
     </div>
@@ -276,12 +281,12 @@ function LessonBlockContent({
   block,
   stemOptions,
   questionOptions,
-  skillTrainerSets,
+  skillTrainers,
 }: {
   block: DraftBlock
   stemOptions: StemOption[]
   questionOptions: UcatQuestionCatalogItem[]
-  skillTrainerSets: UcatSkillTrainerSetRow[]
+  skillTrainers: SkillTrainerOption[]
 }) {
   if (block.block_type === 'text') return <TextBlock block={block} />
   if (block.block_type === 'video') return <VideoBlock block={block} />
@@ -295,8 +300,8 @@ function LessonBlockContent({
       />
     )
   }
-  if (block.block_type === 'skill_trainer_set') {
-    return <SkillTrainerPreview block={block} skillTrainerSets={skillTrainerSets} />
+  if (block.block_type === 'skill_trainer') {
+    return <SkillTrainerPreview block={block} skillTrainers={skillTrainers} />
   }
   return null
 }
@@ -375,7 +380,7 @@ export function UcatLearningModuleLessonPreview({
   blocks,
   stemOptions = [],
   questionOptions = [],
-  skillTrainerSets = [],
+  skillTrainers = [],
 }: UcatLearningModuleLessonPreviewProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const blockRefs = useRef(new Map<string, HTMLDivElement>())
@@ -433,7 +438,7 @@ export function UcatLearningModuleLessonPreview({
                       block={block}
                       stemOptions={stemOptions}
                       questionOptions={questionOptions}
-                      skillTrainerSets={skillTrainerSets}
+                      skillTrainers={skillTrainers}
                     />
                   </div>
                 ))}

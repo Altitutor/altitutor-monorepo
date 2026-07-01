@@ -8,13 +8,16 @@ import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
 } from '@/features/ucat-subscription-config/api/ucat-subscription-config';
+import { UcatSubscriptionConfigForm } from '@/features/ucat-subscription-config/components/UcatSubscriptionConfigForm';
+import { UcatPlanPricesForm } from '@/features/ucat-subscription-config/components/UcatPlanPricesForm';
+import { UcatPracticeDayDiscountForm } from '@/features/ucat-subscription-config/components/UcatPracticeDayDiscountForm';
 import { UcatFreeQuotaConfigForm } from '@/features/ucat-subscription-config/components/UcatFreeQuotaConfigForm';
 import { UcatFreeTierStudentsTable } from '@/features/ucat-free-tier/components/UcatFreeTierStudentsTable';
 
-const VALID_TABS = ['quotas', 'students'] as const;
-type FreeTierTab = (typeof VALID_TABS)[number];
+const VALID_TABS = ['subscription', 'prices', 'discounts', 'quotas', 'students'] as const;
+type BillingTab = (typeof VALID_TABS)[number];
 
-export default function UcatFreeTierSettingsPage() {
+export default function UcatBillingSettingsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -22,7 +25,7 @@ export default function UcatFreeTierSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const tabParam = searchParams.get('tab');
-  const activeTab: FreeTierTab = VALID_TABS.includes(tabParam as FreeTierTab) ? (tabParam as FreeTierTab) : 'quotas';
+  const activeTab: BillingTab = VALID_TABS.includes(tabParam as BillingTab) ? (tabParam as BillingTab) : 'subscription';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,9 +49,9 @@ export default function UcatFreeTierSettingsPage() {
   }, [load]);
 
   function handleTabChange(value: string) {
-    const nextTab = VALID_TABS.includes(value as FreeTierTab) ? (value as FreeTierTab) : 'quotas';
+    const nextTab = VALID_TABS.includes(value as BillingTab) ? (value as BillingTab) : 'subscription';
     const params = new URLSearchParams(searchParams.toString());
-    if (nextTab === 'quotas') params.delete('tab');
+    if (nextTab === 'subscription') params.delete('tab');
     else params.set('tab', nextTab);
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -60,28 +63,43 @@ export default function UcatFreeTierSettingsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <SettingsPageHeader title="UCAT Free tier" />
+      <SettingsPageHeader title="UCAT billing" />
 
       {loadError && !config ? (
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
       <SegmentedControl
-        className="w-full max-w-md min-w-0"
+        className="w-full max-w-4xl min-w-0"
         fullWidth
         value={activeTab}
         onValueChange={handleTabChange}
         options={[
+          { value: 'subscription', label: 'Subscription' },
+          { value: 'prices', label: 'Prices' },
+          { value: 'discounts', label: 'Discounts' },
           { value: 'quotas', label: 'Quotas' },
           { value: 'students', label: 'Students' },
         ]}
       />
 
+      <SegmentedTabPanelContent when="subscription" activeTab={activeTab}>
+        {config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null}
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="prices" activeTab={activeTab}>
+        <UcatPlanPricesForm />
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="discounts" activeTab={activeTab}>
+        <UcatPracticeDayDiscountForm />
+      </SegmentedTabPanelContent>
+
       <SegmentedTabPanelContent when="quotas" activeTab={activeTab}>
         {config ? <UcatFreeQuotaConfigForm initial={config} onSaved={load} /> : null}
       </SegmentedTabPanelContent>
 
-      <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-4">
+      <SegmentedTabPanelContent when="students" activeTab={activeTab}>
         <UcatFreeTierStudentsTable />
       </SegmentedTabPanelContent>
     </div>

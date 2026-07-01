@@ -18,7 +18,6 @@ type PreparedSession = {
   session: SkillTrainerAttemptState;
   items: Array<{ id: string; content: Record<string, unknown> }>;
   trainerName: string;
-  setName: string | null;
 };
 
 export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerBlockProps) {
@@ -41,7 +40,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     setLoading(true);
 
     void skillTrainerApi
-      .prepareLearningModuleSetSession({
+      .prepareLearningModuleSkillTrainerSession({
         trainerKey,
         learningModuleBlockId: block.id,
       })
@@ -88,7 +87,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     });
   }
 
-  if (!trainerKey || !block.skill_trainer_set_id) {
+  if (!trainerKey || !block.skill_trainer_id) {
     return <p className="text-sm text-muted-foreground">Skill trainer not configured.</p>;
   }
 
@@ -119,16 +118,13 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
         score={0}
         streak={0}
         streakEnabled={Boolean(prepared?.session.attempt.config_snapshot.streak_enabled)}
-        feedback={null}
+        scoreDelta={null}
       />
       <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
         <div className="space-y-1">
           <p className="text-xl font-semibold">
             {prepared?.trainerName ?? "Skill trainer"}
           </p>
-          {prepared?.setName ? (
-            <p className="text-sm text-muted-foreground">{prepared.setName}</p>
-          ) : null}
         </div>
         <div className="flex justify-center">
           <Button onClick={handleStart} disabled={loading || !prepared}>

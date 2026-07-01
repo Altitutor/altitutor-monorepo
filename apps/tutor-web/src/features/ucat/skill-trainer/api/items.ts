@@ -96,4 +96,28 @@ export const ucatSkillTrainerItemsApi = {
       throw new Error(json.error ?? 'Failed to update approval')
     }
   },
+
+  async remove(itemId: string) {
+    const res = await fetch(`/api/ucat/skill-trainer-items/${itemId}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string }
+      throw new Error(json.error ?? 'Failed to delete item')
+    }
+  },
+
+  async bulkRemove(itemIds: string[]) {
+    const res = await fetch('/api/ucat/skill-trainer-items/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemIds }),
+    })
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string }
+      throw new Error(json.error ?? 'Failed to bulk delete items')
+    }
+  },
+
+  async bulkSetApproval(itemIds: string[], approvalStatus: 'approved' | 'pending' | 'rejected') {
+    await Promise.all(itemIds.map((itemId) => ucatSkillTrainerItemsApi.setApproval(itemId, approvalStatus)))
+  },
 }

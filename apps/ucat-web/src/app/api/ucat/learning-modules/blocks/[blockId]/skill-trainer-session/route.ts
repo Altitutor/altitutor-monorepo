@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isUcatSkillTrainerKey, type SkillTrainerConfigSnapshot } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
+import { buildItemQueue } from "@/lib/ucat/skill-trainer/queue";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
 
 type RouteContext = { params: Promise<{ blockId: string }> };
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const supabase = await getSupabaseServerClient();
   const { data: block, error: blockError } = await supabase
     .from("vstudent_ucat_learning_module_blocks")
-    .select("id, block_type, skill_trainer_set_id")
+    .select("id, block_type, skill_trainer_id")
     .eq("id", blockId)
     .maybeSingle();
 
@@ -54,8 +55,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
   if (
     !block ||
-    block.block_type !== "skill_trainer_set" ||
-    !block.skill_trainer_set_id
+    block.block_type !== "skill_trainer" ||
+    !block.skill_trainer_id
   ) {
     return NextResponse.json({ error: "Skill trainer block not found" }, { status: 404 });
   }
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: trainer, error: trainerError } = await auth.admin
       .from("ucat_skill_trainers")
       .select("id, key, name")
+      .eq("id", block.skill_trainer_id)
       .eq("key", trainerKey)
       .eq("is_enabled", true)
       .maybeSingle();
@@ -73,35 +75,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Trainer not found" }, { status: 404 });
     }
 
-    const { data: setRow, error: setError } = await auth.admin
-      .from("ucat_skill_trainer_sets")
-      .select("id, name")
-      .eq("id", block.skill_trainer_set_id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (setError) throw new Error(setError.message);
-
-    const { data: setItems, error: setItemsError } = await auth.admin
-      .from("ucat_skill_trainer_set_items")
-      .select("skill_trainer_item_id")
-      .eq("skill_trainer_set_id", block.skill_trainer_set_id)
-      .order("index", { ascending: true });
-
-    if (setItemsError) throw new Error(setItemsError.message);
-    const orderedItemIds = (setItems ?? []).map((row) => row.skill_trainer_item_id);
-    if (orderedItemIds.length === 0) {
-      return NextResponse.json({ error: "NO_ITEMS_AVAILABLE" }, { status: 422 });
-    }
-
     const { data: items, error: itemsError } = await auth.admin
       .from("ucat_skill_trainer_items")
       .select("id, content")
       .eq("skill_trainer_id", trainer.id)
       .eq("is_active", true)
       .eq("approval_status", "approved")
-      .is("deleted_at", null)
-      .in("id", orderedItemIds);
+      .is("deleted_at", null);
 
     if (itemsError) throw new Error(itemsError.message);
     const itemsById = new Map(
@@ -110,7 +90,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         { id: item.id, content: item.content as Record<string, unknown> },
       ]),
     );
-    const queue = orderedItemIds.filter((id) => itemsById.has(id));
+    const queue = buildItemQueue((items ?? []).map((item) => item.id));
     if (queue.length === 0) {
       return NextResponse.json({ error: "NO_ITEMS_AVAILABLE" }, { status: 422 });
     }
@@ -160,7 +140,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       session: state,
       items: queue.map((id) => itemsById.get(id)).filter(Boolean),
       trainerName: trainer.name,
-      setName: setRow?.name ?? null,
     });
   } catch (error) {
     return NextResponse.json(

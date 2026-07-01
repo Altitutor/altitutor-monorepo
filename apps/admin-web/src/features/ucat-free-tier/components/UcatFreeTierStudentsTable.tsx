@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Loader2, MoreHorizontal, RotateCcw, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,12 +15,6 @@ import {
   Button,
   Checkbox,
   DataTableToolbar,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   SearchableSelect,
@@ -35,6 +29,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared';
+import { AdminDialogShell } from '@/shared/components';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { cn } from '@/shared/utils';
 
@@ -65,6 +60,14 @@ type RowAction =
   | { kind: 'reset_area'; area: QuotaArea; label: string };
 
 const AREA_ORDER: QuotaArea[] = ['learn', 'practice', 'sets', 'mocks', 'skill_trainer'];
+const RESPONSE_CACHE_TTL_MS = 60_000;
+
+type QuotaResponse = {
+  rows: QuotaRow[];
+  total: number;
+};
+
+const responseCache = new Map<string, { data: QuotaResponse; expiresAt: number }>();
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'student', label: 'Student' },
@@ -103,12 +106,49 @@ function studentName(row: QuotaRow) {
   return `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || row.email || row.id;
 }
 
+function SelectionToolbar({
+  selectedCount,
+  onGrantReset,
+  onClear,
+}: {
+  selectedCount: number;
+  onGrantReset: () => void;
+  onClear: () => void;
+}) {
+  if (selectedCount === 0) return null;
+
+  return (
+    <div
+      className={cn(
+        'fixed left-1/2 z-50 -translate-x-1/2',
+        'bottom-[max(1.5rem,env(safe-area-inset-bottom))]',
+        'w-[calc(100%-2rem)] max-w-3xl',
+        'flex items-center gap-3 rounded-lg border bg-popover px-4 py-2 shadow-lg',
+      )}
+    >
+      <span className="shrink-0 text-sm font-medium text-muted-foreground">
+        {selectedCount} selected
+      </span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onGrantReset}>
+          <RotateCcw className="h-4 w-4" />
+          Grant reset
+        </Button>
+      </div>
+      <Button type="button" variant="ghost" size="icon" onClick={onClear} aria-label="Clear selection">
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 export function UcatFreeTierStudentsTable() {
   const { toast } = useToast();
   const [rows, setRows] = useState<QuotaRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [grantOpen, setGrantOpen] = useState(false);
   const [grantStudentIds, setGrantStudentIds] = useState<string[]>([]);
@@ -131,11 +171,33 @@ export function UcatFreeTierStudentsTable() {
     filterKeys: ['status'],
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(state.search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [state.search]);
+
   const load = useCallback(async () => {
+    const cacheKey = JSON.stringify({
+      search: debouncedSearch,
+      status: state.filters.status ?? [],
+      page: state.page,
+      pageSize: state.pageSize,
+    });
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      setRows(cached.data.rows);
+      setTotal(cached.data.total);
+      setLoading(false);
+      setFetching(false);
+      return;
+    }
+
     setFetching(true);
     try {
       const params = new URLSearchParams();
-      if (state.search) params.set('search', state.search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (state.filters.status?.length) params.set('status', state.filters.status.join(','));
       params.set('page', String(state.page));
       params.set('pageSize', String(state.pageSize));
@@ -147,8 +209,16 @@ export function UcatFreeTierStudentsTable() {
         error?: string;
       };
       if (!response.ok) throw new Error(body.error ?? 'Failed to load UCAT Free tier students');
-      setRows(body.rows ?? []);
-      setTotal(body.total ?? 0);
+      const data = {
+        rows: body.rows ?? [],
+        total: body.total ?? 0,
+      };
+      responseCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+      });
+      setRows(data.rows);
+      setTotal(data.total);
     } catch (error) {
       toast({
         title: 'Failed to load UCAT Free tier students',
@@ -159,7 +229,7 @@ export function UcatFreeTierStudentsTable() {
       setLoading(false);
       setFetching(false);
     }
-  }, [state.filters.status, state.page, state.pageSize, state.search, toast]);
+  }, [debouncedSearch, state.filters.status, state.page, state.pageSize, toast]);
 
   useEffect(() => {
     void load();
@@ -206,6 +276,7 @@ export function UcatFreeTierStudentsTable() {
       if (!response.ok) throw new Error(body.error ?? 'Failed to grant quota reset');
       setGrantOpen(false);
       toast({ title: 'Quota reset granted' });
+      responseCache.clear();
       await load();
     } catch (error) {
       toast({
@@ -235,6 +306,7 @@ export function UcatFreeTierStudentsTable() {
       if (!response.ok) throw new Error(body.error ?? 'Failed to reset quota');
       setPendingReset(null);
       toast({ title: 'Quota reset applied' });
+      responseCache.clear();
       await load();
     } catch (error) {
       toast({
@@ -249,18 +321,6 @@ export function UcatFreeTierStudentsTable() {
 
   return (
     <>
-      <div className="flex items-center justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={selectedIds.size === 0}
-          onClick={() => openGrantDialog(Array.from(selectedIds))}
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Grant reset
-        </Button>
-      </div>
-
       <div className="space-y-4">
         <DataTableToolbar
           state={state}
@@ -277,12 +337,6 @@ export function UcatFreeTierStudentsTable() {
           searchPlaceholder="Search free tier students..."
           isLoading={fetching}
         />
-
-        {selectedIds.size > 0 ? (
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            {selectedIds.size} selected
-          </div>
-        ) : null}
 
         {loading ? (
           <SkeletonTable rows={8} columns={8} />
@@ -407,19 +461,19 @@ export function UcatFreeTierStudentsTable() {
         />
       </div>
 
-      <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Grant quota reset</DialogTitle>
-            <DialogDescription>
-              This gives {grantStudentIds.length === 1 ? 'this student' : `${grantStudentIds.length} students`} one explicit-use reset for all UCAT Free quota areas.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="expiresOn">Expiry date</Label>
-            <Input id="expiresOn" type="date" value={expiresOn} onChange={(event) => setExpiresOn(event.target.value)} />
-          </div>
-          <DialogFooter>
+      <SelectionToolbar
+        selectedCount={selectedIds.size}
+        onGrantReset={() => openGrantDialog(Array.from(selectedIds))}
+        onClear={() => setSelectedIds(new Set())}
+      />
+
+      <AdminDialogShell
+        open={grantOpen}
+        onClose={() => setGrantOpen(false)}
+        title="Grant quota reset"
+        subtitle={`This gives ${grantStudentIds.length === 1 ? 'this student' : `${grantStudentIds.length} students`} one explicit-use reset for all UCAT Free quota areas.`}
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setGrantOpen(false)} disabled={saving}>
               Cancel
             </Button>
@@ -427,9 +481,14 @@ export function UcatFreeTierStudentsTable() {
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Confirm
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="expiresOn">Expiry date</Label>
+          <Input id="expiresOn" type="date" value={expiresOn} onChange={(event) => setExpiresOn(event.target.value)} />
+        </div>
+      </AdminDialogShell>
 
       <AlertDialog open={Boolean(pendingReset)} onOpenChange={(open) => !open && setPendingReset(null)}>
         <AlertDialogContent>

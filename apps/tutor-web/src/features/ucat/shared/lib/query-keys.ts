@@ -26,10 +26,6 @@ export const ucatKeys = {
   learningModules: (kind?: string) => [...ucatKeys.all, 'learning-modules', kind ?? 'all'] as const,
   learningModule: (id: string) => [...ucatKeys.all, 'learning-module', id] as const,
   learningModuleBlocks: (moduleId: string) => [...ucatKeys.learningModule(moduleId), 'blocks'] as const,
-  skillTrainerSets: (trainerKey?: string) =>
-    [...ucatKeys.all, 'skill-trainer-sets', trainerKey ?? 'all'] as const,
-  skillTrainerSet: (id: string) => [...ucatKeys.all, 'skill-trainer-set', id] as const,
-  skillTrainerSetItems: (setId: string) => [...ucatKeys.skillTrainerSet(setId), 'items'] as const,
   skillTrainers: () => [...ucatKeys.all, 'skill-trainers'] as const,
   skillTrainerItems: (trainerKey?: string, approvalStatus?: string) =>
     [...ucatKeys.all, 'skill-trainer-items', trainerKey ?? 'all', approvalStatus ?? 'all'] as const,

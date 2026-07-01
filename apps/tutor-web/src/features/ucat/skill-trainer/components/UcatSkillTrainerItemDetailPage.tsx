@@ -28,7 +28,7 @@ function defaultContentForKey(key: UcatSkillTrainerKey): Record<string, unknown>
     case 'find_word':
       return {
         passage: plainTextToProseMirror(''),
-        keywords: [{ id: 'k1', text: 'keyword', target_sentence_index: 0 }],
+        keywords: [{ id: 'k1', text: 'keyword' }],
       }
     case 'find_concept':
       return { passage: plainTextToProseMirror(''), concept: 'theme', occurrences: [{ start: 0, end: 5 }] }
@@ -37,7 +37,7 @@ function defaultContentForKey(key: UcatSkillTrainerKey): Record<string, unknown>
     case 'mental_maths':
       return { expression: '12 + 8', answer: 20 }
     case 'numpad_speed':
-      return { button_sequence: ['7', '+', '3', '='], label: '7 + 3' }
+      return { button_sequence: ['7', '+', '3'], label: '7 + 3' }
     case 'calculator_maths':
       return { expression: '15 × 4', answer: 60 }
   }
@@ -161,7 +161,7 @@ export function UcatSkillTrainerItemDetailPage({ itemId }: { itemId: string }) {
               className="font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground">
-              VR: passage (ProseMirror JSON), keywords with target_sentence_index, or concept with char offsets.
+              VR: passage (ProseMirror JSON), keywords, or concept with char offsets.
             </p>
           </div>
 

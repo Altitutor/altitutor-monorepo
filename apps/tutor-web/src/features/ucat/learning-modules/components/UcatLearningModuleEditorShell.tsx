@@ -8,7 +8,7 @@ import {
   useUcatSections,
   useUcatStemCatalog,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { useUcatSkillTrainerSets } from '@/features/ucat/skill-trainer-sets/hooks/useUcatSkillTrainerSets'
+import { useUcatSkillTrainersCatalog } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItems'
 import type { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
 import { UcatLearningModuleBlockCard } from '@/features/ucat/learning-modules/components/UcatLearningModuleBlockCard'
 import { UcatLearningModuleLessonPreview } from '@/features/ucat/learning-modules/components/UcatLearningModuleLessonPreview'
@@ -55,10 +55,21 @@ export function UcatLearningModuleEditorShell({
   const { data: sections } = useUcatSections()
   const stemCatalog = useUcatStemCatalog(hasUcatAccess)
   const questionCatalog = useUcatQuestionCatalog(hasUcatAccess)
-  const { data: skillTrainerSets } = useUcatSkillTrainerSets()
+  const { data: skillTrainers } = useUcatSkillTrainersCatalog()
 
   const stemOptions = useMemo(() => stemCatalog.data ?? [], [stemCatalog.data])
   const questionOptions = useMemo(() => questionCatalog.data ?? [], [questionCatalog.data])
+  const skillTrainerOptions = useMemo(
+    () =>
+      (skillTrainers ?? [])
+        .filter((trainer): trainer is { id: string; key: string | null; name: string | null } => Boolean(trainer.id))
+        .map((trainer) => ({
+          id: trainer.id,
+          key: trainer.key,
+          name: trainer.name,
+        })),
+    [skillTrainers],
+  )
 
   const sectionOptions = useMemo(
     () =>
@@ -107,7 +118,7 @@ export function UcatLearningModuleEditorShell({
             blocks={editor.draftBlocks}
             stemOptions={stemOptions}
             questionOptions={questionOptions}
-            skillTrainerSets={skillTrainerSets ?? []}
+            skillTrainers={skillTrainerOptions}
           />
         ) : null}
 
@@ -146,7 +157,7 @@ export function UcatLearningModuleEditorShell({
                       moduleId={editor.moduleId}
                       stemOptions={stemOptions}
                       questionOptions={questionOptions}
-                      skillTrainerSets={skillTrainerSets ?? []}
+                      skillTrainers={skillTrainerOptions}
                       isHighlighted={editor.selectedBlockId === block.clientId}
                       onUpdate={(patch) => editor.updateBlock(block.clientId, patch)}
                       onMoveUp={() => editor.moveBlock(index, index - 1)}

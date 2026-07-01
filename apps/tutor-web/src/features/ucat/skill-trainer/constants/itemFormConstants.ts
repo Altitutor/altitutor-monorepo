@@ -8,7 +8,7 @@ export function defaultContentForTrainerKey(key: UcatSkillTrainerKey): Record<st
     case 'find_word':
       return {
         passage: EMPTY_DOC,
-        keywords: [{ id: 'k1', text: 'keyword', target_sentence_index: 0 }],
+        keywords: [{ id: 'k1', text: 'keyword' }],
       }
     case 'find_concept':
       return {

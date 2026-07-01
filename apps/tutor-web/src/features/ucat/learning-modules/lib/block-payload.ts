@@ -47,10 +47,10 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
         question_id: block.question_id?.trim() || undefined,
         content: {},
       }
-    case 'skill_trainer_set':
+    case 'skill_trainer':
       return {
         ...base,
-        skill_trainer_set_id: block.skill_trainer_set_id?.trim() || undefined,
+        skill_trainer_id: block.skill_trainer_id?.trim() || undefined,
         content: block.content,
       }
     default:
@@ -84,9 +84,9 @@ export function validateBlocksForSave(blocks: DraftBlock[]): string | null {
           return `${label}: select a question before saving`
         }
         break
-      case 'skill_trainer_set':
-        if (!block.skill_trainer_set_id) {
-          return `${label}: select a skill trainer set before saving`
+      case 'skill_trainer':
+        if (!block.skill_trainer_id) {
+          return `${label}: select a skill trainer before saving`
         }
         break
       default:

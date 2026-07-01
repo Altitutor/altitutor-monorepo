@@ -9,7 +9,7 @@ export type DraftBlock = {
   question_stem_id: string | null
   question_id: string | null
   file_id: string | null
-  skill_trainer_set_id: string | null
+  skill_trainer_id: string | null
 }
 
 export const BLOCK_TYPE_LABELS: Record<UcatLearningModuleBlockType, string> = {
@@ -18,7 +18,7 @@ export const BLOCK_TYPE_LABELS: Record<UcatLearningModuleBlockType, string> = {
   file: 'File',
   question_stem: 'Question stem',
   question: 'Question',
-  skill_trainer_set: 'Skill trainer set',
+  skill_trainer: 'Skill trainer',
 }
 
 export function newDraftBlock(type: UcatLearningModuleBlockType = 'text'): DraftBlock {
@@ -35,7 +35,7 @@ export function newDraftBlock(type: UcatLearningModuleBlockType = 'text'): Draft
     question_stem_id: null,
     question_id: null,
     file_id: null,
-    skill_trainer_set_id: null,
+    skill_trainer_id: null,
   }
 }
 

@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import type { Editor } from '@tiptap/react'
-import { Button, Input, Label, Switch, useToast } from '@altitutor/ui'
+import { Button, Input, Label, SearchableSelect, Switch, useToast } from '@altitutor/ui'
 import { ArrowDown, ArrowUp, Loader2, Trash2, Upload } from 'lucide-react'
 import { uploadLearningModuleFile } from '@/features/ucat/learning-modules/api/files'
 import {
@@ -16,14 +16,18 @@ import type {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   LearningModuleQuestionResourcePicker,
-  LearningModuleSkillTrainerSetPicker,
 } from '@/features/ucat/learning-modules/components/UcatLearningModuleBlockResourcePicker'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
+
+type SkillTrainerOption = {
+  id: string
+  key: string | null
+  name: string | null
+}
 
 type UcatLearningModuleBlockCardProps = {
   block: DraftBlock
@@ -32,7 +36,7 @@ type UcatLearningModuleBlockCardProps = {
   moduleId: string | null
   stemOptions: UcatStemCatalogItem[]
   questionOptions: UcatQuestionCatalogItem[]
-  skillTrainerSets: UcatSkillTrainerSetRow[]
+  skillTrainers: SkillTrainerOption[]
   isHighlighted?: boolean
   onUpdate: (patch: Partial<DraftBlock>) => void
   onMoveUp: () => void
@@ -52,7 +56,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
     moduleId,
     stemOptions,
     questionOptions,
-    skillTrainerSets,
+    skillTrainers,
     isHighlighted,
     onUpdate,
     onMoveUp,
@@ -258,20 +262,35 @@ export const UcatLearningModuleBlockCard = forwardRef<
           />
         ) : null}
 
-        {block.block_type === 'skill_trainer_set' ? (
-          <LearningModuleSkillTrainerSetPicker
-            sets={skillTrainerSets}
-            selectedSetId={block.skill_trainer_set_id ?? null}
-            onSelect={(set) =>
-              onUpdate({
-                skill_trainer_set_id: set?.id ?? null,
-                content: {
-                  ...block.content,
-                  trainerKey: set?.trainer_key ?? undefined,
-                },
-              })
-            }
-          />
+        {block.block_type === 'skill_trainer' ? (
+          <div className="space-y-2">
+            <Label>Skill trainer</Label>
+            <SearchableSelect<SkillTrainerOption>
+              items={skillTrainers}
+              value={
+                block.skill_trainer_id
+                  ? skillTrainers.find((trainer) => trainer.id === block.skill_trainer_id) ?? null
+                  : null
+              }
+              onValueChange={(trainer) =>
+                onUpdate({
+                  skill_trainer_id: trainer?.id ?? null,
+                  content: {
+                    ...block.content,
+                    trainerKey: trainer?.key ?? undefined,
+                  },
+                })
+              }
+              getItemLabel={(trainer) => trainer.name ?? trainer.key ?? 'Skill trainer'}
+              getItemId={(trainer) => trainer.id}
+              placeholder="Choose skill trainer..."
+              searchPlaceholder="Search skill trainers..."
+              emptyMessage="No skill trainers"
+            />
+            <p className="text-xs text-muted-foreground">
+              The student starts a random run from approved items for this trainer type.
+            </p>
+          </div>
         ) : null}
       </div>
     </div>

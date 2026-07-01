@@ -6,8 +6,8 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   if (!access.ok) return access.response
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
-  const { error } = await client.rpc('tutor_ucat_soft_delete_skill_trainer_set', {
-    p_set_id: params.id,
+  const { error } = await client.rpc('tutor_ucat_soft_delete_skill_trainer_item', {
+    p_item_id: params.id,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

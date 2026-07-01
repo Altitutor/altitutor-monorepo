@@ -432,6 +432,10 @@ export function QuestionEnginePage({
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
+  const expiredMockNextSegmentRef = useRef<{
+    segment: ReturnType<typeof getNextMockSegment>;
+    startedAt: number;
+  } | null>(null);
 
   const openFinishPracticeDialog = useCallback(() => {
     setShowConfirmFinishPracticeDialog(true);
@@ -649,6 +653,11 @@ export function QuestionEnginePage({
     if (examAttemptManaged && awaitingServerSegmentStartRef.current) {
       return;
     }
+
+    expiredMockNextSegmentRef.current =
+      exam.sourceType === "mock"
+        ? { segment: getNextMockSegment(exam, state), startedAt: Date.now() }
+        : null;
 
     if (state.phase === "question" && exam.sourceType === "set") {
       setState((prev) => ({
@@ -1765,7 +1774,12 @@ export function QuestionEnginePage({
       });
       return;
     }
-    const nextSeg = getNextMockSegment(exam, state);
+    const capturedNextSegment = expiredMockNextSegmentRef.current;
+    const nextSeg =
+      capturedNextSegment != null
+        ? capturedNextSegment.segment
+        : getNextMockSegment(exam, state);
+    expiredMockNextSegmentRef.current = null;
     if (!nextSeg) {
       void runWithLag(async () => {
         const redirected = await completeExamAndMaybeRedirect();
@@ -1790,21 +1804,49 @@ export function QuestionEnginePage({
     }
     void runWithLag(() => {
       setState((current) => {
-        const isNextSegmentTimed = (nextSeg.timeLimitSeconds ?? 0) > 0;
         const next: typeof current = {
           ...current,
           showTimeExpiredDialog: false,
           nextSegmentTimerStartedAt: null,
-          timerStartedAt: isNextSegmentTimed
-            ? (current.nextSegmentTimerStartedAt ?? Date.now())
-            : null,
         };
-        if (nextSeg.type === "instructions") {
-          next.phase = "instructions";
-          next.instructionsIndex = nextSeg.instructionsIndex;
-        } else {
-          next.phase = "question";
-          next.currentIndex = nextSeg.questionStartIndex;
+
+        let activeSeg = nextSeg;
+        let segmentStartedAt =
+          capturedNextSegment?.startedAt ??
+          current.nextSegmentTimerStartedAt ??
+          Date.now();
+
+        while (activeSeg) {
+          if (activeSeg.type === "instructions") {
+            next.phase = "instructions";
+            next.instructionsIndex = activeSeg.instructionsIndex;
+          } else {
+            next.phase = "question";
+            next.currentIndex = activeSeg.questionStartIndex;
+            next.mockCurrentSetIndex = activeSeg.setIndex;
+          }
+
+          const limit = activeSeg.timeLimitSeconds ?? 0;
+          if (limit <= 0) {
+            next.timerStartedAt = null;
+            break;
+          }
+
+          const segmentEndsAt = segmentStartedAt + limit * 1000;
+          if (segmentEndsAt > Date.now()) {
+            next.timerStartedAt = segmentStartedAt;
+            break;
+          }
+
+          const followingSeg = getNextMockSegment(exam, next);
+          if (!followingSeg) {
+            next.phase = "mockScore";
+            next.timerStartedAt = null;
+            break;
+          }
+
+          activeSeg = followingSeg;
+          segmentStartedAt = segmentEndsAt;
         }
         return next;
       });

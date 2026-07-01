@@ -158,18 +158,11 @@ export const additionalPages: CommandPalettePage[] = [
     keywords: ['stripe', 'sync', 'payment'],
   },
   {
-    id: 'settings-ucat-subscription',
-    title: 'UCAT subscription',
-    href: '/settings/ucat-subscription',
+    id: 'settings-ucat-billing',
+    title: 'UCAT billing',
+    href: '/settings/ucat-billing',
     icon: GraduationCap,
-    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount'],
-  },
-  {
-    id: 'settings-ucat-free-tier',
-    title: 'UCAT Free tier',
-    href: '/settings/ucat-free-tier',
-    icon: GraduationCap,
-    keywords: ['ucat', 'free', 'tier', 'quota', 'limit', 'practice', 'sets', 'mocks', 'reset', 'student'],
+    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount', 'free', 'tier', 'quota', 'limit', 'sets', 'mocks', 'reset', 'student'],
   },
   {
     id: 'settings-manual-online-access',

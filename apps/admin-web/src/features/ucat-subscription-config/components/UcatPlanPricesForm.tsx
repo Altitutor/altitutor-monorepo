@@ -1,16 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
 } from '@altitutor/ui';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatPlanPricesApi,
   type UcatPlanPriceRow,
@@ -27,23 +23,30 @@ const INTERVAL_LABELS: Record<string, string> = {
   year: 'Yearly',
 };
 
-type EditableRow = UcatPlanPriceRow & {
+type EditablePriceRow = UcatPlanPriceRow & {
+  tierLabel: string;
+  intervalLabel: string;
   basePriceInput: string;
   stripePriceInput: string;
 };
 
-function toEditable(row: UcatPlanPriceRow): EditableRow {
+function toEditable(row: UcatPlanPriceRow): EditablePriceRow {
   return {
     ...row,
+    tierLabel: TIER_LABELS[row.plan_tier] ?? row.plan_tier,
+    intervalLabel: INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval,
     basePriceInput: String(row.base_price_cents),
     stripePriceInput: row.stripe_price_id ?? '',
   };
 }
 
 export function UcatPlanPricesForm() {
-  const [rows, setRows] = useState<EditableRow[]>([]);
+  const [rows, setRows] = useState<EditablePriceRow[]>([]);
+  const [editingRow, setEditingRow] = useState<EditablePriceRow | null>(null);
+  const [basePriceInput, setBasePriceInput] = useState('');
+  const [stripePriceInput, setStripePriceInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,144 +67,153 @@ export function UcatPlanPricesForm() {
     void load();
   }, [load]);
 
-  const updateRow = (id: string, patch: Partial<EditableRow>) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
+  useEffect(() => {
+    if (!editingRow) return;
+    setBasePriceInput(editingRow.basePriceInput);
+    setStripePriceInput(editingRow.stripePriceInput);
+    setError(null);
+  }, [editingRow]);
 
-  const handleSyncFromStripe = async (row: EditableRow) => {
-    const stripePriceId = row.stripePriceInput.trim();
-    if (!stripePriceId) {
-      setError('Enter a Stripe price ID before syncing');
+  const columns = useMemo<SettingsDataTableColumn<EditablePriceRow>[]>(
+    () => [
+      {
+        key: 'plan_tier',
+        label: 'Tier',
+        render: (row) => <span className="font-medium">{row.tierLabel}</span>,
+        sortValue: (row) => row.tierLabel,
+        searchValue: (row) => `${row.tierLabel} ${row.intervalLabel} ${row.stripe_price_id ?? ''}`,
+      },
+      {
+        key: 'billing_interval',
+        label: 'Interval',
+        render: (row) => row.intervalLabel,
+        sortValue: (row) => row.intervalLabel,
+      },
+      {
+        key: 'base_price_cents',
+        label: 'Base price',
+        render: (row) => <span className="font-mono tabular-nums">{row.base_price_cents}c</span>,
+        sortValue: (row) => row.base_price_cents,
+      },
+      {
+        key: 'stripe_price_id',
+        label: 'Stripe price ID',
+        render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.stripe_price_id ?? 'Not set'}</span>,
+        sortValue: (row) => row.stripe_price_id ?? '',
+        searchValue: (row) => row.stripe_price_id ?? '',
+      },
+    ],
+    [],
+  );
+
+  async function handleSave() {
+    if (!editingRow) return;
+    const base = parseInt(basePriceInput, 10);
+    if (!Number.isFinite(base) || base < 0) {
+      setError('Base price must be 0 or greater');
       return;
     }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await ucatPlanPricesApi.update(editingRow.id, {
+        base_price_cents: base,
+        stripe_price_id: stripePriceInput.trim() || null,
+      });
+      await load();
+      setEditingRow(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save plan price');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSyncFromStripe(row: EditablePriceRow) {
+    if (!row.stripe_price_id?.trim()) {
+      setError('Enter a Stripe price ID before syncing');
+      setEditingRow(row);
+      return;
+    }
+
     setSyncingId(row.id);
     setError(null);
     try {
-      if (stripePriceId !== (row.stripe_price_id ?? '')) {
-        await ucatPlanPricesApi.update(row.id, { stripe_price_id: stripePriceId });
-      }
-      const { base_price_cents } = await ucatPlanPricesApi.syncBasePriceFromStripe(row.id);
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === row.id
-            ? {
-                ...r,
-                base_price_cents,
-                stripe_price_id: stripePriceId,
-                basePriceInput: String(base_price_cents),
-                stripePriceInput: stripePriceId,
-              }
-            : r,
-        ),
-      );
+      await ucatPlanPricesApi.syncBasePriceFromStripe(row.id);
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to sync from Stripe');
     } finally {
       setSyncingId(null);
     }
-  };
-
-  const handleSaveRow = async (row: EditableRow) => {
-    const base = parseInt(row.basePriceInput, 10);
-    if (!Number.isFinite(base) || base < 0) {
-      setError('Base price (cents) must be 0 or greater');
-      return;
-    }
-    const stripePriceId = row.stripePriceInput.trim() || null;
-    setSavingId(row.id);
-    setError(null);
-    try {
-      await ucatPlanPricesApi.update(row.id, {
-        base_price_cents: base,
-        stripe_price_id: stripePriceId,
-      });
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === row.id
-            ? toEditable({
-                ...r,
-                base_price_cents: base,
-                stripe_price_id: stripePriceId,
-              })
-            : r,
-        ),
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save plan price');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading plan prices…</p>;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Plan prices</CardTitle>
-        <CardDescription>
-          List price and Stripe price ID for each paid tier and billing interval. Checkout is
-          enabled when the tier&apos;s Stripe product ID is set and the interval has a price ID.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_1fr_auto]"
-          >
-            <div>
-              <p className="text-sm font-semibold">
-                {TIER_LABELS[row.plan_tier] ?? row.plan_tier}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`base-${row.id}`}>Base price (cents)</Label>
-              <Input
-                id={`base-${row.id}`}
-                type="number"
-                min={0}
-                value={row.basePriceInput}
-                onChange={(e) => updateRow(row.id, { basePriceInput: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`price-${row.id}`}>Stripe price ID</Label>
-              <Input
-                id={`price-${row.id}`}
-                value={row.stripePriceInput}
-                onChange={(e) => updateRow(row.id, { stripePriceInput: e.target.value })}
-                placeholder="price_..."
-              />
-            </div>
-            <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-end">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={syncingId === row.id || savingId === row.id}
-                onClick={() => void handleSyncFromStripe(row)}
-              >
-                {syncingId === row.id ? 'Syncing…' : 'Sync from Stripe'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={savingId === row.id || syncingId === row.id}
-                onClick={() => void handleSaveRow(row)}
-              >
-                {savingId === row.id ? 'Saving…' : 'Save'}
-              </Button>
-            </div>
-          </div>
-        ))}
+    <>
+      {error && !editingRow ? <p className="text-sm text-destructive">{error}</p> : null}
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filterKeys={[]}
+        searchPlaceholder="Search plan prices..."
+        defaultSort={{ field: 'plan_tier', direction: 'asc' }}
+        isLoading={loading}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingRow(row),
+          },
+          {
+            id: 'sync',
+            label: syncingId === row.id ? 'Syncing...' : 'Sync from Stripe',
+            disabled: syncingId === row.id,
+            onSelect: () => void handleSyncFromStripe(row),
+          },
+        ]}
+      />
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      </CardContent>
-    </Card>
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow ? `Edit ${editingRow.tierLabel} ${editingRow.intervalLabel}` : 'Edit plan price'}
+        subtitle="Configure the list price and Stripe price ID for this UCAT billing interval."
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditingRow(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save price'}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="base-price-cents">Base price (cents)</Label>
+            <Input
+              id="base-price-cents"
+              type="number"
+              min={0}
+              value={basePriceInput}
+              onChange={(event) => setBasePriceInput(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stripe-price-id">Stripe price ID</Label>
+            <Input
+              id="stripe-price-id"
+              value={stripePriceInput}
+              onChange={(event) => setStripePriceInput(event.target.value)}
+              placeholder="price_..."
+            />
+          </div>
+        </div>
+        {error && editingRow ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      </AdminDialogShell>
+    </>
   );
 }

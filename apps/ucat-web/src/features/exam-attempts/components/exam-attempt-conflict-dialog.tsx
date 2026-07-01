@@ -46,13 +46,14 @@ export function ExamAttemptConflictDialog({
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={onCancel}>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+          <Button type="button" variant="outline" className="w-full" onClick={onCancel}>
             Cancel
           </Button>
           <Button
             type="button"
             variant="outline"
+            className="w-full"
             onClick={() => {
               window.location.assign(active.resumeHref);
             }}
@@ -61,6 +62,7 @@ export function ExamAttemptConflictDialog({
           </Button>
           <Button
             type="button"
+            className="w-full"
             onClick={onFinalizeAndContinue}
             disabled={isFinalizing}
           >

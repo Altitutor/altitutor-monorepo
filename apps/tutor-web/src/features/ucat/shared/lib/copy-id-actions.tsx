@@ -128,10 +128,10 @@ export function summarizeLearningModuleBlock(block: DraftBlock): string | undefi
       return block.question_stem_id ? `Stem ${block.question_stem_id}` : BLOCK_TYPE_LABELS.question_stem
     case 'question':
       return block.question_id ? `Question ${block.question_id}` : BLOCK_TYPE_LABELS.question
-    case 'skill_trainer_set':
-      return block.skill_trainer_set_id
-        ? `Set ${block.skill_trainer_set_id}`
-        : BLOCK_TYPE_LABELS.skill_trainer_set
+    case 'skill_trainer':
+      return block.skill_trainer_id
+        ? `Skill trainer ${block.skill_trainer_id}`
+        : BLOCK_TYPE_LABELS.skill_trainer
     default:
       return BLOCK_TYPE_LABELS[block.block_type]
   }

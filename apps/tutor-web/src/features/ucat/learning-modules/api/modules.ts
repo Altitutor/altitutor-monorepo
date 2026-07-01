@@ -37,7 +37,7 @@ function mapBlockRow(row: Record<string, unknown>): UcatLearningModuleBlockRow {
     question_stem_id: (row.question_stem_id as string | null) ?? null,
     question_id: (row.question_id as string | null) ?? null,
     file_id: (row.file_id as string | null) ?? null,
-    skill_trainer_set_id: (row.skill_trainer_set_id as string | null) ?? null,
+    skill_trainer_id: (row.skill_trainer_id as string | null) ?? null,
   }
 }
 

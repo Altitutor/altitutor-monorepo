@@ -99,32 +99,13 @@ export const skillTrainerApi = {
     return json.attempt;
   },
 
-  async startSetAttempt(input: {
-    trainerKey: string;
-    skillTrainerSetId: string;
-    learningModuleBlockId: string;
-  }): Promise<SkillTrainerAttemptState> {
-    const res = await fetch("/api/ucat/skill-trainer-attempts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) {
-      const json = (await res.json()) as { error?: string };
-      throw new Error(json.error ?? "Failed to start set attempt");
-    }
-    const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
-    return json.attempt;
-  },
-
-  async prepareLearningModuleSetSession(input: {
+  async prepareLearningModuleSkillTrainerSession(input: {
     trainerKey: string;
     learningModuleBlockId: string;
   }): Promise<{
     session: SkillTrainerAttemptState;
     items: Array<{ id: string; content: Record<string, unknown> }>;
     trainerName: string;
-    setName: string | null;
   }> {
     const params = new URLSearchParams({ trainerKey: input.trainerKey });
     const res = await fetch(
@@ -138,7 +119,6 @@ export const skillTrainerApi = {
       session: SkillTrainerAttemptState;
       items: Array<{ id: string; content: Record<string, unknown> }>;
       trainerName: string;
-      setName: string | null;
     };
   },
 

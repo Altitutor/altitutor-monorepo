@@ -3,17 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   Select,
@@ -27,7 +16,7 @@ import {
   type UcatQuotaPeriod,
   type UcatSubscriptionConfigRow,
 } from '../api/ucat-subscription-config';
-import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 const QUOTA_PERIODS = ['day', 'week', 'month'] as const;
 
@@ -189,16 +178,8 @@ export function UcatFreeQuotaConfigForm({ initial, onSaved }: UcatFreeQuotaConfi
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>UCAT Free tier limits</CardTitle>
-        <CardDescription>
-          Per-area usage limits for UCAT Free students. Each area has its own limit and reset period;
-          quotas do not share a pool. Set limit to <strong>0</strong> to disable an area for Free
-          students. Period boundaries use each student&apos;s timezone (weeks start Monday).
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <>
+      <div className="space-y-4">
         <SettingsDataTable
           data={rows}
           columns={columns}
@@ -214,56 +195,55 @@ export function UcatFreeQuotaConfigForm({ initial, onSaved }: UcatFreeQuotaConfi
             },
           ]}
         />
-      </CardContent>
-      <Dialog open={!!editingArea} onOpenChange={(open) => !open && setEditingArea(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingArea ? `Edit ${editingArea.label}` : 'Edit Free tier limit'}</DialogTitle>
-            <DialogDescription>
-              Set limit to 0 to disable this area for UCAT Free students. Period boundaries use each student&apos;s timezone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="free-tier-limit">Limit</Label>
-              <Input
-                id="free-tier-limit"
-                type="number"
-                min={0}
-                value={limitInput}
-                onChange={(e) => setLimitInput(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="free-tier-period">Per</Label>
-              <Select
-                value={periodInput}
-                onValueChange={(value) => {
-                  if (isQuotaPeriod(value)) setPeriodInput(value);
-                }}
-              >
-                <SelectTrigger id="free-tier-period">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">Day</SelectItem>
-                  <SelectItem value="week">Week</SelectItem>
-                  <SelectItem value="month">Month</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <DialogFooter>
+      </div>
+      <AdminDialogShell
+        open={!!editingArea}
+        onClose={() => setEditingArea(null)}
+        title={editingArea ? `Edit ${editingArea.label}` : 'Edit Free tier limit'}
+        subtitle="Set limit to 0 to disable this area for UCAT Free students. Period boundaries use each student's timezone."
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setEditingArea(null)} disabled={saving}>
               Cancel
             </Button>
             <Button type="button" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving…' : 'Save limit'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="free-tier-limit">Limit</Label>
+            <Input
+              id="free-tier-limit"
+              type="number"
+              min={0}
+              value={limitInput}
+              onChange={(e) => setLimitInput(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="free-tier-period">Per</Label>
+            <Select
+              value={periodInput}
+              onValueChange={(value) => {
+                if (isQuotaPeriod(value)) setPeriodInput(value);
+              }}
+            >
+              <SelectTrigger id="free-tier-period">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Day</SelectItem>
+                <SelectItem value="week">Week</SelectItem>
+                <SelectItem value="month">Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      </AdminDialogShell>
+    </>
   );
 }

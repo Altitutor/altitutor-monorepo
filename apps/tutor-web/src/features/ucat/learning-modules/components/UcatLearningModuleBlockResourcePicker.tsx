@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import type { DataTableSortOption } from '@altitutor/shared'
 import {
   Badge,
   Button,
@@ -34,7 +34,6 @@ import {
   applyBooleanTextFilter,
   applyCategoryFilter,
   applyMultiSelectFilter,
-  applyRangeFilter,
   applySort,
   applyTagFilter,
   getFilterValues,
@@ -58,9 +57,8 @@ import {
 } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import type { UcatSection } from '@/features/ucat/shared/types'
-import { cn, formatDateTime } from '@/shared/utils'
+import { cn } from '@/shared/utils'
 
 function SelectedQuestionCard({
   title,
@@ -547,185 +545,5 @@ export function LearningModuleQuestionResourcePicker({
         initialQuestionIndex={editingInitialQuestionIndex}
       />
     </>
-  )
-}
-
-const skillTrainerSetSortOptions: DataTableSortOption[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'trainer_name', label: 'Trainer' },
-  { key: 'item_count', label: 'Items' },
-  { key: 'visibility', label: 'Visibility' },
-  { key: 'updated_at', label: 'Updated' },
-]
-
-const skillTrainerSetFilterDefinitions: DataTableFilterDefinition[] = [
-  {
-    key: 'visibility',
-    label: 'Visibility',
-    options: [
-      { label: 'Public', value: 'public' },
-      { label: 'Private', value: 'private' },
-    ],
-  },
-  {
-    key: 'item_count',
-    label: 'Items',
-    type: 'number-range',
-    minKey: 'item_count_min',
-    maxKey: 'item_count_max',
-  },
-]
-
-export function LearningModuleSkillTrainerSetPicker({
-  sets,
-  selectedSetId,
-  onSelect,
-}: {
-  sets: UcatSkillTrainerSetRow[]
-  selectedSetId: string | null
-  onSelect: (set: UcatSkillTrainerSetRow | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const listState = useUcatCatalogListState(['name', 'trainer_name', 'item_count', 'visibility'])
-  const { state, actions } = listState
-  const selectedSet = selectedSetId ? sets.find((set) => set.id === selectedSetId) ?? null : null
-
-  const filtered = useMemo(() => {
-    const query = state.search.trim().toLowerCase()
-    return sets.filter((set) => {
-      const searchHit =
-        !query ||
-        set.name.toLowerCase().includes(query) ||
-        set.trainer_name.toLowerCase().includes(query) ||
-        (set.description ?? '').toLowerCase().includes(query)
-      return (
-        searchHit &&
-        applyBooleanTextFilter(state, 'visibility', set.is_private) &&
-        applyRangeFilter(state, 'item_count_min', 'item_count_max', set.item_count)
-      )
-    })
-  }, [state, sets])
-
-  const sorted = useMemo(
-    () =>
-      applySort(filtered, state.sortBy, state.sortDirection, {
-        name: (set) => set.name,
-        trainer_name: (set) => set.trainer_name,
-        item_count: (set) => set.item_count,
-        visibility: (set) => (set.is_private ? 'Private' : 'Public'),
-        updated_at: (set) => set.updated_at,
-      }),
-    [filtered, state.sortBy, state.sortDirection],
-  )
-  const { items, total } = useMemo(
-    () => paginateCatalogItems(sorted, state.page, state.pageSize),
-    [state.page, state.pageSize, sorted],
-  )
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">Skill trainer set</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {selectedSet ? `${selectedSet.trainer_name}: ${selectedSet.name}` : selectedSetId ?? 'No set selected'}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {selectedSetId ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => onSelect(null)}>
-              <X className="mr-2 h-4 w-4" />
-              Clear
-            </Button>
-          ) : null}
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-            <Search className="mr-2 h-4 w-4" />
-            {selectedSetId ? 'Change skill trainer set' : 'Choose skill trainer set'}
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-muted/20 p-4 text-sm">
-        {selectedSet ? (
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium">{selectedSet.name}</p>
-                <p className="text-muted-foreground">{selectedSet.trainer_name}</p>
-              </div>
-              <Badge
-                variant="outline"
-                className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(selectedSet.is_private))}
-              >
-                {selectedSet.is_private ? 'Private' : 'Public'}
-              </Badge>
-            </div>
-            {selectedSet.description ? <p className="text-muted-foreground">{selectedSet.description}</p> : null}
-            <p className="text-xs text-muted-foreground">
-              {selectedSet.item_count} item{selectedSet.item_count === 1 ? '' : 's'} · Updated{' '}
-              {formatDateTime(selectedSet.updated_at) || '-'}
-            </p>
-          </div>
-        ) : (
-          <p className="text-muted-foreground">No skill trainer set selected.</p>
-        )}
-      </div>
-
-      <UcatDialogShell
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Choose skill trainer set"
-        subtitle="Search, filter, and sort skill trainer sets."
-        hideCancel
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
-          <UcatCatalogListPanel
-            search={state.search}
-            onSearchChange={actions.onSearchChange}
-            searchPlaceholder="Search sets..."
-            filterDefinitions={skillTrainerSetFilterDefinitions}
-            filters={state.filters}
-            onFiltersChange={actions.onFiltersChange}
-            sortOptions={skillTrainerSetSortOptions}
-            sortBy={state.sortBy}
-            sortDirection={state.sortDirection}
-            onSortChange={actions.onSortChange}
-            page={state.page}
-            pageSize={state.pageSize}
-            total={total}
-            onPageChange={actions.onPageChange}
-            emptyMessage="No matching skill trainer sets."
-            hasItems={items.length > 0}
-          >
-            {items.map((set) => (
-              <div
-                key={set.id}
-                className="flex items-start justify-between gap-3 rounded-xl bg-card px-3 py-2 text-sm shadow-sm ring-1 ring-black/[0.06]"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{set.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {set.trainer_name} · {set.item_count} item{set.item_count === 1 ? '' : 's'}
-                  </p>
-                  {set.description ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{set.description}</p>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    onSelect(set)
-                    setOpen(false)
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            ))}
-          </UcatCatalogListPanel>
-        </div>
-      </UcatDialogShell>
-    </div>
   )
 }

@@ -88,14 +88,12 @@ export function SetAttemptDetailPage({
 
   const breadcrumbOverrides: Record<number, string> = {};
   if (mockAttemptId) {
-    breadcrumbOverrides[2] = mockData?.mockName ?? "Mock";
-    breadcrumbOverrides[4] = lastSegmentLabel;
-  } else if (pathname.includes("/sections/")) {
-    // Section route: segment 2 = section number (shows "Verbal Reasoning" from path), segment 4 = attempt id
-    breadcrumbOverrides[4] = lastSegmentLabel;
-  } else {
-    // Flat set-attempts route: segment 2 = attempt id
+    breadcrumbOverrides[1] = mockData?.mockName ?? "Mock";
     breadcrumbOverrides[2] = lastSegmentLabel;
+  } else if (pathname.includes("/sections/")) {
+    breadcrumbOverrides[2] = lastSegmentLabel;
+  } else {
+    breadcrumbOverrides[1] = lastSegmentLabel;
   }
 
   return (

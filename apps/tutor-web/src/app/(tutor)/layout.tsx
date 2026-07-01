@@ -19,7 +19,6 @@ import {
   ScrollText,
   Settings,
   Tag,
-  Target,
   TrendingUp,
   Users,
   Dumbbell,
@@ -58,8 +57,7 @@ type NavLinkItem = { title: string; href: string; icon: LucideIcon };
 const ucatDropdownChildren: DropdownChild[] = [
   { type: 'heading', title: 'Learn and practice' },
   { title: 'Learning modules', href: '/ucat/learning-modules', icon: BookOpen },
-  { title: 'Skill trainer questions', href: '/ucat/skill-trainer-questions', icon: Dumbbell },
-  { title: 'Skill trainer sets', href: '/ucat/skill-trainer-sets', icon: Target },
+  { title: 'Skill trainer', href: '/ucat/skill-trainer-questions', icon: Dumbbell },
   { type: 'heading', title: 'Questions' },
   { title: 'Questions', href: '/ucat/questions', icon: FileQuestion },
   { title: 'Sets', href: '/ucat/sets', icon: Layers },

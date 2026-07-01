@@ -55,9 +55,7 @@ export function scoreMentalMathsItem(content: MentalMathsItemContent): number {
 /** Formulaic points for numpad sequence length. */
 export function scoreNumpadItem(content: NumpadSpeedItemContent): number {
   const len = content.button_sequence.length;
-  if (len >= 8) return 15;
-  if (len >= 5) return 12;
-  return 10;
+  return Math.max(4, len * 2);
 }
 
 export function applyCorrectScore(

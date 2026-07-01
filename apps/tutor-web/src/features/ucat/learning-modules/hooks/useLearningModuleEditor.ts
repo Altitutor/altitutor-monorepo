@@ -83,7 +83,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       question_stem_id: row.question_stem_id,
       question_id: row.question_id,
       file_id: row.file_id,
-      skill_trainer_set_id: row.skill_trainer_set_id,
+      skill_trainer_id: row.skill_trainer_id,
     }))
     setDraftBlocks(draft)
     setBlocksBaseline(JSON.stringify(toBlockPayload(draft)))

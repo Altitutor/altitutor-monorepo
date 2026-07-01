@@ -245,7 +245,7 @@ function LessonBlockContent({
           }}
         />
       ) : null}
-      {block.block_type === "skill_trainer_set" && block.id ? (
+      {block.block_type === "skill_trainer" && block.id ? (
         <LearnSkillTrainerBlock
           block={block}
           onComplete={() => onSkillTrainerComplete(block.id!)}

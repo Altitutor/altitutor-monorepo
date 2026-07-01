@@ -18,11 +18,9 @@ const BUTTON_BASE =
 function CalcButton({
   label,
   onKey,
-  highlighted,
 }: {
   label: string;
   onKey: (label: string) => void;
-  highlighted?: boolean;
 }) {
   const isNumberOrDot = /^[0-9.]$/.test(label);
   const variant = isNumberOrDot
@@ -32,9 +30,15 @@ function CalcButton({
     <button
       type="button"
       onClick={() => onKey(label)}
-      className={`${BUTTON_BASE} ${variant} ${highlighted ? "ring-2 ring-primary ring-offset-1" : ""}`}
+      className={`${BUTTON_BASE} ${variant}`}
     >
-      {label === "sqrt" ? "√" : label}
+      {label === "sqrt" ? (
+        "√"
+      ) : label === "÷" ? (
+        <span className="text-[16pt] font-bold leading-none">÷</span>
+      ) : (
+        label
+      )}
     </button>
   );
 }
@@ -44,6 +48,7 @@ export function EmbeddedCalculator({
   onKey,
   active = true,
   onEquals,
+  onBackspace,
   showDisplay = true,
   captureKeyboardAlways = false,
 }: {
@@ -51,6 +56,7 @@ export function EmbeddedCalculator({
   onKey: (label: string) => void;
   active?: boolean;
   onEquals?: () => void;
+  onBackspace?: () => void;
   showDisplay?: boolean;
   captureKeyboardAlways?: boolean;
 }) {
@@ -83,7 +89,7 @@ export function EmbeddedCalculator({
       if (/^[0-9]$/.test(event.key)) {
         label = event.key;
       } else {
-        const k = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        const k = event.key.toLowerCase();
         switch (k) {
           case "c":
             label = "MRC";
@@ -119,6 +125,7 @@ export function EmbeddedCalculator({
             break;
           case "backspace":
             event.preventDefault();
+            onBackspace?.();
             return;
           default:
             break;
@@ -132,14 +139,14 @@ export function EmbeddedCalculator({
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [active, captureKeyboardAlways, handleKey]);
+  }, [active, captureKeyboardAlways, handleKey, onBackspace]);
 
   return (
     <div
       ref={rootRef}
       tabIndex={active ? 0 : -1}
       className={`rounded-[12px] border border-black/60 bg-[#507ABD] px-3 pb-4 pt-5 shadow-[0_2px_4px_rgba(0,0,0,0.6)] outline-none ${
-        active ? "ring-2 ring-primary/40" : "opacity-90"
+        active ? "" : "opacity-90"
       }`}
       onClick={() => rootRef.current?.focus()}
     >
@@ -161,22 +168,20 @@ export function EmbeddedCalculator({
         style={{ gridAutoRows: "minmax(36px, 1fr)" }}
       >
         {ROWS_1_4.flat().map((label) => (
-          <CalcButton key={label} label={label} onKey={handleKey} highlighted={active} />
+          <CalcButton key={label} label={label} onKey={handleKey} />
         ))}
         {ROW_5_LEFT.map((label) => (
-          <CalcButton key={label} label={label} onKey={handleKey} highlighted={active} />
+          <CalcButton key={label} label={label} onKey={handleKey} />
         ))}
         <button
           type="button"
           onClick={() => handleKey("=")}
-          className={`col-start-4 row-start-5 row-span-2 min-h-0 ${BUTTON_BASE} bg-[#DE1F2A] text-[10pt] font-semibold text-white shadow-[0_1px_0_rgba(0,0,0,0.4)] ${
-            active ? "ring-2 ring-primary ring-offset-1" : ""
-          }`}
+          className={`col-start-4 row-start-5 row-span-2 min-h-0 ${BUTTON_BASE} bg-[#DE1F2A] text-[10pt] font-semibold text-white shadow-[0_1px_0_rgba(0,0,0,0.4)]`}
         >
           =
         </button>
         {ROW_6_LEFT.map((label) => (
-          <CalcButton key={label} label={label} onKey={handleKey} highlighted={active} />
+          <CalcButton key={label} label={label} onKey={handleKey} />
         ))}
       </div>
     </div>
