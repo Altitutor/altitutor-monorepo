@@ -90,6 +90,7 @@ function toFormValues(stem: {
   categoryId: string | null
   stemText: Json
   isPrivate: boolean
+  aiGenerationMetadata: Json | null
   questions: Array<{
     questionText: Json
     answerExplanation: Json | null
@@ -116,6 +117,8 @@ function toFormValues(stem: {
       difficulty: question.difficulty,
       timeBurdenSeconds: question.timeBurdenSeconds != null ? String(question.timeBurdenSeconds) : '',
       tagIds: question.tagIds ?? [],
+      sourceChannel: 'ai_generation',
+      aiGenerationMetadata: stem.aiGenerationMetadata,
       options: question.options.map((option) => ({
         answerText: option.answerText,
         answerExplanation: option.answerExplanation,
@@ -142,6 +145,8 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
           : null,
       questionType: question.questionType,
       tagIds: question.tagIds ?? [],
+      sourceChannel: question.sourceChannel ?? 'ai_generation',
+      aiGenerationMetadata: question.aiGenerationMetadata ?? draft.aiGenerationMetadata,
       options: question.options.map((option, optionIndex) => ({
         index: optionIndex + 1,
         answerText: option.answerText,
@@ -874,6 +879,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                   prev.map((draft) => (draft.id === stemId ? { ...draft, values } : draft))
                 )
               }
+              sourceChannel="ai_generation"
             />
             <GenerationDebugPanel debug={generationDebug} />
           </div>

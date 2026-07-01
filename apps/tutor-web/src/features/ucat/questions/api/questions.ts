@@ -110,10 +110,14 @@ type UcatGenerationStreamFinal = UcatGenerateDraftsResult & {
 export type UcatQuestionStemRow = UcatQuestionStem & {
   is_ai_generated?: boolean | null
   ai_generation_metadata?: Json | null
+  source_channel?: UcatQuestionSourceChannel | null
+  tutor_source_note?: string | null
   approval_status?: UcatApprovalStatus | null
   approved_by?: string | null
   approved_at?: string | null
 }
+
+export type UcatQuestionSourceChannel = 'individual' | 'bulk_import' | 'ai_generation'
 
 type StemDetailQuestion = {
   id: string
@@ -123,6 +127,8 @@ type StemDetailQuestion = {
   difficulty: number | null
   time_burden_seconds: number | null
   question_type: 'multiple_choice' | 'syllogism'
+  source_channel?: UcatQuestionSourceChannel | null
+  ai_generation_metadata?: Json | null
   tags?: Array<{ id: string; name: string }>
   answer_options: Array<{
     id: string
@@ -146,6 +152,8 @@ export type StemDetailRow = {
   is_private: boolean
   is_ai_generated?: boolean | null
   ai_generation_metadata?: Json | null
+  source_channel?: UcatQuestionSourceChannel | null
+  tutor_source_note?: string | null
   approval_status?: UcatApprovalStatus | null
   approved_by?: string | null
   approved_at?: string | null
@@ -668,13 +676,18 @@ function stemDetailToBundlePayload(
     categoryId: detail.question_stem_category_id ?? null,
     stemText: detail.stem_text ?? {},
     isPrivate: !!detail.is_private,
+    sourceChannel: detail.source_channel ?? null,
+    tutorSourceNote: detail.tutor_source_note ?? null,
     questions: questions.map((q, i) => ({
       index: q.index,
+      id: q.id,
       questionText: q.question_text ?? {},
       questionType: q.question_type ?? 'multiple_choice',
       answerExplanation: toJsonOrNull(q.answer_explanation),
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.time_burden_seconds ?? null,
+      sourceChannel: q.source_channel ?? detail.source_channel ?? null,
+      aiGenerationMetadata: q.ai_generation_metadata ?? null,
       tagIds: getTagIds(q, i),
       options: (q.answer_options ?? []).map((opt) => ({
         index: opt.index,
@@ -693,13 +706,18 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     categoryId: payload.categoryId ?? null,
     stemText: payload.stemText,
     isPrivate: payload.isPrivate,
+    sourceChannel: payload.sourceChannel ?? null,
+    tutorSourceNote: payload.tutorSourceNote ?? null,
     questions: payload.questions.map((question) => ({
       index: question.index,
+      id: question.id ?? null,
       question_text: question.questionText,
       answer_explanation: toJsonOrNull(question.answerExplanation),
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
+      source_channel: question.sourceChannel ?? payload.sourceChannel ?? null,
+      ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
       answer_options: question.options.map((option) => ({
         index: option.index,

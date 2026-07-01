@@ -24,6 +24,8 @@ export type UcatQuestionFormItem = {
   answerExplanation?: RichTextJson | null
   difficulty?: number | null
   timeBurdenSeconds?: number | null
+  sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
+  aiGenerationMetadata?: Json | null
   options: UcatQuestionFormOption[]
   tagIds: string[]
 }
@@ -34,6 +36,8 @@ export type UcatQuestionStemBundlePayload = {
   categoryId?: string | null
   stemText: RichTextJson
   isPrivate: boolean
+  sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
+  tutorSourceNote?: string | null
   questions: UcatQuestionFormItem[]
 }
 

@@ -23,6 +23,7 @@ import type {
   CategoryOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import {
   applyReviewFlagSuggestion,
   findMissingExplanations,
@@ -119,6 +120,7 @@ type Step3SetAnswersProps = {
   tags?: ReviewTagOption[]
   onUpdateStem?: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
+  sourceChannel?: UcatQuestionSourceChannel | null
 }
 
 export function Step3SetAnswers({
@@ -128,6 +130,7 @@ export function Step3SetAnswers({
   tags = [],
   onUpdateStem,
   onNewImageFileIds,
+  sourceChannel = null,
 }: Step3SetAnswersProps) {
   const { toast } = useToast()
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
@@ -420,6 +423,7 @@ export function Step3SetAnswers({
                             tags={tags}
                             onUpdateStem={onUpdateStem}
                             onNewImageFileIds={onNewImageFileIds}
+                            sourceChannel={sourceChannel}
                           />
                         </div>
                       </TableCell>

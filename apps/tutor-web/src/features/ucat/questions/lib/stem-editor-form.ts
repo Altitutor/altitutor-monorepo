@@ -20,6 +20,8 @@ export function buildEmptyStemFormValues(sectionId = ''): UcatQuestionStemFormVa
         difficulty: null,
         timeBurdenSeconds: '',
         tagIds: [],
+        sourceChannel: 'individual',
+        aiGenerationMetadata: null,
         options: [...DEFAULT_OPTIONS],
       },
     ],
@@ -37,13 +39,17 @@ export function stemDetailToFormValues(
     categoryId: initial.question_stem_category_id,
     stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
     isPrivate: initial.is_private,
+    tutorSourceNote: initial.tutor_source_note ?? '',
     questions: (initial.questions ?? []).map((question) => ({
+      id: question.id,
       questionText: (question.question_text ?? EMPTY_DOC) as Json,
       answerExplanation: (question.answer_explanation ?? null) as Json | null,
       questionType: question.question_type,
       difficulty: question.difficulty,
       timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
       tagIds: (question.tags ?? []).map((tag) => tag.id),
+      sourceChannel: question.source_channel ?? initial.source_channel ?? null,
+      aiGenerationMetadata: question.ai_generation_metadata ?? null,
       options:
         (question.answer_options ?? []).length > 0
           ? (question.answer_options ?? []).map((option) => ({
@@ -72,13 +78,18 @@ export function formValuesToStemBundlePayload(
     categoryId: payload.categoryId || null,
     stemText: payload.stemText,
     isPrivate: payload.isPrivate,
+    sourceChannel: stemId ? undefined : 'individual',
+    tutorSourceNote: payload.tutorSourceNote ?? null,
     questions: payload.questions.map((question, index) => ({
       index: index + 1,
+      id: question.id,
       questionText: question.questionText,
       questionType: question.questionType,
       answerExplanation: toExplanationNull(question.answerExplanation),
       difficulty: question.difficulty,
       timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+      sourceChannel: question.sourceChannel ?? (stemId ? undefined : 'individual'),
+      aiGenerationMetadata: question.aiGenerationMetadata ?? null,
       tagIds: question.tagIds ?? [],
       options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
         index: optionIndex + 1,

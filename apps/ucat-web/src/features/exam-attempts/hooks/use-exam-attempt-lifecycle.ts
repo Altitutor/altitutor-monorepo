@@ -166,8 +166,7 @@ export function useExamAttemptLifecycle({
             questionId: question.id,
             questionSetId: question.questionSetId,
             mode: exam.sourceType,
-            wasTimed:
-              serverSegmentEndsAt != null || (limit != null && limit > 0),
+            wasTimed: limit != null && limit > 0,
           };
         })()
       : null;
@@ -449,6 +448,7 @@ export function useExamAttemptLifecycle({
     if (previousSegmentKey === null) return;
     const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
     segmentStartPendingRef.current = true;
+    setServerSegmentEndsAt(null);
     void syncExamAttempt({
       kind,
       attemptId: attemptIdRef.current,
@@ -558,6 +558,7 @@ export function useExamAttemptLifecycle({
   const syncQuestionTiming = useCallback(() => {
     if (!enabled || !exam || !kind || !attemptIdRef.current) return;
     if (syncBlockedRef.current) return;
+    if (segmentStartPendingRef.current) return;
     if (kind && isExamAttemptAtResults(kind, state.phase)) return;
     const input = {
       kind,

@@ -16,22 +16,12 @@ import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 
 type BlockedQuotaRoute = {
   area: UcatQuotaArea;
-  dismiss: "dashboard" | "dismiss";
 };
 
 function getSearchValue(searchParams: URLSearchParams, names: string[]) {
   for (const name of names) {
     const value = searchParams.get(name);
     if (value) return value;
-  }
-  return null;
-}
-
-function getBrowsingQuotaAreaForPathname(pathname: string): UcatQuotaArea | null {
-  if (pathname === "/sets" || pathname.startsWith("/sets/")) return "sets";
-  if (pathname === "/mocks" || pathname.startsWith("/mocks/")) return "mocks";
-  if (pathname === "/skill-trainer" || pathname.startsWith("/skill-trainer/")) {
-    return "skill_trainer";
   }
   return null;
 }
@@ -58,7 +48,7 @@ export function QuotaRouteGuard() {
         activeExamAttempt?.kind === "set" &&
         activeExamAttempt.resourceId === setId;
       if (activeExamLoading || isCurrentAttempt) return null;
-      return { area: "sets", dismiss: "dashboard" };
+      return { area: "sets" };
     }
 
     if (isMockEngineRoute(pathname)) {
@@ -68,7 +58,7 @@ export function QuotaRouteGuard() {
         activeExamAttempt?.kind === "mock" &&
         activeExamAttempt.resourceId === mockId;
       if (activeExamLoading || isCurrentAttempt) return null;
-      return { area: "mocks", dismiss: "dashboard" };
+      return { area: "mocks" };
     }
 
     if (isSkillTrainerPlayRoute(pathname)) {
@@ -78,12 +68,10 @@ export function QuotaRouteGuard() {
         activeSkillTrainerAttempt?.attempt.id === attemptId &&
         !activeSkillTrainerAttempt.isCompleted;
       if (activeSkillTrainerLoading || isCurrentAttempt) return null;
-      return { area: "skill_trainer", dismiss: "dashboard" };
+      return { area: "skill_trainer" };
     }
 
-    const browsingArea = getBrowsingQuotaAreaForPathname(pathname);
-    if (!browsingArea) return null;
-    return { area: browsingArea, dismiss: "dismiss" };
+    return null;
   }, [
     activeExamAttempt,
     activeExamLoading,
@@ -104,7 +92,6 @@ export function QuotaRouteGuard() {
       pathname,
       searchParams.toString(),
       route.area,
-      route.dismiss,
       areaUsage.used,
       areaUsage.limit,
       areaUsage.period,
@@ -113,14 +100,11 @@ export function QuotaRouteGuard() {
     lastOpenedKeyRef.current = openedKey;
 
     openQuotaLimit(quotaPayloadFromUsage(areaUsage), {
-      dismissAction:
-        route.dismiss === "dashboard"
-          ? {
-              label: "Back to dashboard",
-              onDismiss: () => router.replace("/dashboard"),
-              variant: "dashboard",
-            }
-          : { label: "Dismiss", variant: "dismiss" },
+      dismissAction: {
+        label: "Back to dashboard",
+        onDismiss: () => router.replace("/dashboard"),
+        variant: "dashboard",
+      },
     });
   }, [
     open,

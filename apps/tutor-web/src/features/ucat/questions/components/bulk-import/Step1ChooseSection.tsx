@@ -1,6 +1,6 @@
 'use client'
 
-import { Checkbox, Label, SearchableSelect } from '@altitutor/ui'
+import { Checkbox, Label, SearchableSelect, Textarea } from '@altitutor/ui'
 import type { UcatSection } from '@/features/ucat/shared/types'
 
 type Step1ChooseSectionProps = {
@@ -9,6 +9,8 @@ type Step1ChooseSectionProps = {
   onChangeSection: (sectionId: string) => void
   separateStemDocument: boolean
   onSeparateStemDocumentChange: (value: boolean) => void
+  tutorSourceNote: string
+  onTutorSourceNoteChange: (value: string) => void
 }
 
 export function Step1ChooseSection({
@@ -17,6 +19,8 @@ export function Step1ChooseSection({
   onChangeSection,
   separateStemDocument,
   onSeparateStemDocumentChange,
+  tutorSourceNote,
+  onTutorSourceNoteChange,
 }: Step1ChooseSectionProps) {
   const hasSections = sections.length > 0
   const selected = sections.find((s) => (s.id ?? '') === (sectionId ?? '')) ?? null
@@ -46,6 +50,18 @@ export function Step1ChooseSection({
         </label>
       </div>
 
+      <div className="max-w-lg">
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium">Tutor source note</span>
+          <Textarea
+            className="min-h-24"
+            value={tutorSourceNote}
+            onChange={(event) => onTutorSourceNoteChange(event.target.value)}
+            placeholder="e.g. Medify mock 3, official practice bank, in-house worksheet"
+          />
+        </label>
+      </div>
+
       <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-3 max-w-lg">
         <Checkbox
           id="bulk-import-separate-stem-document"
@@ -68,4 +84,3 @@ export function Step1ChooseSection({
     </div>
   )
 }
-

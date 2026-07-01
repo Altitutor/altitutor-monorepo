@@ -27,6 +27,7 @@ export const ucatQuestionOptionSchema = z.object({
 
 export const ucatQuestionItemSchema = z
   .object({
+    id: z.string().uuid().optional(),
     questionText: nonEmptyRichTextSchema,
     questionType: z.enum(['multiple_choice', 'syllogism']),
     /** For syllogism: 'Y'/'N' per option, e.g. 'YYNNY'. Only used in bulk import UI; not persisted to API. */
@@ -36,6 +37,8 @@ export const ucatQuestionItemSchema = z
     /** Time burden as mm:ss or seconds string; converted to number when submitting */
     timeBurdenSeconds: z.string().optional().nullable(),
     tagIds: z.array(z.string().uuid()).default([]),
+    sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
+    aiGenerationMetadata: jsonSchema.nullable().optional(),
     options: z.array(ucatQuestionOptionSchema).min(1, 'At least one option/statement is required'),
   })
   .refine(
@@ -51,6 +54,7 @@ export const ucatQuestionStemSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   stemText: nonEmptyRichTextSchema,
   isPrivate: z.boolean().default(false),
+  tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
   questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
 })
 

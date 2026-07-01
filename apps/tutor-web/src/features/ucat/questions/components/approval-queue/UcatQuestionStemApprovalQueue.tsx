@@ -387,6 +387,8 @@ function UcatQuestionStemApprovalQueue({
             onCurrentQuestionIndexChange={setActiveQuestionIndex}
             focusTarget={focus.target}
             focusMessage={focus.message}
+            sourceChannel={detailQuery.data?.source_channel ?? null}
+            aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
           />
         )}
       </div>

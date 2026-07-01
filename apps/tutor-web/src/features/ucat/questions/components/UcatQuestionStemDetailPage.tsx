@@ -65,6 +65,7 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
         categoryId: null,
         stemText: EMPTY_DOC,
         isPrivate: false,
+        tutorSourceNote: '',
         questions: [
           {
             questionText: EMPTY_DOC,
@@ -73,6 +74,8 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
+            sourceChannel: 'individual',
+            aiGenerationMetadata: null,
             options: [...DEFAULT_OPTIONS],
           },
         ],
@@ -84,13 +87,17 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
       categoryId: initial.question_stem_category_id,
       stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
       isPrivate: initial.is_private,
+      tutorSourceNote: initial.tutor_source_note ?? '',
       questions: (initial.questions ?? []).map((question) => ({
+        id: question.id,
         questionText: (question.question_text ?? EMPTY_DOC) as Json,
         answerExplanation: (question.answer_explanation ?? null) as Json | null,
         questionType: question.question_type,
         difficulty: question.difficulty,
         timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
         tagIds: (question.tags ?? []).map((tag) => tag.id),
+        sourceChannel: question.source_channel ?? initial.source_channel ?? null,
+        aiGenerationMetadata: question.ai_generation_metadata ?? null,
         options:
           (question.answer_options ?? []).length > 0
             ? (question.answer_options ?? []).map((option) => ({
@@ -130,12 +137,17 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
         categoryId: values.categoryId ?? null,
         stemText: values.stemText,
         isPrivate: values.isPrivate,
+        sourceChannel: initial?.source_channel ?? null,
+        tutorSourceNote: values.tutorSourceNote ?? null,
         questions: values.questions.map((question, index) => ({
           index: index + 1,
+          id: question.id,
           questionText: question.questionText,
           questionType: question.questionType,
           difficulty: question.difficulty,
           timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+          sourceChannel: question.sourceChannel ?? initial?.source_channel ?? null,
+          aiGenerationMetadata: question.aiGenerationMetadata ?? null,
           tagIds: question.tagIds ?? [],
           options: question.options.map((option, optionIndex) => ({
             index: optionIndex + 1,
@@ -228,10 +240,11 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
           displayColumnsFallback={initial?.display_columns ?? undefined}
           className="flex min-h-0 flex-1 overflow-hidden"
           onActiveTextEditorChange={setActiveTextEditor}
+          sourceChannel={initial?.source_channel ?? null}
+          aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
     </div>
   )
 }
-

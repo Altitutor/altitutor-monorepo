@@ -14,6 +14,7 @@ import type {
   TagOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 
 type BulkImportReviewStemEditorProps = {
   stemId: string
@@ -24,6 +25,7 @@ type BulkImportReviewStemEditorProps = {
   tags: TagOption[]
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
+  sourceChannel?: UcatQuestionSourceChannel | null
 }
 
 export function BulkImportReviewStemEditor({
@@ -35,6 +37,7 @@ export function BulkImportReviewStemEditor({
   tags,
   onUpdateStem,
   onNewImageFileIds,
+  sourceChannel,
 }: BulkImportReviewStemEditorProps) {
   const createForm = useForm as unknown as (props: {
     resolver: unknown
@@ -76,6 +79,7 @@ export function BulkImportReviewStemEditor({
       showQuestionNavigator={questionCount > 1}
       onNewImageFileIds={onNewImageFileIds}
       onActiveTextEditorChange={setActiveTextEditor}
+      sourceChannel={sourceChannel ?? null}
       className="flex h-full min-h-0 overflow-hidden"
     />
       <UcatRichTextFloatingToolbar editor={activeTextEditor} />

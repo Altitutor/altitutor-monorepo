@@ -117,6 +117,7 @@ export function UcatQuestionStemDialog({
         categoryId: null,
         stemText: EMPTY_DOC,
         isPrivate: false,
+        tutorSourceNote: '',
         questions: [
           {
             questionText: EMPTY_DOC,
@@ -125,6 +126,8 @@ export function UcatQuestionStemDialog({
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
+            sourceChannel: 'individual',
+            aiGenerationMetadata: null,
             options: [...DEFAULT_OPTIONS],
           },
         ],
@@ -136,13 +139,17 @@ export function UcatQuestionStemDialog({
       categoryId: initial.question_stem_category_id,
       stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
       isPrivate: initial.is_private,
+      tutorSourceNote: initial.tutor_source_note ?? '',
       questions: (initial.questions ?? []).map((question) => ({
+        id: question.id,
         questionText: (question.question_text ?? EMPTY_DOC) as Json,
         answerExplanation: (question.answer_explanation ?? null) as Json | null,
         questionType: question.question_type,
         difficulty: question.difficulty,
         timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
         tagIds: (question.tags ?? []).map((tag) => tag.id),
+        sourceChannel: question.source_channel ?? initial.source_channel ?? null,
+        aiGenerationMetadata: question.ai_generation_metadata ?? null,
         options:
           (question.answer_options ?? []).length > 0
             ? (question.answer_options ?? []).map((option) => ({
@@ -201,6 +208,7 @@ export function UcatQuestionStemDialog({
         categoryId: null,
         stemText: EMPTY_DOC,
         isPrivate: false,
+        tutorSourceNote: '',
         questions: [
           {
             questionText: EMPTY_DOC,
@@ -209,6 +217,8 @@ export function UcatQuestionStemDialog({
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
+            sourceChannel: 'individual',
+            aiGenerationMetadata: null,
             options: [...DEFAULT_OPTIONS],
           },
         ],
@@ -344,6 +354,8 @@ export function UcatQuestionStemDialog({
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           onActiveTextEditorChange={setActiveTextEditor}
+          sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
+          aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

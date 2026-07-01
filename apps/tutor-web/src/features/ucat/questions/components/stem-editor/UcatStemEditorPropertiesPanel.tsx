@@ -18,6 +18,7 @@ import {
   DialogTitle,
   Input,
   SearchableSelect,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -29,6 +30,7 @@ import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
   QuestionTagsSelect,
@@ -63,6 +65,8 @@ type UcatStemEditorPropertiesPanelProps = {
   stemId?: string | null
   focusTarget?: StemEditorFocusTarget | null
   focusMessage?: string | null
+  sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
 }
 
 function trimTextParagraphs(text: string): string {
@@ -82,6 +86,26 @@ function PropertyRow({ label, children }: { label: string; children: ReactNode }
       <div className="min-w-0 w-[58%]">{children}</div>
     </div>
   )
+}
+
+function ReadOnlyValue({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-9 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      {children}
+    </div>
+  )
+}
+
+function formatSourceChannel(channel?: UcatQuestionSourceChannel | null) {
+  if (channel === 'bulk_import') return 'Bulk import'
+  if (channel === 'ai_generation') return 'AI generation'
+  return 'Individual add'
+}
+
+function metadataString(metadata: Json | null | undefined, key: string) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const value = (metadata as Record<string, unknown>)[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function PropertiesCard({
@@ -167,6 +191,8 @@ export function UcatStemEditorPropertiesPanel({
   stemId,
   focusTarget,
   focusMessage,
+  sourceChannel,
+  aiGenerationMetadata,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -183,6 +209,10 @@ export function UcatStemEditorPropertiesPanel({
     | 'multiple_choice'
     | 'syllogism'
   const isSyllogism = stemType === 'syllogism'
+  const aiModel = metadataString(aiGenerationMetadata, 'model')
+  const aiModelProfileId = metadataString(aiGenerationMetadata, 'modelProfileId')
+  const aiProviderId = metadataString(aiGenerationMetadata, 'providerId')
+  const generatedAt = metadataString(aiGenerationMetadata, 'generatedAt')
 
   const categoriesFiltered = sectionId
     ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId)
@@ -190,6 +220,13 @@ export function UcatStemEditorPropertiesPanel({
 
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
+  const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
+  const activeQuestionSourceChannel = activeQuestion?.sourceChannel ?? sourceChannel ?? null
+  const activeQuestionAiMetadata = activeQuestion?.aiGenerationMetadata ?? null
+  const questionAiModel = metadataString(activeQuestionAiMetadata, 'model')
+  const questionAiModelProfileId = metadataString(activeQuestionAiMetadata, 'modelProfileId')
+  const questionAiProviderId = metadataString(activeQuestionAiMetadata, 'providerId')
+  const questionGeneratedAt = metadataString(activeQuestionAiMetadata, 'generatedAt')
   const activeQuestionMissingExplanations = findMissingExplanations(watchedStem, undefined).filter(
     (target) => target.questionIndex === safeQuestionIndex
   )
@@ -354,6 +391,8 @@ export function UcatStemEditorPropertiesPanel({
       difficulty: null,
       timeBurdenSeconds: '',
       tagIds: [],
+      sourceChannel: 'individual',
+      aiGenerationMetadata: null,
       options: isSyllogism
         ? Array.from({ length: 5 }, () => ({
             answerText: EMPTY_DOC,
@@ -413,7 +452,7 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['questions', 'ai', 'stem', 'sets', 'question']}
+          defaultValue={['questions', 'ai', 'stem', 'source', 'sets', 'question']}
           className="space-y-4"
         >
           <PropertiesCard value="questions" title="Questions">
@@ -624,6 +663,60 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
+          </PropertiesCard>
+
+          <PropertiesCard value="source" title="Source">
+            <PropertyRow label="Stem">
+              <ReadOnlyValue>{formatSourceChannel(sourceChannel)}</ReadOnlyValue>
+            </PropertyRow>
+            {sourceChannel === 'ai_generation' ? (
+              <>
+                <PropertyRow label="Model">
+                  <ReadOnlyValue>{aiModel ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Profile">
+                  <ReadOnlyValue>{aiModelProfileId ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Provider">
+                  <ReadOnlyValue>{aiProviderId ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Generated">
+                  <ReadOnlyValue>{generatedAt ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+              </>
+            ) : null}
+            <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
+            <PropertyRow label="Question">
+              <ReadOnlyValue>{formatSourceChannel(activeQuestionSourceChannel)}</ReadOnlyValue>
+            </PropertyRow>
+            {activeQuestionSourceChannel === 'ai_generation' ? (
+              <>
+                <PropertyRow label="Q model">
+                  <ReadOnlyValue>{questionAiModel ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Q profile">
+                  <ReadOnlyValue>{questionAiModelProfileId ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Q provider">
+                  <ReadOnlyValue>{questionAiProviderId ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Q generated">
+                  <ReadOnlyValue>{questionGeneratedAt ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+              </>
+            ) : null}
+            <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
+            <div className="space-y-1.5 py-1.5">
+              <label className="text-sm text-muted-foreground" htmlFor="ucat-tutor-source-note">
+                Tutor source note
+              </label>
+              <Textarea
+                id="ucat-tutor-source-note"
+                className="min-h-20 resize-y text-sm"
+                placeholder="e.g. Medify mock 3, official practice bank, in-house worksheet"
+                {...form.register('tutorSourceNote')}
+              />
+            </div>
           </PropertiesCard>
 
           <PropertiesCard value="sets" title="Set membership">

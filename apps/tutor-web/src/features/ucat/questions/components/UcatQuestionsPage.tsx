@@ -725,13 +725,18 @@ export function UcatQuestionsPage() {
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
       isPrivate: payload.isPrivate,
+      sourceChannel: stemId ? undefined : 'individual',
+      tutorSourceNote: payload.tutorSourceNote ?? null,
       questions: payload.questions.map((question, index) => ({
         index: index + 1,
+        id: question.id,
         questionText: question.questionText,
         questionType: question.questionType,
         answerExplanation: toExplanationNull(question.answerExplanation),
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+        sourceChannel: question.sourceChannel ?? (stemId ? undefined : 'individual'),
+        aiGenerationMetadata: question.aiGenerationMetadata ?? null,
         tagIds: question.tagIds ?? [],
         options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
@@ -771,7 +776,11 @@ export function UcatQuestionsPage() {
   }
 
   async function handleBulkImportSubmit(args: BulkImportSubmitArgs) {
-    const stemsPayload = args.stems.map((form) => mapFormValuesToBundlePayload(form))
+    const stemsPayload = args.stems.map((form) => ({
+      ...mapFormValuesToBundlePayload(form),
+      sourceChannel: 'bulk_import' as const,
+      tutorSourceNote: args.tutorSourceNote ?? null,
+    }))
     const { ids } = await bulkImportMutation.mutateAsync({
       sectionId: args.sectionId,
       stems: stemsPayload,

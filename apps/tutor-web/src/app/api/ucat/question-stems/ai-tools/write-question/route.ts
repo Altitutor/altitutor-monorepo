@@ -154,8 +154,27 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
       )
     }
 
+    const aiGenerationMetadata = {
+      source: 'ucat-ai-question-writing',
+      generatedAt: new Date().toISOString(),
+      model: raw.model,
+      modelProfileId: raw.modelProfileId,
+      providerId: raw.providerId,
+      promptLayerCount: promptContext.promptLayers.length,
+      operation: 'question_write',
+      usage: raw.usage,
+      finishReason: raw.finishReason,
+      sectionId: body.stem.sectionId,
+      categoryId: body.stem.categoryId ?? null,
+      existingQuestionCount: body.stem.questions.length,
+    } as Json
+
     return NextResponse.json({
-      question: writtenQuestionToFormValue(parse.data, existingTagIds),
+      question: {
+        ...writtenQuestionToFormValue(parse.data, existingTagIds),
+        sourceChannel: 'ai_generation',
+        aiGenerationMetadata,
+      },
       rationale: parse.data.rationale ?? null,
       promptLayerCount: promptContext.promptLayers.length,
     })

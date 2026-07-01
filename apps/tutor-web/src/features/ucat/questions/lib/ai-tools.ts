@@ -214,6 +214,8 @@ export function writtenQuestionToFormValue(
     difficulty: null,
     timeBurdenSeconds: '',
     tagIds,
+    sourceChannel: 'ai_generation',
+    aiGenerationMetadata: null,
     options: response.options.map((option) => ({
       answerText: plainTextToProseMirror(option.answerText),
       answerExplanation: null,

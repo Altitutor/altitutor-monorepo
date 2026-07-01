@@ -571,18 +571,17 @@ export function QuestionEnginePage({
     exam && (isSetOrMock || isQuestionsOrStem)
       ? getCurrentSegmentTimeLimitSeconds(exam, state)
       : null;
-  const isTimed =
-    (currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0) ||
-    serverSegmentEndsAt != null;
+  const isTimed = currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
+  const activeServerSegmentEndsAt = isTimed ? serverSegmentEndsAt : null;
   const remainingSeconds =
     exam && isTimed
-      ? examAttemptManaged && !serverSegmentEndsAt
+      ? examAttemptManaged && !activeServerSegmentEndsAt
         ? null
         : getRemainingSeconds(
             exam,
             state,
             state.timerStartedAt,
-            serverSegmentEndsAt,
+            activeServerSegmentEndsAt,
           )
       : null;
   const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
@@ -591,14 +590,14 @@ export function QuestionEnginePage({
   const displayRemainingSeconds =
     exam && isTimed
       ? (examAttemptManaged &&
-        (!serverSegmentEndsAt || awaitingServerSegmentStartRef.current)
+        (!activeServerSegmentEndsAt || awaitingServerSegmentStartRef.current)
           ? getRemainingSeconds(exam, state, state.timerStartedAt, null)
           : remainingSeconds)
       : null;
 
   useEffect(() => {
     awaitingServerSegmentStartRef.current = false;
-  }, [serverSegmentEndsAt]);
+  }, [activeServerSegmentEndsAt]);
 
   useEffect(() => {
     if (!isTimed) return;
@@ -1800,14 +1799,16 @@ export function QuestionEnginePage({
       });
       return;
     }
-    const timerStartedAt = state.nextSegmentTimerStartedAt ?? Date.now();
     void runWithLag(() => {
       setState((current) => {
+        const isNextSegmentTimed = (nextSeg.timeLimitSeconds ?? 0) > 0;
         const next: typeof current = {
           ...current,
           showTimeExpiredDialog: false,
           nextSegmentTimerStartedAt: null,
-          timerStartedAt,
+          timerStartedAt: isNextSegmentTimed
+            ? (current.nextSegmentTimerStartedAt ?? Date.now())
+            : null,
         };
         if (nextSeg.type === "instructions") {
           next.phase = "instructions";

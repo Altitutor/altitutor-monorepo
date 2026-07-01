@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
+import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
 import {
@@ -48,6 +50,8 @@ type UcatStemEditorShellProps = {
   onCurrentQuestionIndexChange?: (index: number) => void
   focusTarget?: StemEditorFocusTarget | null
   focusMessage?: string | null
+  sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
 }
 
 export function UcatStemEditorShell({
@@ -69,6 +73,8 @@ export function UcatStemEditorShell({
   onCurrentQuestionIndexChange,
   focusTarget = null,
   focusMessage = null,
+  sourceChannel = null,
+  aiGenerationMetadata = null,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
@@ -196,6 +202,8 @@ export function UcatStemEditorShell({
         onShowAnswerChange={setShowAnswer}
         focusTarget={focusTarget}
         focusMessage={focusMessage}
+        sourceChannel={sourceChannel}
+        aiGenerationMetadata={aiGenerationMetadata}
       />
     </div>
   )

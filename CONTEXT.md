@@ -177,6 +177,12 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
+  _Avoid_: Question type, answer mode, category
+
+- **Tutor source note** — Optional free-text provenance entered by a tutor to describe where source-derived UCAT content came from. It complements the question source channel and is not shown to students.
+  _Avoid_: Citation, student explanation, generation metadata
+
 - **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
   _Avoid_: Individual question playlist, skill trainer set
 
