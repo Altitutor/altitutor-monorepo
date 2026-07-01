@@ -8292,7 +8292,6 @@ export type Database = {
           progress: Json | null
           score: number
           skill_trainer_id: string
-          skill_trainer_set_id: string | null
           started_at: string
           streak_count: number
           student_id: string
@@ -8309,7 +8308,6 @@ export type Database = {
           progress?: Json | null
           score?: number
           skill_trainer_id: string
-          skill_trainer_set_id?: string | null
           started_at?: string
           streak_count?: number
           student_id: string
@@ -8326,7 +8324,6 @@ export type Database = {
           progress?: Json | null
           score?: number
           skill_trainer_id?: string
-          skill_trainer_set_id?: string | null
           started_at?: string
           streak_count?: number
           student_id?: string
@@ -8372,20 +8369,6 @@ export type Database = {
             columns: ["skill_trainer_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_skill_trainer_attempts_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_skill_trainer_attempts_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
             referencedColumns: ["id"]
           },
           {
@@ -11730,7 +11713,7 @@ export type Database = {
           question_id: string | null
           question_stem_id: string | null
           require_completion_before_next: boolean
-          skill_trainer_set_id: string | null
+          skill_trainer_id: string | null
           updated_at: string
         }
         Insert: {
@@ -11745,7 +11728,7 @@ export type Database = {
           question_id?: string | null
           question_stem_id?: string | null
           require_completion_before_next?: boolean
-          skill_trainer_set_id?: string | null
+          skill_trainer_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -11760,7 +11743,7 @@ export type Database = {
           question_id?: string | null
           question_stem_id?: string | null
           require_completion_before_next?: boolean
-          skill_trainer_set_id?: string | null
+          skill_trainer_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -11877,17 +11860,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
+            referencedRelation: "ucat_skill_trainers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
+            referencedRelation: "vstudent_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainers"
             referencedColumns: ["id"]
           },
         ]
@@ -13227,207 +13217,6 @@ export type Database = {
           },
           {
             foreignKeyName: "ucat_skill_trainer_items_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ucat_skill_trainer_set_items: {
-        Row: {
-          created_at: string
-          id: string
-          index: number
-          skill_trainer_item_id: string
-          skill_trainer_set_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          index: number
-          skill_trainer_item_id: string
-          skill_trainer_set_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          index?: number
-          skill_trainer_item_id?: string
-          skill_trainer_set_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_item_id_fkey"
-            columns: ["skill_trainer_item_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_item_id_fkey"
-            columns: ["skill_trainer_item_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ucat_skill_trainer_sets: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          deleted_at: string | null
-          deleted_by: string | null
-          description: string | null
-          id: string
-          is_private: boolean
-          name: string
-          skill_trainer_id: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: string | null
-          id?: string
-          is_private?: boolean
-          name: string
-          skill_trainer_id: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: string | null
-          id?: string
-          is_private?: boolean
-          name?: string
-          skill_trainer_id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
@@ -16446,7 +16235,7 @@ export type Database = {
           question_id: string | null
           question_stem_id: string | null
           require_completion_before_next: boolean | null
-          skill_trainer_set_id: string | null
+          skill_trainer_id: string | null
         }
         Relationships: [
           {
@@ -16562,17 +16351,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
+            referencedRelation: "ucat_skill_trainers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
+            referencedRelation: "vstudent_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainers"
             referencedColumns: ["id"]
           },
         ]
@@ -19648,7 +19444,7 @@ export type Database = {
           question_id: string | null
           question_stem_id: string | null
           require_completion_before_next: boolean | null
-          skill_trainer_set_id: string | null
+          skill_trainer_id: string | null
           updated_at: string | null
         }
         Relationships: [
@@ -19765,17 +19561,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
+            referencedRelation: "ucat_skill_trainers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
+            referencedRelation: "vstudent_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainers"
             referencedColumns: ["id"]
           },
         ]
@@ -22234,173 +22037,6 @@ export type Database = {
           },
         ]
       }
-      vtutor_ucat_skill_trainer_set_items: {
-        Row: {
-          approval_status: string | null
-          created_at: string | null
-          id: string | null
-          index: number | null
-          item_content: Json | null
-          item_is_active: boolean | null
-          skill_trainer_item_id: string | null
-          skill_trainer_set_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_item_id_fkey"
-            columns: ["skill_trainer_item_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_item_id_fkey"
-            columns: ["skill_trainer_item_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainer_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_set_items_skill_trainer_set_id_fkey"
-            columns: ["skill_trainer_set_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainer_sets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vtutor_ucat_skill_trainer_sets: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          deleted_at: string | null
-          deleted_by: string | null
-          description: string | null
-          id: string | null
-          is_private: boolean | null
-          item_count: number | null
-          name: string | null
-          skill_trainer_id: string | null
-          trainer_key: string | null
-          trainer_name: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_deleted_by_fkey"
-            columns: ["deleted_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_skill_trainer_id_fkey"
-            columns: ["skill_trainer_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_skill_trainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "ucat_skill_trainer_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       vtutor_ucat_skill_trainers: {
         Row: {
           approved_active_item_count: number | null
@@ -23204,10 +22840,6 @@ export type Database = {
         Args: { p_question_stem_id: string }
         Returns: boolean
       }
-      can_student_access_ucat_skill_trainer_set: {
-        Args: { p_skill_trainer_set_id: string }
-        Returns: boolean
-      }
       can_student_read_file: { Args: { file_path: string }; Returns: boolean }
       can_tutor_access_session_file: {
         Args: { session_id: string }
@@ -23930,10 +23562,6 @@ export type Database = {
         Args: { p_assignments: Json }
         Returns: undefined
       }
-      tutor_ucat_replace_skill_trainer_set_items: {
-        Args: { p_item_ids: Json; p_set_id: string }
-        Returns: undefined
-      }
       tutor_ucat_restore_mock: {
         Args: { p_mock_id: string }
         Returns: undefined
@@ -23964,10 +23592,6 @@ export type Database = {
       }
       tutor_ucat_soft_delete_skill_trainer_item: {
         Args: { p_item_id: string }
-        Returns: undefined
-      }
-      tutor_ucat_soft_delete_skill_trainer_set: {
-        Args: { p_set_id: string }
         Returns: undefined
       }
       tutor_ucat_upsert_learning_module: {
@@ -24035,16 +23659,6 @@ export type Database = {
           p_item_id: string
           p_skill_trainer_id: string
           p_source_question_stem_id?: string
-        }
-        Returns: string
-      }
-      tutor_ucat_upsert_skill_trainer_set: {
-        Args: {
-          p_description?: string
-          p_is_private?: boolean
-          p_name: string
-          p_set_id: string
-          p_skill_trainer_id: string
         }
         Returns: string
       }
@@ -24133,7 +23747,7 @@ export type Database = {
         | "file"
         | "question_stem"
         | "question"
-        | "skill_trainer_set"
+        | "skill_trainer"
       ucat_learning_module_kind: "folder" | "lesson"
       ucat_question_source_channel:
         | "individual"
@@ -24314,7 +23928,7 @@ export const Constants = {
         "file",
         "question_stem",
         "question",
-        "skill_trainer_set",
+        "skill_trainer",
       ],
       ucat_learning_module_kind: ["folder", "lesson"],
       ucat_question_source_channel: [
