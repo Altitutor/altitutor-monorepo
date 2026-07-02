@@ -22,6 +22,8 @@ type SupabaseAny = SupabaseClient<Database> & {
 
 const WriteQuestionBodySchema = z.object({
   stem: AiToolQuestionStemPayloadSchema,
+  modelProfileId: z.string().uuid().nullable().optional(),
+  instructions: z.string().trim().max(1200).nullable().optional(),
 })
 
 async function fetchPromptContext(client: SupabaseClient<Database>, stem: z.infer<typeof AiToolQuestionStemPayloadSchema>) {
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const client = access.userClient as unknown as SupabaseClient<Database>
-    const config = await resolveUcatAiConfig(client)
+    const config = await resolveUcatAiConfig(client, body.modelProfileId ?? null)
     const promptContext = await fetchPromptContext(client, body.stem)
     const existingTagIds = Array.from(new Set(body.stem.questions.flatMap((question) => question.tagIds ?? [])))
 
@@ -98,6 +100,7 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
         category: promptContext.categoryName,
         tags: promptContext.tags,
         promptLayers: promptContext.promptLayers,
+        tutorInstructions: body.instructions ?? null,
         existingStem: summarizeStemForAi(body.stem),
         requirements: [
           'Do not alter the shared stem.',
@@ -129,6 +132,7 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
     const raw = await callUcatAiJson({
       client,
       operation: 'question_write',
+      modelProfileId: body.modelProfileId ?? null,
       systemPrompt,
       userPrompt,
       temperature: 0.35,
@@ -137,6 +141,7 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
         categoryId: body.stem.categoryId ?? null,
         existingQuestionCount: body.stem.questions.length,
         promptLayerCount: promptContext.promptLayers.length,
+        hasTutorInstructions: !!body.instructions,
       } as Json,
     })
 
@@ -167,6 +172,7 @@ You are adding exactly one new multiple-choice question to an existing UCAT stem
       sectionId: body.stem.sectionId,
       categoryId: body.stem.categoryId ?? null,
       existingQuestionCount: body.stem.questions.length,
+      tutorInstructions: body.instructions ?? null,
     } as Json
 
     return NextResponse.json({

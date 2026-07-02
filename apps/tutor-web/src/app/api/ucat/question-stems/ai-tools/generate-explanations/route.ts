@@ -22,6 +22,8 @@ type SupabaseAny = SupabaseClient<Database> & {
 const GenerateExplanationsBodySchema = z.object({
   stem: AiToolQuestionStemPayloadSchema,
   questionIndexes: z.array(z.number().int().nonnegative()).optional(),
+  modelProfileId: z.string().uuid().nullable().optional(),
+  instructions: z.string().trim().max(1200).nullable().optional(),
 })
 
 async function fetchSectionName(client: SupabaseClient<Database>, sectionId: string) {
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
 
   const promptPayload = {
     task: 'Generate only missing UCAT answer explanations.',
+    tutorInstructions: body.instructions ?? null,
     stem: summarizeStemForAi(body.stem),
     missingTargets: targets,
     outputShape: {
@@ -99,10 +102,15 @@ export async function POST(request: NextRequest) {
     const raw = await callUcatAiJson({
       client,
       operation: 'answer_explanation_generate',
+      modelProfileId: body.modelProfileId ?? null,
       systemPrompt: SYSTEM_PROMPT,
       userPrompt: JSON.stringify({ ...promptPayload, section: sectionName }, null, 2),
       temperature: 0.2,
-      metadata: { section: sectionName, targetCount: targets.length },
+      metadata: {
+        section: sectionName,
+        targetCount: targets.length,
+        hasTutorInstructions: !!body.instructions,
+      },
     })
     const parse = AiToolExplanationResponseSchema.safeParse(raw.parsed)
     if (!parse.success) {

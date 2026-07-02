@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       'Substantially reduce source-text similarity and avoid close paraphrase.',
       'Use lesson context only to preserve continuity; do not change the taught concept or introduce unsupported facts.',
       'Use rich text structure when it improves teaching: paragraphs, headings, bullet lists, ordered lists, and tables.',
+      'For inline emphasis, use markdown markers like **bold** and _italic_; do not emit HTML tags.',
       'Use tables only when they clarify relationships, steps, comparisons, or common errors.',
     ].join('\n')
 

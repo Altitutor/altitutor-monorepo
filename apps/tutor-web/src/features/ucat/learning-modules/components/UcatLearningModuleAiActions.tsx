@@ -19,6 +19,8 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { FilePlus2, Info, Loader2, Wand2 } from 'lucide-react'
+import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   BLOCK_TYPE_LABELS,
   newDraftBlock,
@@ -121,6 +123,7 @@ export function UcatLearningModuleAiActions({
   const [rewriteOpen, setRewriteOpen] = useState(false)
   const [teachingIntent, setTeachingIntent] = useState('')
   const [rewriteInstruction, setRewriteInstruction] = useState('')
+  const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [targetIndex, setTargetIndex] = useState(0)
   const [pending, setPending] = useState<'generate' | 'rewrite' | null>(null)
   const [rewritePreview, setRewritePreview] = useState<{
@@ -149,6 +152,10 @@ export function UcatLearningModuleAiActions({
     ],
     [blocks],
   )
+  const modelProfilesQuery = useUcatGenerationModelProfiles(generateOpen || rewriteOpen)
+  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+  const effectiveModelProfileId =
+    modelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
 
   useEffect(() => {
     if (!generateOpen) return
@@ -179,6 +186,7 @@ export function UcatLearningModuleAiActions({
           teachingIntent: intent,
           targetIndex,
           targetPositionLabel: position?.label ?? null,
+          modelProfileId: effectiveModelProfileId,
         }),
       })
       const json = (await response.json()) as AiRouteResponse
@@ -222,6 +230,7 @@ export function UcatLearningModuleAiActions({
           blocks,
           selectedBlockId: selectedTextBlock.clientId,
           rewriteInstruction: rewriteInstruction.trim() || null,
+          modelProfileId: effectiveModelProfileId,
         }),
       })
       const json = (await response.json()) as AiRouteResponse
@@ -282,15 +291,18 @@ export function UcatLearningModuleAiActions({
         />
       </div>
 
-      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate text block</DialogTitle>
-            <DialogDescription>
-              Add a rich text block to the lesson draft. The chosen position is included in the AI brief.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+      <UcatDialogShell
+        open={generateOpen}
+        onClose={() => setGenerateOpen(false)}
+        title="Generate text block"
+        subtitle="Add a rich text block to the lesson draft. The chosen position is included in the AI brief."
+        saveLabel="Generate"
+        onSave={() => void handleGenerate()}
+        isSaving={pending === 'generate'}
+        saveDisabled={!teachingIntent.trim()}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-medium">Teaching intent</label>
               <Textarea
@@ -298,6 +310,20 @@ export function UcatLearningModuleAiActions({
                 onChange={(event) => setTeachingIntent(event.target.value)}
                 rows={5}
                 placeholder="What should this block teach or clarify?"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Model profile</label>
+              <SearchableSelect<(typeof modelProfiles)[number]>
+                items={modelProfiles}
+                value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
+                onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => `${profile.name} (${profile.model})`}
+                placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                searchPlaceholder="Search models..."
+                emptyMessage="No model profiles found"
+                loading={modelProfilesQuery.isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -312,36 +338,40 @@ export function UcatLearningModuleAiActions({
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setGenerateOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleGenerate()}
-              disabled={pending === 'generate' || !teachingIntent.trim()}
-            >
-              {pending === 'generate' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Generate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </UcatDialogShell>
 
-      <Dialog open={rewriteOpen} onOpenChange={setRewriteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rewrite text block</DialogTitle>
-            <DialogDescription>
-              Rewrite the selected text block. Meaning and factual claims should be preserved.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+      <UcatDialogShell
+        open={rewriteOpen}
+        onClose={() => setRewriteOpen(false)}
+        title="Rewrite text block"
+        subtitle="Rewrite the selected text block. Meaning and factual claims should be preserved."
+        saveLabel="Rewrite"
+        onSave={() => void handleRewrite()}
+        isSaving={pending === 'rewrite'}
+        saveDisabled={!selectedTextBlock}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-5">
             <div className="rounded-md border bg-muted/30 p-3">
               <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">Selected block</p>
               <p className="line-clamp-5 whitespace-pre-wrap text-sm">
                 {rewritePreviewText((selectedTextBlock?.content.body as Json | null) ?? null) || 'No text selected'}
               </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Model profile</label>
+              <SearchableSelect<(typeof modelProfiles)[number]>
+                items={modelProfiles}
+                value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
+                onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => `${profile.name} (${profile.model})`}
+                placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                searchPlaceholder="Search models..."
+                emptyMessage="No model profiles found"
+                loading={modelProfilesQuery.isLoading}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Optional instruction</label>
@@ -353,21 +383,8 @@ export function UcatLearningModuleAiActions({
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRewriteOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleRewrite()}
-              disabled={pending === 'rewrite' || !selectedTextBlock}
-            >
-              {pending === 'rewrite' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Rewrite
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </UcatDialogShell>
 
       <Dialog open={rewritePreview != null} onOpenChange={(open) => !open && setRewritePreview(null)}>
         <DialogContent className="max-w-4xl">

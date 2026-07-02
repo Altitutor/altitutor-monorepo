@@ -29,8 +29,10 @@ import { Eye, EyeOff, FilePlus2, Info, Loader2, Plus, Sparkles, Trash2, Wand2 } 
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { formatSourceChannel, metadataString } from '@/features/ucat/questions/lib/source-display'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
@@ -51,6 +53,7 @@ import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
+type AiToolKind = 'rewrite' | 'write' | 'explanation'
 
 type UcatStemEditorPropertiesPanelProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -182,6 +185,9 @@ export function UcatStemEditorPropertiesPanel({
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
   const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | 'write' | null>(null)
+  const [aiToolOpen, setAiToolOpen] = useState<AiToolKind | null>(null)
+  const [aiToolModelProfileId, setAiToolModelProfileId] = useState<string | null>(null)
+  const [aiToolInstructions, setAiToolInstructions] = useState('')
   const [rewritePreview, setRewritePreview] = useState<{
     stem: UcatQuestionStemFormValues
     summary: string | null
@@ -211,14 +217,22 @@ export function UcatStemEditorPropertiesPanel({
   const activeQuestionMissingExplanations = findMissingExplanations(watchedStem, undefined).filter(
     (target) => target.questionIndex === safeQuestionIndex
   )
+  const modelProfilesQuery = useUcatGenerationModelProfiles(aiToolOpen != null)
+  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+  const effectiveAiToolModelProfileId =
+    aiToolModelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
 
-  const handleRewriteStem = async () => {
+  const handleRewriteStem = async (settings?: { modelProfileId?: string | null; instructions?: string | null }) => {
     setAiPending('rewrite')
     try {
       const response = await fetch('/api/ucat/question-stems/ai-tools/rewrite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues() }),
+        body: JSON.stringify({
+          stem: form.getValues(),
+          modelProfileId: settings?.modelProfileId ?? null,
+          instructions: settings?.instructions ?? null,
+        }),
       })
       const json = (await response.json()) as {
         rewrittenStem?: UcatQuestionStemFormValues
@@ -246,13 +260,18 @@ export function UcatStemEditorPropertiesPanel({
     toast({ description: 'Rewrite applied. Review the updated stem before saving.' })
   }
 
-  const handleGenerateActiveExplanation = async () => {
+  const handleGenerateActiveExplanation = async (settings?: { modelProfileId?: string | null; instructions?: string | null }) => {
     setAiPending('explanation')
     try {
       const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues(), questionIndexes: [safeQuestionIndex] }),
+        body: JSON.stringify({
+          stem: form.getValues(),
+          questionIndexes: [safeQuestionIndex],
+          modelProfileId: settings?.modelProfileId ?? null,
+          instructions: settings?.instructions ?? null,
+        }),
       })
       const json = (await response.json()) as {
         stem?: UcatQuestionStemFormValues
@@ -292,13 +311,17 @@ export function UcatStemEditorPropertiesPanel({
     toast({ description: `Updated question ${flag.questionIndex + 1}. Review the explanation before saving.` })
   }
 
-  const handleWriteQuestion = async () => {
+  const handleWriteQuestion = async (settings?: { modelProfileId?: string | null; instructions?: string | null }) => {
     setAiPending('write')
     try {
       const response = await fetch('/api/ucat/question-stems/ai-tools/write-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues() }),
+        body: JSON.stringify({
+          stem: form.getValues(),
+          modelProfileId: settings?.modelProfileId ?? null,
+          instructions: settings?.instructions ?? null,
+        }),
       })
       const json = (await response.json()) as {
         question?: UcatQuestionStemFormValues['questions'][number]
@@ -383,6 +406,23 @@ export function UcatStemEditorPropertiesPanel({
         : [...DEFAULT_OPTIONS],
     })
     onQuestionIndexChange(fields.length)
+  }
+
+  const openAiToolDialog = (tool: AiToolKind) => {
+    setAiToolOpen(tool)
+    setAiToolInstructions('')
+  }
+
+  const handleRunAiTool = () => {
+    if (!aiToolOpen) return
+    const settings = {
+      modelProfileId: effectiveAiToolModelProfileId,
+      instructions: aiToolInstructions.trim() || null,
+    }
+    if (aiToolOpen === 'rewrite') void handleRewriteStem(settings)
+    if (aiToolOpen === 'write') void handleWriteQuestion(settings)
+    if (aiToolOpen === 'explanation') void handleGenerateActiveExplanation(settings)
+    setAiToolOpen(null)
   }
 
   return (
@@ -495,21 +535,21 @@ export function UcatStemEditorPropertiesPanel({
                 label="Rewrite source wording"
                 description="Rewords the current stem, questions, and answer options to reduce source similarity. You review and apply each changed part before it updates the form."
                 icon={aiPending === 'rewrite' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                onClick={() => void handleRewriteStem()}
+                onClick={() => openAiToolDialog('rewrite')}
                 disabled={aiPending != null || editorMode !== 'edit'}
               />
               <AiActionButton
                 label="Write question"
                 description="Adds one new multiple-choice question for this stem, using the stem facts plus the section, category, tag, and generation prompt-layer guidance."
                 icon={aiPending === 'write' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
-                onClick={() => void handleWriteQuestion()}
+                onClick={() => openAiToolDialog('write')}
                 disabled={aiPending != null || editorMode !== 'edit' || isSyllogism}
               />
               <AiActionButton
                 label="Generate explanation"
                 description="Fills missing answer explanations for the active question. If the selected answer looks wrong, it flags the issue instead of inserting text."
                 icon={aiPending === 'explanation' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                onClick={() => void handleGenerateActiveExplanation()}
+                onClick={() => openAiToolDialog('explanation')}
                 disabled={
                   aiPending != null ||
                   editorMode !== 'edit' ||
@@ -724,6 +764,64 @@ export function UcatStemEditorPropertiesPanel({
           </PropertiesCard>
         </Accordion>
       </div>
+      <UcatDialogShell
+        open={aiToolOpen != null}
+        onClose={() => setAiToolOpen(null)}
+        title={
+          aiToolOpen === 'rewrite'
+            ? 'Rewrite source wording'
+            : aiToolOpen === 'write'
+              ? 'Write question'
+              : 'Generate explanation'
+        }
+        subtitle={
+          aiToolOpen === 'rewrite'
+            ? 'Choose a model profile and add optional rewrite guidance before generating the preview.'
+            : aiToolOpen === 'write'
+              ? 'Choose a model profile and add optional guidance for the new question.'
+              : 'Choose a model profile and add optional guidance for missing explanations.'
+        }
+        saveLabel={
+          aiToolOpen === 'rewrite' ? 'Rewrite' : aiToolOpen === 'write' ? 'Write question' : 'Generate'
+        }
+        onSave={handleRunAiTool}
+        isSaving={aiPending != null}
+        saveDisabled={!aiToolOpen}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Model profile</label>
+              <SearchableSelect<(typeof modelProfiles)[number]>
+                items={modelProfiles}
+                value={modelProfiles.find((profile) => profile.id === effectiveAiToolModelProfileId) ?? null}
+                onValueChange={(profile) => setAiToolModelProfileId(profile?.id ?? null)}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => `${profile.name} (${profile.model})`}
+                placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                searchPlaceholder="Search models..."
+                emptyMessage="No model profiles found"
+                loading={modelProfilesQuery.isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Optional instruction</label>
+              <Textarea
+                value={aiToolInstructions}
+                onChange={(event) => setAiToolInstructions(event.target.value)}
+                rows={5}
+                placeholder={
+                  aiToolOpen === 'rewrite'
+                    ? 'e.g. Keep named entities if they are important, but make the wording less source-like.'
+                    : aiToolOpen === 'write'
+                      ? 'e.g. Test a precise inference from paragraph 3 without making it a trick question.'
+                      : 'e.g. Make the explanation more step-by-step and cite the decisive evidence.'
+                }
+              />
+            </div>
+          </div>
+        </div>
+      </UcatDialogShell>
       <RewritePreviewDialog
         open={rewritePreview != null}
         currentStem={watchedStem}

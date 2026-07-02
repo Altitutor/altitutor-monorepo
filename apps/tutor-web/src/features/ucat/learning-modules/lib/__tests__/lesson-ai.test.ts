@@ -89,4 +89,66 @@ describe('lesson AI rich text conversion', () => {
       ],
     })
   })
+
+  it('converts simple HTML emphasis emitted inside AI text fields', () => {
+    const response = LessonAiRichTextResponseSchema.parse({
+      blocks: [
+        {
+          type: 'paragraph',
+          text: 'Scan for <b>proper nouns</b> and <i>numbers</i>, then check &lt;strong&gt;every part&lt;/strong&gt;.',
+        },
+        {
+          type: 'bulletList',
+          items: ['<b>Names:</b> Rian Johnson', '<em>Titles:</em> The Last Jedi'],
+        },
+      ],
+    })
+
+    expect(lessonAiRichTextToProseMirror(response)).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Scan for ' },
+            { type: 'text', text: 'proper nouns', marks: [{ type: 'bold' }] },
+            { type: 'text', text: ' and ' },
+            { type: 'text', text: 'numbers', marks: [{ type: 'italic' }] },
+            { type: 'text', text: ', then check ' },
+            { type: 'text', text: 'every part', marks: [{ type: 'bold' }] },
+            { type: 'text', text: '.' },
+          ],
+        },
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    { type: 'text', text: 'Names:', marks: [{ type: 'bold' }] },
+                    { type: 'text', text: ' Rian Johnson' },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    { type: 'text', text: 'Titles:', marks: [{ type: 'italic' }] },
+                    { type: 'text', text: ' The Last Jedi' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+  })
 })

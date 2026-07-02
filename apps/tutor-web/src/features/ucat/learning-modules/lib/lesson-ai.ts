@@ -91,22 +91,47 @@ function textNode(text: string, marks?: Array<{ type: 'bold' | 'italic' }>): Jso
   return marks?.length ? { type: 'text', text, marks } : { type: 'text', text }
 }
 
+function normalizeInlineFormattingTags(text: string): string {
+  return text
+    .replace(/&lt;(\/?(?:b|strong|i|em))&gt;/giu, '<$1>')
+    .replace(/<((?:b|strong|i|em))\s+[^>]*>/giu, '<$1>')
+}
+
+function activeMarks(active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
+  const marks = new Set(active)
+  if (extra) marks.add(extra)
+  return Array.from(marks).map((type) => ({ type }))
+}
+
+function appendTextNode(nodes: Json[], text: string, active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
+  if (!text) return
+  nodes.push(textNode(text, activeMarks(active, extra)))
+}
+
 function inlineTextNodes(text: string): Json[] {
   const nodes: Json[] = []
-  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_)/gu
+  const active = new Set<'bold' | 'italic'>()
+  const normalized = normalizeInlineFormattingTags(text)
+  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
   let cursor = 0
-  for (const match of text.matchAll(pattern)) {
+  for (const match of normalized.matchAll(pattern)) {
     const index = match.index ?? 0
-    if (index > cursor) nodes.push(textNode(text.slice(cursor, index)))
+    if (index > cursor) appendTextNode(nodes, normalized.slice(cursor, index), active)
     const token = match[0]
     if (token.startsWith('**') && token.endsWith('**')) {
-      nodes.push(textNode(token.slice(2, -2), [{ type: 'bold' }]))
+      appendTextNode(nodes, token.slice(2, -2), active, 'bold')
     } else if (token.startsWith('_') && token.endsWith('_')) {
-      nodes.push(textNode(token.slice(1, -1), [{ type: 'italic' }]))
+      appendTextNode(nodes, token.slice(1, -1), active, 'italic')
+    } else {
+      const tag = token.toLowerCase()
+      if (tag === '<b>' || tag === '<strong>') active.add('bold')
+      if (tag === '</b>' || tag === '</strong>') active.delete('bold')
+      if (tag === '<i>' || tag === '<em>') active.add('italic')
+      if (tag === '</i>' || tag === '</em>') active.delete('italic')
     }
     cursor = index + token.length
   }
-  if (cursor < text.length) nodes.push(textNode(text.slice(cursor)))
+  if (cursor < normalized.length) appendTextNode(nodes, normalized.slice(cursor), active)
   return nodes.filter((node) => {
     const text = (node as Record<string, unknown>).text
     return typeof text !== 'string' || text.length > 0

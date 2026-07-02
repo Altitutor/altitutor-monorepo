@@ -15,6 +15,8 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 
 const RewriteBodySchema = z.object({
   stem: AiToolQuestionStemPayloadSchema,
+  modelProfileId: z.string().uuid().nullable().optional(),
+  instructions: z.string().trim().max(1200).nullable().optional(),
 })
 
 const SYSTEM_PROMPT = `You rewrite UCAT ANZ question stems to reduce source-text similarity for tutor review.
@@ -49,6 +51,7 @@ export async function POST(request: NextRequest) {
   const prompt = JSON.stringify(
     {
       task: 'Rewrite this UCAT stem to reduce source-text similarity while preserving answer logic.',
+      tutorInstructions: body.instructions ?? null,
       stem: summary,
       outputShape: {
         stemText: 'rewritten shared stem text',
@@ -70,10 +73,14 @@ export async function POST(request: NextRequest) {
     const raw = await callUcatAiJson({
       client,
       operation: 'question_rewrite',
+      modelProfileId: body.modelProfileId ?? null,
       systemPrompt: SYSTEM_PROMPT,
       userPrompt: prompt,
       temperature: 0.35,
-      metadata: { questionCount: body.stem.questions.length },
+      metadata: {
+        questionCount: body.stem.questions.length,
+        hasTutorInstructions: !!body.instructions,
+      },
     })
     const parse = AiToolRewriteResponseSchema.safeParse(raw.parsed)
     if (!parse.success) {

@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       'Return only JSON matching the requested schema.',
       'Use the lesson context and target position to make the new block fit the sequence.',
       'Use rich text structure when it improves teaching: paragraphs, headings, bullet lists, ordered lists, and tables.',
+      'For inline emphasis, use markdown markers like **bold** and _italic_; do not emit HTML tags.',
       'Use tables only when they clarify relationships, steps, comparisons, or common errors.',
       'Do not invent unsupported facts. Do not mention internal block ids or database ids.',
     ].join('\n')
