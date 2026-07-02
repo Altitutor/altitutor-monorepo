@@ -6,12 +6,33 @@ import {
   shouldPreventDialogDismissOnInteractOutside,
 } from './native-datetime-input';
 
+const PORTALED_OVERLAY_SELECTOR = [
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-popover-content]',
+  '[data-radix-select-content]',
+  '[data-radix-dropdown-menu-content]',
+  '[data-radix-context-menu-content]',
+  '[data-radix-menu-content]',
+].join(', ');
+
+/** Radix popovers/menus/selects portaled to document.body while a modal is open. */
+export function isPortaledOverlayTarget(target: Event['target']): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(PORTALED_OVERLAY_SELECTOR));
+}
+
 /** Shared handler for Radix Dialog / Sheet / AlertDialog outside interactions. */
 export function handleModalInteractOutside(
   event: Event,
   extra?: (event: Event) => boolean
 ): void {
   if (shouldPreventDialogDismissOnInteractOutside(event)) {
+    event.preventDefault();
+    return;
+  }
+
+  if (isPortaledOverlayTarget(event.target)) {
     event.preventDefault();
     return;
   }

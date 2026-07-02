@@ -279,19 +279,26 @@ export function UcatLearningModuleOrderEditor({
   onOrderItemsChange?: (items: Array<{ id: string; index: number }>) => void
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const placeholderId = placeholder?.id
+  const placeholderTitle = placeholder?.title ?? ''
+  const placeholderKind = placeholder?.kind
+  const placeholderSectionId = placeholder?.sectionId ?? null
+  const placeholderParentId = placeholder?.parentId ?? null
   const placeholderIndex = useMemo(
-    () => (placeholder ? getNextIndexSlot(modules, placeholder.parentId) : undefined),
-    [modules, placeholder],
+    () => (placeholderId != null ? getNextIndexSlot(modules, placeholderParentId) : undefined),
+    [modules, placeholderId, placeholderParentId],
   )
   const modulesWithPlaceholder = useMemo(() => {
-    if (!placeholder) return modules
+    if (placeholderId == null || placeholderKind == null) return modules
     const row: UcatLearningModuleRow = {
-      id: placeholder.id,
-      kind: placeholder.kind,
-      title: placeholder.title.trim() || (placeholder.kind === 'folder' ? 'New folder' : 'New learning module'),
+      id: placeholderId,
+      kind: placeholderKind,
+      title:
+        placeholderTitle.trim() ||
+        (placeholderKind === 'folder' ? 'New folder' : 'New learning module'),
       description: null,
-      ucat_section_id: placeholder.sectionId,
-      parent_ucat_learning_module_id: placeholder.parentId,
+      ucat_section_id: placeholderSectionId,
+      parent_ucat_learning_module_id: placeholderParentId,
       index: placeholderIndex ?? 0,
       is_private: true,
       section_name: null,
@@ -301,7 +308,15 @@ export function UcatLearningModuleOrderEditor({
       updated_at: '',
     }
     return [...modules, row]
-  }, [modules, placeholder, placeholderIndex])
+  }, [
+    modules,
+    placeholderId,
+    placeholderTitle,
+    placeholderKind,
+    placeholderSectionId,
+    placeholderParentId,
+    placeholderIndex,
+  ])
 
   const sectionRows = useMemo(
     () => buildSectionRows(modulesWithPlaceholder, sectionId),
@@ -345,15 +360,42 @@ export function UcatLearningModuleOrderEditor({
         orderGroups,
         baselineGroups,
         rowsById: baselineRowsById,
-        placeholder,
+        placeholder:
+          placeholderId != null && placeholderKind != null
+            ? {
+                id: placeholderId,
+                title: placeholderTitle,
+                kind: placeholderKind,
+                sectionId: placeholderSectionId,
+                parentId: placeholderParentId,
+              }
+            : undefined,
         placeholderIndex,
       }),
-    [baselineGroups, baselineRowsById, orderGroups, placeholder, placeholderIndex],
+    [
+      baselineGroups,
+      baselineRowsById,
+      orderGroups,
+      placeholderId,
+      placeholderTitle,
+      placeholderKind,
+      placeholderSectionId,
+      placeholderParentId,
+      placeholderIndex,
+    ],
   )
+  const orderItemsSignature = useMemo(
+    () => orderItems.map((item) => `${item.id}:${item.index}`).join('|'),
+    [orderItems],
+  )
+  const previousOrderItemsSignature = useRef('')
 
   useEffect(() => {
-    onOrderItemsChange?.(orderItems)
-  }, [onOrderItemsChange, orderItems])
+    if (!onOrderItemsChange) return
+    if (previousOrderItemsSignature.current === orderItemsSignature) return
+    previousOrderItemsSignature.current = orderItemsSignature
+    onOrderItemsChange(orderItems)
+  }, [onOrderItemsChange, orderItems, orderItemsSignature])
 
   function handleDragEnd(event: DragEndEvent) {
     if (editorMode === 'view') return

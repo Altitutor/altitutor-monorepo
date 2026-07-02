@@ -60,7 +60,7 @@ import {
 import { useCreateUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow, UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -121,6 +121,7 @@ import {
   tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
+import { buildStemSourceDisplay, stemSourceTooltip, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
 
 type QuestionsTab = 'questions' | 'generated'
 type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
@@ -193,6 +194,8 @@ type QuestionRow = {
   set_ids: string[]
   deleted_at: string | null
   approval_status: 'approved' | 'pending' | 'rejected'
+  source_channel: UcatQuestionSourceChannel | null
+  source: StemSourceDisplay
 }
 
 function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number {
@@ -267,6 +270,15 @@ const filterDefinitions: DataTableFilterDefinition[] = [
       { label: 'Rejected', value: 'rejected' },
     ],
   },
+  {
+    key: 'source_channel',
+    label: 'Source',
+    options: [
+      { label: 'Individual add', value: 'individual' },
+      { label: 'Bulk import', value: 'bulk_import' },
+      { label: 'AI generation', value: 'ai_generation' },
+    ],
+  },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -276,6 +288,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
   { key: 'sets', label: 'Sets', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'source', label: 'Source', visibleByDefault: false },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
   { key: 'approval_status', label: 'Approval', visibleByDefault: false },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
@@ -289,6 +302,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'sets', label: 'Sets' },
   { key: 'type_summary', label: 'Type' },
   { key: 'visibility', label: 'Visibility' },
+  { key: 'source', label: 'Source' },
   { key: 'created_at', label: 'Date created' },
   { key: 'approval_status', label: 'Approval status' },
 ]
@@ -520,6 +534,12 @@ export function UcatQuestionsPage() {
       approval_status:
         ((row as { approval_status?: 'approved' | 'pending' | 'rejected' | null }).approval_status ??
           'approved') as 'approved' | 'pending' | 'rejected',
+      source_channel: row.source_channel ?? 'individual',
+      source: buildStemSourceDisplay({
+        sourceChannel: row.source_channel,
+        aiGenerationMetadata: row.ai_generation_metadata,
+        tutorSourceNote: row.tutor_source_note,
+      }),
     }
   })
 
@@ -545,6 +565,8 @@ export function UcatQuestionsPage() {
       const approvalHit =
         mode !== 'generated' || applySingleSelectFilter(tableState.state, 'approval_status', row.approval_status)
 
+      const sourceHit = applyMultiSelectFilter(tableState.state, 'source_channel', row.source_channel)
+
       const typeSelected = (tableState.state.filters.question_type?.[0] as string | undefined) ?? 'all'
       const typeHit =
         typeSelected === 'all' ||
@@ -559,7 +581,7 @@ export function UcatQuestionsPage() {
         (wantsNotInAnySet && row.set_ids.length === 0) ||
         specificSetIds.some((sid) => row.set_ids.includes(sid))
 
-      return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit
+      return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit && sourceHit
     })
   }, [rows, tableState.state, showDeleted, mode, searchScopes])
 
@@ -574,6 +596,7 @@ export function UcatQuestionsPage() {
         sets: (r) => r.set_names,
         type_summary: (r) => r.type_summary,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        source: (r) => r.source.channelLabel,
         created_at: (r) => r.created_at,
         approval_status: (r) => r.approval_status,
       }),
@@ -680,6 +703,7 @@ export function UcatQuestionsPage() {
     (visible('question_count') ? 1 : 0) +
     (visible('sets') ? 1 : 0) +
     (visible('visibility') ? 1 : 0) +
+    (visible('source') ? 1 : 0) +
     (visible('created_at') ? 1 : 0) +
     (visible('approval_status') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
@@ -1081,6 +1105,7 @@ export function UcatQuestionsPage() {
       },
       filterDefinitions[3],
       filterDefinitions[4],
+      filterDefinitions[6],
       {
         key: 'question_set_id',
         label: 'Set',
@@ -1245,6 +1270,7 @@ export function UcatQuestionsPage() {
               {visible('question_count') && <TableHead>Questions</TableHead>}
               {visible('sets') && <TableHead>Sets</TableHead>}
               {visible('visibility') && <TableHead>Visibility</TableHead>}
+              {visible('source') && <TableHead>Source</TableHead>}
               {visible('created_at') && <TableHead>Date created</TableHead>}
               {visible('approval_status') && <TableHead>Approval</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
@@ -1311,6 +1337,23 @@ export function UcatQuestionsPage() {
                     )}
                     {visible('visibility') && (
                       <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
+                    )}
+                    {visible('source') && (
+                      <TableCell className="max-w-[200px]" title={stemSourceTooltip(row.source)}>
+                        <div className="space-y-0.5">
+                          <div className="text-sm">{row.source.channelLabel}</div>
+                          {row.source.sourceChannel === 'ai_generation' ? (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[row.source.aiModel ?? 'Unknown model', row.source.generatedAt ?? 'Unknown date']
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </div>
+                          ) : null}
+                          {row.source.tutorSourceNote ? (
+                            <div className="text-xs text-muted-foreground truncate">{row.source.tutorSourceNote}</div>
+                          ) : null}
+                        </div>
+                      </TableCell>
                     )}
                     {visible('created_at') && (
                       <TableCell>{formatDateTime(row.created_at ?? '') || '—'}</TableCell>

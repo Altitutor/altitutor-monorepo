@@ -31,6 +31,7 @@ import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import { formatSourceChannel, metadataString } from '@/features/ucat/questions/lib/source-display'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
   QuestionTagsSelect,
@@ -90,18 +91,6 @@ function PropertyRow({ label, children }: { label: string; children: ReactNode }
 
 function ReadOnlyValue({ children }: { children: ReactNode }) {
   return <span className="block text-right text-sm text-foreground">{children}</span>
-}
-
-function formatSourceChannel(channel?: UcatQuestionSourceChannel | null) {
-  if (channel === 'bulk_import') return 'Bulk import'
-  if (channel === 'ai_generation') return 'AI generation'
-  return 'Individual add'
-}
-
-function metadataString(metadata: Json | null | undefined, key: string) {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
-  const value = (metadata as Record<string, unknown>)[key]
-  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function PropertiesCard({

@@ -71,8 +71,6 @@ export interface SearchableSelectProps<T> {
   /** Controlled open state - when provided, parent controls when popover is open */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Portal container - when inside Dialog, pass the dialog content element to fix scroll */
-  popoverContainer?: HTMLElement | null;
   /** Show chevron on the right side of the trigger button (default: true) */
   showChevron?: boolean;
 }
@@ -112,14 +110,11 @@ export function SearchableSelect<T>({
   triggerClassName,
   open: controlledOpen,
   onOpenChange,
-  popoverContainer,
   showChevron = true,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
-  const triggerRef = React.useRef<HTMLElement | null>(null);
-  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
 
   const open = controlledOpen ?? internalOpen;
 
@@ -129,20 +124,6 @@ export function SearchableSelect<T>({
     onSearchChangeRef.current = onSearchChange;
   });
 
-  // When inside a Dialog, portal into the dialog to fix scroll (Radix RemoveScroll issue)
-  React.useEffect(() => {
-    if (popoverContainer) {
-      setPortalContainer((prev) => (prev === popoverContainer ? prev : popoverContainer));
-      return;
-    }
-    if (!open || !triggerRef.current) {
-      setPortalContainer((prev) => (prev === null ? prev : null));
-      return;
-    }
-    const dialog = triggerRef.current.closest('[role="dialog"]');
-    const next = dialog instanceof HTMLElement ? dialog : null;
-    setPortalContainer((prev) => (prev === next ? prev : next));
-  }, [open, popoverContainer]);
   const setOpen = React.useCallback(
     (next: boolean) => {
       if (controlledOpen === undefined) {
@@ -246,14 +227,11 @@ export function SearchableSelect<T>({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <span ref={triggerRef} className="contents">
-        <PopoverTrigger asChild>
-          {trigger ?? defaultTrigger}
-        </PopoverTrigger>
-      </span>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <PopoverTrigger asChild>
+        {trigger ?? defaultTrigger}
+      </PopoverTrigger>
       <PopoverContent
-        container={portalContainer ?? undefined}
         className={cn(
           !contentWidth && "w-[280px]",
           "p-0 z-[100] overflow-hidden max-h-[min(400px,80vh)] flex flex-col",

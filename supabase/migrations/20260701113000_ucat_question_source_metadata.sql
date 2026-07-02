@@ -21,14 +21,14 @@ ALTER TABLE public.ucat_questions
 UPDATE public.question_stems
 SET source_channel = CASE
     WHEN is_ai_generated THEN 'ai_generation'::public.ucat_question_source_channel
-    ELSE 'individual'::public.ucat_question_source_channel
+    ELSE 'bulk_import'::public.ucat_question_source_channel
   END
 WHERE source_channel IS NULL;
 
 UPDATE public.ucat_questions q
-SET source_channel = COALESCE(qs.source_channel, 'individual'::public.ucat_question_source_channel),
+SET source_channel = COALESCE(qs.source_channel, 'bulk_import'::public.ucat_question_source_channel),
     ai_generation_metadata = CASE
-      WHEN COALESCE(qs.source_channel, 'individual'::public.ucat_question_source_channel) = 'ai_generation'::public.ucat_question_source_channel
+      WHEN COALESCE(qs.source_channel, 'bulk_import'::public.ucat_question_source_channel) = 'ai_generation'::public.ucat_question_source_channel
       THEN qs.ai_generation_metadata
       ELSE q.ai_generation_metadata
     END

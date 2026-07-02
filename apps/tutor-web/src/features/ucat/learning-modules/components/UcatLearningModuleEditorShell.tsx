@@ -42,8 +42,6 @@ export function UcatLearningModuleEditorShell({
   onActiveTextEditorChange,
 }: UcatLearningModuleEditorShellProps) {
   const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
-  const [popoverContainer, setPopoverContainer] = useState<HTMLElement | null>(null)
-  const shellRef = useRef<HTMLDivElement>(null)
   const blockCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const handleTextEditorActive = useCallback(
@@ -82,13 +80,6 @@ export function UcatLearningModuleEditorShell({
     [sections],
   )
 
-  useEffect(() => {
-    const node = shellRef.current
-    if (!node) return
-    const dialog = node.closest('[role="dialog"]')
-    setPopoverContainer(dialog instanceof HTMLElement ? dialog : node)
-  }, [])
-
   const handleAddBlock = useCallback(
     (type: UcatLearningModuleBlockType) => {
       const block = newDraftBlock(type)
@@ -110,7 +101,7 @@ export function UcatLearningModuleEditorShell({
   }, [editorMode, onActiveTextEditorChange])
 
   return (
-    <div ref={shellRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {editorMode === 'view' && editor.kind === 'lesson' ? (
           <UcatLearningModuleLessonPreview
@@ -180,7 +171,6 @@ export function UcatLearningModuleEditorShell({
                     placeholder="Add block…"
                     searchPlaceholder="Search block types…"
                     emptyMessage="No block types"
-                    popoverContainer={popoverContainer}
                   />
                 </div>
               </div>

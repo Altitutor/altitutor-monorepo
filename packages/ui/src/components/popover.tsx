@@ -12,7 +12,7 @@ const PopoverTrigger = PopoverPrimitive.Trigger
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
-    /** Portal container - use when inside Dialog to fix scroll. Pass the dialog content element. */
+    /** Optional portal container. Prefer the default body portal inside modals. */
     container?: HTMLElement | null;
   }
 >(({ className, align = "center", sideOffset = 4, container, ...props }, ref) => (
