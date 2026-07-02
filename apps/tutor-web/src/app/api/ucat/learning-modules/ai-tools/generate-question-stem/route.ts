@@ -10,7 +10,9 @@ import {
 } from '@/features/ucat/shared/server/ucat-ai-client'
 import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import {
+  DifficultyTargetSchema,
   GeneratedCandidateResponseSchema,
+  TimeBurdenTargetSchema,
   type GeneratedStem,
 } from '@/features/ucat/questions/lib/ai-generation/schema'
 import {
@@ -41,10 +43,13 @@ type SupabaseAny = SupabaseClient<Database> & {
 }
 
 const GenerateQuestionStemBodySchema = z.object({
-  module: LessonAiModuleSchema.extend({
-    sectionId: z.string().uuid(),
-  }),
+  module: LessonAiModuleSchema,
   blocks: z.array(LessonAiBlockSchema).max(80),
+  sectionId: z.string().uuid(),
+  categoryId: z.string().uuid().nullable().optional(),
+  targetTagIds: z.array(z.string().uuid()).default([]),
+  difficultyTarget: DifficultyTargetSchema.default('mixed'),
+  timeBurdenTarget: TimeBurdenTargetSchema.default('mixed'),
   targetIndex: z.number().int().min(0).max(80),
   targetPositionLabel: z.string().trim().max(240).nullable().optional(),
   instructions: z.string().trim().max(2000).nullable().optional(),
@@ -86,29 +91,46 @@ async function fetchSectionCategories(client: SupabaseClient<Database>, sectionI
   }))
 }
 
+async function fetchTargetTags(client: SupabaseClient<Database>, tagIds: string[]) {
+  if (tagIds.length === 0) return []
+  const { data, error } = await asAny(client)
+    .from('vtutor_ucat_question_tags')
+    .select('id,name')
+    .in('id', tagIds)
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as Array<{ id: string; name: string | null }>).map((tag) => ({
+    id: tag.id,
+    name: tag.name ?? 'Untitled tag',
+  }))
+}
+
 async function buildPromptLayers(params: {
   client: SupabaseClient<Database>
   sectionId: string
   sectionName: string
+  categoryId: string | null
+  categoryName: string | null
   availableCategories: Array<{ id: string; name: string }>
+  tags: Array<{ id: string; name: string }>
 }) {
   const layers = await getUcatAiPromptLayers({
     client: params.client,
     sectionId: params.sectionId,
-    categoryId: null,
-    categoryIds: params.availableCategories.map((category) => category.id),
-    tagIds: [],
+    categoryId: params.categoryId,
+    categoryIds: params.categoryId ? [] : params.availableCategories.map((category) => category.id),
+    tagIds: params.tags.map((tag) => tag.id),
   })
   return layers.map((layer) => {
     const category = params.availableCategories.find((item) => item.id === layer.scope_id)
+    const tag = params.tags.find((item) => item.id === layer.scope_id)
     return {
       scopeType: layer.scope_type,
       name:
         layer.scope_type === 'section'
           ? params.sectionName
           : layer.scope_type === 'stem_category'
-            ? category?.name ?? 'Selected category'
-            : 'Selected tag',
+            ? params.categoryName ?? category?.name ?? 'Selected category'
+            : tag?.name ?? 'Selected tag',
       promptText: layer.prompt_text,
       version: layer.prompt_version,
     }
@@ -212,14 +234,24 @@ export async function POST(request: NextRequest) {
   try {
     const client = access.userClient as unknown as SupabaseClient<Database>
     const config = await resolveUcatAiConfig(client, body.modelProfileId ?? null)
-    const section = await fetchSection(client, body.module.sectionId)
-    const categories = await fetchSectionCategories(client, body.module.sectionId)
+    const section = await fetchSection(client, body.sectionId)
+    const categories = await fetchSectionCategories(client, body.sectionId)
     const categoryIdByName = new Map(categories.map((category) => [normalizeLabel(category.name), category.id]))
+    const categoryName = body.categoryId
+      ? categories.find((category) => category.id === body.categoryId)?.name ?? null
+      : null
+    if (body.categoryId && !categoryName) {
+      return NextResponse.json({ error: 'Invalid category for selected section' }, { status: 400 })
+    }
+    const targetTags = await fetchTargetTags(client, body.targetTagIds)
     const promptLayers = await buildPromptLayers({
       client,
-      sectionId: body.module.sectionId,
+      sectionId: body.sectionId,
       sectionName: section.name ?? 'UCAT',
+      categoryId: body.categoryId ?? null,
+      categoryName,
       availableCategories: categories,
+      tags: targetTags,
     })
     const lessonContext = await buildLessonAiContext({
       client,
@@ -230,12 +262,12 @@ export async function POST(request: NextRequest) {
 
     const brief: AiGenerationBrief = {
       sectionName: section.name ?? 'UCAT',
-      categoryName: null,
-      availableCategories: categories,
+      categoryName,
+      availableCategories: body.categoryId ? [] : categories,
       stemCount: 1,
-      difficultyTarget: 'mixed',
-      timeBurdenTarget: 'mixed',
-      targetTags: [],
+      difficultyTarget: body.difficultyTarget,
+      timeBurdenTarget: body.timeBurdenTarget,
+      targetTags,
       runInstructions: JSON.stringify(
         {
           tutorInstructions: body.instructions ?? null,
@@ -275,6 +307,11 @@ Use the supplied lesson context only to choose the concept and difficulty fit. T
       metadata: {
         moduleId: body.module.moduleId ?? null,
         targetIndex: body.targetIndex,
+        sectionId: body.sectionId,
+        categoryId: body.categoryId ?? null,
+        targetTagIds: body.targetTagIds,
+        difficultyTarget: body.difficultyTarget,
+        timeBurdenTarget: body.timeBurdenTarget,
         promptLayerCount: promptLayers.length,
         hasTutorInstructions: !!body.instructions,
       } as Json,
@@ -291,7 +328,7 @@ Use the supplied lesson context only to choose the concept and difficulty fit. T
     const generatedStem = normalizePlannedAnswerPositions(parsed.data.stems[0], 0)
     const gateIssues = validateGeneratedStemCandidate(generatedStem, 0, {
       sectionName: section.name ?? 'UCAT',
-      categoryName: null,
+      categoryName,
       sourcePlainTexts: [],
     })
     if (hasBlockingIssues(gateIssues)) {
@@ -303,11 +340,12 @@ Use the supplied lesson context only to choose the concept and difficulty fit. T
 
     const generatedCategoryId =
       generatedStem.categoryId ??
+      body.categoryId ??
       categoryIdByName.get(normalizeLabel(generatedStem.categoryName)) ??
       null
     const importPayload = generatedStemToImportPayload({
       stem: generatedStem,
-      sectionId: body.module.sectionId,
+      sectionId: body.sectionId,
       categoryId: generatedCategoryId,
       modelProfileId: raw.modelProfileId,
       providerId: raw.providerId,
@@ -326,7 +364,7 @@ Use the supplied lesson context only to choose the concept and difficulty fit. T
     })
 
     const { data, error } = await asAny(client).rpc('tutor_ucat_bulk_upsert_generated_question_stem_bundles', {
-      p_section_id: body.module.sectionId,
+      p_section_id: body.sectionId,
       p_stems: [importPayload],
     })
     if (error) {

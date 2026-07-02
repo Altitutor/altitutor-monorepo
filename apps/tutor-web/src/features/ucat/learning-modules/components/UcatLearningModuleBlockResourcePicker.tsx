@@ -364,10 +364,10 @@ export function LearningModuleQuestionResourcePicker({
     [tagsQuery.data],
   )
 
-  async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
-    if (!editingStemId) return
+  async function handleStemUpdate(stemId: string | null, payload: UcatQuestionStemFormValues, onSuccess: () => void) {
+    if (!stemId) return
     const mapped: UcatQuestionStemBundlePayload = {
-      stemId: editingStemId,
+      stemId,
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
@@ -389,8 +389,8 @@ export function LearningModuleQuestionResourcePicker({
     }
 
     try {
-      await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
-      setEditingStemId(null)
+      await updateStemMutation.mutateAsync({ stemId, payload: mapped })
+      onSuccess()
     } catch (error) {
       toast({
         title: 'Failed to save question stem',
@@ -517,7 +517,12 @@ export function LearningModuleQuestionResourcePicker({
           setViewingStemId(null)
           setViewingInitialQuestionIndex(undefined)
         }}
-        onSubmit={async () => undefined}
+        onSubmit={(payload) =>
+          handleStemUpdate(viewingStemId, payload, () => {
+            setViewingStemId(null)
+            setViewingInitialQuestionIndex(undefined)
+          })
+        }
         sections={stemDialogSections}
         categories={stemDialogCategories}
         tags={stemDialogTags}
@@ -525,7 +530,6 @@ export function LearningModuleQuestionResourcePicker({
         loading={viewingStemDetail.isLoading}
         initialEditorMode="view"
         initialQuestionIndex={viewingInitialQuestionIndex}
-        readOnly
       />
 
       <UcatQuestionStemDialog
@@ -536,7 +540,12 @@ export function LearningModuleQuestionResourcePicker({
           setEditingStemId(null)
           setEditingInitialQuestionIndex(undefined)
         }}
-        onSubmit={handleStemUpdate}
+        onSubmit={(payload) =>
+          handleStemUpdate(editingStemId, payload, () => {
+            setEditingStemId(null)
+            setEditingInitialQuestionIndex(undefined)
+          })
+        }
         sections={stemDialogSections}
         categories={stemDialogCategories}
         tags={stemDialogTags}

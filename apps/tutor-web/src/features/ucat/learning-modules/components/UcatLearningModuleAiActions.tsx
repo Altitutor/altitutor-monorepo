@@ -21,7 +21,12 @@ import {
 } from '@altitutor/ui'
 import { FilePlus2, FileQuestion, Info, Loader2, Wand2 } from 'lucide-react'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  useUcatCategories,
+  useUcatGenerationModelProfiles,
+  useUcatSections,
+  useUcatTags,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
   BLOCK_TYPE_LABELS,
@@ -43,6 +48,28 @@ type PositionOption = {
   index: number
   label: string
 }
+
+type SelectOption<T extends string> = {
+  id: T
+  label: string
+}
+
+type DifficultyTarget = 'easy' | 'medium' | 'hard' | 'mixed'
+type TimeBurdenTarget = 'low' | 'medium' | 'high' | 'mixed'
+
+const DIFFICULTY_OPTIONS: Array<SelectOption<DifficultyTarget>> = [
+  { id: 'mixed', label: 'Mixed' },
+  { id: 'easy', label: 'Easy' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'hard', label: 'Hard' },
+]
+
+const TIME_BURDEN_OPTIONS: Array<SelectOption<TimeBurdenTarget>> = [
+  { id: 'mixed', label: 'Mixed' },
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+]
 
 type UcatLearningModuleAiActionsProps = {
   moduleId: string | null
@@ -123,6 +150,9 @@ export function UcatLearningModuleAiActions({
 }: UcatLearningModuleAiActionsProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const sectionsQuery = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
   const [generateOpen, setGenerateOpen] = useState(false)
   const [rewriteOpen, setRewriteOpen] = useState(false)
   const [generateStemOpen, setGenerateStemOpen] = useState(false)
@@ -131,6 +161,11 @@ export function UcatLearningModuleAiActions({
   const [stemInstruction, setStemInstruction] = useState('')
   const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [targetIndex, setTargetIndex] = useState(0)
+  const [stemSectionId, setStemSectionId] = useState<string>('')
+  const [stemCategoryId, setStemCategoryId] = useState<string | null>(null)
+  const [stemTagIds, setStemTagIds] = useState<string[]>([])
+  const [stemDifficultyTarget, setStemDifficultyTarget] = useState<DifficultyTarget>('mixed')
+  const [stemTimeBurdenTarget, setStemTimeBurdenTarget] = useState<TimeBurdenTarget>('mixed')
   const [pending, setPending] = useState<'generate' | 'rewrite' | 'stem' | null>(null)
   const [rewritePreview, setRewritePreview] = useState<{
     body: Json
@@ -162,11 +197,26 @@ export function UcatLearningModuleAiActions({
   const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
   const effectiveModelProfileId =
     modelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
+  const sectionOptions = sectionsQuery.data ?? []
+  const selectedStemSectionId = stemSectionId || sectionId || ''
+  const stemCategoryOptions = (categoriesQuery.data ?? []).filter(
+    (category) => !selectedStemSectionId || category.ucat_section_id === selectedStemSectionId,
+  )
+  const stemTagOptions = (tagsQuery.data ?? [])
+    .flatMap((tag) => (tag.id ? [{ id: tag.id, name: tag.name ?? 'Untitled tag' }] : []))
+  const selectedStemTags = stemTagIds
+    .map((id) => stemTagOptions.find((tag) => tag.id === id))
+    .filter((tag): tag is NonNullable<typeof tag> => !!tag)
 
   useEffect(() => {
     if (!generateOpen && !generateStemOpen) return
     setTargetIndex(selectedBlockIndex >= 0 ? selectedBlockIndex + 1 : blocks.length)
   }, [blocks.length, generateOpen, generateStemOpen, selectedBlockIndex])
+
+  useEffect(() => {
+    if (!generateStemOpen) return
+    setStemSectionId((current) => current || sectionId || '')
+  }, [generateStemOpen, sectionId])
 
   const modulePayload = {
     moduleId,
@@ -182,6 +232,7 @@ export function UcatLearningModuleAiActions({
       positionOptions.find((item) => item.index === targetIndex) ??
       positionOptions[positionOptions.length - 1]
     setPending('generate')
+    setGenerateOpen(false)
     try {
       const response = await fetch('/api/ucat/learning-modules/ai-tools/generate-text', {
         method: 'POST',
@@ -211,7 +262,6 @@ export function UcatLearningModuleAiActions({
         },
         targetIndex,
       )
-      setGenerateOpen(false)
       setTeachingIntent('')
       toast({ description: json.summary ?? 'Generated text block inserted. Review before saving.' })
     } catch (error) {
@@ -227,6 +277,7 @@ export function UcatLearningModuleAiActions({
   async function handleRewrite() {
     if (!selectedTextBlock) return
     setPending('rewrite')
+    setRewriteOpen(false)
     try {
       const response = await fetch('/api/ucat/learning-modules/ai-tools/rewrite-text', {
         method: 'POST',
@@ -251,7 +302,6 @@ export function UcatLearningModuleAiActions({
           json.originalText ??
           rewritePreviewText((selectedTextBlock.content.body as Json | null) ?? null),
       })
-      setRewriteOpen(false)
     } catch (error) {
       toast({
         description: error instanceof Error ? error.message : 'Lesson text rewrite failed',
@@ -263,9 +313,9 @@ export function UcatLearningModuleAiActions({
   }
 
   async function handleGenerateStem() {
-    if (!sectionId) {
+    if (!selectedStemSectionId) {
       toast({
-        description: 'Set the lesson section before generating a question stem.',
+        description: 'Choose a section before generating a question stem.',
         variant: 'destructive',
       })
       return
@@ -274,6 +324,7 @@ export function UcatLearningModuleAiActions({
       positionOptions.find((item) => item.index === targetIndex) ??
       positionOptions[positionOptions.length - 1]
     setPending('stem')
+    setGenerateStemOpen(false)
     try {
       const response = await fetch('/api/ucat/learning-modules/ai-tools/generate-question-stem', {
         method: 'POST',
@@ -281,9 +332,14 @@ export function UcatLearningModuleAiActions({
         body: JSON.stringify({
           module: {
             ...modulePayload,
-            sectionId,
+            sectionId: selectedStemSectionId,
           },
           blocks,
+          sectionId: selectedStemSectionId,
+          categoryId: stemCategoryId,
+          targetTagIds: stemTagIds,
+          difficultyTarget: stemDifficultyTarget,
+          timeBurdenTarget: stemTimeBurdenTarget,
           targetIndex,
           targetPositionLabel: position?.label ?? null,
           instructions: stemInstruction.trim() || null,
@@ -309,7 +365,6 @@ export function UcatLearningModuleAiActions({
       )
       await queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      setGenerateStemOpen(false)
       setStemInstruction('')
       toast({ description: json.summary ?? 'Generated pending question stem inserted. Review before publishing.' })
     } catch (error) {
@@ -360,7 +415,7 @@ export function UcatLearningModuleAiActions({
           description="Creates a pending AI-generated question stem using the lesson context, then inserts it as a private-draft placeholder block."
           icon={pending === 'stem' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileQuestion className="h-4 w-4" />}
           onClick={() => setGenerateStemOpen(true)}
-          disabled={disabled || !sectionId}
+          disabled={disabled}
         />
       </div>
 
@@ -422,10 +477,105 @@ export function UcatLearningModuleAiActions({
         saveLabel="Generate stem"
         onSave={() => void handleGenerateStem()}
         isSaving={pending === 'stem'}
-        saveDisabled={!sectionId}
+        saveDisabled={!selectedStemSectionId}
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           <div className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Section</label>
+              <SearchableSelect<(typeof sectionOptions)[number]>
+                items={sectionOptions}
+                value={sectionOptions.find((section) => section.id === selectedStemSectionId) ?? null}
+                onValueChange={(section) => {
+                  setStemSectionId(section?.id ?? '')
+                  setStemCategoryId(null)
+                  setStemTagIds([])
+                }}
+                getItemId={(section) => section.id ?? ''}
+                getItemLabel={(section) => section.name ?? 'Untitled section'}
+                placeholder={sectionsQuery.isLoading ? 'Loading sections...' : 'Select section'}
+                searchPlaceholder="Search sections..."
+                emptyMessage="No sections found"
+                loading={sectionsQuery.isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <SearchableSelect<(typeof stemCategoryOptions)[number]>
+                items={stemCategoryOptions}
+                value={stemCategoryOptions.find((category) => category.id === stemCategoryId) ?? null}
+                onValueChange={(category) => setStemCategoryId(category?.id ?? null)}
+                getItemId={(category) => category.id ?? ''}
+                getItemLabel={(category) => category.name ?? 'Untitled category'}
+                placeholder={!selectedStemSectionId ? 'Select section first' : 'Any category'}
+                searchPlaceholder="Search categories..."
+                emptyMessage="No categories found"
+                loading={categoriesQuery.isLoading}
+                disabled={!selectedStemSectionId}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Difficulty</label>
+                <SearchableSelect<SelectOption<DifficultyTarget>>
+                  items={DIFFICULTY_OPTIONS}
+                  value={DIFFICULTY_OPTIONS.find((item) => item.id === stemDifficultyTarget) ?? null}
+                  onValueChange={(item) => {
+                    if (item) setStemDifficultyTarget(item.id)
+                  }}
+                  getItemId={(item) => item.id}
+                  getItemLabel={(item) => item.label}
+                  searchPlaceholder="Search difficulty..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time burden</label>
+                <SearchableSelect<SelectOption<TimeBurdenTarget>>
+                  items={TIME_BURDEN_OPTIONS}
+                  value={TIME_BURDEN_OPTIONS.find((item) => item.id === stemTimeBurdenTarget) ?? null}
+                  onValueChange={(item) => {
+                    if (item) setStemTimeBurdenTarget(item.id)
+                  }}
+                  getItemId={(item) => item.id}
+                  getItemLabel={(item) => item.label}
+                  searchPlaceholder="Search time burden..."
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target tags</label>
+              <SearchableSelect<(typeof stemTagOptions)[number]>
+                items={stemTagOptions.filter((tag) => !stemTagIds.includes(tag.id))}
+                value={null}
+                onValueChange={(tag) => {
+                  if (tag?.id && !stemTagIds.includes(tag.id)) {
+                    setStemTagIds((current) => [...current, tag.id])
+                  }
+                }}
+                getItemId={(tag) => tag.id}
+                getItemLabel={(tag) => tag.name}
+                placeholder="Add tag"
+                searchPlaceholder="Search tags..."
+                emptyMessage="No tags found"
+                loading={tagsQuery.isLoading}
+                disabled={!selectedStemSectionId || stemTagOptions.length === 0}
+              />
+              {selectedStemTags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedStemTags.map((tag) => (
+                    <Button
+                      key={tag.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setStemTagIds((current) => current.filter((id) => id !== tag.id))}
+                    >
+                      {tag.name} x
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Model profile</label>
               <SearchableSelect<(typeof modelProfiles)[number]>
