@@ -175,7 +175,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
         {block.block_type === 'text' ? (
           <UcatRichTextEditor
             value={(block.content.body as Json) ?? plainTextToProseMirror('')}
-            onChange={(body) => onUpdate({ content: { body } })}
+            onChange={(body) => onUpdate({ content: { ...block.content, body } })}
             minHeight="120px"
             onEditorReady={(editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)}
           />

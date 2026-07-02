@@ -14,6 +14,7 @@ import { UcatLearningModuleBlockCard } from '@/features/ucat/learning-modules/co
 import { UcatLearningModuleLessonPreview } from '@/features/ucat/learning-modules/components/UcatLearningModuleLessonPreview'
 import { UcatLearningModuleSettingsPanel } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
 import type { LearningModuleEditorMode } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
+import { UcatLearningModuleAiActions } from '@/features/ucat/learning-modules/components/UcatLearningModuleAiActions'
 import {
   BLOCK_TYPE_LABELS,
   newDraftBlock,
@@ -212,6 +213,21 @@ export function UcatLearningModuleEditorShell({
           onSaveSectionOrder={editor.saveModuleOrder}
           editorMode={editorMode}
           onEditorModeChange={setEditorMode}
+          aiActions={
+            editor.kind === 'lesson' ? (
+              <UcatLearningModuleAiActions
+                moduleId={editor.moduleId}
+                title={editor.title}
+                description={editor.description}
+                sectionId={editor.sectionId}
+                blocks={editor.draftBlocks}
+                selectedBlockId={editor.selectedBlockId}
+                editorMode={editorMode}
+                onInsertBlock={editor.insertBlock}
+                onUpdateBlock={editor.updateBlock}
+              />
+            ) : null
+          }
         />
       </div>
 

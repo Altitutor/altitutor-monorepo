@@ -41,6 +41,7 @@ type UcatLearningModuleSettingsPanelProps = {
   onSaveSectionOrder: (items: Array<{ id: string; index: number }>) => Promise<void>
   editorMode: LearningModuleEditorMode
   onEditorModeChange: (mode: LearningModuleEditorMode) => void
+  aiActions?: ReactNode
 }
 
 function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
@@ -71,6 +72,7 @@ export function UcatLearningModuleSettingsPanel({
   onSaveSectionOrder,
   editorMode,
   onEditorModeChange,
+  aiActions,
 }: UcatLearningModuleSettingsPanelProps) {
   const draftModules = useMemo(
     () =>
@@ -144,7 +146,7 @@ export function UcatLearningModuleSettingsPanel({
           </PropertyRow>
         </div>
 
-        <Accordion type="multiple" defaultValue={['module']} className="space-y-4">
+        <Accordion type="multiple" defaultValue={['module', 'ai']} className="space-y-4">
           <AccordionItem value="module" className="border-0">
             <div className={tutorCardCn('overflow-hidden')}>
               <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
@@ -210,6 +212,19 @@ export function UcatLearningModuleSettingsPanel({
               </AccordionContent>
             </div>
           </AccordionItem>
+
+          {aiActions ? (
+            <AccordionItem value="ai" className="border-0">
+              <div className={tutorCardCn('overflow-hidden')}>
+                <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+                  <span className="text-sm font-semibold">AI actions</span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
+                  {aiActions}
+                </AccordionContent>
+              </div>
+            </AccordionItem>
+          ) : null}
 
           {kind === 'folder' ? (
             <p className="px-1 text-xs text-muted-foreground">

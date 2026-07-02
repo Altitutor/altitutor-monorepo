@@ -18,6 +18,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
       return {
         ...base,
         content: {
+          ...block.content,
           body: block.content.body ?? plainTextToProseMirror(''),
         },
       }

@@ -9,6 +9,7 @@ import type {
 } from "@altitutor/shared";
 
 type TrainerKey = "mental_maths" | "calculator_maths" | "numpad_speed";
+type ConflictMode = "overwrite" | "make-new";
 
 type MentalMathsSeedItem = {
   id: string;
@@ -82,6 +83,12 @@ function argString(name: string, fallback: string): string {
   return index >= 0 ? (process.argv[index + 1] ?? fallback) : fallback;
 }
 
+function argMode(): ConflictMode {
+  const value = argString("mode", "overwrite");
+  if (value === "overwrite" || value === "make-new") return value;
+  throw new Error("--mode must be overwrite or make-new");
+}
+
 function pick<T>(rng: Rng, values: readonly T[]): T {
   if (values.length === 0) throw new Error("Cannot pick from an empty array");
   return values[rng.int(0, values.length - 1)]!;
@@ -138,23 +145,25 @@ function difficultyForIndex(index: number): UcatSkillTrainerDifficulty {
   return "hard";
 }
 
-function stableUuid(trainerKey: TrainerKey, index: number): string {
+function stableUuid(trainerKey: TrainerKey, index: number, batch: number): string {
   const prefix: Record<TrainerKey, string> = {
     mental_maths: "4",
     numpad_speed: "5",
     calculator_maths: "6",
   };
-  return `c1000001-0000-4000-8000-${prefix[trainerKey]}${index.toString(16).padStart(11, "0")}`;
+  if (batch > 0xfff) throw new Error("--batch must be <= 4095");
+  return `c1000001-0000-4000-8000-${prefix[trainerKey]}${batch.toString(16).padStart(3, "0")}${index.toString(16).padStart(8, "0")}`;
 }
 
-function generateMentalMaths(rng: Rng, count: number): SeedItem[] {
+function generateMentalMaths(rng: Rng, count: number, batch: number): SeedItem[] {
   return generateUnique(
+    batch,
     count,
     (index) => {
       const difficulty = difficultyForIndex(index);
       const content = mentalTemplate(rng, difficulty);
       return {
-        id: stableUuid("mental_maths", index + 1),
+        id: stableUuid("mental_maths", index + 1, batch),
         trainerKey: "mental_maths",
         trainerId: TRAINER_IDS.mental_maths,
         content,
@@ -280,15 +289,16 @@ const CALCULATOR_CATEGORY_WEIGHTS: Array<{
   { value: "geometry", weight: 2 },
 ];
 
-function generateCalculatorMaths(rng: Rng, count: number): SeedItem[] {
+function generateCalculatorMaths(rng: Rng, count: number, batch: number): SeedItem[] {
   return generateUnique(
+    batch,
     count,
     (index) => {
       const difficulty = difficultyForIndex(index);
       const category = weightedPick(rng, CALCULATOR_CATEGORY_WEIGHTS);
       const content = calculatorTemplate(rng, category, difficulty);
       return {
-        id: stableUuid("calculator_maths", index + 1),
+        id: stableUuid("calculator_maths", index + 1, batch),
         trainerKey: "calculator_maths",
         trainerId: TRAINER_IDS.calculator_maths,
         content,
@@ -527,14 +537,15 @@ const CALCULATOR_TEMPLATES: Record<
   },
 };
 
-function generateNumpadSpeed(rng: Rng, count: number): SeedItem[] {
+function generateNumpadSpeed(rng: Rng, count: number, batch: number): SeedItem[] {
   return generateUnique(
+    batch,
     count,
     (index) => {
       const difficulty = difficultyForIndex(index);
       const content = numpadTemplate(rng, difficulty);
       return {
-        id: stableUuid("numpad_speed", index + 1),
+        id: stableUuid("numpad_speed", index + 1, batch),
         trainerKey: "numpad_speed",
         trainerId: TRAINER_IDS.numpad_speed,
         content,
@@ -612,6 +623,7 @@ function numberKeyGroup(rng: Rng, difficulty: UcatSkillTrainerDifficulty): strin
 }
 
 function generateUnique<T extends SeedItem>(
+  batch: number,
   count: number,
   make: (index: number) => T,
   keyFor: (item: T) => string | undefined,
@@ -630,7 +642,7 @@ function generateUnique<T extends SeedItem>(
     seen.add(key);
     items.push({
       ...item,
-      id: stableUuid(item.trainerKey, items.length + 1),
+      id: stableUuid(item.trainerKey, items.length + 1, batch),
     });
   }
 
@@ -666,7 +678,21 @@ function sqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-function renderSql(items: SeedItem[], seed: number): string {
+function renderSql(
+  items: SeedItem[],
+  options: { seed: number; batch: number; mode: ConflictMode },
+): string {
+  const conflictSql =
+    options.mode === "overwrite"
+      ? `ON CONFLICT (id) DO UPDATE SET
+  skill_trainer_id = EXCLUDED.skill_trainer_id,
+  content = EXCLUDED.content,
+  is_active = EXCLUDED.is_active,
+  approval_status = EXCLUDED.approval_status,
+  approved_at = EXCLUDED.approved_at,
+  updated_at = NOW()`
+      : "ON CONFLICT (id) DO NOTHING";
+  const batchLike = `c1000001-0000-4000-8000-_${options.batch.toString(16).padStart(3, "0")}%`;
   const values = items
     .map((item) => {
       const content = JSON.stringify(item.content);
@@ -685,9 +711,13 @@ function renderSql(items: SeedItem[], seed: number): string {
 -- UCAT skill trainer generated QR-speed items
 -- =============================================================================
 -- Generated by apps/tutor-web/scripts/generate-ucat-skill-trainer-seed.ts
--- Seed: ${seed}
+-- Seed: ${options.seed}
+-- Batch: ${options.batch}
+-- Mode: ${options.mode}
 --
--- Safe to re-run: fixed generated UUIDs with ON CONFLICT (id) DO UPDATE.
+-- Batch 0 preserves the original generated UUID range.
+-- Use --batch N with N > 0 to generate a non-overlapping UUID range.
+-- Mode overwrite updates rows in this batch; mode make-new leaves existing rows untouched.
 -- Calculator maths items include content.category and content.difficulty metadata.
 -- =============================================================================
 
@@ -701,13 +731,7 @@ INSERT INTO public.ucat_skill_trainer_items (
 )
 VALUES
 ${values}
-ON CONFLICT (id) DO UPDATE SET
-  skill_trainer_id = EXCLUDED.skill_trainer_id,
-  content = EXCLUDED.content,
-  is_active = EXCLUDED.is_active,
-  approval_status = EXCLUDED.approval_status,
-  approved_at = EXCLUDED.approved_at,
-  updated_at = NOW();
+${conflictSql};
 
 SELECT
   t.key,
@@ -715,7 +739,7 @@ SELECT
 FROM public.ucat_skill_trainers t
 LEFT JOIN public.ucat_skill_trainer_items i
   ON i.skill_trainer_id = t.id
-  AND i.id::text LIKE 'c1000001-%'
+  AND i.id::text LIKE '${batchLike}'
   AND i.deleted_at IS NULL
   AND i.is_active = true
   AND i.approval_status = 'approved'
@@ -734,21 +758,23 @@ async function main(): Promise<void> {
   const calculatorCount = argNumber("calculator", 360);
   const numpadCount = argNumber("numpad", 240);
   const seed = argNumber("seed", 20260701);
+  const batch = argNumber("batch", 0);
+  const mode = argMode();
   const out = resolve(process.cwd(), argString("out", DEFAULT_OUT));
 
   const rng = new Rng(seed);
   const items = [
-    ...generateMentalMaths(rng, mentalCount),
-    ...generateNumpadSpeed(rng, numpadCount),
-    ...generateCalculatorMaths(rng, calculatorCount),
+    ...generateMentalMaths(rng, mentalCount, batch),
+    ...generateNumpadSpeed(rng, numpadCount, batch),
+    ...generateCalculatorMaths(rng, calculatorCount, batch),
   ];
   validateItems(items);
 
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, renderSql(items, seed));
+  await writeFile(out, renderSql(items, { seed, batch, mode }));
   console.log(`Wrote ${items.length} generated skill trainer items to ${out}`);
   console.log(
-    `mental_maths=${mentalCount} numpad_speed=${numpadCount} calculator_maths=${calculatorCount}`,
+    `mental_maths=${mentalCount} numpad_speed=${numpadCount} calculator_maths=${calculatorCount} batch=${batch} mode=${mode}`,
   );
 }
 

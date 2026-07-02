@@ -140,6 +140,16 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setSelectedBlockId(block.clientId)
   }, [])
 
+  const insertBlock = useCallback((block: DraftBlock, index: number) => {
+    setDraftBlocks((prev) => {
+      const next = [...prev]
+      const safeIndex = Math.max(0, Math.min(index, next.length))
+      next.splice(safeIndex, 0, block)
+      return next
+    })
+    setSelectedBlockId(block.clientId)
+  }, [])
+
   const removeBlock = useCallback(
     (clientId: string) => {
       setDraftBlocks((prev) => {
@@ -278,6 +288,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     updateBlock,
     moveBlock,
     addBlock,
+    insertBlock,
     removeBlock,
     saveSettings,
     saveBlocks,
