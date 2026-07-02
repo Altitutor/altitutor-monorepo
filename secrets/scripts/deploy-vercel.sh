@@ -177,6 +177,15 @@ deploy_tutor_web_server_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_TUTOR_PROJECT" "$environment"
 }
 
+deploy_admin_and_tutor_web_server_secret() {
+    local secret_name=$1
+    local secret_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_ADMIN_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_TUTOR_PROJECT" "$environment"
+}
+
 deploy_all_web_server_secret() {
     local secret_name=$1
     local secret_value=$2
@@ -212,6 +221,9 @@ while IFS='=' read -r key value; do
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "preview"
+    # Deploy UCAT Codex OAuth encryption key where tokens are encrypted/decrypted
+    elif [[ "$key" == "UCAT_CODEX_OAUTH_ENCRYPTION_KEY" ]]; then
+        deploy_admin_and_tutor_web_server_secret "$key" "$value" "preview"
     # Deploy server-side email secrets used by app API routes
     elif [[ "$key" == "RESEND_API_KEY" ]]; then
         deploy_all_web_server_secret "$key" "$value" "preview"
@@ -248,6 +260,9 @@ while IFS='=' read -r key value; do
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "production"
+    # Deploy UCAT Codex OAuth encryption key where tokens are encrypted/decrypted
+    elif [[ "$key" == "UCAT_CODEX_OAUTH_ENCRYPTION_KEY" ]]; then
+        deploy_admin_and_tutor_web_server_secret "$key" "$value" "production"
     # Deploy server-side email secrets used by app API routes
     elif [[ "$key" == "RESEND_API_KEY" ]]; then
         deploy_all_web_server_secret "$key" "$value" "production"
@@ -264,5 +279,4 @@ echo ""
 print_summary
 
 exit $?
-
 

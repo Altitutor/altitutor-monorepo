@@ -102,7 +102,7 @@ export function UcatStemCatalogRow({
 }) {
   const title = stem.text || stem.id
   const titleContent = (
-    <div className="line-clamp-2 break-words text-xs sm:text-sm">{title}</div>
+    <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{title}</div>
   )
 
   return (
@@ -180,10 +180,10 @@ export function UcatStemCatalogLabel({
   visibleColumns?: string[]
 }) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex min-w-0 flex-1 items-start gap-2">
       <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
-      <div className="min-w-0">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{stem?.text || id}</div>
         {stem ? (
           <UcatStemCatalogMetadata stem={stem} visibleColumns={visibleColumns} />
         ) : null}

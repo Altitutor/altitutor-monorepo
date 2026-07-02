@@ -123,23 +123,21 @@ function ListRow({
       style={style}
       className={cn(tutorCardCn('p-3'), isDragging && 'opacity-60')}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {showDragHandle ? (
-            <button
-              type="button"
-              className="cursor-grab text-muted-foreground"
-              {...dragHandleProps?.attributes}
-              {...dragHandleProps?.listeners}
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
-          ) : (
-            <span className="w-4 shrink-0" aria-hidden />
-          )}
-          <div className="text-sm">{label}</div>
-        </div>
-        <div className="flex items-center gap-1">
+      <div className="flex items-start gap-2 sm:gap-3">
+        {showDragHandle ? (
+          <button
+            type="button"
+            className="mt-0.5 shrink-0 cursor-grab text-muted-foreground"
+            {...dragHandleProps?.attributes}
+            {...dragHandleProps?.listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        ) : (
+          <span className="mt-0.5 w-4 shrink-0" aria-hidden />
+        )}
+        <div className="min-w-0 flex-1 text-sm">{label}</div>
+        <div className="flex shrink-0 items-center gap-1">
           {onEdit ? (
             <Button
               type="button"

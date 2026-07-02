@@ -12,9 +12,8 @@ import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import { formatSetSectionsDisplay, getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
+import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
-import { cn } from '@/shared/utils'
 import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 type SetRow = {
@@ -254,11 +253,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
       column: {
         accessorKey: 'is_private',
         header: 'Visibility',
-        cell: ({ row }) => (
-          <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(row.original.is_private))}>
-            {row.original.is_private ? 'Private' : 'Public'}
-          </Badge>
-        ),
+        cell: ({ row }) => <UcatVisibilityBadge isPrivate={row.original.is_private} />,
       },
     },
   ]

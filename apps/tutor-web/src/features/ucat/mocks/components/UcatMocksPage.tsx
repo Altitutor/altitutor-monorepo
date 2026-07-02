@@ -43,8 +43,9 @@ import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
-import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { MockSetsColumnCell } from '@/features/ucat/shared/components/MockSetsColumnCell'
+import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
+import { buildMockSetsColumnRows } from '@/features/ucat/shared/lib/mock-sets-column-display'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
@@ -171,14 +172,22 @@ export function UcatMocksPage() {
     })),
   })
 
-  const mockStatusMap = useMemo(() => {
-    const map = new Map<string, { status: 'match' | 'partial' | 'mismatch'; tooltip: string }>()
+  const mockSetsRowsMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildMockSetsColumnRows>>()
     detailQueries.forEach((q, i) => {
       const row = paginatedRows[i]
       if (!row || !q.data) return
-      const sets = (q.data as { sets?: Array<{ sections?: unknown; question_count?: number | null; time_limit_seconds?: number | null }> }).sets ?? []
-      const result = getMockExamStatus(row.set_count, sets, sections, getSetSectionStatus)
-      map.set(row.id, result)
+      const setsRaw = (q.data as { sets?: unknown }).sets
+      const sets = Array.isArray(setsRaw)
+        ? (setsRaw as Array<{
+            id: string
+            name?: unknown
+            sections?: unknown
+            question_count?: number | null
+            time_limit_seconds?: number | null
+          }>)
+        : []
+      map.set(row.id, buildMockSetsColumnRows(sets, sections))
     })
     return map
   }, [detailQueries, paginatedRows, sections])
@@ -210,7 +219,7 @@ export function UcatMocksPage() {
       column: {
         accessorKey: 'is_private',
         header: 'Visibility',
-        cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public'),
+        cell: ({ row }) => <UcatVisibilityBadge isPrivate={row.original.is_private} />,
       },
     },
     {
@@ -220,14 +229,14 @@ export function UcatMocksPage() {
         header: 'Sets',
         cell: ({ row }) => {
           const r = row.original
-          const statusResult = mockStatusMap.get(r.id)
-          if (!statusResult) {
-            return <span className="text-muted-foreground">{r.set_count}</span>
-          }
+          const detailIndex = paginatedRows.findIndex((item) => item.id === r.id)
+          const detailQuery = detailIndex >= 0 ? detailQueries[detailIndex] : undefined
           return (
-            <SetStatusSpan status={statusResult.status} tooltip={statusResult.tooltip}>
-              {r.set_count}
-            </SetStatusSpan>
+            <MockSetsColumnCell
+              rows={mockSetsRowsMap.get(r.id) ?? null}
+              isLoading={!!detailQuery?.isLoading}
+              onOpenSet={setEditingSetId}
+            />
           )
         },
       },

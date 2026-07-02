@@ -1,20 +1,39 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Json } from '@altitutor/shared'
-import { Button, SearchableSelect, useToast } from '@altitutor/ui'
-import { Plus, X } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  SearchableSelect,
+  useToast,
+} from '@altitutor/ui'
+import { Eye, Plus } from 'lucide-react'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { cn } from '@/shared/utils'
+import { tutorBtnOutline, tutorTransition } from '@/shared/lib/tutor-visual'
 
 type StaffSetOption = {
   id: string
   name: string
 }
+
+const setCardClassName = cn(
+  'flex items-center justify-between gap-2 rounded-xl bg-card px-3 py-2 shadow-sm ring-1 ring-black/[0.06] dark:ring-white/[0.08]',
+  tutorTransition,
+)
 
 export function UcatStemSetMembershipCard({
   stemId,
@@ -26,6 +45,9 @@ export function UcatStemSetMembershipCard({
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const setsQuery = useUcatSets()
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<StaffSetOption | null>(null)
+
   const staffSets = useMemo(
     () =>
       (setsQuery.data ?? [])
@@ -96,6 +118,7 @@ export function UcatStemSetMembershipCard({
     },
     onSuccess: async (setId) => {
       await invalidateMembership(setId)
+      setRemoveTarget(null)
       toast({ description: 'Stem removed from set.' })
     },
     onError: (error) => {
@@ -108,22 +131,56 @@ export function UcatStemSetMembershipCard({
 
   if (!stemId) return null
 
+  const isLoading = setsQuery.isLoading || setDetailQueries.some((query) => query.isLoading)
+
   return (
-    <div
-      className={cn(
-        'space-y-3 rounded-md border p-3',
-        highlighted ? 'border-amber-400 bg-amber-50/80 shadow-sm dark:border-amber-700 dark:bg-amber-950/30' : 'bg-background',
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold">Sets</div>
-          {highlighted ? (
-            <p className="mt-1 text-xs text-amber-900 dark:text-amber-100">
-              Add this private stem to a staff-authored set.
-            </p>
-          ) : null}
-        </div>
+    <>
+      <div className="space-y-2">
+        {highlighted ? (
+          <p className="text-xs text-amber-900 dark:text-amber-100">
+            Add this private stem to a staff-authored set.
+          </p>
+        ) : null}
+
+        {isLoading ? (
+          <p className="text-xs text-muted-foreground">Loading set membership...</p>
+        ) : currentSets.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Not in any staff-authored set.</p>
+        ) : (
+          <ul className="space-y-2">
+            {currentSets.map((set) => (
+              <li key={set.id} className={setCardClassName}>
+                <span className="min-w-0 truncate text-sm font-medium">{set.name}</span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(tutorBtnOutline, 'h-8 gap-1 px-2.5')}
+                    onClick={() => setEditingSetId(set.id)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      tutorBtnOutline,
+                      'h-8 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive',
+                    )}
+                    disabled={removeMutation.isPending}
+                    onClick={() => setRemoveTarget(set)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <SearchableSelect<StaffSetOption>
           items={addableSets}
           value={null}
@@ -138,40 +195,49 @@ export function UcatStemSetMembershipCard({
           emptyMessage="No available sets"
           disabled={setsQuery.isLoading || addMutation.isPending}
           trigger={
-            <Button type="button" variant="outline" size="sm" className="gap-1" disabled={setsQuery.isLoading || addMutation.isPending}>
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </Button>
+            <button
+              type="button"
+              disabled={setsQuery.isLoading || addMutation.isPending}
+              className={cn(
+                setCardClassName,
+                'w-full justify-center text-sm text-muted-foreground hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-50',
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              Add to set
+            </button>
           }
           contentWidth="260px"
-          align="end"
+          align="start"
         />
       </div>
 
-      {setsQuery.isLoading || setDetailQueries.some((query) => query.isLoading) ? (
-        <p className="text-xs text-muted-foreground">Loading set membership...</p>
-      ) : currentSets.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Not in any staff-authored set.</p>
-      ) : (
-        <ul className="space-y-1">
-          {currentSets.map((set) => (
-            <li key={set.id} className="flex items-center justify-between gap-2 rounded border bg-muted/30 px-2 py-1.5">
-              <span className="min-w-0 truncate text-sm">{set.name}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                disabled={removeMutation.isPending}
-                onClick={() => removeMutation.mutate(set.id)}
-                aria-label={`Remove from ${set.name}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+      />
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from set?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this stem from &quot;{removeTarget?.name}&quot;? The stem will remain in the question bank.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removeMutation.isPending}
+              onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
+            >
+              {removeMutation.isPending ? 'Removing...' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

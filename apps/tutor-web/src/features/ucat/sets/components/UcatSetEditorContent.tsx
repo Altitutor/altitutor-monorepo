@@ -408,7 +408,7 @@ export function UcatSetEditorContent({
               isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}
-              searchPlaceholder="Search stems or questions"
+              searchPlaceholder="Search stems..."
               emptyMessage="No stems to add, or all matching stems are already in the set."
             />
           </SegmentedTabPanelContent>

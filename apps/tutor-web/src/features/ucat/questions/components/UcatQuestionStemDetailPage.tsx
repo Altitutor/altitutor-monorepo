@@ -242,6 +242,8 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
           onActiveTextEditorChange={setActiveTextEditor}
           sourceChannel={initial?.source_channel ?? null}
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
+          createdByFirstName={initial?.created_by_first_name ?? null}
+          createdByLastName={initial?.created_by_last_name ?? null}
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>

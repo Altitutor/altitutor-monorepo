@@ -389,6 +389,8 @@ function UcatQuestionStemApprovalQueue({
             focusMessage={focus.message}
             sourceChannel={detailQuery.data?.source_channel ?? null}
             aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
+            createdByFirstName={detailQuery.data?.created_by_first_name ?? null}
+            createdByLastName={detailQuery.data?.created_by_last_name ?? null}
           />
         )}
       </div>

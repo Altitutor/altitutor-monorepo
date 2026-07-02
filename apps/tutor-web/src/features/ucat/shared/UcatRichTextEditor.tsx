@@ -23,6 +23,7 @@ import {
   UCAT_PARSE_DECO_META,
   type UcatParseHighlightConfig,
 } from '@/features/ucat/shared/ucatParseHighlightPlugin'
+import { UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME } from '@/features/ucat/shared/lib/ucat-paragraph-spacing'
 
 /** TipTap reads `text-foreground`; pin dark body text on white UCAT engine shells when app theme is dark. */
 const UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME =
@@ -96,6 +97,8 @@ export interface UcatRichTextEditorProps {
    * neutral palette so content stays readable on white UCAT engine chrome while the app is in dark mode.
    */
   forceLightChrome?: boolean
+  /** Adds UCAT engine paragraph spacing between passage paragraphs. */
+  paragraphSpacing?: boolean
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -131,6 +134,7 @@ export function UcatRichTextEditor({
   additionalExtensions,
   onEditorReady: onEditorReadyProp,
   forceLightChrome = false,
+  paragraphSpacing = false,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
   const [isPasteProcessing, setIsPasteProcessing] = useState(false)
@@ -500,6 +504,7 @@ export function UcatRichTextEditor({
           autoFocus={autoFocus}
           editable={editable}
           minHeight={minHeight}
+          className={paragraphSpacing ? UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME : undefined}
           pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
           pasteTableBehavior={pasteTableBehavior}
           pasteStripFormatting={pasteStripFormatting}

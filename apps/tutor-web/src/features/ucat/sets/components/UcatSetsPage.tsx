@@ -752,12 +752,7 @@ export function UcatSetsPage() {
                   )
                 }
                 const name = [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '—'
-                return (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-xs">Staff</Badge>
-                    <span>{name}</span>
-                  </span>
-                )
+                return <span>{name}</span>
               },
             },
             {

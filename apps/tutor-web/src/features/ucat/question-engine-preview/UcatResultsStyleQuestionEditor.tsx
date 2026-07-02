@@ -94,6 +94,7 @@ export function ResultsMcQuestionBlock({
             onChange={(v) => setStemText(v)}
             minHeight="120px"
             pasteTableBehavior="keep"
+            paragraphSpacing
             onEditorReady={onEditorReady}
           />
         </div>
@@ -288,6 +289,7 @@ export function ResultsSyllogismQuestionBlock({
             onChange={(v) => setStemText(v)}
             minHeight="120px"
             pasteTableBehavior="keep"
+            paragraphSpacing
             onEditorReady={onEditorReady}
           />
         </div>
@@ -516,6 +518,7 @@ export function UcatResultsStyleQuestionEditor({
                 onChange={(v) => setStemText(v)}
                 minHeight="200px"
                 pasteTableBehavior="keep"
+                paragraphSpacing
               />
             </div>
           </article>
@@ -550,6 +553,7 @@ export function UcatResultsStyleQuestionEditor({
               onChange={(v) => setStemText(v)}
               minHeight="200px"
               pasteTableBehavior="keep"
+              paragraphSpacing
             />
           </div>
         </article>

@@ -15,6 +15,12 @@ const PORTALED_OVERLAY_SELECTOR = [
   '[data-radix-menu-content]',
 ].join(', ');
 
+/** Returns true when `element` sits inside a modal dialog or sheet. */
+export function isInsideModal(element: HTMLElement | null | undefined): boolean {
+  if (!element) return false;
+  return Boolean(element.closest('[role="dialog"]'));
+}
+
 /** Radix popovers/menus/selects portaled to document.body while a modal is open. */
 export function isPortaledOverlayTarget(target: Event['target']): boolean {
   if (typeof HTMLElement === 'undefined') return false;

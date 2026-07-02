@@ -157,6 +157,10 @@ export type StemDetailRow = {
   approval_status?: UcatApprovalStatus | null
   approved_by?: string | null
   approved_at?: string | null
+  created_by?: string | null
+  created_by_first_name?: string | null
+  created_by_last_name?: string | null
+  created_at?: string | null
   stem_text: Json
   questions: StemDetailQuestion[]
 }
@@ -220,14 +224,33 @@ export const ucatQuestionsApi = {
 
   async getDetail(stemId: string) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_stem_detail')
-      .select('*')
-      .eq('id', stemId)
-      .maybeSingle()
+    const [detailResult, metaResult] = await Promise.all([
+      supabase.from('vtutor_ucat_question_stem_detail').select('*').eq('id', stemId).maybeSingle(),
+      supabase
+        .from('vtutor_ucat_question_stems')
+        .select('created_by, created_by_first_name, created_by_last_name, created_at')
+        .eq('id', stemId)
+        .maybeSingle(),
+    ])
 
-    if (error) throw error
-    return (data ?? null) as unknown as StemDetailRow | null
+    if (detailResult.error) throw detailResult.error
+    if (metaResult.error) throw metaResult.error
+    if (!detailResult.data) return null
+
+    const meta = metaResult.data as {
+      created_by?: string | null
+      created_by_first_name?: string | null
+      created_by_last_name?: string | null
+      created_at?: string | null
+    } | null
+
+    return {
+      ...(detailResult.data as Record<string, unknown>),
+      created_by: meta?.created_by ?? null,
+      created_by_first_name: meta?.created_by_first_name ?? null,
+      created_by_last_name: meta?.created_by_last_name ?? null,
+      created_at: meta?.created_at ?? null,
+    } as StemDetailRow
   },
 
   async getStemTypes() {

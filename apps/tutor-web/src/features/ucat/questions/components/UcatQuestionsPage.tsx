@@ -122,6 +122,7 @@ import {
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { buildStemSourceDisplay, stemSourceTooltip, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
+import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 
 type QuestionsTab = 'questions' | 'generated'
 type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
@@ -139,14 +140,15 @@ const defaultQuestionSearchScopes: QuestionSearchScope[] = [
 ]
 
 const questionColumnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'index', label: 'Index', visibleByDefault: true },
+  { key: 'index', label: 'Index', visibleByDefault: false },
   { key: 'question_text', label: 'Question text', visibleByDefault: true },
+  { key: 'explanation', label: 'Explanation', visibleByDefault: true },
   { key: 'difficulty', label: 'Difficulty', visibleByDefault: true },
   { key: 'time_burden', label: 'Time burden', visibleByDefault: true },
 ]
 
 const answerOptionColumnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'index', label: 'Index', visibleByDefault: true },
+  { key: 'index', label: 'Index', visibleByDefault: false },
   { key: 'answer_text', label: 'Answer text', visibleByDefault: true },
   { key: 'answer_explanation', label: 'Answer explanation', visibleByDefault: true },
   { key: 'is_answer', label: 'Correct answer', visibleByDefault: true },
@@ -174,6 +176,14 @@ function parseJsonUuidArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string')
 }
 
+function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
+  const namesArr = Array.isArray(setNamesRaw) ? (setNamesRaw as Json[]) : []
+  return setIds.map((id, index) => ({
+    id,
+    name: proseMirrorToPlainText(namesArr[index]) || 'Untitled',
+  }))
+}
+
 type QuestionRow = {
   id: string
   section_name: string
@@ -190,6 +200,7 @@ type QuestionRow = {
   question_text: string
   answer_option_text: string
   set_names: string
+  sets: Array<{ id: string; name: string }>
   /** Staff sets only (matches set_names / set_ids in API). */
   set_ids: string[]
   deleted_at: string | null
@@ -282,10 +293,9 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'section_name', label: 'Section', visibleByDefault: true },
-  { key: 'category_name', label: 'Category', visibleByDefault: true },
+  { key: 'section_category', label: 'Section', visibleByDefault: true },
   { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
-  { key: 'question_count', label: 'Questions', visibleByDefault: true },
+  { key: 'question_count', label: 'Questions', visibleByDefault: false },
   { key: 'sets', label: 'Sets', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'source', label: 'Source', visibleByDefault: false },
@@ -505,14 +515,9 @@ export function UcatQuestionsPage() {
   const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
     const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
     const searchTexts = row.id ? questionSearchTexts.data?.[row.id] : null
-    const setNamesArr = Array.isArray(row.set_names) ? (row.set_names as import('@altitutor/shared').Json[]) : []
-    const setsDisplay =
-      setNamesArr.length > 0
-        ? setNamesArr
-            .map((n) => proseMirrorToPlainText(n))
-            .filter(Boolean)
-            .join(', ') || '—'
-        : '—'
+    const setIds = parseJsonUuidArray((row as { set_ids?: unknown }).set_ids)
+    const sets = parseStemSets(row.set_names, setIds)
+    const setsDisplay = sets.length > 0 ? sets.map((set) => set.name).join(', ') : '—'
     return {
       id: row.id ?? '',
       section_name: row.section_name ?? '-',
@@ -529,7 +534,8 @@ export function UcatQuestionsPage() {
       question_text: searchTexts?.questionText ?? '',
       answer_option_text: searchTexts?.answerOptionText ?? '',
       set_names: setsDisplay,
-      set_ids: parseJsonUuidArray((row as { set_ids?: unknown }).set_ids),
+      sets,
+      set_ids: setIds,
       deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
       approval_status:
         ((row as { approval_status?: 'approved' | 'pending' | 'rejected' | null }).approval_status ??
@@ -539,6 +545,8 @@ export function UcatQuestionsPage() {
         sourceChannel: row.source_channel,
         aiGenerationMetadata: row.ai_generation_metadata,
         tutorSourceNote: row.tutor_source_note,
+        createdByFirstName: row.created_by_first_name,
+        createdByLastName: row.created_by_last_name,
       }),
     }
   })
@@ -660,6 +668,7 @@ export function UcatQuestionsPage() {
     1 + // expand
     (visibleQuestion('index') ? 1 : 0) +
     (visibleQuestion('question_text') ? 1 : 0) +
+    (visibleQuestion('explanation') ? 1 : 0) +
     (visibleQuestion('difficulty') ? 1 : 0) +
     (visibleQuestion('time_burden') ? 1 : 0)
 
@@ -697,8 +706,7 @@ export function UcatQuestionsPage() {
   )
   const colCount =
     2 + // checkbox, expand
-    (visible('section_name') ? 1 : 0) +
-    (visible('category_name') ? 1 : 0) +
+    (visible('section_category') ? 1 : 0) +
     (visible('stem_text') ? 1 : 0) +
     (visible('question_count') ? 1 : 0) +
     (visible('sets') ? 1 : 0) +
@@ -1264,8 +1272,7 @@ export function UcatQuestionsPage() {
                 />
               </TableHead>
               <TableHead className="w-12" />
-              {visible('section_name') && <TableHead>Section</TableHead>}
-              {visible('category_name') && <TableHead>Category</TableHead>}
+              {visible('section_category') && <TableHead>Section</TableHead>}
               {visible('stem_text') && <TableHead>Stem text</TableHead>}
               {visible('question_count') && <TableHead>Questions</TableHead>}
               {visible('sets') && <TableHead>Sets</TableHead>}
@@ -1282,6 +1289,11 @@ export function UcatQuestionsPage() {
               const isStemExpanded = expandedStemIds.has(row.id)
               const detail = detailsMap[row.id]
               const hasQuestions = (row.question_count ?? 0) > 0
+              const categoryLabel = resolveCategoryPathLabel(
+                categoryPathLookup,
+                row.question_stem_category_id,
+                row.category_name,
+              )
               return (
                 <React.Fragment key={row.id}>
                   <TableRow
@@ -1289,8 +1301,15 @@ export function UcatQuestionsPage() {
                       tutorTableBodyRow,
                       row.deleted_at && 'bg-destructive/10',
                       selectedStemIds.has(row.id) && 'bg-muted/50',
+                      !selectionMode && hasQuestions && 'cursor-pointer',
                     )}
-                    onClick={() => selectionMode && toggleStemSelection(row.id)}
+                    onClick={() => {
+                      if (selectionMode) {
+                        toggleStemSelection(row.id)
+                        return
+                      }
+                      if (hasQuestions) toggleStemExpanded(row.id)
+                    }}
                   >
                     <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -1301,27 +1320,23 @@ export function UcatQuestionsPage() {
                     </TableCell>
                     <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                       {hasQuestions ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleStemExpanded(row.id)}
-                          className="rounded-lg p-1 hover:bg-muted"
-                        >
+                        <span className="inline-flex rounded-lg p-1">
                           {isStemExpanded ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
                             <ChevronRight className="h-4 w-4" />
                           )}
-                        </button>
+                        </span>
                       ) : null}
                     </TableCell>
-                    {visible('section_name') && <TableCell>{row.section_name}</TableCell>}
-                    {visible('category_name') && (
-                      <TableCell>
-                        {resolveCategoryPathLabel(
-                          categoryPathLookup,
-                          row.question_stem_category_id,
-                          row.category_name
-                        )}
+                    {visible('section_category') && (
+                      <TableCell className="max-w-[180px]">
+                        <div className="space-y-0.5">
+                          <div className="text-sm">{row.section_name}</div>
+                          <div className="truncate text-xs text-muted-foreground" title={categoryLabel}>
+                            {categoryLabel || '—'}
+                          </div>
+                        </div>
                       </TableCell>
                     )}
                     {visible('stem_text') && (
@@ -1331,20 +1346,44 @@ export function UcatQuestionsPage() {
                     )}
                     {visible('question_count') && <TableCell>{row.question_count}</TableCell>}
                     {visible('sets') && (
-                      <TableCell className="max-w-[180px]" title={row.set_names}>
-                        {truncate(row.set_names, 50)}
+                      <TableCell className="max-w-[180px]">
+                        {row.sets.length === 0 ? (
+                          '—'
+                        ) : (
+                          <div className="space-y-0.5">
+                            {row.sets.map((set) => (
+                              <button
+                                key={set.id}
+                                type="button"
+                                className="block max-w-full truncate text-left text-sm text-brand-darkBlue underline-offset-2 hover:underline dark:text-white"
+                                title={set.name}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setEditingSetId(set.id)
+                                }}
+                              >
+                                {set.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </TableCell>
                     )}
                     {visible('visibility') && (
-                      <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
+                      <TableCell>
+                        <UcatVisibilityBadge isPrivate={row.is_private} />
+                      </TableCell>
                     )}
                     {visible('source') && (
                       <TableCell className="max-w-[200px]" title={stemSourceTooltip(row.source)}>
                         <div className="space-y-0.5">
                           <div className="text-sm">{row.source.channelLabel}</div>
+                          {row.source.generatedByName ? (
+                            <div className="text-xs text-muted-foreground truncate">{row.source.generatedByName}</div>
+                          ) : null}
                           {row.source.sourceChannel === 'ai_generation' ? (
                             <div className="text-xs text-muted-foreground truncate">
-                              {[row.source.aiModel ?? 'Unknown model', row.source.generatedAt ?? 'Unknown date']
+                              {[row.source.aiModel ?? 'Unknown model', row.source.generatedAtLabel ?? 'Unknown date']
                                 .filter(Boolean)
                                 .join(' · ')}
                             </div>
@@ -1402,6 +1441,9 @@ export function UcatQuestionsPage() {
                                 {visibleQuestion('question_text') && (
                                   <TableHead className="min-w-0">Question text</TableHead>
                                 )}
+                                {visibleQuestion('explanation') && (
+                                  <TableHead className="min-w-0">Explanation</TableHead>
+                                )}
                                 {visibleQuestion('difficulty') && (
                                   <TableHead className="w-24 shrink-0">Difficulty</TableHead>
                                 )}
@@ -1411,33 +1453,42 @@ export function UcatQuestionsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {detail.questions.map((q) => {
+                              {[...detail.questions]
+                                .sort((a, b) => a.index - b.index)
+                                .map((q) => {
                                 const qKey = `${row.id}-${q.id}`
                                 const isQExpanded = expandedQuestionKeys.has(qKey)
                                 const qText = proseMirrorToPlainText(q.question_text)
+                                const qExplanation = proseMirrorToPlainText(q.answer_explanation)
                                 const hasOptions = (q.answer_options?.length ?? 0) > 0
                                 return (
                                   <React.Fragment key={q.id}>
-                                    <TableRow>
-                                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                                    <TableRow
+                                      className={cn(hasOptions && 'cursor-pointer')}
+                                      onClick={() => {
+                                        if (hasOptions) toggleQuestionExpanded(row.id, q.id)
+                                      }}
+                                    >
+                                      <TableCell className="w-12">
                                         {hasOptions ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleQuestionExpanded(row.id, q.id)}
-                                            className="rounded-lg p-1 hover:bg-muted"
-                                          >
+                                          <span className="inline-flex rounded-lg p-1">
                                             {isQExpanded ? (
                                               <ChevronDown className="h-4 w-4" />
                                             ) : (
                                               <ChevronRight className="h-4 w-4" />
                                             )}
-                                          </button>
+                                          </span>
                                         ) : null}
                                       </TableCell>
                                       {visibleQuestion('index') && <TableCell>{q.index}</TableCell>}
                                       {visibleQuestion('question_text') && (
                                         <TableCell className="max-w-[240px]" title={qText}>
                                           {truncate(qText, 60)}
+                                        </TableCell>
+                                      )}
+                                      {visibleQuestion('explanation') && (
+                                        <TableCell className="max-w-[240px]" title={qExplanation}>
+                                          {qExplanation ? truncate(qExplanation, 60) : '—'}
                                         </TableCell>
                                       )}
                                       {visibleQuestion('difficulty') && (
@@ -1469,7 +1520,9 @@ export function UcatQuestionsPage() {
                                                 </TableRow>
                                               </TableHeader>
                                               <TableBody>
-                                                {q.answer_options.map((opt) => (
+                                                {[...q.answer_options]
+                                                  .sort((a, b) => a.index - b.index)
+                                                  .map((opt) => (
                                                   <TableRow key={opt.id}>
                                                     {visibleAnswerOption('index') && (
                                                       <TableCell>{opt.index}</TableCell>

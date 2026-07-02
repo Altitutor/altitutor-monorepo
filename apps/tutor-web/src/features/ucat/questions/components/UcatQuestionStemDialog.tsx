@@ -356,6 +356,8 @@ export function UcatQuestionStemDialog({
           onActiveTextEditorChange={setActiveTextEditor}
           sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
+          createdByFirstName={initial?.created_by_first_name ?? null}
+          createdByLastName={initial?.created_by_last_name ?? null}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

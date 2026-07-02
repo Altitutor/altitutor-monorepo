@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@altitutor/shared'
+import { callCodexOAuthJson } from './ucat-codex-oauth'
 
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,6 +88,7 @@ type ProviderRow = {
   id: string
   name: string
   provider_key: string
+  provider_kind?: 'chat_completions' | 'codex_oauth'
   base_url: string
   secret_env_var_name: string
   default_headers: Record<string, string> | null
@@ -326,67 +328,88 @@ export async function callUcatAiJson(params: {
   const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
   await assertBudget(params.client, config.settings)
 
-  const apiKey = process.env[config.provider.secret_env_var_name]
-  if (!apiKey) {
-    throw new Error(`${config.provider.secret_env_var_name} is not configured`)
-  }
-
-  const controller = new AbortController()
   const timeoutMs = params.timeoutMs ?? 120000
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const maxCompletionTokens = params.maxCompletionTokens ?? config.modelProfile.max_completion_tokens
 
-  let response: Response
-  try {
-    response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...parseHeaders(config.provider.default_headers),
-      },
-      body: JSON.stringify({
-        model: config.modelProfile.model,
-        temperature: params.temperature ?? Number(config.modelProfile.temperature),
-        response_format: { type: 'json_object' },
-        max_completion_tokens: maxCompletionTokens,
-        provider: params.providerSort ? { sort: params.providerSort } : undefined,
-        reasoning: params.reasoningEffort
-          ? { effort: params.reasoningEffort, exclude: true }
-          : undefined,
-        messages: [
-          { role: 'system', content: params.systemPrompt },
-          { role: 'user', content: params.userPrompt },
-        ],
-      }),
+  let content: string | null | undefined
+  let finishReason: string | null = null
+  let usage: UcatAiUsage = null
+
+  if (config.provider.provider_kind === 'codex_oauth') {
+    const result = await callCodexOAuthJson({
+      providerId: config.provider.id,
+      baseUrl: config.provider.base_url,
+      model: config.modelProfile.model,
+      systemPrompt: params.systemPrompt,
+      userPrompt: params.userPrompt,
+      timeoutMs,
     })
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    content = result.content
+    usage = result.usage
+    finishReason = result.finishReason
+  } else {
+    const apiKey = process.env[config.provider.secret_env_var_name]
+    if (!apiKey) {
+      throw new Error(`${config.provider.secret_env_var_name} is not configured`)
     }
-    throw error
-  } finally {
-    clearTimeout(timeout)
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    let response: Response
+    try {
+      response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          ...parseHeaders(config.provider.default_headers),
+        },
+        body: JSON.stringify({
+          model: config.modelProfile.model,
+          temperature: params.temperature ?? Number(config.modelProfile.temperature),
+          response_format: { type: 'json_object' },
+          max_completion_tokens: maxCompletionTokens,
+          provider: params.providerSort ? { sort: params.providerSort } : undefined,
+          reasoning: params.reasoningEffort
+            ? { effort: params.reasoningEffort, exclude: true }
+            : undefined,
+          messages: [
+            { role: 'system', content: params.systemPrompt },
+            { role: 'user', content: params.userPrompt },
+          ],
+        }),
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+      }
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (!response.ok) {
+      throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
+    }
+
+    const json = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null }; finish_reason?: string | null }>
+      usage?: UcatAiUsage
+    }
+    content = json.choices?.[0]?.message?.content
+    usage = json.usage ?? null
+    finishReason = json.choices?.[0]?.finish_reason ?? null
   }
 
-  if (!response.ok) {
-    throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
-  }
-
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null }; finish_reason?: string | null }>
-    usage?: UcatAiUsage
-  }
-  const content = json.choices?.[0]?.message?.content
   if (!content) {
     throw new UcatAiEmptyResponseError({
       operation: params.operation,
       model: config.modelProfile.model,
       providerId: config.provider.id,
       modelProfileId: config.modelProfile.id,
-      usage: json.usage ?? null,
-      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      usage,
+      finishReason,
       maxCompletionTokens,
     })
   }
@@ -396,7 +419,7 @@ export async function callUcatAiJson(params: {
     config,
     operation: params.operation,
     model: config.modelProfile.model,
-    usage: json.usage ?? null,
+    usage,
     metadata: params.metadata ?? null,
   })
 
@@ -410,8 +433,8 @@ export async function callUcatAiJson(params: {
       model: config.modelProfile.model,
       providerId: config.provider.id,
       modelProfileId: config.modelProfile.id,
-      usage: json.usage ?? null,
-      finishReason: json.choices?.[0]?.finish_reason ?? null,
+      usage,
+      finishReason,
       maxCompletionTokens,
     })
   }
@@ -422,8 +445,8 @@ export async function callUcatAiJson(params: {
     model: config.modelProfile.model,
     providerId: config.provider.id,
     modelProfileId: config.modelProfile.id,
-    usage: json.usage ?? null,
-    finishReason: json.choices?.[0]?.finish_reason ?? null,
+    usage,
+    finishReason,
     maxCompletionTokens,
   }
 }

@@ -33,7 +33,7 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { formatSourceChannel, metadataString } from '@/features/ucat/questions/lib/source-display'
+import { formatSourceChannel, formatGeneratedTimestamp, formatStaffDisplayName, metadataString } from '@/features/ucat/questions/lib/source-display'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
   QuestionTagsSelect,
@@ -71,6 +71,8 @@ type UcatStemEditorPropertiesPanelProps = {
   focusMessage?: string | null
   sourceChannel?: UcatQuestionSourceChannel | null
   aiGenerationMetadata?: Json | null
+  createdByFirstName?: string | null
+  createdByLastName?: string | null
 }
 
 function trimTextParagraphs(text: string): string {
@@ -181,6 +183,8 @@ export function UcatStemEditorPropertiesPanel({
   focusMessage,
   sourceChannel,
   aiGenerationMetadata,
+  createdByFirstName,
+  createdByLastName,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -201,7 +205,8 @@ export function UcatStemEditorPropertiesPanel({
     | 'syllogism'
   const isSyllogism = stemType === 'syllogism'
   const aiModel = metadataString(aiGenerationMetadata, 'model')
-  const generatedAt = metadataString(aiGenerationMetadata, 'generatedAt')
+  const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
+  const generatedByName = formatStaffDisplayName(createdByFirstName, createdByLastName)
 
   const categoriesFiltered = sectionId
     ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId)
@@ -210,10 +215,6 @@ export function UcatStemEditorPropertiesPanel({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
   const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
-  const activeQuestionSourceChannel = activeQuestion?.sourceChannel ?? sourceChannel ?? null
-  const activeQuestionAiMetadata = activeQuestion?.aiGenerationMetadata ?? null
-  const questionAiModel = metadataString(activeQuestionAiMetadata, 'model')
-  const questionGeneratedAt = metadataString(activeQuestionAiMetadata, 'generatedAt')
   const activeQuestionMissingExplanations = findMissingExplanations(watchedStem, undefined).filter(
     (target) => target.questionIndex === safeQuestionIndex
   )
@@ -691,7 +692,7 @@ export function UcatStemEditorPropertiesPanel({
           </PropertiesCard>
 
           {fields.length > 0 ? (
-            <PropertiesCard value="question" title={`Question ${safeQuestionIndex + 1} properties`}>
+            <PropertiesCard value="question" title="Question properties">
               <PropertyRow label="Tags">
                 <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
@@ -702,22 +703,41 @@ export function UcatStemEditorPropertiesPanel({
                   Add the missing explanation in the question editor on the left.
                 </div>
               ) : null}
-              <PropertyRow label="Difficulty">
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="h-9"
-                  {...form.register(`questions.${safeQuestionIndex}.difficulty`)}
-                />
-              </PropertyRow>
-              <PropertyRow label="Time burden">
-                <Input
-                  type="text"
-                  className="h-9"
-                  placeholder="1:30 or 90"
-                  {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
-                />
-              </PropertyRow>
+              <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
+              <div className="space-y-3">
+                {fields.map((field, index) => {
+                  const isActive = index === safeQuestionIndex
+                  return (
+                    <div
+                      key={field.id}
+                      className={cn(
+                        'space-y-1 rounded-md',
+                        isActive && 'bg-muted/40 px-2 py-2 -mx-1'
+                      )}
+                    >
+                      {fields.length > 1 ? (
+                        <div className="text-xs font-medium text-muted-foreground">Question {index + 1}</div>
+                      ) : null}
+                      <PropertyRow label="Difficulty">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-9"
+                          {...form.register(`questions.${index}.difficulty`)}
+                        />
+                      </PropertyRow>
+                      <PropertyRow label="Time burden">
+                        <Input
+                          type="text"
+                          className="h-9"
+                          placeholder="1:30 or 90"
+                          {...form.register(`questions.${index}.timeBurdenSeconds`)}
+                        />
+                      </PropertyRow>
+                    </div>
+                  )
+                })}
+              </div>
             </PropertiesCard>
           ) : null}
 
@@ -731,24 +751,56 @@ export function UcatStemEditorPropertiesPanel({
                   <ReadOnlyValue>{aiModel ?? 'Unknown'}</ReadOnlyValue>
                 </PropertyRow>
                 <PropertyRow label="Generated">
-                  <ReadOnlyValue>{generatedAt ?? 'Unknown'}</ReadOnlyValue>
+                  <ReadOnlyValue>{generatedAtLabel ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Generated by">
+                  <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
                 </PropertyRow>
               </>
             ) : null}
             <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
-            <PropertyRow label="Question">
-              <ReadOnlyValue>{formatSourceChannel(activeQuestionSourceChannel)}</ReadOnlyValue>
-            </PropertyRow>
-            {activeQuestionSourceChannel === 'ai_generation' ? (
-              <>
-                <PropertyRow label="Q model">
-                  <ReadOnlyValue>{questionAiModel ?? 'Unknown'}</ReadOnlyValue>
-                </PropertyRow>
-                <PropertyRow label="Q generated">
-                  <ReadOnlyValue>{questionGeneratedAt ?? 'Unknown'}</ReadOnlyValue>
-                </PropertyRow>
-              </>
-            ) : null}
+            <div className="space-y-3">
+              {fields.map((field, index) => {
+                const question = watchedStem.questions?.[index]
+                const questionSourceChannel = question?.sourceChannel ?? sourceChannel ?? null
+                const questionAiMetadata = question?.aiGenerationMetadata ?? null
+                const questionAiModel = metadataString(questionAiMetadata, 'model')
+                const questionGeneratedAtLabel = formatGeneratedTimestamp(
+                  metadataString(questionAiMetadata, 'generatedAt')
+                )
+                const isActive = index === safeQuestionIndex
+
+                return (
+                  <div
+                    key={field.id}
+                    className={cn(
+                      'space-y-1 rounded-md',
+                      isActive && 'bg-muted/40 px-2 py-2 -mx-1'
+                    )}
+                  >
+                    {fields.length > 1 ? (
+                      <div className="text-xs font-medium text-muted-foreground">Question {index + 1}</div>
+                    ) : null}
+                    <PropertyRow label="Question">
+                      <ReadOnlyValue>{formatSourceChannel(questionSourceChannel)}</ReadOnlyValue>
+                    </PropertyRow>
+                    {questionSourceChannel === 'ai_generation' ? (
+                      <>
+                        <PropertyRow label="Model">
+                          <ReadOnlyValue>{questionAiModel ?? 'Unknown'}</ReadOnlyValue>
+                        </PropertyRow>
+                        <PropertyRow label="Generated">
+                          <ReadOnlyValue>{questionGeneratedAtLabel ?? 'Unknown'}</ReadOnlyValue>
+                        </PropertyRow>
+                        <PropertyRow label="Generated by">
+                          <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
+                        </PropertyRow>
+                      </>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
             <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
             <div className="space-y-1.5 py-1.5">
               <label className="text-sm text-muted-foreground" htmlFor="ucat-tutor-source-note">

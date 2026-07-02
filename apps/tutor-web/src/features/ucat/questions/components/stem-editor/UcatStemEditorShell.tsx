@@ -52,6 +52,8 @@ type UcatStemEditorShellProps = {
   focusMessage?: string | null
   sourceChannel?: UcatQuestionSourceChannel | null
   aiGenerationMetadata?: Json | null
+  createdByFirstName?: string | null
+  createdByLastName?: string | null
 }
 
 export function UcatStemEditorShell({
@@ -75,6 +77,8 @@ export function UcatStemEditorShell({
   focusMessage = null,
   sourceChannel = null,
   aiGenerationMetadata = null,
+  createdByFirstName = null,
+  createdByLastName = null,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
@@ -204,6 +208,8 @@ export function UcatStemEditorShell({
         focusMessage={focusMessage}
         sourceChannel={sourceChannel}
         aiGenerationMetadata={aiGenerationMetadata}
+        createdByFirstName={createdByFirstName}
+        createdByLastName={createdByLastName}
       />
     </div>
   )

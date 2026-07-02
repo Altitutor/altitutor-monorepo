@@ -14,6 +14,7 @@ import {
   CommandList,
 } from "./command";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { isInsideModal } from "../lib/modal-interact-outside";
 
 export interface SearchableSelectGroup<T> {
   label: string;
@@ -115,6 +116,8 @@ export function SearchableSelect<T>({
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [enableModalScroll, setEnableModalScroll] = React.useState(false);
 
   const open = controlledOpen ?? internalOpen;
 
@@ -123,6 +126,14 @@ export function SearchableSelect<T>({
   React.useLayoutEffect(() => {
     onSearchChangeRef.current = onSearchChange;
   });
+
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setEnableModalScroll(false);
+      return;
+    }
+    setEnableModalScroll(isInsideModal(triggerRef.current));
+  }, [open]);
 
   const setOpen = React.useCallback(
     (next: boolean) => {
@@ -228,10 +239,13 @@ export function SearchableSelect<T>({
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <PopoverTrigger asChild>
-        {trigger ?? defaultTrigger}
-      </PopoverTrigger>
+      <span ref={triggerRef} className="contents">
+        <PopoverTrigger asChild>
+          {trigger ?? defaultTrigger}
+        </PopoverTrigger>
+      </span>
       <PopoverContent
+        enableModalScroll={enableModalScroll}
         className={cn(
           !contentWidth && "w-[280px]",
           "p-0 z-[100] overflow-hidden max-h-[min(400px,80vh)] flex flex-col",
@@ -253,7 +267,7 @@ export function SearchableSelect<T>({
             value={isServerSideSearch ? search : undefined}
             onValueChange={isServerSideSearch ? handleSearchChange : undefined}
           />
-          <CommandList className="flex-1 min-h-0">
+          <CommandList className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -10,10 +10,22 @@ export type UcatGenerationProvider = {
   id: string;
   name: string;
   provider_key: string;
+  provider_kind: 'chat_completions' | 'codex_oauth';
   base_url: string;
   secret_env_var_name: string;
   default_headers: Json;
   is_enabled: boolean;
+};
+
+export type UcatGenerationOAuthAccount = {
+  id: string;
+  provider_id: string;
+  label: string;
+  account_id: string;
+  expires_at: string | null;
+  status: 'connected' | 'refresh_failed' | 'revoked';
+  last_error: string | null;
+  updated_at: string;
 };
 
 export type UcatGenerationSettings = {
@@ -64,6 +76,7 @@ export type UcatGenerationTaxonomyOption = {
 export type UcatGenerationSettingsBundle = {
   settings: UcatGenerationSettings;
   providers: UcatGenerationProvider[];
+  oauthAccounts: UcatGenerationOAuthAccount[];
   systemPrompts: UcatGenerationSystemPrompts;
   modelProfiles: UcatGenerationModelProfile[];
   promptLayers: UcatGenerationPromptLayer[];
@@ -80,10 +93,11 @@ function client(): SupabaseAny {
 export const ucatGenerationSettingsApi = {
   async getBundle(): Promise<UcatGenerationSettingsBundle> {
     const supabase = client();
-    const [settingsRes, providersRes, systemPromptsRes, modelProfilesRes, layersRes, sectionsRes, categoriesRes, tagsRes] =
+    const [settingsRes, providersRes, oauthAccountsFetch, systemPromptsRes, modelProfilesRes, layersRes, sectionsRes, categoriesRes, tagsRes] =
       await Promise.all([
         supabase.from('ucat_ai_generation_settings').select('*').eq('id', SETTINGS_ID).maybeSingle(),
         supabase.from('ucat_ai_generation_providers').select('*').order('name'),
+        fetch('/api/ucat-generation/codex-oauth/accounts', { cache: 'no-store' }),
         supabase.from('ucat_ai_generation_system_prompts').select('*').eq('id', SYSTEM_PROMPTS_ID).maybeSingle(),
         supabase.from('ucat_ai_generation_model_profiles').select('*').order('is_default', { ascending: false }).order('name'),
         supabase.from('ucat_ai_generation_prompt_layers').select('*').order('scope_type').order('updated_at', { ascending: false }),
@@ -95,6 +109,11 @@ export const ucatGenerationSettingsApi = {
     for (const res of [settingsRes, providersRes, systemPromptsRes, modelProfilesRes, layersRes, sectionsRes, categoriesRes, tagsRes]) {
       if (res.error) throw res.error;
     }
+    if (!oauthAccountsFetch.ok) {
+      const message = await oauthAccountsFetch.text();
+      throw new Error(message || 'Failed to load Codex OAuth accounts');
+    }
+    const oauthAccountsJson = await oauthAccountsFetch.json() as { accounts?: UcatGenerationOAuthAccount[] };
 
     const settings = settingsRes.data as UcatGenerationSettings | null;
     if (!settings) throw new Error('No UCAT generation settings row found. Apply migrations first.');
@@ -124,7 +143,11 @@ export const ucatGenerationSettingsApi = {
 
     return {
       settings,
-      providers: (providersRes.data ?? []) as UcatGenerationProvider[],
+      providers: ((providersRes.data ?? []) as unknown as UcatGenerationProvider[]).map((provider) => ({
+        ...provider,
+        provider_kind: provider.provider_kind ?? 'chat_completions',
+      })),
+      oauthAccounts: oauthAccountsJson.accounts ?? [],
       systemPrompts,
       modelProfiles: (modelProfilesRes.data ?? []) as UcatGenerationModelProfile[],
       promptLayers: (layersRes.data ?? []) as UcatGenerationPromptLayer[],
@@ -150,6 +173,29 @@ export const ucatGenerationSettingsApi = {
       .from('ucat_ai_generation_providers')
       .update(payload)
       .eq('id', id);
+    if (error) throw error;
+  },
+
+  async createProvider(input: {
+    name: string;
+    provider_key: string;
+    provider_kind: UcatGenerationProvider['provider_kind'];
+    base_url: string;
+    secret_env_var_name: string;
+    default_headers?: Json;
+    is_enabled?: boolean;
+  }): Promise<void> {
+    const { error } = await client()
+      .from('ucat_ai_generation_providers')
+      .insert({
+        name: input.name,
+        provider_key: input.provider_key,
+        provider_kind: input.provider_kind,
+        base_url: input.base_url,
+        secret_env_var_name: input.secret_env_var_name,
+        default_headers: input.default_headers ?? {},
+        is_enabled: input.is_enabled ?? true,
+      });
     if (error) throw error;
   },
 
@@ -192,6 +238,14 @@ export const ucatGenerationSettingsApi = {
     if (error) throw error;
   },
 
+  async deleteModelProfile(id: string): Promise<void> {
+    const { error } = await client()
+      .from('ucat_ai_generation_model_profiles')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+
   async upsertPromptLayer(input: {
     id?: string;
     scope_type: UcatGenerationPromptLayer['scope_type'];
@@ -209,6 +263,14 @@ export const ucatGenerationSettingsApi = {
     const { error } = await client()
       .from('ucat_ai_generation_prompt_layers')
       .upsert(payload, { onConflict: 'scope_type,scope_id' });
+    if (error) throw error;
+  },
+
+  async updatePromptLayer(id: string, updates: Partial<Pick<UcatGenerationPromptLayer, 'is_enabled' | 'prompt_text' | 'prompt_version'>>): Promise<void> {
+    const { error } = await client()
+      .from('ucat_ai_generation_prompt_layers')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id);
     if (error) throw error;
   },
 };

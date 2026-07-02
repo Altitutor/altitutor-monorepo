@@ -2,42 +2,45 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Info, Plus, X } from 'lucide-react';
+import { Info, Plus, ChevronDown } from 'lucide-react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DataTable,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   SearchableSelect,
   SegmentedControl,
   SegmentedTabPanelContent,
+  Switch,
   Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useToast,
 } from '@altitutor/ui';
 import {
   ucatGenerationSettingsApi,
   type UcatGenerationModelProfile,
+  type UcatGenerationOAuthAccount,
   type UcatGenerationPromptLayer,
   type UcatGenerationProvider,
   type UcatGenerationSettings,
   type UcatGenerationSettingsBundle,
   type UcatGenerationSystemPrompts,
 } from '@/features/ucat-generation-settings/api/ucat-generation-settings';
+import { AdminDialogShell, AdminPageActionButton, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 
 type LoadState =
   | { status: 'loading'; data: null; error: null }
@@ -64,13 +67,30 @@ type SystemPromptKey = keyof Pick<
   'base_system_prompt' | 'planner_prompt' | 'writer_prompt' | 'critic_prompt' | 'rewriter_prompt'
 >;
 
-type SystemPromptRow = {
-  key: SystemPromptKey;
-  label: string;
-  description: string;
-  prompt: string;
-  version: number;
-};
+type UnifiedPromptRow =
+  | {
+      kind: 'system';
+      id: string;
+      scopeLabel: 'System';
+      scopeFilterValue: 'system';
+      targetLabel: string;
+      instructions: string;
+      version: number;
+      systemKey: SystemPromptKey;
+      systemLabel: string;
+      systemDescription: string;
+    }
+  | {
+      kind: 'layer';
+      id: string;
+      scopeLabel: string;
+      scopeFilterValue: UcatGenerationPromptLayer['scope_type'];
+      targetLabel: string;
+      instructions: string;
+      version: number;
+      isEnabled: boolean;
+      layer: UcatGenerationPromptLayer;
+    };
 
 const SCOPE_OPTIONS: ScopeOption[] = [
   { id: 'section', label: 'Section' },
@@ -86,6 +106,33 @@ function parseNullableInt(value: string): number | null {
 
 function providerName(providers: UcatGenerationProvider[], providerId: string): string {
   return providers.find((provider) => provider.id === providerId)?.name ?? 'Unknown provider';
+}
+
+function systemPromptShortLabel(key: SystemPromptKey): string {
+  switch (key) {
+    case 'base_system_prompt':
+      return 'Base';
+    case 'planner_prompt':
+      return 'Planner';
+    case 'writer_prompt':
+      return 'Writer';
+    case 'critic_prompt':
+      return 'Critic';
+    case 'rewriter_prompt':
+      return 'Rewriter';
+    default: {
+      const exhaustive: never = key;
+      return exhaustive;
+    }
+  }
+}
+
+function promptLayerTargetLabel(
+  layer: UcatGenerationPromptLayer,
+  optionById: Map<string, UcatGenerationSettingsBundle['taxonomyOptions'][number]>,
+): string {
+  const option = optionById.get(layer.scope_id);
+  return option ? (option.section_name ? `${option.section_name} / ${option.name}` : option.name) : 'Unknown target';
 }
 
 function FieldLabel({
@@ -162,56 +209,51 @@ function GeneralSettingsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>Budgets and run limits</DialogTitle>
-              <DialogDescription>Global caps used by tutor-web generation runs.</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="space-y-4 p-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <FieldLabel
-                label="Max requested stems"
-                description="The largest number of question stems a tutor can request in one generation run. Lower values limit request duration and peak API usage."
-                htmlFor="max-requested-stems"
-              />
-              <Input id="max-requested-stems" type="number" min={1} max={50} value={maxStems} onChange={(e) => setMaxStems(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel
-                label="Daily token budget"
-                description="Stops new generation calls after the total provider-reported input and output tokens for the day reaches this amount. Leave blank for no token cap."
-                htmlFor="daily-token-budget"
-              />
-              <Input id="daily-token-budget" value={dailyTokens} onChange={(e) => setDailyTokens(e.target.value)} placeholder="No cap" />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel
-                label="Daily cost budget ($)"
-                description="Stops new generation calls after recorded estimated API cost reaches this daily amount. Leave blank for no cost cap."
-                htmlFor="daily-cost-budget"
-              />
-              <Input id="daily-cost-budget" value={dailyCost} onChange={(e) => setDailyCost(e.target.value)} placeholder="No cap" />
-            </div>
-          </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-        <DialogFooter className="border-t px-6 py-4">
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Budgets and run limits"
+      subtitle="Global caps used by tutor-web generation runs."
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button type="button" onClick={save} disabled={saving}>
             {saving ? 'Saving...' : 'Save budgets'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      <div className="space-y-4 py-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <FieldLabel
+              label="Max requested stems"
+              description="The largest number of question stems a tutor can request in one generation run. Lower values limit request duration and peak API usage."
+              htmlFor="max-requested-stems"
+            />
+            <Input id="max-requested-stems" type="number" min={1} max={50} value={maxStems} onChange={(e) => setMaxStems(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel
+              label="Daily token budget"
+              description="Stops new generation calls after the total provider-reported input and output tokens for the day reaches this amount. Leave blank for no token cap."
+              htmlFor="daily-token-budget"
+            />
+            <Input id="daily-token-budget" value={dailyTokens} onChange={(e) => setDailyTokens(e.target.value)} placeholder="No cap" />
+          </div>
+          <div className="space-y-2">
+            <FieldLabel
+              label="Daily cost budget ($)"
+              description="Stops new generation calls after recorded estimated API cost reaches this daily amount. Leave blank for no cost cap."
+              htmlFor="daily-cost-budget"
+            />
+            <Input id="daily-cost-budget" value={dailyCost} onChange={(e) => setDailyCost(e.target.value)} placeholder="No cap" />
+          </div>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
+    </AdminDialogShell>
   );
 }
 
@@ -240,40 +282,51 @@ function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationS
     ],
     [settings],
   );
-  const columns = useMemo<ColumnDef<GeneralSettingRow>[]>(
+  const columns = useMemo<SettingsDataTableColumn<GeneralSettingRow>[]>(
     () => [
-      { accessorKey: 'label', header: 'Setting', cell: ({ row }) => <span className="font-medium">{row.original.label}</span> },
-      { accessorKey: 'value', header: 'Value' },
-      { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground">{row.original.description}</span> },
+      {
+        key: 'label',
+        label: 'Setting',
+        render: (row) => <span className="font-medium">{row.label}</span>,
+        sortValue: (row) => row.label,
+        searchValue: (row) => row.label,
+      },
+      {
+        key: 'value',
+        label: 'Value',
+        render: (row) => row.value,
+        sortValue: (row) => row.value,
+        searchValue: (row) => row.value,
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+        sortValue: (row) => row.description,
+        searchValue: (row) => row.description,
+      },
     ],
     [],
   );
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle>Budgets and run limits</CardTitle>
-              <CardDescription>Global caps used by tutor-web generation runs.</CardDescription>
-            </div>
-            <Button type="button" variant="outline" onClick={() => setEditing(true)}>
-              Edit settings
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            data={rows}
-            searchKey="label"
-            pagination="external"
-            bodyRowClassName="cursor-pointer"
-            onRowClick={() => setEditing(true)}
-          />
-        </CardContent>
-      </Card>
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.key}
+        emptyMessage="No generation settings found."
+        searchPlaceholder="Search generation settings..."
+        filterKeys={[]}
+        defaultSort={{ field: 'label', direction: 'asc' }}
+        getActions={() => [
+          {
+            id: 'edit',
+            label: 'Edit settings',
+            onSelect: () => setEditing(true),
+          },
+        ]}
+      />
       <GeneralSettingsDialog open={editing} settings={settings} onSaved={onSaved} onOpenChange={setEditing} />
     </>
   );
@@ -312,49 +365,14 @@ function ProviderDialog({
   }
 
   return (
-    <Dialog open={!!provider} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>{provider?.name ?? 'Edit provider'}</DialogTitle>
-              <DialogDescription>Secret value is read server-side from {provider?.secret_env_var_name ?? 'the configured env var'}.</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        {form ? (
-          <div className="grid gap-4 p-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Provider key</Label>
-              <Input value={form.provider_key} onChange={(e) => setForm({ ...form, provider_key: e.target.value })} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>Base URL</Label>
-              <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Secret env var</Label>
-              <Input value={form.secret_env_var_name} onChange={(e) => setForm({ ...form, secret_env_var_name: e.target.value })} />
-            </div>
-            <label className="flex items-center gap-2 pt-8 text-sm">
-              <input
-                type="checkbox"
-                checked={form.is_enabled}
-                onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })}
-              />
-              Enabled
-            </label>
-            {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
-          </div>
-        ) : null}
-        <DialogFooter className="border-t px-6 py-4">
+    <AdminDialogShell
+      open={!!provider}
+      onClose={() => onOpenChange(false)}
+      title={provider?.name ?? 'Edit provider'}
+      subtitle={`Secret value is read server-side from ${provider?.secret_env_var_name ?? 'the configured env var'}.`}
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button
             type="button"
@@ -363,43 +381,359 @@ function ProviderDialog({
           >
             {saving ? 'Saving...' : 'Save provider'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      {form ? (
+        <div className="grid gap-4 py-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Provider key</Label>
+            <Input value={form.provider_key} onChange={(e) => setForm({ ...form, provider_key: e.target.value })} />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Base URL</Label>
+            <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Secret env var</Label>
+            <Input value={form.secret_env_var_name} onChange={(e) => setForm({ ...form, secret_env_var_name: e.target.value })} />
+          </div>
+          <label className="flex items-center gap-2 pt-8 text-sm">
+            <input
+              type="checkbox"
+              checked={form.is_enabled}
+              onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })}
+            />
+            Enabled
+          </label>
+          {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
+        </div>
+      ) : null}
+    </AdminDialogShell>
   );
 }
 
-function ProvidersTable({ providers, onSaved }: { providers: UcatGenerationProvider[]; onSaved: () => void }) {
+function CreateProviderDialog({
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [providerKey, setProviderKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('https://openrouter.ai/api/v1');
+  const [secretEnvVarName, setSecretEnvVarName] = useState('');
+  const [isEnabled, setIsEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setName('');
+    setProviderKey('');
+    setBaseUrl('https://openrouter.ai/api/v1');
+    setSecretEnvVarName('');
+    setIsEnabled(true);
+    setError(null);
+  }, [open]);
+
+  async function save() {
+    if (!name.trim() || !providerKey.trim() || !baseUrl.trim() || !secretEnvVarName.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await ucatGenerationSettingsApi.createProvider({
+        name: name.trim(),
+        provider_key: providerKey.trim(),
+        provider_kind: 'chat_completions',
+        base_url: baseUrl.trim(),
+        secret_env_var_name: secretEnvVarName.trim(),
+        is_enabled: isEnabled,
+      });
+      await onSaved();
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create provider');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Add chat completions provider"
+      subtitle="Configure an API endpoint that uses a server-side secret from an environment variable."
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button
+            type="button"
+            onClick={save}
+            disabled={saving || !name.trim() || !providerKey.trim() || !baseUrl.trim() || !secretEnvVarName.trim()}
+          >
+            {saving ? 'Creating...' : 'Add provider'}
+          </Button>
+        </>
+      )}
+    >
+      <div className="grid gap-4 py-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <FieldLabel label="Name" description="An admin-facing label used to identify this provider." htmlFor="create-provider-name" />
+          <Input id="create-provider-name" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <FieldLabel label="Provider key" description="A unique slug used internally. Use lowercase letters, numbers, and underscores." htmlFor="create-provider-key" />
+          <Input id="create-provider-key" value={providerKey} onChange={(e) => setProviderKey(e.target.value)} />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <FieldLabel label="Base URL" description="The API base URL used for chat completion requests." htmlFor="create-provider-base-url" />
+          <Input id="create-provider-base-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <FieldLabel label="Secret env var" description="The environment variable name that stores this provider's API key on the server." htmlFor="create-provider-secret-env-var" />
+          <Input id="create-provider-secret-env-var" value={secretEnvVarName} onChange={(e) => setSecretEnvVarName(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-2 text-sm md:col-span-2">
+          <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+          Enabled
+        </label>
+        {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
+      </div>
+    </AdminDialogShell>
+  );
+}
+
+function CodexOAuthProviderDialog({
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [flow, setFlow] = useState<{
+    deviceAuthId: string;
+    userCode: string;
+    verificationUrl: string;
+    intervalSeconds: number;
+  } | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setFlow(null);
+      setMessage(null);
+      setError(null);
+      setStarting(false);
+      setChecking(false);
+    }
+  }, [open]);
+
+  async function start() {
+    setStarting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch('/api/ucat-generation/codex-oauth/start', { method: 'POST' });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error ?? 'Failed to start Codex OAuth');
+      setFlow(json);
+      setMessage('Open the verification URL, enter the code, then return here to check the connection.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start Codex OAuth');
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function complete() {
+    if (!flow) return;
+    setChecking(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch('/api/ucat-generation/codex-oauth/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceAuthId: flow.deviceAuthId,
+          userCode: flow.userCode,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error ?? 'Failed to complete Codex OAuth');
+      if (json.status === 'pending') {
+        setMessage('Still waiting for approval. Complete the OpenAI device prompt, then check again.');
+        return;
+      }
+      await onSaved();
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to complete Codex OAuth');
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Log in to ChatGPT"
+      subtitle="Connect a ChatGPT account through the Codex device flow. Tokens are stored encrypted server-side."
+      contentClassName="md:max-w-2xl"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={starting || checking}>Cancel</Button>
+          {flow ? (
+            <Button type="button" onClick={complete} disabled={checking}>
+              {checking ? 'Checking...' : 'Check connection'}
+            </Button>
+          ) : (
+            <Button type="button" onClick={start} disabled={starting}>
+              {starting ? 'Starting...' : 'Start sign in'}
+            </Button>
+          )}
+        </>
+      )}
+    >
+      <div className="space-y-4 py-4">
+        {flow ? (
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Verification URL</p>
+              <a className="break-all text-sm text-primary underline" href={flow.verificationUrl} target="_blank" rel="noreferrer">
+                {flow.verificationUrl}
+              </a>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Code</p>
+              <p className="font-mono text-2xl tracking-wide">{flow.userCode}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            This starts OpenAI's device authorization flow. The browser never receives OAuth access or refresh tokens.
+          </p>
+        )}
+        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
+    </AdminDialogShell>
+  );
+}
+
+function ProvidersTable({
+  providers,
+  oauthAccounts,
+  onSaved,
+}: {
+  providers: UcatGenerationProvider[];
+  oauthAccounts: UcatGenerationOAuthAccount[];
+  onSaved: () => void;
+}) {
   const [editingProvider, setEditingProvider] = useState<UcatGenerationProvider | null>(null);
-  const columns = useMemo<ColumnDef<UcatGenerationProvider>[]>(
+  const accountByProviderId = useMemo(
+    () => new Map(oauthAccounts.map((account) => [account.provider_id, account])),
+    [oauthAccounts],
+  );
+  const columns = useMemo<SettingsDataTableColumn<UcatGenerationProvider>[]>(
     () => [
-      { accessorKey: 'name', header: 'Provider', cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
-      { accessorKey: 'provider_key', header: 'Key' },
-      { accessorKey: 'base_url', header: 'Base URL', cell: ({ row }) => <span className="line-clamp-1 max-w-md text-muted-foreground">{row.original.base_url}</span> },
-      { accessorKey: 'secret_env_var_name', header: 'Secret env var' },
-      { accessorKey: 'is_enabled', header: 'Status', cell: ({ row }) => row.original.is_enabled ? 'Enabled' : 'Disabled' },
+      {
+        key: 'name',
+        label: 'Provider',
+        render: (provider) => <span className="font-medium">{provider.name}</span>,
+        sortValue: (provider) => provider.name,
+        searchValue: (provider) => provider.name,
+      },
+      {
+        key: 'provider_kind',
+        label: 'Kind',
+        render: (provider) => provider.provider_kind === 'codex_oauth' ? 'ChatGPT/Codex OAuth' : 'Chat completions',
+        sortValue: (provider) => provider.provider_kind,
+        filterValue: (provider) => provider.provider_kind,
+        searchValue: (provider) => provider.provider_kind,
+      },
+      {
+        key: 'base_url',
+        label: 'Base URL',
+        render: (provider) => <span className="line-clamp-1 max-w-md text-muted-foreground">{provider.base_url}</span>,
+        sortValue: (provider) => provider.base_url,
+        searchValue: (provider) => provider.base_url,
+      },
+      {
+        key: 'connection',
+        label: 'Connection',
+        render: (provider) => {
+          if (provider.provider_kind !== 'codex_oauth') return provider.secret_env_var_name;
+          const account = accountByProviderId.get(provider.id);
+          return account ? `${account.status} · ${account.label}` : 'Not connected';
+        },
+        sortValue: (provider) => accountByProviderId.get(provider.id)?.status ?? provider.secret_env_var_name,
+        searchValue: (provider) => accountByProviderId.get(provider.id)?.label ?? provider.secret_env_var_name,
+      },
+      {
+        key: 'is_enabled',
+        label: 'Status',
+        render: (provider) => (provider.is_enabled ? 'Enabled' : 'Disabled'),
+        sortValue: (provider) => (provider.is_enabled ? 'Enabled' : 'Disabled'),
+        filterValue: (provider) => (provider.is_enabled ? 'enabled' : 'disabled'),
+        searchValue: (provider) => (provider.is_enabled ? 'Enabled' : 'Disabled'),
+      },
     ],
-    [],
+    [accountByProviderId],
   );
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Providers</CardTitle>
-          <CardDescription>API endpoints and server-side credential bindings used by model profiles.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            data={providers}
-            searchKey="name"
-            pagination="external"
-            bodyRowClassName="cursor-pointer"
-            onRowClick={setEditingProvider}
-          />
-        </CardContent>
-      </Card>
+      <SettingsDataTable
+        data={providers}
+        columns={columns}
+        getRowId={(provider) => provider.id}
+        emptyMessage="No providers found."
+        searchPlaceholder="Search providers..."
+        filterKeys={['provider_kind', 'is_enabled']}
+        filterDefinitions={[
+          {
+            key: 'provider_kind',
+            label: 'Kind',
+            options: [
+              { label: 'Chat completions', value: 'chat_completions' },
+              { label: 'ChatGPT/Codex OAuth', value: 'codex_oauth' },
+            ],
+          },
+          {
+            key: 'is_enabled',
+            label: 'Status',
+            options: [
+              { label: 'Enabled', value: 'enabled' },
+              { label: 'Disabled', value: 'disabled' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        getActions={(provider) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingProvider(provider),
+          },
+        ]}
+      />
       <ProviderDialog
         provider={editingProvider}
         onSaved={onSaved}
@@ -473,146 +807,285 @@ function ModelProfileDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>{profile ? `Edit ${profile.name}` : 'Add model profile'}</DialogTitle>
-              <DialogDescription>
-                Configure provider and inference parameters. Prompt instructions are managed separately.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        {form ? (
-          <div className="flex-1 space-y-5 overflow-y-auto p-6">
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel label="Name" description="An admin-facing label used to identify this model configuration." htmlFor="model-profile-name" />
-                <Input id="model-profile-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel label="Provider" description="The API endpoint and server-side credential used to call this model." />
-                <SearchableSelect<UcatGenerationProvider>
-                  items={providers}
-                  value={providers.find((provider) => provider.id === form.provider_id) ?? null}
-                  onValueChange={(provider) => {
-                    if (provider) setForm({ ...form, provider_id: provider.id });
-                  }}
-                  getItemId={(provider) => provider.id}
-                  getItemLabel={(provider) => provider.name}
-                  searchPlaceholder="Search providers..."
-                />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel label="Model" description="The exact provider model identifier sent with generation requests, for example openai/gpt-4o-mini." htmlFor="model-id" />
-                <Input id="model-id" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel label="Temperature" description="Controls sampling variability. Lower values are more repeatable; higher values produce more variation but can reduce answer consistency." htmlFor="model-temperature" />
-                <Input
-                  id="model-temperature"
-                  type="number"
-                  step="0.05"
-                  min={0}
-                  max={2}
-                  value={form.temperature}
-                  onChange={(e) => setForm({ ...form, temperature: Number.parseFloat(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel label="Max completion tokens" description="The maximum output-token allowance for one model response. It limits response length and cost; setting it too low can truncate generated JSON." htmlFor="model-max-tokens" />
-                <Input
-                  id="model-max-tokens"
-                  type="number"
-                  min={1}
-                  value={form.max_completion_tokens}
-                  onChange={(e) => setForm({ ...form, max_completion_tokens: Number.parseInt(e.target.value, 10) })}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="flex items-center gap-2 text-sm" title="Disabled profiles are hidden from tutor model selection.">
-                <input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })} />
-                Enabled
-              </label>
-              <label className="flex items-center gap-2 text-sm" title="Used when no model profile is explicitly selected.">
-                <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
-                Default
-              </label>
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          </div>
-        ) : null}
-        <DialogFooter className="border-t px-6 py-4">
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={profile ? `Edit ${profile.name}` : 'Add model profile'}
+      subtitle="Configure provider and inference parameters. Prompt instructions are managed separately."
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button type="button" onClick={save} disabled={saving || !form?.name.trim() || !form?.provider_id || !form?.model.trim()}>
             {saving ? 'Saving...' : profile ? 'Save model profile' : 'Add model profile'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      {form ? (
+        <div className="space-y-5 py-4">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <FieldLabel label="Name" description="An admin-facing label used to identify this model configuration." htmlFor="model-profile-name" />
+              <Input id="model-profile-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Provider" description="The API endpoint and server-side credential used to call this model." />
+              <SearchableSelect<UcatGenerationProvider>
+                items={providers}
+                value={providers.find((provider) => provider.id === form.provider_id) ?? null}
+                onValueChange={(provider) => {
+                  if (provider) setForm({ ...form, provider_id: provider.id });
+                }}
+                getItemId={(provider) => provider.id}
+                getItemLabel={(provider) => provider.name}
+                searchPlaceholder="Search providers..."
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Model" description="The exact provider model identifier sent with generation requests, for example openai/gpt-4o-mini." htmlFor="model-id" />
+              <Input id="model-id" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Temperature" description="Controls sampling variability. Lower values are more repeatable; higher values produce more variation but can reduce answer consistency." htmlFor="model-temperature" />
+              <Input
+                id="model-temperature"
+                type="number"
+                step="0.05"
+                min={0}
+                max={2}
+                value={form.temperature}
+                onChange={(e) => setForm({ ...form, temperature: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Max completion tokens" description="The maximum output-token allowance for one model response. It limits response length and cost; setting it too low can truncate generated JSON." htmlFor="model-max-tokens" />
+              <Input
+                id="model-max-tokens"
+                type="number"
+                min={1}
+                value={form.max_completion_tokens}
+                onChange={(e) => setForm({ ...form, max_completion_tokens: Number.parseInt(e.target.value, 10) })}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm" title="Disabled profiles are hidden from tutor model selection.">
+              <input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })} />
+              Enabled
+            </label>
+            <label className="flex items-center gap-2 text-sm" title="Used when no model profile is explicitly selected.">
+              <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
+              Default
+            </label>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        </div>
+      ) : null}
+    </AdminDialogShell>
   );
 }
 
 function ModelProfilesTable({
   profiles,
   providers,
-  onAdd,
   onSaved,
 }: {
   profiles: UcatGenerationModelProfile[];
   providers: UcatGenerationProvider[];
-  onAdd: () => void;
   onSaved: () => void;
 }) {
   const [editingProfile, setEditingProfile] = useState<UcatGenerationModelProfile | null>(null);
-  const columns = useMemo<ColumnDef<UcatGenerationModelProfile>[]>(
+  const [deletingProfile, setDeletingProfile] = useState<UcatGenerationModelProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<{ id: string; field: 'is_enabled' | 'is_default' } | null>(null);
+
+  const updateProfileField = useCallback(
+    async (profile: UcatGenerationModelProfile, field: 'is_enabled' | 'is_default', value: boolean) => {
+      setUpdating({ id: profile.id, field });
+      try {
+        await ucatGenerationSettingsApi.updateModelProfile(profile.id, { [field]: value });
+        await onSaved();
+      } catch {
+        // Switch stays on the server value until reload succeeds.
+      } finally {
+        setUpdating(null);
+      }
+    },
+    [onSaved],
+  );
+
+  async function confirmDeleteProfile() {
+    if (!deletingProfile) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await ucatGenerationSettingsApi.deleteModelProfile(deletingProfile.id);
+      setDeletingProfile(null);
+      await onSaved();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete model profile');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const columns = useMemo<SettingsDataTableColumn<UcatGenerationModelProfile>[]>(
     () => [
-      { accessorKey: 'name', header: 'Name', cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
-      { accessorKey: 'provider_id', header: 'Provider', cell: ({ row }) => providerName(providers, row.original.provider_id) },
-      { accessorKey: 'model', header: 'Model' },
-      { accessorKey: 'temperature', header: 'Temperature' },
-      { accessorKey: 'max_completion_tokens', header: 'Max completion tokens' },
       {
-        id: 'status',
-        header: 'Status',
-        cell: ({ row }) => row.original.is_default ? 'Default' : row.original.is_enabled ? 'Enabled' : 'Disabled',
+        key: 'name',
+        label: 'Name',
+        render: (profile) => <span className="font-medium">{profile.name}</span>,
+        sortValue: (profile) => profile.name,
+        searchValue: (profile) => profile.name,
+      },
+      {
+        key: 'provider_id',
+        label: 'Provider',
+        render: (profile) => providerName(providers, profile.provider_id),
+        sortValue: (profile) => providerName(providers, profile.provider_id),
+        filterValue: (profile) => profile.provider_id,
+        searchValue: (profile) => providerName(providers, profile.provider_id),
+      },
+      {
+        key: 'model',
+        label: 'Model',
+        render: (profile) => profile.model,
+        sortValue: (profile) => profile.model,
+        searchValue: (profile) => profile.model,
+      },
+      {
+        key: 'temperature',
+        label: 'Temperature',
+        render: (profile) => profile.temperature,
+        sortValue: (profile) => profile.temperature,
+      },
+      {
+        key: 'max_completion_tokens',
+        label: 'Max completion tokens',
+        render: (profile) => profile.max_completion_tokens.toLocaleString(),
+        sortValue: (profile) => profile.max_completion_tokens,
+        searchValue: (profile) => String(profile.max_completion_tokens),
+      },
+      {
+        key: 'is_enabled',
+        label: 'Status',
+        render: (profile) => (
+          <Switch
+            checked={profile.is_enabled}
+            onCheckedChange={(checked) => void updateProfileField(profile, 'is_enabled', checked)}
+            disabled={updating?.id === profile.id}
+            aria-label={`${profile.is_enabled ? 'Disable' : 'Enable'} ${profile.name}`}
+          />
+        ),
+        sortValue: (profile) => (profile.is_enabled ? 'Enabled' : 'Disabled'),
+        filterValue: (profile) => (profile.is_enabled ? 'enabled' : 'disabled'),
+        searchValue: (profile) => (profile.is_enabled ? 'Enabled' : 'Disabled'),
+      },
+      {
+        key: 'is_default',
+        label: 'Default',
+        render: (profile) => (
+          <Switch
+            checked={profile.is_default}
+            onCheckedChange={(checked) => void updateProfileField(profile, 'is_default', checked)}
+            disabled={updating?.id === profile.id}
+            aria-label={`${profile.is_default ? 'Remove' : 'Set'} ${profile.name} as default`}
+          />
+        ),
+        sortValue: (profile) => (profile.is_default ? 'Default' : 'Not default'),
+        filterValue: (profile) => (profile.is_default ? 'default' : 'not_default'),
+        searchValue: (profile) => (profile.is_default ? 'Default' : 'Not default'),
       },
     ],
-    [providers],
+    [providers, updateProfileField, updating],
   );
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle>Model profiles</CardTitle>
-              <CardDescription>Provider and model inference parameters used by generation.</CardDescription>
-            </div>
-            <Button type="button" variant="outline" onClick={onAdd}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add model profile
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            data={profiles}
-            searchKey="name"
-            pagination="external"
-            bodyRowClassName="cursor-pointer"
-            onRowClick={setEditingProfile}
-          />
-        </CardContent>
-      </Card>
+      <SettingsDataTable
+        data={profiles}
+        columns={columns}
+        getRowId={(profile) => profile.id}
+        emptyMessage="No model profiles found."
+        searchPlaceholder="Search model profiles..."
+        filterKeys={['provider_id', 'is_enabled', 'is_default']}
+        filterDefinitions={[
+          {
+            key: 'provider_id',
+            label: 'Provider',
+            options: providers.map((provider) => ({ label: provider.name, value: provider.id })),
+          },
+          {
+            key: 'is_enabled',
+            label: 'Status',
+            options: [
+              { label: 'Enabled', value: 'enabled' },
+              { label: 'Disabled', value: 'disabled' },
+            ],
+          },
+          {
+            key: 'is_default',
+            label: 'Default',
+            options: [
+              { label: 'Default', value: 'default' },
+              { label: 'Not default', value: 'not_default' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'name', direction: 'asc' }}
+        getActions={(profile) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingProfile(profile),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            destructive: true,
+            onSelect: () => {
+              setDeleteError(null);
+              setDeletingProfile(profile);
+            },
+          },
+        ]}
+      />
+      <AlertDialog
+        open={!!deletingProfile}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setDeletingProfile(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete model profile?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <span className="font-medium text-foreground">{deletingProfile?.name}</span>.
+              Existing generation runs that used this profile will keep their history, but tutors will no longer be able
+              to select it. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDeleteProfile();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete profile'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ModelProfileDialog
         open={!!editingProfile}
         profile={editingProfile}
@@ -644,7 +1117,7 @@ function SystemPromptDialog({
   onOpenChange,
   onSaved,
 }: {
-  row: SystemPromptRow | null;
+  row: { key: SystemPromptKey; label: string; description: string } | null;
   prompts: UcatGenerationSystemPrompts;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -654,9 +1127,9 @@ function SystemPromptDialog({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPrompt(row?.prompt ?? '');
+    setPrompt(row ? prompts[row.key] : '');
     setError(null);
-  }, [row]);
+  }, [row, prompts]);
 
   async function save() {
     if (!row) return;
@@ -677,65 +1150,225 @@ function SystemPromptDialog({
   }
 
   return (
-    <Dialog open={!!row} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>{row?.label ?? 'Edit system prompt'}</DialogTitle>
-              <DialogDescription>{row?.description}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="flex-1 space-y-2 overflow-y-auto p-6">
-          <FieldLabel label="Prompt" description="Model-independent instructions combined with the selected scoped prompts at runtime." htmlFor="system-prompt-text" />
-          <Textarea id="system-prompt-text" className="min-h-80" value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-        <DialogFooter className="border-t px-6 py-4">
+    <AdminDialogShell
+      open={!!row}
+      onClose={() => onOpenChange(false)}
+      title={row?.label ?? 'Edit system prompt'}
+      subtitle={row?.description}
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button type="button" onClick={save} disabled={saving || !prompt.trim()}>{saving ? 'Saving...' : 'Save prompt'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    >
+      <div className="space-y-2 py-4">
+        <FieldLabel label="Prompt" description="Model-independent instructions combined with the selected scoped prompts at runtime." htmlFor="system-prompt-text" />
+        <Textarea id="system-prompt-text" className="min-h-80" value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
+    </AdminDialogShell>
   );
 }
 
-function SystemPromptsTable({ prompts, onSaved }: { prompts: UcatGenerationSystemPrompts; onSaved: () => void }) {
-  const [editingRow, setEditingRow] = useState<SystemPromptRow | null>(null);
-  const rows = useMemo<SystemPromptRow[]>(
-    () => SYSTEM_PROMPT_FIELDS.map((field) => ({ ...field, prompt: prompts[field.key], version: prompts.prompt_version })),
-    [prompts],
+function PromptsTable({
+  prompts,
+  layers,
+  options,
+  onSaved,
+  createOpen,
+  onCreateOpenChange,
+}: {
+  prompts: UcatGenerationSystemPrompts;
+  layers: UcatGenerationPromptLayer[];
+  options: UcatGenerationSettingsBundle['taxonomyOptions'];
+  onSaved: () => void;
+  createOpen: boolean;
+  onCreateOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [editingSystemRow, setEditingSystemRow] = useState<Extract<UnifiedPromptRow, { kind: 'system' }> | null>(null);
+  const [editingLayer, setEditingLayer] = useState<UcatGenerationPromptLayer | null>(null);
+  const [updatingLayerId, setUpdatingLayerId] = useState<string | null>(null);
+  const optionById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
+
+  const rows = useMemo<UnifiedPromptRow[]>(() => {
+    const systemRows: UnifiedPromptRow[] = SYSTEM_PROMPT_FIELDS.map((field) => ({
+      kind: 'system',
+      id: `system:${field.key}`,
+      scopeLabel: 'System',
+      scopeFilterValue: 'system',
+      targetLabel: systemPromptShortLabel(field.key),
+      instructions: prompts[field.key],
+      version: prompts.prompt_version,
+      systemKey: field.key,
+      systemLabel: field.label,
+      systemDescription: field.description,
+    }));
+
+    const layerRows: UnifiedPromptRow[] = layers.map((layer) => ({
+      kind: 'layer',
+      id: `layer:${layer.id}`,
+      scopeLabel: SCOPE_OPTIONS.find((option) => option.id === layer.scope_type)?.label ?? layer.scope_type,
+      scopeFilterValue: layer.scope_type,
+      targetLabel: promptLayerTargetLabel(layer, optionById),
+      instructions: layer.prompt_text,
+      version: layer.prompt_version,
+      isEnabled: layer.is_enabled,
+      layer,
+    }));
+
+    return [...systemRows, ...layerRows];
+  }, [layers, optionById, prompts]);
+
+  const updateLayerEnabled = useCallback(
+    async (layer: UcatGenerationPromptLayer, isEnabled: boolean) => {
+      setUpdatingLayerId(layer.id);
+      try {
+        await ucatGenerationSettingsApi.updatePromptLayer(layer.id, { is_enabled: isEnabled });
+        await onSaved();
+      } catch {
+        // Switch stays on the server value until reload succeeds.
+      } finally {
+        setUpdatingLayerId(null);
+      }
+    },
+    [onSaved],
   );
-  const columns = useMemo<ColumnDef<SystemPromptRow>[]>(
+
+  const columns = useMemo<SettingsDataTableColumn<UnifiedPromptRow>[]>(
     () => [
-      { accessorKey: 'label', header: 'Prompt', cell: ({ row }) => <span className="font-medium">{row.original.label}</span> },
-      { accessorKey: 'description', header: 'Purpose' },
-      { accessorKey: 'prompt', header: 'Instructions', cell: ({ row }) => <span className="line-clamp-2 max-w-2xl text-muted-foreground">{row.original.prompt}</span> },
-      { accessorKey: 'version', header: 'Version' },
+      {
+        key: 'scope',
+        label: 'Scope',
+        render: (row) => row.scopeLabel,
+        sortValue: (row) => (row.kind === 'system' ? '0-System' : `1-${row.scopeLabel}`),
+        filterValue: (row) => row.scopeFilterValue,
+        searchValue: (row) => row.scopeLabel,
+      },
+      {
+        key: 'target',
+        label: 'Target',
+        render: (row) => <span className="font-medium">{row.targetLabel}</span>,
+        sortValue: (row) => row.targetLabel,
+        searchValue: (row) => row.targetLabel,
+      },
+      {
+        key: 'instructions',
+        label: 'Instructions',
+        render: (row) => <span className="line-clamp-2 max-w-2xl text-muted-foreground">{row.instructions}</span>,
+        sortValue: (row) => row.instructions,
+        searchValue: (row) => row.instructions,
+      },
+      {
+        key: 'version',
+        label: 'Version',
+        visibleByDefault: false,
+        render: (row) => row.version,
+        sortValue: (row) => row.version,
+      },
+      {
+        key: 'enabled',
+        label: 'Enabled',
+        render: (row) => {
+          if (row.kind === 'system') {
+            return (
+              <Switch
+                checked
+                onCheckedChange={(checked) => {
+                  if (!checked) {
+                    toast({
+                      title: 'System prompts cannot be disabled',
+                      description: 'Shared system prompts are always active during generation.',
+                    });
+                  }
+                }}
+                aria-label={`${row.targetLabel} is always enabled`}
+              />
+            );
+          }
+
+          return (
+            <Switch
+              checked={row.isEnabled}
+              onCheckedChange={(checked) => void updateLayerEnabled(row.layer, checked)}
+              disabled={updatingLayerId === row.layer.id}
+              aria-label={`${row.isEnabled ? 'Disable' : 'Enable'} ${row.targetLabel}`}
+            />
+          );
+        },
+        sortValue: (row) => (row.kind === 'system' || row.isEnabled ? 'Enabled' : 'Disabled'),
+        filterValue: (row) => (row.kind === 'system' || row.isEnabled ? 'enabled' : 'disabled'),
+        searchValue: (row) => (row.kind === 'system' || row.isEnabled ? 'Enabled' : 'Disabled'),
+      },
     ],
-    [],
+    [toast, updateLayerEnabled, updatingLayerId],
   );
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>System prompts</CardTitle>
-          <CardDescription>Model-independent role instructions shared by every UCAT generation model.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable columns={columns} data={rows} pagination="external" bodyRowClassName="cursor-pointer" onRowClick={setEditingRow} />
-        </CardContent>
-      </Card>
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        emptyMessage="No prompts found."
+        searchPlaceholder="Search prompts..."
+        filterKeys={['scope', 'enabled']}
+        filterDefinitions={[
+          {
+            key: 'scope',
+            label: 'Scope',
+            options: [
+              { label: 'System', value: 'system' },
+              ...SCOPE_OPTIONS.map((option) => ({ label: option.label, value: option.id })),
+            ],
+          },
+          {
+            key: 'enabled',
+            label: 'Enabled',
+            options: [
+              { label: 'Enabled', value: 'enabled' },
+              { label: 'Disabled', value: 'disabled' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'scope', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => {
+              if (row.kind === 'system') {
+                setEditingSystemRow(row);
+                return;
+              }
+              setEditingLayer(row.layer);
+            },
+          },
+        ]}
+      />
       <SystemPromptDialog
-        row={editingRow}
+        row={editingSystemRow ? {
+          key: editingSystemRow.systemKey,
+          label: editingSystemRow.systemLabel,
+          description: editingSystemRow.systemDescription,
+        } : null}
         prompts={prompts}
         onSaved={onSaved}
-        onOpenChange={(open) => { if (!open) setEditingRow(null); }}
+        onOpenChange={(open) => { if (!open) setEditingSystemRow(null); }}
+      />
+      <PromptLayerDialog
+        open={createOpen || !!editingLayer}
+        layer={editingLayer}
+        options={options}
+        onSaved={onSaved}
+        onOpenChange={(open) => {
+          if (!open) {
+            onCreateOpenChange(false);
+            setEditingLayer(null);
+          }
+        }}
       />
     </>
   );
@@ -796,18 +1429,22 @@ function PromptLayerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl gap-0 overflow-hidden p-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="icon" onClick={() => onOpenChange(false)}><X className="h-4 w-4" /></Button>
-            <div>
-              <DialogTitle>{layer ? 'Edit prompt layer' : 'Add prompt layer'}</DialogTitle>
-              <DialogDescription>Apply additional instructions to one section, stem category, or question tag.</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={layer ? 'Edit prompt layer' : 'Add prompt layer'}
+      subtitle="Apply additional instructions to one section, stem category, or question tag."
+      contentClassName="md:max-w-3xl"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button type="button" onClick={save} disabled={saving || !scopeId || !prompt.trim()}>
+            {saving ? 'Saving...' : layer ? 'Save prompt layer' : 'Add prompt layer'}
+          </Button>
+        </>
+      )}
+    >
+      <div className="space-y-5 py-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <FieldLabel label="Scope" description="Determines whether this prompt applies to a whole UCAT section, one stem category, or one question tag." />
@@ -848,79 +1485,8 @@ function PromptLayerDialog({
           Enabled
         </label>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-        <DialogFooter className="border-t px-6 py-4">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button type="button" onClick={save} disabled={saving || !scopeId || !prompt.trim()}>
-            {saving ? 'Saving...' : layer ? 'Save prompt layer' : 'Add prompt layer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PromptLayersTable({
-  layers,
-  options,
-  onSaved,
-}: {
-  layers: UcatGenerationPromptLayer[];
-  options: UcatGenerationSettingsBundle['taxonomyOptions'];
-  onSaved: () => void;
-}) {
-  const [editingLayer, setEditingLayer] = useState<UcatGenerationPromptLayer | null>(null);
-  const [creating, setCreating] = useState(false);
-  const optionById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
-  const columns = useMemo<ColumnDef<UcatGenerationPromptLayer>[]>(
-    () => [
-      {
-        accessorKey: 'scope_type',
-        header: 'Scope',
-        cell: ({ row }) => SCOPE_OPTIONS.find((option) => option.id === row.original.scope_type)?.label ?? row.original.scope_type,
-      },
-      {
-        accessorKey: 'scope_id',
-        header: 'Target',
-        cell: ({ row }) => {
-          const option = optionById.get(row.original.scope_id);
-          return option ? (option.section_name ? `${option.section_name} / ${option.name}` : option.name) : 'Unknown target';
-        },
-      },
-      { accessorKey: 'prompt_text', header: 'Instructions', cell: ({ row }) => <span className="line-clamp-2 max-w-2xl text-muted-foreground">{row.original.prompt_text}</span> },
-      { accessorKey: 'prompt_version', header: 'Version' },
-      { accessorKey: 'is_enabled', header: 'Status', cell: ({ row }) => row.original.is_enabled ? 'Enabled' : 'Disabled' },
-    ],
-    [optionById],
-  );
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle>Prompt layers</CardTitle>
-              <CardDescription>Section, category, and tag instructions injected into generation prompts.</CardDescription>
-            </div>
-            <Button type="button" variant="outline" onClick={() => setCreating(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add prompt layer
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable columns={columns} data={layers} searchKey="prompt_text" pagination="external" bodyRowClassName="cursor-pointer" onRowClick={setEditingLayer} />
-        </CardContent>
-      </Card>
-      <PromptLayerDialog
-        open={creating || !!editingLayer}
-        layer={editingLayer}
-        options={options}
-        onSaved={onSaved}
-        onOpenChange={(open) => { if (!open) { setCreating(false); setEditingLayer(null); } }}
-      />
-    </>
+      </div>
+    </AdminDialogShell>
   );
 }
 
@@ -930,6 +1496,9 @@ export function UcatGenerationSettingsPage() {
   const searchParams = useSearchParams();
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', data: null, error: null });
   const [creatingModelProfile, setCreatingModelProfile] = useState(false);
+  const [creatingChatProvider, setCreatingChatProvider] = useState(false);
+  const [addingCodexProvider, setAddingCodexProvider] = useState(false);
+  const [creatingPromptLayer, setCreatingPromptLayer] = useState(false);
   const tabParam = searchParams.get('tab');
   const activeTab: SettingsTab = VALID_TABS.includes(tabParam as SettingsTab) ? (tabParam as SettingsTab) : 'general';
 
@@ -956,14 +1525,73 @@ export function UcatGenerationSettingsPage() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
-  if (loadState.status === 'loading') return <p className="text-sm text-muted-foreground">Loading UCAT generation settings...</p>;
-  if (loadState.status === 'error') return <p className="text-sm text-destructive">{loadState.error}</p>;
+  const headerActions = useMemo(() => {
+    switch (activeTab) {
+      case 'providers':
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <AdminPageActionButton
+                icon={<Plus className="h-4 w-4" />}
+                label="Add provider"
+                trailingIcon={<ChevronDown className="h-4 w-4" />}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setCreatingChatProvider(true)}>
+                Chat completions provider
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAddingCodexProvider(true)}>
+                Log in to ChatGPT
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      case 'models':
+        return (
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add model profile"
+            onClick={() => setCreatingModelProfile(true)}
+          />
+        );
+      case 'prompts':
+        return (
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Add prompt layer"
+            onClick={() => setCreatingPromptLayer(true)}
+          />
+        );
+      default:
+        return undefined;
+    }
+  }, [activeTab]);
+
+  if (loadState.status === 'loading') {
+    return (
+      <div className="space-y-6 p-6">
+        <SettingsPageHeader title="UCAT generation" actions={headerActions} />
+        <p className="text-sm text-muted-foreground">Loading UCAT generation settings...</p>
+      </div>
+    );
+  }
+
+  if (loadState.status === 'error') {
+    return (
+      <div className="space-y-6 p-6">
+        <SettingsPageHeader title="UCAT generation" actions={headerActions} />
+        <p className="text-sm text-destructive">{loadState.error}</p>
+      </div>
+    );
+  }
 
   const bundle = loadState.data;
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
+      <SettingsPageHeader title="UCAT generation" actions={headerActions} />
       <SegmentedControl
         className="w-full max-w-xl min-w-0"
         fullWidth
@@ -982,14 +1610,13 @@ export function UcatGenerationSettingsPage() {
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="providers" activeTab={activeTab}>
-        <ProvidersTable providers={bundle.providers} onSaved={() => load(false)} />
+        <ProvidersTable providers={bundle.providers} oauthAccounts={bundle.oauthAccounts} onSaved={() => load(false)} />
       </SegmentedTabPanelContent>
 
-      <SegmentedTabPanelContent when="models" activeTab={activeTab} className="space-y-4">
+      <SegmentedTabPanelContent when="models" activeTab={activeTab}>
         <ModelProfilesTable
           profiles={bundle.modelProfiles}
           providers={bundle.providers}
-          onAdd={() => setCreatingModelProfile(true)}
           onSaved={() => load(false)}
         />
         <ModelProfileDialog
@@ -1001,10 +1628,27 @@ export function UcatGenerationSettingsPage() {
         />
       </SegmentedTabPanelContent>
 
-      <SegmentedTabPanelContent when="prompts" activeTab={activeTab} className="space-y-6">
-        <SystemPromptsTable prompts={bundle.systemPrompts} onSaved={() => load(false)} />
-        <PromptLayersTable layers={bundle.promptLayers} options={bundle.taxonomyOptions} onSaved={() => load(false)} />
+      <SegmentedTabPanelContent when="prompts" activeTab={activeTab}>
+        <PromptsTable
+          prompts={bundle.systemPrompts}
+          layers={bundle.promptLayers}
+          options={bundle.taxonomyOptions}
+          onSaved={() => load(false)}
+          createOpen={creatingPromptLayer}
+          onCreateOpenChange={setCreatingPromptLayer}
+        />
       </SegmentedTabPanelContent>
+
+      <CreateProviderDialog
+        open={creatingChatProvider}
+        onSaved={() => load(false)}
+        onOpenChange={setCreatingChatProvider}
+      />
+      <CodexOAuthProviderDialog
+        open={addingCodexProvider}
+        onSaved={() => load(false)}
+        onOpenChange={setAddingCodexProvider}
+      />
     </div>
     </TooltipProvider>
   );

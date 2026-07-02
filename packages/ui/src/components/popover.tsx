@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { RemoveScroll } from "react-remove-scroll"
 
 import { cn } from "../lib/cn"
 
@@ -14,9 +15,14 @@ const PopoverContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
     /** Optional portal container. Prefer the default body portal inside modals. */
     container?: HTMLElement | null;
+    /**
+     * When true, wraps content in RemoveScroll so wheel/touch scrolling works
+     * inside portaled popovers while a modal dialog/sheet scroll lock is active.
+     */
+    enableModalScroll?: boolean;
   }
->(({ className, align = "center", sideOffset = 4, container, ...props }, ref) => (
-  <PopoverPrimitive.Portal container={container}>
+>(({ className, align = "center", sideOffset = 4, container, enableModalScroll = false, ...props }, ref) => {
+  const content = (
     <PopoverPrimitive.Content
       ref={ref}
       align={align}
@@ -27,8 +33,18 @@ const PopoverContent = React.forwardRef<
       )}
       {...props}
     />
-  </PopoverPrimitive.Portal>
-))
+  );
+
+  return (
+    <PopoverPrimitive.Portal container={container}>
+      {enableModalScroll ? (
+        <RemoveScroll allowPinchZoom>{content}</RemoveScroll>
+      ) : (
+        content
+      )}
+    </PopoverPrimitive.Portal>
+  );
+})
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverContent } 
+export { Popover, PopoverTrigger, PopoverContent }
