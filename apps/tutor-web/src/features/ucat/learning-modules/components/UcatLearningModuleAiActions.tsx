@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -18,9 +19,10 @@ import {
   TooltipTrigger,
   useToast,
 } from '@altitutor/ui'
-import { FilePlus2, Info, Loader2, Wand2 } from 'lucide-react'
+import { FilePlus2, FileQuestion, Info, Loader2, Wand2 } from 'lucide-react'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
   BLOCK_TYPE_LABELS,
   newDraftBlock,
@@ -33,6 +35,7 @@ type AiRouteResponse = {
   metadata?: Record<string, unknown>
   summary?: string | null
   originalText?: string
+  stemId?: string
   error?: string
 }
 
@@ -119,13 +122,16 @@ export function UcatLearningModuleAiActions({
   onUpdateBlock,
 }: UcatLearningModuleAiActionsProps) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [generateOpen, setGenerateOpen] = useState(false)
   const [rewriteOpen, setRewriteOpen] = useState(false)
+  const [generateStemOpen, setGenerateStemOpen] = useState(false)
   const [teachingIntent, setTeachingIntent] = useState('')
   const [rewriteInstruction, setRewriteInstruction] = useState('')
+  const [stemInstruction, setStemInstruction] = useState('')
   const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [targetIndex, setTargetIndex] = useState(0)
-  const [pending, setPending] = useState<'generate' | 'rewrite' | null>(null)
+  const [pending, setPending] = useState<'generate' | 'rewrite' | 'stem' | null>(null)
   const [rewritePreview, setRewritePreview] = useState<{
     body: Json
     metadata: Record<string, unknown>
@@ -152,15 +158,15 @@ export function UcatLearningModuleAiActions({
     ],
     [blocks],
   )
-  const modelProfilesQuery = useUcatGenerationModelProfiles(generateOpen || rewriteOpen)
+  const modelProfilesQuery = useUcatGenerationModelProfiles(generateOpen || rewriteOpen || generateStemOpen)
   const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
   const effectiveModelProfileId =
     modelProfileId ?? modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null
 
   useEffect(() => {
-    if (!generateOpen) return
+    if (!generateOpen && !generateStemOpen) return
     setTargetIndex(selectedBlockIndex >= 0 ? selectedBlockIndex + 1 : blocks.length)
-  }, [blocks.length, generateOpen, selectedBlockIndex])
+  }, [blocks.length, generateOpen, generateStemOpen, selectedBlockIndex])
 
   const modulePayload = {
     moduleId,
@@ -256,6 +262,66 @@ export function UcatLearningModuleAiActions({
     }
   }
 
+  async function handleGenerateStem() {
+    if (!sectionId) {
+      toast({
+        description: 'Set the lesson section before generating a question stem.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const position =
+      positionOptions.find((item) => item.index === targetIndex) ??
+      positionOptions[positionOptions.length - 1]
+    setPending('stem')
+    try {
+      const response = await fetch('/api/ucat/learning-modules/ai-tools/generate-question-stem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module: {
+            ...modulePayload,
+            sectionId,
+          },
+          blocks,
+          targetIndex,
+          targetPositionLabel: position?.label ?? null,
+          instructions: stemInstruction.trim() || null,
+          modelProfileId: effectiveModelProfileId,
+        }),
+      })
+      const json = (await response.json()) as AiRouteResponse
+      if (!response.ok || !json.stemId) {
+        throw new Error(json.error ?? 'Lesson question stem generation failed')
+      }
+      const block = newDraftBlock('question_stem')
+      onInsertBlock(
+        {
+          ...block,
+          question_stem_id: json.stemId,
+          content: {
+            ...block.content,
+            aiGenerationMetadata: json.metadata ?? null,
+            pendingGeneratedStem: true,
+          },
+        },
+        targetIndex,
+      )
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      setGenerateStemOpen(false)
+      setStemInstruction('')
+      toast({ description: json.summary ?? 'Generated pending question stem inserted. Review before publishing.' })
+    } catch (error) {
+      toast({
+        description: error instanceof Error ? error.message : 'Lesson question stem generation failed',
+        variant: 'destructive',
+      })
+    } finally {
+      setPending(null)
+    }
+  }
+
   function handleApplyRewrite() {
     if (!selectedTextBlock || !rewritePreview) return
     onUpdateBlock(selectedTextBlock.clientId, {
@@ -288,6 +354,13 @@ export function UcatLearningModuleAiActions({
           icon={pending === 'rewrite' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           onClick={() => setRewriteOpen(true)}
           disabled={disabled || !selectedTextBlock}
+        />
+        <AiActionButton
+          label="Generate question stem"
+          description="Creates a pending AI-generated question stem using the lesson context, then inserts it as a private-draft placeholder block."
+          icon={pending === 'stem' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileQuestion className="h-4 w-4" />}
+          onClick={() => setGenerateStemOpen(true)}
+          disabled={disabled || !sectionId}
         />
       </div>
 
@@ -335,6 +408,56 @@ export function UcatLearningModuleAiActions({
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => String(item.index)}
                 placeholder="Select position"
+              />
+            </div>
+          </div>
+        </div>
+      </UcatDialogShell>
+
+      <UcatDialogShell
+        open={generateStemOpen}
+        onClose={() => setGenerateStemOpen(false)}
+        title="Generate question stem"
+        subtitle="Create a pending AI-generated UCAT stem for this lesson concept. The stem still requires tutor approval before students can see it."
+        saveLabel="Generate stem"
+        onSave={() => void handleGenerateStem()}
+        isSaving={pending === 'stem'}
+        saveDisabled={!sectionId}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Model profile</label>
+              <SearchableSelect<(typeof modelProfiles)[number]>
+                items={modelProfiles}
+                value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
+                onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => `${profile.name} (${profile.model})`}
+                placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Select model'}
+                searchPlaceholder="Search models..."
+                emptyMessage="No model profiles found"
+                loading={modelProfilesQuery.isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Insert position</label>
+              <SearchableSelect<PositionOption>
+                items={positionOptions}
+                value={positionOptions.find((item) => item.index === targetIndex) ?? null}
+                onValueChange={(item) => setTargetIndex(item?.index ?? blocks.length)}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => String(item.index)}
+                placeholder="Select position"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Optional instruction</label>
+              <Textarea
+                value={stemInstruction}
+                onChange={(event) => setStemInstruction(event.target.value)}
+                rows={5}
+                placeholder="e.g. Generate a True/False/Can't Tell stem that tests keyword scanning without being answerable by keyword matching alone."
               />
             </div>
           </div>

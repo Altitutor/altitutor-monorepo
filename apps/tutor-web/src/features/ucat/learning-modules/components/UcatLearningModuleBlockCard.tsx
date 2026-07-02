@@ -124,6 +124,11 @@ export const UcatLearningModuleBlockCard = forwardRef<
           <p className="text-sm font-semibold">
             Block {index + 1} · {BLOCK_TYPE_LABELS[block.block_type]}
           </p>
+          {block.block_type === 'question_stem' && block.content.pendingGeneratedStem ? (
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+              Pending AI-generated stem. Keep the lesson private until this stem is approved.
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center">
           <Button
@@ -245,7 +250,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
             questionOptions={questionOptions}
             selectedStemId={block.question_stem_id ?? null}
             selectedQuestionId={null}
-            onSelectStem={(stemId) => onUpdate({ question_stem_id: stemId })}
+            onSelectStem={(stemId) => onUpdate({ question_stem_id: stemId, content: {} })}
             onSelectQuestion={() => {}}
           />
         ) : null}

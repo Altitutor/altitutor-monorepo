@@ -125,7 +125,7 @@ export function UcatRichContentBlock({
       <div className={cn(toneClass, className)}>
         <RichTextEditor
           key={editorKey}
-          content={renderedContent}
+          content={renderedContent as Record<string, unknown>}
           editable={false}
           omitTypography
           minHeight="auto"

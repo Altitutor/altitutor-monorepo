@@ -205,7 +205,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
 
   const saveBlocks = useCallback(async () => {
     if (!moduleId) return
-    const validationError = validateBlocksForSave(draftBlocks)
+    const validationError = validateBlocksForSave(draftBlocks, { isPrivate })
     if (validationError) {
       throw new Error(validationError)
     }
@@ -213,7 +213,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     await replaceBlocks.mutateAsync({ moduleId, blocks: payload })
     setBlocksBaseline(JSON.stringify(payload))
     toast({ title: 'Blocks saved' })
-  }, [moduleId, draftBlocks, replaceBlocks, toast])
+  }, [moduleId, draftBlocks, isPrivate, replaceBlocks, toast])
 
   const saveAll = useCallback(async () => {
     if (settingsDirty) await saveSettings()

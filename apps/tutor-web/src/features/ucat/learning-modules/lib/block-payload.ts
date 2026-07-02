@@ -40,7 +40,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
       return {
         ...base,
         question_stem_id: block.question_stem_id?.trim() || undefined,
-        content: {},
+        content: block.content,
       }
     case 'question':
       return {
@@ -59,7 +59,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
   }
 }
 
-export function validateBlocksForSave(blocks: DraftBlock[]): string | null {
+export function validateBlocksForSave(blocks: DraftBlock[], options?: { isPrivate?: boolean }): string | null {
   for (let i = 0; i < blocks.length; i += 1) {
     const block = blocks[i]
     const label = `Block ${i + 1} (${block.block_type.replace(/_/g, ' ')})`
@@ -78,6 +78,9 @@ export function validateBlocksForSave(blocks: DraftBlock[]): string | null {
       case 'question_stem':
         if (!block.question_stem_id) {
           return `${label}: select a question stem before saving`
+        }
+        if (options?.isPrivate === false && block.content.pendingGeneratedStem) {
+          return `${label}: pending generated stems can only be saved in private lesson drafts`
         }
         break
       case 'question':
