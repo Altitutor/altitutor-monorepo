@@ -6,8 +6,8 @@ import {
   ucatSkillTrainerConfigApi,
   type UcatSkillTrainerConfigRow,
 } from '@/features/ucat-skill-trainer-config/api/ucat-skill-trainer-config';
-import { UcatSkillTrainerConfigForm } from '@/features/ucat-skill-trainer-config/components/UcatSkillTrainerConfigForm';
-import { AdminDialogShell, SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
+import { UcatSkillTrainerEditDialog } from '@/features/ucat-skill-trainer-config/components/UcatSkillTrainerConfigForm';
+import { SettingsDataTable, SettingsPageHeader, type SettingsDataTableColumn } from '@/shared/components';
 
 type SettingsRow = Awaited<ReturnType<typeof ucatSkillTrainerConfigApi.list>>[number];
 
@@ -99,15 +99,12 @@ export default function UcatSkillTrainersSettingsPage() {
           },
         ]}
       />
-      <AdminDialogShell
+      <UcatSkillTrainerEditDialog
+        trainer={editingRow}
         open={!!editingRow}
         onClose={() => setEditingRow(null)}
-        title={editingRow?.name ?? 'Edit skill trainer config'}
-        subtitle={editingRow?.description ?? undefined}
-        contentClassName="md:max-w-5xl"
-      >
-        <UcatSkillTrainerConfigForm trainer={editingRow} onSaved={() => void loadRows()} />
-      </AdminDialogShell>
+        onSaved={() => void loadRows()}
+      />
     </div>
   );
 }
