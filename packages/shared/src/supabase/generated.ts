@@ -20006,6 +20006,8 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
           deleted_at: string | null
           deleted_by: string | null
           id: string | null
@@ -20014,30 +20016,6 @@ export type Database = {
           set_count: number | null
           updated_at: string | null
           updated_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          id?: string | null
-          is_private?: boolean | null
-          name?: string | null
-          set_count?: never
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          id?: string | null
-          is_private?: boolean | null
-          name?: string | null
-          set_count?: never
-          updated_at?: string | null
-          updated_by?: string | null
         }
         Relationships: [
           {
