@@ -1,14 +1,14 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import type { Json } from '@altitutor/shared'
 import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@altitutor/ui'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import { buildEmptyStemFormValues, persistStemFormValues, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -20,10 +20,7 @@ import {
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
-import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import {
-  DEFAULT_OPTIONS,
-  EMPTY_DOC,
   type CategoryOption,
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -59,55 +56,9 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
   const initial = detailQuery.data as StemDetailRow | null
 
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
-    if (!initial) {
-      return {
-        sectionId: sections.find((section) => section.id)?.id ?? '',
-        categoryId: null,
-        stemText: EMPTY_DOC,
-        isPrivate: false,
-        tutorSourceNote: '',
-        questions: [
-          {
-            questionText: EMPTY_DOC,
-            questionType: 'multiple_choice',
-            answerExplanation: null,
-            difficulty: null,
-            timeBurdenSeconds: '',
-            tagIds: [],
-            sourceChannel: 'individual',
-            aiGenerationMetadata: null,
-            options: [...DEFAULT_OPTIONS],
-          },
-        ],
-      }
-    }
-
-    return {
-      sectionId: initial.section_id,
-      categoryId: initial.question_stem_category_id,
-      stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
-      isPrivate: initial.is_private,
-      tutorSourceNote: initial.tutor_source_note ?? '',
-      questions: (initial.questions ?? []).map((question) => ({
-        id: question.id,
-        questionText: (question.question_text ?? EMPTY_DOC) as Json,
-        answerExplanation: (question.answer_explanation ?? null) as Json | null,
-        questionType: question.question_type,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
-        tagIds: (question.tags ?? []).map((tag) => tag.id),
-        sourceChannel: question.source_channel ?? initial.source_channel ?? null,
-        aiGenerationMetadata: question.ai_generation_metadata ?? null,
-        options:
-          (question.answer_options ?? []).length > 0
-            ? (question.answer_options ?? []).map((option) => ({
-                answerText: (option.answer_text ?? EMPTY_DOC) as Json,
-                answerExplanation: (option.answer_explanation ?? null) as Json | null,
-                isAnswer: option.is_answer,
-              }))
-            : [...DEFAULT_OPTIONS],
-      })),
-    }
+    const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
+    if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
+    return stemDetailToFormValues(initial, fallbackSectionId)
   }, [initial, sections])
 
   const createForm = useForm as unknown as (props: {
@@ -122,53 +73,23 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
 
   const baseline = useMemo(() => snapshotQuestionStemFormValues(defaultValues), [defaultValues])
   const watchedValues = form.watch()
-  const hasUnsavedChanges = isSnapshotDirty(
-    snapshotQuestionStemFormValues(watchedValues),
-    baseline
-  )
-
-  async function onSubmit(values: UcatQuestionStemFormValues) {
-    if (!stemId) return
-    await updateStemMutation.mutateAsync({
-      stemId,
-      payload: {
-        stemId,
-        sectionId: values.sectionId,
-        categoryId: values.categoryId ?? null,
-        stemText: values.stemText,
-        isPrivate: values.isPrivate,
-        sourceChannel: initial?.source_channel ?? null,
-        tutorSourceNote: values.tutorSourceNote ?? null,
-        questions: values.questions.map((question, index) => ({
-          index: index + 1,
-          id: question.id,
-          questionText: question.questionText,
-          questionType: question.questionType,
-          difficulty: question.difficulty,
-          timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-          sourceChannel: question.sourceChannel ?? initial?.source_channel ?? null,
-          aiGenerationMetadata: question.aiGenerationMetadata ?? null,
-          tagIds: question.tagIds ?? [],
-          options: question.options.map((option, optionIndex) => ({
-            index: optionIndex + 1,
-            answerText: option.answerText,
-            answerExplanation: option.answerExplanation,
-            isAnswer: option.isAnswer,
-          })),
-        })),
-      },
-    })
-  }
-
-  const approvalStatus = (initial?.approval_status ?? 'approved') as
-    | 'approved'
-    | 'pending'
-    | 'rejected'
+  const hasUnsavedChanges = isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
+  const approvalStatus = (watchedValues.approvalStatus ?? initial?.approval_status ?? 'approved') as UcatApprovalStatus
 
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
-  async function handleSetApproval(status: 'approved' | 'pending' | 'rejected') {
-    await approvalMutation.mutateAsync({ stemId, status })
+  async function onSubmit(values: UcatQuestionStemFormValues) {
+    if (!stemId) return
+    await persistStemFormValues(stemId, values, {
+      baselineSnapshot: baseline,
+      updateStem: (payload) => updateStemMutation.mutateAsync({ stemId, payload }),
+      setApprovalStatus: (status) => approvalMutation.mutateAsync({ stemId, status }),
+    })
+  }
+
+  async function handleSetApproval(status: UcatApprovalStatus) {
+    form.setValue('approvalStatus', status, { shouldDirty: true })
+    await onSubmit({ ...form.getValues(), approvalStatus: status })
   }
 
   if (isLoading) return <UcatPageSkeleton rows={6} />

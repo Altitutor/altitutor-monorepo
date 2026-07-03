@@ -37,6 +37,7 @@ export function UcatSortableList({
   onRemove,
   onEdit,
   disableReorder = false,
+  flatCard = false,
 }: {
   ids: string[]
   renderLabel: (id: string, index: number) => React.ReactNode
@@ -44,6 +45,7 @@ export function UcatSortableList({
   onRemove: (id: string) => void
   onEdit?: (id: string) => void
   disableReorder?: boolean
+  flatCard?: boolean
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -57,6 +59,7 @@ export function UcatSortableList({
             onRemove={() => onRemove(id)}
             onEdit={onEdit ? () => onEdit(id) : undefined}
             showDragHandle={false}
+            flatCard={flatCard}
           />
         ))}
       </div>
@@ -85,6 +88,7 @@ export function UcatSortableList({
               label={renderLabel(id, index)}
               onRemove={() => onRemove(id)}
               onEdit={onEdit ? () => onEdit(id) : undefined}
+              flatCard={flatCard}
             />
           ))}
         </div>
@@ -103,6 +107,7 @@ function ListRow({
   isDragging = false,
   setNodeRef,
   style,
+  flatCard = false,
 }: {
   label: React.ReactNode
   onRemove: () => void
@@ -116,12 +121,17 @@ function ListRow({
   isDragging?: boolean
   setNodeRef?: (node: HTMLElement | null) => void
   style?: React.CSSProperties
+  flatCard?: boolean
 }) {
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(tutorCardCn('p-3'), isDragging && 'opacity-60')}
+      className={cn(
+        tutorCardCn('p-3'),
+        flatCard && 'shadow-none dark:shadow-none',
+        isDragging && 'opacity-60',
+      )}
     >
       <div className="flex items-start gap-2 sm:gap-3">
         {showDragHandle ? (
@@ -177,12 +187,14 @@ export function SortableRow({
   onRemove,
   onEdit,
   removeButtonVariant = 'outline',
+  flatCard = false,
 }: {
   id: string
   label: React.ReactNode
   onRemove: () => void
   onEdit?: () => void
   removeButtonVariant?: 'outline' | 'destructive'
+  flatCard?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = {
@@ -201,6 +213,7 @@ export function SortableRow({
       isDragging={isDragging}
       setNodeRef={setNodeRef}
       style={style}
+      flatCard={flatCard}
     />
   )
 }

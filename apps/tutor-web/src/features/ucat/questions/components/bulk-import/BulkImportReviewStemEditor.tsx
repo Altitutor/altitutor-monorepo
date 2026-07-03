@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
@@ -48,6 +48,13 @@ export function BulkImportReviewStemEditor({
     resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues: values,
   })
+  const lastLocalValuesRef = useRef<UcatQuestionStemFormValues | null>(values)
+
+  useEffect(() => {
+    if (values === lastLocalValuesRef.current) return
+    form.reset(values)
+    lastLocalValuesRef.current = values
+  }, [form, values])
 
   useEffect(() => {
     const watchAll = form.watch as (
@@ -55,6 +62,7 @@ export function BulkImportReviewStemEditor({
     ) => { unsubscribe: () => void }
 
     const subscription = watchAll((nextValues) => {
+      lastLocalValuesRef.current = nextValues
       onUpdateStem(stemId, nextValues)
     })
     return () => subscription.unsubscribe()

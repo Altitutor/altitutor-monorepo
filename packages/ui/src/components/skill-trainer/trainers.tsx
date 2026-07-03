@@ -449,10 +449,15 @@ export function QuickSyllogismTrainer({
   onAnswer: (answer: boolean) => void;
 }) {
   const [dropped, setDropped] = useState<"yes" | "no" | null>(null);
+  const premises =
+    Array.isArray(content.premises) && content.premises.length > 0
+      ? content.premises
+      : null;
+  const conclusion = content.conclusion?.trim() || content.statement;
 
   useEffect(() => {
     setDropped(null);
-  }, [content.statement]);
+  }, [content.statement, content.conclusion]);
 
   useEffect(() => {
     if (disabled) setDropped(null);
@@ -465,52 +470,63 @@ export function QuickSyllogismTrainer({
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 py-4">
-      <p className="text-center text-lg">{content.statement}</p>
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:justify-center">
-        <div
-          className="flex h-14 w-28 items-center justify-center rounded border border-dashed border-muted-foreground/50 bg-muted/30"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const choice = e.dataTransfer.getData("ucat-syllogism-choice") as "yes" | "no" | "";
-            if (choice === "yes" || choice === "no") handleDrop(choice);
-          }}
-        >
-          {dropped ? (
-            <span className="rounded border border-border bg-card px-4 py-2 text-sm font-medium text-card-foreground shadow-sm">
-              {dropped === "yes" ? "Yes" : "No"}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">Drop answer</span>
-          )}
+    <div className="mx-auto max-w-3xl space-y-6 py-4">
+      {premises ? (
+        <div className="space-y-3 text-base leading-7 sm:text-lg">
+          {premises.map((premise, index) => (
+            <p key={`${index}-${premise}`}>{premise}</p>
+          ))}
         </div>
-        <div className="w-[139px] rounded border border-border bg-muted/50 px-2 py-2">
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              draggable={!disabled}
-              disabled={disabled}
-              onDragStart={(e) => {
-                e.dataTransfer.setData("ucat-syllogism-choice", "yes");
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              draggable={!disabled}
-              disabled={disabled}
-              onDragStart={(e) => {
-                e.dataTransfer.setData("ucat-syllogism-choice", "no");
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
-            >
-              No
-            </button>
+      ) : null}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <p className="text-lg font-medium leading-7">{conclusion}</p>
+        <div className="flex items-start justify-center gap-3">
+          <div
+            className="flex h-14 w-28 shrink-0 items-center justify-center rounded border border-dashed border-muted-foreground/50 bg-muted/30"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const choice = e.dataTransfer.getData("ucat-syllogism-choice") as "yes" | "no" | "";
+              if (choice === "yes" || choice === "no") handleDrop(choice);
+            }}
+          >
+            {dropped ? (
+              <span className="rounded border border-border bg-card px-4 py-2 text-sm font-medium text-card-foreground shadow-sm">
+                {dropped === "yes" ? "Yes" : "No"}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Drop answer</span>
+            )}
+          </div>
+          <div className="w-[92px] rounded border border-border bg-muted/50 px-2 py-2">
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                draggable={!disabled}
+                disabled={disabled}
+                onClick={() => handleDrop("yes")}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("ucat-syllogism-choice", "yes");
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                draggable={!disabled}
+                disabled={disabled}
+                onClick={() => handleDrop("no")}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("ucat-syllogism-choice", "no");
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
+              >
+                No
+              </button>
+            </div>
           </div>
         </div>
       </div>

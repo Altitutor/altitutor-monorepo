@@ -1,0 +1,461 @@
+'use client'
+
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
+import { Bot, Check, Loader2, Send, Trash2, X } from 'lucide-react'
+import { cn } from '@/shared/utils'
+import type {
+  UcatAuthoringAgentContextType,
+  UcatAuthoringAgentResponse,
+  UcatAuthoringAgentScope,
+  UcatAuthoringAgentStreamEvent,
+  UcatAuthoringChatMessage,
+  UcatAuthoringToolCall,
+  UcatAuthoringToolExecutor,
+  UcatAuthoringToolResult,
+} from '@/features/ucat/authoring-agent/types'
+import type { Json } from '@altitutor/shared'
+import { useUcatGenerationModelProfiles } from '@/features/ucat/questions/hooks/useUcatQuestions'
+
+type UcatAuthoringAgentChatProps = {
+  contextType: UcatAuthoringAgentContextType
+  scope: UcatAuthoringAgentScope
+  scopeLabel: string
+  snapshot: Json
+  selectedImage?: {
+    label: string
+    src?: string | null
+    fileId?: string | null
+    location?: string | null
+  } | null
+  placeholder?: string
+  className?: string
+  onExecuteTool: UcatAuthoringToolExecutor
+}
+
+function createMessageId() {
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function toolRequiresConfirmation(toolCall: UcatAuthoringToolCall) {
+  return toolCall.requiresConfirmation || toolCall.name.toLowerCase().startsWith('delete')
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  updateStemText: 'Update Stem Text',
+  updateStemProperties: 'Update Stem Properties',
+  updateQuestionText: 'Update Question Text',
+  insertQuestion: 'Add Question',
+  updateQuestionProperties: 'Update Question Properties',
+  updateQuestionTags: 'Update Question Tags',
+  insertAnswerOption: 'Add Answer Option',
+  updateAnswerOption: 'Update Answer Option',
+  markCorrectAnswer: 'Mark Correct Answer',
+  updateAnswerExplanation: 'Update Explanation',
+  deleteQuestion: 'Delete Question',
+  deleteAnswerOption: 'Delete Answer Option',
+  updateLessonMetadata: 'Update Lesson Details',
+  insertTextBlock: 'Add Text Block',
+  updateTextBlock: 'Update Text Block',
+  insertQuestionStemBlock: 'Add Stem Block',
+  insertQuestionBlock: 'Add Question Block',
+  insertBestMatchingQuestionStem: 'Find And Add Stem',
+  insertBestMatchingQuestion: 'Find And Add Question',
+  insertSkillTrainerBlock: 'Add Skill Trainer Block',
+  moveBlock: 'Move Block',
+  updateBlockGate: 'Update Completion Gate',
+  deleteBlock: 'Delete Block',
+  updateReviewCandidateStemText: 'Update Review Stem',
+  updateReviewCandidateQuestionText: 'Update Review Question',
+  updateReviewCandidateQuestionProperties: 'Update Review Question Properties',
+  updateReviewCandidateAnswerOption: 'Update Review Answer Option',
+  updateReviewCandidateExplanation: 'Update Review Explanation',
+  deleteReviewCandidate: 'Delete Review Candidate',
+  insertImage: 'Generate Image',
+  replaceImageFromPrompt: 'Replace Image',
+  replaceVisualSpec: 'Insert Deterministic Visual',
+}
+
+function toolLabel(name: string) {
+  return TOOL_LABELS[name] ?? name.replace(/([a-z])([A-Z])/gu, '$1 $2')
+}
+
+async function readAgentStream(response: Response, onEvent: (event: UcatAuthoringAgentStreamEvent) => void) {
+  if (!response.body) throw new Error('AI authoring stream did not start')
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+    for (const rawEvent of events) {
+      const eventType = rawEvent.split('\n').find((line) => line.startsWith('event: '))?.slice(7)
+      const dataLine = rawEvent.split('\n').find((line) => line.startsWith('data: '))
+      if (!eventType || !dataLine) continue
+      onEvent({ type: eventType, ...JSON.parse(dataLine.slice(6)) } as UcatAuthoringAgentStreamEvent)
+    }
+  }
+}
+
+function createToolResultMessage(toolCall: UcatAuthoringToolCall, result: UcatAuthoringToolResult): UcatAuthoringChatMessage {
+  return {
+    id: createMessageId(),
+    role: 'tool',
+    content: result.message,
+    toolCallId: toolCall.id,
+    toolName: toolCall.name,
+    toolResult: result,
+  }
+}
+
+function ToolCard({
+  toolCall,
+  onApprove,
+  onDeny,
+  isPending,
+  result,
+}: {
+  toolCall: UcatAuthoringToolCall
+  onApprove: () => void
+  onDeny: () => void
+  isPending: boolean
+  result?: { ok: boolean; message: string } | null
+}) {
+  const isDelete = toolCall.name.toLowerCase().includes('delete')
+  const requiresConfirmation = toolRequiresConfirmation(toolCall)
+  return (
+    <div className="rounded-md border border-black/[0.08] bg-background p-2 text-xs shadow-sm dark:border-white/10">
+      <div className="flex items-start gap-2">
+        <div
+          className={cn(
+            'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+            isDelete ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground',
+          )}
+        >
+          {isDelete ? <Trash2 className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-foreground">{toolLabel(toolCall.name)}</div>
+          <div className="mt-0.5 leading-relaxed text-muted-foreground">{toolCall.summary}</div>
+          {result ? (
+            <div className={cn('mt-2 text-xs', result.ok ? 'text-emerald-700' : 'text-destructive')}>
+              {result.message}
+            </div>
+          ) : requiresConfirmation ? (
+            <div className="mt-2 flex items-center gap-2">
+              <Button type="button" size="sm" className="h-7 gap-1 text-xs" onClick={onApprove} disabled={isPending}>
+                {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Approve
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onDeny} disabled={isPending}>
+                <X className="h-3.5 w-3.5" />
+                Deny
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function UcatAuthoringAgentChat({
+  contextType,
+  scope,
+  scopeLabel,
+  snapshot,
+  selectedImage = null,
+  placeholder = 'Ask AI to edit this draft...',
+  className,
+  onExecuteTool,
+}: UcatAuthoringAgentChatProps) {
+  const { toast } = useToast()
+  const [messages, setMessages] = useState<UcatAuthoringChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [isSending, setIsSending] = useState(false)
+  const [activityStatus, setActivityStatus] = useState<string | null>(null)
+  const [pendingToolId, setPendingToolId] = useState<string | null>(null)
+  const [toolResults, setToolResults] = useState<Record<string, { ok: boolean; message: string }>>({})
+  const [pausedRuns, setPausedRuns] = useState<Record<string, UcatAuthoringChatMessage[]>>({})
+  const [modelProfileId, setModelProfileId] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const snapshotRef = useRef<Json>(snapshot)
+  const modelProfilesQuery = useUcatGenerationModelProfiles(true)
+  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+
+  const activePills = useMemo(
+    () => [scopeLabel, selectedImage?.label].filter((value): value is string => Boolean(value)),
+    [scopeLabel, selectedImage],
+  )
+
+  useEffect(() => {
+    if (modelProfileId || modelProfiles.length === 0) return
+    setModelProfileId(modelProfiles.find((profile) => profile.isDefault)?.id ?? modelProfiles[0]?.id ?? null)
+  }, [modelProfileId, modelProfiles])
+
+  useEffect(() => {
+    snapshotRef.current = snapshot
+  }, [snapshot])
+
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    node.scrollTop = node.scrollHeight
+  }, [messages, toolResults, pendingToolId, isSending, activityStatus])
+
+  async function executeTool(toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> {
+    setPendingToolId(toolCall.id)
+    try {
+      const result = await onExecuteTool(toolCall)
+      setToolResults((current) => ({
+        ...current,
+        [toolCall.id]: { ok: result.ok, message: result.message },
+      }))
+      if (!result.ok) {
+        toast({ description: result.message, variant: 'destructive' })
+      }
+      return {
+        toolCallId: toolCall.id,
+        ok: result.ok,
+        message: result.message,
+        output: result.output,
+      }
+    } finally {
+      setPendingToolId(null)
+    }
+  }
+
+  async function requestAgentStep(conversation: UcatAuthoringChatMessage[]): Promise<UcatAuthoringAgentResponse> {
+    const response = await fetch('/api/ucat/authoring-agent/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-ucat-agent-stream': '1',
+      },
+      body: JSON.stringify({
+        contextType,
+        scope,
+        scopeLabel,
+        modelProfileId,
+        selectedImage,
+        snapshot: snapshotRef.current,
+        messages: conversation,
+      }),
+    })
+    if (!response.ok) {
+      const json = (await response.json()) as { error?: string }
+      throw new Error(json.error ?? 'AI authoring failed')
+    }
+
+    let stepResponse: UcatAuthoringAgentResponse | null = null
+    await readAgentStream(response, (event) => {
+      if (event.type === 'status') {
+        setActivityStatus(event.message)
+      }
+      if (event.type === 'step') {
+        stepResponse = event.response
+        setActivityStatus(null)
+      }
+      if (event.type === 'error') throw new Error(event.message)
+    })
+
+    const resolvedStep = stepResponse
+    if (!resolvedStep) throw new Error('AI authoring failed before returning an agent step')
+    return resolvedStep
+  }
+
+  async function runAgentLoop(initialConversation: UcatAuthoringChatMessage[]) {
+    let conversation = initialConversation
+    const maxSteps = 12
+
+    for (let step = 0; step < maxSteps; step += 1) {
+      setActivityStatus(step === 0 ? 'Reading the current draft...' : 'Checking the tool result...')
+      const response = await requestAgentStep(conversation)
+      const assistantMessage: UcatAuthoringChatMessage = {
+        id: createMessageId(),
+        role: 'assistant',
+        content: response.message,
+        toolCalls: response.toolCalls,
+      }
+      conversation = [...conversation, assistantMessage]
+      setMessages((current) => [...current, assistantMessage])
+
+      const confirmationTools = response.toolCalls.filter(toolRequiresConfirmation)
+      if (confirmationTools.length > 0) {
+        setPausedRuns((current) => {
+          const next = { ...current }
+          for (const toolCall of confirmationTools) next[toolCall.id] = conversation
+          return next
+        })
+        return
+      }
+
+      if (response.toolCalls.length === 0 || response.status === 'final') return
+
+      for (const toolCall of response.toolCalls) {
+        const result = await executeTool(toolCall)
+        const toolResultMessage = createToolResultMessage(toolCall, result)
+        conversation = [...conversation, toolResultMessage]
+        setMessages((current) => [...current, toolResultMessage])
+      }
+    }
+
+    throw new Error('AI authoring stopped after too many tool steps. Try a smaller request.')
+  }
+
+  async function continueAfterToolDecision(toolCall: UcatAuthoringToolCall, approved: boolean) {
+    const pausedConversation = pausedRuns[toolCall.id]
+    if (!pausedConversation || isSending) return
+
+    setIsSending(true)
+    try {
+      let result: UcatAuthoringToolResult
+      if (approved) {
+        result = await executeTool(toolCall)
+      } else {
+        result = {
+          toolCallId: toolCall.id,
+          ok: false,
+          message: 'Denied by tutor.',
+        }
+        setToolResults((current) => ({
+          ...current,
+          [toolCall.id]: { ok: false, message: result.message },
+        }))
+      }
+      setPausedRuns((current) => {
+        const next = { ...current }
+        delete next[toolCall.id]
+        return next
+      })
+      const toolResultMessage = createToolResultMessage(toolCall, result)
+      setMessages((current) => [...current, toolResultMessage])
+      await runAgentLoop([...pausedConversation, toolResultMessage])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI authoring failed'
+      toast({ description: message, variant: 'destructive' })
+      setMessages((current) => [...current, { id: createMessageId(), role: 'assistant', content: message }])
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  async function submitMessage() {
+    const text = input.trim()
+    if (!text || isSending) return
+
+    const userMessage: UcatAuthoringChatMessage = {
+      id: createMessageId(),
+      role: 'user',
+      content: text,
+    }
+    const nextMessages = [...messages, userMessage]
+    setMessages(nextMessages)
+    setInput('')
+    setIsSending(true)
+
+    try {
+      await runAgentLoop(nextMessages)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI authoring failed'
+      toast({ description: message, variant: 'destructive' })
+      setMessages((current) => [...current, { id: createMessageId(), role: 'assistant', content: message }])
+    } finally {
+      setActivityStatus(null)
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <div className={cn('flex h-full min-h-0 flex-1 flex-col gap-3', className)}>
+      <div className="flex flex-wrap gap-1.5">
+        {activePills.map((pill) => (
+          <span key={pill} className="rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground">
+            {pill}
+          </span>
+        ))}
+      </div>
+
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-md border bg-muted/20 p-3">
+        {messages.length === 0 ? (
+          <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">
+            Ask for edits. AI changes the local draft; Save still controls persistence.
+          </div>
+        ) : (
+          messages.filter((message) => message.role !== 'tool').map((message) => (
+            <Fragment key={message.id}>
+              {message.content.trim() ? (
+                <div
+                  className={cn(
+                    'max-w-[92%] space-y-2 rounded-md px-3 py-2 text-sm break-words',
+                    message.role === 'user'
+                      ? 'ml-auto bg-primary text-primary-foreground'
+                      : 'mr-auto border bg-background text-foreground',
+                  )}
+                >
+                  <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                </div>
+              ) : null}
+              {message.role === 'assistant' && message.toolCalls?.length
+                ? message.toolCalls.map((toolCall) => (
+                  <div key={toolCall.id} className="mr-auto max-w-[92%] rounded-md">
+                    <ToolCard
+                      toolCall={toolCall}
+                      isPending={pendingToolId === toolCall.id}
+                      result={toolResults[toolCall.id] ?? null}
+                      onApprove={() => void continueAfterToolDecision(toolCall, true)}
+                      onDeny={() => void continueAfterToolDecision(toolCall, false)}
+                    />
+                  </div>
+                ))
+                : null}
+            </Fragment>
+          ))
+        )}
+        {activityStatus ? (
+          <div className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span>{activityStatus}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border bg-background p-2 shadow-sm">
+        <Textarea
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder={placeholder}
+          className="min-h-20 resize-none border-0 bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault()
+              void submitMessage()
+            }
+          }}
+        />
+        <div className="flex items-center justify-between gap-2 border-t pt-2">
+          <div className="min-w-0 flex-1 [&_button]:h-8 [&_button]:rounded-md [&_button]:bg-muted/40 [&_button]:text-xs">
+            <SearchableSelect<(typeof modelProfiles)[number]>
+              items={modelProfiles}
+              value={modelProfiles.find((profile) => profile.id === modelProfileId) ?? null}
+              onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
+              getItemId={(profile) => profile.id}
+              getItemLabel={(profile) => profile.name}
+              placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Model'}
+              searchPlaceholder="Search models..."
+              emptyMessage="No model profiles found"
+              loading={modelProfilesQuery.isLoading}
+            />
+          </div>
+          <Button type="button" size="icon" className="h-9 w-9 shrink-0 rounded-full" onClick={() => void submitMessage()} disabled={isSending || !input.trim()} aria-label="Send message">
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}

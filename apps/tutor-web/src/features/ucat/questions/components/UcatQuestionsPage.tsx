@@ -60,7 +60,7 @@ import {
 import { useCreateUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
-import type { StemDetailRow, UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -76,13 +76,12 @@ import {
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import {
-  filterOptionsWithContent,
   plainTextToProseMirror,
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
-import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import {
   buildTaxonomyPathLookup,
@@ -93,15 +92,20 @@ import {
   taxonomyDisplayLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
-  applyBooleanTextFilter,
-  applyCategoryFilter,
-  applyMultiSelectFilter,
-  applySingleSelectFilter,
-  applySort,
-  applyTagFilter,
   getFilterValues,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
+import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import {
+  countStemsInSets,
+  useUcatQuestionsTable,
+  type QuestionSearchScope,
+} from '@/features/ucat/questions/hooks/useUcatQuestionsTable'
+import {
+  parseSetStemIds,
+  removeStemsFromSets,
+  setDetailToUpdatePayload,
+} from '@/features/ucat/sets/lib/set-payload-mappers'
 import { clearUcatTableUrlParams } from '@/features/ucat/shared/lib/ucat-table-url-state'
 import {
   filterCategoriesForSections,
@@ -121,11 +125,11 @@ import {
   tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { buildStemSourceDisplay, stemSourceTooltip, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
+import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
+import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 
 type QuestionsTab = 'questions' | 'generated'
-type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
 
 const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: string }> = [
   { value: 'stem_text', label: 'Stem text' },
@@ -169,87 +173,6 @@ function parseQuestionsTab(value: string | null): QuestionsTab {
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
   return text.slice(0, maxLen) + '...'
-}
-
-function parseJsonUuidArray(v: unknown): string[] {
-  if (v == null || !Array.isArray(v)) return []
-  return v.filter((x): x is string => typeof x === 'string')
-}
-
-function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
-  const namesArr = Array.isArray(setNamesRaw) ? (setNamesRaw as Json[]) : []
-  return setIds.map((id, index) => ({
-    id,
-    name: proseMirrorToPlainText(namesArr[index]) || 'Untitled',
-  }))
-}
-
-type QuestionRow = {
-  id: string
-  section_name: string
-  section_id: string | null
-  category_name: string | null
-  question_stem_category_id: string | null
-  question_count: number
-  is_private: boolean
-  created_at: string | null
-  updated_at: string | null
-  tag_ids: string[]
-  type_summary: string
-  stem_text: string
-  question_text: string
-  answer_option_text: string
-  set_names: string
-  sets: Array<{ id: string; name: string }>
-  /** Staff sets only (matches set_names / set_ids in API). */
-  set_ids: string[]
-  deleted_at: string | null
-  approval_status: 'approved' | 'pending' | 'rejected'
-  source_channel: UcatQuestionSourceChannel | null
-  source: StemSourceDisplay
-}
-
-function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number {
-  return stemIds.filter((id) => (rows.find((r) => r.id === id)?.set_ids.length ?? 0) > 0).length
-}
-
-async function removeStemsFromSets(
-  stemIds: string[],
-  setIds: string[],
-  updateSet: (args: {
-    setId: string
-    payload: {
-      name: Json
-      description: string
-      timeLimitSeconds: number | null
-      isPrivate: boolean
-      isStudentGenerated: boolean
-      stemIds: string[]
-    }
-  }) => Promise<unknown>,
-): Promise<void> {
-  const removeSet = new Set(stemIds)
-  await Promise.all(
-    setIds.map(async (setId) => {
-      const setDetail = await ucatSetsApi.detail(setId)
-      if (!setDetail) return
-      const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
-      const currentIds = stems.map((s) => s.stem_id)
-      const newStemIds = currentIds.filter((id) => !removeSet.has(id))
-      if (newStemIds.length === currentIds.length) return
-      await updateSet({
-        setId,
-        payload: {
-          name: setDetail.name ?? plainTextToProseMirror(''),
-          description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
-          timeLimitSeconds: setDetail.time_limit_seconds ?? null,
-          isPrivate: !!setDetail.is_private,
-          isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
-          stemIds: newStemIds,
-        },
-      })
-    }),
-  )
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -340,7 +263,6 @@ export function UcatQuestionsPage() {
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
   const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
-  const [selectedStemIds, setSelectedStemIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
@@ -365,7 +287,6 @@ export function UcatQuestionsPage() {
   const [visibleAnswerOptionColumns, setVisibleAnswerOptionColumns] = useState(
     defaultVisibleAnswerOptionColumns,
   )
-  const selectionMode = selectedStemIds.size > 0
 
   const stemTypesQuery = useUcatQuestionStemTypes()
   const stemTypes = stemTypesQuery.data ?? {}
@@ -389,15 +310,6 @@ export function UcatQuestionsPage() {
   const previousTabRef = useRef(activeTab)
   const tableActionsRef = useRef(tableState.actions)
   tableActionsRef.current = tableState.actions
-  useEffect(() => {
-    if (previousTabRef.current === activeTab) return
-    previousTabRef.current = activeTab
-    tableActionsRef.current.onVisibleColumnsChange(initialVisibleColumns)
-    tableActionsRef.current.onReset()
-    setSelectedStemIds(new Set())
-    setExpandedStemIds(new Set())
-    setExpandedQuestionKeys(new Set())
-  }, [activeTab, initialVisibleColumns])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -443,9 +355,59 @@ export function UcatQuestionsPage() {
       !(s as { deleted_at?: string | null }).deleted_at &&
       !(s as { is_student_generated?: boolean }).is_student_generated
   )
+
+  const createMutation = useCreateUcatQuestionStem()
+  const updateMutation = useUpdateUcatQuestionStem()
+  const deleteMutation = useDeleteUcatQuestionStem()
+  const restoreMutation = useRestoreUcatQuestionStem()
+  const bulkImportMutation = useBulkImportUcatQuestionStems()
+
+  const { rows } = useUcatQuestionsTable({
+    data: questions.data,
+    mode,
+    stemTypes,
+    stemTagIds,
+    questionSearchTexts: questionSearchTexts.data,
+    categoryPathLookup,
+    tableState: tableState.state,
+    showDeleted,
+    searchScopes,
+  })
+
+  const { page, pageSize } = tableState.state
+  const totalRows = rows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize
+    return rows.slice(start, start + pageSize)
+  }, [rows, effectivePage, pageSize])
+
+  const {
+    selectedIds: selectedStemIds,
+    selectedIdsArray: selectedStemIdsArray,
+    selectionMode,
+    allVisibleSelected,
+    someVisibleSelected,
+    toggleSelection: toggleStemSelection,
+    toggleSelectAllVisible,
+    clearSelection,
+  } = useUcatRowSelection(paginatedRows)
+
+  useEffect(() => {
+    if (previousTabRef.current === activeTab) return
+    previousTabRef.current = activeTab
+    tableActionsRef.current.onVisibleColumnsChange(initialVisibleColumns)
+    tableActionsRef.current.onReset()
+    clearSelection()
+    setExpandedStemIds(new Set())
+    setExpandedQuestionKeys(new Set())
+  }, [activeTab, initialVisibleColumns, clearSelection])
+
+  const selectedSize = selectedStemIds.size
   const setIdsForDetail = useMemo(
     () => (addToSetsPopoverOpen && selectedStemIds.size > 0 ? setsList.map((s) => s.id ?? '').filter(Boolean) : []),
-    [addToSetsPopoverOpen, selectedStemIds.size, setsList]
+    [addToSetsPopoverOpen, selectedStemIds.size, setsList],
   )
   const setDetailQueries = useQueries({
     queries: setIdsForDetail.map((setId) => ({
@@ -455,22 +417,20 @@ export function UcatQuestionsPage() {
     })),
   })
   const setDetailsMap = useMemo(() => {
-    const m: Record<string, { stems: Array<{ stem_id: string }> } | null> = {}
-    setIdsForDetail.forEach((setId, i) => {
-      const data = setDetailQueries[i]?.data
+    const map: Record<string, { stems: Array<{ stem_id: string }> } | null> = {}
+    setIdsForDetail.forEach((setId, index) => {
+      const data = setDetailQueries[index]?.data
       const stems = (data?.stems as Array<{ stem_id: string }> | null) ?? null
-      m[setId] = stems ? { stems } : null
+      map[setId] = stems ? { stems } : null
     })
-    return m
+    return map
   }, [setIdsForDetail, setDetailQueries])
-  const selectedStemIdsArray = useMemo(() => Array.from(selectedStemIds), [selectedStemIds])
-  const selectedSize = selectedStemIds.size
   const setInCountMap = useMemo(() => {
     const map: Record<string, number> = {}
-    setsList.forEach((s) => {
-      const setId = s.id ?? ''
+    setsList.forEach((set) => {
+      const setId = set.id ?? ''
       const stems = setDetailsMap[setId]?.stems ?? []
-      const stemIdSet = new Set(stems.map((x) => x.stem_id))
+      const stemIdSet = new Set(stems.map((stem) => stem.stem_id))
       map[setId] = selectedStemIdsArray.filter((id) => stemIdSet.has(id)).length
     })
     return map
@@ -480,12 +440,12 @@ export function UcatQuestionsPage() {
     const inAny = new Set<string>()
     bulkSetIds.forEach((setId) => {
       const stems = setDetailsMap[setId]?.stems ?? []
-      stems.forEach((s) => inAny.add(s.stem_id))
+      stems.forEach((stem) => inAny.add(stem.stem_id))
     })
     return selectedStemIdsArray.filter((id) => inAny.has(id)).length
   }, [bulkSetIds, setDetailsMap, selectedStemIdsArray])
   const setDetailsReady =
-    setDetailQueries.length > 0 && setDetailQueries.every((q) => q.isFetched)
+    setDetailQueries.length > 0 && setDetailQueries.every((query) => query.isFetched)
   const addToSetsPreTickedRef = useRef(false)
   useEffect(() => {
     if (!addToSetsPopoverOpen) {
@@ -496,7 +456,7 @@ export function UcatQuestionsPage() {
     if (addToSetsPreTickedRef.current) return
     addToSetsPreTickedRef.current = true
     const allInSetIds = setsList
-      .map((s) => s.id ?? '')
+      .map((set) => set.id ?? '')
       .filter((setId) => setInCountMap[setId] === selectedSize)
     if (allInSetIds.length === 0) return
     setBulkSetIds((prev) => {
@@ -506,129 +466,15 @@ export function UcatQuestionsPage() {
     })
   }, [addToSetsPopoverOpen, selectedSize, setIdsForDetail.length, setDetailsReady, setsList, setInCountMap])
 
-  const createMutation = useCreateUcatQuestionStem()
-  const updateMutation = useUpdateUcatQuestionStem()
-  const deleteMutation = useDeleteUcatQuestionStem()
-  const restoreMutation = useRestoreUcatQuestionStem()
-  const bulkImportMutation = useBulkImportUcatQuestionStems()
-
-  const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
-    const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
-    const searchTexts = row.id ? questionSearchTexts.data?.[row.id] : null
-    const setIds = parseJsonUuidArray((row as { set_ids?: unknown }).set_ids)
-    const sets = parseStemSets(row.set_names, setIds)
-    const setsDisplay = sets.length > 0 ? sets.map((set) => set.name).join(', ') : '—'
-    return {
-      id: row.id ?? '',
-      section_name: row.section_name ?? '-',
-      section_id: row.section_id,
-      category_name: row.category_name,
-      question_stem_category_id: row.question_stem_category_id,
-      question_count: row.question_count ?? 0,
-      is_private: !!row.is_private,
-      created_at: row.created_at ?? null,
-      updated_at: row.updated_at,
-      tag_ids: row.id ? (stemTagIds[row.id] ?? []) : [],
-      type_summary: summary || '-',
-      stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
-      question_text: searchTexts?.questionText ?? '',
-      answer_option_text: searchTexts?.answerOptionText ?? '',
-      set_names: setsDisplay,
-      sets,
-      set_ids: setIds,
-      deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
-      approval_status:
-        ((row as { approval_status?: 'approved' | 'pending' | 'rejected' | null }).approval_status ??
-          'approved') as 'approved' | 'pending' | 'rejected',
-      source_channel: row.source_channel ?? 'individual',
-      source: buildStemSourceDisplay({
-        sourceChannel: row.source_channel,
-        aiGenerationMetadata: row.ai_generation_metadata,
-        tutorSourceNote: row.tutor_source_note,
-        createdByFirstName: row.created_by_first_name,
-        createdByLastName: row.created_by_last_name,
-      }),
-    }
-  })
-
-  const filteredRows = useMemo(() => {
-    const byDeleted = showDeleted
-      ? rows.filter((row) => row.deleted_at != null)
-      : rows.filter((row) => row.deleted_at == null)
-    const search = tableState.state.search.trim().toLowerCase()
-
-    return byDeleted.filter((row) => {
-      const searchHit =
-        search.length === 0 ||
-        searchScopes.some((scope) => row[scope].toLowerCase().includes(search))
-
-      const sectionHit = applyMultiSelectFilter(tableState.state, 'section_id', row.section_id)
-      const categoryHit = applyCategoryFilter(
-        tableState.state,
-        row.question_stem_category_id,
-        UCAT_FILTER_NO_CATEGORY
-      )
-      const tagHit = applyTagFilter(tableState.state, row.tag_ids)
-      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
-      const approvalHit =
-        mode !== 'generated' || applySingleSelectFilter(tableState.state, 'approval_status', row.approval_status)
-
-      const sourceHit = applyMultiSelectFilter(tableState.state, 'source_channel', row.source_channel)
-
-      const typeSelected = (tableState.state.filters.question_type?.[0] as string | undefined) ?? 'all'
-      const typeHit =
-        typeSelected === 'all' ||
-        (typeSelected === 'multiple_choice' && row.type_summary.includes('multiple_choice')) ||
-        (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
-
-      const selectedSetIds = getFilterValues(tableState.state, 'question_set_id').map(String)
-      const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
-      const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
-      const setHit =
-        selectedSetIds.length === 0 ||
-        (wantsNotInAnySet && row.set_ids.length === 0) ||
-        specificSetIds.some((sid) => row.set_ids.includes(sid))
-
-      return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit && sourceHit
-    })
-  }, [rows, tableState.state, showDeleted, mode, searchScopes])
-
-  const sortedRows = useMemo(
-    () =>
-      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
-        section_name: (r) => r.section_name,
-        category_name: (r) =>
-          resolveCategoryPathLabel(categoryPathLookup, r.question_stem_category_id, r.category_name),
-        stem_text: (r) => r.stem_text,
-        question_count: (r) => r.question_count,
-        sets: (r) => r.set_names,
-        type_summary: (r) => r.type_summary,
-        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
-        source: (r) => r.source.channelLabel,
-        created_at: (r) => r.created_at,
-        approval_status: (r) => r.approval_status,
-      }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection, categoryPathLookup]
-  )
-
-  const { page, pageSize } = tableState.state
-  const totalRows = sortedRows.length
-  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
-  const effectivePage = Math.min(page, pageCount)
-  const paginatedRows = useMemo(() => {
-    const start = (effectivePage - 1) * pageSize
-    return sortedRows.slice(start, start + pageSize)
-  }, [sortedRows, effectivePage, pageSize])
-
   const generatedApprovalQueueEntries = useMemo<UcatApprovalQueueEntry[]>(() => {
     if (mode !== 'generated') return []
     const selectedApprovalStatuses = getFilterValues(tableState.state, 'approval_status').map(String)
     const rowsForApproval =
       selectedApprovalStatuses.length > 0
-        ? sortedRows.filter((row) => row.approval_status === 'pending')
-        : sortedRows.filter((row) => row.approval_status === 'pending')
+        ? rows.filter((row) => row.approval_status === 'pending')
+        : rows.filter((row) => row.approval_status === 'pending')
     return rowsForApproval.map((row) => ({ stemId: row.id, mode: 'ai_approval' as const }))
-  }, [mode, sortedRows, tableState.state])
+  }, [mode, rows, tableState.state])
 
   function handleBeginGeneratedApprovals() {
     if (generatedApprovalQueueEntries.length === 0) {
@@ -717,71 +563,8 @@ export function UcatQuestionsPage() {
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
-  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedStemIds.has(r.id))
-  const someVisibleSelected = paginatedRows.some((r) => selectedStemIds.has(r.id))
-
-  function toggleStemSelection(id: string) {
-    setSelectedStemIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleSelectAllVisible() {
-    if (allVisibleSelected) {
-      setSelectedStemIds((prev) => {
-        const next = new Set(prev)
-        paginatedRows.forEach((r) => next.delete(r.id))
-        return next
-      })
-    } else {
-      setSelectedStemIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
-    }
-  }
-
-  function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
-    if (value == null) return null
-    if (typeof value === 'string' && value === 'null') return null
-    return value as import('@altitutor/shared').Json
-  }
-
-  function mapFormValuesToBundlePayload(
-    payload: UcatQuestionStemFormValues,
-    stemId?: string | null
-  ): UcatQuestionStemBundlePayload {
-    return {
-      stemId: stemId ?? undefined,
-      sectionId: payload.sectionId,
-      categoryId: payload.categoryId || null,
-      stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
-      sourceChannel: stemId ? undefined : 'individual',
-      tutorSourceNote: payload.tutorSourceNote ?? null,
-      questions: payload.questions.map((question, index) => ({
-        index: index + 1,
-        id: question.id,
-        questionText: question.questionText,
-        questionType: question.questionType,
-        answerExplanation: toExplanationNull(question.answerExplanation),
-        difficulty: question.difficulty,
-        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-        sourceChannel: question.sourceChannel ?? (stemId ? undefined : 'individual'),
-        aiGenerationMetadata: question.aiGenerationMetadata ?? null,
-        tagIds: question.tagIds ?? [],
-        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-          index: optionIndex + 1,
-          answerText: option.answerText,
-          answerExplanation: toExplanationNull(option.answerExplanation),
-          isAnswer: option.isAnswer,
-        })),
-      })),
-    }
-  }
-
   async function handleCreate(payload: UcatQuestionStemFormValues) {
-    const mapped = mapFormValuesToBundlePayload(payload)
+    const mapped = formValuesToStemBundlePayload(payload)
     const result = await createMutation.mutateAsync(mapped)
     setCreateOpen(false)
     const questionCount = payload.questions?.length ?? 0
@@ -802,14 +585,14 @@ export function UcatQuestionsPage() {
   async function handleUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
-    const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
+    const mapped = formValuesToStemBundlePayload(payload, editingStemId)
     await updateMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
     setEditingStemId(null)
   }
 
   async function handleBulkImportSubmit(args: BulkImportSubmitArgs) {
     const stemsPayload = args.stems.map((form) => ({
-      ...mapFormValuesToBundlePayload(form),
+      ...formValuesToStemBundlePayload(form),
       sourceChannel: 'bulk_import' as const,
       tutorSourceNote: args.tutorSourceNote ?? null,
     }))
@@ -838,19 +621,10 @@ export function UcatQuestionsPage() {
       } else {
         const setDetail = await ucatSetsApi.detail(args.addToSet.setId)
         if (setDetail) {
-          const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
-          const currentIds = stems.map((s) => s.stem_id)
-          const newStemIds = Array.from(new Set([...currentIds, ...ids]))
+          const newStemIds = Array.from(new Set([...parseSetStemIds(setDetail.stems), ...ids]))
           await updateSetMutation.mutateAsync({
             setId: args.addToSet.setId,
-            payload: {
-              name: setDetail.name ?? plainTextToProseMirror(''),
-              description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
-              timeLimitSeconds: setDetail.time_limit_seconds ?? null,
-              isPrivate: !!setDetail.is_private,
-              isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
-              stemIds: newStemIds,
-            },
+            payload: setDetailToUpdatePayload(setDetail, { stemIds: newStemIds }),
           })
           targetSetId = args.addToSet.setId
           targetSetName = proseMirrorToPlainText(setDetail.name ?? null) || 'Untitled'
@@ -889,7 +663,7 @@ export function UcatQuestionsPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkCategoryOpen(false)
       setBulkCategoryId(null)
-      setSelectedStemIds(new Set())
+      clearSelection()
     } finally {
       setBulkCategoryPending(false)
     }
@@ -904,7 +678,7 @@ export function UcatQuestionsPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkVisibilityOpen(false)
       setBulkVisibilityPrivate(null)
-      setSelectedStemIds(new Set())
+      clearSelection()
     } finally {
       setBulkVisibilityPending(false)
     }
@@ -919,25 +693,16 @@ export function UcatQuestionsPage() {
         bulkSetIds.map(async (setId) => {
           const setDetail = await ucatSetsApi.detail(setId)
           if (!setDetail) return
-          const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
-          const currentIds = stems.map((s) => s.stem_id)
-          const newStemIds = Array.from(new Set([...currentIds, ...stemIds]))
+          const newStemIds = Array.from(new Set([...parseSetStemIds(setDetail.stems), ...stemIds]))
           await updateSetMutation.mutateAsync({
             setId,
-            payload: {
-              name: setDetail.name ?? plainTextToProseMirror(''),
-              description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
-              timeLimitSeconds: setDetail.time_limit_seconds ?? null,
-              isPrivate: !!setDetail.is_private,
-              isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
-              stemIds: newStemIds,
-            },
+            payload: setDetailToUpdatePayload(setDetail, { stemIds: newStemIds }),
           })
         })
       )
       setBulkSetsOpen(false)
       setBulkSetIds([])
-      setSelectedStemIds(new Set())
+      clearSelection()
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
@@ -954,7 +719,7 @@ export function UcatQuestionsPage() {
       await removeStemsFromSets(stemIds, bulkRemoveSetIds, (args) => updateSetMutation.mutateAsync(args))
       setBulkRemoveSetsOpen(false)
       setBulkRemoveSetIds([])
-      setSelectedStemIds(new Set())
+      clearSelection()
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
@@ -1031,7 +796,7 @@ export function UcatQuestionsPage() {
     try {
       await deleteStemsWithSetRemoval(ids)
       setBulkDeleteOpen(false)
-      setSelectedStemIds(new Set())
+      clearSelection()
     } catch (err) {
       toast({
         title: 'Cannot delete',
@@ -1276,7 +1041,11 @@ export function UcatQuestionsPage() {
               {visible('stem_text') && <TableHead>Stem text</TableHead>}
               {visible('question_count') && <TableHead>Questions</TableHead>}
               {visible('sets') && <TableHead>Sets</TableHead>}
-              {visible('visibility') && <TableHead>Visibility</TableHead>}
+              {visible('visibility') && (
+                <TableHead>
+                  <UcatVisibilityTableHeaderLabel />
+                </TableHead>
+              )}
               {visible('source') && <TableHead>Source</TableHead>}
               {visible('created_at') && <TableHead>Date created</TableHead>}
               {visible('approval_status') && <TableHead>Approval</TableHead>}
@@ -1585,7 +1354,7 @@ export function UcatQuestionsPage() {
 
       <UcatSelectionToolbar
         selectedCount={selectedStemIds.size}
-        onCancel={() => setSelectedStemIds(new Set())}
+        onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={deleteMutation.isPending}
       >

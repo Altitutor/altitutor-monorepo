@@ -5,8 +5,7 @@ import type {
   DataTableFilterDefinition,
   DataTableSortOption,
 } from '@altitutor/shared'
-import { ListToolbar, Skeleton, type DataTableSearchFromOption } from '@altitutor/ui'
-import { UcatCatalogPagination } from '@/features/ucat/shared/components/ucat-catalog-pagination'
+import { ListToolbar, Skeleton, TablePagination, type DataTableSearchFromOption } from '@altitutor/ui'
 import {
   ucatCatalogToolbarClassName,
   ucatCatalogToolbarControlClassName,
@@ -75,6 +74,8 @@ export function UcatCatalogListPanel({
   pageSize = 10,
   total = 0,
   onPageChange = () => {},
+  onPageSizeChange = () => {},
+  pageSizeOptions = [10, 20, 50],
   isLoading = false,
   emptyMessage,
   hasItems,
@@ -87,8 +88,8 @@ export function UcatCatalogListPanel({
   const effectivePage = Math.min(Math.max(page, 1), pageCount)
 
   return (
-    <div className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
-      <div className="shrink-0 pb-2">
+    <div className={cn('flex h-full min-h-0 flex-1 flex-col', className)}>
+      <div className="shrink-0 px-1 pb-2">
         <ListToolbar
           compact={compact}
           search={search}
@@ -118,9 +119,9 @@ export function UcatCatalogListPanel({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
         {isLoading ? (
-          <div className="space-y-2 pr-0.5">
+          <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, index) => (
               <Skeleton key={index} className="h-14 w-full rounded-xl" />
             ))}
@@ -128,17 +129,19 @@ export function UcatCatalogListPanel({
         ) : !hasItems ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <div className="space-y-1.5 pr-0.5 pb-1">{children}</div>
+          <div className="space-y-1.5 pb-1 pt-px">{children}</div>
         )}
       </div>
 
-      {!hidePagination && !isLoading && pageCount > 1 ? (
-        <div className="mt-2 shrink-0 pt-2">
-          <UcatCatalogPagination
+      {!hidePagination && !isLoading ? (
+        <div className="mt-2 shrink-0 px-1 pt-2">
+          <TablePagination
             page={effectivePage}
             pageSize={pageSize}
             total={total}
             onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       ) : null}

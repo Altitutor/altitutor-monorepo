@@ -166,6 +166,50 @@ function isLabelNearShapeBoundary(label: { x: number; y: number }, shape: Record
   )
 }
 
+function stringSet(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => norm(String(item ?? ''))).filter(Boolean)
+}
+
+function parseSetRegionExpression(value: unknown): { include: string[]; exclude: string[] } {
+  const include: string[] = []
+  const exclude: string[] = []
+  const text = String(value ?? '').trim()
+  if (!text) return { include, exclude }
+  const normalized = text
+    .replace(/\bonly\b/giu, '')
+    .replace(/[∩&+,]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+  if (norm(normalized) === 'outside') return { include, exclude: ['*'] }
+  const tokens = normalized.split(/\s+/u)
+  let negateNext = false
+  for (const rawToken of tokens) {
+    const token = rawToken.trim()
+    if (!token) continue
+    if (/^(?:not|no|without|exclude|¬|!|not_)$/iu.test(token)) {
+      negateNext = true
+      continue
+    }
+    const cleaned = norm(token.replace(/^(?:not_|!|¬)/iu, ''))
+    if (!cleaned) continue
+    if (negateNext || cleaned !== norm(token)) exclude.push(cleaned)
+    else include.push(cleaned)
+    negateNext = false
+  }
+  return { include, exclude }
+}
+
+function setRegionKey(record: Record<string, unknown>): string | null {
+  const include = new Set(stringSet(record.include))
+  const exclude = new Set(stringSet(record.exclude))
+  const parsed = parseSetRegionExpression(record.region)
+  parsed.include.forEach((item) => include.add(item))
+  parsed.exclude.forEach((item) => exclude.add(item))
+  if (include.size === 0 && exclude.size === 0) return null
+  return `in:${Array.from(include).sort().join(',')}|out:${Array.from(exclude).sort().join(',')}`
+}
+
 function setVisualRegionLabels(block: ReturnType<typeof generatedBlocks>[number]) {
   if (block.type !== 'visual') return []
   const rawLabels = Array.isArray(block.spec.regionLabels)
@@ -180,7 +224,7 @@ function setVisualRegionLabels(block: ReturnType<typeof generatedBlocks>[number]
     const x = numberValue(record.x)
     const y = numberValue(record.y)
     const text = String(record.text ?? record.value ?? '')
-    return x == null || y == null ? [] : [{ text, x, y }]
+    return [{ text, x: x ?? null, y: y ?? null, regionKey: setRegionKey(record) }]
   })
 }
 
@@ -453,12 +497,43 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
         0
       )
     }
+    const semanticNumericLabels = numericRegionLabels.filter((label) => label.regionKey)
+    const duplicateRegionKeys = new Set<string>()
+    const seenRegionKeys = new Set<string>()
+    for (const label of semanticNumericLabels) {
+      const key = label.regionKey
+      if (!key) continue
+      if (seenRegionKeys.has(key)) duplicateRegionKeys.add(key)
+      seenRegionKeys.add(key)
+    }
+    if (hasVenn && duplicateRegionKeys.size > 0) {
+      add(
+        issues,
+        'blocking',
+        'dm_venn_duplicate_region_expression',
+        'Venn Diagram numeric labels must not put multiple values in the same set-region expression.',
+        stemIndex,
+        0
+      )
+    }
+    if (hasVenn && numericRegionLabels.length >= 3 && semanticNumericLabels.length < numericRegionLabels.length) {
+      add(
+        issues,
+        'blocking',
+        'dm_venn_region_expression_required',
+        'Every Venn Diagram numeric label must include a set-region expression so duplicate or missing logical regions can be detected.',
+        stemIndex,
+        0
+      )
+    }
     const hasBoundaryLabel = setVisuals.some((block) => {
       if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return false
       const shapes = (block.spec.shapes as unknown[])
         .map((raw) => raw && typeof raw === 'object' ? raw as Record<string, unknown> : null)
         .filter((shape): shape is Record<string, unknown> => !!shape)
-      const visualNumericLabels = setVisualRegionLabels(block).filter((label) => /\d/u.test(label.text))
+      const visualNumericLabels = setVisualRegionLabels(block).filter((label): label is { text: string; x: number; y: number; regionKey: string | null } =>
+        /\d/u.test(label.text) && label.x != null && label.y != null
+      )
       return visualNumericLabels.some((label) => shapes.some((shape) => isLabelNearShapeBoundary(label, shape)))
     })
     if (hasBoundaryLabel) {
@@ -495,15 +570,57 @@ function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string
     block.type === 'visual' &&
     ['bar_chart', 'stacked_bar_chart', 'line_chart', 'scatter_plot', 'histogram', 'pie_chart'].includes(block.visualType)
   )
-  const hasMap = visuals.some((block) => block.type === 'visual' && block.visualType === 'schematic_map')
-  if ((category === 'data tables' || category === 'timetables and calendars') && tables === 0) {
+  const hasMap = visuals.some((block) => block.type === 'visual' && ['schematic_map', 'route_map', 'layout_grid'].includes(block.visualType))
+  const hasTimetable = visuals.some((block) => block.type === 'visual' && block.visualType === 'timetable')
+  if (category === 'data tables' && tables === 0) {
     add(issues, 'blocking', 'qr_table_required', `${categoryName} questions must include a table block.`, stemIndex)
+  }
+  if (category === 'timetables and calendars' && tables === 0 && !hasTimetable) {
+    add(issues, 'blocking', 'qr_timetable_required', 'Timetables and Calendars questions must include a table block or deterministic timetable visual.', stemIndex)
   }
   if (category === 'graphs and charts' && !hasChart) {
     add(issues, 'blocking', 'qr_chart_required', 'Graphs and Charts questions must include a deterministic chart visual.', stemIndex)
   }
+  if (category === 'graphs and charts') {
+    const chartVisuals = visuals.filter((block) =>
+      block.type === 'visual' &&
+      ['bar_chart', 'stacked_bar_chart', 'line_chart', 'scatter_plot', 'histogram', 'pie_chart'].includes(block.visualType)
+    )
+    const thinChart = chartVisuals.some((block) => {
+      if (block.type !== 'visual') return false
+      const labels = Array.isArray(block.spec.labels) ? block.spec.labels.length : 0
+      const series = Array.isArray(block.spec.series) ? block.spec.series.length : 0
+      const panels = Array.isArray(block.spec.panels) ? block.spec.panels.length : 0
+      const points = Array.isArray(block.spec.points) ? block.spec.points.length : 0
+      return Math.max(labels, points, panels * 3) < 4 && series <= 1
+    })
+    if (thinChart) {
+      add(
+        issues,
+        'warning',
+        'qr_chart_low_information_density',
+        'Chart visual may be too sparse for realistic QR interpretation.',
+        stemIndex
+      )
+    }
+    const lacksAxisContext = chartVisuals.some((block) => {
+      if (block.type !== 'visual' || block.visualType === 'pie_chart') return false
+      const xAxis = block.spec.xAxis && typeof block.spec.xAxis === 'object' ? block.spec.xAxis as Record<string, unknown> : {}
+      const yAxis = block.spec.yAxis && typeof block.spec.yAxis === 'object' ? block.spec.yAxis as Record<string, unknown> : {}
+      return !String(xAxis.label ?? '').trim() || !String(yAxis.label ?? yAxis.unit ?? '').trim()
+    })
+    if (lacksAxisContext) {
+      add(
+        issues,
+        'warning',
+        'qr_chart_axis_context_missing',
+        'Chart visual should include axis labels or units so students can interpret the data source without guesswork.',
+        stemIndex
+      )
+    }
+  }
   if (category === 'maps and diagrams' && !hasMap) {
-    add(issues, 'blocking', 'qr_map_required', 'Maps and Diagrams questions must include a deterministic schematic map.', stemIndex)
+    add(issues, 'blocking', 'qr_map_required', 'Maps and Diagrams questions must include a deterministic map, route, or layout-grid visual.', stemIndex)
   }
   if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
     add(issues, 'blocking', 'qr_mixed_sources_required', 'Mixed Data Sources questions must include a table and a visual source.', stemIndex)

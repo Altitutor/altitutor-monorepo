@@ -55,6 +55,7 @@ export const ucatQuestionStemSchema = z.object({
   stemText: nonEmptyRichTextSchema,
   isPrivate: z.boolean().default(false),
   tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
+  approvalStatus: z.enum(['approved', 'pending', 'rejected']).optional(),
   questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
 })
 

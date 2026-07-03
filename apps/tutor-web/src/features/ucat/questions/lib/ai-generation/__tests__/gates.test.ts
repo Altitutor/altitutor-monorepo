@@ -145,9 +145,9 @@ describe('validateGeneratedStemCandidate', () => {
                       { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
                     ],
                     regionLabels: [
-                      { text: 4, x: 185, y: 190 },
-                      { text: 3, x: 310, y: 190 },
-                      { text: 5, x: 435, y: 190 },
+                      { text: 4, include: ['A'], exclude: ['B'] },
+                      { text: 3, include: ['A', 'B'] },
+                      { text: 5, include: ['B'], exclude: ['A'] },
                     ],
                   },
                 }],
@@ -261,9 +261,9 @@ describe('validateGeneratedStemCandidate', () => {
               { text: 'Triangle = Popcorn', x: 500, y: 112 },
               { text: 'Circle = Drink', x: 500, y: 151 },
               { text: 'Pentagon = Sweets', x: 500, y: 192 },
-              { text: 14, x: 115, y: 120 },
-              { text: 9, x: 188, y: 95 },
-              { text: 7, x: 330, y: 110 },
+              { text: 14, include: ['Popcorn'], exclude: ['Drink', 'Sweets'] },
+              { text: 9, include: ['Drink'], exclude: ['Popcorn', 'Sweets'] },
+              { text: 7, include: ['Sweets'], exclude: ['Popcorn', 'Drink'] },
             ],
           },
         }],
@@ -277,6 +277,72 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(false)
+  })
+
+  it('blocks duplicate semantic Venn region values', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Workshop attendance',
+          altText: 'Set diagram with duplicate semantic regions.',
+          spec: {
+            shapes: [
+              { id: 'A', shape: 'circle', label: 'Art', cx: 250, cy: 180, r: 100 },
+              { id: 'B', shape: 'circle', label: 'Books', cx: 345, cy: 180, r: 100 },
+            ],
+            regionLabels: [
+              { text: 6, include: ['A'], exclude: ['B'] },
+              { text: 5, include: ['A'], exclude: ['B'] },
+              { text: 4, include: ['A', 'B'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_region_expression')).toBe(true)
+  })
+
+  it('blocks Venn numeric labels without semantic region expressions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Activities',
+          altText: 'Set diagram with coordinate-only regions.',
+          spec: {
+            shapes: [
+              { shape: 'ellipse', label: 'A', cx: 260, cy: 190, rx: 120, ry: 80 },
+              { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
+            ],
+            regionLabels: [
+              { text: 4, x: 185, y: 190 },
+              { text: 3, x: 310, y: 190 },
+              { text: 5, x: 435, y: 190 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(true)
   })
 
   it('warns when Venn numeric labels are placed close to shape boundaries', () => {
@@ -346,6 +412,153 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_spec_required')).toBe(true)
+  })
+
+  it('accepts deterministic timetable visuals for QR timetable categories', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Timetables and Calendars',
+        stemText: [{
+          type: 'visual',
+          visualType: 'timetable',
+          title: 'Train times',
+          altText: 'Rail timetable.',
+          spec: {
+            columns: ['Station', 'Train A', 'Train B'],
+            rows: [
+              ['Central', '08:10', '08:35'],
+              ['North', '08:22', '08:47'],
+              ['Airport', '08:50', '09:15'],
+            ],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '20 min', isAnswer: true, answerExplanation: null },
+            { answerText: '25 min', isAnswer: false, answerExplanation: null },
+            { answerText: '30 min', isAnswer: false, answerExplanation: null },
+            { answerText: '35 min', isAnswer: false, answerExplanation: null },
+            { answerText: '40 min', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Timetables and Calendars',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_timetable_required')).toBe(false)
+  })
+
+  it('accepts route maps and layout grids for QR maps and diagrams', () => {
+    const routeIssues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Maps and Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'route_map',
+          title: 'Park walking paths',
+          altText: 'Route map with distances.',
+          spec: {
+            points: [
+              { id: 'gate', label: 'Gate', x: 70, y: 270 },
+              { id: 'lake', label: 'Lake', x: 190, y: 190 },
+              { id: 'hill', label: 'Hill', x: 310, y: 90 },
+            ],
+            lines: [
+              { from: 'gate', to: 'lake', label: '360 m' },
+              { from: 'lake', to: 'hill', label: '420 m' },
+            ],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '780 m', isAnswer: true, answerExplanation: null },
+            { answerText: '720 m', isAnswer: false, answerExplanation: null },
+            { answerText: '680 m', isAnswer: false, answerExplanation: null },
+            { answerText: '620 m', isAnswer: false, answerExplanation: null },
+            { answerText: '600 m', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Maps and Diagrams',
+      }
+    )
+    const gridIssues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Maps and Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'layout_grid',
+          title: 'Office floor plan',
+          altText: 'Grid floor plan.',
+          spec: {
+            rows: 3,
+            columns: 3,
+            rowLabels: ['North', 'Middle', 'South'],
+            columnLabels: ['West', 'Centre', 'East'],
+            cells: [{ row: 2, column: 2, label: 'Desk' }],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: 'Centre', isAnswer: true, answerExplanation: null },
+            { answerText: 'North', isAnswer: false, answerExplanation: null },
+            { answerText: 'South', isAnswer: false, answerExplanation: null },
+            { answerText: 'West', isAnswer: false, answerExplanation: null },
+            { answerText: 'East', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Maps and Diagrams',
+      }
+    )
+
+    expect(routeIssues.some((issue) => issue.code === 'qr_map_required')).toBe(false)
+    expect(gridIssues.some((issue) => issue.code === 'qr_map_required')).toBe(false)
+  })
+
+  it('warns for low-information QR charts without axis context', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        stemText: [{
+          type: 'visual',
+          visualType: 'bar_chart',
+          title: 'Bookings',
+          altText: 'Simple chart.',
+          spec: {
+            labels: ['Mon', 'Tue', 'Wed'],
+            values: [10, 12, 14],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '10', isAnswer: true, answerExplanation: null },
+            { answerText: '11', isAnswer: false, answerExplanation: null },
+            { answerText: '12', isAnswer: false, answerExplanation: null },
+            { answerText: '13', isAnswer: false, answerExplanation: null },
+            { answerText: '14', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Graphs and Charts',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_low_information_density')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'qr_chart_axis_context_missing')).toBe(true)
   })
 
   it('blocks syllogisms without five explained statements', () => {

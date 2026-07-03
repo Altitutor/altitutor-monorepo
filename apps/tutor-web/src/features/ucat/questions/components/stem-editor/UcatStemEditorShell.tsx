@@ -5,7 +5,7 @@ import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import type { UcatQuestionSourceChannel, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
 import {

@@ -41,7 +41,9 @@ export function plainTextToProseMirror(text: string): Json {
 type ProseMirrorNode = {
   type: string
   text?: string
+  marks?: Array<{ type: string }>
   attrs?: Record<string, Json | undefined>
+  content?: Json[]
 }
 
 function buildInlineNodesFromTokenizedString(text: string): ProseMirrorNode[] {
@@ -156,6 +158,224 @@ export function plainTextToProseMirrorWithLineBreaks(text: string): Json {
     content: line.length > 0 ? [{ type: 'text', text: line }] : [],
   }))
   return { type: 'doc', content }
+}
+
+function proseMirrorTableCell(text: string, header = false): Json {
+  return {
+    type: header ? 'tableHeader' : 'tableCell',
+    attrs: { colspan: 1, rowspan: 1, colwidth: null },
+    content: [proseMirrorParagraph(text)],
+  }
+}
+
+function normalizeInlineFormattingTags(text: string): string {
+  return text
+    .replace(/&lt;(\/?(?:b|strong|i|em))&gt;/giu, '<$1>')
+    .replace(/<((?:b|strong|i|em))\s+[^>]*>/giu, '<$1>')
+}
+
+function activeMarks(active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
+  const marks = new Set(active)
+  if (extra) marks.add(extra)
+  return Array.from(marks).map((type) => ({ type }))
+}
+
+function appendInlineTextNode(nodes: Json[], text: string, active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
+  if (!text) return
+  const marks = activeMarks(active, extra)
+  nodes.push(marks.length ? { type: 'text', text, marks } : { type: 'text', text })
+}
+
+function inlineTextNodes(text: string): Json[] {
+  const nodes: Json[] = []
+  const active = new Set<'bold' | 'italic'>()
+  const normalized = normalizeInlineFormattingTags(text)
+  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
+  let cursor = 0
+
+  for (const match of normalized.matchAll(pattern)) {
+    const index = match.index ?? 0
+    if (index > cursor) appendInlineTextNode(nodes, normalized.slice(cursor, index), active)
+    const token = match[0]
+    if (token.startsWith('**') && token.endsWith('**')) {
+      appendInlineTextNode(nodes, token.slice(2, -2), active, 'bold')
+    } else if (token.startsWith('_') && token.endsWith('_')) {
+      appendInlineTextNode(nodes, token.slice(1, -1), active, 'italic')
+    } else {
+      const tag = token.toLowerCase()
+      if (tag === '<b>' || tag === '<strong>') active.add('bold')
+      if (tag === '</b>' || tag === '</strong>') active.delete('bold')
+      if (tag === '<i>' || tag === '<em>') active.add('italic')
+      if (tag === '</i>' || tag === '</em>') active.delete('italic')
+    }
+    cursor = index + token.length
+  }
+
+  if (cursor < normalized.length) appendInlineTextNode(nodes, normalized.slice(cursor), active)
+  return nodes.filter((node) => {
+    const textValue = (node as Record<string, unknown>).text
+    return typeof textValue !== 'string' || textValue.length > 0
+  })
+}
+
+function proseMirrorParagraph(text: string): Json {
+  const trimmed = text.trim()
+  return {
+    type: 'paragraph',
+    content: trimmed ? inlineTextNodes(trimmed) : [],
+  }
+}
+
+function parseMarkdownTableRow(line: string): string[] | null {
+  const trimmed = line.trim()
+  if (!trimmed.includes('|')) return null
+  const withoutEdges = trimmed.replace(/^\|/u, '').replace(/\|$/u, '')
+  const cells = withoutEdges.split('|').map((cell) => cell.trim())
+  return cells.length >= 2 ? cells : null
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  const cells = parseMarkdownTableRow(line)
+  return !!cells && cells.every((cell) => /^:?-{3,}:?$/u.test(cell.replace(/\s+/gu, '')))
+}
+
+function markdownTableToProseMirror(lines: string[]): Json | null {
+  if (lines.length < 2 || !isMarkdownTableSeparator(lines[1] ?? '')) return null
+  const header = parseMarkdownTableRow(lines[0] ?? '')
+  if (!header) return null
+  const bodyLines = lines.slice(2)
+  const rows: Json[] = [
+    {
+      type: 'tableRow',
+      content: header.map((cell) => proseMirrorTableCell(cell, true)),
+    },
+  ]
+  for (const line of bodyLines) {
+    const cells = parseMarkdownTableRow(line)
+    if (!cells) continue
+    rows.push({
+      type: 'tableRow',
+      content: header.map((_, index) => proseMirrorTableCell(cells[index] ?? '')),
+    })
+  }
+  return rows.length > 1 ? { type: 'table', content: rows } : null
+}
+
+type MarkdownListItem = {
+  ordered: boolean
+  text: string
+}
+
+function parseMarkdownListMarker(line: string): MarkdownListItem | null {
+  const ordered = line.match(/^\s*\d+\.\s+(.+)$/u)
+  if (ordered?.[1]) return { ordered: true, text: ordered[1].trimEnd() }
+  const unordered = line.match(/^\s*[-*]\s+(.+)$/u)
+  if (unordered?.[1]) return { ordered: false, text: unordered[1].trimEnd() }
+  return null
+}
+
+function markdownListToProseMirror(items: string[], ordered: boolean): Json {
+  return {
+    type: ordered ? 'orderedList' : 'bulletList',
+    ...(ordered ? { attrs: { start: 1 } } : {}),
+    content: items.map((item) => ({
+      type: 'listItem',
+      content: [proseMirrorParagraph(item)],
+    })),
+  }
+}
+
+/**
+ * Converts AI-authored prose into ProseMirror JSON. Unlike the plain-text helpers,
+ * this detects GitHub-style markdown pipe tables and stores them as real table nodes.
+ */
+export function aiTextToProseMirror(text: string): Json {
+  if (!text || typeof text !== 'string') {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }
+
+  const lines = text.split(/\r?\n/u)
+  const content: Json[] = []
+  let paragraphLines: string[] = []
+
+  const flushParagraph = () => {
+    if (paragraphLines.length === 0) return
+    const paragraphText = paragraphLines.join('\n').trimEnd()
+    if (paragraphText.trim()) {
+      content.push(proseMirrorParagraph(paragraphText))
+    }
+    paragraphLines = []
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? ''
+    const next = lines[index + 1] ?? ''
+
+    const heading = line.match(/^(#{1,4})\s+(.+)$/u)
+    if (heading?.[1] && heading[2]) {
+      flushParagraph()
+      content.push({
+        type: 'heading',
+        attrs: { level: Math.min(heading[1].length, 4) },
+        content: inlineTextNodes(heading[2].trim()),
+      })
+      continue
+    }
+
+    if (parseMarkdownTableRow(line) && isMarkdownTableSeparator(next)) {
+      flushParagraph()
+      const tableLines = [line, next]
+      index += 2
+      while (index < lines.length && parseMarkdownTableRow(lines[index] ?? '')) {
+        tableLines.push(lines[index] ?? '')
+        index += 1
+      }
+      index -= 1
+      const table = markdownTableToProseMirror(tableLines)
+      if (table) content.push(table)
+      continue
+    }
+
+    const listStart = parseMarkdownListMarker(line)
+    if (listStart) {
+      flushParagraph()
+      const listItems: string[] = [listStart.text]
+      const ordered = listStart.ordered
+      index += 1
+      while (index < lines.length) {
+        const candidate = lines[index] ?? ''
+        const nextListItem = parseMarkdownListMarker(candidate)
+        if (nextListItem && nextListItem.ordered === ordered) {
+          listItems.push(nextListItem.text)
+          index += 1
+          continue
+        }
+        if (
+          candidate.trim() &&
+          /^\s{2,}\S/u.test(candidate) &&
+          !parseMarkdownTableRow(candidate) &&
+          !candidate.match(/^(#{1,4})\s+(.+)$/u)
+        ) {
+          listItems[listItems.length - 1] = `${listItems[listItems.length - 1].trimEnd()} ${candidate.trim()}`
+          index += 1
+          continue
+        }
+        break
+      }
+      index -= 1
+      content.push(markdownListToProseMirror(listItems, ordered))
+      continue
+    }
+
+    if (!line.trim()) {
+      flushParagraph()
+      continue
+    }
+    paragraphLines.push(line)
+  }
+  flushParagraph()
+
+  return { type: 'doc', content: content.length > 0 ? content : [{ type: 'paragraph', content: [] }] }
 }
 
 /** Like plainTextToProseMirrorWithLineBreaks, but preserves [[IMG:...]] tokens as image nodes. */

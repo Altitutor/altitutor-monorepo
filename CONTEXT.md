@@ -242,6 +242,9 @@
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
 
+- **Set-region expression** — A semantic label for one region of a Decision Making set diagram, defined by which sets are included and which sets are excluded. Set-region expressions describe the logical region that a number belongs to; they are separate from the visual shape layout used to draw the diagram.
+  _Avoid_: Venn template slot, fixed diagram template
+
 - **Generation candidate** — One AI-produced answer to a generation brief. The current synchronous workflow generates one candidate for each requested question stem and applies deterministic gates before tutor review.
   _Avoid_: Final generated question, published generated question
 

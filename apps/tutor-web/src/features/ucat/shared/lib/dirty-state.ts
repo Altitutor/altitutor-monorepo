@@ -41,6 +41,7 @@ export function snapshotQuestionStemFormValues(values: {
   categoryId?: string | null
   stemText: Json
   isPrivate: boolean
+  approvalStatus?: 'approved' | 'pending' | 'rejected' | null
   questions: Array<{
     questionText: Json
     questionType: string
@@ -60,6 +61,7 @@ export function snapshotQuestionStemFormValues(values: {
     categoryId: values.categoryId ?? null,
     stemText: jsonToPlainText(values.stemText),
     isPrivate: values.isPrivate,
+    approvalStatus: values.approvalStatus ?? null,
     questions: values.questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
       questionType: q.questionType,

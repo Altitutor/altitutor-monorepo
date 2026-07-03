@@ -1,3 +1,5 @@
+'use client'
+
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -13,8 +15,10 @@ import { formatSetSectionsDisplay, getSetSectionStatus, parseSetSections } from 
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
+import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-array'
 
 type SetRow = {
   id: string
@@ -49,11 +53,6 @@ type UseUcatSetsTableParams<T> = {
   sections?: UcatSectionForStatus[]
   /** Initial visible column keys; defaults to all base columns if not provided */
   initialVisibleColumns?: string[]
-}
-
-function parseJsonUuidArray(v: unknown): string[] {
-  if (v == null || !Array.isArray(v)) return []
-  return v.filter((x): x is string => typeof x === 'string')
 }
 
 type SetRowInput = {
@@ -252,7 +251,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
       key: 'visibility',
       column: {
         accessorKey: 'is_private',
-        header: 'Visibility',
+        header: () => <UcatVisibilityTableHeaderLabel />,
         cell: ({ row }) => <UcatVisibilityBadge isPrivate={row.original.is_private} />,
       },
     },

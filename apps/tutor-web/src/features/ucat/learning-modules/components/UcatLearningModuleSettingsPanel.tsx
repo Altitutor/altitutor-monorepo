@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Accordion,
   AccordionContent,
@@ -8,10 +8,15 @@ import {
   AccordionTrigger,
   Input,
   SearchableSelect,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
 } from '@altitutor/ui'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { cn } from '@/shared/utils'
 import type { UcatSectionOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
 import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
@@ -74,6 +79,7 @@ export function UcatLearningModuleSettingsPanel({
   onEditorModeChange,
   aiActions,
 }: UcatLearningModuleSettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
   const draftModules = useMemo(
     () =>
       modules.map((row) =>
@@ -130,7 +136,13 @@ export function UcatLearningModuleSettingsPanel({
   ]
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l bg-background p-4">
+    <aside className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="properties">Properties</TabsTrigger>
+          <TabsTrigger value="ai" disabled={!aiActions}>AI Tools</TabsTrigger>
+        </TabsList>
+        <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-4">
         <div className={tutorCardCn('space-y-4 p-3')}>
           <PropertyRow label="Mode">
@@ -146,7 +158,7 @@ export function UcatLearningModuleSettingsPanel({
           </PropertyRow>
         </div>
 
-        <Accordion type="multiple" defaultValue={['module', 'ai']} className="space-y-4">
+        <Accordion type="multiple" defaultValue={['module']} className="space-y-4">
           <AccordionItem value="module" className="border-0">
             <div className={tutorCardCn('overflow-hidden')}>
               <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
@@ -213,19 +225,6 @@ export function UcatLearningModuleSettingsPanel({
             </div>
           </AccordionItem>
 
-          {aiActions ? (
-            <AccordionItem value="ai" className="border-0">
-              <div className={tutorCardCn('overflow-hidden')}>
-                <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
-                  <span className="text-sm font-semibold">AI actions</span>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-2 border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
-                  {aiActions}
-                </AccordionContent>
-              </div>
-            </AccordionItem>
-          ) : null}
-
           {kind === 'folder' ? (
             <p className="px-1 text-xs text-muted-foreground">
               Folders organise lessons. Add child lessons by setting their parent folder.
@@ -250,6 +249,15 @@ export function UcatLearningModuleSettingsPanel({
           </AccordionItem>
         </Accordion>
       </div>
+        </TabsContent>
+        <TabsContent
+          forceMount
+          value="ai"
+          className={cn('h-full min-h-0 flex-1 overflow-hidden', activeTab !== 'ai' && 'hidden')}
+        >
+          {aiActions}
+        </TabsContent>
+      </Tabs>
     </aside>
   )
 }

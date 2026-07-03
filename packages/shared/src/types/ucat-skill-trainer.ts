@@ -59,6 +59,8 @@ export type FindConceptItemContent = {
 };
 
 export type QuickSyllogismItemContent = {
+  premises?: string[];
+  conclusion?: string;
   statement: string;
   answer: boolean;
   difficulty?: UcatSkillTrainerDifficulty;

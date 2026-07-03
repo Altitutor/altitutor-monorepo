@@ -16,46 +16,103 @@ import {
   SearchableSelect,
   useToast,
 } from '@altitutor/ui'
-import { Eye, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { cn } from '@/shared/utils'
-import { tutorBtnOutline, tutorTransition } from '@/shared/lib/tutor-visual'
+import {
+  getSetAddStemWarning,
+  getSetSectionStatus,
+  parseSetSections,
+  type UcatSectionForStatus,
+} from '@/features/ucat/shared/lib/set-section-status'
+import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
 
 type StaffSetOption = {
   id: string
   name: string
+  questionCount: number | null
+  sectionCount: number
+  firstSectionNumber: number | null
+  timeLimitSeconds: number | null
+  sections: unknown
 }
 
-const setCardClassName = cn(
-  'flex items-center justify-between gap-2 rounded-xl bg-card px-3 py-2 shadow-sm ring-1 ring-black/[0.06] dark:ring-white/[0.08]',
-  tutorTransition,
-)
+function formatSetQuestionCount(count: number | null): string {
+  if (count == null) return 'Question count unknown'
+  return count === 1 ? '1 question' : `${count} questions`
+}
+
+function SetQuestionCountSubtitle({
+  set,
+  sections,
+}: {
+  set: StaffSetOption
+  sections: UcatSectionForStatus[]
+}) {
+  const status = getSetSectionStatus(
+    {
+      sectionCount: set.sectionCount,
+      firstSectionNumber: set.firstSectionNumber,
+      question_count: set.questionCount,
+      time_limit_seconds: set.timeLimitSeconds,
+    },
+    sections,
+  )
+
+  return (
+    <SetStatusSpan
+      status={status.questionCountStatus}
+      tooltip={status.questionCountTooltip}
+      className="text-xs"
+    >
+      {formatSetQuestionCount(set.questionCount)}
+    </SetStatusSpan>
+  )
+}
 
 export function UcatStemSetMembershipCard({
   stemId,
+  stemSectionId,
   highlighted = false,
 }: {
   stemId: string | null | undefined
+  stemSectionId: string
   highlighted?: boolean
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const setsQuery = useUcatSets()
+  const sectionsQuery = useUcatSections()
+  const sections = sectionsQuery.data ?? []
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<StaffSetOption | null>(null)
+  const [addWarning, setAddWarning] = useState<{
+    setId: string
+    title: string
+    description: string
+  } | null>(null)
 
   const staffSets = useMemo(
     () =>
       (setsQuery.data ?? [])
         .filter((set) => set.id && !set.deleted_at && !set.is_student_generated)
-        .map((set) => ({
-          id: set.id as string,
-          name: proseMirrorToPlainText(set.name as Json | undefined) || 'Untitled',
-        })),
+        .map((set) => {
+          const parsed = parseSetSections(set.sections ?? null)
+          return {
+            id: set.id as string,
+            name: proseMirrorToPlainText(set.name as Json | undefined) || 'Untitled',
+            questionCount: set.question_count ?? null,
+            sectionCount: parsed.sectionCount,
+            firstSectionNumber: parsed.firstSectionNumber,
+            timeLimitSeconds: set.time_limit_seconds ?? null,
+            sections: set.sections ?? null,
+          }
+        }),
     [setsQuery.data],
   )
 
@@ -129,94 +186,139 @@ export function UcatStemSetMembershipCard({
     },
   })
 
+  const handleAddToSet = (set: StaffSetOption) => {
+    const rawSet = setsQuery.data?.find((candidate) => candidate.id === set.id)
+    const warning = getSetAddStemWarning(rawSet, stemSectionId, sections)
+    if (warning) {
+      setAddWarning({
+        setId: set.id,
+        title: warning.title,
+        description: warning.description,
+      })
+      return
+    }
+    addMutation.mutate(set.id)
+  }
+
   if (!stemId) return null
 
   const isLoading = setsQuery.isLoading || setDetailQueries.some((query) => query.isLoading)
 
   return (
     <>
-      <div className="space-y-2">
-        {highlighted ? (
-          <p className="text-xs text-amber-900 dark:text-amber-100">
-            Add this private stem to a staff-authored set.
-          </p>
-        ) : null}
+      {highlighted ? (
+        <p className="text-xs text-amber-900 dark:text-amber-100">
+          Add this private stem to a staff-authored set.
+        </p>
+      ) : null}
 
-        {isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading set membership...</p>
-        ) : currentSets.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Not in any staff-authored set.</p>
-        ) : (
-          <ul className="space-y-2">
-            {currentSets.map((set) => (
-              <li key={set.id} className={setCardClassName}>
-                <span className="min-w-0 truncate text-sm font-medium">{set.name}</span>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(tutorBtnOutline, 'h-8 gap-1 px-2.5')}
-                    onClick={() => setEditingSetId(set.id)}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    View
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      tutorBtnOutline,
-                      'h-8 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive',
-                    )}
-                    disabled={removeMutation.isPending}
-                    onClick={() => setRemoveTarget(set)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Loading set membership...</p>
+      ) : currentSets.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Not in any staff-authored set.</p>
+      ) : (
+        <ul className="space-y-1">
+          {currentSets.map((set) => (
+            <li key={set.id}>
+              <div className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 truncate text-left font-medium"
+                  onClick={() => setEditingSetId(set.id)}
+                >
+                  {set.name}
+                </button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 shrink-0 px-2.5"
+                  disabled={removeMutation.isPending}
+                  onClick={() => setRemoveTarget(set)}
+                >
+                  Remove
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <SearchableSelect<StaffSetOption>
+        items={addableSets}
+        value={null}
+        onValueChange={(set) => {
+          if (set) handleAddToSet(set)
+        }}
+        getItemId={(set) => set.id}
+        getItemLabel={(set) => set.name}
+        getItemValue={(set) => `${set.name} ${formatSetQuestionCount(set.questionCount)}`}
+        placeholder="Add to set"
+        searchPlaceholder="Search sets..."
+        emptyMessage="No available sets"
+        disabled={setsQuery.isLoading || addMutation.isPending}
+        showChevron={false}
+        renderItem={(set) => (
+          <div className="flex min-w-0 flex-1 flex-col items-start">
+            <span className="font-medium">{set.name}</span>
+            <SetQuestionCountSubtitle set={set} sections={sections} />
+          </div>
         )}
-
-        <SearchableSelect<StaffSetOption>
-          items={addableSets}
-          value={null}
-          onValueChange={(set) => {
-            if (set) addMutation.mutate(set.id)
-          }}
-          getItemId={(set) => set.id}
-          getItemLabel={(set) => set.name}
-          getItemValue={(set) => set.name}
-          placeholder="Add to set"
-          searchPlaceholder="Search sets..."
-          emptyMessage="No available sets"
-          disabled={setsQuery.isLoading || addMutation.isPending}
-          trigger={
-            <button
-              type="button"
-              disabled={setsQuery.isLoading || addMutation.isPending}
-              className={cn(
-                setCardClassName,
-                'w-full justify-center text-sm text-muted-foreground hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-50',
-              )}
-            >
-              <Plus className="h-4 w-4" />
-              Add to set
-            </button>
-          }
-          contentWidth="260px"
-          align="start"
-        />
-      </div>
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full gap-1"
+            disabled={setsQuery.isLoading || addMutation.isPending}
+          >
+            <Plus className="h-4 w-4" />
+            Add to set
+          </Button>
+        }
+        contentWidth="260px"
+        align="start"
+      />
 
       <UcatSetEditorDialog
         open={!!editingSetId}
         setId={editingSetId}
         onClose={() => setEditingSetId(null)}
       />
+
+      <AlertDialog open={!!addWarning} onOpenChange={(open) => !open && setAddWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{addWarning?.title ?? 'Review set before adding'}</AlertDialogTitle>
+            <AlertDialogDescription>{addWarning?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={addMutation.isPending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={() => {
+                const setId = addWarning?.setId
+                setAddWarning(null)
+                if (setId) setEditingSetId(setId)
+              }}
+            >
+              View set
+            </Button>
+            <AlertDialogAction
+              disabled={addMutation.isPending}
+              onClick={() => {
+                const setId = addWarning?.setId
+                setAddWarning(null)
+                if (setId) addMutation.mutate(setId)
+              }}
+            >
+              {addMutation.isPending ? 'Adding...' : 'Add anyway'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent>

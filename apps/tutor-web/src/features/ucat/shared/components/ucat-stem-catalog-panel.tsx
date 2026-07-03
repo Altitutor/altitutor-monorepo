@@ -209,6 +209,7 @@ type UcatStemCatalogListPanelProps = {
   emptyMessage?: string
   searchPlaceholder?: string
   className?: string
+  compact?: boolean
   onAddStem?: (stemId: string) => void
   onViewStem?: (stemId: string) => void
   onEditStem?: (stemId: string) => void
@@ -232,6 +233,7 @@ export function UcatStemCatalogListPanel({
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
   className,
+  compact = true,
   onAddStem,
   onViewStem,
   onEditStem,
@@ -310,6 +312,7 @@ export function UcatStemCatalogListPanel({
       emptyMessage={emptyMessage}
       hasItems={paginatedStems.length > 0}
       className={className}
+      compact={compact}
     >
       {paginatedStems.map((stem) => (
         <UcatStemCatalogRow
@@ -424,6 +427,7 @@ export function UcatStemMembershipListPanel({
       <UcatSortableList
         ids={displayIds}
         disableReorder={reorderDisabled}
+        flatCard
         onChange={(reorderedVisibleIds) => {
           onStemIdsChange(mergeVisibleOrderIntoFull(stemIds, displayIds, reorderedVisibleIds))
         }}
