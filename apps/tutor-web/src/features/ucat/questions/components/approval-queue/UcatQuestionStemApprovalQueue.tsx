@@ -41,8 +41,8 @@ import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared
 import { snapshotQuestionStemFormValues, isSnapshotDirty } from '@/features/ucat/shared/lib/dirty-state'
 import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
-  formValuesToStemBundlePayload,
   getFirstStemValidationMessage,
+  persistStemFormValues,
   stemDetailToFormValues,
 } from '@/features/ucat/questions/lib/stem-editor-form'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
@@ -193,6 +193,7 @@ function UcatQuestionStemApprovalQueue({
   const queueComplete = entries.length > 0 && index >= entries.length
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
+  const hasPreviousAiQuestion = isAiMode && activeQuestionIndex > 0
   const aiPrimaryLabel = isLastAiQuestion ? 'Approve' : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
@@ -223,11 +224,13 @@ function UcatQuestionStemApprovalQueue({
     ) => () => Promise<void>
     await submit(
       async (values) => {
-        await updateMutation.mutateAsync({
-          stemId: currentEntry.stemId,
-          payload: formValuesToStemBundlePayload(JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues, currentEntry.stemId),
+        baselineRef.current = await persistStemFormValues(currentEntry.stemId, values, {
+          baselineSnapshot: baselineRef.current,
+          updateStem: (payload) =>
+            updateMutation.mutateAsync({ stemId: currentEntry.stemId, payload }),
+          setApprovalStatus: (status) =>
+            approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
         })
-        baselineRef.current = snapshotQuestionStemFormValues(values)
         ok = true
       },
       (errors: Record<string, unknown>) => {
@@ -277,9 +280,9 @@ function UcatQuestionStemApprovalQueue({
 
   async function handleApprove() {
     if (!currentEntry) return
+    form.setValue('approvalStatus', 'approved', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
-    await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'approved' })
     if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
       await invalidateQueueData(currentEntry.stemId)
       onExit()
@@ -297,11 +300,15 @@ function UcatQuestionStemApprovalQueue({
     void handleApprove()
   }
 
+  function handleAiPreviousQuestion() {
+    setActiveQuestionIndex((current) => Math.max(current - 1, 0))
+  }
+
   async function handleReject() {
     if (!currentEntry) return
+    form.setValue('approvalStatus', 'rejected', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
-    await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'rejected' })
     goNext()
     void invalidateQueueData(currentEntry.stemId)
   }
@@ -387,6 +394,10 @@ function UcatQuestionStemApprovalQueue({
             onCurrentQuestionIndexChange={setActiveQuestionIndex}
             focusTarget={focus.target}
             focusMessage={focus.message}
+            sourceChannel={detailQuery.data?.source_channel ?? null}
+            aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
+            createdByFirstName={detailQuery.data?.created_by_first_name ?? null}
+            createdByLastName={detailQuery.data?.created_by_last_name ?? null}
           />
         )}
       </div>
@@ -396,6 +407,11 @@ function UcatQuestionStemApprovalQueue({
           {!queueComplete && currentEntry && isAiMode ? (
             <Button type="button" variant="destructive" onClick={() => void handleReject()} disabled={isMutating}>
               Reject
+            </Button>
+          ) : null}
+          {entries.length > 0 && !queueComplete && currentEntry ? (
+            <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
+              Skip
             </Button>
           ) : null}
           {activeTextEditor ? (
@@ -413,22 +429,25 @@ function UcatQuestionStemApprovalQueue({
             <div className="flex shrink-0 items-center gap-2">
               {isAiMode ? (
                 <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
-                    Skip
-                  </Button>
+                  {hasPreviousAiQuestion ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={tutorBtnOutline}
+                      onClick={handleAiPreviousQuestion}
+                      disabled={isMutating}
+                    >
+                      Previous question
+                    </Button>
+                  ) : null}
                   <Button type="button" className={tutorBtnPrimary} onClick={handleAiPrimaryAction} disabled={isMutating}>
                     {aiPrimaryLabel}
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
-                    Skip
-                  </Button>
-                  <Button type="button" className={tutorBtnPrimary} onClick={() => void handleSaveAndNext()} disabled={isMutating}>
-                    Save and next
-                  </Button>
-                </>
+                <Button type="button" className={tutorBtnPrimary} onClick={() => void handleSaveAndNext()} disabled={isMutating}>
+                  Save and next
+                </Button>
               )}
             </div>
           )}

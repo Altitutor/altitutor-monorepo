@@ -166,8 +166,7 @@ export function useExamAttemptLifecycle({
             questionId: question.id,
             questionSetId: question.questionSetId,
             mode: exam.sourceType,
-            wasTimed:
-              serverSegmentEndsAt != null || (limit != null && limit > 0),
+            wasTimed: limit != null && limit > 0,
           };
         })()
       : null;
@@ -358,17 +357,11 @@ export function useExamAttemptLifecycle({
       if (error instanceof QuotaExceededError) {
         beginBlockedRef.current = true;
         syncBlockedRef.current = true;
-        const returnHref =
-          kind === "mock"
-            ? `/mocks/${encodeURIComponent(resourceId)}`
-            : kind === "set"
-              ? `/sets/${encodeURIComponent(resourceId)}`
-              : "/dashboard";
         openQuotaLimit(error.payload, {
           dismissAction: {
-            label: kind === "mock" ? "Back to mock" : "Back to set",
-            onDismiss: () => router.replace(returnHref),
-            variant: "dismiss",
+            label: "Back to dashboard",
+            onDismiss: () => router.replace("/dashboard"),
+            variant: "dashboard",
           },
         });
         return;
@@ -454,13 +447,24 @@ export function useExamAttemptLifecycle({
 
     if (previousSegmentKey === null) return;
     const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
+    const localSegmentEndsAt =
+      limit != null && limit > 0 && state.timerStartedAt != null
+        ? new Date(state.timerStartedAt + limit * 1000).toISOString()
+        : null;
+    const shouldPreserveLocalElapsed =
+      localSegmentEndsAt != null && Date.now() - state.timerStartedAt! > 1000;
     segmentStartPendingRef.current = true;
+    setServerSegmentEndsAt(null);
     void syncExamAttempt({
       kind,
       attemptId: attemptIdRef.current,
       engineSnapshot: toExamEngineSnapshot(state),
-      currentSegmentEndsAt: null,
-      startSegmentTimeLimitSeconds: limit,
+      currentSegmentEndsAt: shouldPreserveLocalElapsed
+        ? localSegmentEndsAt
+        : null,
+      startSegmentTimeLimitSeconds: shouldPreserveLocalElapsed
+        ? undefined
+        : limit,
       setAttemptIdsBySetId: Object.fromEntries(
         attemptStateRef.current.setAttemptIdsBySetId.entries(),
       ),
@@ -564,6 +568,7 @@ export function useExamAttemptLifecycle({
   const syncQuestionTiming = useCallback(() => {
     if (!enabled || !exam || !kind || !attemptIdRef.current) return;
     if (syncBlockedRef.current) return;
+    if (segmentStartPendingRef.current) return;
     if (kind && isExamAttemptAtResults(kind, state.phase)) return;
     const input = {
       kind,

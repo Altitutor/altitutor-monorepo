@@ -100,19 +100,18 @@
 - **Learning module lesson display mode** — Tutor-authored setting on each lesson. **Scroll:** all blocks visible on one scrollable page; table of contents jumps to in-page anchors. **Stepped:** one block visible at a time; footer previous/next moves between blocks. Default for new lessons: stepped.
   _Avoid_: View mode, layout toggle
 
-- **Learning module block** — One ordered content unit within a learning module lesson. Stored in a dedicated blocks table (not inline JSONB on the lesson). Types: rich text, video, file, question stem, single question, or skill trainer set. Images are embedded in rich text blocks only — there is no separate image block type. Video blocks store an external embed URL (YouTube, Vimeo, Loom, etc.) in block `content` — no uploaded video storage in v1. Each block has display order, an optional `require_completion_before_next` gate (default on), and typed foreign keys where the content references existing UCAT entities (stems, questions, files). Simple payloads (e.g. rich text body, video URL) may live in a small JSONB `content` column on the block row. Tutors may attach either a whole question stem or a single question per block — both block types are supported.
+- **Learning module block** — One ordered content unit within a learning module lesson. Stored in a dedicated blocks table (not inline JSONB on the lesson). Types: rich text, video, file, question stem, single question, or skill trainer. Images are embedded in rich text blocks only — there is no separate image block type. Video blocks store an external embed URL (YouTube, Vimeo, Loom, etc.) in block `content` — no uploaded video storage in v1. Each block has display order, an optional `require_completion_before_next` gate (default on), and typed foreign keys where the content references existing UCAT entities (stems, questions, files, skill trainer types). Simple payloads (e.g. rich text body, video URL) may live in a small JSONB `content` column on the block row. Tutors may attach either a whole question stem or a single question per block — both block types are supported.
   _Avoid_: Lesson section, content chunk, block JSON
 
-- **Skill trainer set** — A tutor-authored, ordered list of skill trainer items drawn from a single skill trainer type (e.g. five Find the word items). Used as the fixed item queue for a skill trainer set block in a lesson and managed in tutor-web separately from the global trainer item bank shuffle.
   _Avoid_: Trainer playlist, drill set
 
 - **Learning module video block** — Embeds an external video URL (YouTube, Vimeo, Loom, etc.) stored in block `content`. Block completion when at least 50% has been watched.
   _Avoid_: Uploaded video, media block
 
-- **Learning module skill trainer block** — A learning module block that references one skill trainer set. The student runs a timed skill trainer attempt using that set's ordered items (not the global bank shuffle). Block completion when that learn-context attempt completes (time expiry or all set items finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
+- **Learning module skill trainer block** — A learning module block that references one skill trainer type. The student runs a timed embedded skill trainer session using a random queue from approved active items in that trainer's bank. Block completion when that learn-context session completes (time expiry or current run finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
   _Avoid_: Embedded trainer game, inline drill
 
-- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references a question stem; the student works through all questions on that stem. **Question block:** references one question; stem context is shown when the question belongs to a stem. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references an approved question stem; the student works through all questions on that stem. **Question block:** references one approved question; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its approved referenced assessment content without making that content part of the general question bank. Tutors may place a pending generated stem in a private lesson draft to preserve intended lesson structure, but pending, rejected, or deleted assessment content is not valid in a student-visible lesson. Answers submitted from learn blocks do not consume UCAT Free practice quota.
   _Avoid_: Practice embed, inline quiz
 
 - **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
@@ -142,7 +141,7 @@
 - **Skill trainer item** — One unit of drill content within a skill trainer type (e.g. one VR passage with keywords and hit targets, one maths question, one calculator button sequence). Authored for the skill trainer bank only; not an exam question stem.
   _Avoid_: Trainer question, drill stem
 
-- **Skill trainer config** — Admin-editable timing and scoring rules for one skill trainer type (time limit, cooldowns, base points, streak rules). Snapshotted when an attempt starts. Interaction tolerances (e.g. hitbox padding around a target sentence) and formulaic scoring for item complexity (mental maths difficulty, numpad sequence length) are computed in application code, not admin settings.
+- **Skill trainer config** — Admin-editable timing and scoring rules for one skill trainer type (time limit, base points, wrong-answer penalty, streak rules, speed bonus window/max points). Snapshotted when an attempt starts. Interaction tolerances (e.g. hitbox padding around a target sentence) and formulaic scoring for item complexity (mental maths difficulty, numpad sequence length) are computed in application code, not admin settings.
   _Avoid_: Trainer settings, game config
 
 - **Skill trainer target** — A correct interaction location within a skill trainer item (e.g. the sentence containing a keyword, or one occurrence of a concept in a passage). Stored as authored metadata on the item; click/drag tolerance padding is a fixed UI constant, not configurable per trainer. Find the word: target sentence index within the passage. Find the concept: character offsets (plain text) per occurrence.
@@ -177,8 +176,14 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
+  _Avoid_: Question type, answer mode, category
+
+- **Tutor source note** — Optional free-text provenance entered by a tutor to describe where source-derived UCAT content came from. It complements the question source channel and is not shown to students.
+  _Avoid_: Citation, student explanation, generation metadata
+
 - **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
-  _Avoid_: Individual question playlist, skill trainer set
+  _Avoid_: Individual question playlist
 
 - **UCAT set instruction section** — The UCAT section whose instructions are shown before a question set. For a multi-section set, this is the section represented by the largest number of stems in that set; ties use the earliest canonical UCAT section order. Its instruction content and instruction timing define the set's instructions segment.
   _Avoid_: First stem section, arbitrary section
@@ -197,6 +202,9 @@
 
 - **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
   _Avoid_: Auto-published question, synthetic question
+
+- **AI lesson text drafting** — A tutor-requested draft or rewrite of a learning module text block. It uses the surrounding lesson, the tutor's teaching intent, and the block's intended lesson position as context; may produce rich-text teaching structure such as headings, lists, emphasis, and tables; updates only the tutor's unsaved lesson draft until the tutor accepts and saves; and does not itself approve or publish learning content.
+  _Avoid_: Auto-authored lesson, published AI lesson, question generation
 
 - **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Regeneration, new question generation, answer-key generation
@@ -233,6 +241,9 @@
 
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
+
+- **Set-region expression** — A semantic label for one region of a Decision Making set diagram, defined by which sets are included and which sets are excluded. Set-region expressions describe the logical region that a number belongs to; they are separate from the visual shape layout used to draw the diagram.
+  _Avoid_: Venn template slot, fixed diagram template
 
 - **Generation candidate** — One AI-produced answer to a generation brief. The current synchronous workflow generates one candidate for each requested question stem and applies deterministic gates before tutor review.
   _Avoid_: Final generated question, published generated question

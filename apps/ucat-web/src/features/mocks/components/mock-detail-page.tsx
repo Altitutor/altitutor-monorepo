@@ -59,7 +59,7 @@ export function MockDetailPage({
   const attemptsHeadingId = useId();
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
 
-  const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 3 : 1;
+  const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 2 : 1;
   const backHref =
     backHrefProp ??
     (sessionEntryContext != null

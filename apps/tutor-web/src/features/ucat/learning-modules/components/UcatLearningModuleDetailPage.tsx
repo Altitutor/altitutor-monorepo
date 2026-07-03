@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@altitutor/ui'
+import { Button, useToast } from '@altitutor/ui'
 import { UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { TutorPageContainer } from '@/shared/components/layouts'
@@ -15,6 +15,7 @@ import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/
 
 export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string }) {
   const router = useRouter()
+  const { toast } = useToast()
   const access = useUcatAccess()
   const hasUcatAccess = Boolean(access.data)
   const moduleQuery = useUcatLearningModule(moduleId)
@@ -63,7 +64,15 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
           </Button>
           <Button
             type="button"
-            onClick={() => void editor.saveAll()}
+            onClick={() => {
+              void editor.saveAll().catch((error) => {
+                toast({
+                  title: 'Save failed',
+                  description: error instanceof Error ? error.message : String(error),
+                  variant: 'destructive',
+                })
+              })
+            }}
             disabled={!editor.hasUnsavedChanges || editor.isSaving}
           >
             {editor.isSaving ? 'Saving…' : 'Save'}

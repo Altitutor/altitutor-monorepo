@@ -1,9 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { completeStudentSetAttempt } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
+import {
+  completeStudentSetAttempt,
+  type FinalQuestionAttemptInput,
+} from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
 
 type AdminClient = SupabaseClient;
+
+export type FinalExamQuestionAttemptInput = FinalQuestionAttemptInput & {
+  questionSetId?: string | null;
+};
 
 export function isExamAttemptAtResults(
   kind: ExamAttemptKind,
@@ -23,14 +30,67 @@ export function isExamAttemptAtResults(
   }
 }
 
+async function ensureMockSetAttemptForFinalize(
+  admin: AdminClient,
+  studentId: string,
+  mockAttemptId: string,
+  questionSetId: string,
+  wasTimed: boolean,
+): Promise<string> {
+  const { data: existing, error: existingError } = await admin
+    .from("student_question_set_attempts")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("student_ucat_mock_attempt_id", mockAttemptId)
+    .eq("question_set_id", questionSetId)
+    .order("attempted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
+  if (existing?.id) return existing.id;
+
+  const { data: inserted, error: insertError } = await admin
+    .from("student_question_set_attempts")
+    .insert({
+      student_id: studentId,
+      question_set_id: questionSetId,
+      student_ucat_mock_attempt_id: mockAttemptId,
+      was_timed: wasTimed,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const { data: raced, error: racedError } = await admin
+        .from("student_question_set_attempts")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("student_ucat_mock_attempt_id", mockAttemptId)
+        .eq("question_set_id", questionSetId)
+        .order("attempted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (racedError) throw new Error(racedError.message);
+      if (raced?.id) return raced.id;
+    }
+    throw new Error(insertError.message);
+  }
+  if (!inserted?.id) throw new Error("Failed to create mock set attempt");
+  return inserted.id;
+}
+
 async function completeStudentMockAttempt(
   admin: AdminClient,
   studentId: string,
   attemptId: string,
+  finalAnswers?: FinalExamQuestionAttemptInput[],
 ): Promise<void> {
   const { data: attempt, error: attemptError } = await admin
     .from("student_ucat_mock_attempts")
-    .select("attempted_at, completed_at")
+    .select("attempted_at, completed_at, ucat_mock_id")
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
@@ -38,32 +98,68 @@ async function completeStudentMockAttempt(
   if (attemptError) throw new Error(attemptError.message);
   if (!attempt) throw new Error("Mock attempt not found");
   if (attempt.completed_at) return;
+  if (!attempt.ucat_mock_id) throw new Error("Mock attempt has no mock");
 
   const now = new Date();
 
-  const { data: setAttempts, error: setAttemptsError } = await admin
-    .from("student_question_set_attempts")
-    .select(
-      "id, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, completed_at",
-    )
-    .eq("student_ucat_mock_attempt_id", attemptId)
-    .eq("student_id", studentId);
+  const { data: mockSets, error: mockSetsError } = await admin
+    .from("question_sets_ucat_mocks")
+    .select("question_set_id, index")
+    .eq("ucat_mock_id", attempt.ucat_mock_id)
+    .order("index");
 
-  if (setAttemptsError) throw new Error(setAttemptsError.message);
+  if (mockSetsError) throw new Error(mockSetsError.message);
 
-  for (const setAttempt of setAttempts ?? []) {
-    if (!setAttempt.completed_at && setAttempt.id) {
-      await completeStudentSetAttempt(admin, studentId, setAttempt.id);
-    }
+  const configuredSetIds = (mockSets ?? [])
+    .map((row) => row.question_set_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (configuredSetIds.length === 0) {
+    throw new Error("Mock has no configured question sets");
   }
 
-  const { data: completedSetAttempts } = await admin
-    .from("student_question_set_attempts")
-    .select(
-      "question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds",
-    )
-    .eq("student_ucat_mock_attempt_id", attemptId)
-    .eq("student_id", studentId);
+  const answersByQuestionSetId = new Map<string, FinalQuestionAttemptInput[]>();
+  for (const answer of finalAnswers ?? []) {
+    if (!answer.questionSetId) continue;
+    const list = answersByQuestionSetId.get(answer.questionSetId) ?? [];
+    list.push({
+      questionId: answer.questionId,
+      questionAnswerOptionId: answer.questionAnswerOptionId,
+      answerSnapshot: answer.answerSnapshot,
+      isFlagged: answer.isFlagged,
+      wasTimed: answer.wasTimed,
+      mode: answer.mode,
+    });
+    answersByQuestionSetId.set(answer.questionSetId, list);
+  }
+
+  const selectedSetAttemptIds: string[] = [];
+  for (const questionSetId of configuredSetIds) {
+    const setAnswers = answersByQuestionSetId.get(questionSetId) ?? [];
+    const wasTimed = setAnswers.some((answer) => answer.wasTimed === true);
+    const setAttemptId = await ensureMockSetAttemptForFinalize(
+      admin,
+      studentId,
+      attemptId,
+      questionSetId,
+      wasTimed,
+    );
+    selectedSetAttemptIds.push(setAttemptId);
+    await completeStudentSetAttempt(admin, studentId, setAttemptId, setAnswers);
+  }
+
+  const { data: completedSetAttempts, error: completedSetAttemptsError } =
+    await admin
+      .from("student_question_set_attempts")
+      .select(
+        "question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds",
+      )
+      .eq("student_id", studentId)
+      .in("id", selectedSetAttemptIds);
+
+  if (completedSetAttemptsError) {
+    throw new Error(completedSetAttemptsError.message);
+  }
 
   const attempts = completedSetAttempts ?? [];
   const setIds = [
@@ -76,7 +172,10 @@ async function completeStudentMockAttempt(
 
   const { data: setDetails } =
     setIds.length > 0
-      ? await admin.from("question_sets").select("id, sections").in("id", setIds)
+      ? await admin
+          .from("question_sets")
+          .select("id, sections")
+          .in("id", setIds)
       : { data: [] };
 
   const sectionNumberBySetId = new Map<string, number>();
@@ -193,8 +292,7 @@ async function completeStudentPracticeSession(
   const scorePoints =
     session.score_points ??
     (attempts ?? []).reduce((sum, row) => sum + Number(row.score ?? 0), 0);
-  const questionCount =
-    session.question_count ?? (attempts ?? []).length;
+  const questionCount = session.question_count ?? (attempts ?? []).length;
 
   const { error: updateSessionError } = await admin
     .from("student_practice_sessions")
@@ -218,17 +316,33 @@ export async function finalizeExamAttemptOnServer(
   studentId: string,
   kind: ExamAttemptKind,
   attemptId: string,
-): Promise<void> {
+  finalAnswers?: FinalExamQuestionAttemptInput[],
+): Promise<{
+  success: true;
+  earnedDiscount?: boolean;
+  discountCents?: number;
+}> {
   switch (kind) {
-    case "set":
-      await completeStudentSetAttempt(admin, studentId, attemptId);
-      return;
+    case "set": {
+      const result = await completeStudentSetAttempt(
+        admin,
+        studentId,
+        attemptId,
+        finalAnswers,
+      );
+      return { success: true, ...result };
+    }
     case "mock":
-      await completeStudentMockAttempt(admin, studentId, attemptId);
-      return;
+      await completeStudentMockAttempt(
+        admin,
+        studentId,
+        attemptId,
+        finalAnswers,
+      );
+      return { success: true };
     case "practice":
       await completeStudentPracticeSession(admin, studentId, attemptId);
-      return;
+      return { success: true };
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

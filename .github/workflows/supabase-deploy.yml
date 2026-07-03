@@ -29,8 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # CLI version resolved from pnpm-lock.yaml (see supabase/setup-cli@v2)
       - uses: supabase/setup-cli@v2
+        with:
+          # v2.108.0 fails config push on some projects while reading Storage config:
+          # SchemaError(Missing key at ["databasePoolMode"])
+          version: 2.107.0
 
       - name: Confirm Supabase CLI version
         run: supabase --version
@@ -65,16 +68,17 @@ jobs:
             done
           fi
 
+      - name: Install jq (for Supabase Management API deploys)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Deploy configuration
+        timeout-minutes: 10
         run: |
           echo "📝 Deploying configuration changes..."
           cd supabase
           ./scripts/deploy-config.sh $SUPABASE_PROJECT_ID
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
-      - name: Install jq (for email template deployment)
-        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Deploy email templates
         run: |

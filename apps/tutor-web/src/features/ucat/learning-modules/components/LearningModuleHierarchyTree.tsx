@@ -15,14 +15,24 @@ import {
   taxonomyDropId,
 } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
+import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import { UcatInlineCreateLearningModule } from '@/features/ucat/learning-modules/components/UcatInlineCreateLearningModule'
 import { cn } from '@/shared/utils'
 
 type LearningModuleHierarchyTreeProps = {
   nodes: UcatLearningModuleTreeNode[]
   onItemClick: (id: string) => void
+  sectionId: string | null
   searchQuery?: string
   className?: string
   editMode?: boolean
+  showRootInlineCreate?: boolean
+  onInlineCreate?: (params: {
+    kind: UcatLearningModuleKind
+    title: string
+    sectionId: string | null
+    parentId: string | null
+  }) => Promise<void>
 }
 
 function nodeOrDescendantMatchesSearch(node: UcatLearningModuleTreeNode, query: string): boolean {
@@ -85,12 +95,16 @@ function LearningModuleHierarchyTreeNode({
   searchQuery,
   depth = 0,
   editMode = false,
+  sectionId,
+  onInlineCreate,
 }: {
   node: UcatLearningModuleTreeNode
   onItemClick: (id: string) => void
   searchQuery: string
   depth?: number
   editMode?: boolean
+  sectionId: string | null
+  onInlineCreate?: LearningModuleHierarchyTreeProps['onInlineCreate']
 }) {
   const hasChildren = node.children.length > 0
   const query = searchQuery.trim().toLowerCase()
@@ -116,6 +130,9 @@ function LearningModuleHierarchyTreeNode({
   }, [hasMatchingDescendant, matchesSearch])
 
   const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  const toggleExpanded = () => {
+    if (node.kind === 'folder') setExpanded((prev) => !prev)
+  }
 
   return (
     <li className="rounded-lg">
@@ -128,7 +145,7 @@ function LearningModuleHierarchyTreeNode({
       >
         <button
           type="button"
-          onClick={() => setExpanded((prev) => !prev)}
+          onClick={toggleExpanded}
           disabled={!hasChildren}
           aria-label={expanded ? `Collapse ${node.title}` : `Expand ${node.title}`}
           aria-expanded={hasChildren ? expanded : undefined}
@@ -165,7 +182,12 @@ function LearningModuleHierarchyTreeNode({
         <button
           type="button"
           onClick={() => {
-            if (!editMode) onItemClick(node.id)
+            if (editMode) return
+            if (node.kind === 'folder') {
+              toggleExpanded()
+              return
+            }
+            onItemClick(node.id)
           }}
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium transition-colors duration-300',
@@ -193,9 +215,20 @@ function LearningModuleHierarchyTreeNode({
               <LearningModuleHierarchyTree
                 nodes={node.children}
                 onItemClick={onItemClick}
+                sectionId={sectionId}
                 searchQuery={searchQuery}
                 editMode={editMode}
+                showRootInlineCreate={false}
+                onInlineCreate={onInlineCreate}
               />
+              {editMode && onInlineCreate && node.kind === 'folder' ? (
+                <UcatInlineCreateLearningModule
+                  sectionId={sectionId}
+                  parentId={node.id}
+                  indent={18}
+                  onCreate={onInlineCreate}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -207,12 +240,26 @@ function LearningModuleHierarchyTreeNode({
 export function LearningModuleHierarchyTree({
   nodes,
   onItemClick,
+  sectionId,
   searchQuery = '',
   className,
   editMode = false,
+  showRootInlineCreate = true,
+  onInlineCreate,
 }: LearningModuleHierarchyTreeProps) {
   if (!nodes.length) {
-    return <p className="text-sm text-muted-foreground">Nothing in this section.</p>
+    return (
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Nothing in this section.</p>
+        {editMode && showRootInlineCreate && onInlineCreate ? (
+          <UcatInlineCreateLearningModule
+            sectionId={sectionId}
+            parentId={null}
+            onCreate={onInlineCreate}
+          />
+        ) : null}
+      </div>
+    )
   }
 
   return (
@@ -223,10 +270,21 @@ export function LearningModuleHierarchyTree({
             key={node.id}
             node={node}
             onItemClick={onItemClick}
+            sectionId={sectionId}
             searchQuery={searchQuery}
             editMode={editMode}
+            onInlineCreate={onInlineCreate}
           />
         ))}
+        {editMode && showRootInlineCreate && onInlineCreate ? (
+          <li>
+            <UcatInlineCreateLearningModule
+              sectionId={sectionId}
+              parentId={null}
+              onCreate={onInlineCreate}
+            />
+          </li>
+        ) : null}
       </ul>
     </TooltipProvider>
   )

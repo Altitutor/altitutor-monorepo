@@ -9,6 +9,7 @@ import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import {
   UcatSetCatalogListPanel,
   UcatSetMembershipListPanel,
@@ -71,7 +72,7 @@ export function UcatMockEditorContent({
 
   return (
     <div className="flex h-full min-h-0">
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden border-r p-6">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r p-6">
         <h2 className="mb-3 shrink-0 font-semibold">Sets in mock</h2>
         <UcatSetMembershipListPanel
           setIds={draftSetIds}
@@ -86,7 +87,7 @@ export function UcatMockEditorContent({
         />
       </section>
 
-      <aside className="flex h-full w-96 shrink-0 flex-col overflow-hidden border-l p-6">
+      <aside className="flex h-full w-96 shrink-0 flex-col border-l p-6">
         <SegmentedTabPanel
           value={sideTab}
           onValueChange={(value) => setSideTab(value)}
@@ -107,7 +108,9 @@ export function UcatMockEditorContent({
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">Visibility</span>
+              <span className="mb-1 block font-medium">
+                <UcatVisibilityFieldLabel />
+              </span>
               <SearchableSelect<{ value: string; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
@@ -141,7 +144,7 @@ export function UcatMockEditorContent({
           <SegmentedTabPanelContent
             when="add-sets"
             activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-2"
+            className="m-0 mt-3 flex min-h-0 flex-1 flex-col pt-2"
           >
             <UcatSetCatalogListPanel
               sets={setCatalog}

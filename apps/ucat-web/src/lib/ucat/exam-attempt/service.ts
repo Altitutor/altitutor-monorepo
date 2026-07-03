@@ -8,6 +8,7 @@ import {
 } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
 import {
   finalizeExamAttemptOnServer,
+  type FinalExamQuestionAttemptInput,
   isExamAttemptAtResults,
 } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
@@ -157,8 +158,7 @@ async function reconcileSetSnapshotFromQuestionAttempts(
         (a, b) =>
           (stemIndexById.get(a.question_stem_id) ?? Number.MAX_SAFE_INTEGER) -
             (stemIndexById.get(b.question_stem_id) ??
-              Number.MAX_SAFE_INTEGER) ||
-          a.index - b.index,
+              Number.MAX_SAFE_INTEGER) || a.index - b.index,
       )
       .map((question) => question.id);
   }
@@ -177,17 +177,93 @@ async function maybeFinalizeResultsAttempt(
   admin: AdminClient,
   studentId: string,
   attempt: ActiveExamAttempt,
+  stored?: StoredExamSnapshot,
+  options: GetActiveExamAttemptOptions = {},
 ): Promise<boolean> {
   if (!isExamAttemptAtResults(attempt.kind, attempt.engineSnapshot.phase)) {
     return false;
   }
+  const examForFinalize =
+    attempt.kind === "set" || attempt.kind === "mock"
+      ? await resolveExamForCatchUp(attempt, {
+          exam: options.exam,
+          stored,
+          readerClient: options.readerClient,
+        })
+      : null;
   await finalizeExamAttemptOnServer(
     admin,
     studentId,
     attempt.kind,
     attempt.attemptId,
+    examForFinalize
+      ? buildFinalAnswersFromEngineSnapshot(
+          examForFinalize,
+          attempt.engineSnapshot,
+        )
+      : undefined,
   );
   return true;
+}
+
+function isQuestionTimedForFinalAnswer(
+  exam: QuestionEngineExam,
+  questionIndex: number,
+): boolean {
+  if (exam.sourceType === "set") {
+    return (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0;
+  }
+  if (exam.sourceType !== "mock") return false;
+  const segment = exam.mockTimingSegments?.find(
+    (item) =>
+      item.type === "questions" &&
+      questionIndex >= item.questionStartIndex &&
+      questionIndex <= item.questionEndIndex,
+  );
+  return segment?.type === "questions" && (segment.timeLimitSeconds ?? 0) > 0;
+}
+
+function buildFinalAnswersFromEngineSnapshot(
+  exam: QuestionEngineExam,
+  state: ExamEngineSnapshot,
+): FinalExamQuestionAttemptInput[] {
+  if (exam.sourceType !== "set" && exam.sourceType !== "mock") return [];
+
+  const answers: FinalExamQuestionAttemptInput[] = [];
+  exam.questions.forEach((question, questionIndex) => {
+    const selectedOptionId = state.selectedAnswers[question.id];
+    const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+    const isSyllogism = question.questionType === "syllogism";
+    const hasSyllogismAnswer =
+      isSyllogism &&
+      syllogismSnapshot &&
+      Object.keys(syllogismSnapshot).length > 0;
+
+    if (!selectedOptionId && !hasSyllogismAnswer) return;
+
+    const answer: FinalExamQuestionAttemptInput = {
+      questionSetId: question.questionSetId,
+      questionId: question.id,
+      questionAnswerOptionId: isSyllogism ? null : (selectedOptionId ?? null),
+      isFlagged: state.flaggedIds.includes(question.id),
+      wasTimed: isQuestionTimedForFinalAnswer(exam, questionIndex),
+      mode: exam.sourceType === "mock" ? "mock" : "set",
+    };
+
+    if (isSyllogism && syllogismSnapshot) {
+      answer.answerSnapshot = {
+        type: "syllogism_v1",
+        answers: Object.entries(syllogismSnapshot).map(([optionId, value]) => ({
+          question_answer_option_id: optionId,
+          answer: value,
+        })),
+      };
+    }
+
+    answers.push(answer);
+  });
+
+  return answers;
 }
 
 function resumeHref(kind: ExamAttemptKind, resourceId: string): string {
@@ -417,7 +493,15 @@ export async function getActiveExamAttempt(
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -429,7 +513,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -480,7 +572,15 @@ export async function getActiveExamAttempt(
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -492,7 +592,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -533,7 +641,15 @@ export async function getActiveExamAttempt(
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -545,7 +661,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -612,6 +736,9 @@ async function maybeCatchUp(
       studentId,
       attempt.kind,
       attempt.attemptId,
+      attempt.kind === "set" || attempt.kind === "mock"
+        ? buildFinalAnswersFromEngineSnapshot(examForCatchUp, caught.state)
+        : undefined,
     );
     return updated;
   }
@@ -708,6 +835,8 @@ async function ensureMockSetAttempt(
     .eq("student_id", studentId)
     .eq("student_ucat_mock_attempt_id", mockAttemptId)
     .eq("question_set_id", questionSetId)
+    .order("attempted_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (existing?.id) return existing.id;
 
@@ -721,7 +850,22 @@ async function ensureMockSetAttempt(
     })
     .select("id")
     .maybeSingle();
-  if (error || !inserted?.id) return null;
+  if (error) {
+    if (error.code === "23505") {
+      const { data: raced } = await admin
+        .from("student_question_set_attempts")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("student_ucat_mock_attempt_id", mockAttemptId)
+        .eq("question_set_id", questionSetId)
+        .order("attempted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return raced?.id ?? null;
+    }
+    return null;
+  }
+  if (!inserted?.id) return null;
   return inserted.id;
 }
 
@@ -885,8 +1029,7 @@ async function applyQuestionActiveTiming({
     const elapsedSeconds = Math.max(
       0,
       Math.floor(
-        (intervalEnd.getTime() - new Date(previous.startedAt).getTime()) /
-          1000,
+        (intervalEnd.getTime() - new Date(previous.startedAt).getTime()) / 1000,
       ),
     );
     nextSetAttemptIds = await incrementQuestionActiveTime({
@@ -1085,7 +1228,8 @@ export async function beginExamAttempt(
       })
       .select("id, question_set_id, was_timed")
       .maybeSingle();
-    if (error || !data) throw new Error(error?.message ?? "Failed to begin set");
+    if (error || !data)
+      throw new Error(error?.message ?? "Failed to begin set");
     const enrichedStored = enrichStoredSnapshotForAttempt(
       "set",
       data.id,
@@ -1141,7 +1285,8 @@ export async function beginExamAttempt(
       })
       .select("id, ucat_mock_id")
       .maybeSingle();
-    if (error || !data) throw new Error(error?.message ?? "Failed to begin mock");
+    if (error || !data)
+      throw new Error(error?.message ?? "Failed to begin mock");
 
     const setAttemptIdsBySetId: Record<string, string> = {};
     if (input.questionSetIdForMockSet) {
@@ -1156,7 +1301,9 @@ export async function beginExamAttempt(
         .select("id, question_set_id")
         .maybeSingle();
       if (setError || !setAttempt) {
-        throw new Error(setError?.message ?? "Failed to begin mock set attempt");
+        throw new Error(
+          setError?.message ?? "Failed to begin mock set attempt",
+        );
       }
       setAttemptIdsBySetId[setAttempt.question_set_id] = setAttempt.id;
       stored.setAttemptIdsBySetId = setAttemptIdsBySetId;

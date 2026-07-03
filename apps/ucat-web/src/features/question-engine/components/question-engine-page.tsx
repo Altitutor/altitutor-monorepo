@@ -91,7 +91,7 @@ export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
   "mx-auto h-[calc(100dvh-7rem)] max-h-[calc(100dvh-7rem)] w-full min-h-0 overflow-hidden";
 
 export const LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS =
-  "mx-auto h-full max-h-full w-full min-h-0 overflow-hidden";
+  "mx-auto h-[min(760px,calc(100dvh-8rem))] min-h-[520px] w-full overflow-hidden";
 
 function QuestionEngineLoadingContentSkeleton() {
   return (
@@ -432,6 +432,12 @@ export function QuestionEnginePage({
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
+  const engineStateRef = useRef(state);
+  engineStateRef.current = state;
+  const expiredMockNextSegmentRef = useRef<{
+    segment: ReturnType<typeof getNextMockSegment>;
+    startedAt: number;
+  } | null>(null);
 
   const openFinishPracticeDialog = useCallback(() => {
     setShowConfirmFinishPracticeDialog(true);
@@ -571,18 +577,17 @@ export function QuestionEnginePage({
     exam && (isSetOrMock || isQuestionsOrStem)
       ? getCurrentSegmentTimeLimitSeconds(exam, state)
       : null;
-  const isTimed =
-    (currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0) ||
-    serverSegmentEndsAt != null;
+  const isTimed = currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
+  const activeServerSegmentEndsAt = isTimed ? serverSegmentEndsAt : null;
   const remainingSeconds =
     exam && isTimed
-      ? examAttemptManaged && !serverSegmentEndsAt
+      ? examAttemptManaged && !activeServerSegmentEndsAt
         ? null
         : getRemainingSeconds(
             exam,
             state,
             state.timerStartedAt,
-            serverSegmentEndsAt,
+            activeServerSegmentEndsAt,
           )
       : null;
   const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
@@ -591,14 +596,14 @@ export function QuestionEnginePage({
   const displayRemainingSeconds =
     exam && isTimed
       ? (examAttemptManaged &&
-        (!serverSegmentEndsAt || awaitingServerSegmentStartRef.current)
+        (!activeServerSegmentEndsAt || awaitingServerSegmentStartRef.current)
           ? getRemainingSeconds(exam, state, state.timerStartedAt, null)
           : remainingSeconds)
       : null;
 
   useEffect(() => {
     awaitingServerSegmentStartRef.current = false;
-  }, [serverSegmentEndsAt]);
+  }, [activeServerSegmentEndsAt]);
 
   useEffect(() => {
     if (!isTimed) return;
@@ -650,6 +655,14 @@ export function QuestionEnginePage({
     if (examAttemptManaged && awaitingServerSegmentStartRef.current) {
       return;
     }
+
+    expiredMockNextSegmentRef.current =
+      exam.sourceType === "mock"
+        ? {
+            segment: getNextMockSegment(exam, engineStateRef.current),
+            startedAt: Date.now(),
+          }
+        : null;
 
     if (state.phase === "question" && exam.sourceType === "set") {
       setState((prev) => ({
@@ -749,16 +762,6 @@ export function QuestionEnginePage({
       const { earnedDiscount, discountCents, redirectHref } =
         await handleExamCompleted();
       if (examAttemptManaged) {
-        if (managedExamAttempt) {
-          try {
-            await finalizeExamAttempt({
-              kind: managedExamAttempt.kind,
-              attemptId: managedExamAttempt.attemptId,
-            });
-          } catch {
-            // Completion may already be persisted via handleExamCompleted.
-          }
-        }
         clearActiveExamAttempt();
         await refreshActiveExamAttempt();
       }
@@ -782,7 +785,6 @@ export function QuestionEnginePage({
   }, [
     handleExamCompleted,
     examAttemptManaged,
-    managedExamAttempt,
     clearActiveExamAttempt,
     refreshActiveExamAttempt,
     toast,
@@ -1671,6 +1673,8 @@ export function QuestionEnginePage({
   const hasPreviousInstructions = false;
   const showReadyToBeginDialog =
     state.phase === "intro" || state.showReadyDialog;
+  const showFinishPracticeControls = isPracticeMode && !embeddedInLesson;
+
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
@@ -1775,7 +1779,12 @@ export function QuestionEnginePage({
       });
       return;
     }
-    const nextSeg = getNextMockSegment(exam, state);
+    const capturedNextSegment = expiredMockNextSegmentRef.current;
+    const nextSeg =
+      capturedNextSegment != null
+        ? capturedNextSegment.segment
+        : getNextMockSegment(exam, state);
+    expiredMockNextSegmentRef.current = null;
     if (!nextSeg) {
       void runWithLag(async () => {
         const redirected = await completeExamAndMaybeRedirect();
@@ -1798,21 +1807,51 @@ export function QuestionEnginePage({
       });
       return;
     }
-    const timerStartedAt = state.nextSegmentTimerStartedAt ?? Date.now();
     void runWithLag(() => {
       setState((current) => {
         const next: typeof current = {
           ...current,
           showTimeExpiredDialog: false,
           nextSegmentTimerStartedAt: null,
-          timerStartedAt,
         };
-        if (nextSeg.type === "instructions") {
-          next.phase = "instructions";
-          next.instructionsIndex = nextSeg.instructionsIndex;
-        } else {
-          next.phase = "question";
-          next.currentIndex = nextSeg.questionStartIndex;
+
+        let activeSeg = nextSeg;
+        let segmentStartedAt =
+          capturedNextSegment?.startedAt ??
+          current.nextSegmentTimerStartedAt ??
+          Date.now();
+
+        while (activeSeg) {
+          if (activeSeg.type === "instructions") {
+            next.phase = "instructions";
+            next.instructionsIndex = activeSeg.instructionsIndex;
+          } else {
+            next.phase = "question";
+            next.currentIndex = activeSeg.questionStartIndex;
+            next.mockCurrentSetIndex = activeSeg.setIndex;
+          }
+
+          const limit = activeSeg.timeLimitSeconds ?? 0;
+          if (limit <= 0) {
+            next.timerStartedAt = null;
+            break;
+          }
+
+          const segmentEndsAt = segmentStartedAt + limit * 1000;
+          if (segmentEndsAt > Date.now()) {
+            next.timerStartedAt = segmentStartedAt;
+            break;
+          }
+
+          const followingSeg = getNextMockSegment(exam, next);
+          if (!followingSeg) {
+            next.phase = "mockScore";
+            next.timerStartedAt = null;
+            break;
+          }
+
+          activeSeg = followingSeg;
+          segmentStartedAt = segmentEndsAt;
         }
         return next;
       });
@@ -2197,7 +2236,7 @@ export function QuestionEnginePage({
               >
                 <span className="text-[14pt]">Back to results</span>
               </UcatExamActionButton>
-            ) : isPracticeMode &&
+            ) : showFinishPracticeControls &&
               (state.phase === "question" ||
                 (state.phase === "practiceAnswer" &&
                   !isLastSetPracticeAnswerScreen)) ? (
@@ -2258,7 +2297,7 @@ export function QuestionEnginePage({
                     </span>
                   </UcatExamActionButton>
                 ) : null}
-                {isLastSetPracticeAnswerScreen ? (
+                {isLastSetPracticeAnswerScreen && showFinishPracticeControls ? (
                   <UcatExamActionButton
                     onClick={() =>
                       void runWithLag(() => openFinishPracticeDialog())

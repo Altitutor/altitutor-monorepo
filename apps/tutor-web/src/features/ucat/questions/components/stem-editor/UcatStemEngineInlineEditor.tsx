@@ -173,6 +173,7 @@ export function UcatStemEngineInlineEditor({
               onChange={(v) => setStemText(v)}
               minHeight="200px"
               pasteTableBehavior="keep"
+              paragraphSpacing
               onEditorReady={(editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)}
             />
           </div>

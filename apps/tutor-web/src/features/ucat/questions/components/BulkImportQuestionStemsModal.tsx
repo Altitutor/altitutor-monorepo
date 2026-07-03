@@ -87,6 +87,7 @@ import {
 export type BulkImportSubmitArgs = {
   sectionId: string
   stems: UcatQuestionStemFormValues[]
+  tutorSourceNote: string | null
   addToSet: AddToSetConfig | null
 }
 
@@ -130,6 +131,7 @@ export function BulkImportQuestionStemsModal({
   const [parseError, setParseError] = useState<string | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [sectionId, setSectionId] = useState<string | null>(null)
+  const [tutorSourceNote, setTutorSourceNote] = useState('')
   const [separateStemDocument, setSeparateStemDocument] = useState(false)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [stemSplitOptions, setStemSplitOptions] = useState<StemSplitOptions>(DEFAULT_STEM_SPLIT_OPTIONS)
@@ -239,6 +241,7 @@ export function BulkImportQuestionStemsModal({
     setParseError(null)
     setIsParsing(false)
     setSectionId(null)
+    setTutorSourceNote('')
     setSeparateStemDocument(false)
     setPastedContent(null)
     setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
@@ -295,11 +298,12 @@ export function BulkImportQuestionStemsModal({
     return (
       step > 0 ||
       sectionId != null ||
+      tutorSourceNote.trim().length > 0 ||
       separateStemDocument ||
       addToSetEnabled ||
       hasDownstreamPasteWork
     )
-  }, [status, step, sectionId, separateStemDocument, addToSetEnabled, hasDownstreamPasteWork])
+  }, [status, step, sectionId, tutorSourceNote, separateStemDocument, addToSetEnabled, hasDownstreamPasteWork])
 
   const allPerStemQuestionsParsed = useMemo(() => {
     if (!resolvedBulkImportSection || parsedStemTexts.length === 0) return false
@@ -642,6 +646,7 @@ export function BulkImportQuestionStemsModal({
       await onSubmit({
         sectionId,
         stems: stemsToSubmit,
+        tutorSourceNote: tutorSourceNote.trim() || null,
         addToSet: addToSetEnabled ? addToSetConfig : null,
       })
       setStatus('success')
@@ -705,6 +710,8 @@ export function BulkImportQuestionStemsModal({
           onChangeSection={setSectionId}
           separateStemDocument={separateStemDocument}
           onSeparateStemDocumentChange={handleSeparateStemDocumentChange}
+          tutorSourceNote={tutorSourceNote}
+          onTutorSourceNoteChange={setTutorSourceNote}
         />
       )
     }
@@ -836,6 +843,7 @@ export function BulkImportQuestionStemsModal({
           tags={tagOptions}
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
+          sourceChannel="bulk_import"
         />
       )
     }

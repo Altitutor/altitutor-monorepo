@@ -53,3 +53,39 @@ export function useSetUcatSkillTrainerItemApproval() {
     },
   })
 }
+
+export function useDeleteUcatSkillTrainerItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (itemId: string) => ucatSkillTrainerItemsApi.remove(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.all, 'skill-trainer-items'] })
+    },
+  })
+}
+
+export function useBulkDeleteUcatSkillTrainerItems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (itemIds: string[]) => ucatSkillTrainerItemsApi.bulkRemove(itemIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.all, 'skill-trainer-items'] })
+    },
+  })
+}
+
+export function useBulkSetUcatSkillTrainerItemApproval() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      itemIds,
+      approvalStatus,
+    }: {
+      itemIds: string[]
+      approvalStatus: 'approved' | 'pending' | 'rejected'
+    }) => ucatSkillTrainerItemsApi.bulkSetApproval(itemIds, approvalStatus),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.all, 'skill-trainer-items'] })
+    },
+  })
+}

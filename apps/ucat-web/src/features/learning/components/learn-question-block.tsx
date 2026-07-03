@@ -12,7 +12,6 @@ import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-con
 import { fetchStemForPracticeSession } from "@/features/practice/lib/fetch-stem-for-practice";
 import { fetchQuestionForLearn } from "@/features/learning/lib/fetch-question-for-learn";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
-import { cn } from "@/lib/utils";
 
 type LearnQuestionBlockProps = {
   block: LearningModuleBlockRow;
@@ -77,11 +76,7 @@ export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlo
           Reset
         </Button>
       </div>
-      <div
-        className={cn(
-          "h-[min(70vh,640px)] min-h-[420px] overflow-hidden rounded-lg border",
-        )}
-      >
+      <div className="rounded-lg border">
         <UcatLagProvider>
           {loadState.status === "stem" ? (
             <QuestionEnginePage

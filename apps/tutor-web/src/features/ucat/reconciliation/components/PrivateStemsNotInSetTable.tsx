@@ -39,7 +39,7 @@ import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableU
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
-import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
+import { getSetAddStemWarning } from '@/features/ucat/shared/lib/set-section-status'
 import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
@@ -50,59 +50,6 @@ const TRUNCATE_LEN = 80
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
   return text.slice(0, max).trim() + '…'
-}
-
-type SetQuestionCountWarningSet = {
-  name?: unknown
-  sections?: unknown
-  question_count?: number | null
-}
-
-type SetQuestionCountWarningSection = {
-  id?: string | null
-  section_number?: number | null
-  name?: string | null
-  number_of_questions?: number | null
-}
-
-function getFullSetWarning(
-  set: SetQuestionCountWarningSet | null | undefined,
-  stemSectionId: string,
-  sections: SetQuestionCountWarningSection[],
-): { setName: string; title: string; description: string } | null {
-  if (!set) return null
-  const parsed = parseSetSections(set.sections ?? null)
-  if (parsed.sectionCount !== 1 || parsed.firstSectionNumber == null) return null
-
-  const setSection = sections.find((section) => section.section_number === parsed.firstSectionNumber)
-  if (!setSection) return null
-  const stemSection = sections.find((section) => section.id === stemSectionId)
-  const setName = proseMirrorToPlainText(set.name as Json) ?? 'Untitled'
-  const setSectionName = setSection.name ?? 'the set section'
-  const stemSectionName = stemSection?.name ?? 'the stem section'
-  const reasons: string[] = []
-
-  if (setSection.id !== stemSectionId) {
-    reasons.push(`This set is currently all ${setSectionName}, but the stem is ${stemSectionName}.`)
-  }
-
-  const expectedQuestionCount = setSection.number_of_questions ?? null
-  const currentQuestionCount = set.question_count ?? null
-  if (
-    expectedQuestionCount != null &&
-    currentQuestionCount != null &&
-    currentQuestionCount === expectedQuestionCount
-  ) {
-    reasons.push(`This set already has ${currentQuestionCount} questions, matching the configured count for ${setSectionName}.`)
-  }
-
-  if (reasons.length === 0) return null
-
-  return {
-    setName,
-    title: 'Review set before adding',
-    description: `"${setName}" may not be a good target for this stem. ${reasons.join(' ')}`,
-  }
 }
 
 export function PrivateStemsNotInSetTable({
@@ -252,7 +199,7 @@ export function PrivateStemsNotInSetTable({
   const handleAddToSet = useCallback(
     async (item: PrivateStemNotInSet, setId: string) => {
       const selectedSet = staffSets.find((set) => set.id === setId)
-      const warning = getFullSetWarning(selectedSet, item.sectionId, sectionsQuery.data ?? [])
+      const warning = getSetAddStemWarning(selectedSet, item.sectionId, sectionsQuery.data ?? [])
       if (warning) {
         setSetWarning({
           setId,
@@ -340,7 +287,7 @@ export function PrivateStemsNotInSetTable({
     const selectedSet = staffSets.find((set) => set.id === bulkSetId)
     const selectedStems = filteredStems.filter((stem) => selectedStemIds.has(stem.id))
     const firstStem = selectedStems[0]
-    const warning = firstStem ? getFullSetWarning(selectedSet, firstStem.sectionId, sectionsQuery.data ?? []) : null
+    const warning = firstStem ? getSetAddStemWarning(selectedSet, firstStem.sectionId, sectionsQuery.data ?? []) : null
     if (warning) {
       setSetWarning({
         setId: bulkSetId,

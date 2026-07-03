@@ -81,7 +81,7 @@ export function MockAttemptDetailPage({
         description={`Attempted ${attemptedDate}`}
         backHref="/progress"
         backLabel="Back to progress"
-        breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
+        breadcrumbOverrides={{ 1: data.mockName ?? "Mock" }}
       />
 
       <div className="flex flex-col gap-4">

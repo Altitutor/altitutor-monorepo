@@ -378,6 +378,7 @@ export function UcatSetMembershipListPanel({
       <UcatSortableList
         ids={displayIds}
         disableReorder={reorderDisabled}
+        flatCard
         onChange={(reorderedVisibleIds) => {
           onSetIdsChange(mergeVisibleOrderIntoFull(setIds, displayIds, reorderedVisibleIds))
         }}

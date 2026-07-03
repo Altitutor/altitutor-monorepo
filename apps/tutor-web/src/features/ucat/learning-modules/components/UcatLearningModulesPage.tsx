@@ -1,14 +1,24 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { Button, Input, TableActions, useToast } from '@altitutor/ui'
-import { Pencil, Search } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  TableActions,
+  useToast,
+} from '@altitutor/ui'
+import { BookOpen, ChevronDown, Folder, Pencil, Search } from 'lucide-react'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatCreateLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
 import {
   useUcatLearningModules,
+  useReorderUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import type { UcatLearningModuleKind, UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
@@ -16,7 +26,7 @@ import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestion
 import { TaxonomySectionDropZone } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import type { TaxonomyReparentTarget } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import { TaxonomyHierarchyDndProvider } from '@/features/ucat/shared/components/taxonomy-hierarchy-dnd'
-import { isDescendantOf } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import { isDescendantOf, resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import {
   buildModuleSectionTreeNodes,
   filterModuleTreeNodes,
@@ -25,6 +35,7 @@ import { getNextLearningModuleIndex } from '@/features/ucat/learning-modules/lib
 import { mapLearningModuleTreeToTaxonomyNodes } from '@/features/ucat/learning-modules/lib/map-learning-module-tree'
 import { LearningModuleHierarchyTree } from '@/features/ucat/learning-modules/components/LearningModuleHierarchyTree'
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
+import { NEW_MODULE_PLACEHOLDER_ID } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 
 export function UcatLearningModulesPage() {
   const { toast } = useToast()
@@ -32,6 +43,7 @@ export function UcatLearningModulesPage() {
   const modulesQuery = useUcatLearningModules()
   const sectionsQuery = useUcatSections()
   const upsert = useUpsertUcatLearningModule()
+  const reorderModules = useReorderUcatLearningModules()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [editMode, setEditMode] = useState(false)
@@ -39,6 +51,8 @@ export function UcatLearningModulesPage() {
   const [editModuleId, setEditModuleId] = useState<string | null>(null)
   const [newKind, setNewKind] = useState<UcatLearningModuleKind>('lesson')
   const [newTitle, setNewTitle] = useState('')
+  const [newSectionId, setNewSectionId] = useState<string | null>(null)
+  const [newParentId, setNewParentId] = useState<string | null>(null)
 
   const rows: UcatLearningModuleRow[] = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
   const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
@@ -75,6 +89,14 @@ export function UcatLearningModulesPage() {
     setEditModuleId(moduleId)
   }, [])
 
+  const openCreateDialog = useCallback((kind: UcatLearningModuleKind) => {
+    setNewKind(kind)
+    setNewTitle('')
+    setNewSectionId(null)
+    setNewParentId(null)
+    setCreateOpen(true)
+  }, [])
+
   const handleReparent = useCallback(
     async (itemId: string, target: TaxonomyReparentTarget) => {
       const row = rowById.get(itemId)
@@ -109,6 +131,8 @@ export function UcatLearningModulesPage() {
 
       try {
         if (target.type === 'root') {
+          const isSameRoot =
+            row.parent_ucat_learning_module_id == null && row.ucat_section_id === target.sectionId
           await upsert.mutateAsync({
             moduleId: itemId,
             kind: row.kind,
@@ -116,20 +140,21 @@ export function UcatLearningModulesPage() {
             description: row.description,
             ucatSectionId: target.sectionId,
             parentId: null,
-            index: row.index,
+            index: isSameRoot ? row.index : getNextLearningModuleIndex(rows, null),
             isPrivate: row.is_private,
-            displayMode: row.display_mode ?? (row.kind === 'lesson' ? 'stepped' : undefined),
           })
         } else {
+          const parentSectionId = resolveRootSectionId(taxonomyRows, target.parentId)
+          const isSameParent = row.parent_ucat_learning_module_id === target.parentId
           await upsert.mutateAsync({
             moduleId: itemId,
             kind: row.kind,
             title: row.title,
             description: row.description,
+            ucatSectionId: parentSectionId,
             parentId: target.parentId,
-            index: row.index,
+            index: isSameParent ? row.index : getNextLearningModuleIndex(rows, target.parentId),
             isPrivate: row.is_private,
-            displayMode: row.display_mode ?? (row.kind === 'lesson' ? 'stepped' : undefined),
           })
         }
       } catch (error) {
@@ -143,22 +168,66 @@ export function UcatLearningModulesPage() {
     [rowById, rows, toast, upsert],
   )
 
-  const handleCreate = async () => {
+  const handleCreate = async (orderItems: Array<{ id: string; index: number }>) => {
     if (!newTitle.trim()) return
+    if (!newSectionId) return
     try {
       const id = await upsert.mutateAsync({
         kind: newKind,
         title: newTitle.trim(),
-        index: getNextLearningModuleIndex(rows, null),
-        displayMode: newKind === 'lesson' ? 'stepped' : undefined,
+        ucatSectionId: newSectionId,
+        parentId: newParentId,
+        index: getNextLearningModuleIndex(rows, newParentId),
       })
+      const reorderItems = orderItems.map((item) => ({
+        ...item,
+        id: item.id === NEW_MODULE_PLACEHOLDER_ID ? id : item.id,
+      }))
+      if (reorderItems.length > 0) {
+        await reorderModules.mutateAsync(reorderItems)
+      }
       setCreateOpen(false)
       setNewTitle('')
-      setEditModuleId(id)
+      setNewSectionId(null)
+      setNewParentId(null)
+      if (newKind === 'lesson') setEditModuleId(id)
     } catch (e) {
       toast({ title: 'Failed to create module', description: String(e), variant: 'destructive' })
     }
   }
+
+  const handleInlineCreate = useCallback(
+    async ({
+      kind,
+      title,
+      sectionId,
+      parentId,
+    }: {
+      kind: UcatLearningModuleKind
+      title: string
+      sectionId: string | null
+      parentId: string | null
+    }) => {
+      try {
+        const id = await upsert.mutateAsync({
+          kind,
+          title,
+          ucatSectionId: sectionId,
+          parentId,
+          index: getNextLearningModuleIndex(rows, parentId),
+        })
+        if (kind === 'lesson') setEditModuleId(id)
+      } catch (error) {
+        toast({
+          title: 'Failed to create module',
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        })
+        throw error
+      }
+    },
+    [rows, toast, upsert],
+  )
 
   if (access.isLoading || modulesQuery.isLoading || sectionsQuery.isLoading) {
     return <UcatPageSkeleton rows={8} />
@@ -185,8 +254,10 @@ export function UcatLearningModulesPage() {
           <LearningModuleHierarchyTree
             nodes={section.nodes}
             onItemClick={openModule}
+            sectionId={section.sectionId}
             searchQuery={searchQuery}
             editMode={editMode}
+            onInlineCreate={handleInlineCreate}
           />
         </TaxonomySectionDropZone>
       ))}
@@ -200,8 +271,10 @@ export function UcatLearningModulesPage() {
           <LearningModuleHierarchyTree
             nodes={unsectionedTrees}
             onItemClick={openModule}
+            sectionId={null}
             searchQuery={searchQuery}
             editMode={editMode}
+            onInlineCreate={handleInlineCreate}
           />
         </TaxonomySectionDropZone>
       ) : null}
@@ -226,9 +299,24 @@ export function UcatLearningModulesPage() {
                 <Pencil className="mr-2 h-4 w-4" />
                 {editMode ? 'Done reordering' : 'Edit hierarchy'}
               </Button>
-              <Button type="button" onClick={() => setCreateOpen(true)}>
-                New module
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button">
+                    New module
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => openCreateDialog('lesson')}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Learning module
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openCreateDialog('folder')}>
+                    <Folder className="mr-2 h-4 w-4" />
+                    Folder
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <TableActions
               className="sm:hidden"
@@ -240,9 +328,14 @@ export function UcatLearningModulesPage() {
                   onSelect: () => setEditMode((prev) => !prev),
                 },
                 {
-                  id: 'new-module',
-                  label: 'New module',
-                  onSelect: () => setCreateOpen(true),
+                  id: 'new-learning-module',
+                  label: 'New learning module',
+                  onSelect: () => openCreateDialog('lesson'),
+                },
+                {
+                  id: 'new-folder',
+                  label: 'New folder',
+                  onSelect: () => openCreateDialog('folder'),
                 },
               ]}
             />
@@ -279,11 +372,16 @@ export function UcatLearningModulesPage() {
         open={createOpen}
         kind={newKind}
         title={newTitle}
-        isSaving={upsert.isPending}
+        sectionId={newSectionId}
+        parentId={newParentId}
+        isSaving={upsert.isPending || reorderModules.isPending}
+        sections={sectionsQuery.data ?? []}
+        modules={rows}
         onClose={() => setCreateOpen(false)}
         onSave={handleCreate}
-        onKindChange={setNewKind}
         onTitleChange={setNewTitle}
+        onSectionIdChange={setNewSectionId}
+        onParentIdChange={setNewParentId}
       />
 
       <UcatLearningModuleDialog

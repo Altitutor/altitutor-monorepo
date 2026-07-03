@@ -82,14 +82,14 @@ function AppShellInner({ children }: AppShellProps) {
     if (prev === null) return;
 
     if (isMobile && !prev) {
-      if (!collapsed) setMobileOpen(true);
+      setMobileOpen(false);
     } else if (!isMobile && prev) {
       if (mobileOpen) {
         setCollapsed(false);
         setMobileOpen(false);
       }
     }
-  }, [isMobile, collapsed, mobileOpen]);
+  }, [isMobile, mobileOpen]);
 
   const handleToggleNav = () => {
     if (isMobile) {

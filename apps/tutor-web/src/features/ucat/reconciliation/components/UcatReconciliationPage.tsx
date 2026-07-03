@@ -18,8 +18,8 @@ import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEdit
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -27,8 +27,6 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
-import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useReconciliation'
 import {
@@ -36,40 +34,6 @@ import {
   getSetReconciliationWarnings,
   getStemReconciliationWarnings,
 } from '@/features/ucat/reconciliation/lib/reconciliation-warning-labels'
-
-function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
-  if (value == null) return null
-  if (typeof value === 'string' && value === 'null') return null
-  return value as import('@altitutor/shared').Json
-}
-
-function mapFormValuesToBundlePayload(
-  payload: UcatQuestionStemFormValues,
-  stemId: string
-): UcatQuestionStemBundlePayload {
-  return {
-    stemId,
-    sectionId: payload.sectionId,
-    categoryId: payload.categoryId || null,
-    stemText: payload.stemText,
-    isPrivate: payload.isPrivate,
-    questions: payload.questions.map((question, index) => ({
-      index: index + 1,
-      questionText: question.questionText,
-      questionType: question.questionType,
-      answerExplanation: toExplanationNull(question.answerExplanation),
-      difficulty: question.difficulty,
-      timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-      tagIds: question.tagIds ?? [],
-      options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-        index: optionIndex + 1,
-        answerText: option.answerText,
-        answerExplanation: toExplanationNull(option.answerExplanation),
-        isAnswer: option.isAnswer,
-      })),
-    })),
-  }
-}
 
 export function UcatReconciliationPage() {
   const access = useUcatAccess()
@@ -102,7 +66,7 @@ export function UcatReconciliationPage() {
   const handleStemUpdate = useCallback(
     async (payload: UcatQuestionStemFormValues) => {
       if (!editingStemId) return
-      const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
+      const mapped = formValuesToStemBundlePayload(payload, editingStemId)
       await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
       setEditingStemId(null)
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })

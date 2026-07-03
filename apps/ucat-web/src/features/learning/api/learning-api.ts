@@ -4,8 +4,10 @@ import type {
   LearningLessonDetail,
   LearningModuleRow,
 } from "@/features/learning/types";
+import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 
 async function parseJson<T>(response: Response): Promise<T> {
+  await assertOkOrQuotaExceeded(response);
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? "Request failed");
@@ -28,13 +30,6 @@ export const learningApi = {
   async getLesson(lessonId: string): Promise<LearningLessonDetail> {
     const response = await fetch(`/api/ucat/learning-modules/${lessonId}`);
     return parseJson<LearningLessonDetail>(response);
-  },
-
-  async startLesson(lessonId: string): Promise<{ created: boolean }> {
-    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/start`, {
-      method: "POST",
-    });
-    return parseJson<{ created: boolean }>(response);
   },
 
   async updateBlockProgress(

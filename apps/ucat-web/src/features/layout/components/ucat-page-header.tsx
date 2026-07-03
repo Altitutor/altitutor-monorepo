@@ -18,7 +18,7 @@ type UcatPageHeaderProps = {
   description?: string;
   backHref?: string;
   backLabel?: string;
-  /** Override labels by segment index. E.g. { 2: mockName, 4: setName } for nested progress route. */
+  /** Override labels by filtered breadcrumb index (structural URL segments are omitted). */
   breadcrumbOverrides?: Record<number, string>;
   /** When set, replaces pathname-derived breadcrumbs. */
   breadcrumbItems?: UcatBreadcrumbItem[];

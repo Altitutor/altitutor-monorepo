@@ -63,15 +63,18 @@ function isValidPagePath(path: string): boolean {
     case 2:
       return (
         (segments[0] === "settings" &&
-          ["app", "profile", "subscription", "study-planner"].includes(
+          ["app", "profile", "subscription", "study-planner", "plan"].includes(
             segments[1],
           )) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
+        (segments[0] === "learn" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && segments[1] === "set-generator") ||
         (segments[0] === "mocks" && isDynamicSegment(segments[1])) ||
-        (segments[0] === "skill-trainer" && segments[1] !== "play")
+        (segments[0] === "skill-trainer" && segments[1] !== "play") ||
+        (segments[0] === "practice" &&
+          (segments[1] === "session" || segments[1] === "stem"))
       );
     case 3:
       return (
@@ -88,6 +91,12 @@ function isValidPagePath(path: string): boolean {
           /^[1-4]$/.test(segments[2])) ||
         (segments[0] === "sets" &&
           segments[1] === "set-generator" &&
+          isDynamicSegment(segments[2])) ||
+        (segments[0] === "settings" &&
+          segments[1] === "plan" &&
+          segments[2] === "subscription") ||
+        (segments[0] === "practice" &&
+          segments[1] === "stem" &&
           isDynamicSegment(segments[2]))
       );
     case 4:
@@ -148,6 +157,7 @@ export type BreadcrumbItem = {
 
 /**
  * Builds breadcrumb items from a pathname.
+ * Omits intermediate URL segments that are not real pages (e.g. "sections", "set-attempts").
  * Returns empty array for exam routes (question engine).
  */
 export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
@@ -164,6 +174,12 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     href += `/${segment}`;
+
+    const isLastSegment = i === segments.length - 1;
+    const hasOwnPage = isValidPagePath(href);
+    if (!hasOwnPage && !isLastSegment) {
+      continue;
+    }
 
     let label =
       SEGMENT_LABELS[segment] ??
@@ -187,7 +203,18 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
       label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
     }
 
-    const effectiveHref = getEffectiveHref(href);
+    // For /sets/sections/[1-4]/[setId], show "Set" instead of "Detail"
+    if (
+      segments[0] === "sets" &&
+      segments[1] === "sections" &&
+      i >= 3 &&
+      /^[1-4]$/.test(segments[2]) &&
+      isDynamicSegment(segment)
+    ) {
+      label = "Set";
+    }
+
+    const effectiveHref = hasOwnPage ? href : getEffectiveHref(href);
 
     items.push({ href, label, effectiveHref });
   }

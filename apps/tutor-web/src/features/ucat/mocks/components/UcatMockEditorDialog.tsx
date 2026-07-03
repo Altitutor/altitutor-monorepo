@@ -200,7 +200,7 @@ export function UcatMockEditorDialog({
         {setsThatWillBecomePublicCount > 0 && (
           <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
         )}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col">
           <UcatMockEditorContent
         name={name}
         isPrivate={isPrivate}

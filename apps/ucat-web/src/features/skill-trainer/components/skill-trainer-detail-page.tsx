@@ -217,10 +217,11 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <Button
               type="button"
               variant="outline"
+              className="w-full"
               onClick={() => setConflictAttempt(null)}
             >
               Cancel
@@ -228,6 +229,7 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
             <Button
               type="button"
               variant="outline"
+              className="w-full"
               disabled={!conflictResumeHref}
               onClick={() => {
                 if (conflictResumeHref) router.push(conflictResumeHref);
@@ -237,6 +239,7 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
             </Button>
             <Button
               type="button"
+              className="w-full"
               onClick={() => void handleSubmitConflictAndStart()}
               disabled={submittingConflict || starting}
             >

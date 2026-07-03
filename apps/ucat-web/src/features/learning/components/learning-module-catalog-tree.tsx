@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@altitutor/ui";
 import { BookOpen, ChevronRight } from "lucide-react";
+import { useLearnQuotaGate } from "@/features/learning/hooks/use-learn-quota-gate";
 import type { LearningModuleTreeNode } from "@/features/learning/types";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ function LearningModuleCatalogTreeNode({
   const isFolder = node.kind === "folder";
   const hasChildren = node.children.length > 0;
   const [expanded, setExpanded] = useState(depth === 0);
+  const { guardLessonClick } = useLearnQuotaGate();
 
   const toggleExpanded = () => {
     if (hasChildren) setExpanded((prev) => !prev);
@@ -87,6 +89,7 @@ function LearningModuleCatalogTreeNode({
           />
           <Link
             href={node.id ? `/learn/${node.id}` : "#"}
+            onClick={(event) => guardLessonClick(event, node)}
             className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
           >
             <span className="flex min-w-0 items-center gap-2">

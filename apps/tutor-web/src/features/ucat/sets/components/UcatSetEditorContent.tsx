@@ -19,6 +19,7 @@ import {
   UcatStemCatalogListPanel,
   UcatStemMembershipListPanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
+import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
@@ -218,7 +219,7 @@ export function UcatSetEditorContent({
 
   return (
     <div className="flex h-full min-h-0">
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden border-r p-6">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r p-6">
           <h2 className="mb-3 shrink-0 font-semibold">Stems in set</h2>
           <UcatStemMembershipListPanel
             stemIds={draftStemIds}
@@ -232,7 +233,7 @@ export function UcatSetEditorContent({
           />
         </section>
 
-      <aside className="flex h-full w-96 shrink-0 flex-col overflow-hidden border-l p-6">
+      <aside className="flex h-full w-96 shrink-0 flex-col border-l p-6">
         <SegmentedTabPanel
           value={sideTab}
           onValueChange={(value) => setSideTab(value)}
@@ -372,7 +373,9 @@ export function UcatSetEditorContent({
               )}
             </div>
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">Visibility</span>
+              <span className="mb-1 block font-medium">
+                <UcatVisibilityFieldLabel />
+              </span>
               <SearchableSelect<{ value: string; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
@@ -392,7 +395,7 @@ export function UcatSetEditorContent({
           <SegmentedTabPanelContent
             when="add-stems"
             activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pt-2"
+            className="m-0 mt-3 flex min-h-0 flex-1 flex-col pt-2"
           >
             <UcatStemCatalogListPanel
               stems={stemCatalog}
@@ -408,7 +411,8 @@ export function UcatSetEditorContent({
               isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}
-              searchPlaceholder="Search stems or questions"
+              searchPlaceholder="Search stems..."
+              compact
               emptyMessage="No stems to add, or all matching stems are already in the set."
             />
           </SegmentedTabPanelContent>

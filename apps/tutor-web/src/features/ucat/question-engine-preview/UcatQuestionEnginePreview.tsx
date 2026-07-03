@@ -79,7 +79,7 @@ function ExplanationRichBlock({
 }) {
   return (
     <div className={className} style={EXPLANATION_MUTED_STYLE}>
-      <UcatRichContentBlock json={json} plainText={plainText ?? ''} />
+      <UcatRichContentBlock json={json} plainText={plainText ?? ''} paragraphSpacing />
     </div>
   )
 }

@@ -14,6 +14,7 @@ import {
   CommandList,
 } from "./command";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { isInsideModal } from "../lib/modal-interact-outside";
 
 export interface SearchableSelectGroup<T> {
   label: string;
@@ -71,8 +72,6 @@ export interface SearchableSelectProps<T> {
   /** Controlled open state - when provided, parent controls when popover is open */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Portal container - when inside Dialog, pass the dialog content element to fix scroll */
-  popoverContainer?: HTMLElement | null;
   /** Show chevron on the right side of the trigger button (default: true) */
   showChevron?: boolean;
 }
@@ -112,14 +111,13 @@ export function SearchableSelect<T>({
   triggerClassName,
   open: controlledOpen,
   onOpenChange,
-  popoverContainer,
   showChevron = true,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
-  const triggerRef = React.useRef<HTMLElement | null>(null);
-  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [enableModalScroll, setEnableModalScroll] = React.useState(false);
 
   const open = controlledOpen ?? internalOpen;
 
@@ -129,20 +127,14 @@ export function SearchableSelect<T>({
     onSearchChangeRef.current = onSearchChange;
   });
 
-  // When inside a Dialog, portal into the dialog to fix scroll (Radix RemoveScroll issue)
-  React.useEffect(() => {
-    if (popoverContainer) {
-      setPortalContainer((prev) => (prev === popoverContainer ? prev : popoverContainer));
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setEnableModalScroll(false);
       return;
     }
-    if (!open || !triggerRef.current) {
-      setPortalContainer((prev) => (prev === null ? prev : null));
-      return;
-    }
-    const dialog = triggerRef.current.closest('[role="dialog"]');
-    const next = dialog instanceof HTMLElement ? dialog : null;
-    setPortalContainer((prev) => (prev === next ? prev : next));
-  }, [open, popoverContainer]);
+    setEnableModalScroll(isInsideModal(triggerRef.current));
+  }, [open]);
+
   const setOpen = React.useCallback(
     (next: boolean) => {
       if (controlledOpen === undefined) {
@@ -246,14 +238,14 @@ export function SearchableSelect<T>({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <span ref={triggerRef} className="contents">
         <PopoverTrigger asChild>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>
       </span>
       <PopoverContent
-        container={portalContainer ?? undefined}
+        enableModalScroll={enableModalScroll}
         className={cn(
           !contentWidth && "w-[280px]",
           "p-0 z-[100] overflow-hidden max-h-[min(400px,80vh)] flex flex-col",
@@ -275,7 +267,7 @@ export function SearchableSelect<T>({
             value={isServerSideSearch ? search : undefined}
             onValueChange={isServerSideSearch ? handleSearchChange : undefined}
           />
-          <CommandList className="flex-1 min-h-0">
+          <CommandList className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

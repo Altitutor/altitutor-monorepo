@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { Json } from '@altitutor/shared'
@@ -10,25 +10,23 @@ import {
   AccordionItem,
   AccordionTrigger,
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   SearchableSelect,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, FilePlus2, Info, Loader2, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { UcatQuestionSourceChannel, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import { formatSourceChannel, formatGeneratedTimestamp, formatStaffDisplayName, metadataString } from '@/features/ucat/questions/lib/source-display'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
   QuestionTagsSelect,
@@ -36,15 +34,26 @@ import {
   type TagOption,
   type UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  aiTextToProseMirror,
+  plainTextToProseMirror,
+  plainTextToProseMirrorWithLineBreaks,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
-import {
-  applyReviewFlagSuggestion,
-  findMissingExplanations,
-  type AiToolReviewFlag,
-} from '@/features/ucat/questions/lib/ai-tools'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
+import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
+import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
+import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
+import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
+
+const APPROVAL_OPTIONS: Array<{ value: UcatApprovalStatus; label: string }> = [
+  { value: 'approved', label: 'Approved' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
+]
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -63,6 +72,10 @@ type UcatStemEditorPropertiesPanelProps = {
   stemId?: string | null
   focusTarget?: StemEditorFocusTarget | null
   focusMessage?: string | null
+  sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
+  createdByFirstName?: string | null
+  createdByLastName?: string | null
 }
 
 function trimTextParagraphs(text: string): string {
@@ -75,13 +88,17 @@ function trimTextParagraphs(text: string): string {
     .trim()
 }
 
-function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
+function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
       <div className="min-w-0 w-[58%]">{children}</div>
     </div>
   )
+}
+
+function ReadOnlyValue({ children }: { children: ReactNode }) {
+  return <span className="block text-right text-sm text-foreground">{children}</span>
 }
 
 function PropertiesCard({
@@ -107,52 +124,6 @@ function PropertiesCard({
   )
 }
 
-function AiActionButton({
-  label,
-  description,
-  icon,
-  onClick,
-  disabled,
-}: {
-  label: string
-  description: string
-  icon: ReactNode
-  onClick: () => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="min-w-0 flex-1 justify-start gap-2"
-        onClick={onClick}
-        disabled={disabled}
-      >
-        {icon}
-        {label}
-      </Button>
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label={`${label} info`}
-            >
-              <Info className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
-            {description}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  )
-}
-
 export function UcatStemEditorPropertiesPanel({
   form,
   sections,
@@ -167,15 +138,14 @@ export function UcatStemEditorPropertiesPanel({
   stemId,
   focusTarget,
   focusMessage,
+  sourceChannel,
+  aiGenerationMetadata,
+  createdByFirstName,
+  createdByLastName,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [aiPending, setAiPending] = useState<'rewrite' | 'explanation' | 'write' | null>(null)
-  const [rewritePreview, setRewritePreview] = useState<{
-    stem: UcatQuestionStemFormValues
-    summary: string | null
-  } | null>(null)
-  const [explanationReviewFlags, setExplanationReviewFlags] = useState<AiToolReviewFlag[]>([])
+  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
@@ -183,6 +153,11 @@ export function UcatStemEditorPropertiesPanel({
     | 'multiple_choice'
     | 'syllogism'
   const isSyllogism = stemType === 'syllogism'
+  const aiModel = metadataString(aiGenerationMetadata, 'model')
+  const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
+  const generatedByName = formatStaffDisplayName(createdByFirstName, createdByLastName)
+
+  const watchedApprovalStatus = form.watch('approvalStatus')
 
   const categoriesFiltered = sectionId
     ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId)
@@ -190,121 +165,7 @@ export function UcatStemEditorPropertiesPanel({
 
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
-  const activeQuestionMissingExplanations = findMissingExplanations(watchedStem, undefined).filter(
-    (target) => target.questionIndex === safeQuestionIndex
-  )
-
-  const handleRewriteStem = async () => {
-    setAiPending('rewrite')
-    try {
-      const response = await fetch('/api/ucat/question-stems/ai-tools/rewrite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues() }),
-      })
-      const json = (await response.json()) as {
-        rewrittenStem?: UcatQuestionStemFormValues
-        summary?: string | null
-        error?: string
-      }
-      if (!response.ok || !json.rewrittenStem) {
-        throw new Error(json.error ?? 'Question rewrite failed')
-      }
-      setRewritePreview({ stem: json.rewrittenStem, summary: json.summary ?? null })
-    } catch (error) {
-      toast({
-        description: error instanceof Error ? error.message : 'Question rewrite failed',
-        variant: 'destructive',
-      })
-    } finally {
-      setAiPending(null)
-    }
-  }
-
-  const handleApplyRewrite = (acceptedStem: UcatQuestionStemFormValues) => {
-    form.setValue('stemText', acceptedStem.stemText, { shouldDirty: true })
-    form.setValue('questions', acceptedStem.questions, { shouldDirty: true })
-    setRewritePreview(null)
-    toast({ description: 'Rewrite applied. Review the updated stem before saving.' })
-  }
-
-  const handleGenerateActiveExplanation = async () => {
-    setAiPending('explanation')
-    try {
-      const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues(), questionIndexes: [safeQuestionIndex] }),
-      })
-      const json = (await response.json()) as {
-        stem?: UcatQuestionStemFormValues
-        appliedCount?: number
-        reviewFlags?: AiToolReviewFlag[]
-        error?: string
-      }
-      if (!response.ok || !json.stem) {
-        throw new Error(json.error ?? 'Answer explanation generation failed')
-      }
-      setExplanationReviewFlags(json.reviewFlags ?? [])
-      form.setValue('questions', json.stem.questions, { shouldDirty: true })
-      toast({
-        description: (json.reviewFlags?.length ?? 0) > 0
-          ? `${json.reviewFlags?.length} question${json.reviewFlags?.length === 1 ? '' : 's'} flagged for tutor review.`
-          : (json.appliedCount ?? 0) > 0
-            ? `Generated ${json.appliedCount} missing explanation${json.appliedCount === 1 ? '' : 's'}.`
-            : 'No missing explanations were generated.',
-        variant: (json.reviewFlags?.length ?? 0) > 0 ? 'destructive' : undefined,
-      })
-    } catch (error) {
-      toast({
-        description: error instanceof Error ? error.message : 'Answer explanation generation failed',
-        variant: 'destructive',
-      })
-    } finally {
-      setAiPending(null)
-    }
-  }
-
-  const handleAcceptExplanationSuggestion = (flag: AiToolReviewFlag) => {
-    const nextStem = applyReviewFlagSuggestion(form.getValues(), flag)
-    form.setValue('questions', nextStem.questions, { shouldDirty: true })
-    setExplanationReviewFlags((current) =>
-      current.filter((item) => item.questionIndex !== flag.questionIndex)
-    )
-    toast({ description: `Updated question ${flag.questionIndex + 1}. Review the explanation before saving.` })
-  }
-
-  const handleWriteQuestion = async () => {
-    setAiPending('write')
-    try {
-      const response = await fetch('/api/ucat/question-stems/ai-tools/write-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stem: form.getValues() }),
-      })
-      const json = (await response.json()) as {
-        question?: UcatQuestionStemFormValues['questions'][number]
-        rationale?: string | null
-        promptLayerCount?: number
-        error?: string
-      }
-      if (!response.ok || !json.question) {
-        throw new Error(json.error ?? 'Question writing failed')
-      }
-      append(json.question)
-      onQuestionIndexChange(fields.length)
-      toast({
-        description: `Question added.${json.promptLayerCount ? ` Used ${json.promptLayerCount} prompt layer${json.promptLayerCount === 1 ? '' : 's'}.` : ''}`,
-      })
-    } catch (error) {
-      toast({
-        description: error instanceof Error ? error.message : 'Question writing failed',
-        variant: 'destructive',
-      })
-    } finally {
-      setAiPending(null)
-    }
-  }
+  const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
 
   const handleDeleteQuestion = (questionIndex: number) => {
     const questions = form.getValues('questions') ?? []
@@ -354,6 +215,8 @@ export function UcatStemEditorPropertiesPanel({
       difficulty: null,
       timeBurdenSeconds: '',
       tagIds: [],
+      sourceChannel: 'individual',
+      aiGenerationMetadata: null,
       options: isSyllogism
         ? Array.from({ length: 5 }, () => ({
             answerText: EMPTY_DOC,
@@ -365,8 +228,286 @@ export function UcatStemEditorPropertiesPanel({
     onQuestionIndexChange(fields.length)
   }
 
+  const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {
+    const input = toolCall.input
+    const text = typeof input.text === 'string' ? input.text : ''
+    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : null
+    const optionIndex = typeof input.optionIndex === 'number' ? input.optionIndex : null
+    const current = form.getValues()
+    const target = typeof input.target === 'string' ? input.target : 'stem'
+
+    switch (toolCall.name) {
+      case 'updateStemText':
+        if (!text.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No stem text provided.' }
+        form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(text), { shouldDirty: true })
+        return { toolCallId: toolCall.id, ok: true, message: 'Updated draft stem text.' }
+
+      case 'updateStemProperties': {
+        if (typeof input.sectionId === 'string') form.setValue('sectionId', input.sectionId, { shouldDirty: true })
+        if (typeof input.categoryId === 'string' || input.categoryId === null) {
+          form.setValue('categoryId', input.categoryId ?? null, { shouldDirty: true })
+        }
+        if (typeof input.isPrivate === 'boolean') form.setValue('isPrivate', input.isPrivate, { shouldDirty: true })
+        if (input.approvalStatus === 'approved' || input.approvalStatus === 'pending' || input.approvalStatus === 'rejected') {
+          form.setValue('approvalStatus', input.approvalStatus, { shouldDirty: true })
+        }
+        if (typeof input.tutorSourceNote === 'string') {
+          form.setValue('tutorSourceNote', input.tutorSourceNote, { shouldDirty: true })
+        }
+        return { toolCallId: toolCall.id, ok: true, message: 'Updated draft stem properties.' }
+      }
+
+      case 'updateQuestionText':
+        if (questionIndex == null || !current.questions[questionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        }
+        form.setValue(`questions.${questionIndex}.questionText`, plainTextToProseMirrorWithLineBreaks(text), { shouldDirty: true })
+        onQuestionIndexChange(questionIndex)
+        return { toolCallId: toolCall.id, ok: true, message: `Updated draft question ${questionIndex + 1}.` }
+
+      case 'insertQuestion': {
+        const options = Array.isArray(input.options) ? input.options : []
+        const nextQuestion = {
+          questionText: plainTextToProseMirrorWithLineBreaks(
+            typeof input.questionText === 'string' ? input.questionText : 'New question',
+          ),
+          questionType: 'multiple_choice' as const,
+          answerExplanation:
+            typeof input.answerExplanation === 'string' && input.answerExplanation.trim()
+              ? aiTextToProseMirror(input.answerExplanation)
+              : null,
+          difficulty: typeof input.difficulty === 'number' ? input.difficulty : null,
+          timeBurdenSeconds: typeof input.timeBurdenSeconds === 'string' ? input.timeBurdenSeconds : '',
+          tagIds: Array.isArray(input.tagIds) ? input.tagIds.filter((id): id is string => typeof id === 'string') : [],
+          sourceChannel: 'ai_generation' as const,
+          aiGenerationMetadata: null,
+          options: options.length > 0
+            ? options.map((option) => {
+                const record = option && typeof option === 'object' && !Array.isArray(option)
+                  ? option as Record<string, unknown>
+                  : {}
+                return {
+                  answerText: plainTextToProseMirror(typeof record.answerText === 'string' ? record.answerText : ''),
+                  answerExplanation: null,
+                  isAnswer: record.isAnswer === true,
+                }
+              })
+            : [...DEFAULT_OPTIONS],
+        }
+        append(nextQuestion)
+        onQuestionIndexChange(fields.length)
+        return { toolCallId: toolCall.id, ok: true, message: `Inserted draft question ${fields.length + 1}.` }
+      }
+
+      case 'updateQuestionProperties':
+        if (questionIndex == null || !current.questions[questionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        }
+        if (typeof input.difficulty === 'number' || input.difficulty === null) {
+          form.setValue(`questions.${questionIndex}.difficulty`, input.difficulty, { shouldDirty: true })
+        }
+        if (typeof input.timeBurdenSeconds === 'string') {
+          form.setValue(`questions.${questionIndex}.timeBurdenSeconds`, input.timeBurdenSeconds, { shouldDirty: true })
+        }
+        if (Array.isArray(input.tagIds)) {
+          form.setValue(
+            `questions.${questionIndex}.tagIds`,
+            input.tagIds.filter((id): id is string => typeof id === 'string'),
+            { shouldDirty: true },
+          )
+        }
+        return { toolCallId: toolCall.id, ok: true, message: `Updated draft question ${questionIndex + 1} properties.` }
+
+      case 'updateQuestionTags':
+        if (questionIndex == null || !current.questions[questionIndex] || !Array.isArray(input.tagIds)) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question or tags not found.' }
+        }
+        form.setValue(
+          `questions.${questionIndex}.tagIds`,
+          input.tagIds.filter((id): id is string => typeof id === 'string'),
+          { shouldDirty: true },
+        )
+        return { toolCallId: toolCall.id, ok: true, message: `Updated draft tags for question ${questionIndex + 1}.` }
+
+      case 'insertAnswerOption':
+        if (questionIndex == null || !current.questions[questionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        }
+        form.setValue(
+          `questions.${questionIndex}.options`,
+          [
+            ...current.questions[questionIndex].options,
+            {
+              answerText: plainTextToProseMirror(typeof input.answerText === 'string' ? input.answerText : ''),
+              answerExplanation: null,
+              isAnswer: input.isAnswer === true,
+            },
+          ],
+          { shouldDirty: true },
+        )
+        return { toolCallId: toolCall.id, ok: true, message: `Inserted answer option for question ${questionIndex + 1}.` }
+
+      case 'updateAnswerOption':
+        if (questionIndex == null || optionIndex == null || !current.questions[questionIndex]?.options[optionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
+        }
+        if (typeof input.answerText === 'string') {
+          form.setValue(`questions.${questionIndex}.options.${optionIndex}.answerText`, plainTextToProseMirror(input.answerText), { shouldDirty: true })
+        }
+        if (typeof input.answerExplanation === 'string') {
+          form.setValue(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`, aiTextToProseMirror(input.answerExplanation), { shouldDirty: true })
+        }
+        if (typeof input.isAnswer === 'boolean') {
+          form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, input.isAnswer, { shouldDirty: true })
+        }
+        return { toolCallId: toolCall.id, ok: true, message: `Updated answer option ${optionIndex + 1}.` }
+
+      case 'markCorrectAnswer':
+        if (questionIndex == null || optionIndex == null || !current.questions[questionIndex]?.options[optionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
+        }
+        form.setValue(
+          `questions.${questionIndex}.options`,
+          current.questions[questionIndex].options.map((option, index) => ({
+            ...option,
+            isAnswer: index === optionIndex,
+          })),
+          { shouldDirty: true },
+        )
+        return { toolCallId: toolCall.id, ok: true, message: `Marked option ${optionIndex + 1} correct.` }
+
+      case 'updateAnswerExplanation':
+        if (questionIndex == null || !current.questions[questionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        }
+        form.setValue(`questions.${questionIndex}.answerExplanation`, aiTextToProseMirror(text), { shouldDirty: true })
+        return { toolCallId: toolCall.id, ok: true, message: `Updated explanation for question ${questionIndex + 1}.` }
+
+      case 'deleteQuestion':
+        if (questionIndex == null || !current.questions[questionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        }
+        if (current.questions.length <= 1) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Cannot delete the only question.' }
+        }
+        remove(questionIndex)
+        if (safeQuestionIndex >= questionIndex && safeQuestionIndex > 0) onQuestionIndexChange(safeQuestionIndex - 1)
+        return { toolCallId: toolCall.id, ok: true, message: `Deleted draft question ${questionIndex + 1}.` }
+
+      case 'deleteAnswerOption':
+        if (questionIndex == null || optionIndex == null || !current.questions[questionIndex]?.options[optionIndex]) {
+          return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
+        }
+        form.setValue(
+          `questions.${questionIndex}.options`,
+          current.questions[questionIndex].options.filter((_, index) => index !== optionIndex),
+          { shouldDirty: true },
+        )
+        return { toolCallId: toolCall.id, ok: true, message: `Deleted draft answer option ${optionIndex + 1}.` }
+
+      case 'insertImage':
+      case 'replaceImageFromPrompt': {
+        const prompt = typeof input.prompt === 'string' ? input.prompt : ''
+        if (!prompt.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No image prompt provided.' }
+        const response = await fetch('/api/ucat/authoring-agent/images/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            alt: typeof input.alt === 'string' ? input.alt : null,
+          }),
+        })
+        const image = (await response.json()) as {
+          fileId?: string
+          signedUrl?: string
+          alt?: string | null
+          error?: string
+        }
+        if (!response.ok || !image.fileId || !image.signedUrl) {
+          return { toolCallId: toolCall.id, ok: false, message: image.error ?? 'Image generation failed.' }
+        }
+        const imageDoc = (value: Json | null | undefined) => {
+          const nextImage = { src: image.signedUrl!, fileId: image.fileId!, alt: image.alt ?? null }
+          return toolCall.name === 'replaceImageFromPrompt'
+            ? replaceFirstImageNodeInDoc(value, nextImage)
+            : appendImageNodeToDoc(value, nextImage)
+        }
+        const action = toolCall.name === 'replaceImageFromPrompt' ? 'Replaced' : 'Inserted'
+
+        if (target === 'stem') {
+          form.setValue('stemText', imageDoc(current.stemText as Json), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: `${action} generated image in draft stem.` }
+        }
+        const qIndex = questionIndex ?? safeQuestionIndex
+        if (!current.questions[qIndex]) return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        if (target === 'question') {
+          form.setValue(`questions.${qIndex}.questionText`, imageDoc(current.questions[qIndex].questionText as Json), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: `${action} generated image in question ${qIndex + 1}.` }
+        }
+        if (target === 'explanation') {
+          form.setValue(`questions.${qIndex}.answerExplanation`, imageDoc(current.questions[qIndex].answerExplanation as Json | null), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: `${action} generated image in question ${qIndex + 1} explanation.` }
+        }
+        if (target === 'answerOption') {
+          const oIndex = optionIndex ?? 0
+          if (!current.questions[qIndex].options[oIndex]) return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
+          form.setValue(
+            `questions.${qIndex}.options.${oIndex}.answerText`,
+            imageDoc(current.questions[qIndex].options[oIndex].answerText as Json),
+            { shouldDirty: true },
+          )
+          return { toolCallId: toolCall.id, ok: true, message: `${action} generated image in answer option ${oIndex + 1}.` }
+        }
+        return { toolCallId: toolCall.id, ok: false, message: `Unsupported image target: ${target}.` }
+      }
+
+      case 'replaceVisualSpec': {
+        const spec = input.spec && typeof input.spec === 'object' && !Array.isArray(input.spec)
+          ? input.spec as Record<string, unknown>
+          : null
+        if (!spec) return { toolCallId: toolCall.id, ok: false, message: 'No visual spec provided.' }
+        const visualBlock = {
+          type: 'visual',
+          visualType: typeof input.visualType === 'string' ? input.visualType : 'venn_diagram',
+          title: typeof input.title === 'string' ? input.title : null,
+          altText: typeof input.altText === 'string' ? input.altText : '',
+          spec,
+        } as Extract<GeneratedContentBlock, { type: 'visual' }>
+        const specIssue = getGeneratedVisualSpecIssue(visualBlock)
+        if (specIssue) return { toolCallId: toolCall.id, ok: false, message: specIssue }
+        const imageNode = generatedVisualBlockToImageNode(visualBlock)
+        const writeVisual = (value: Json | null | undefined) =>
+          input.mode === 'append' ? appendImageNode(value, imageNode) : replaceFirstImageNode(value, imageNode)
+        const qIndex = questionIndex ?? safeQuestionIndex
+        if (target === 'stem') {
+          form.setValue('stemText', writeVisual(current.stemText as Json), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: 'Inserted deterministic visual in draft stem.' }
+        }
+        if (!current.questions[qIndex]) return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
+        if (target === 'question') {
+          form.setValue(`questions.${qIndex}.questionText`, writeVisual(current.questions[qIndex].questionText as Json), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: `Inserted deterministic visual in question ${qIndex + 1}.` }
+        }
+        if (target === 'explanation') {
+          form.setValue(`questions.${qIndex}.answerExplanation`, writeVisual(current.questions[qIndex].answerExplanation as Json | null), { shouldDirty: true })
+          return { toolCallId: toolCall.id, ok: true, message: `Inserted deterministic visual in question ${qIndex + 1} explanation.` }
+        }
+        return { toolCallId: toolCall.id, ok: false, message: `Unsupported visual target: ${target}.` }
+      }
+
+      default:
+        return { toolCallId: toolCall.id, ok: false, message: `${toolCall.name} is not available in the stem editor yet.` }
+    }
+  }
+
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l bg-background p-4">
+    <aside className="flex min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="properties">Properties</TabsTrigger>
+          <TabsTrigger value="ai">AI Tools</TabsTrigger>
+        </TabsList>
+        <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-4">
         <div className={tutorCardCn('space-y-4 p-3')}>
           <PropertyRow label="Mode">
@@ -413,7 +554,7 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['questions', 'ai', 'stem', 'sets', 'question']}
+          defaultValue={['questions', 'ai', 'stem', 'sets', 'question', 'source']}
           className="space-y-4"
         >
           <PropertiesCard value="questions" title="Questions">
@@ -467,63 +608,6 @@ export function UcatStemEditorPropertiesPanel({
                 Add question
               </Button>
             ) : null}
-          </PropertiesCard>
-
-          <PropertiesCard value="ai" title="AI actions">
-            <div className="space-y-2">
-              <AiActionButton
-                label="Rewrite source wording"
-                description="Rewords the current stem, questions, and answer options to reduce source similarity. You review and apply each changed part before it updates the form."
-                icon={aiPending === 'rewrite' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                onClick={() => void handleRewriteStem()}
-                disabled={aiPending != null || editorMode !== 'edit'}
-              />
-              <AiActionButton
-                label="Write question"
-                description="Adds one new multiple-choice question for this stem, using the stem facts plus the section, category, tag, and generation prompt-layer guidance."
-                icon={aiPending === 'write' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
-                onClick={() => void handleWriteQuestion()}
-                disabled={aiPending != null || editorMode !== 'edit' || isSyllogism}
-              />
-              <AiActionButton
-                label="Generate explanation"
-                description="Fills missing answer explanations for the active question. If the selected answer looks wrong, it flags the issue instead of inserting text."
-                icon={aiPending === 'explanation' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                onClick={() => void handleGenerateActiveExplanation()}
-                disabled={
-                  aiPending != null ||
-                  editorMode !== 'edit' ||
-                  activeQuestionMissingExplanations.length === 0
-                }
-              />
-              {explanationReviewFlags.length > 0 ? (
-                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                  <div className="font-medium">Review flagged</div>
-                  {explanationReviewFlags.map((flag) => (
-                    <div key={`${flag.questionIndex}-${flag.message}`} className="space-y-1">
-                      <p>
-                        Question {flag.questionIndex + 1}: {flag.message}
-                      </p>
-                      {flag.suggestedCorrectOptionIndex != null ? (
-                        <p>Suggested correct option: {String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}</p>
-                      ) : null}
-                      {flag.suggestedChanges ? <p>Suggested change: {flag.suggestedChanges}</p> : null}
-                      {flag.suggestedCorrectOptionIndex != null && flag.suggestedAnswerExplanation ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-1 h-7 text-xs"
-                          onClick={() => handleAcceptExplanationSuggestion(flag)}
-                        >
-                          Accept change
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           </PropertiesCard>
 
           <PropertiesCard value="stem" title="Stem properties">
@@ -583,7 +667,7 @@ export function UcatStemEditorPropertiesPanel({
                 />
               </div>
             </PropertyRow>
-            <PropertyRow label="Visibility">
+            <PropertyRow label={<UcatVisibilityFieldLabel />}>
               <SearchableSelect<{ value: 'public' | 'private'; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
@@ -624,14 +708,35 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
+            <PropertyRow label="Approval">
+              <SearchableSelect<{ value: UcatApprovalStatus; label: string }>
+                items={APPROVAL_OPTIONS}
+                value={
+                  APPROVAL_OPTIONS.find(
+                    (option) => option.value === (watchedApprovalStatus ?? 'approved'),
+                  ) ?? null
+                }
+                onValueChange={(item) => {
+                  if (!item) return
+                  form.setValue('approvalStatus', item.value, { shouldDirty: true })
+                }}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+                placeholder="Select approval status"
+              />
+            </PropertyRow>
           </PropertiesCard>
 
           <PropertiesCard value="sets" title="Set membership">
-            <UcatStemSetMembershipCard stemId={stemId} highlighted={focusTarget === 'sets'} />
+            <UcatStemSetMembershipCard
+              stemId={stemId}
+              stemSectionId={sectionId}
+              highlighted={focusTarget === 'sets'}
+            />
           </PropertiesCard>
 
           {fields.length > 0 ? (
-            <PropertiesCard value="question" title={`Question ${safeQuestionIndex + 1} properties`}>
+            <PropertiesCard value="question" title="Question properties">
               <PropertyRow label="Tags">
                 <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
@@ -641,6 +746,9 @@ export function UcatStemEditorPropertiesPanel({
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.
                 </div>
+              ) : null}
+              {fields.length > 1 ? (
+                <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
               ) : null}
               <PropertyRow label="Difficulty">
                 <Input
@@ -660,191 +768,87 @@ export function UcatStemEditorPropertiesPanel({
               </PropertyRow>
             </PropertiesCard>
           ) : null}
+
+          <PropertiesCard value="source" title="Source">
+            <PropertyRow label="Stem">
+              <ReadOnlyValue>{formatSourceChannel(sourceChannel)}</ReadOnlyValue>
+            </PropertyRow>
+            {sourceChannel === 'ai_generation' ? (
+              <>
+                <PropertyRow label="Model">
+                  <ReadOnlyValue>{aiModel ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Generated">
+                  <ReadOnlyValue>{generatedAtLabel ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+                <PropertyRow label="Generated by">
+                  <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
+                </PropertyRow>
+              </>
+            ) : null}
+            {fields.length > 0 ? (
+              <>
+                <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
+                {fields.length > 1 ? (
+                  <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
+                ) : null}
+                <PropertyRow label="Question">
+                  <ReadOnlyValue>
+                    {formatSourceChannel(activeQuestion?.sourceChannel ?? sourceChannel ?? null)}
+                  </ReadOnlyValue>
+                </PropertyRow>
+                {(activeQuestion?.sourceChannel ?? sourceChannel) === 'ai_generation' ? (
+                  <>
+                    <PropertyRow label="Model">
+                      <ReadOnlyValue>
+                        {metadataString(activeQuestion?.aiGenerationMetadata ?? null, 'model') ?? 'Unknown'}
+                      </ReadOnlyValue>
+                    </PropertyRow>
+                    <PropertyRow label="Generated">
+                      <ReadOnlyValue>
+                        {formatGeneratedTimestamp(
+                          metadataString(activeQuestion?.aiGenerationMetadata ?? null, 'generatedAt'),
+                        ) ?? 'Unknown'}
+                      </ReadOnlyValue>
+                    </PropertyRow>
+                    <PropertyRow label="Generated by">
+                      <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
+                    </PropertyRow>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
+            <div className="space-y-1.5 py-1.5">
+              <label className="text-sm text-muted-foreground" htmlFor="ucat-tutor-source-note">
+                Tutor source note
+              </label>
+              <Textarea
+                id="ucat-tutor-source-note"
+                className="min-h-20 resize-y text-sm"
+                placeholder="e.g. Altitutor mock 3, official practice bank, in-house worksheet"
+                {...form.register('tutorSourceNote')}
+              />
+            </div>
+          </PropertiesCard>
         </Accordion>
       </div>
-      <RewritePreviewDialog
-        open={rewritePreview != null}
-        currentStem={watchedStem}
-        rewrittenStem={rewritePreview?.stem ?? null}
-        summary={rewritePreview?.summary ?? null}
-        onOpenChange={(open) => {
-          if (!open) setRewritePreview(null)
-        }}
-        onApply={handleApplyRewrite}
-      />
+        </TabsContent>
+        <TabsContent
+          forceMount
+          value="ai"
+          className={cn('h-full min-h-0 flex-1 overflow-hidden', activeTab !== 'ai' && 'hidden')}
+        >
+          <UcatAuthoringAgentChat
+            contextType="question_stem"
+            scope="current_stem"
+            scopeLabel={`Question ${safeQuestionIndex + 1}`}
+            snapshot={form.getValues() as unknown as Json}
+            placeholder="Ask AI to edit this question stem..."
+            onExecuteTool={executeStemAgentTool}
+          />
+        </TabsContent>
+      </Tabs>
     </aside>
   )
-}
-
-function RewritePreviewDialog({
-  open,
-  currentStem,
-  rewrittenStem,
-  summary,
-  onOpenChange,
-  onApply,
-}: {
-  open: boolean
-  currentStem: UcatQuestionStemFormValues
-  rewrittenStem: UcatQuestionStemFormValues | null
-  summary: string | null
-  onOpenChange: (open: boolean) => void
-  onApply: (acceptedStem: UcatQuestionStemFormValues) => void
-}) {
-  const segments = rewrittenStem ? buildRewriteSegments(currentStem, rewrittenStem) : []
-  const [accepted, setAccepted] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (!rewrittenStem) {
-      setAccepted({})
-      return
-    }
-    setAccepted(Object.fromEntries(buildRewriteSegments(currentStem, rewrittenStem).map((segment) => [segment.key, true])))
-  }, [currentStem, rewrittenStem])
-
-  const acceptedCount = Object.values(accepted).filter(Boolean).length
-  const handleApplyAccepted = () => {
-    if (!rewrittenStem) return
-    onApply(buildAcceptedRewriteStem(currentStem, rewrittenStem, accepted))
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Review rewritten wording</DialogTitle>
-          <DialogDescription>
-            Accept or reject each rewritten part before applying. This reduces source similarity for tutor
-            review; it does not certify copyright status.
-          </DialogDescription>
-        </DialogHeader>
-        {summary ? <p className="text-sm text-muted-foreground">{summary}</p> : null}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border bg-muted/20 p-3">
-          {segments.map((segment) => {
-            const isAccepted = accepted[segment.key] ?? false
-            return (
-              <div
-                key={segment.key}
-                className="overflow-hidden rounded-md border bg-background"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-                  <div className="text-sm font-medium">{segment.label}</div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={isAccepted ? 'default' : 'outline'}
-                      onClick={() => setAccepted((current) => ({ ...current, [segment.key]: true }))}
-                    >
-                      Apply
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={!isAccepted ? 'default' : 'outline'}
-                      onClick={() => setAccepted((current) => ({ ...current, [segment.key]: false }))}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid min-w-0 md:grid-cols-2">
-                  <div className="min-w-0 border-b p-3 md:border-b-0 md:border-r">
-                    <div className="mb-2 text-[11px] font-medium uppercase text-muted-foreground">Current</div>
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
-                      {segment.currentText}
-                    </pre>
-                  </div>
-                  <div className="min-w-0 p-3">
-                    <div className="mb-2 text-[11px] font-medium uppercase text-muted-foreground">Rewritten</div>
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
-                      {segment.rewrittenText}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleApplyAccepted} disabled={!rewrittenStem || acceptedCount === 0}>
-            Apply accepted changes ({acceptedCount})
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-type RewriteSegment = {
-  key: string
-  label: string
-  currentText: string
-  rewrittenText: string
-}
-
-function buildRewriteSegments(currentStem: UcatQuestionStemFormValues, rewrittenStem: UcatQuestionStemFormValues): RewriteSegment[] {
-  const segments: RewriteSegment[] = [
-    {
-      key: 'stem',
-      label: 'Stem',
-      currentText: proseMirrorToPlainText(currentStem.stemText as Json),
-      rewrittenText: proseMirrorToPlainText(rewrittenStem.stemText as Json),
-    },
-  ]
-  currentStem.questions.forEach((question, questionIndex) => {
-    const rewrittenQuestion = rewrittenStem.questions[questionIndex]
-    if (!rewrittenQuestion) return
-    segments.push({
-      key: `question-${questionIndex}`,
-      label: `Question ${questionIndex + 1}`,
-      currentText: proseMirrorToPlainText(question.questionText as Json),
-      rewrittenText: proseMirrorToPlainText(rewrittenQuestion.questionText as Json),
-    })
-    question.options.forEach((option, optionIndex) => {
-      const rewrittenOption = rewrittenQuestion.options[optionIndex]
-      if (!rewrittenOption) return
-      segments.push({
-        key: `question-${questionIndex}-option-${optionIndex}`,
-        label: `Question ${questionIndex + 1} option ${String.fromCharCode(65 + optionIndex)}`,
-        currentText: proseMirrorToPlainText(option.answerText as Json),
-        rewrittenText: proseMirrorToPlainText(rewrittenOption.answerText as Json),
-      })
-    })
-  })
-  return segments
-}
-
-function buildAcceptedRewriteStem(
-  currentStem: UcatQuestionStemFormValues,
-  rewrittenStem: UcatQuestionStemFormValues,
-  accepted: Record<string, boolean>
-): UcatQuestionStemFormValues {
-  return {
-    ...currentStem,
-    stemText: accepted.stem ? rewrittenStem.stemText : currentStem.stemText,
-    questions: currentStem.questions.map((question, questionIndex) => {
-      const rewrittenQuestion = rewrittenStem.questions[questionIndex]
-      if (!rewrittenQuestion) return question
-      return {
-        ...question,
-        questionText: accepted[`question-${questionIndex}`]
-          ? rewrittenQuestion.questionText
-          : question.questionText,
-        options: question.options.map((option, optionIndex) => {
-          const rewrittenOption = rewrittenQuestion.options[optionIndex]
-          if (!rewrittenOption) return option
-          return {
-            ...option,
-            answerText: accepted[`question-${questionIndex}-option-${optionIndex}`]
-              ? rewrittenOption.answerText
-              : option.answerText,
-          }
-        }),
-      }
-    }),
-  }
 }

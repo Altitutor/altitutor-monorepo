@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
       p_stem_text: body.stemText ?? {},
       p_is_private: !!body.isPrivate,
       p_questions: body.questions ?? [],
+      p_source_channel: body.sourceChannel ?? 'individual',
+      p_tutor_source_note: body.tutorSourceNote ?? null,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

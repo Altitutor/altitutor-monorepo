@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
     categoryId: stem.categoryId ?? null,
     stemText: stem.stemText ?? {},
     isPrivate: true,
+    sourceChannel: 'ai_generation',
+    tutorSourceNote: null,
     questions: stem.questions.map((question) => ({
       index: question.index,
       question_text: question.questionText ?? {},
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
+      source_channel: 'ai_generation',
+      ai_generation_metadata: stem.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds ?? [],
       answer_options: question.options.map((option) => ({
         index: option.index,

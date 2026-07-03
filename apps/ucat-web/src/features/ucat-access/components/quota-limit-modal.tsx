@@ -30,8 +30,8 @@ export function QuotaLimitModal() {
 
   const dismissLabel =
     dismissAction?.label ??
-    (dismissAction?.variant === "dismiss" ? "Dismiss" : "Go to dashboard");
-  const dismissVariant = dismissAction?.variant ?? "dashboard";
+    (dismissAction?.variant === "dashboard" ? "Go to dashboard" : "Dismiss");
+  const dismissVariant = dismissAction?.variant ?? "dismiss";
 
   const handleDismiss = () => {
     closeQuotaLimit();

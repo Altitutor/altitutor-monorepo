@@ -99,22 +99,27 @@ export const skillTrainerApi = {
     return json.attempt;
   },
 
-  async startSetAttempt(input: {
+  async prepareLearningModuleSkillTrainerSession(input: {
     trainerKey: string;
-    skillTrainerSetId: string;
     learningModuleBlockId: string;
-  }): Promise<SkillTrainerAttemptState> {
-    const res = await fetch("/api/ucat/skill-trainer-attempts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
+  }): Promise<{
+    session: SkillTrainerAttemptState;
+    items: Array<{ id: string; content: Record<string, unknown> }>;
+    trainerName: string;
+  }> {
+    const params = new URLSearchParams({ trainerKey: input.trainerKey });
+    const res = await fetch(
+      `/api/ucat/learning-modules/blocks/${input.learningModuleBlockId}/skill-trainer-session?${params.toString()}`,
+    );
     if (!res.ok) {
-      const json = (await res.json()) as { error?: string };
-      throw new Error(json.error ?? "Failed to start set attempt");
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(json.error ?? "Failed to load skill trainer");
     }
-    const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
-    return json.attempt;
+    return (await res.json()) as {
+      session: SkillTrainerAttemptState;
+      items: Array<{ id: string; content: Record<string, unknown> }>;
+      trainerName: string;
+    };
   },
 
   async getAttempt(attemptId: string): Promise<SkillTrainerAttemptState> {

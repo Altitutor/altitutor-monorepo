@@ -1,8 +1,22 @@
 import { z } from 'zod'
-import { UCAT_SKILL_TRAINER_KEYS, type UcatSkillTrainerKey } from '@altitutor/shared'
+import {
+  UCAT_CALCULATOR_MATHS_CATEGORIES,
+  extractSkillTrainerPlainText,
+  findFindWordKeywordOccurrences,
+  UCAT_SKILL_TRAINER_KEYS,
+  type UcatCalculatorMathsCategory,
+  type UcatSkillTrainerKey,
+} from '@altitutor/shared'
 
 const trainerKeyEnum = z.enum(
   UCAT_SKILL_TRAINER_KEYS as unknown as [UcatSkillTrainerKey, ...UcatSkillTrainerKey[]]
+)
+
+const calculatorCategoryEnum = z.enum(
+  UCAT_CALCULATOR_MATHS_CATEGORIES as unknown as [
+    UcatCalculatorMathsCategory,
+    ...UcatCalculatorMathsCategory[],
+  ]
 )
 
 const jsonValue: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.unknown())
@@ -10,7 +24,6 @@ const jsonValue: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.unk
 const findWordKeywordSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1, 'Keyword text is required'),
-  target_sentence_index: z.number().int().min(0),
 })
 
 const findConceptOccurrenceSchema = z.object({
@@ -34,12 +47,25 @@ export const ucatSkillTrainerItemFormSchema = z
     buttonSequence: z.array(z.string()).optional(),
     label: z.string().optional(),
     question: jsonValue.optional(),
+    calculatorCategory: calculatorCategoryEnum.optional(),
   })
   .superRefine((values, ctx) => {
     switch (values.trainerKey) {
       case 'find_word':
         if (!values.keywords?.length) {
           ctx.addIssue({ code: 'custom', message: 'At least one keyword is required', path: ['keywords'] })
+        }
+        {
+          const plain = extractSkillTrainerPlainText(values.passage, { blockSeparator: '\n' })
+          values.keywords?.forEach((keyword, index) => {
+            if (!findFindWordKeywordOccurrences(plain, keyword).length) {
+              ctx.addIssue({
+                code: 'custom',
+                message: 'Keyword does not appear in the passage',
+                path: ['keywords', index, 'text'],
+              })
+            }
+          })
         }
         break
       case 'find_concept':
@@ -69,6 +95,9 @@ export const ucatSkillTrainerItemFormSchema = z
       case 'numpad_speed':
         if (!values.buttonSequence?.length) {
           ctx.addIssue({ code: 'custom', message: 'Button sequence is required', path: ['buttonSequence'] })
+        }
+        if (values.buttonSequence?.some((key) => key === '=')) {
+          ctx.addIssue({ code: 'custom', message: 'Equals is the submit key and cannot be part of the sequence', path: ['buttonSequence'] })
         }
         break
       case 'calculator_maths':

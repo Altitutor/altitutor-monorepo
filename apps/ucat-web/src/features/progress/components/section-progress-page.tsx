@@ -333,8 +333,8 @@ function SectionProgressContent({
         backLabel={backLabel}
         breadcrumbOverrides={
           mocksOnly
-            ? { 3: section.sectionName }
-            : { 2: section.sectionName }
+            ? { 2: section.sectionName }
+            : { 1: section.sectionName }
         }
       />
 

@@ -27,6 +27,9 @@ import { cn, formatDateTime } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary, tutorTransition } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
 
+const EMPTY_STEM_EXCLUDED_IDS: string[] = []
+const EMPTY_CATEGORY_PATH_LOOKUP = new Map<string, string>()
+
 function stemShowsColumn(visibleColumns: string[], key: string) {
   return visibleColumns.length === 0 || visibleColumns.includes(key)
 }
@@ -99,7 +102,7 @@ export function UcatStemCatalogRow({
 }) {
   const title = stem.text || stem.id
   const titleContent = (
-    <div className="line-clamp-2 break-words text-xs sm:text-sm">{title}</div>
+    <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{title}</div>
   )
 
   return (
@@ -177,10 +180,10 @@ export function UcatStemCatalogLabel({
   visibleColumns?: string[]
 }) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex min-w-0 flex-1 items-start gap-2">
       <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
-      <div className="min-w-0">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{stem?.text || id}</div>
         {stem ? (
           <UcatStemCatalogMetadata stem={stem} visibleColumns={visibleColumns} />
         ) : null}
@@ -206,6 +209,7 @@ type UcatStemCatalogListPanelProps = {
   emptyMessage?: string
   searchPlaceholder?: string
   className?: string
+  compact?: boolean
   onAddStem?: (stemId: string) => void
   onViewStem?: (stemId: string) => void
   onEditStem?: (stemId: string) => void
@@ -214,7 +218,7 @@ type UcatStemCatalogListPanelProps = {
 
 export function UcatStemCatalogListPanel({
   stems,
-  excludedIds = [],
+  excludedIds = EMPTY_STEM_EXCLUDED_IDS,
   includedIds,
   search,
   onSearchChange,
@@ -222,13 +226,14 @@ export function UcatStemCatalogListPanel({
   onFiltersChange,
   filterDefinitions,
   columnDefinitions = stemCatalogColumnDefinitions,
-  categoryPathLookup = new Map(),
+  categoryPathLookup = EMPTY_CATEGORY_PATH_LOOKUP,
   filterSearchValues,
   onFilterSearchChange,
   isLoading = false,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
   className,
+  compact = true,
   onAddStem,
   onViewStem,
   onEditStem,
@@ -307,6 +312,7 @@ export function UcatStemCatalogListPanel({
       emptyMessage={emptyMessage}
       hasItems={paginatedStems.length > 0}
       className={className}
+      compact={compact}
     >
       {paginatedStems.map((stem) => (
         <UcatStemCatalogRow
@@ -421,6 +427,7 @@ export function UcatStemMembershipListPanel({
       <UcatSortableList
         ids={displayIds}
         disableReorder={reorderDisabled}
+        flatCard
         onChange={(reorderedVisibleIds) => {
           onStemIdsChange(mergeVisibleOrderIntoFull(stemIds, displayIds, reorderedVisibleIds))
         }}

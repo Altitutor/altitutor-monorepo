@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
       p_parent_id: body.parentId ?? null,
       p_index: isCreate ? (body.index ?? null) : (body.index ?? 0),
       p_is_private: body.isPrivate ?? true,
-      p_display_mode: body.displayMode ?? 'stepped',
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

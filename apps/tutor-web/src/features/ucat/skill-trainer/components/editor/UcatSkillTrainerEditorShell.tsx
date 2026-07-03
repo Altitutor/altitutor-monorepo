@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import type { UcatSkillTrainerApprovalStatus } from '@altitutor/shared'
 import { UcatSkillTrainerContentEditor } from '@/features/ucat/skill-trainer/components/editor/UcatSkillTrainerContentEditor'
@@ -34,6 +34,12 @@ export function UcatSkillTrainerEditorShell({
 }: Props) {
   const [editorMode, setEditorMode] = useState<SkillTrainerEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
+
+  useEffect(() => {
+    if (editorMode === 'edit') {
+      setShowAnswer(false)
+    }
+  }, [editorMode])
 
   return (
     <div className={className ?? 'flex min-h-0 flex-1 overflow-hidden'}>

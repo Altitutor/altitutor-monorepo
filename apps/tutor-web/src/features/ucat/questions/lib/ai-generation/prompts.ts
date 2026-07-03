@@ -236,17 +236,21 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Inside text fields, **text** is converted to bold rich text. Use it sparingly in questionText for decisive command words only.',
         'Use table blocks for data tables.',
         'Use visual blocks only for warranted QR/DM visual categories and provide exact structured data in spec. Do not write freeform image descriptions.',
-        'Chart visualTypes: bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart. Use bar_chart for grouped bars with spec {labels:string[], series:[{name:string,values:number[]}]}; stacked_bar_chart uses the same spec but stacked; line_chart may use one values array or series arrays; scatter_plot uses {points:[{x:number,y:number,label?:string}]}; histogram uses {labels:string[],values:number[]}; pie_chart uses {labels:string[],values:number[]}.',
-        'For charts, prefer official-style clean axes, monochrome or restrained palettes, and real units. You may include style:{palette:"default"|"teal_amber"|"indigo_rose"|"slate_green"}.',
+        'Chart visualTypes: bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart. Use bar_chart for grouped bars with spec {labels:string[], series:[{name:string,values:number[]}]}; stacked_bar_chart uses the same spec but stacked; bar_chart and stacked_bar_chart may also use paired/small-multiple panels with spec.panels:[{title?:string,subtitle?:string,labels:string[],values?:number[],series?:[{name:string,values:number[]}]}]. line_chart may use one values array or series arrays; scatter_plot uses {points:[{x:number,y:number,label?:string}]}; histogram uses {labels:string[],values:number[]}; pie_chart uses {labels:string[],values:number[]} or paired/small-multiple pies with spec.panels:[{title?:string,subtitle?:string,labels:string[],values:number[]}]}.',
+        'For charts, prefer official-style clean axes, gridlines where helpful, visible units, restrained colours or monochrome, and enough labelled data to support interpretation. You may include xAxis:{label,unit,min,max,tickCount}, yAxis:{label,unit,min,max,tickCount}, and style:{palette:"default"|"teal_amber"|"indigo_rose"|"slate_green"|"monochrome",showGrid?:boolean,showValueLabels?:boolean,patterned?:boolean}.',
         'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
-        'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,x:number,y:number,bold?:boolean,fontSize?:number}]}.',
+        'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{id?:string,shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,region?:string,include?:string[],exclude?:string[],x?:number,y?:number,bold?:boolean,fontSize?:number}]}.',
         'Use shapes[].label only for set names. Use regionLabels only for examinable region values such as 0, 3, 12, or 45. Do not put set names such as R/S/T or Biology/Chemistry in regionLabels.',
+        'For every numeric Venn/set regionLabel, include a semantic set-region expression using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label. Raw x/y coordinates are only optional hints; the renderer places numbers from the semantic region.',
+        'Do not output two numeric labels with the same set-region expression unless the answer option is intentionally showing an invalid diagram. Do not leave a required numeric region unlabeled when the question depends on that region.',
         'For mixed-shape set diagrams, labels may be shown by a single visual legend. Do not also write a sentence in the stem that repeats the same shape-to-set mapping unless it contains extra examinable information.',
         'If two or more sets use the same shape type, provide clear shape labels or labelX/labelY positions on the diagram instead of relying on a legend.',
         'Keep visual altText short and accessibility-oriented only. Do not write a visible caption or prose description after the visual unless it contains extra examinable information.',
         'Do not use the old coloured three-overlapping-circle Venn template for DM Venn Diagrams. If you need a conventional three-circle answer option, still encode it as shapes with three circle entries, monochrome strokes, and no coloured fills.',
         'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed clearly inside regions and a separate legend for set names. Do not place numbers on shape outlines, intersections, or ambiguous boundary areas. Use overlapping/nested shapes where useful.',
-        'schematic_map spec: {points:[{id:string,label:string,x:number,y:number}], lines:[{from:string,to:string,label?:string}]}. Use coordinates within a 640 by 360 canvas.',
+        'schematic_map and route_map spec: {points:[{id:string,label:string,x:number,y:number}], lines:[{from:string,to:string,label?:string}]}. Use route_map for QR path networks, journey maps, parks, roads, or distance-labelled routes. Use coordinates within a 640 by 360 canvas.',
+        'layout_grid visualType spec: {rows:number,columns:number,rowLabels?:string[],columnLabels?:string[],cells?:[{row:number,column:number,label?:string,fill?:string}]}. Use this for DM logical-puzzle seating/window/workspace layouts, QR floor plans, simple room grids, and shape-position relationship diagrams.',
+        'timetable visualType spec: {caption?:string,columns:string[],rows:string[][],rowHeaderCount?:number,columnGroupLabels?:string[]}. Use this when a schedule or calendar needs timetable-style visual density rather than a plain prose table.',
         'Do not output ProseMirror JSON.',
       ],
       requirements: [
@@ -288,20 +292,21 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
             ]
           : []),
         ...(input.categoryName === 'Data Tables' || input.categoryName === 'Timetables and Calendars'
-          ? ['Include at least one table content block containing the examinable data.']
+          ? ['Include at least one table content block or timetable visual containing the examinable data. Prefer timetable visualType for schedule grids with many times, route columns, days, or availability windows.']
           : []),
         ...(input.categoryName === 'Graphs and Charts'
           ? [
               'Include at least one chart visual block containing the examinable data.',
               'Choose the best chart type for the data, not always a bar chart: grouped bar, stacked bar, line, multi-line, scatter, histogram, or pie where appropriate.',
+              'When the source example needs comparison across two periods, groups, sites, or scenarios, prefer paired/small-multiple panels rather than a single generic chart.',
               'Use official-style chart design: clear axes, legible labels, restrained colours or monochrome, and no decorative effects.',
             ]
           : []),
         ...(input.categoryName === 'Maps and Diagrams'
-          ? ['Include at least one schematic_map visual block containing the examinable data.']
+          ? ['Include at least one route_map, schematic_map, or layout_grid visual block containing the examinable data. Prefer route_map for distance networks and layout_grid for floor-plan or position-grid diagrams.']
           : []),
         ...(input.categoryName === 'Mixed Data Sources'
-          ? ['Include at least two examinable structured sources, including a table plus a chart or schematic map.']
+          ? ['Include at least two examinable structured sources, including a table plus a chart, route_map, schematic_map, layout_grid, timetable, or paired chart panels. Multiple visual blocks in one stem are allowed when the information is genuinely mixed.']
           : []),
         ...(input.categoryName === 'Text-Only Scenarios'
           ? ['Keep the stem text-only. Do not include table or visual content blocks.']

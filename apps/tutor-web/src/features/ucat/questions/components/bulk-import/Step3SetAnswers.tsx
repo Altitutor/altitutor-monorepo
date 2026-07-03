@@ -4,16 +4,13 @@ import { Fragment, useCallback, useMemo, useState } from 'react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
 import {
-  Button,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  useToast,
 } from '@altitutor/ui'
-import { Loader2, Sparkles } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -23,10 +20,9 @@ import type {
   CategoryOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import {
-  applyReviewFlagSuggestion,
   findMissingExplanations,
-  type AiToolReviewFlag,
   type MissingExplanationTarget,
 } from '@/features/ucat/questions/lib/ai-tools'
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
@@ -119,6 +115,8 @@ type Step3SetAnswersProps = {
   tags?: ReviewTagOption[]
   onUpdateStem?: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
+  sourceChannel?: UcatQuestionSourceChannel | null
+  onExpandedStemChange?: (stemId: string | null) => void
 }
 
 export function Step3SetAnswers({
@@ -128,14 +126,11 @@ export function Step3SetAnswers({
   tags = [],
   onUpdateStem,
   onNewImageFileIds,
+  sourceChannel = null,
+  onExpandedStemChange,
 }: Step3SetAnswersProps) {
-  const { toast } = useToast()
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
-  const [isGeneratingExplanations, setIsGeneratingExplanations] = useState(false)
-  const [explanationReviewFlags, setExplanationReviewFlags] = useState<
-    Array<AiToolReviewFlag & { stemIndex: number }>
-  >([])
   const missingExplanationTargets = useMemo(
     () =>
       stems.flatMap((stem, stemIndex) =>
@@ -184,83 +179,12 @@ export function Step3SetAnswers({
   const totalCols = 3 + maxOptionCount + 2
 
   const toggleExpanded = useCallback((key: string) => {
-    setExpandedRowKey((current) => (current === key ? null : key))
-  }, [])
-
-  const handleGenerateMissingExplanations = useCallback(async () => {
-    if (!onUpdateStem || missingExplanationTargets.length === 0) return
-    setIsGeneratingExplanations(true)
-    try {
-      setExplanationReviewFlags([])
-      const results = await Promise.all(stems.map(async (stem, stemIndex) => {
-        const stemTargets = missingExplanationTargets.filter((target) => target.stemId === stem.id)
-        if (stemTargets.length === 0) {
-          return { stemId: stem.id, stem: null, appliedCount: 0, reviewFlags: [] as Array<AiToolReviewFlag & { stemIndex: number }> }
-        }
-        const response = await fetch('/api/ucat/question-stems/ai-tools/generate-explanations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            stem: stem.values,
-            questionIndexes: Array.from(new Set(stemTargets.map((target) => target.questionIndex))),
-          }),
-        })
-        const json = (await response.json()) as {
-          stem?: UcatQuestionStemFormValues
-          appliedCount?: number
-          reviewFlags?: AiToolReviewFlag[]
-          error?: string
-        }
-        if (!response.ok || !json.stem) {
-          throw new Error(json.error ?? 'Failed to generate missing explanations.')
-        }
-        return {
-          stemId: stem.id,
-          stem: json.stem,
-          appliedCount: json.appliedCount ?? 0,
-          reviewFlags: (json.reviewFlags ?? []).map((flag) => ({ ...flag, stemIndex })),
-        }
-      }))
-      const appliedTotal = results.reduce((sum, result) => sum + result.appliedCount, 0)
-      const reviewFlags = results.flatMap((result) => result.reviewFlags)
-      results.forEach((result) => {
-        if (result.stem) onUpdateStem(result.stemId, result.stem)
-      })
-      setExplanationReviewFlags(reviewFlags)
-      toast({
-        description: reviewFlags.length > 0
-          ? `${reviewFlags.length} question${reviewFlags.length === 1 ? '' : 's'} flagged for tutor review.`
-          : appliedTotal > 0
-            ? `Generated ${appliedTotal} missing explanation${appliedTotal === 1 ? '' : 's'}.`
-            : 'No missing explanations were generated.',
-        variant: reviewFlags.length > 0 ? 'destructive' : undefined,
-      })
-    } catch (error) {
-      toast({
-        description: error instanceof Error ? error.message : 'Failed to generate missing explanations.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsGeneratingExplanations(false)
-    }
-  }, [missingExplanationTargets, onUpdateStem, stems, toast])
-
-  const handleAcceptExplanationSuggestion = useCallback(
-    (flag: AiToolReviewFlag & { stemIndex: number }) => {
-      const stem = stems[flag.stemIndex]
-      if (!stem || !onUpdateStem) return
-      onUpdateStem(stem.id, applyReviewFlagSuggestion(stem.values, flag))
-      setExplanationReviewFlags((current) =>
-        current.filter(
-          (item) => !(item.stemIndex === flag.stemIndex && item.questionIndex === flag.questionIndex)
-        )
-      )
-      toast({
-        description: `Updated stem ${flag.stemIndex + 1}, question ${flag.questionIndex + 1}. Review before continuing.`,
-      })
-    },
-    [onUpdateStem, stems, toast]
-  )
+    setExpandedRowKey((current) => {
+      const next = current === key ? null : key
+      onExpandedStemChange?.(next ? rows.find((row) => `${row.stemId}-${row.questionIndex}` === next)?.stemId ?? null : null)
+      return next
+    })
+  }, [onExpandedStemChange, rows])
 
   if (stems.length === 0 || rows.length === 0) {
     return (
@@ -287,51 +211,7 @@ export function Step3SetAnswers({
               All questions have the required explanation fields.
             </p>
           )}
-          {explanationReviewFlags.length > 0 ? (
-            <div className="mt-2 space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-              <div className="font-medium">AI flagged questions for tutor review</div>
-              {explanationReviewFlags.map((flag) => (
-                <div key={`${flag.stemIndex}-${flag.questionIndex}-${flag.message}`} className="space-y-1">
-                  <p>
-                    Stem {flag.stemIndex + 1}, question {flag.questionIndex + 1}: {flag.message}
-                    {flag.suggestedCorrectOptionIndex != null
-                      ? ` Suggested correct option: ${String.fromCharCode(65 + flag.suggestedCorrectOptionIndex)}.`
-                      : ''}
-                    {flag.suggestedChanges ? ` Suggested change: ${flag.suggestedChanges}` : ''}
-                  </p>
-                  {flag.suggestedCorrectOptionIndex != null && flag.suggestedAnswerExplanation && onUpdateStem ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => handleAcceptExplanationSuggestion(flag)}
-                    >
-                      Accept change
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
         </div>
-        {missingExplanationTargets.length > 0 && onUpdateStem ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => void handleGenerateMissingExplanations()}
-            disabled={isGeneratingExplanations}
-          >
-            {isGeneratingExplanations ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Generate missing explanations
-          </Button>
-        ) : null}
       </div>
       <div className="rounded-md border">
         <Table className="w-full table-fixed text-xs">
@@ -420,6 +300,7 @@ export function Step3SetAnswers({
                             tags={tags}
                             onUpdateStem={onUpdateStem}
                             onNewImageFileIds={onNewImageFileIds}
+                            sourceChannel={sourceChannel}
                           />
                         </div>
                       </TableCell>

@@ -3,6 +3,14 @@
 const BUTTON_BASE =
   "inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded-[4px] border border-[#414042] px-2 text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)]";
 
+function renderKeyLabel(label: string) {
+  if (label === "sqrt") return "√";
+  if (label === "÷") {
+    return <span className="text-[16pt] font-bold leading-none">÷</span>;
+  }
+  return label;
+}
+
 export function CalcKeyChip({
   label,
   onClick,
@@ -27,7 +35,7 @@ export function CalcKeyChip({
         onClick={onClick}
         className={`${BUTTON_BASE} ${variant}`}
       >
-        {label === "sqrt" ? "√" : label}
+        {renderKeyLabel(label)}
       </button>
       {onRemove ? (
         <button
@@ -51,7 +59,7 @@ export function CalcKeyDisplay({ label }: { label: string }) {
 
   return (
     <span className={`${BUTTON_BASE} ${variant} cursor-default`}>
-      {label === "sqrt" ? "√" : label}
+      {renderKeyLabel(label)}
     </span>
   );
 }

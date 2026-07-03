@@ -40,6 +40,7 @@ export async function GET(
           ? (data.item_queue_snapshot as string[])
           : [],
         current_item_index: data.current_item_index,
+        current_item_started_at: data.current_item_started_at,
         progress: data.progress as Parameters<typeof buildAttemptState>[1]["progress"],
         config_snapshot: data.config_snapshot as Parameters<typeof buildAttemptState>[1]["config_snapshot"],
         ends_at: data.ends_at,

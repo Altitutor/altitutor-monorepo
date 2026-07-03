@@ -18,6 +18,8 @@ const SerializedQuestionSchema = z.object({
   difficulty: z.number().nullable().optional(),
   time_burden_seconds: z.number().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
+  source_channel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
+  ai_generation_metadata: z.unknown().nullable().optional(),
   tag_ids: z.array(z.string().uuid()),
   answer_options: z.array(SerializedAnswerOptionSchema),
 })
@@ -29,6 +31,8 @@ const SerializedStemSchema = z.object({
   // Stem text is also rich-text JSON.
   stemText: z.unknown(),
   isPrivate: z.boolean(),
+  sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
+  tutorSourceNote: z.string().nullable().optional(),
   questions: z.array(SerializedQuestionSchema),
 })
 
@@ -65,6 +69,8 @@ export async function POST(request: NextRequest) {
   // Normalize answer_explanation: never send the string "null" to the DB (use actual null).
   const normalizedStems = stems.map((stem) => ({
     ...stem,
+    sourceChannel: stem.sourceChannel ?? 'bulk_import',
+    tutorSourceNote: stem.tutorSourceNote ?? null,
     questions: stem.questions.map((q) => ({
       ...q,
       answer_explanation:
@@ -94,4 +100,3 @@ export async function POST(request: NextRequest) {
   const ids = Array.isArray(data) ? (data as string[]) : []
   return NextResponse.json({ ids })
 }
-

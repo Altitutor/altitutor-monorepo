@@ -99,7 +99,7 @@ export function TablePagination({
         </div>
 
         <div className="flex shrink-0 items-center gap-4">
-          <div className="flex items-center gap-2 whitespace-nowrap">
+          <div className="hidden items-center gap-2 whitespace-nowrap md:flex">
             <span>Rows per page</span>
             <SearchableSelect<PageSizeItem>
               items={pageSizeItems}

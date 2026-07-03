@@ -20,8 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # CLI version resolved from pnpm-lock.yaml (see supabase/setup-cli@v2)
       - uses: supabase/setup-cli@v2
+        with:
+          # Keep Supabase CI on the same version used by deploy; v2.108.0 currently
+          # fails config push while reading Storage config on some projects.
+          version: 2.107.0
 
       - uses: pnpm/action-setup@v4
 

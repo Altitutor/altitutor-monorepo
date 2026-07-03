@@ -1,6 +1,7 @@
 import {
   generatedContentToPlainText,
   generatedContentToProseMirror,
+  getGeneratedVisualSpecIssue,
 } from '../content-blocks'
 import { GeneratedCandidateResponseSchema } from '../schema'
 
@@ -204,6 +205,19 @@ describe('generated content blocks', () => {
     expect(svgs[4]).toContain('>15<')
   })
 
+  it('rejects chart specs without plotted data', () => {
+    expect(getGeneratedVisualSpecIssue({
+      type: 'visual',
+      visualType: 'bar_chart',
+      title: 'Fee per test',
+      altText: 'Empty fee chart.',
+      spec: {
+        yAxis: { label: 'Fee', unit: '$', min: 0, max: 12 },
+        style: { showGrid: true },
+      },
+    })).toBe('bar_chart needs plotted numeric data in values, series, or panels.')
+  })
+
   it('renders set diagram legends as shape swatches', () => {
     const doc = generatedContentToProseMirror([{
       type: 'visual',
@@ -322,5 +336,124 @@ describe('generated content blocks', () => {
     expect(svg).toContain('<circle cx="407"')
     expect(svg).not.toContain('Triangle = Popcorn')
     expect(svg).not.toContain('>Legend<')
+  })
+
+  it('places semantic set-region labels without requiring raw coordinates', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Subject choices',
+      altText: 'Set diagram with semantic region labels.',
+      spec: {
+        shapes: [
+          { id: 'B', shape: 'circle', label: 'Biology', cx: 260, cy: 190, r: 110 },
+          { id: 'C', shape: 'rect', label: 'Chemistry', x: 230, y: 130, width: 240, height: 170 },
+          { id: 'M', shape: 'triangle', label: 'Maths', x: 130, y: 70, width: 350, height: 250 },
+        ],
+        regionLabels: [
+          { text: 12, include: ['B', 'C'], exclude: ['M'], x: 320, y: 220 },
+          { text: 6, region: 'B & M & not C', x: 320, y: 220 },
+          { text: 4, region: 'outside', x: 320, y: 220 },
+        ],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    const twelve = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>12<\/text>/)
+    const six = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>6<\/text>/)
+    expect(svg).toContain('>12<')
+    expect(svg).toContain('>6<')
+    expect(svg).toContain('>4<')
+    expect(svg).toContain('Biology')
+    expect(svg).toContain('Chemistry')
+    expect(twelve?.slice(1, 3)).not.toEqual(six?.slice(1, 3))
+  })
+
+  it('renders paired chart panels, timetable visuals, route maps, and layout grids', () => {
+    const doc = generatedContentToProseMirror([
+      {
+        type: 'visual',
+        visualType: 'bar_chart',
+        title: 'Clinic attendance by site',
+        altText: 'Two-panel bar chart.',
+        spec: {
+          yAxis: { label: 'Patients' },
+          panels: [
+            { title: 'Week 1', labels: ['North', 'South', 'East'], values: [22, 18, 30] },
+            { title: 'Week 2', labels: ['North', 'South', 'East'], values: [28, 16, 34] },
+          ],
+        },
+      },
+      {
+        type: 'visual',
+        visualType: 'pie_chart',
+        title: 'Criminal population by category',
+        altText: 'Two pie charts.',
+        spec: {
+          style: { palette: 'monochrome', patterned: true },
+          panels: [
+            { title: '1990', subtitle: '10 million', labels: ['White Collar', 'Robbery', 'Assault'], values: [38, 20, 20] },
+            { title: '2000 projected', subtitle: '20 million', labels: ['White Collar', 'Robbery', 'Assault'], values: [30, 25, 20] },
+          ],
+        },
+      },
+      {
+        type: 'visual',
+        visualType: 'timetable',
+        title: 'Rail departures',
+        altText: 'Train timetable.',
+        spec: {
+          columns: ['Station', 'Train A', 'Train B', 'Train C'],
+          rows: [
+            ['Central', '08:10', '08:40', '09:10'],
+            ['North', '08:22', '08:55', '09:25'],
+            ['Airport', '08:47', '09:20', '09:50'],
+          ],
+        },
+      },
+      {
+        type: 'visual',
+        visualType: 'route_map',
+        title: 'Park walking paths',
+        altText: 'Route map.',
+        spec: {
+          points: [
+            { id: 'gate', label: 'Gate', x: 70, y: 270 },
+            { id: 'lake', label: 'Lake', x: 190, y: 190 },
+            { id: 'hill', label: 'Hill', x: 310, y: 90 },
+            { id: 'cafe', label: 'Cafe', x: 320, y: 270 },
+          ],
+          lines: [
+            { from: 'gate', to: 'lake', label: '360 m' },
+            { from: 'lake', to: 'hill', label: '420 m' },
+            { from: 'lake', to: 'cafe', label: '300 m' },
+          ],
+        },
+      },
+      {
+        type: 'visual',
+        visualType: 'layout_grid',
+        title: 'Lab benches',
+        altText: 'Three-by-three lab layout.',
+        spec: {
+          rows: 3,
+          columns: 3,
+          rowLabels: ['Front', 'Middle', 'Back'],
+          columnLabels: ['Left', 'Centre', 'Right'],
+          cells: [{ row: 2, column: 2, label: 'Mina' }],
+        },
+      },
+    ]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svgs = (doc.content ?? []).map((node) => decodeURIComponent(node.attrs?.src ?? ''))
+    expect(svgs[0]).toContain('Week 2')
+    expect(svgs[1]).toContain('2000 projected')
+    expect(svgs[1]).toContain('piePattern')
+    expect(svgs[2]).toContain('Rail departures')
+    expect(svgs[2]).toContain('Airport')
+    expect(svgs[3]).toContain('360 m')
+    expect(svgs[3]).toContain('Lake')
+    expect(svgs[4]).toContain('Mina')
+    expect(svgs[4]).toContain('Centre')
   })
 })

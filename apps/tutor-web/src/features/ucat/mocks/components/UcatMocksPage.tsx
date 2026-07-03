@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -29,10 +29,10 @@ import {
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/useUcatMocksTable'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { applyBooleanTextFilter, applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
+import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -43,20 +43,9 @@ import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
-import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
-
-type MockRow = {
-  id: string
-  name: string
-  is_private: boolean
-  set_count: number
-  updated_at: string | null
-  deleted_at: string | null
-}
 
 const filterDefinitions: DataTableFilterDefinition[] = [
   {
@@ -93,13 +82,6 @@ export function UcatMocksPage() {
   const createMock = useCreateUcatMock()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
-  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
-    syncShowDeleted: true,
-    availableColumns: columnDefinitions.map((c) => c.key),
-  })
-  const showDeleted = tableState.showDeleted ?? false
-  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
-
   const [openCreate, setOpenCreate] = useState(false)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -107,13 +89,11 @@ export function UcatMocksPage() {
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
-  const [selectedMockIds, setSelectedMockIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
-  const selectionMode = selectedMockIds.size > 0
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
 
@@ -122,66 +102,56 @@ export function UcatMocksPage() {
     if (editId) setEditingMockId(editId)
   }, [searchParams])
 
-  const rows: MockRow[] = (mocks.data ?? []).map((m) => {
-    const row = m as typeof m & { set_count?: number; deleted_at?: string | null }
-    return {
-      id: m.id ?? '',
-      name: m.name ?? 'Untitled',
-      is_private: !!m.is_private,
-      set_count: row.set_count ?? 0,
-      updated_at: m.updated_at,
-      deleted_at: row.deleted_at ?? null,
-    }
+  const { rows, visibleColumns, tableState, showDeleted, setShowDeleted } = useUcatMocksTable({
+    data: mocks.data,
+    initialVisibleColumns: columnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key),
+    availableColumns: columnDefinitions.map((column) => column.key),
+    sections,
+    onOpenSet: setEditingSetId,
   })
-
-  const filteredRows = useMemo(() => {
-    const byDeleted = showDeleted
-      ? rows.filter((row) => row.deleted_at != null)
-      : rows.filter((row) => row.deleted_at == null)
-    const search = tableState.state.search.trim().toLowerCase()
-    return byDeleted.filter((row) => {
-      const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
-      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
-      return searchHit && visibilityHit
-    })
-  }, [rows, tableState.state, showDeleted])
-
-  const sortedRows = useMemo(
-    () =>
-      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
-        name: (r) => r.name,
-        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
-        set_count: (r) => r.set_count,
-        updated_at: (r) => r.updated_at ?? '',
-      }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
-  )
 
   const { page, pageSize } = tableState.state
-  const totalRows = sortedRows.length
+  const totalRows = rows.length
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
-  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
+  const paginatedRows = rows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
-  const detailQueries = useQueries({
-    queries: paginatedRows.map((row) => ({
-      queryKey: ucatKeys.mock(row.id),
-      queryFn: () => ucatMocksApi.detail(row.id),
-      enabled: !!row.id,
-    })),
-  })
+  const {
+    selectedIds: selectedMockIds,
+    selectionMode,
+    allVisibleSelected,
+    someVisibleSelected,
+    toggleSelection: toggleMockSelection,
+    toggleSelectAllVisible,
+    clearSelection,
+  } = useUcatRowSelection(paginatedRows)
 
-  const mockStatusMap = useMemo(() => {
-    const map = new Map<string, { status: 'match' | 'partial' | 'mismatch'; tooltip: string }>()
-    detailQueries.forEach((q, i) => {
-      const row = paginatedRows[i]
-      if (!row || !q.data) return
-      const sets = (q.data as { sets?: Array<{ sections?: unknown; question_count?: number | null; time_limit_seconds?: number | null }> }).sets ?? []
-      const result = getMockExamStatus(row.set_count, sets, sections, getSetSectionStatus)
-      map.set(row.id, result)
-    })
-    return map
-  }, [detailQueries, paginatedRows, sections])
+  const actionsColumn: ColumnDef<MockRow> = useMemo(
+    () => ({
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+          <UcatRowActions
+            actions={[
+              { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
+              ...(showDeleted
+                ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreMock.mutate(row.original.id) }]
+                : [{ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true }]),
+            ]}
+          />
+        </div>
+      ),
+    }),
+    [showDeleted, restoreMock],
+  )
+
+  const tableColumns = useMemo(() => {
+    if (tableState.state.visibleColumns.includes('actions')) {
+      return [...visibleColumns, actionsColumn]
+    }
+    return visibleColumns
+  }, [visibleColumns, tableState.state.visibleColumns, actionsColumn])
 
   const selectColumn: ColumnDef<MockRow> = {
     id: 'select',
@@ -193,7 +163,7 @@ export function UcatMocksPage() {
       />
     ),
     cell: ({ row }) => (
-      <div onClick={(e) => e.stopPropagation()}>
+      <div onClick={(event) => event.stopPropagation()}>
         <Checkbox
           checked={selectedMockIds.has(row.original.id)}
           onCheckedChange={() => toggleMockSelection(row.original.id)}
@@ -203,96 +173,13 @@ export function UcatMocksPage() {
     ),
   }
 
-  const allColumns: Array<{ key: string; column: ColumnDef<MockRow> }> = [
-    { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
-    {
-      key: 'visibility',
-      column: {
-        accessorKey: 'is_private',
-        header: 'Visibility',
-        cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public'),
-      },
-    },
-    {
-      key: 'set_count',
-      column: {
-        accessorKey: 'set_count',
-        header: 'Sets',
-        cell: ({ row }) => {
-          const r = row.original
-          const statusResult = mockStatusMap.get(r.id)
-          if (!statusResult) {
-            return <span className="text-muted-foreground">{r.set_count}</span>
-          }
-          return (
-            <SetStatusSpan status={statusResult.status} tooltip={statusResult.tooltip}>
-              {r.set_count}
-            </SetStatusSpan>
-          )
-        },
-      },
-    },
-    {
-      key: 'updated_at',
-      column: {
-        accessorKey: 'updated_at',
-        header: 'Updated',
-        cell: ({ row }) => (row.original.updated_at ? new Date(row.original.updated_at).toLocaleString() : '-'),
-      },
-    },
-    {
-      key: 'actions',
-      column: {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-            <UcatRowActions
-              actions={[
-                { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
-                ...(showDeleted
-                  ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreMock.mutate(row.original.id) }]
-                  : [{ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true }]),
-              ]}
-            />
-          </div>
-        ),
-      },
-    },
-  ]
-
-  const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
-
-  function toggleMockSelection(id: string) {
-    setSelectedMockIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedMockIds.has(r.id))
-  const someVisibleSelected = paginatedRows.some((r) => selectedMockIds.has(r.id))
-  function toggleSelectAllVisible() {
-    if (allVisibleSelected) {
-      setSelectedMockIds((prev) => {
-        const next = new Set(prev)
-        paginatedRows.forEach((r) => next.delete(r.id))
-        return next
-      })
-    } else {
-      setSelectedMockIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
-    }
-  }
-
   async function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
     const ids = Array.from(selectedMockIds)
     for (const mockId of ids) {
       const detail = await ucatMocksApi.detail(mockId)
       if (!detail) continue
-      const setIds = (detail.sets as Array<{ id: string }> | null)?.map((s) => s.id) ?? []
+      const setIds = (detail.sets as Array<{ id: string }> | null)?.map((set) => set.id) ?? []
       await updateMockMutation.mutateAsync({
         mockId,
         payload: {
@@ -304,7 +191,7 @@ export function UcatMocksPage() {
     }
     setBulkVisibilityOpen(false)
     setBulkVisibilityPrivate(null)
-    setSelectedMockIds(new Set())
+    clearSelection()
   }
 
   const { toast } = useToast()
@@ -362,7 +249,7 @@ export function UcatMocksPage() {
     try {
       await deleteMocksWithToast(ids)
       setBulkDeleteOpen(false)
-      setSelectedMockIds(new Set())
+      clearSelection()
     } catch (err) {
       toast({
         title: 'Cannot delete',
@@ -463,7 +350,7 @@ export function UcatMocksPage() {
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
           {...tutorDataTableProps}
-          columns={[selectColumn, ...visibleColumns]}
+          columns={[selectColumn, ...tableColumns]}
           data={paginatedRows}
           pagination="external"
           pageSizeOptions={[10, 20, 50]}
@@ -483,7 +370,7 @@ export function UcatMocksPage() {
 
       <UcatSelectionToolbar
         selectedCount={selectedMockIds.size}
-        onCancel={() => setSelectedMockIds(new Set())}
+        onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={bulkDeletePending}
       >
@@ -542,7 +429,7 @@ export function UcatMocksPage() {
         <div className="p-6 overflow-y-auto h-full space-y-4">
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Name</span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
@@ -553,8 +440,8 @@ export function UcatMocksPage() {
               ]}
               value={isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
               onValueChange={(item) => setIsPrivate(item?.value === 'private')}
-              getItemLabel={(i) => i.label}
-              getItemId={(i) => i.value}
+              getItemLabel={(item) => item.label}
+              getItemId={(item) => item.value}
             />
           </label>
           <label className="block text-sm">

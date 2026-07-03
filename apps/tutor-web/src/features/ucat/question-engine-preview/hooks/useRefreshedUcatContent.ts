@@ -178,7 +178,7 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
     return () => {
       cancelled = true
     }
-  }, [imagePathsKey, docStructureKey])
+  }, [imagePathsKey])
 
   return { content, isLoading, hasImageRefs }
 }

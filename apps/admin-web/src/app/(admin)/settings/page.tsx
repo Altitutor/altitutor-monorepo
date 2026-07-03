@@ -111,26 +111,14 @@ export default function SettingsPage() {
       title: 'UCAT',
       items: [
         {
-          title: 'UCAT subscription',
-          description: 'Pro trial, weekly and monthly pricing, practice-day discounts, and Stripe price IDs',
-          href: '/settings/ucat-subscription',
-          icon: GraduationCap,
-        },
-        {
-          title: 'UCAT Free tier',
-          description: 'Per-area usage limits for UCAT Free students (practice, sets, mocks, learn, skill trainer)',
-          href: '/settings/ucat-free-tier',
-          icon: GraduationCap,
-        },
-        {
-          title: 'UCAT quotas',
-          description: 'View Free tier quota usage, grant quota resets, and reset individual quota areas',
-          href: '/settings/ucat-quotas',
+          title: 'UCAT billing',
+          description: 'Subscription settings, prices, discounts, Free tier quotas, and quota resets',
+          href: '/settings/ucat-billing',
           icon: GraduationCap,
         },
         {
           title: 'UCAT skill trainers',
-          description: 'Enable trainers and configure timing, scoring, and cooldowns',
+          description: 'Enable trainers and configure timing, scoring, and speed bonuses',
           href: '/settings/ucat-skill-trainers',
           icon: GraduationCap,
         },

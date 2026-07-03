@@ -51,8 +51,8 @@ type Props = {
     skillTrainerId: string
     content: Record<string, unknown>
     isActive: boolean
+    approvalStatus?: UcatSkillTrainerApprovalStatus
   }) => Promise<string>
-  onApprovalChange?: (status: UcatSkillTrainerApprovalStatus) => Promise<void>
   trainers: TrainerOption[]
   trainerKey: UcatSkillTrainerKey
   initial?: UcatSkillTrainerItemRow | null
@@ -65,7 +65,6 @@ export function UcatSkillTrainerItemDialog({
   submitLabel,
   onClose,
   onSubmit,
-  onApprovalChange,
   trainers,
   trainerKey,
   initial,
@@ -101,6 +100,8 @@ export function UcatSkillTrainerItemDialog({
   })
 
   const [baseline, setBaseline] = useState('')
+  const [approvalStatus, setApprovalStatus] = useState<UcatSkillTrainerApprovalStatus>('pending')
+  const [approvalBaseline, setApprovalBaseline] = useState<UcatSkillTrainerApprovalStatus>('pending')
   const lastResetItemIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -109,6 +110,8 @@ export function UcatSkillTrainerItemDialog({
         lastResetItemIdRef.current = initial.id
         form.reset(defaultValues)
         setBaseline(snapshotSkillTrainerItemFormValues(defaultValues))
+        setApprovalStatus(initial.approval_status)
+        setApprovalBaseline(initial.approval_status)
       }
     } else {
       lastResetItemIdRef.current = null
@@ -131,7 +134,9 @@ export function UcatSkillTrainerItemDialog({
 
   const watchedValues = form.watch()
   const hasUnsavedChanges =
-    baseline !== '' && isSnapshotDirty(snapshotSkillTrainerItemFormValues(watchedValues), baseline)
+    baseline !== '' &&
+    (isSnapshotDirty(snapshotSkillTrainerItemFormValues(watchedValues), baseline) ||
+      (!!initial && approvalStatus !== approvalBaseline))
 
   async function handleSave() {
     form.handleSubmit(
@@ -143,8 +148,10 @@ export function UcatSkillTrainerItemDialog({
             skillTrainerId: valuesCopy.skillTrainerId,
             content: mapFormValuesToContent(valuesCopy),
             isActive: valuesCopy.isActive,
+            approvalStatus: initial ? approvalStatus : undefined,
           })
           setBaseline(snapshotSkillTrainerItemFormValues(valuesCopy))
+          setApprovalBaseline(approvalStatus)
         } catch (error) {
           toast({
             title: 'Failed to save',
@@ -203,14 +210,8 @@ export function UcatSkillTrainerItemDialog({
       <UcatSkillTrainerEditorShell
         form={form}
         trainers={trainerOptions}
-        approvalStatus={initial?.approval_status}
-        onApprovalChange={
-          onApprovalChange && initial
-            ? (status) => {
-                void onApprovalChange(status)
-              }
-            : undefined
-        }
+        approvalStatus={initial ? approvalStatus : undefined}
+        onApprovalChange={initial ? setApprovalStatus : undefined}
         isNew={!initial}
         previewContentKey={initial?.id ?? `new-${trainerKey}`}
       />

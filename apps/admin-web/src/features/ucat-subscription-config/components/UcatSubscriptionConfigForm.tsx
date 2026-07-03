@@ -1,156 +1,219 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
 } from '@altitutor/ui';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
+  type UcatSubscriptionConfigUpdate,
 } from '../api/ucat-subscription-config';
+
+type SubscriptionSettingKey =
+  | 'trial_days'
+  | 'currency'
+  | 'min_questions_per_day'
+  | 'unlimited_stripe_product_id'
+  | 'pro_stripe_product_id';
+
+type SubscriptionSettingRow = {
+  key: SubscriptionSettingKey;
+  label: string;
+  value: string;
+  rawValue: string;
+  description: string;
+  inputType: 'number' | 'text';
+  placeholder?: string;
+};
 
 interface UcatSubscriptionConfigFormProps {
   initial: UcatSubscriptionConfigRow;
   onSaved: () => void;
 }
 
+function buildRows(initial: UcatSubscriptionConfigRow): SubscriptionSettingRow[] {
+  return [
+    {
+      key: 'trial_days',
+      label: 'Unlimited trial days',
+      value: String(initial.trial_days),
+      rawValue: String(initial.trial_days),
+      description: 'Trial length for UCAT Unlimited.',
+      inputType: 'number',
+    },
+    {
+      key: 'currency',
+      label: 'Currency code',
+      value: initial.currency,
+      rawValue: initial.currency,
+      description: 'Short currency code used for UCAT billing amounts.',
+      inputType: 'text',
+      placeholder: 'aud',
+    },
+    {
+      key: 'min_questions_per_day',
+      label: 'Min questions per day',
+      value: String(initial.min_questions_per_day),
+      rawValue: String(initial.min_questions_per_day),
+      description: 'Global practice-day qualification threshold for discounts.',
+      inputType: 'number',
+    },
+    {
+      key: 'unlimited_stripe_product_id',
+      label: 'Unlimited Stripe product ID',
+      value: initial.unlimited_stripe_product_id || 'Not set',
+      rawValue: initial.unlimited_stripe_product_id ?? '',
+      description: 'Stripe product used for UCAT Unlimited checkout.',
+      inputType: 'text',
+      placeholder: 'prod_...',
+    },
+    {
+      key: 'pro_stripe_product_id',
+      label: 'Pro Stripe product ID',
+      value: initial.pro_stripe_product_id || 'Not set',
+      rawValue: initial.pro_stripe_product_id ?? '',
+      description: 'Stripe product used for UCAT Pro checkout.',
+      inputType: 'text',
+      placeholder: 'prod_...',
+    },
+  ];
+}
+
 export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptionConfigFormProps) {
-  const [minQuestionsPerDay, setMinQuestionsPerDay] = useState(String(initial.min_questions_per_day));
-  const [trialDays, setTrialDays] = useState(String(initial.trial_days));
-  const [currency, setCurrency] = useState(initial.currency);
-  const [unlimitedStripeProductId, setUnlimitedStripeProductId] = useState(
-    initial.unlimited_stripe_product_id ?? '',
-  );
-  const [proStripeProductId, setProStripeProductId] = useState(
-    initial.pro_stripe_product_id ?? '',
-  );
+  const [editingRow, setEditingRow] = useState<SubscriptionSettingRow | null>(null);
+  const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMinQuestionsPerDay(String(initial.min_questions_per_day));
-    setTrialDays(String(initial.trial_days));
-    setCurrency(initial.currency);
-    setUnlimitedStripeProductId(initial.unlimited_stripe_product_id ?? '');
-    setProStripeProductId(initial.pro_stripe_product_id ?? '');
-  }, [initial]);
+  const rows = useMemo(() => buildRows(initial), [initial]);
 
-  const handleSave = async () => {
+  useEffect(() => {
+    if (!editingRow) return;
+    setValue(editingRow.rawValue);
     setError(null);
-    const minQ = parseInt(minQuestionsPerDay, 10);
-    const trial = parseInt(trialDays, 10);
-    if (!Number.isFinite(minQ) || minQ < 1) {
-      setError('Min questions per day must be at least 1');
-      return;
-    }
-    if (!Number.isFinite(trial) || trial < 0) {
-      setError('Trial days must be 0 or greater');
-      return;
-    }
-    const cur = currency.trim().toLowerCase();
-    if (!cur || cur.length > 8) {
-      setError('Currency must be a short code (e.g. aud)');
-      return;
+  }, [editingRow]);
+
+  const columns = useMemo<SettingsDataTableColumn<SubscriptionSettingRow>[]>(
+    () => [
+      {
+        key: 'label',
+        label: 'Setting',
+        render: (row) => <span className="font-medium">{row.label}</span>,
+        sortValue: (row) => row.label,
+        searchValue: (row) => `${row.label} ${row.description}`,
+      },
+      {
+        key: 'value',
+        label: 'Value',
+        render: (row) => <span className="font-mono text-sm">{row.value}</span>,
+        sortValue: (row) => row.value,
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+        sortValue: (row) => row.description,
+        searchValue: (row) => row.description,
+      },
+    ],
+    [],
+  );
+
+  async function handleSave() {
+    if (!editingRow) return;
+    setError(null);
+
+    const updates: UcatSubscriptionConfigUpdate = {};
+    if (editingRow.key === 'trial_days') {
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setError('Trial days must be 0 or greater');
+        return;
+      }
+      updates.trial_days = parsed;
+    } else if (editingRow.key === 'min_questions_per_day') {
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        setError('Min questions per day must be at least 1');
+        return;
+      }
+      updates.min_questions_per_day = parsed;
+    } else if (editingRow.key === 'currency') {
+      const currency = value.trim().toLowerCase();
+      if (!currency || currency.length > 8) {
+        setError('Currency must be a short code, for example aud');
+        return;
+      }
+      updates.currency = currency;
+    } else if (editingRow.key === 'unlimited_stripe_product_id') {
+      updates.unlimited_stripe_product_id = value.trim() || null;
+    } else {
+      updates.pro_stripe_product_id = value.trim() || null;
     }
 
     setSaving(true);
     try {
-      await ucatSubscriptionConfigApi.update(initial.id, {
-        min_questions_per_day: minQ,
-        trial_days: trial,
-        currency: cur,
-        unlimited_stripe_product_id: unlimitedStripeProductId.trim() || null,
-        pro_stripe_product_id: proStripeProductId.trim() || null,
-      });
-      onSaved();
+      await ucatSubscriptionConfigApi.update(initial.id, updates);
+      await Promise.resolve(onSaved());
+      setEditingRow(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>UCAT subscription settings</CardTitle>
-        <CardDescription>
-          Unlimited trial length, practice-day qualification threshold, currency, and Stripe
-          product IDs. Per-interval discount amounts are configured below. UCAT Free quotas are
-          under Settings → UCAT Free tier.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="trial-days">Unlimited trial days</Label>
-            <Input
-              id="trial-days"
-              type="number"
-              min={0}
-              value={trialDays}
-              onChange={(e) => setTrialDays(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="currency">Currency code</Label>
-            <Input
-              id="currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              placeholder="aud"
-            />
-          </div>
-        </div>
+    <>
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.key}
+        filterKeys={[]}
+        searchPlaceholder="Search subscription settings..."
+        defaultSort={{ field: 'label', direction: 'asc' }}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingRow(row),
+          },
+        ]}
+      />
 
-        <div className="space-y-2 sm:max-w-xs">
-          <Label htmlFor="min-questions">Min questions per day (practice discount)</Label>
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow ? `Edit ${editingRow.label}` : 'Edit subscription setting'}
+        subtitle={editingRow?.description}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditingRow(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save setting'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="subscription-setting-value">Value</Label>
           <Input
-            id="min-questions"
-            type="number"
-            min={1}
-            value={minQuestionsPerDay}
-            onChange={(e) => setMinQuestionsPerDay(e.target.value)}
+            id="subscription-setting-value"
+            type={editingRow?.inputType ?? 'text'}
+            min={editingRow?.inputType === 'number' ? 0 : undefined}
+            value={value}
+            placeholder={editingRow?.placeholder}
+            onChange={(event) => setValue(event.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
-            Global threshold for all billing intervals and paid tiers.
-          </p>
         </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="unlimited-product-id">Unlimited Stripe product ID</Label>
-            <Input
-              id="unlimited-product-id"
-              value={unlimitedStripeProductId}
-              onChange={(e) => setUnlimitedStripeProductId(e.target.value)}
-              placeholder="prod_..."
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pro-product-id">Pro Stripe product ID</Label>
-            <Input
-              id="pro-product-id"
-              value={proStripeProductId}
-              onChange={(e) => setProStripeProductId(e.target.value)}
-              placeholder="prod_..."
-            />
-          </div>
-        </div>
-
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-        <Button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save settings'}
-        </Button>
-      </CardContent>
-    </Card>
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      </AdminDialogShell>
+    </>
   );
 }

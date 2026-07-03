@@ -87,13 +87,7 @@ export function SetDetailPage({
         ? "Back to section"
         : "Back to all sets");
   const breadcrumbLeafSegmentIndex =
-    sessionEntryContext != null
-      ? 3
-      : backHrefProp != null
-        ? 2
-        : sectionNumber != null
-          ? 3
-          : 1;
+    sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
   const handleLaunchSet = () => {
     const canResumeCurrentAttempt =

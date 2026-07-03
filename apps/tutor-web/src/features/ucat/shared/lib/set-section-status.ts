@@ -1,6 +1,54 @@
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from './rich-text'
 
+export type SetAddStemWarningSet = {
+  name?: unknown
+  sections?: unknown
+  question_count?: number | null
+}
+
+export function getSetAddStemWarning(
+  set: SetAddStemWarningSet | null | undefined,
+  stemSectionId: string,
+  sections: UcatSectionForStatus[],
+): { setName: string; title: string; description: string } | null {
+  if (!set) return null
+  const parsed = parseSetSections(set.sections ?? null)
+  if (parsed.sectionCount !== 1 || parsed.firstSectionNumber == null) return null
+
+  const setSection = sections.find((section) => section.section_number === parsed.firstSectionNumber)
+  if (!setSection) return null
+  const stemSection = sections.find((section) => section.id === stemSectionId)
+  const setName = proseMirrorToPlainText(set.name as Json) || 'Untitled'
+  const setSectionName = setSection.name ?? 'the set section'
+  const stemSectionName = stemSection?.name ?? 'the stem section'
+  const reasons: string[] = []
+
+  if (setSection.id !== stemSectionId) {
+    reasons.push(`This set is currently all ${setSectionName}, but the stem is ${stemSectionName}.`)
+  }
+
+  const expectedQuestionCount = setSection.number_of_questions ?? null
+  const currentQuestionCount = set.question_count ?? null
+  if (
+    expectedQuestionCount != null &&
+    currentQuestionCount != null &&
+    currentQuestionCount === expectedQuestionCount
+  ) {
+    reasons.push(
+      `This set already has ${currentQuestionCount} questions, matching the configured count for ${setSectionName}.`,
+    )
+  }
+
+  if (reasons.length === 0) return null
+
+  return {
+    setName,
+    title: 'Review set before adding',
+    description: `"${setName}" may not be a good target for this stem. ${reasons.join(' ')}`,
+  }
+}
+
 /**
  * Centralized UCAT exam alignment status.
  * Green = matches UCAT exam timing and number of questions.

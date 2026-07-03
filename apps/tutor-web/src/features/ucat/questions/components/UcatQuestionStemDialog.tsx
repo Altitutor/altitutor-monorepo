@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
-import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,10 +23,11 @@ import {
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
+import { buildEmptyStemFormValues, parseApprovalStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { useSetUcatQuestionStemApprovalStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
-import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
@@ -108,51 +108,13 @@ export function UcatQuestionStemDialog({
 }) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
+  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
-    if (!initial) {
-      return {
-        sectionId: sections.find((section) => section.id)?.id ?? '',
-        categoryId: null,
-        stemText: EMPTY_DOC,
-        isPrivate: false,
-        questions: [
-          {
-            questionText: EMPTY_DOC,
-            questionType: 'multiple_choice',
-            answerExplanation: null,
-            difficulty: null,
-            timeBurdenSeconds: '',
-            tagIds: [],
-            options: [...DEFAULT_OPTIONS],
-          },
-        ],
-      }
-    }
-
-    return {
-      sectionId: initial.section_id,
-      categoryId: initial.question_stem_category_id,
-      stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
-      isPrivate: initial.is_private,
-      questions: (initial.questions ?? []).map((question) => ({
-        questionText: (question.question_text ?? EMPTY_DOC) as Json,
-        answerExplanation: (question.answer_explanation ?? null) as Json | null,
-        questionType: question.question_type,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
-        tagIds: (question.tags ?? []).map((tag) => tag.id),
-        options:
-          (question.answer_options ?? []).length > 0
-            ? (question.answer_options ?? []).map((option) => ({
-                answerText: (option.answer_text ?? EMPTY_DOC) as Json,
-                answerExplanation: (option.answer_explanation ?? null) as Json | null,
-                isAnswer: option.is_answer,
-              }))
-            : [...DEFAULT_OPTIONS],
-      })),
-    }
+    const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
+    if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
+    return stemDetailToFormValues(initial, fallbackSectionId)
   }, [initial, sections])
 
   const createForm = useForm as unknown as (props: {
@@ -201,6 +163,7 @@ export function UcatQuestionStemDialog({
         categoryId: null,
         stemText: EMPTY_DOC,
         isPrivate: false,
+        tutorSourceNote: '',
         questions: [
           {
             questionText: EMPTY_DOC,
@@ -209,6 +172,8 @@ export function UcatQuestionStemDialog({
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
+            sourceChannel: 'individual',
+            aiGenerationMetadata: null,
             options: [...DEFAULT_OPTIONS],
           },
         ],
@@ -230,6 +195,15 @@ export function UcatQuestionStemDialog({
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
           await onSubmit(valuesCopy)
+          if (stemId && valuesCopy.approvalStatus) {
+            const baselineApproval = parseApprovalStatusFromSnapshot(baseline)
+            if (valuesCopy.approvalStatus !== baselineApproval) {
+              await approvalMutation.mutateAsync({
+                stemId,
+                status: valuesCopy.approvalStatus as UcatApprovalStatus,
+              })
+            }
+          }
           setNewImageFileIds(new Set())
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Failed to save question stem'
@@ -344,6 +318,10 @@ export function UcatQuestionStemDialog({
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           onActiveTextEditorChange={setActiveTextEditor}
+          sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
+          aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
+          createdByFirstName={initial?.created_by_first_name ?? null}
+          createdByLastName={initial?.created_by_last_name ?? null}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

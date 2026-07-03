@@ -9,11 +9,13 @@ import type {
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import {
   QuotaExceededError,
   assertOkOrQuotaExceeded,
 } from "@/lib/ucat/quota/parse-quota-error";
+import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 
 type QuestionAttemptMode =
   | "question"
@@ -35,12 +37,10 @@ type UpsertQuestionAttemptInput = {
   submittedByStem?: boolean;
 };
 
-type CompleteSetAttemptInput = {
-  studentQuestionSetAttemptId: string;
-};
-
-type CompleteMockAttemptInput = {
-  studentMockAttemptId: string;
+type FinalizeAttemptResponse = {
+  success?: boolean;
+  earnedDiscount?: boolean;
+  discountCents?: number;
 };
 
 type CompletePracticeSessionInput = {
@@ -179,55 +179,17 @@ export function useQuestionEnginePersistence({
     onError: handleQuotaError,
   });
 
-  type SetAttemptResponse = {
-    success?: boolean;
-    earnedDiscount?: boolean;
-    discountCents?: number;
-  };
-  const completeSetAttempt = useMutation<
-    SetAttemptResponse,
+  const finalizeAttempt = useMutation<
+    FinalizeAttemptResponse,
     Error,
-    CompleteSetAttemptInput
+    {
+      kind: "set" | "mock";
+      attemptId: string;
+      answers: FinalExamQuestionAttemptInput[];
+    }
   >({
-    mutationFn: async ({ studentQuestionSetAttemptId }) => {
-      const response = await fetch(
-        `/api/ucat/set-attempts/${studentQuestionSetAttemptId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ complete: true }),
-        },
-      );
-      if (!response.ok) {
-        throw new Error("Failed to complete set attempt");
-      }
-      return response.json() as Promise<SetAttemptResponse>;
-    },
-  });
-
-  const completeMockAttempt = useMutation<
-    unknown,
-    Error,
-    CompleteMockAttemptInput
-  >({
-    mutationFn: async ({ studentMockAttemptId }) => {
-      const response = await fetch(
-        `/api/ucat/mock-attempts/${studentMockAttemptId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ complete: true }),
-        },
-      );
-      if (!response.ok) {
-        throw new Error("Failed to complete mock attempt");
-      }
-      return response.json();
-    },
+    mutationFn: async (input) =>
+      (await finalizeExamAttempt(input)) as FinalizeAttemptResponse,
   });
 
   type PracticeSessionResponse = {
@@ -335,8 +297,9 @@ export function useQuestionEnginePersistence({
     if (!question) return;
 
     const setAttemptId =
-      attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId) ??
-      null;
+      attemptStateRef.current.setAttemptIdsBySetId.get(
+        question.questionSetId,
+      ) ?? null;
     if (!setAttemptId) return;
 
     const wasTimed = getWasTimedForSet(mode, exam, question);
@@ -366,9 +329,6 @@ export function useQuestionEnginePersistence({
       return empty;
     }
 
-    const setIds = new Set<string>();
-    exam.questions.forEach((q) => setIds.add(q.questionSetId));
-
     if (examAttemptManaged && managedExamAttempt) {
       if (
         mode === "set" &&
@@ -397,15 +357,9 @@ export function useQuestionEnginePersistence({
       }
     }
 
+    const finalAnswers: FinalExamQuestionAttemptInput[] = [];
     if (mode === "set" || mode === "mock") {
-      const answerUpserts: UpsertQuestionAttemptInput[] = [];
       for (const question of exam.questions) {
-        const setAttemptId =
-          attemptStateRef.current.setAttemptIdsBySetId.get(
-            question.questionSetId,
-          ) ?? null;
-        if (!setAttemptId) continue;
-
         const selectedOptionId = state.selectedAnswers[question.id];
         const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
         const isSyllogism = question.questionType === "syllogism";
@@ -417,8 +371,8 @@ export function useQuestionEnginePersistence({
 
         const isFlagged = state.flaggedIds.includes(question.id);
         const wasTimed = getWasTimedForSet(mode, exam, question);
-        const base: UpsertQuestionAttemptInput = {
-          studentQuestionSetAttemptId: setAttemptId,
+        const base: FinalExamQuestionAttemptInput = {
+          questionSetId: question.questionSetId,
           questionId: question.id,
           questionAnswerOptionId: isSyllogism
             ? null
@@ -438,30 +392,34 @@ export function useQuestionEnginePersistence({
             ),
           };
         }
-        answerUpserts.push(base);
+        finalAnswers.push(base);
       }
-      await Promise.all(
-        answerUpserts.map((input) => upsertQuestionAttempt.mutateAsync(input)),
-      );
     }
 
-    const setAttemptIds = Array.from(setIds)
-      .map((setId) => attemptStateRef.current.setAttemptIdsBySetId.get(setId))
-      .filter((id): id is string => id != null);
-
-    const setResults = await Promise.all(
-      setAttemptIds.map((id) =>
-        completeSetAttempt.mutateAsync({ studentQuestionSetAttemptId: id }),
-      ),
-    );
-
-    if (mode === "mock" && attemptStateRef.current.mockAttemptId) {
-      await completeMockAttempt.mutateAsync({
-        studentMockAttemptId: attemptStateRef.current.mockAttemptId,
+    let finalizeResult: FinalizeAttemptResponse | null = null;
+    if (mode === "set") {
+      let setAttemptId =
+        attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
+      if (!setAttemptId && examAttemptManaged) {
+        setAttemptId =
+          Array.from(
+            attemptStateRef.current.setAttemptIdsBySetId.values(),
+          )[0] ?? null;
+      }
+      if (setAttemptId) {
+        finalizeResult = await finalizeAttempt.mutateAsync({
+          kind: "set",
+          attemptId: setAttemptId,
+          answers: finalAnswers,
+        });
+      }
+    } else if (mode === "mock" && attemptStateRef.current.mockAttemptId) {
+      finalizeResult = await finalizeAttempt.mutateAsync({
+        kind: "mock",
+        attemptId: attemptStateRef.current.mockAttemptId,
+        answers: finalAnswers,
       });
     }
-
-    const earned = setResults.find((r) => r?.earnedDiscount);
 
     let redirectHref: string | null = null;
     if (mode === "set") {
@@ -494,8 +452,8 @@ export function useQuestionEnginePersistence({
     }
 
     return {
-      earnedDiscount: earned?.earnedDiscount ?? false,
-      discountCents: earned?.discountCents ?? 0,
+      earnedDiscount: finalizeResult?.earnedDiscount ?? false,
+      discountCents: finalizeResult?.discountCents ?? 0,
       redirectHref,
     };
   }

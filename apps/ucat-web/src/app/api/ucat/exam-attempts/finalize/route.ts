@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { clearExamAttemptProgress } from "@/lib/ucat/exam-attempt/service";
 import { finalizeExamAttemptOnServer } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
+import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     kind?: ExamAttemptKind;
     attemptId?: string;
     complete?: boolean;
+    answers?: FinalExamQuestionAttemptInput[];
   };
 
   if (!body.kind || !body.attemptId || !body.complete) {
@@ -54,70 +55,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await clearExamAttemptProgress(
-    supabaseAdmin,
-    student.id,
-    body.kind,
-    body.attemptId,
-  );
-
-  const origin = request.nextUrl.origin;
-  const cookie = request.headers.get("cookie") ?? "";
-
-  if (body.kind === "set") {
-    const res = await fetch(
-      `${origin}/api/ucat/set-attempts/${body.attemptId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          cookie,
-        },
-        body: JSON.stringify({ complete: true }),
-      },
+  try {
+    const result = await finalizeExamAttemptOnServer(
+      supabaseAdmin,
+      student.id,
+      body.kind,
+      body.attemptId,
+      body.answers,
     );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error: (data as { error?: string }).error ?? "Failed to finalize set",
-        },
-        { status: res.status },
-      );
-    }
-    return NextResponse.json(data);
-  }
-
-  if (body.kind === "mock") {
-    const res = await fetch(
-      `${origin}/api/ucat/mock-attempts/${body.attemptId}`,
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
       {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          cookie,
-        },
-        body: JSON.stringify({ complete: true }),
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to finalize exam attempt",
       },
+      { status: 500 },
     );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error:
-            (data as { error?: string }).error ?? "Failed to finalize mock",
-        },
-        { status: res.status },
-      );
-    }
-    return NextResponse.json(data);
   }
-
-  await finalizeExamAttemptOnServer(
-    supabaseAdmin,
-    student.id,
-    "practice",
-    body.attemptId,
-  );
-  return NextResponse.json({ success: true });
 }

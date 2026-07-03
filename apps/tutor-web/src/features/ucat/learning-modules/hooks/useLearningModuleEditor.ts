@@ -4,16 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '@altitutor/ui'
 import {
   useDeleteUcatLearningModule,
+  useReorderUcatLearningModules,
   useReplaceUcatLearningModuleBlocks,
   useUcatLearningModule,
   useUcatLearningModuleBlocks,
   useUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
-import type {
-  UcatLearningModuleDisplayMode,
-  UcatLearningModuleKind,
-} from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
 import {
   toBlockPayload,
   validateBlocksForSave,
@@ -31,6 +29,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
 
   const upsert = useUpsertUcatLearningModule()
   const replaceBlocks = useReplaceUcatLearningModuleBlocks()
+  const reorderModules = useReorderUcatLearningModules()
   const deleteModule = useDeleteUcatLearningModule()
 
   const [kind, setKind] = useState<UcatLearningModuleKind>('lesson')
@@ -40,15 +39,15 @@ export function useLearningModuleEditor(moduleId: string | null) {
   const [parentId, setParentId] = useState<string | null>(null)
   const [index, setIndex] = useState('0')
   const [isPrivate, setIsPrivate] = useState(true)
-  const [displayMode, setDisplayMode] = useState<UcatLearningModuleDisplayMode>('stepped')
   const [draftBlocks, setDraftBlocks] = useState<DraftBlock[]>([])
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [settingsBaseline, setSettingsBaseline] = useState('')
   const [blocksBaseline, setBlocksBaseline] = useState('')
 
+  const allModuleRows = useMemo(() => allModules ?? [], [allModules])
   const folderOptions = useMemo(
-    () => (allModules ?? []).filter((m) => m.kind === 'folder' && m.id !== moduleId),
-    [allModules, moduleId],
+    () => allModuleRows.filter((m) => m.kind === 'folder' && m.id !== moduleId),
+    [allModuleRows, moduleId],
   )
 
   useEffect(() => {
@@ -61,7 +60,6 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setParentId(m.parent_ucat_learning_module_id)
     setIndex(String(m.index))
     setIsPrivate(m.is_private)
-    setDisplayMode(m.display_mode ?? 'stepped')
     setSettingsBaseline(
       snapshotSettings({
         kind: m.kind,
@@ -71,7 +69,6 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId: m.parent_ucat_learning_module_id,
         index: m.index,
         isPrivate: m.is_private,
-        displayMode: m.display_mode ?? 'stepped',
       }),
     )
   }, [moduleQuery.data])
@@ -86,7 +83,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       question_stem_id: row.question_stem_id,
       question_id: row.question_id,
       file_id: row.file_id,
-      skill_trainer_set_id: row.skill_trainer_set_id,
+      skill_trainer_id: row.skill_trainer_id,
     }))
     setDraftBlocks(draft)
     setBlocksBaseline(JSON.stringify(toBlockPayload(draft)))
@@ -107,10 +104,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       isPrivate,
-      displayMode,
     })
     return current !== settingsBaseline
-  }, [kind, title, description, sectionId, parentId, index, isPrivate, displayMode, settingsBaseline])
+  }, [kind, title, description, sectionId, parentId, index, isPrivate, settingsBaseline])
 
   const blocksDirty = useMemo(
     () => JSON.stringify(toBlockPayload(draftBlocks)) !== blocksBaseline,
@@ -144,6 +140,16 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setSelectedBlockId(block.clientId)
   }, [])
 
+  const insertBlock = useCallback((block: DraftBlock, index: number) => {
+    setDraftBlocks((prev) => {
+      const next = [...prev]
+      const safeIndex = Math.max(0, Math.min(index, next.length))
+      next.splice(safeIndex, 0, block)
+      return next
+    })
+    setSelectedBlockId(block.clientId)
+  }, [])
+
   const removeBlock = useCallback(
     (clientId: string) => {
       setDraftBlocks((prev) => {
@@ -158,7 +164,10 @@ export function useLearningModuleEditor(moduleId: string | null) {
   )
 
   const saveSettings = useCallback(async () => {
-    if (!moduleId || !title.trim()) return
+    if (!moduleId) return
+    if (!title.trim()) {
+      throw new Error('Title is required before saving')
+    }
     await upsert.mutateAsync({
       moduleId,
       kind,
@@ -168,7 +177,6 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       isPrivate,
-      displayMode: kind === 'lesson' ? displayMode : undefined,
     })
     setSettingsBaseline(
       snapshotSettings({
@@ -179,7 +187,6 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId,
         index: Number(index) || 0,
         isPrivate,
-        displayMode,
       }),
     )
     toast({ title: 'Settings saved' })
@@ -192,28 +199,59 @@ export function useLearningModuleEditor(moduleId: string | null) {
     parentId,
     index,
     isPrivate,
-    displayMode,
     upsert,
     toast,
   ])
 
   const saveBlocks = useCallback(async () => {
     if (!moduleId) return
-    const validationError = validateBlocksForSave(draftBlocks)
+    const validationError = validateBlocksForSave(draftBlocks, { isPrivate })
     if (validationError) {
-      toast({ title: 'Cannot save blocks', description: validationError, variant: 'destructive' })
-      return
+      throw new Error(validationError)
     }
     const payload = toBlockPayload(draftBlocks)
     await replaceBlocks.mutateAsync({ moduleId, blocks: payload })
     setBlocksBaseline(JSON.stringify(payload))
     toast({ title: 'Blocks saved' })
-  }, [moduleId, draftBlocks, replaceBlocks, toast])
+  }, [moduleId, draftBlocks, isPrivate, replaceBlocks, toast])
 
   const saveAll = useCallback(async () => {
     if (settingsDirty) await saveSettings()
     if (blocksDirty && kind === 'lesson') await saveBlocks()
   }, [settingsDirty, blocksDirty, kind, saveSettings, saveBlocks])
+
+  const saveModuleOrder = useCallback(
+    async (items: Array<{ id: string; index: number }>) => {
+      await reorderModules.mutateAsync(items)
+      const current = items.find((item) => item.id === moduleId)
+      if (current) {
+        setIndex(String(current.index))
+        setSettingsBaseline(
+          snapshotSettings({
+            kind,
+            title: title.trim(),
+            description: description.trim(),
+            sectionId,
+            parentId,
+            index: current.index,
+            isPrivate,
+          }),
+        )
+      }
+      toast({ title: 'Module order saved' })
+    },
+    [
+      moduleId,
+      reorderModules,
+      kind,
+      title,
+      description,
+      sectionId,
+      parentId,
+      isPrivate,
+      toast,
+    ],
+  )
 
   const handleDelete = useCallback(async () => {
     if (!moduleId) return
@@ -224,6 +262,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     moduleId,
     moduleQuery,
     blocksQuery,
+    allModules: allModuleRows,
     folderOptions,
     kind,
     setKind,
@@ -239,8 +278,6 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setIndex,
     isPrivate,
     setIsPrivate,
-    displayMode,
-    setDisplayMode,
     draftBlocks,
     selectedBlockId,
     setSelectedBlockId,
@@ -251,12 +288,14 @@ export function useLearningModuleEditor(moduleId: string | null) {
     updateBlock,
     moveBlock,
     addBlock,
+    insertBlock,
     removeBlock,
     saveSettings,
     saveBlocks,
+    saveModuleOrder,
     saveAll,
     handleDelete,
-    isSaving: upsert.isPending || replaceBlocks.isPending,
+    isSaving: upsert.isPending || replaceBlocks.isPending || reorderModules.isPending,
     isDeleting: deleteModule.isPending,
   }
 }

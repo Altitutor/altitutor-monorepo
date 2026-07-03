@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Accordion,
   AccordionContent,
@@ -8,38 +8,45 @@ import {
   AccordionTrigger,
   Input,
   SearchableSelect,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
 } from '@altitutor/ui'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { cn } from '@/shared/utils'
 import type { UcatSectionOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
-import type {
-  UcatLearningModuleDisplayMode,
-  UcatLearningModuleKind,
-} from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import { UcatLearningModuleOrderEditor } from '@/features/ucat/learning-modules/components/UcatLearningModuleOrderEditor'
+import {
+  isDescendantOf,
+  resolveRootSectionId,
+} from '@/features/ucat/shared/lib/taxonomy-reparent'
 export type LearningModuleEditorMode = 'edit' | 'view'
 
 type UcatLearningModuleSettingsPanelProps = {
+  moduleId: string | null
   kind: UcatLearningModuleKind
   title: string
   description: string
   sectionId: string | null
   parentId: string | null
-  index: string
   isPrivate: boolean
-  displayMode: UcatLearningModuleDisplayMode
   onTitleChange: (title: string) => void
   onDescriptionChange: (description: string) => void
   onSectionIdChange: (sectionId: string | null) => void
   onParentIdChange: (parentId: string | null) => void
-  onIndexChange: (index: string) => void
   onIsPrivateChange: (isPrivate: boolean) => void
-  onDisplayModeChange: (mode: UcatLearningModuleDisplayMode) => void
   sections: UcatSectionOption[]
+  modules: UcatLearningModuleRow[]
   folderOptions: UcatLearningModuleRow[]
+  onSaveSectionOrder: (items: Array<{ id: string; index: number }>) => Promise<void>
   editorMode: LearningModuleEditorMode
   onEditorModeChange: (mode: LearningModuleEditorMode) => void
+  aiActions?: ReactNode
 }
 
 function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
@@ -52,50 +59,90 @@ function PropertyRow({ label, children }: { label: string; children: ReactNode }
 }
 
 export function UcatLearningModuleSettingsPanel({
+  moduleId,
   kind,
   title,
   description,
   sectionId,
   parentId,
-  index,
   isPrivate,
-  displayMode,
   onTitleChange,
   onDescriptionChange,
   onSectionIdChange,
   onParentIdChange,
-  onIndexChange,
   onIsPrivateChange,
-  onDisplayModeChange,
   sections,
+  modules,
   folderOptions,
+  onSaveSectionOrder,
   editorMode,
   onEditorModeChange,
+  aiActions,
 }: UcatLearningModuleSettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
+  const draftModules = useMemo(
+    () =>
+      modules.map((row) =>
+        row.id === moduleId
+          ? {
+              ...row,
+              ucat_section_id: sectionId,
+              parent_ucat_learning_module_id: parentId,
+            }
+          : row,
+      ),
+    [modules, moduleId, sectionId, parentId],
+  )
   const sectionItems = [
     { id: 'none', name: 'None' },
     ...sections.filter((s): s is typeof s & { id: string } => s.id != null),
   ]
   const selectedSection = sectionItems.find((s) => s.id === (sectionId ?? 'none')) ?? sectionItems[0]
 
+  const taxonomyRows = useMemo(
+    () =>
+      draftModules.map((row) => ({
+        id: row.id,
+        parent_id: row.parent_ucat_learning_module_id,
+        section_id: row.ucat_section_id,
+      })),
+    [draftModules],
+  )
+  const eligibleFolderOptions = useMemo(
+    () =>
+      folderOptions.filter((folder) => {
+        if (resolveRootSectionId(taxonomyRows, folder.id) !== sectionId) return false
+        if (!moduleId) return true
+        return !isDescendantOf(taxonomyRows, folder.id, moduleId)
+      }),
+    [folderOptions, moduleId, sectionId, taxonomyRows],
+  )
   const parentItems = [
     { id: 'none', name: 'Root' },
-    ...folderOptions.map((f) => ({ id: f.id, name: f.title })),
+    ...eligibleFolderOptions.map((f) => ({ id: f.id, name: f.title })),
   ]
   const selectedParent = parentItems.find((p) => p.id === (parentId ?? 'none')) ?? parentItems[0]
+
+  useEffect(() => {
+    if (!parentId) return
+    if (eligibleFolderOptions.some((folder) => folder.id === parentId)) return
+    if (!modules.some((row) => row.id === parentId)) return
+    onParentIdChange(null)
+  }, [eligibleFolderOptions, modules, onParentIdChange, parentId])
 
   const visibilityItems = [
     { value: 'public' as const, label: 'Public' },
     { value: 'private' as const, label: 'Private' },
   ]
 
-  const displayModeItems = [
-    { value: 'scroll' as const, label: 'Scroll' },
-    { value: 'stepped' as const, label: 'Stepped' },
-  ]
-
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l bg-background p-4">
+    <aside className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="properties">Properties</TabsTrigger>
+          <TabsTrigger value="ai" disabled={!aiActions}>AI Tools</TabsTrigger>
+        </TabsList>
+        <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-4">
         <div className={tutorCardCn('space-y-4 p-3')}>
           <PropertyRow label="Mode">
@@ -140,9 +187,11 @@ export function UcatLearningModuleSettingsPanel({
                   <SearchableSelect<{ id: string; name: string | null }>
                     items={sectionItems}
                     value={selectedSection}
-                    onValueChange={(item) =>
-                      onSectionIdChange(item?.id === 'none' ? null : item?.id ?? null)
-                    }
+                    onValueChange={(item) => {
+                      const nextSectionId = item?.id === 'none' ? null : item?.id ?? null
+                      if (nextSectionId !== sectionId) onParentIdChange(null)
+                      onSectionIdChange(nextSectionId)
+                    }}
                     getItemLabel={(s) => s.name ?? 'None'}
                     getItemId={(s) => s.id}
                     placeholder="Select section"
@@ -162,31 +211,6 @@ export function UcatLearningModuleSettingsPanel({
                     disabled={editorMode === 'view'}
                   />
                 </PropertyRow>
-                <PropertyRow label="Sort index">
-                  <Input
-                    type="number"
-                    min={0}
-                    className="h-9"
-                    value={index}
-                    onChange={(e) => onIndexChange(e.target.value)}
-                    readOnly={editorMode === 'view'}
-                  />
-                </PropertyRow>
-                {kind === 'lesson' ? (
-                  <PropertyRow label="Display mode">
-                    <SearchableSelect<{ value: UcatLearningModuleDisplayMode; label: string }>
-                      items={displayModeItems}
-                      value={
-                        displayModeItems.find((d) => d.value === displayMode) ??
-                        displayModeItems[1]
-                      }
-                      onValueChange={(item) => item && onDisplayModeChange(item.value)}
-                      getItemLabel={(d) => d.label}
-                      getItemId={(d) => d.value}
-                      disabled={editorMode === 'view'}
-                    />
-                  </PropertyRow>
-                ) : null}
                 <PropertyRow label="Visibility">
                   <SearchableSelect<{ value: 'public' | 'private'; label: string }>
                     items={visibilityItems}
@@ -206,8 +230,34 @@ export function UcatLearningModuleSettingsPanel({
               Folders organise lessons. Add child lessons by setting their parent folder.
             </p>
           ) : null}
+
+          <AccordionItem value="section-order" className="border-0">
+            <div className={tutorCardCn('overflow-hidden')}>
+              <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+                <span className="text-sm font-semibold">Section order</span>
+              </AccordionTrigger>
+              <AccordionContent className="border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
+                <UcatLearningModuleOrderEditor
+                  moduleId={moduleId}
+                  sectionId={sectionId}
+                  modules={draftModules}
+                  editorMode={editorMode}
+                  onSaveSectionOrder={onSaveSectionOrder}
+                />
+              </AccordionContent>
+            </div>
+          </AccordionItem>
         </Accordion>
       </div>
+        </TabsContent>
+        <TabsContent
+          forceMount
+          value="ai"
+          className={cn('h-full min-h-0 flex-1 overflow-hidden', activeTab !== 'ai' && 'hidden')}
+        >
+          {aiActions}
+        </TabsContent>
+      </Tabs>
     </aside>
   )
 }

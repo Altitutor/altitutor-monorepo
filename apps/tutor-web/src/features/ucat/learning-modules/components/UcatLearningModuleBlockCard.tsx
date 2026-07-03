@@ -10,25 +10,33 @@ import {
   BLOCK_TYPE_LABELS,
   type DraftBlock,
 } from '@/features/ucat/learning-modules/lib/learning-module-editor-types'
-import type { UcatQuestionCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import type {
+  UcatQuestionCatalogItem,
+  UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  LearningModuleQuestionResourcePicker,
+} from '@/features/ucat/learning-modules/components/UcatLearningModuleBlockResourcePicker'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatSkillTrainerSetRow } from '@/features/ucat/skill-trainer-sets/types'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
-type StemOption = { id: string; text: string }
+type SkillTrainerOption = {
+  id: string
+  key: string | null
+  name: string | null
+}
 
 type UcatLearningModuleBlockCardProps = {
   block: DraftBlock
   index: number
   totalBlocks: number
   moduleId: string | null
-  stemOptions: StemOption[]
+  stemOptions: UcatStemCatalogItem[]
   questionOptions: UcatQuestionCatalogItem[]
-  skillTrainerSets: UcatSkillTrainerSetRow[]
-  popoverContainer?: HTMLElement | null
+  skillTrainers: SkillTrainerOption[]
   isHighlighted?: boolean
   onUpdate: (patch: Partial<DraftBlock>) => void
   onMoveUp: () => void
@@ -48,8 +56,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
     moduleId,
     stemOptions,
     questionOptions,
-    skillTrainerSets,
-    popoverContainer,
+    skillTrainers,
     isHighlighted,
     onUpdate,
     onMoveUp,
@@ -67,35 +74,6 @@ export const UcatLearningModuleBlockCard = forwardRef<
     if (!isHighlighted || !ref || typeof ref === 'function') return
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [isHighlighted, ref])
-
-  const selectedStem =
-    block.question_stem_id != null
-      ? (stemOptions.find((s) => s.id === block.question_stem_id) ?? {
-          id: block.question_stem_id,
-          text: block.question_stem_id,
-        })
-      : null
-
-  const selectedQuestion =
-    block.question_id != null
-      ? (questionOptions.find((q) => q.id === block.question_id) ?? {
-          id: block.question_id,
-          label: block.question_id,
-          stemId: '',
-          sectionName: '',
-          questionType: '',
-        })
-      : null
-
-  const selectedSkillTrainerSet =
-    block.skill_trainer_set_id != null
-      ? (skillTrainerSets
-          .filter((s) => s.id === block.skill_trainer_set_id)
-          .map((s) => ({ id: s.id, label: `${s.trainer_name}: ${s.name}` }))[0] ?? {
-          id: block.skill_trainer_set_id,
-          label: block.skill_trainer_set_id,
-        })
-      : null
 
   async function handleFileUpload(file: File) {
     if (!moduleId) {
@@ -146,6 +124,11 @@ export const UcatLearningModuleBlockCard = forwardRef<
           <p className="text-sm font-semibold">
             Block {index + 1} · {BLOCK_TYPE_LABELS[block.block_type]}
           </p>
+          {block.block_type === 'question_stem' && block.content.pendingGeneratedStem ? (
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+              Pending AI-generated stem. Keep the lesson private until this stem is approved.
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center">
           <Button
@@ -197,7 +180,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
         {block.block_type === 'text' ? (
           <UcatRichTextEditor
             value={(block.content.body as Json) ?? plainTextToProseMirror('')}
-            onChange={(body) => onUpdate({ content: { body } })}
+            onChange={(body) => onUpdate({ content: { ...block.content, body } })}
             minHeight="120px"
             onEditorReady={(editor) => bindRichTextToolbarFocus(editor, onTextEditorActive)}
           />
@@ -261,71 +244,57 @@ export const UcatLearningModuleBlockCard = forwardRef<
         ) : null}
 
         {block.block_type === 'question_stem' ? (
-          <div className="space-y-2">
-            <Label>Question stem</Label>
-            <SearchableSelect<{ id: string; text: string }>
-              items={stemOptions}
-              value={selectedStem}
-              onValueChange={(item) =>
-                onUpdate({
-                  question_stem_id: item?.id ?? null,
-                })
-              }
-              getItemLabel={(s) => (s.text.length > 40 ? `${s.text.slice(0, 37)}…` : s.text)}
-              getItemId={(s) => s.id}
-              placeholder="Select stem"
-              searchPlaceholder="Search stems..."
-              allowClear
-              popoverContainer={popoverContainer}
-            />
-          </div>
+          <LearningModuleQuestionResourcePicker
+            type="question_stem"
+            stemOptions={stemOptions}
+            questionOptions={questionOptions}
+            selectedStemId={block.question_stem_id ?? null}
+            selectedQuestionId={null}
+            onSelectStem={(stemId) => onUpdate({ question_stem_id: stemId, content: {} })}
+            onSelectQuestion={() => {}}
+          />
         ) : null}
 
         {block.block_type === 'question' ? (
-          <div className="space-y-2">
-            <Label>Question</Label>
-            <SearchableSelect<UcatQuestionCatalogItem>
-              items={questionOptions}
-              value={selectedQuestion}
-              onValueChange={(item) => onUpdate({ question_id: item?.id ?? null })}
-              getItemLabel={(q) => q.label}
-              getItemId={(q) => q.id}
-              getItemValue={(q) => `${q.label} ${q.sectionName} ${q.questionType}`}
-              placeholder="Select question"
-              searchPlaceholder="Search questions..."
-              allowClear
-              popoverContainer={popoverContainer}
-            />
-          </div>
+          <LearningModuleQuestionResourcePicker
+            type="question"
+            stemOptions={stemOptions}
+            questionOptions={questionOptions}
+            selectedStemId={null}
+            selectedQuestionId={block.question_id ?? null}
+            onSelectStem={() => {}}
+            onSelectQuestion={(questionId) => onUpdate({ question_id: questionId })}
+          />
         ) : null}
 
-        {block.block_type === 'skill_trainer_set' ? (
+        {block.block_type === 'skill_trainer' ? (
           <div className="space-y-2">
-            <Label>Skill trainer set</Label>
-            <SearchableSelect<{ id: string; label: string }>
-              items={skillTrainerSets.map((s) => ({
-                id: s.id,
-                label: `${s.trainer_name}: ${s.name}`,
-              }))}
-              value={selectedSkillTrainerSet}
-              onValueChange={(item) => {
-                const setId = item?.id ?? null
-                const set = skillTrainerSets.find((s) => s.id === setId)
+            <Label>Skill trainer</Label>
+            <SearchableSelect<SkillTrainerOption>
+              items={skillTrainers}
+              value={
+                block.skill_trainer_id
+                  ? skillTrainers.find((trainer) => trainer.id === block.skill_trainer_id) ?? null
+                  : null
+              }
+              onValueChange={(trainer) =>
                 onUpdate({
-                  skill_trainer_set_id: setId,
+                  skill_trainer_id: trainer?.id ?? null,
                   content: {
                     ...block.content,
-                    trainerKey: set?.trainer_key ?? undefined,
+                    trainerKey: trainer?.key ?? undefined,
                   },
                 })
-              }}
-              getItemLabel={(s) => s.label}
-              getItemId={(s) => s.id}
-              placeholder="Select set"
-              searchPlaceholder="Search sets..."
-              allowClear
-              popoverContainer={popoverContainer}
+              }
+              getItemLabel={(trainer) => trainer.name ?? trainer.key ?? 'Skill trainer'}
+              getItemId={(trainer) => trainer.id}
+              placeholder="Choose skill trainer..."
+              searchPlaceholder="Search skill trainers..."
+              emptyMessage="No skill trainers"
             />
+            <p className="text-xs text-muted-foreground">
+              The student starts a random run from approved items for this trainer type.
+            </p>
           </div>
         ) : null}
       </div>
