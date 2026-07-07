@@ -20,6 +20,21 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: ".*\\.vercel\\.app",
+          },
+        ],
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
+          },
+        ],
+      },
+      {
         source: "/wp-content/:path*",
         headers: [
           {

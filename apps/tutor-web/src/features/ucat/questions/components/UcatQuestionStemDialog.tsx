@@ -18,6 +18,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Switch,
   useToast,
 } from '@altitutor/ui'
 import { ExternalLink, Trash2 } from 'lucide-react'
@@ -94,7 +95,7 @@ export function UcatQuestionStemDialog({
   title: string
   submitLabel: string
   onClose: () => void
-  onSubmit: (values: UcatQuestionStemFormValues) => Promise<void>
+  onSubmit: (values: UcatQuestionStemFormValues, options?: { createMore?: boolean }) => Promise<void>
   sections: UcatSectionOption[]
   categories: CategoryOption[]
   tags: TagOption[]
@@ -111,6 +112,7 @@ export function UcatQuestionStemDialog({
   const approvalMutation = useSetUcatQuestionStemApprovalStatus()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [createMore, setCreateMore] = useState(false)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -152,6 +154,7 @@ export function UcatQuestionStemDialog({
     if (!open) {
       lastResetStemIdRef.current = null
       setActiveTextEditor(null)
+      setCreateMore(false)
     }
   }, [open])
 
@@ -183,6 +186,15 @@ export function UcatQuestionStemDialog({
     }
   }, [open, initial, sections, form])
 
+  function buildNextCreateValues(values: UcatQuestionStemFormValues): UcatQuestionStemFormValues {
+    const nextValues = buildEmptyStemFormValues(values.sectionId)
+    return {
+      ...nextValues,
+      categoryId: values.categoryId ?? null,
+      isPrivate: values.isPrivate,
+      tutorSourceNote: values.tutorSourceNote ?? '',
+    }
+  }
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -194,7 +206,7 @@ export function UcatQuestionStemDialog({
         try {
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
-          await onSubmit(valuesCopy)
+          await onSubmit(valuesCopy, { createMore: !initial && createMore })
           if (stemId && valuesCopy.approvalStatus) {
             const baselineApproval = parseApprovalStatusFromSnapshot(baseline)
             if (valuesCopy.approvalStatus !== baselineApproval) {
@@ -205,6 +217,11 @@ export function UcatQuestionStemDialog({
             }
           }
           setNewImageFileIds(new Set())
+          if (!initial && createMore) {
+            const nextValues = buildNextCreateValues(valuesCopy)
+            form.reset(nextValues)
+            setBaseline(snapshotQuestionStemFormValues(nextValues))
+          }
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Failed to save question stem'
           const parsed = parseUcatVisibilityError(msg)
@@ -240,6 +257,7 @@ export function UcatQuestionStemDialog({
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
+  const showCreateMore = !initial && !readOnly
 
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
@@ -298,6 +316,14 @@ export function UcatQuestionStemDialog({
       saveLabel={submitLabel}
       saveDisabled={loading}
       isSaving={loading}
+      footerActions={
+        showCreateMore ? (
+          <label htmlFor="create-more-stems" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Switch id="create-more-stems" checked={createMore} onCheckedChange={setCreateMore} />
+            <span>Create more</span>
+          </label>
+        ) : undefined
+      }
       headerActions={headerActions}
       warningPills={warningPills}
       hideCancel

@@ -16,6 +16,7 @@ import {
 import { Check, ChevronLeft, ChevronRight, CloudOff, ExternalLink, Loader2 } from 'lucide-react';
 import { TodaySessionsView } from '@/features/sessions/components/TodaySessionsView';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssuesList } from '@/features/issues/components/IssuesList';
 import { ProjectsList } from '@/features/projects/components/ProjectsList';
@@ -24,6 +25,7 @@ import { DashboardReconciliationCard } from '@/features/reconciliation/component
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
 import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { clickableCardFocusRingCn, clickableCardHoverCn, cn } from '@/shared/utils';
 
 type ViewMode = 'calendar' | 'table';
 
@@ -160,6 +162,141 @@ function DailyNoteCard({ date }: { date: string }) {
 
 const DASHBOARD_TASK_DEFAULT_STATUSES = ['todo', 'in_progress'] as const;
 const DASHBOARD_ISSUE_DEFAULT_STATUS = ['open'] as const;
+const ADMIN_MEETINGS_HREF = '/sessions?view=table&type=ADMIN_MEETING';
+
+function formatMeetingDateTime(startAt: string | null, endAt: string | null) {
+  if (!startAt) return 'Time not set';
+
+  const start = new Date(startAt);
+  const end = endAt ? new Date(endAt) : null;
+  const dateLabel = format(start, 'EEE d MMM');
+  const timeLabel = end
+    ? `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`
+    : format(start, 'h:mm a');
+
+  return `${dateLabel}, ${timeLabel}`;
+}
+
+function AdminMeetingItem({
+  session,
+  staff,
+  label,
+  onOpenSession,
+}: {
+  session: NonNullable<ReturnType<typeof useSessionsWithDetails>['data']>['sessions'][number];
+  staff: NonNullable<ReturnType<typeof useSessionsWithDetails>['data']>['sessionStaff'][string];
+  label?: string;
+  onOpenSession: (sessionId: string) => void;
+}) {
+  const staffLabel =
+    staff && staff.length > 0
+      ? staff.map((s) => `${s.first_name} ${s.last_name}`.trim()).join(', ')
+      : 'No staff assigned';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenSession(session.id)}
+      className={cn(
+        'group relative flex w-full flex-col rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/40',
+        clickableCardHoverCn,
+        clickableCardFocusRingCn,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-base font-semibold leading-tight">
+            {formatMeetingDateTime(session.start_at, session.end_at)}
+          </div>
+        </div>
+        {label ? (
+          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {label}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 truncate text-sm leading-5 text-muted-foreground">{staffLabel}</div>
+    </button>
+  );
+}
+
+function AdminMeetingsCard({ onOpenSession }: { onOpenSession: (sessionId: string) => void }) {
+  const { data, isLoading, error } = useSessionsWithDetails({
+    includeInactive: false,
+    types: ['ADMIN_MEETING'],
+    orderBy: 'start_at',
+    ascending: true,
+  });
+
+  const now = Date.now();
+  const sessions = data?.sessions ?? [];
+  const pastMeetings = sessions.filter((session) => {
+    if (!session.start_at) return false;
+    return new Date(session.start_at).getTime() < now;
+  });
+  const upcomingMeetings = sessions
+    .filter((session) => {
+      if (!session.start_at) return false;
+      return new Date(session.start_at).getTime() >= now;
+    })
+    .slice(0, 4);
+  const lastPastMeeting = pastMeetings[pastMeetings.length - 1] ?? null;
+
+  return (
+    <Card className="flex h-full flex-col overflow-hidden">
+      <DashboardCardHeader title="Admin Meetings" href={ADMIN_MEETINGS_HREF} linkLabel="Sessions" />
+      <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden border-t bg-background p-4">
+        {isLoading ? (
+          <div className="flex flex-1 items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            Could not load admin meetings.
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last meeting</div>
+              {lastPastMeeting ? (
+                <AdminMeetingItem
+                  session={lastPastMeeting}
+                  staff={data?.sessionStaff[lastPastMeeting.id] ?? []}
+                  label="Past"
+                  onOpenSession={onOpenSession}
+                />
+              ) : (
+                <div className="rounded-md border border-dashed px-3 py-3 text-sm text-muted-foreground">
+                  No past admin meetings.
+                </div>
+              )}
+            </div>
+
+            <div className="min-h-0 space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Upcoming</div>
+              {upcomingMeetings.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingMeetings.map((session) => (
+                    <AdminMeetingItem
+                      key={session.id}
+                      session={session}
+                      staff={data?.sessionStaff[session.id] ?? []}
+                      onOpenSession={onOpenSession}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed px-3 py-3 text-sm text-muted-foreground">
+                  No upcoming admin meetings.
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardDatePage({ params }: { params: { date: string } }) {
   const router = useRouter();
@@ -283,12 +420,13 @@ export default function DashboardDatePage({ params }: { params: { date: string }
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
         <DailyNoteCard date={dateStr} />
         <DashboardReconciliationCard />
+        <AdminMeetingsCard onOpenSession={handleSessionClick} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         <Card className="flex max-h-[520px] flex-col overflow-hidden">
           <DashboardCardHeader title="Tasks" href="/tasks" />
           <CardContent className="min-h-0 flex-1 p-0">

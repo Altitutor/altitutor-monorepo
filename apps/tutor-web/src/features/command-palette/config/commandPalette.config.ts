@@ -21,7 +21,8 @@ import {
   Brain,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getResourceSubjectHref, getResourceSubjectNavLabel } from '@altitutor/shared';
+import { getResourceSubjectNavLabel } from '@altitutor/shared';
+import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { ResourceSubjectNavItem } from '@/features/resources/lib/types';
 
 export interface CommandPalettePage {
@@ -129,7 +130,7 @@ export function buildSubjectPages(subjects: ResourceSubjectNavItem[]): CommandPa
   return subjects.map((subject) => ({
     id: `subject-page-${subject.id}`,
     title: getResourceSubjectNavLabel(subject),
-    href: getResourceSubjectHref(subject),
+    href: getTutorResourceSubjectHref(subject),
     icon: BookOpen,
     keywords: [subject.short_name ?? '', subject.name ?? '', subject.long_name ?? ''].filter(Boolean),
   }));

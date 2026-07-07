@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 import { getSitemapPages } from "@/lib/wordpress";
 
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   return getSitemapPages().map((page) => ({
     url: `${SITE_URL}${page.path}`,

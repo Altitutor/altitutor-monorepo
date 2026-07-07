@@ -30,11 +30,11 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { useResourceSubjectNavItems } from '@/features/resources';
 import {
-  getResourceSubjectHref,
   getResourceSubjectNavLabel,
   isResourceSubjectNavActive,
   isResourcesNavSectionActive,
 } from '@altitutor/shared';
+import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 
@@ -118,7 +118,7 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
   return useMemo(() => {
     const resourceChildren: DropdownChild[] = (subjects ?? []).map((subject) => ({
       title: getResourceSubjectNavLabel(subject),
-      href: getResourceSubjectHref(subject),
+      href: getTutorResourceSubjectHref(subject),
       icon: BookOpen,
     }));
 

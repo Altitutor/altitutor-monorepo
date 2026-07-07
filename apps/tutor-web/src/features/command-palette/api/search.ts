@@ -1,5 +1,4 @@
 import {
-  getResourceSubjectHref,
   normalizeSlug,
   buildCodeAndFilenameOrFilter,
   buildCodeAndNameOrFilter,
@@ -7,6 +6,7 @@ import {
   buildSubjectNameOrFilter,
   parseSubjectQualifiedSearch,
 } from '@altitutor/shared';
+import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { entityTypes } from '../config/commandPalette.config';
@@ -73,7 +73,7 @@ async function searchSubjects(search: string): Promise<TutorCommandPaletteEntity
     results.push({
       type: 'subject',
       id: subject.id,
-      href: getResourceSubjectHref(subject),
+      href: getTutorResourceSubjectHref(subject),
       data: subject,
     });
   }

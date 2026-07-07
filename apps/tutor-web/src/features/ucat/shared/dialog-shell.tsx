@@ -31,6 +31,7 @@ export function UcatDialogShell({
   saveDisabled,
   isSaving,
   hideCancel = false,
+  footerActions,
   headerActions,
   warningPills,
   defaultExpanded = false,
@@ -46,6 +47,7 @@ export function UcatDialogShell({
   saveDisabled?: boolean
   isSaving?: boolean
   hideCancel?: boolean
+  footerActions?: ReactNode
   headerActions?: ReactNode
   warningPills?: string[]
   defaultExpanded?: boolean
@@ -116,6 +118,7 @@ export function UcatDialogShell({
               </div>
             ) : null}
             <div className={cn('flex shrink-0 items-center gap-2', !richTextToolbarEditor && 'ml-auto')}>
+              {footerActions ? footerActions : null}
               {!hideCancel ? (
                 <Button type="button" variant="outline" className={tutorBtnOutline} onClick={onClose}>
                   Cancel

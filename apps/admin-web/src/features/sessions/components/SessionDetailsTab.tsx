@@ -157,6 +157,8 @@ type SessionDetailsTabProps = {
   onRemoveStaffFromSession?: (staffId: string, staffName: string) => void;
   /** Non-class sessions: inline add instead of modal */
   meetingMode?: boolean;
+  /** Admin meetings only manage staff attendance/details. */
+  adminMeetingMode?: boolean;
   parentsData?: Array<{
     parent: Tables<'parents'>;
     sessionsParentsId: string;
@@ -200,6 +202,7 @@ export function SessionDetailsTab({
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
   meetingMode = false,
+  adminMeetingMode = false,
   parentsData = [],
   onMeetingAddStudent,
   onMeetingAddStaff,
@@ -496,197 +499,201 @@ export function SessionDetailsTab({
 
       <Separator />
 
-      {/* Students Section */}
-      <div>
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-          <div className="flex flex-wrap justify-end gap-2">
-            {meetingMode && onMeetingAddStudent ? (
-              <MeetingEntitySearchAdd
-                kind="student"
-                placeholder="Search students…"
-                existingIds={studentsData.map((d) => d.student.id)}
-                onPick={onMeetingAddStudent}
-                disabled={isUpdating}
-              />
+      {!adminMeetingMode && (
+        <>
+          {/* Students Section */}
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
+              <div className="flex flex-wrap justify-end gap-2">
+                {meetingMode && onMeetingAddStudent ? (
+                  <MeetingEntitySearchAdd
+                    kind="student"
+                    placeholder="Search students…"
+                    existingIds={studentsData.map((d) => d.student.id)}
+                    onPick={onMeetingAddStudent}
+                    disabled={isUpdating}
+                  />
+                ) : (
+                  onAddStudentToSession && (
+                    <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
+                      Add student
+                    </Button>
+                  )
+                )}
+              </div>
+            </div>
+            {studentsData.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                No students planned
+              </div>
             ) : (
-              onAddStudentToSession && (
-                <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
-                  Add student
-                </Button>
-              )
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      {allowAbsenceLogging ? (
+                        <>
+                          <TableHead>Planned Attendance</TableHead>
+                          <TableHead>Actual Attendance</TableHead>
+                          <TableHead>Invoice</TableHead>
+                        </>
+                      ) : (
+                        <TableHead>Attendance</TableHead>
+                      )}
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {studentsData.map((data) => (
+                      <TableRow key={data.student.id}>
+                        <TableCell>
+                          <button
+                            type="button"
+                            onClick={() => onOpenStudent(data.student.id)}
+                            className="text-left hover:underline font-medium"
+                          >
+                            {data.student.first_name} {data.student.last_name}
+                          </button>
+                        </TableCell>
+                        {allowAbsenceLogging ? (
+                          <>
+                            <TableCell>
+                              <AttendanceCell
+                                status={data.plannedStatus}
+                                linkTo={
+                                  data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
+                                    ? {
+                                        type: 'session',
+                                        id: data.rescheduledSessionId,
+                                        onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
+                                      }
+                                    : undefined
+                                }
+                                linkText={
+                                  data.plannedStatus === 'rescheduled'
+                                    ? data.rescheduledDate
+                                    : data.plannedStatus === 'credited' && data.creditedDisplayDate
+                                      ? data.creditedDisplayDate
+                                      : undefined
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceCell status={data.actualStatus} />
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const badge = getInvoiceStatusBadge(data.invoiceStatus, {
+                                  onOpenInvoice: openAdminInvoiceModal,
+                                });
+                                if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+                                return badge;
+                              })()}
+                            </TableCell>
+                          </>
+                        ) : (
+                          <TableCell>
+                            <AttendanceCell status={data.actualStatus} />
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMessageStudent(data.student.id);
+                                }}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Message
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {allowAbsenceLogging &&
+                              (data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') &&
+                              data.sessionsStudentsId &&
+                              onUndoLogAbsenceStudent ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                    onUndoLogAbsenceStudent({
+                                      studentId: data.student.id,
+                                      studentName: studentName || 'Student',
+                                      sessionsStudentsId: data.sessionsStudentsId!,
+                                      action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                                      rescheduledSessionId: data.rescheduledSessionId,
+                                    });
+                                  }}
+                                >
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  Undo Log Absence
+                                </DropdownMenuItem>
+                              ) : null}
+                              {allowAbsenceLogging &&
+                              !data.plannedAbsence &&
+                              !data.hasInvoiceItems &&
+                              sessionId &&
+                              onLogAbsenceStudent ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onLogAbsenceStudent(data.student.id);
+                                  }}
+                                >
+                                  <AlertTriangle className="h-4 w-4 mr-2" />
+                                  Log Absence
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem
+                                className={
+                                  !(!hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession)
+                                    ? 'opacity-60 text-muted-foreground'
+                                    : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const canRemove = !hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession;
+                                  if (canRemove) {
+                                    const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                    onRemoveStudentFromSession(data.student.id, studentName || 'Student');
+                                  } else {
+                                    toast({
+                                      description: hasTutorLog ? 'Session has a tutor log; cannot remove student.' : data.hasInvoiceItems ? 'Student has an invoice item for this session.' : (data.plannedStatus !== 'attending-extra' && data.plannedStatus !== 'attending-extra-trial') ? 'Only extra or trial students can be removed.' : 'Remove from session is not available.',
+                                      variant: 'destructive',
+                                    });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove from session
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
-        </div>
-        {studentsData.length === 0 ? (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            No students planned
-          </div>
-        ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  {allowAbsenceLogging ? (
-                    <>
-                      <TableHead>Planned Attendance</TableHead>
-                      <TableHead>Actual Attendance</TableHead>
-                      <TableHead>Invoice</TableHead>
-                    </>
-                  ) : (
-                    <TableHead>Attendance</TableHead>
-                  )}
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {studentsData.map((data) => (
-                  <TableRow key={data.student.id}>
-                    <TableCell>
-                      <button
-                        type="button"
-                        onClick={() => onOpenStudent(data.student.id)}
-                        className="text-left hover:underline font-medium"
-                      >
-                        {data.student.first_name} {data.student.last_name}
-                      </button>
-                    </TableCell>
-                    {allowAbsenceLogging ? (
-                      <>
-                        <TableCell>
-                          <AttendanceCell
-                            status={data.plannedStatus}
-                            linkTo={
-                              data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                                ? {
-                                    type: 'session',
-                                    id: data.rescheduledSessionId,
-                                    onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
-                                  }
-                                : undefined
-                            }
-                            linkText={
-                              data.plannedStatus === 'rescheduled'
-                                ? data.rescheduledDate
-                                : data.plannedStatus === 'credited' && data.creditedDisplayDate
-                                  ? data.creditedDisplayDate
-                                  : undefined
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <AttendanceCell status={data.actualStatus} />
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const badge = getInvoiceStatusBadge(data.invoiceStatus, {
-                              onOpenInvoice: openAdminInvoiceModal,
-                            });
-                            if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
-                            return badge;
-                          })()}
-                        </TableCell>
-                      </>
-                    ) : (
-                      <TableCell>
-                        <AttendanceCell status={data.actualStatus} />
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onMessageStudent(data.student.id);
-                            }}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Message
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {allowAbsenceLogging &&
-                          (data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') &&
-                          data.sessionsStudentsId &&
-                          onUndoLogAbsenceStudent ? (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
-                                onUndoLogAbsenceStudent({
-                                  studentId: data.student.id,
-                                  studentName: studentName || 'Student',
-                                  sessionsStudentsId: data.sessionsStudentsId!,
-                                  action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
-                                  rescheduledSessionId: data.rescheduledSessionId,
-                                });
-                              }}
-                            >
-                              <RotateCcw className="h-4 w-4 mr-2" />
-                              Undo Log Absence
-                            </DropdownMenuItem>
-                          ) : null}
-                          {allowAbsenceLogging &&
-                          !data.plannedAbsence &&
-                          !data.hasInvoiceItems &&
-                          sessionId &&
-                          onLogAbsenceStudent ? (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onLogAbsenceStudent(data.student.id);
-                              }}
-                            >
-                              <AlertTriangle className="h-4 w-4 mr-2" />
-                              Log Absence
-                            </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuItem
-                            className={
-                              !(!hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession)
-                                ? 'opacity-60 text-muted-foreground'
-                                : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const canRemove = !hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession;
-                              if (canRemove) {
-                                const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
-                                onRemoveStudentFromSession(data.student.id, studentName || 'Student');
-                              } else {
-                                toast({
-                                  description: hasTutorLog ? 'Session has a tutor log; cannot remove student.' : data.hasInvoiceItems ? 'Student has an invoice item for this session.' : (data.plannedStatus !== 'attending-extra' && data.plannedStatus !== 'attending-extra-trial') ? 'Only extra or trial students can be removed.' : 'Remove from session is not available.',
-                                  variant: 'destructive',
-                                });
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove from session
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
 
-      <Separator />
+          <Separator />
+        </>
+      )}
 
       {/* Staff Section */}
       <div>
@@ -878,7 +885,7 @@ export function SessionDetailsTab({
         )}
       </div>
 
-      {session.type !== 'CLASS' && (
+      {session.type !== 'CLASS' && !adminMeetingMode && (
         <>
           <Separator />
           <div>
