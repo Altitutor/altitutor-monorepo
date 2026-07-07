@@ -24,20 +24,17 @@ WITH category_descriptions(section_name, category_name, description_text) AS (
   VALUES
     ('Verbal Reasoning', 'Reading Comprehension', 'Passage-based Verbal Reasoning questions with four answer options that test understanding, inference, evidence use, and author meaning.'),
     ('Verbal Reasoning', 'True, False, Can''t Tell', 'Verbal Reasoning questions where each statement must be judged as true, false, or not provable from the passage.'),
-
     ('Decision Making', 'Logical Puzzles', 'Rule-based Decision Making questions that require applying constraints, ordering, matching, selection, or spatial relationships.'),
     ('Decision Making', 'Probabilistic and Statistical Reasoning', 'Decision Making questions that require probability, statistics, expected value, or interpretation of numerical evidence.'),
     ('Decision Making', 'Recognising Assumptions', 'Decision Making questions that ask for the strongest argument or assumption behind a claim, policy, or proposed action.'),
     ('Decision Making', 'Syllogisms', 'Decision Making yes/no conclusion questions that test whether statements necessarily follow from given premises.'),
     ('Decision Making', 'Venn Diagrams', 'Decision Making questions that use set relationships or Venn-style regions to reason about membership, overlap, and complements.'),
-
     ('Quantitative Reasoning', 'Data Tables', 'Quantitative Reasoning stems where the main source is one or more tables of values.'),
     ('Quantitative Reasoning', 'Graphs and Charts', 'Quantitative Reasoning stems where the main source is a graph, chart, plotted trend, or visual data display.'),
     ('Quantitative Reasoning', 'Timetables and Calendars', 'Quantitative Reasoning stems centred on schedules, calendars, time slots, departures, or durations.'),
     ('Quantitative Reasoning', 'Maps and Diagrams', 'Quantitative Reasoning stems that rely on maps, plans, diagrams, layouts, or other spatial visuals.'),
     ('Quantitative Reasoning', 'Mixed Data Sources', 'Quantitative Reasoning stems that require combining information from more than one source type, such as a table plus a chart or diagram.'),
     ('Quantitative Reasoning', 'Text-Only Scenarios', 'Quantitative Reasoning stems where all relevant numerical information is given in prose without a table or visual source.'),
-
     ('Situational Judgement', 'How Appropriate', 'Situational Judgement questions asking how appropriate a proposed action is in a clinical, educational, or professional scenario.'),
     ('Situational Judgement', 'How Important', 'Situational Judgement questions asking how important a consideration is when deciding what to do in a clinical, educational, or professional scenario.')
 )
@@ -132,7 +129,6 @@ tag_descriptions AS (
             THEN 'Verbal Reasoning tags for wording features that often make questions harder to parse, such as qualifiers, negatives, long statements, or missing keywords.'
           WHEN section_name = 'Verbal Reasoning' AND root_name = 'Application'
             THEN 'Verbal Reasoning tags for applying passage ideas to new evidence, hypothetical situations, or changed assumptions.'
-
           WHEN section_name = 'Decision Making' AND root_name = 'Deductive logic'
             THEN 'Decision Making tags for formal reasoning with quantifiers, conditionals, negation, and necessary conclusions.'
           WHEN section_name = 'Decision Making' AND root_name = 'Rule-based problem solving'
@@ -145,7 +141,6 @@ tag_descriptions AS (
             THEN 'Decision Making tags for assessing arguments, assumptions, evidence strength, relevance, feasibility, and policy or public benefit.'
           WHEN section_name = 'Decision Making' AND root_name = 'Decision wording traps'
             THEN 'Decision Making tags for wording constraints that affect what can be concluded, compared, or considered.'
-
           WHEN section_name = 'Quantitative Reasoning' AND root_name = 'Arithmetic'
             THEN 'Quantitative Reasoning tags for core numerical operations and calculator-free number handling.'
           WHEN section_name = 'Quantitative Reasoning' AND root_name = 'Fractions'
@@ -178,7 +173,6 @@ tag_descriptions AS (
             THEN 'Quantitative Reasoning tags for timetables, scheduling, durations, and time zones.'
           WHEN section_name = 'Quantitative Reasoning' AND root_name = 'Multi-Step Calculations'
             THEN 'Quantitative Reasoning tags for questions that require several linked calculations or intermediate results.'
-
           WHEN section_name = 'Situational Judgement' AND root_name = 'Patient welfare and safety'
             THEN 'Situational Judgement tags for scenarios involving patient safety, welfare, competence, infection risk, or escalation of concerns.'
           WHEN section_name = 'Situational Judgement' AND root_name = 'Professional conduct'
@@ -189,7 +183,6 @@ tag_descriptions AS (
             THEN 'Situational Judgement tags for workload, wellbeing, commitments, opportunities, and peer pressure.'
           WHEN section_name = 'Situational Judgement' AND root_name = 'Ethical principles'
             THEN 'Situational Judgement tags for core medical ethics principles such as beneficence, non-maleficence, autonomy, justice, consent, and confidentiality.'
-
           ELSE COALESCE(section_name || ' question tag group for ' || root_name || '.', 'UCAT question tag group for ' || root_name || '.')
         END
       WHEN section_name = 'Verbal Reasoning'
