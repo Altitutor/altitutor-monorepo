@@ -28,6 +28,8 @@ export type QuestionRow = {
   is_private: boolean
   created_at: string | null
   updated_at: string | null
+  created_by: string | null
+  created_by_name: string
   tag_ids: string[]
   type_summary: string
   stem_text: string
@@ -52,6 +54,7 @@ type QuestionListRowInput = {
   is_private?: boolean | null
   created_at?: string | null
   updated_at?: string | null
+  created_by?: string | null
   stem_text?: unknown
   set_names?: unknown
   set_ids?: unknown
@@ -107,6 +110,9 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         const setIds = parseJsonUuidArray(row.set_ids)
         const sets = parseStemSets(row.set_names, setIds)
         const setsDisplay = sets.length > 0 ? sets.map((set) => set.name).join(', ') : '—'
+        const creatorName = [row.created_by_first_name, row.created_by_last_name]
+          .filter(Boolean)
+          .join(' ')
         return {
           id: row.id ?? '',
           section_name: row.section_name ?? '-',
@@ -117,6 +123,8 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           is_private: !!row.is_private,
           created_at: row.created_at ?? null,
           updated_at: row.updated_at ?? null,
+          created_by: row.created_by ?? null,
+          created_by_name: creatorName || (row.created_by ? 'Unknown staff' : ''),
           tag_ids: row.id ? (stemTagIds[row.id] ?? []) : [],
           type_summary: summary || '-',
           stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as Json) : '',
@@ -162,6 +170,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         mode !== 'generated' || applySingleSelectFilter(tableState, 'approval_status', row.approval_status)
 
       const sourceHit = applyMultiSelectFilter(tableState, 'source_channel', row.source_channel)
+      const createdByHit = applyMultiSelectFilter(tableState, 'created_by', row.created_by)
 
       const typeSelected = (tableState.filters.question_type?.[0] as string | undefined) ?? 'all'
       const typeHit =
@@ -177,7 +186,18 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         (wantsNotInAnySet && row.set_ids.length === 0) ||
         specificSetIds.some((sid) => row.set_ids.includes(sid))
 
-      return searchHit && sectionHit && categoryHit && tagHit && visibilityHit && typeHit && approvalHit && setHit && sourceHit
+      return (
+        searchHit &&
+        sectionHit &&
+        categoryHit &&
+        tagHit &&
+        visibilityHit &&
+        typeHit &&
+        approvalHit &&
+        setHit &&
+        sourceHit &&
+        createdByHit
+      )
     })
   }, [rows, tableState, showDeleted, mode, searchScopes])
 

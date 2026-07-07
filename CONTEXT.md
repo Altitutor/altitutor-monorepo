@@ -176,6 +176,12 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
+  _Avoid_: Stem point, question attempt count
+
+- **Accessible question bank** — The set of non-deleted questions on approved, accessible question stems that define the denominator for a student's UCAT progress totals.
+  _Avoid_: Public question bank (ambiguous with `is_private` stems), stem catalog
+
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
   _Avoid_: Question type, answer mode, category
 

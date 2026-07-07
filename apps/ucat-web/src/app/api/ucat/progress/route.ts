@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  accumulateProgressAttempt,
+  getOrCreateProgressBucket,
+  progressPointsForQuestion,
+  toProgressQuestionRef,
+} from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
@@ -54,7 +60,7 @@ export async function GET() {
     supabase
       .from("vstudent_ucat_my_question_attempts")
       .select(
-        "id, question_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
+        "id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
       )
       .eq("is_submitted", true),
     supabase
@@ -137,22 +143,43 @@ export async function GET() {
   // Compute section progress: for syllogism max score = 2, else 1 (unique questions only)
   const sectionMap = new Map<
     string,
-    { name: string; number: number; correct: number; max: number }
+    {
+      name: string;
+      number: number;
+      correct: number;
+      max: number;
+      syllogismStems: Set<string>;
+    }
   >();
   for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id;
     if (!sectionId) continue;
-    const maxPerQuestion = qa.question_type === "syllogism" ? 2 : 1;
     const existing = sectionMap.get(sectionId);
     if (existing) {
       existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
+      existing.max += progressPointsForQuestion(
+        toProgressQuestionRef({
+          questionId: qa.question_id ?? qa.id ?? "",
+          questionStemId: qa.question_stem_id,
+          questionType: qa.question_type,
+        }),
+        existing.syllogismStems,
+      );
     } else {
+      const syllogismStems = new Set<string>();
       sectionMap.set(sectionId, {
         name: qa.section_name ?? "Unknown",
         number: qa.section_number ?? 0,
         correct: qa.score ?? 0,
-        max: maxPerQuestion,
+        max: progressPointsForQuestion(
+          toProgressQuestionRef({
+            questionId: qa.question_id ?? qa.id ?? "",
+            questionStemId: qa.question_stem_id,
+            questionType: qa.question_type,
+          }),
+          syllogismStems,
+        ),
+        syllogismStems,
       });
     }
   }
@@ -453,7 +480,10 @@ export async function GET() {
   for (const s of sectionProgress) {
     sectionDailyPercentages.set(s.sectionId, []);
   }
-  const qaBySectionDate = new Map<string, { correct: number; max: number }>();
+  const qaBySectionDate = new Map<
+    string,
+    { correct: number; max: number; syllogismStems: Set<string> }
+  >();
   for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id;
     if (!sectionId) continue;
@@ -462,17 +492,15 @@ export async function GET() {
       : "";
     if (!dateStr) continue;
     const key = `${sectionId}:${dateStr}`;
-    const maxPerQuestion = qa.question_type === "syllogism" ? 2 : 1;
-    const existing = qaBySectionDate.get(key);
-    if (existing) {
-      existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
-    } else {
-      qaBySectionDate.set(key, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    accumulateProgressAttempt(
+      getOrCreateProgressBucket(qaBySectionDate, key),
+      {
+        questionId: qa.question_id ?? qa.id ?? "",
+        questionStemId: qa.question_stem_id,
+        questionType: qa.question_type,
+        score: qa.score,
+      },
+    );
   }
   const sectionDateKeys = [...qaBySectionDate.keys()].sort();
   for (const key of sectionDateKeys) {
@@ -525,13 +553,14 @@ export async function GET() {
   // Compute per-section, per-category stats (all-time and weighted %)
   const sectionCategorySums = new Map<
     string,
-    { correct: number; max: number }
+    { correct: number; max: number; syllogismStems: Set<string> }
   >();
   const qaBySectionCategoryDate = new Map<
     string,
-    { correct: number; max: number }
+    { correct: number; max: number; syllogismStems: Set<string> }
   >();
   type QaWithCategory = (typeof questionAttemptsAll)[number] & {
+    question_stem_id?: string | null;
     question_stem_category_id?: string | null;
     category_name?: string | null;
   };
@@ -543,29 +572,22 @@ export async function GET() {
       ? new Date(qa.attempted_at).toISOString().slice(0, 10)
       : "";
     if (!dateStr) continue;
-    const maxPerQuestion = qa.question_type === "syllogism" ? 2 : 1;
     const sumKey = `${sectionId}:${categoryId}`;
     const dateKey = `${sectionId}:${categoryId}:${dateStr}`;
-    const existingSum = sectionCategorySums.get(sumKey);
-    if (existingSum) {
-      existingSum.correct += qa.score ?? 0;
-      existingSum.max += maxPerQuestion;
-    } else {
-      sectionCategorySums.set(sumKey, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
-    const existingDate = qaBySectionCategoryDate.get(dateKey);
-    if (existingDate) {
-      existingDate.correct += qa.score ?? 0;
-      existingDate.max += maxPerQuestion;
-    } else {
-      qaBySectionCategoryDate.set(dateKey, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    const attempt = {
+      questionId: qa.question_id ?? qa.id ?? "",
+      questionStemId: qa.question_stem_id,
+      questionType: qa.question_type,
+      score: qa.score,
+    };
+    accumulateProgressAttempt(
+      getOrCreateProgressBucket(sectionCategorySums, sumKey),
+      attempt,
+    );
+    accumulateProgressAttempt(
+      getOrCreateProgressBucket(qaBySectionCategoryDate, dateKey),
+      attempt,
+    );
   }
   const sectionCategoryDailyPctArrays = new Map<string, number[]>();
   for (const [dateKey, { correct, max }] of qaBySectionCategoryDate) {
@@ -769,6 +791,7 @@ export async function GET() {
   type QuestionAttemptRaw = {
     id: string | null;
     question_id: string | null;
+    question_stem_id: string | null;
     student_question_set_attempt_id: string | null;
     attempted_at: string | null;
     score: number | null;
@@ -788,6 +811,7 @@ export async function GET() {
   ).map((r: QuestionAttemptRaw) => ({
     id: r.id ?? "",
     questionId: r.question_id ?? r.id ?? "",
+    questionStemId: r.question_stem_id ?? null,
     studentQuestionSetAttemptId: r.student_question_set_attempt_id ?? null,
     attemptedAt: r.attempted_at ?? "",
     score: r.score,

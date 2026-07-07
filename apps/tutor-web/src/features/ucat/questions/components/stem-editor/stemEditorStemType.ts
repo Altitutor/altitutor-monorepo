@@ -15,6 +15,21 @@ function trimTextParagraphs(text: string): string {
     .trim()
 }
 
+export function isSyllogismCategory(category: Pick<CategoryOption, 'name'> | null | undefined): boolean {
+  const rawName = (category?.name ?? '').toLowerCase().trim()
+  const normalizedName = rawName.replace(/\\+$/g, '')
+  return normalizedName.startsWith('syllogism')
+}
+
+export function findSyllogismsCategory(
+  categories: CategoryOption[],
+  sectionId: string | null | undefined
+): CategoryOption | null {
+  return categories.find(
+    (category) => isSyllogismCategory(category) && (category.ucat_section_id ?? null) === (sectionId ?? null)
+  ) ?? null
+}
+
 export function applyStemTypeSwitch(
   form: UseFormReturn<UcatQuestionStemFormValues>,
   value: 'multiple_choice' | 'syllogism',
@@ -94,11 +109,7 @@ export function applyStemTypeSwitch(
     }
 
     const sectionIdForCategory = decisionMakingSection?.id ?? form.getValues('sectionId')
-    const syllogismsCategory = categories.find((category) => {
-      const rawName = (category.name ?? '').toLowerCase().trim()
-      const normalizedName = rawName.replace(/\\+$/g, '')
-      return normalizedName.startsWith('syllogism') && (category.ucat_section_id ?? null) === sectionIdForCategory
-    })
+    const syllogismsCategory = findSyllogismsCategory(categories, sectionIdForCategory)
     if (syllogismsCategory?.id) {
       form.setValue('categoryId', syllogismsCategory.id, { shouldDirty: true })
     }
@@ -110,5 +121,10 @@ export function applyStemTypeSwitch(
   currentQuestions.forEach((_, i) => {
     form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
   })
+  const currentCategoryId = form.getValues('categoryId')
+  const currentCategory = categories.find((category) => category.id === currentCategoryId)
+  if (isSyllogismCategory(currentCategory)) {
+    form.setValue('categoryId', null, { shouldDirty: true })
+  }
   return true
 }

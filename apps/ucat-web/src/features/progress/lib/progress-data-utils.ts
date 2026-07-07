@@ -1,4 +1,10 @@
 import {
+  progressPointsForQuestion,
+  sumCorrectScoreFromAttempts,
+  sumProgressPointsFromAttempts,
+  toProgressQuestionRef,
+} from "@altitutor/shared";
+import {
   getTimeFrameRange,
   getGraphBucketDays,
   getBucketKey,
@@ -95,6 +101,7 @@ export function applyAttemptFilterToProgress(
       max: number;
       scaledSum: number;
       scaledCount: number;
+      syllogismStems: Set<string>;
     }
   >();
   for (const s of data.sectionProgress) {
@@ -105,17 +112,19 @@ export function applyAttemptFilterToProgress(
       max: 0,
       scaledSum: 0,
       scaledCount: 0,
+      syllogismStems: new Set(),
     });
   }
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.correct += qa.score ?? 0;
-      entry.max += maxPerQuestion;
-    }
+    if (!entry) continue;
+    entry.correct += qa.score ?? 0;
+    entry.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      entry.syllogismStems,
+    );
   }
   const standaloneSetAttempts = setAttempts.filter(
     (a) => !a.studentUcatMockAttemptId,
@@ -147,23 +156,26 @@ export function applyAttemptFilterToProgress(
     };
   });
 
-  const categoryMap = new Map<string, { correct: number; max: number }>();
+  const categoryMap = new Map<
+    string,
+    { correct: number; max: number; syllogismStems: Set<string> }
+  >();
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
     const categoryId = qa.questionStemCategoryId ?? "__uncategorized__";
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const key = `${sectionId}:${categoryId}`;
-    const existing = categoryMap.get(key);
-    if (existing) {
-      existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
-    } else {
-      categoryMap.set(key, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    const existing = categoryMap.get(key) ?? {
+      correct: 0,
+      max: 0,
+      syllogismStems: new Set<string>(),
+    };
+    existing.correct += qa.score ?? 0;
+    existing.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      existing.syllogismStems,
+    );
+    categoryMap.set(key, existing);
   }
 
   const sectionCategoryProgress: Record<string, SectionCategoryProgress[]> = {};
@@ -240,15 +252,10 @@ export function computeSingleSectionFromFiltered(
   section: SectionProgress,
 ): SectionProgress {
   const unique = getBestAttemptPerQuestion(questionAttempts);
-  let correct = 0;
-  let max = 0;
+  const correct = sumCorrectScoreFromAttempts(unique);
+  const max = sumProgressPointsFromAttempts(unique);
   let scaledSum = 0;
   let scaledCount = 0;
-  for (const qa of unique) {
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
-    correct += qa.score ?? 0;
-    max += maxPerQuestion;
-  }
   const standaloneSetAttempts = setAttempts.filter(
     (a) => !a.studentUcatMockAttemptId,
   );
@@ -286,6 +293,7 @@ export function computeSectionProgressFromFiltered(
       max: number;
       scaledSum: number;
       scaledCount: number;
+      syllogismStems: Set<string>;
     }
   >();
   for (const s of sectionProgress) {
@@ -296,18 +304,20 @@ export function computeSectionProgressFromFiltered(
       max: 0,
       scaledSum: 0,
       scaledCount: 0,
+      syllogismStems: new Set(),
     });
   }
   const unique = getBestAttemptPerQuestion(questionAttempts);
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.correct += qa.score ?? 0;
-      entry.max += maxPerQuestion;
-    }
+    if (!entry) continue;
+    entry.correct += qa.score ?? 0;
+    entry.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      entry.syllogismStems,
+    );
   }
   const standaloneSetAttempts = setAttempts.filter(
     (a) => !a.studentUcatMockAttemptId,
@@ -346,24 +356,27 @@ export function computeCategoryProgressFromFiltered(
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>,
 ): Record<string, SectionCategoryProgress[]> {
   const result: Record<string, SectionCategoryProgress[]> = {};
-  const categoryMap = new Map<string, { correct: number; max: number }>();
+  const categoryMap = new Map<
+    string,
+    { correct: number; max: number; syllogismStems: Set<string> }
+  >();
   const unique = getBestAttemptPerQuestion(questionAttempts);
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
     const categoryId = qa.questionStemCategoryId ?? "__uncategorized__";
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const key = `${sectionId}:${categoryId}`;
-    const existing = categoryMap.get(key);
-    if (existing) {
-      existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
-    } else {
-      categoryMap.set(key, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    const existing = categoryMap.get(key) ?? {
+      correct: 0,
+      max: 0,
+      syllogismStems: new Set<string>(),
+    };
+    existing.correct += qa.score ?? 0;
+    existing.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      existing.syllogismStems,
+    );
+    categoryMap.set(key, existing);
   }
   for (const [sectionId, cats] of Object.entries(sectionCategoryProgress)) {
     result[sectionId] = cats.map((cat) => {

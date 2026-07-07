@@ -213,6 +213,7 @@ const filterDefinitions: DataTableFilterDefinition[] = [
       { label: 'AI generation', value: 'ai_generation' },
     ],
   },
+  { key: 'created_by', label: 'Created by' },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -373,6 +374,20 @@ export function UcatQuestionsPage() {
     showDeleted,
     searchScopes,
   })
+
+  const createdByFilterOptions = useMemo(() => {
+    const creatorsById = new Map<string, string>()
+    const questionRows = questions.data ?? []
+    questionRows.forEach((row) => {
+      if (!row.created_by) return
+      const label =
+        [row.created_by_first_name, row.created_by_last_name].filter(Boolean).join(' ') || 'Unknown staff'
+      creatorsById.set(row.created_by, label)
+    })
+    return Array.from(creatorsById, ([value, label]) => ({ label, value })).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+  }, [questions.data])
 
   const { page, pageSize } = tableState.state
   const totalRows = rows.length
@@ -882,6 +897,10 @@ export function UcatQuestionsPage() {
       filterDefinitions[4],
       filterDefinitions[6],
       {
+        ...filterDefinitions[7],
+        options: createdByFilterOptions,
+      },
+      {
         key: 'question_set_id',
         label: 'Set',
         options: setFilterOptions,
@@ -890,7 +909,15 @@ export function UcatQuestionsPage() {
       },
     ]
     return mode === 'generated' ? [...base, filterDefinitions[5]] : base
-  }, [sections.data, categories.data, tags.data, tableState.state.filters, setFilterOptions, mode])
+  }, [
+    sections.data,
+    categories.data,
+    tags.data,
+    tableState.state.filters,
+    setFilterOptions,
+    createdByFilterOptions,
+    mode,
+  ])
 
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading || stemTagIdsQuery.isLoading) {
     return <UcatPageSkeleton rows={8} />

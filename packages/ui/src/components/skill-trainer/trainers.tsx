@@ -9,9 +9,6 @@ import type {
   NumpadSpeedItemContent,
   QuickSyllogismItemContent,
 } from "@altitutor/shared";
-import {
-  findFindWordKeywordOccurrences,
-} from "@altitutor/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { Button } from "../button";
@@ -35,10 +32,13 @@ export type SkillTrainerFeedbackOrigin = { x: number; y: number };
 
 type PassageSegment = {
   text: string;
+  start?: number;
   occurrence?: FindWordKeywordOccurrence;
   occurrenceIndex?: number;
   found?: boolean;
 };
+
+const FIND_WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 
 function splitSegmentsIntoParagraphs(segments: PassageSegment[]): PassageSegment[][] {
   const paragraphs: PassageSegment[][] = [[]];
@@ -54,6 +54,26 @@ function splitSegmentsIntoParagraphs(segments: PassageSegment[]): PassageSegment
   }
 
   return paragraphs;
+}
+
+function splitTextIntoWordSegments(text: string): PassageSegment[] {
+  const segments: PassageSegment[] = [];
+  let cursor = 0;
+
+  for (const match of text.matchAll(FIND_WORD_TOKEN_PATTERN)) {
+    const start = match.index ?? 0;
+    if (start > cursor) {
+      segments.push({ text: text.slice(cursor, start) });
+    }
+    segments.push({ text: match[0], start });
+    cursor = start + match[0].length;
+  }
+
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor) });
+  }
+
+  return segments.length ? segments : [{ text: text || "\u00A0" }];
 }
 
 function getElementCenter(element: HTMLElement | null): SkillTrainerFeedbackOrigin | undefined {
@@ -123,11 +143,9 @@ export function FindWordTrainer({
     return shuffledKeywordIds.map((id) => byId.get(id)).filter(Boolean) as typeof keywords;
   }, [keywords, shuffledKeywordIds]);
   const activeKeywordId = draggingKeywordId ?? selectedKeywordId;
-  const activeKeyword = keywords.find((keyword) => keyword.id === activeKeywordId) ?? null;
-  const activeOccurrences = useMemo(
-    () => (activeKeyword ? findFindWordKeywordOccurrences(plain, activeKeyword) : []),
-    [activeKeyword, plain],
-  );
+  const [selectionPrompt, setSelectionPrompt] = useState(false);
+  const [selectionPromptShakeKey, setSelectionPromptShakeKey] = useState(0);
+  const [dragTargetStart, setDragTargetStart] = useState<number | null>(null);
 
   useEffect(() => {
     const ids = keywords.map((keyword) => keyword.id);
@@ -161,6 +179,19 @@ export function FindWordTrainer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [disabled, displayKeywords, onSelectKeyword, placedIds, selectedKeywordId]);
 
+  useEffect(() => {
+    if (activeKeywordId) setSelectionPrompt(false);
+  }, [activeKeywordId]);
+
+  useEffect(() => {
+    if (!draggingKeywordId) setDragTargetStart(null);
+  }, [draggingKeywordId]);
+
+  const showSelectionPrompt = () => {
+    setSelectionPrompt(true);
+    setSelectionPromptShakeKey((key) => key + 1);
+  };
+
   const submitWrongPlacement = () => {
     const keywordId = draggingKeywordId ?? selectedKeywordId;
     if (disabled || !keywordId) return;
@@ -169,31 +200,26 @@ export function FindWordTrainer({
   };
 
   const renderPassage = () => {
-    const segments: PassageSegment[] = [];
-    let cursor = 0;
-    for (const occurrence of activeOccurrences) {
-      if (occurrence.start > cursor) {
-        segments.push({ text: plain.slice(cursor, occurrence.start) });
-      }
-      segments.push({
-        text: plain.slice(occurrence.start, occurrence.end),
-        occurrence,
-      });
-      cursor = occurrence.end;
-    }
-    if (!activeKeywordId || activeOccurrences.length === 0) {
-      segments.push({ text: plain || "\u00A0" });
-    } else {
-      if (cursor < plain.length) segments.push({ text: plain.slice(cursor) });
-    }
+    const paragraphs = splitSegmentsIntoParagraphs(splitTextIntoWordSegments(plain));
 
-    const paragraphs = splitSegmentsIntoParagraphs(segments);
+    const handleWordClick = (characterIndex: number) => {
+      if (disabled) return;
+      if (!selectedKeywordId) {
+        showSelectionPrompt();
+        return;
+      }
+      onPlace(selectedKeywordId, characterIndex);
+      onSelectKeyword(null);
+    };
 
     return (
       <div
-        className={cn(activeKeywordId && !disabled ? "cursor-pointer" : "")}
+        className={cn(activeKeywordId && !disabled ? "cursor-pointer" : "cursor-default")}
         onClick={() => {
-          if (!selectedKeywordId) return;
+          if (!selectedKeywordId) {
+            if (!disabled) showSelectionPrompt();
+            return;
+          }
           submitWrongPlacement();
         }}
         onDragOver={(event) => {
@@ -203,8 +229,14 @@ export function FindWordTrainer({
         }}
         onDrop={(event) => {
           event.preventDefault();
+          setDragTargetStart(null);
           if (!draggingKeywordId) return;
           submitWrongPlacement();
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setDragTargetStart(null);
+          }
         }}
       >
         <div className="space-y-4">
@@ -213,33 +245,61 @@ export function FindWordTrainer({
               {paragraph.length === 0
                 ? "\u00A0"
                 : paragraph.map((segment, index) =>
-                    segment.occurrence ? (
+                    segment.start != null ? (
                       <button
                         key={index}
                         type="button"
                         disabled={disabled}
+                        onPointerDown={(event) => {
+                          if (!draggingKeywordId) {
+                            event.preventDefault();
+                          }
+                        }}
                         onDragOver={(event) => {
                           if (!draggingKeywordId || disabled) return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
+                          setDragTargetStart((current) =>
+                            current === segment.start! ? current : segment.start!,
+                          );
+                        }}
+                        onDragEnter={(event) => {
+                          if (!draggingKeywordId || disabled) return;
+                          event.preventDefault();
+                          setDragTargetStart(segment.start!);
+                        }}
+                        onDragLeave={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                            setDragTargetStart((current) =>
+                              current === segment.start! ? null : current,
+                            );
+                          }
                         }}
                         onDrop={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          if (disabled || !draggingKeywordId || draggingKeywordId !== activeKeywordId) return;
-                          onPlace(draggingKeywordId, segment.occurrence!.start);
+                          if (disabled || !draggingKeywordId) return;
+                          onPlace(draggingKeywordId, segment.start!);
                           onDragKeyword(null);
                           onSelectKeyword(null);
+                          setDragTargetStart(null);
+                          event.currentTarget.blur();
                         }}
                         onClick={(event) => {
                           event.stopPropagation();
-                          if (disabled || !selectedKeywordId || selectedKeywordId !== activeKeywordId) return;
-                          onPlace(selectedKeywordId, segment.occurrence!.start);
-                          onSelectKeyword(null);
+                          handleWordClick(segment.start!);
+                          event.currentTarget.blur();
                         }}
                         className={cn(
-                          "inline rounded-sm border-0 bg-transparent p-0 align-baseline font-inherit text-inherit leading-inherit",
-                          activeKeywordId && !disabled ? "cursor-pointer" : "",
+                          "inline rounded-sm border-0 bg-transparent p-0 align-baseline font-inherit text-inherit leading-inherit transition-colors",
+                          activeKeywordId && !disabled
+                            ? "cursor-pointer hover:bg-accent/35 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                            : !disabled
+                              ? "cursor-default"
+                              : "",
+                          draggingKeywordId && dragTargetStart === segment.start
+                            ? "bg-accent/35 text-accent-foreground"
+                            : "",
                         )}
                         style={{
                           marginInline: -WORD_HIT_PADDING_PX,
@@ -275,9 +335,10 @@ export function FindWordTrainer({
                   type="button"
                   draggable={!disabled && !placed}
                   disabled={disabled || placed}
-                  onClick={() =>
-                    onSelectKeyword(selectedKeywordId === keyword.id ? null : keyword.id)
-                  }
+                  onClick={() => {
+                    setSelectionPrompt(false);
+                    onSelectKeyword(selectedKeywordId === keyword.id ? null : keyword.id);
+                  }}
                   onDragStart={(event) => {
                     if (placed) {
                       event.preventDefault();
@@ -292,7 +353,7 @@ export function FindWordTrainer({
                     placed
                       ? "border-border bg-muted text-muted-foreground opacity-60"
                       : selectedKeywordId === keyword.id
-                      ? "border-primary ring-2 ring-primary/30"
+                      ? "border-accent bg-accent text-accent-foreground shadow-sm"
                       : "border-border hover:border-primary/50",
                   )}
                 >
@@ -306,9 +367,28 @@ export function FindWordTrainer({
               );
             })}
           </div>
-          {selectedKeywordId ? (
-            <p className="text-xs text-muted-foreground">Click the word where it appears.</p>
-          ) : null}
+          <style>
+            {`@keyframes skill-trainer-select-word-shake {
+              0%, 100% { transform: translateX(0); }
+              20% { transform: translateX(-3px); }
+              40% { transform: translateX(3px); }
+              60% { transform: translateX(-2px); }
+              80% { transform: translateX(2px); }
+            }`}
+          </style>
+          <div className="min-h-5" aria-live="polite">
+            {selectionPrompt ? (
+              <p
+                key={selectionPromptShakeKey}
+                className="text-sm font-medium text-destructive"
+                style={{ animation: "skill-trainer-select-word-shake 180ms ease-in-out" }}
+              >
+                Select a word first.
+              </p>
+            ) : selectedKeywordId ? (
+              <p className="text-xs text-muted-foreground">Click the word where it appears.</p>
+            ) : null}
+          </div>
         </>
       }
     />

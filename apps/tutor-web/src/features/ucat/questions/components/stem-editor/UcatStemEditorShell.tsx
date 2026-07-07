@@ -23,6 +23,7 @@ import type {
   TagOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -54,6 +55,7 @@ type UcatStemEditorShellProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  metadataRecommendation?: ManualStemMetadataRecommendation | null
 }
 
 export function UcatStemEditorShell({
@@ -79,6 +81,7 @@ export function UcatStemEditorShell({
   aiGenerationMetadata = null,
   createdByFirstName = null,
   createdByLastName = null,
+  metadataRecommendation = null,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
@@ -210,6 +213,7 @@ export function UcatStemEditorShell({
         aiGenerationMetadata={aiGenerationMetadata}
         createdByFirstName={createdByFirstName}
         createdByLastName={createdByLastName}
+        metadataRecommendation={metadataRecommendation}
       />
     </div>
   )

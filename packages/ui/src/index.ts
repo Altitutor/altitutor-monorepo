@@ -66,6 +66,7 @@ export * from './components/ucat/ucat-floating-panel';
 export * from './lib/enum-colors';
 export * from './lib/styles';
 export * from './lib/clickable-card-styles';
+export { isToastInteraction, isToastTarget } from './lib/modal-interact-outside';
 export * from './components/clickable-card-icon';
 export * from './components/clickable-card-reveal-chevron';
 export * from './components/clickable-nav-card';

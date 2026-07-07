@@ -9,7 +9,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   mocks: "Mocks",
   learn: "Learn",
   sessions: "Sessions",
-  practice: "Practice",
+  practice: "Practice questions",
   settings: "Settings",
   app: "App settings",
   profile: "My profile",

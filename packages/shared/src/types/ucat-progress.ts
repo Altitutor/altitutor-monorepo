@@ -13,7 +13,7 @@ export type SectionProgress = {
   averageScaledScore: number | null
   weightedAverageScaledScore: number | null
   weightedAveragePercentage: number | null
-  /** Total public question points in this section (syllogism=2, else=1) */
+  /** Total accessible question progress points in this section (question-based; syllogism stem=2 once, else 1 per question) */
   totalPublicQuestions?: number
 }
 
@@ -70,6 +70,7 @@ export type PracticeAttemptRow = {
 export type QuestionAttemptRow = {
   id: string
   questionId: string
+  questionStemId: string | null
   studentQuestionSetAttemptId: string | null
   attemptedAt: string
   score: number | null
@@ -91,7 +92,7 @@ export type SectionCategoryProgress = {
   maxScore: number
   percentage: number
   weightedAveragePercentage: number | null
-  /** Total public question points in this category (syllogism=2, else=1) */
+  /** Total accessible question progress points in this category (question-based; syllogism stem=2 once, else 1 per question) */
   totalPublicQuestions?: number
 }
 

@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  isToastInteraction,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import {
@@ -396,8 +397,7 @@ export function BulkImportQuestionStemsModal({
   }
 
   function handleDismissAttempt(event: Event) {
-    const target = event.target as HTMLElement | null
-    if (target?.closest('[data-toast-container]')) {
+    if (isToastInteraction(event)) {
       event.preventDefault()
       return
     }

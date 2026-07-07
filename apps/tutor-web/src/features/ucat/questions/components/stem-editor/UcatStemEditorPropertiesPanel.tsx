@@ -17,9 +17,13 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
@@ -41,13 +45,17 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
+import {
+  applyStemTypeSwitch,
+  isSyllogismCategory,
+} from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
+import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 
 const APPROVAL_OPTIONS: Array<{ value: UcatApprovalStatus; label: string }> = [
   { value: 'approved', label: 'Approved' },
@@ -76,6 +84,7 @@ type UcatStemEditorPropertiesPanelProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  metadataRecommendation?: ManualStemMetadataRecommendation | null
 }
 
 function trimTextParagraphs(text: string): string {
@@ -95,6 +104,66 @@ function PropertyRow({ label, children }: { label: ReactNode; children: ReactNod
       <div className="min-w-0 w-[58%]">{children}</div>
     </div>
   )
+}
+
+function ParserRecommendationWarning({
+  message,
+  onAccept,
+}: {
+  message: string | null
+  onAccept?: (() => void) | null
+}) {
+  if (!message) return null
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-help items-center text-amber-600 dark:text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+            <span className="sr-only">Parser recommendation differs</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[280px] space-y-2 text-xs">
+          <p>{message}</p>
+          {onAccept ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={onAccept}
+            >
+              Accept suggestion
+            </Button>
+          ) : null}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function PropertyLabel({
+  children,
+  warning,
+  onAcceptSuggestion,
+}: {
+  children: ReactNode
+  warning?: string | null
+  onAcceptSuggestion?: (() => void) | null
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {children}
+      <ParserRecommendationWarning message={warning ?? null} onAccept={onAcceptSuggestion ?? null} />
+    </span>
+  )
+}
+
+function sameIds(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  const leftSorted = [...left].sort()
+  const rightSorted = [...right].sort()
+  return leftSorted.every((id, index) => id === rightSorted[index])
 }
 
 function ReadOnlyValue({ children }: { children: ReactNode }) {
@@ -142,6 +211,7 @@ export function UcatStemEditorPropertiesPanel({
   aiGenerationMetadata,
   createdByFirstName,
   createdByLastName,
+  metadataRecommendation = null,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -166,6 +236,87 @@ export function UcatStemEditorPropertiesPanel({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
   const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
+  const recommendedSectionLabel = metadataRecommendation?.sectionId
+    ? sections.find((section) => section.id === metadataRecommendation.sectionId)?.name ?? 'the detected section'
+    : null
+  const recommendedCategoryLabel = metadataRecommendation?.categoryId
+    ? taxonomyDisplayLabel(categories.find((category) => category.id === metadataRecommendation.categoryId) ?? { name: 'the detected category' })
+    : null
+  const recommendedTagIds = metadataRecommendation?.tagIdsByQuestionIndex[safeQuestionIndex] ?? []
+  const recommendedTagLabel = recommendedTagIds.length > 0
+    ? recommendedTagIds
+        .map((tagId) => taxonomyDisplayLabel(tags.find((tag) => tag.id === tagId) ?? { name: 'detected tag' }))
+        .join(', ')
+    : null
+  const sectionWarning =
+    metadataRecommendation?.sectionId && metadataRecommendation.sectionId !== sectionId
+      ? `The parser detects ${recommendedSectionLabel}. Consider changing this section.`
+      : null
+  const categoryWarning =
+    metadataRecommendation?.categoryId && metadataRecommendation.categoryId !== (watchedStem.categoryId ?? null)
+      ? `The parser detects ${recommendedCategoryLabel}. Consider changing this category.`
+      : null
+  const tagWarning =
+    recommendedTagIds.length > 0 && !sameIds(activeQuestion?.tagIds ?? [], recommendedTagIds)
+      ? `The parser detects ${recommendedTagLabel}. Consider changing these question tags.`
+      : null
+
+  function applyRecommendedQuestionTypeInPlace(questionType: 'multiple_choice' | 'syllogism'): void {
+    const questions = form.getValues('questions') ?? []
+    questions.forEach((question, index) => {
+      if (question.questionType !== questionType) {
+        form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+      }
+    })
+    if (questionType === 'syllogism') {
+      onQuestionIndexChange(0)
+    }
+  }
+
+  function acceptSectionSuggestion(): void {
+    if (!metadataRecommendation?.sectionId) return
+    form.setValue('sectionId', metadataRecommendation.sectionId, { shouldDirty: true })
+    if (metadataRecommendation.categoryId) {
+      form.setValue('categoryId', metadataRecommendation.categoryId, { shouldDirty: true })
+    }
+    if (metadataRecommendation.questionType) {
+      applyRecommendedQuestionTypeInPlace(metadataRecommendation.questionType)
+    }
+  }
+
+  function acceptCategorySuggestion(): void {
+    if (!metadataRecommendation?.categoryId) return
+    form.setValue('categoryId', metadataRecommendation.categoryId, { shouldDirty: true })
+    if (metadataRecommendation.sectionId) {
+      form.setValue('sectionId', metadataRecommendation.sectionId, { shouldDirty: true })
+    }
+    if (metadataRecommendation.questionType) {
+      applyRecommendedQuestionTypeInPlace(metadataRecommendation.questionType)
+    }
+  }
+
+  function acceptTagSuggestion(): void {
+    if (recommendedTagIds.length === 0) return
+    form.setValue(`questions.${safeQuestionIndex}.tagIds`, recommendedTagIds, { shouldDirty: true })
+  }
+
+  function handleCategoryChange(nextCategoryId: string | null): void {
+    const nextCategory = categories.find((category) => category.id === nextCategoryId)
+    const nextIsSyllogismCategory = isSyllogismCategory(nextCategory)
+    if (nextIsSyllogismCategory) {
+      const ok = applyStemTypeSwitch(form, 'syllogism', sections, categories)
+      if (!ok) return
+      onQuestionIndexChange(0)
+      return
+    }
+    if (isSyllogism) {
+      const ok = applyStemTypeSwitch(form, 'multiple_choice', sections, categories)
+      if (!ok) return
+    }
+    form.setValue('categoryId', nextCategoryId, {
+      shouldDirty: true,
+    })
+  }
 
   const handleDeleteQuestion = (questionIndex: number) => {
     const questions = form.getValues('questions') ?? []
@@ -611,7 +762,13 @@ export function UcatStemEditorPropertiesPanel({
           </PropertiesCard>
 
           <PropertiesCard value="stem" title="Stem properties">
-            <PropertyRow label="Section">
+            <PropertyRow
+              label={
+                <PropertyLabel warning={sectionWarning} onAcceptSuggestion={sectionWarning ? acceptSectionSuggestion : null}>
+                  Section
+                </PropertyLabel>
+              }
+            >
               <SearchableSelect<{ id: string | null; name: string | null }>
                 items={sections}
                 value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
@@ -628,7 +785,13 @@ export function UcatStemEditorPropertiesPanel({
                 placeholder="Select section"
               />
             </PropertyRow>
-            <PropertyRow label="Category">
+            <PropertyRow
+              label={
+                <PropertyLabel warning={categoryWarning} onAcceptSuggestion={categoryWarning ? acceptCategorySuggestion : null}>
+                  Category
+                </PropertyLabel>
+              }
+            >
               <div className={cn(focusTarget === 'category' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                 <SearchableSelect<{ id: string; name: string; label: string }>
                   items={[
@@ -652,13 +815,8 @@ export function UcatStemEditorPropertiesPanel({
                     return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
                   })()}
                   onValueChange={(item) => {
-                    if (isSyllogism) {
-                      toast({ description: 'Category is locked for syllogism stems.', variant: 'destructive' })
-                      return
-                    }
-                    form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, {
-                      shouldDirty: true,
-                    })
+                    const nextCategoryId = item?.id === 'none' ? null : item?.id ?? null
+                    handleCategoryChange(nextCategoryId)
                   }}
                   getItemLabel={(c) => taxonomyDisplayLabel(c)}
                   getItemId={(c) => c.id}
@@ -737,7 +895,13 @@ export function UcatStemEditorPropertiesPanel({
 
           {fields.length > 0 ? (
             <PropertiesCard value="question" title="Question properties">
-              <PropertyRow label="Tags">
+              <PropertyRow
+                label={
+                  <PropertyLabel warning={tagWarning} onAcceptSuggestion={tagWarning ? acceptTagSuggestion : null}>
+                    Tags
+                  </PropertyLabel>
+                }
+              >
                 <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>

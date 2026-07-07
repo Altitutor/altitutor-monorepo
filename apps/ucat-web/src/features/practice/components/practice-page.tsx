@@ -295,7 +295,7 @@ export function PracticePage() {
     <div className="space-y-6">
       <div id="tour-practice-header">
         <UcatPageHeader
-          title="Practice"
+          title="Practice questions"
           description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
         />
       </div>
