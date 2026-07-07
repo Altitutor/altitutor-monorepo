@@ -6,6 +6,7 @@ import {
 import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  getDecisionMakingTagPathsForQuestion,
   getDecisionMakingStemCategoryName,
   isSyllogismQuestionText,
   type ParsedDecisionMakingStem,
@@ -14,8 +15,14 @@ import {
   getQuantitativeReasoningStemCategoryName,
   getQuantitativeReasoningTagPathsForQuestion,
 } from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
-import { getSituationalJudgementStemCategoryName } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
-import { getVerbalReasoningStemCategoryName } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
+import {
+  getSituationalJudgementStemCategoryName,
+  getSituationalJudgementTagPathsForQuestion,
+} from '@/features/ucat/questions/lib/parsers/situationalJudgement'
+import {
+  getVerbalReasoningStemCategoryName,
+  getVerbalReasoningTagPathsForQuestion,
+} from '@/features/ucat/questions/lib/parsers/verbalReasoning'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type BulkImportCategoryRow = {
@@ -139,14 +146,68 @@ export function inferBulkImportTagIdsForParsedQuestion(args: {
   sectionId: string
   tags: BulkImportTagRow[]
 }): string[] {
-  if (args.section !== 'quantitative_reasoning') return []
   const getTagIdByPath = buildBulkImportTagIdByPath(args.tags, args.sectionId)
-  return getQuantitativeReasoningTagPathsForQuestion({
-    stem: args.stem,
-    question: args.question,
-  })
+
+  const tagPaths =
+    args.section === 'decision_making'
+      ? getDecisionMakingTagPathsForQuestion({
+          stem: toDecisionMakingStem(args.stem),
+          question: {
+            number: args.question.number,
+            text: args.question.text,
+            options: args.question.options,
+            questionType: isSyllogismQuestionText(args.question.text)
+              ? 'syllogism'
+              : 'multiple_choice',
+          },
+        })
+      : args.section === 'quantitative_reasoning'
+      ? getQuantitativeReasoningTagPathsForQuestion({
+          stem: args.stem,
+          question: args.question,
+        })
+      : args.section === 'verbal_reasoning'
+        ? getVerbalReasoningTagPathsForQuestion({
+            stem: args.stem,
+            question: args.question,
+          })
+        : args.section === 'situational_judgement'
+          ? getSituationalJudgementTagPathsForQuestion({
+              stem: args.stem,
+              question: args.question,
+            })
+          : []
+
+  return tagPaths
     .map((path) => getTagIdByPath(path))
     .filter((id): id is string => id != null)
+}
+
+export function inferQuestionTagIdsForFormValues(args: {
+  values: UcatQuestionStemFormValues
+  sectionId: string
+  section?: BulkImportParseSection | null
+  sectionName?: string | null
+  tags: BulkImportTagRow[]
+}): Record<number, string[]> {
+  const section = args.section ?? bulkImportSectionFromUcatName(args.sectionName)
+  if (!section) return {}
+
+  const stem = formValuesToParsedStem(args.values)
+  const tagIdsByQuestionIndex: Record<number, string[]> = {}
+  stem.questions.forEach((question, index) => {
+    const tagIds = inferBulkImportTagIdsForParsedQuestion({
+      stem,
+      question,
+      section,
+      sectionId: args.sectionId,
+      tags: args.tags,
+    })
+    if (tagIds.length > 0) {
+      tagIdsByQuestionIndex[index] = tagIds
+    }
+  })
+  return tagIdsByQuestionIndex
 }
 
 function richTextToPlainText(value: Json | null | undefined): string {
@@ -235,18 +296,13 @@ export function inferManualStemMetadataRecommendation(args: {
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}
   if (section && sectionId) {
-    stem.questions.forEach((question, index) => {
-      const tagIds = inferBulkImportTagIdsForParsedQuestion({
-        stem,
-        question,
-        section,
-        sectionId,
-        tags: args.tags,
-      })
-      if (tagIds.length > 0) {
-        tagIdsByQuestionIndex[index] = tagIds
-      }
-    })
+    Object.assign(tagIdsByQuestionIndex, inferQuestionTagIdsForFormValues({
+      values: args.values,
+      sectionId,
+      section,
+      sectionName: currentSection?.name ?? null,
+      tags: args.tags,
+    }))
   }
 
   const hasTags = Object.keys(tagIdsByQuestionIndex).length > 0

@@ -137,6 +137,38 @@ type GenerationResult = {
   payload: Record<string, unknown>
 }
 
+type GenerationActor = {
+  userId: string | null
+  name: string | null
+  email: string | null
+}
+
+function generationActorFromUser(user: unknown): GenerationActor {
+  if (!user || typeof user !== 'object') {
+    return { userId: null, name: null, email: null }
+  }
+  const record = user as {
+    id?: unknown
+    email?: unknown
+    user_metadata?: Record<string, unknown> | null
+  }
+  const metadata = record.user_metadata ?? {}
+  const firstName = typeof metadata.first_name === 'string' ? metadata.first_name : ''
+  const lastName = typeof metadata.last_name === 'string' ? metadata.last_name : ''
+  const metadataName =
+    typeof metadata.full_name === 'string' && metadata.full_name.trim()
+      ? metadata.full_name
+      : typeof metadata.name === 'string' && metadata.name.trim()
+        ? metadata.name
+        : [firstName, lastName].filter(Boolean).join(' ')
+
+  return {
+    userId: typeof record.id === 'string' ? record.id : null,
+    name: metadataName.trim() || null,
+    email: typeof record.email === 'string' ? record.email : null,
+  }
+}
+
 function asAny(client: SupabaseClient<Database>): SupabaseAny {
   return client as SupabaseAny
 }
@@ -552,7 +584,8 @@ function toDraft(params: {
 async function executeGeneration(
   client: SupabaseClient<Database>,
   body: GenerateBody,
-  emitProgress: EmitProgress = () => undefined
+  emitProgress: EmitProgress = () => undefined,
+  actor: GenerationActor = { userId: null, name: null, email: null }
 ): Promise<GenerationResult> {
   let debug: GenerationDebugInfo | null = null
 
@@ -872,6 +905,9 @@ async function executeGeneration(
           rewritten: item.rewritten,
           gateIssues: item.issues,
           systemPromptVersion: config.systemPrompts.prompt_version,
+          generatedByUserId: actor.userId,
+          generatedByName: actor.name,
+          generatedByEmail: actor.email,
         },
         categoryIdByName,
       })
@@ -900,7 +936,8 @@ async function executeGeneration(
 
 function streamGenerationResponse(
   client: SupabaseClient<Database>,
-  body: GenerateBody
+  body: GenerateBody,
+  actor: GenerationActor
 ): Response {
   const encoder = new TextEncoder()
 
@@ -910,7 +947,7 @@ function streamGenerationResponse(
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
       }
 
-      void executeGeneration(client, body, emit).then((result) => {
+      void executeGeneration(client, body, emit, actor).then((result) => {
         emit({ type: result.status >= 400 ? 'error' : 'complete', status: result.status, ...result.payload })
         controller.close()
       }).catch((error) => {
@@ -944,10 +981,12 @@ export async function POST(request: NextRequest) {
   }
 
   const client = access.userClient as unknown as SupabaseClient<Database>
+  const userResult = await client.auth.getUser().catch(() => null)
+  const actor = generationActorFromUser(userResult?.data?.user ?? null)
   if (request.headers.get('accept')?.includes('application/x-ndjson')) {
-    return streamGenerationResponse(client, body)
+    return streamGenerationResponse(client, body, actor)
   }
 
-  const result = await executeGeneration(client, body)
+  const result = await executeGeneration(client, body, undefined, actor)
   return NextResponse.json(result.payload, { status: result.status })
 }

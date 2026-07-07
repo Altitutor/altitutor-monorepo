@@ -5,7 +5,10 @@ import {
   UCAT_COLORS,
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
-import type { AnswerOption, QuestionItem } from "@/features/question-engine/model/types";
+import type {
+  AnswerOption,
+  QuestionItem,
+} from "@/features/question-engine/model/types";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { cn } from "@/lib/utils";
 import { RichContentBlock } from "./rich-content-block";
@@ -16,6 +19,8 @@ import {
 } from "./question-content";
 
 type ResultsViewerVariant = "ucat" | "site";
+
+const MIN_ANSWER_DISTRIBUTION_SAMPLE_SIZE = 2;
 
 function getResultsViewerTheme(variant: ResultsViewerVariant) {
   const site = variant === "site";
@@ -28,13 +33,13 @@ function getResultsViewerTheme(variant: ResultsViewerVariant) {
     twoColumnRoot: cn(
       "flex gap-4",
       site ? "sm:gap-6" : "h-full min-h-0",
-      site ? "text-sm leading-relaxed" : `font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`,
+      site
+        ? "text-sm leading-relaxed"
+        : `font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`,
     ),
     stemColumn: cn(
       "flex-[3] min-w-0 pr-4 py-4 sm:py-5",
-      site
-        ? "border-r border-border"
-        : "h-full overflow-y-auto border-r-[6px]",
+      site ? "border-r border-border" : "h-full overflow-y-auto border-r-[6px]",
     ),
     questionColumn: cn(
       "flex-[2] min-w-0 pl-2 pr-1 py-4 sm:py-5",
@@ -71,45 +76,48 @@ function StudentStatsBar({
   hasStats: boolean;
   variant: ResultsViewerVariant;
 }) {
+  if (!hasStats) return null;
+
   const site = variant === "site";
+  const displayPct = `${Math.round(pct)}%`;
   return (
     <div
-      className={cn(
-        "relative flex h-5 w-20 shrink-0 items-center justify-center overflow-hidden rounded",
-        site ? "bg-muted" : "bg-[#e8ecf0]",
-      )}
-      title={hasStats ? `${pct.toFixed(1)}%` : "No data yet"}
+      className="flex w-28 shrink-0 items-center justify-end gap-2"
+      title={displayPct}
     >
       <div
         className={cn(
-          "absolute inset-y-0 left-0 rounded transition-all",
-          site && "bg-primary",
+          "h-2.5 w-16 overflow-hidden rounded-full",
+          site ? "bg-muted" : "bg-[#e8ecf0]",
         )}
-        style={{
-          width: `${barWidth}%`,
-          ...(site ? {} : { backgroundColor: UCAT_COLORS.toolbarBlue }),
-        }}
-      />
+        aria-hidden="true"
+      >
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            site && "bg-primary",
+          )}
+          style={{
+            width: `${barWidth}%`,
+            ...(site ? {} : { backgroundColor: UCAT_COLORS.toolbarBlue }),
+          }}
+        />
+      </div>
       <span
         className={cn(
-          "relative z-10 font-medium tabular-nums",
+          "w-8 text-right font-medium tabular-nums",
           site ? "text-xs" : "text-[10pt]",
-          site
-            ? pct > 50
-              ? "text-primary-foreground"
-              : "text-muted-foreground"
-            : undefined,
+          site ? "text-foreground" : undefined,
         )}
         style={
           site
             ? undefined
             : {
-                color: pct > 50 ? "white" : "#5a6c7d",
-                textShadow: pct > 50 ? "0 0 1px rgba(0,0,0,0.3)" : "none",
+                color: "#1f2937",
               }
         }
       >
-        {hasStats ? `${pct.toFixed(1)}%` : "—"}
+        {displayPct}
       </span>
     </div>
   );
@@ -162,6 +170,8 @@ export function ResultsQuestionViewer({
   syllogismSnapshot,
   preloadedContent,
   variant = "ucat",
+  showExplanations = true,
+  forceSingleColumn = false,
 }: {
   question: QuestionItem;
   selectedOptionId?: string;
@@ -172,9 +182,12 @@ export function ResultsQuestionViewer({
   preloadedContent?: CachedContent | null;
   /** `site` uses app theme (progress attempt review); `ucat` matches exam engine styling. */
   variant?: ResultsViewerVariant;
+  showExplanations?: boolean;
+  forceSingleColumn?: boolean;
 }) {
   const theme = getResultsViewerTheme(variant);
-  const isTwoColumn = question.sectionDisplayColumns === 2;
+  const isTwoColumn =
+    !forceSingleColumn && question.sectionDisplayColumns === 2;
 
   const optionLabel = (index: number) => String.fromCharCode(65 + index);
   const [animateBars, setAnimateBars] = useState(false);
@@ -195,7 +208,9 @@ export function ResultsQuestionViewer({
       const correctYes = !!opt.isAnswer;
       const isCorrect = studentHasAnswer && studentYes === correctYes;
 
-      const hasStats = opt.totalAnswered != null && opt.totalAnswered > 0;
+      const hasStats =
+        opt.totalAnswered != null &&
+        opt.totalAnswered >= MIN_ANSWER_DISTRIBUTION_SAMPLE_SIZE;
       const pct = hasStats ? Math.max(0, opt.percentage ?? 0) : 0;
       const barWidth = animateBars ? Math.min(100, pct) : 0;
 
@@ -211,10 +226,8 @@ export function ResultsQuestionViewer({
       };
     });
 
-    const isAttemptReview =
-      variant === "site" && typeof points === "number";
-    const isReviewingSyllogism =
-      isAttemptReview || syllogismSnapshot != null;
+    const isAttemptReview = variant === "site" && typeof points === "number";
+    const isReviewingSyllogism = isAttemptReview || syllogismSnapshot != null;
 
     const content = (
       <div className="space-y-4 py-4 sm:py-5">
@@ -337,7 +350,7 @@ export function ResultsQuestionViewer({
                           variant={variant}
                         />
                       </div>
-                      {hasAnswerExplanation(option) ? (
+                      {showExplanations && hasAnswerExplanation(option) ? (
                         <div className="col-span-4 pl-1">
                           <AnswerExplanation
                             text={option.answerExplanation}
@@ -355,7 +368,7 @@ export function ResultsQuestionViewer({
             {typeof points === "number" ? (
               <QuestionPointsFooter points={points} question={question} />
             ) : null}
-            {hasAnswerExplanation(question) ? (
+            {showExplanations && hasAnswerExplanation(question) ? (
               <AnswerExplanation
                 text={question.answerExplanation}
                 json={question.answerExplanationJson}
@@ -391,9 +404,7 @@ export function ResultsQuestionViewer({
       );
     }
 
-    return (
-      <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>
-    );
+    return <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>;
   }
 
   const answeredIncorrectly =
@@ -405,7 +416,9 @@ export function ResultsQuestionViewer({
     const optionIsWrongSelection =
       answeredIncorrectly && optionIsSelected && !optionIsCorrect;
     const letter = optionLabel(index);
-    const hasStats = option.totalAnswered != null && option.totalAnswered > 0;
+    const hasStats =
+      option.totalAnswered != null &&
+      option.totalAnswered >= MIN_ANSWER_DISTRIBUTION_SAMPLE_SIZE;
     const pct = hasStats ? Math.max(0, option.percentage ?? 0) : 0;
     const barWidth = animateBars ? Math.min(100, pct) : 0;
 
@@ -471,7 +484,7 @@ export function ResultsQuestionViewer({
             />
           </div>
         </div>
-        {hasAnswerExplanation(option) ? (
+        {showExplanations && hasAnswerExplanation(option) ? (
           <AnswerExplanation
             text={option.answerExplanation}
             json={option.answerExplanationJson}
@@ -498,7 +511,7 @@ export function ResultsQuestionViewer({
         {typeof points === "number" ? (
           <QuestionPointsFooter points={points} question={question} />
         ) : null}
-        {hasAnswerExplanation(question) ? (
+        {showExplanations && hasAnswerExplanation(question) ? (
           <AnswerExplanation
             text={question.answerExplanation}
             json={question.answerExplanationJson}

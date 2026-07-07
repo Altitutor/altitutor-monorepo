@@ -8,7 +8,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
-  Checkbox,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -21,7 +20,7 @@ import {
   Switch,
   useToast,
 } from '@altitutor/ui'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
@@ -37,6 +36,7 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
   inferManualStemMetadataRecommendation,
@@ -523,54 +523,87 @@ export function QuestionTagsSelect({
   compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const sectionId = form.watch('sectionId')
   const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
+  const selectableTags = useMemo(
+    () => filterTagsForImportSection(tags, sectionId),
+    [tags, sectionId]
+  )
+  const availableTags = useMemo(
+    () => selectableTags.filter((tag) => !selectedIds.includes(tag.id)),
+    [selectableTags, selectedIds]
+  )
 
-  const toggleTag = (tagId: string) => {
-    const next = selectedIds.includes(tagId)
-      ? selectedIds.filter((id) => id !== tagId)
-      : [...selectedIds, tagId]
+  const addTag = (tagId: string) => {
+    if (selectedIds.includes(tagId)) return
+    form.setValue(`questions.${questionIndex}.tagIds`, [...selectedIds, tagId], { shouldDirty: true })
+    setOpen(false)
+  }
+
+  const removeTag = (tagId: string) => {
+    const next = selectedIds.filter((id) => id !== tagId)
     form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'justify-start text-left font-normal min-h-9',
-            compact ? 'w-full truncate px-2 text-xs' : 'w-full'
-          )}
+    <div className={cn('flex flex-wrap items-center gap-1.5', compact ? 'text-xs' : 'text-sm')}>
+      {selectedTags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs font-medium text-foreground"
         >
-          {selectedTags.length === 0 ? 'Add tags...' : `${selectedTags.length} tag(s) selected`}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search tags..." />
-          <CommandList>
-            <CommandEmpty>No tags found.</CommandEmpty>
-            <CommandGroup>
-              {tags.map((tag) => {
-                const isSelected = selectedIds.includes(tag.id)
-                return (
+          <span className="min-w-0 truncate">{taxonomyDisplayLabel(tag)}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${taxonomyDisplayLabel(tag)}`}
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={() => removeTag(tag.id)}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant={selectedTags.length === 0 ? 'outline' : 'ghost'}
+            size="sm"
+            className={cn(
+              'h-8 gap-1 rounded-full px-2.5 text-xs',
+              selectedTags.length === 0 && 'w-full justify-start'
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add tag
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="z-[100] flex max-h-[min(400px,80vh)] w-[340px] flex-col overflow-hidden p-0" align="start">
+          <Command className="flex min-h-0 flex-1 flex-col rounded-lg border-0">
+            <CommandInput placeholder="Search tags..." />
+            <CommandList
+              className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain"
+              onWheel={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+            >
+              <CommandEmpty>No tags found.</CommandEmpty>
+              <CommandGroup>
+                {availableTags.map((tag) => (
                   <CommandItem
                     key={tag.id}
                     value={`${tag.id}-${taxonomyDisplayLabel(tag)}`}
-                    onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
+                    onSelect={() => addTag(tag.id)}
+                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
-                    <Checkbox checked={isSelected} />
-                    <span>{taxonomyDisplayLabel(tag)}</span>
+                    <span className="min-w-0 flex-1 truncate">{taxonomyDisplayLabel(tag)}</span>
                   </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

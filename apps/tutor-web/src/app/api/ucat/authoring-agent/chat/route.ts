@@ -133,6 +133,7 @@ If the tutor explicitly asks for a photographic/raster/generated image rather th
 Use simple text fields for prose; the client converts text into rich editor documents.
 If prose needs a table, a normal markdown pipe table is acceptable; the client converts it into a rich editor table.
 When adding multiple visuals to the same target, set mode:"append" after the first visual.
+For question stem editing, the snapshot may include currentQuestionIndex/currentQuestionNumber plus availableTags, availableCategories, and availableSections. Use those IDs directly when tagging or categorising. If the tutor says "this question" or does not specify a question number, target currentQuestionIndex.
 For learning modules, use insertBestMatchingQuestionStem or insertBestMatchingQuestion when the tutor asks you to find an appropriate existing question from the database and add it to the lesson. Use insertQuestionStemBlock/insertQuestionBlock only when you already know the exact ID.
 Do not invent catalog IDs. If an ID is needed and not present in the snapshot, ask the tutor for it instead of calling a tool.
 

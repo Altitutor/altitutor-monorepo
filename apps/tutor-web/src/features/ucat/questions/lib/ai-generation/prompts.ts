@@ -260,7 +260,9 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         ...(sectionNameToAiGenerationKey(input.sectionName) === 'verbal_reasoning'
           ? [
               'Return stemText as 2-6 paragraph content blocks, not one unbroken string.',
-              'Follow the planned passage length/time burden and test four distinct reading skills rather than four direct retrieval questions.',
+              'Write passages with a slightly higher density of named entities, titles, dates, years, quantities, percentages, study names, places, organisations, species names, quoted terms, or other scan-friendly anchors, similar to a concise Wikipedia-style article. Do not make the passage artificially list-like.',
+              'Follow the planned passage length/time burden and test four distinct reading skills, but avoid making all four questions global synthesis questions.',
+              'Include at least two questions per VR stem that can be answered efficiently by scanning for a proper noun, number, date, quoted term, or distinctive phrase, then reading the surrounding sentence/paragraph. Use at most one broad whole-passage question such as main purpose, best overall support, or author attitude unless the requested time burden is high.',
               "For True, False, Can't Tell, questionText must contain only the statement being assessed. Never state or hint whether it is True, False, or Can't Tell in questionText.",
               'In answerExplanation, cite the relevant passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, using labels such as Paragraph 1 or Paragraph 3.',
             ]

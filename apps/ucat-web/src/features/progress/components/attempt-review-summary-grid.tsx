@@ -1,17 +1,28 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { useState } from "react";
+import { Info } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
+import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   SetAttemptAnalysisChart,
   type QuestionAttemptForChart,
 } from "./set-attempt-analysis-chart";
-import {
-  AnimatedFraction,
-  AnimatedInteger,
-} from "./progress-animated-display";
+import { AnimatedFraction, AnimatedInteger } from "./progress-animated-display";
 import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
+import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
+import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 import { formatUcatPercentile } from "../lib/percentiles";
 
 type AttemptReviewSummaryGridProps = {
@@ -33,11 +44,110 @@ export function AttemptReviewSummaryGrid({
   selectedQuestionIndex,
   onBarClick,
 }: AttemptReviewSummaryGridProps) {
+  const [navigatorView, setNavigatorView] = useState<"simple" | "timing">(
+    "timing",
+  );
   const showScaledScore = scaledScore !== undefined;
   const percentile = formatUcatPercentile(scaledScore, "section");
+  const groupedQuestions = chartData.reduce<
+    Array<{
+      stemIndex: number | null;
+      questions: Array<QuestionAttemptForChart & { index: number }>;
+    }>
+  >((groups, question, index) => {
+    const stemIndex = question.stemIndex ?? null;
+    const last = groups[groups.length - 1];
+    if (!last || last.stemIndex !== stemIndex) {
+      groups.push({ stemIndex, questions: [{ ...question, index }] });
+    } else {
+      last.questions.push({ ...question, index });
+    }
+    return groups;
+  }, []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <Card className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-2">
+          <CardTitle className="text-base font-medium">
+            Question attempts
+          </CardTitle>
+          <SegmentedControl
+            value={navigatorView}
+            onValueChange={setNavigatorView}
+            options={[
+              { value: "simple", label: "Simple" },
+              { value: "timing", label: "Timing graph" },
+            ]}
+          />
+        </CardHeader>
+        <CardContent className="min-w-0 overflow-hidden">
+          {navigatorView === "timing" ? (
+            <SetAttemptAnalysisChart
+              data={chartData}
+              selectedQuestionIndex={selectedQuestionIndex}
+              onBarClick={onBarClick}
+            />
+          ) : (
+            <div className="min-w-0 pb-1">
+              <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+                {groupedQuestions.map((group, groupIndex) => (
+                  <div
+                    key={`${group.stemIndex ?? "none"}-${groupIndex}`}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <div className="flex flex-wrap justify-center gap-1">
+                      {group.questions.map((question) => {
+                        const result =
+                          question.score != null
+                            ? computeQuestionAttemptResult({
+                                score: question.score,
+                                questionType: question.questionType ?? null,
+                                hasAttempt: question.result !== "not_attempted",
+                              })
+                            : question.result;
+                        const selected =
+                          question.index === selectedQuestionIndex;
+                        const isNotAttempted = result === "not_attempted";
+                        return (
+                          <button
+                            key={`${question.questionNumber}-${question.index}`}
+                            type="button"
+                            onClick={() => onBarClick(question.index)}
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-md text-sm font-semibold tabular-nums transition",
+                              selected ? "shadow-sm opacity-100" : "opacity-45",
+                              isNotAttempted
+                                ? "bg-muted text-muted-foreground"
+                                : "text-white hover:ring-2 hover:ring-primary/30",
+                            )}
+                            style={
+                              isNotAttempted
+                                ? undefined
+                                : {
+                                    backgroundColor:
+                                      ATTEMPT_CHART_RESULT_COLORS[result],
+                                  }
+                            }
+                          >
+                            {question.questionNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {group.stemIndex != null ? (
+                      <span className="text-[10px] font-medium text-muted-foreground">
+                        Stem {group.stemIndex}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">Score</CardTitle>
@@ -61,8 +171,26 @@ export function AttemptReviewSummaryGrid({
                 )}
               </div>
               {percentile ? (
-                <div className="mt-1 text-xs font-medium text-muted-foreground">
-                  {percentile}
+                <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <span>{percentile}</span>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help text-muted-foreground/80">
+                          <Info
+                            className="h-3.5 w-3.5"
+                            aria-label="Percentile explanation"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px]">
+                        Percentile compares this scaled score with the relevant
+                        UCAT score distribution. For example, the 80th
+                        percentile means the score is higher than about 80% of
+                        comparison scores.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ) : null}
             </div>
@@ -108,21 +236,6 @@ export function AttemptReviewSummaryGrid({
               </div>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
-
-      <Card className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">
-            Question attempts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="min-w-0 overflow-hidden">
-          <SetAttemptAnalysisChart
-            data={chartData}
-            selectedQuestionIndex={selectedQuestionIndex}
-            onBarClick={onBarClick}
-          />
         </CardContent>
       </Card>
     </div>

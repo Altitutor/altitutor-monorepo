@@ -100,7 +100,6 @@ SELECT
   s.last_name AS student_last_name,
   sqa.student_question_set_attempt_id,
   sqa.question_id,
-  q.question_stem_id,
   sqa.question_answer_option_id,
   sqa.answer_snapshot,
   sqa.score,
@@ -116,7 +115,8 @@ SELECT
   us.section_number,
   q.question_type,
   st.question_stem_category_id,
-  qsc.name AS category_name
+  qsc.name AS category_name,
+  q.question_stem_id
 FROM public.student_question_attempts sqa
 JOIN public.students s ON s.id = sqa.student_id
 JOIN public.ucat_questions q
@@ -129,3 +129,5 @@ LEFT JOIN public.question_stem_categories qsc ON qsc.id = st.question_stem_categ
 JOIN public.ucat_sections us ON us.id = st.section_id
 WHERE public.is_ucat_tutor()
   AND public.can_current_tutor_view_ucat_student(sqa.student_id);
+
+GRANT SELECT ON public.vtutor_ucat_student_question_attempts_for_progress TO authenticated;

@@ -284,12 +284,12 @@
 - **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.
   _Avoid_: Randomness, prompt temperature
 
-- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat, mutually exclusive presentation categories: Data Tables, Graphs and Charts, Timetables and Calendars, Maps and Diagrams, Mixed Data Sources, and Text-Only Scenarios.
+- **Question stem category** — A single label describing the broad stem format within its UCAT section. Quantitative Reasoning categories describe mutually exclusive presentation formats, while Verbal Reasoning categories distinguish answer mode rather than reading skill.
   _Avoid_: Topic, tag, data subtype
 
 - **Answer option** — One selectable response for a UCAT question.
 
-- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. A question may have multiple tags, and tags may be hierarchical when the domain has meaningful parent-child relationships; root tags may optionally belong to one UCAT section, while child tags inherit their section from their root.
+- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. Verbal Reasoning reading skills belong here rather than in question stem categories; Decision Making tags describe reusable subskills and wording traps because its categories already cover broad formats; Situational Judgement uses practical scenario tags alongside cross-cutting ethical principle tags.
   _Avoid_: Category, stem type
 
 - **Target question tag** — An optional question tag included in a generation brief to steer AI-generated questions toward specific skills or topics. When target tags are provided, generation gates should check whether the candidate fits them; when omitted, tags may be suggested after generation.

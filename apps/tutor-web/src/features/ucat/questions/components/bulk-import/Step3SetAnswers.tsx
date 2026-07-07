@@ -42,7 +42,16 @@ type ReviewCategoryOption = {
   label?: string | null
 }
 type ReviewSectionOption = { id: string | null; name?: string | null; display_columns?: number | null }
-type ReviewTagOption = { id: string; name: string; label?: string | null }
+type ReviewTagOption = {
+  id: string
+  name: string
+  label?: string | null
+  parent_question_tag_id?: string | null
+  ucat_section_id?: string | null
+}
+type ReviewStemDraft = BulkImportStemDraft & {
+  aiGenerationMetadata?: Json | null
+}
 
 export type AnswerRow = {
   stemId: string
@@ -62,7 +71,7 @@ export type AnswerRow = {
   answerExplanationJson: Json | null
 }
 
-function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
+function buildAnswerRows(stems: ReviewStemDraft[]): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
   stems.forEach((stem, stemIndex) => {
@@ -109,7 +118,7 @@ function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
 }
 
 type Step3SetAnswersProps = {
-  stems: BulkImportStemDraft[]
+  stems: ReviewStemDraft[]
   categories?: ReviewCategoryOption[]
   sections?: ReviewSectionOption[]
   tags?: ReviewTagOption[]
@@ -301,6 +310,7 @@ export function Step3SetAnswers({
                             onUpdateStem={onUpdateStem}
                             onNewImageFileIds={onNewImageFileIds}
                             sourceChannel={sourceChannel}
+                            aiGenerationMetadata={stem.aiGenerationMetadata ?? null}
                           />
                         </div>
                       </TableCell>

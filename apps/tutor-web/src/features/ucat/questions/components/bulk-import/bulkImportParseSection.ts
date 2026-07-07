@@ -174,6 +174,8 @@ export function mapParsedStemsToFormValues(
         isPrivate: false,
         getCategoryIdForStem: (stem) =>
           inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
+        getTagIdsForQuestion: ({ stem, question }) =>
+          inferBulkImportTagIdsForParsedQuestion({ stem, question, section, sectionId, tags }),
       })
     case 'decision_making':
       return mapParsedDecisionMakingToFormValues(
@@ -191,6 +193,14 @@ export function mapParsedStemsToFormValues(
           isPrivate: false,
           getCategoryIdForStem: (stem) =>
             inferBulkImportCategoryIdForParsedStem({ stem: stem as ParsedStem, section, sectionId, categories }),
+          getTagIdsForQuestion: ({ stem, question }) =>
+            inferBulkImportTagIdsForParsedQuestion({
+              stem: stem as ParsedStem,
+              question: question as ParsedStem['questions'][number],
+              section,
+              sectionId,
+              tags,
+            }),
         }
       )
     case 'quantitative_reasoning':
@@ -211,6 +221,8 @@ export function mapParsedStemsToFormValues(
         isPrivate: false,
         getCategoryIdForStem: (stem) =>
           inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
+        getTagIdsForQuestion: ({ stem, question }) =>
+          inferBulkImportTagIdsForParsedQuestion({ stem, question, section, sectionId, tags }),
       })
     default:
       return []

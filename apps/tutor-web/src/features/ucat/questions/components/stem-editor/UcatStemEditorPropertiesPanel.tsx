@@ -225,7 +225,10 @@ export function UcatStemEditorPropertiesPanel({
   const isSyllogism = stemType === 'syllogism'
   const aiModel = metadataString(aiGenerationMetadata, 'model')
   const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
-  const generatedByName = formatStaffDisplayName(createdByFirstName, createdByLastName)
+  const generatedByName =
+    formatStaffDisplayName(createdByFirstName, createdByLastName) ??
+    metadataString(aiGenerationMetadata, 'generatedByName') ??
+    metadataString(aiGenerationMetadata, 'generatedByEmail')
 
   const watchedApprovalStatus = form.watch('approvalStatus')
 
@@ -382,7 +385,7 @@ export function UcatStemEditorPropertiesPanel({
   const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {
     const input = toolCall.input
     const text = typeof input.text === 'string' ? input.text : ''
-    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : null
+    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : safeQuestionIndex
     const optionIndex = typeof input.optionIndex === 'number' ? input.optionIndex : null
     const current = form.getValues()
     const target = typeof input.target === 'string' ? input.target : 'stem'
@@ -1007,7 +1010,27 @@ export function UcatStemEditorPropertiesPanel({
             contextType="question_stem"
             scope="current_stem"
             scopeLabel={`Question ${safeQuestionIndex + 1}`}
-            snapshot={form.getValues() as unknown as Json}
+            conversationKey={stemId ? `question-stem:${stemId}` : null}
+            snapshot={{
+              currentQuestionIndex: safeQuestionIndex,
+              currentQuestionNumber: safeQuestionIndex + 1,
+              stem: form.getValues(),
+              availableTags: tags.map((tag) => ({
+                id: tag.id,
+                name: tag.name,
+                label: tag.label ?? tag.name,
+              })),
+              availableCategories: categories.map((category) => ({
+                id: category.id,
+                name: category.name,
+                label: category.label ?? category.name,
+                sectionId: category.ucat_section_id,
+              })),
+              availableSections: sections.map((section) => ({
+                id: section.id,
+                name: section.name,
+              })),
+            } as Json}
             placeholder="Ask AI to edit this question stem..."
             onExecuteTool={executeStemAgentTool}
           />

@@ -9,6 +9,7 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import { ucatQuestionStemSchema } from '@/features/ucat/questions/types/schema'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import type { Json } from '@altitutor/shared'
 import type {
   CategoryOption,
   TagOption,
@@ -26,6 +27,7 @@ type BulkImportReviewStemEditorProps = {
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
   sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
 }
 
 export function BulkImportReviewStemEditor({
@@ -38,6 +40,7 @@ export function BulkImportReviewStemEditor({
   onUpdateStem,
   onNewImageFileIds,
   sourceChannel,
+  aiGenerationMetadata,
 }: BulkImportReviewStemEditorProps) {
   const createForm = useForm as unknown as (props: {
     resolver: unknown
@@ -80,6 +83,7 @@ export function BulkImportReviewStemEditor({
       sections={sections}
       categories={categories}
       tags={tags}
+      stemId={stemId}
       enableImages
       sectionTitleOverride={sectionMeta?.name ?? undefined}
       displayColumnsFallback={sectionMeta?.display_columns ?? undefined}
@@ -88,6 +92,7 @@ export function BulkImportReviewStemEditor({
       onNewImageFileIds={onNewImageFileIds}
       onActiveTextEditorChange={setActiveTextEditor}
       sourceChannel={sourceChannel ?? null}
+      aiGenerationMetadata={aiGenerationMetadata ?? null}
       className="flex h-full min-h-0 overflow-hidden"
     />
       <UcatRichTextFloatingToolbar editor={activeTextEditor} />

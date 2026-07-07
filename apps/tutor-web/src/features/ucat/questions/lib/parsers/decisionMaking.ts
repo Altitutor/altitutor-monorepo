@@ -438,7 +438,449 @@ export type DecisionMakingToFormOptions = {
   sectionId: string
   categoryId?: string | null
   getCategoryIdForStem?: (stem: ParsedDecisionMakingStem) => string | null
+  getTagIdsForQuestion?: (args: {
+    stem: ParsedDecisionMakingStem
+    question: ParsedDecisionMakingQuestion
+  }) => string[]
   isPrivate?: boolean
+}
+
+function normalizedText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function hasAny(text: string, patterns: readonly RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text))
+}
+
+type DecisionMakingTagRule = {
+  path: string[]
+  patterns?: readonly RegExp[]
+  matches?: (args: {
+    text: string
+    stemText: string
+    questionText: string
+    optionText: string
+    question: ParsedDecisionMakingQuestion
+  }) => boolean
+}
+
+function hasSetReasoningContext(text: string): boolean {
+  return /\b(?:venn|diagram|set|sets|groups|categories|region|overlap|intersection|union)\b/.test(text)
+}
+
+const DM_TAG_RULES: DecisionMakingTagRule[] = [
+  {
+    path: ['Deductive logic', 'Quantifiers: all / some / none'],
+    patterns: [
+      /\b(?:all|some|none|no|not all|every|each)\b/,
+      /\bat least one\b/,
+      /\bthe rest\b/,
+    ],
+    matches: ({ question }) => question.questionType === 'syllogism',
+  },
+  {
+    path: ['Deductive logic', 'Conditional reasoning'],
+    patterns: [
+      /\bif\b/,
+      /\bonly if\b/,
+      /\bthen\b/,
+      /\beither\b.*\bor\b/,
+      /\bunless\b/,
+      /\bprovided that\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Negation and complements'],
+    patterns: [
+      /\bnot\b/,
+      /\bno\b/,
+      /\bnone\b/,
+      /\bneither\b/,
+      /\bexcept\b/,
+      /\bdoes not\b/,
+      /\bdid not\b/,
+      /\bcannot\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Must be true / necessarily follows'],
+    patterns: [
+      /\bmust be true\b/,
+      /\bnecessarily\b/,
+      /\bdoes follow\b/,
+      /\bconclusion follows?\b/,
+      /\bwhich (?:one )?must\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Cannot be concluded'],
+    patterns: [
+      /\bcannot be concluded\b/,
+      /\bcannot conclude\b/,
+      /\bdoes not follow\b/,
+      /\bnot necessarily\b/,
+      /\bnot enough information\b/,
+    ],
+  },
+
+  {
+    path: ['Rule-based problem solving', 'Ordering and ranking'],
+    patterns: [
+      /\border(?:ed|ing)?\b/,
+      /\brank(?:ed|ing)?\b/,
+      /\bbefore\b/,
+      /\bafter\b/,
+      /\bfirst\b/,
+      /\blast\b/,
+      /\bearlier\b/,
+      /\blater\b/,
+      /\bhigher\b/,
+      /\blower\b/,
+      /\boldest\b/,
+      /\byoungest\b/,
+      /\bgreater than\b/,
+      /\bless than\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Matching and assignment'],
+    patterns: [
+      /\bmatch(?:ed|ing)?\b/,
+      /\bassign(?:ed|ment)?\b/,
+      /\bbelongs? to\b/,
+      /\bpaired with\b/,
+      /\bkey\b/,
+      /\bbox\b/,
+      /\bowner\b/,
+      /\bwhich person\b/,
+      /\beach (?:person|student|friend|doctor|member)\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Seating or spatial arrangement'],
+    patterns: [
+      /\bseat(?:ed|ing)?\b/,
+      /\bsit(?:s|ting)?\b/,
+      /\brow\b/,
+      /\btable\b/,
+      /\bleft\b/,
+      /\bright\b/,
+      /\bfront\b/,
+      /\bback\b/,
+      /\bopposite\b/,
+      /\badjacent\b/,
+      /\bposition\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Scheduling and selection'],
+    patterns: [
+      /\bschedul(?:e|ed|ing)\b/,
+      /\btimetable\b/,
+      /\bday\b/,
+      /\bdate\b/,
+      /\bmonth\b/,
+      /\bappointment\b/,
+      /\bselect(?:ed|ion)?\b/,
+      /\bchosen\b/,
+      /\bchoose\b/,
+      /\bteam\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Multi-constraint deduction'],
+    patterns: [
+      /\bfollowing (?:facts|statements|rules|conditions)\b/,
+      /\bconditions?\b/,
+      /\brules?\b/,
+      /\bconstraints?\b/,
+      /\bmust\b/,
+      /\bcan only\b/,
+      /\bpossible\b/,
+      /\bnot possible\b/,
+    ],
+  },
+
+  {
+    path: ['Set and Venn reasoning', 'Diagram selection'],
+    patterns: [
+      /\bdiagram\b/,
+      /\bvenn\b/,
+      /\bbest represents?\b/,
+      /\brepresents? the relationship\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Region counting'],
+    patterns: [
+      /\bhow many\b/,
+      /\bnumber of\b/,
+      /\bregion\b/,
+      /\blabel(?:led|ed)?\b/,
+      /\barea\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Intersections and unions'],
+    patterns: [
+      /\bboth\b/,
+      /\band\b.*\b(?:or|both)\b/,
+      /\beither\b.*\bor\b/,
+      /\boverlap\b/,
+      /\bintersect(?:ion|s)?\b/,
+      /\bunion\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Only / neither / complements'],
+    patterns: [
+      /\bonly\b/,
+      /\bneither\b/,
+      /\bnot\b/,
+      /\bdid not\b/,
+      /\bnone\b/,
+      /\boutside\b/,
+      /\bcomplement\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Three-plus sets'],
+    patterns: [
+      /\bthree\b.*\b(?:sets|groups|categories)\b/,
+      /\bfour\b.*\b(?:sets|groups|categories)\b/,
+      /\b3\b.*\b(?:sets|groups|categories)\b/,
+      /\b4\b.*\b(?:sets|groups|categories)\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+
+  {
+    path: ['Probability and data reasoning', 'Basic probability'],
+    patterns: [
+      /\bprobabilit(?:y|ies)\b/,
+      /\bchance\b/,
+      /\bodds\b/,
+      /\blikelihood\b/,
+      /\brandom(?:ly)?\b/,
+      /\bfair (?:coin|dice|die)\b/,
+      /\bgreater than chance\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Conditional probability'],
+    patterns: [
+      /\bgiven that\b/,
+      /\bprovided that\b/,
+      /\bof those\b/,
+      /\bamong those\b/,
+      /\bfrom those\b/,
+      /\bconsidering only\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Without replacement / combinations'],
+    patterns: [
+      /\bwithout replacement\b/,
+      /\bwithout replacing\b/,
+      /\breplaces? his original\b/,
+      /\bcombination\b/,
+      /\bpermutation\b/,
+      /\bblind-?guess(?:ed|ing)?\b/,
+      /\bselects? \d+\b/,
+      /\bchoose \d+\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Expected value or risk comparison'],
+    patterns: [
+      /\bexpected\b/,
+      /\baverage\b/,
+      /\brisk\b/,
+      /\bbest choice\b/,
+      /\bbetter option\b/,
+      /\bmost amount\b/,
+      /\bshould\b.*\b(?:accept|choose|take)\b/,
+      /\bcost\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Table interpretation'],
+    patterns: [
+      /\btable\b/,
+      /\bchart\b/,
+      /\bdata\b/,
+      /\bgraph\b/,
+      /\battendance\b/,
+      /\bappointments?\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Fraction / percentage comparison'],
+    patterns: [
+      /\d+\s*%/,
+      /\bpercent(?:age)?\b/,
+      /\bfraction\b/,
+      /\bratio\b/,
+      /\bproportion\b/,
+      /\bgreater than\b/,
+      /\bless than\b/,
+      /\bmore likely\b/,
+      /\bless likely\b/,
+    ],
+  },
+
+  {
+    path: ['Argument evaluation', 'Strongest argument'],
+    patterns: [
+      /\bstrongest argument\b/,
+      /\bbest argument\b/,
+      /\bmost convincing\b/,
+      /\bargument\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Causal assumption'],
+    patterns: [
+      /\breduce\b/,
+      /\bincrease\b/,
+      /\bcause\b/,
+      /\blead to\b/,
+      /\bresult in\b/,
+      /\bencourage\b/,
+      /\bprevent\b/,
+      /\bimprove\b/,
+      /\bpromote\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Relevance and scope'],
+    patterns: [
+      /\brelevant\b/,
+      /\bdirectly\b/,
+      /\bscope\b/,
+      /\baddresses?\b/,
+      /\btopic\b/,
+      /\bissue\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Evidence strength'],
+    patterns: [
+      /\bevidence\b/,
+      /\bstudy\b/,
+      /\bresearch\b/,
+      /\bdata\b/,
+      /\bshows?\b/,
+      /\bproves?\b/,
+      /\bsupports?\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Practical feasibility'],
+    patterns: [
+      /\bpractical\b/,
+      /\bfeasible\b/,
+      /\bimplement(?:ed|ation)?\b/,
+      /\bresources?\b/,
+      /\bcost\b/,
+      /\bafford\b/,
+      /\bavailable\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Policy or public benefit'],
+    patterns: [
+      /\bgovernment\b/,
+      /\bpolicy\b/,
+      /\bpublic\b/,
+      /\btax\b/,
+      /\blegalis(?:e|ing|ation)\b/,
+      /\bfine(?:d|s)?\b/,
+      /\bunemployment\b/,
+      /\bsafety\b/,
+      /\bhealth\b/,
+      /\bsociety\b/,
+    ],
+  },
+
+  {
+    path: ['Decision wording traps', 'Considering only stated factors'],
+    patterns: [
+      /\bconsidering only\b/,
+      /\bonly the (?:information|factors|data)\b/,
+      /\bbased only on\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'Yes/no sufficiency'],
+    patterns: [
+      /\bcan (?:it|this) be concluded\b/,
+      /\bshould\b/,
+      /\byes\b.*\bno\b/,
+      /\byes\/no\b/,
+      /\bplace ['"]?yes['"]?\b/,
+      /\bplace ['"]?no['"]?\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'False statement'],
+    patterns: [
+      /\bfalse statement\b/,
+      /\bwhich statement is false\b/,
+      /\bnot true\b/,
+      /\bincorrect\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'Greater than / less than comparison'],
+    patterns: [
+      /\bgreater than\b/,
+      /\bless than\b/,
+      /\bmore than\b/,
+      /\bfewer than\b/,
+      /\bhigher than\b/,
+      /\blower than\b/,
+      /\bmore likely\b/,
+      /\bless likely\b/,
+    ],
+  },
+]
+
+export function getDecisionMakingTagPathsForQuestion(args: {
+  stem: ParsedDecisionMakingStem
+  question: ParsedDecisionMakingQuestion
+}): string[][] {
+  const optionText = args.question.options.map((opt) => opt.text).join(' ')
+  const stemText = normalizedText(args.stem.stemText)
+  const questionText = normalizedText(args.question.text)
+  const normalizedOptionText = normalizedText(optionText)
+  const text = normalizedText(`${args.stem.stemText} ${args.question.text} ${optionText}`)
+  const matched = DM_TAG_RULES.filter((rule) => {
+    const patternMatches = rule.patterns ? hasAny(text, rule.patterns) : false
+    const predicateMatches = rule.matches?.({
+      text,
+      stemText,
+      questionText,
+      optionText: normalizedOptionText,
+      question: args.question,
+    }) ?? false
+    if (rule.patterns && rule.matches) return patternMatches && predicateMatches
+    return patternMatches || predicateMatches
+  }).map((rule) => rule.path)
+
+  return matched.filter(
+    (path) =>
+      !matched.some(
+        (other) =>
+          other.length > path.length &&
+          path.every((part, index) => other[index] === part)
+      )
+  )
 }
 
 /**
@@ -449,7 +891,13 @@ export function mapParsedDecisionMakingToFormValues(
   stems: ParsedDecisionMakingStem[],
   options: DecisionMakingToFormOptions
 ): UcatQuestionStemFormValues[] {
-  const { sectionId, categoryId = null, getCategoryIdForStem, isPrivate = false } = options
+  const {
+    sectionId,
+    categoryId = null,
+    getCategoryIdForStem,
+    getTagIdsForQuestion,
+    isPrivate = false,
+  } = options
 
   return stems
     .filter(
@@ -467,7 +915,7 @@ export function mapParsedDecisionMakingToFormValues(
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
-        tagIds: [],
+        tagIds: getTagIdsForQuestion?.({ stem, question: q }) ?? [],
         options: q.options.map((opt) => ({
           answerText: toRichText(opt.text),
           answerExplanation: null,

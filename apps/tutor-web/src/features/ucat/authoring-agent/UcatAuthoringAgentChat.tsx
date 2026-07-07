@@ -22,6 +22,7 @@ type UcatAuthoringAgentChatProps = {
   scope: UcatAuthoringAgentScope
   scopeLabel: string
   snapshot: Json
+  conversationKey?: string | null
   selectedImage?: {
     label: string
     src?: string | null
@@ -32,6 +33,16 @@ type UcatAuthoringAgentChatProps = {
   className?: string
   onExecuteTool: UcatAuthoringToolExecutor
 }
+
+type PersistedChatState = {
+  messages: UcatAuthoringChatMessage[]
+  input: string
+  toolResults: Record<string, { ok: boolean; message: string }>
+  pausedRuns: Record<string, UcatAuthoringChatMessage[]>
+  modelProfileId: string | null
+}
+
+const persistedChatStates = new Map<string, PersistedChatState>()
 
 function createMessageId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -168,22 +179,25 @@ export function UcatAuthoringAgentChat({
   scope,
   scopeLabel,
   snapshot,
+  conversationKey = null,
   selectedImage = null,
   placeholder = 'Ask AI to edit this draft...',
   className,
   onExecuteTool,
 }: UcatAuthoringAgentChatProps) {
   const { toast } = useToast()
-  const [messages, setMessages] = useState<UcatAuthoringChatMessage[]>([])
-  const [input, setInput] = useState('')
+  const initialPersistedState = conversationKey ? persistedChatStates.get(conversationKey) : null
+  const [messages, setMessages] = useState<UcatAuthoringChatMessage[]>(initialPersistedState?.messages ?? [])
+  const [input, setInput] = useState(initialPersistedState?.input ?? '')
   const [isSending, setIsSending] = useState(false)
   const [activityStatus, setActivityStatus] = useState<string | null>(null)
   const [pendingToolId, setPendingToolId] = useState<string | null>(null)
-  const [toolResults, setToolResults] = useState<Record<string, { ok: boolean; message: string }>>({})
-  const [pausedRuns, setPausedRuns] = useState<Record<string, UcatAuthoringChatMessage[]>>({})
-  const [modelProfileId, setModelProfileId] = useState<string | null>(null)
+  const [toolResults, setToolResults] = useState<Record<string, { ok: boolean; message: string }>>(initialPersistedState?.toolResults ?? {})
+  const [pausedRuns, setPausedRuns] = useState<Record<string, UcatAuthoringChatMessage[]>>(initialPersistedState?.pausedRuns ?? {})
+  const [modelProfileId, setModelProfileId] = useState<string | null>(initialPersistedState?.modelProfileId ?? null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const snapshotRef = useRef<Json>(snapshot)
+  const conversationKeyRef = useRef<string | null>(conversationKey)
   const modelProfilesQuery = useUcatGenerationModelProfiles(true)
   const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
 
@@ -200,6 +214,31 @@ export function UcatAuthoringAgentChat({
   useEffect(() => {
     snapshotRef.current = snapshot
   }, [snapshot])
+
+  useEffect(() => {
+    if (conversationKeyRef.current === conversationKey) return
+    conversationKeyRef.current = conversationKey
+    const persisted = conversationKey ? persistedChatStates.get(conversationKey) : null
+    setMessages(persisted?.messages ?? [])
+    setInput(persisted?.input ?? '')
+    setToolResults(persisted?.toolResults ?? {})
+    setPausedRuns(persisted?.pausedRuns ?? {})
+    setModelProfileId(persisted?.modelProfileId ?? null)
+    setActivityStatus(null)
+    setPendingToolId(null)
+  }, [conversationKey])
+
+  useEffect(() => {
+    if (!conversationKey) return
+    if (conversationKeyRef.current !== conversationKey) return
+    persistedChatStates.set(conversationKey, {
+      messages,
+      input,
+      toolResults,
+      pausedRuns,
+      modelProfileId,
+    })
+  }, [conversationKey, input, messages, modelProfileId, pausedRuns, toolResults])
 
   useEffect(() => {
     const node = scrollRef.current
