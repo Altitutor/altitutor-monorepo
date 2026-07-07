@@ -258,6 +258,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   const { session, sessionsStudents, sessionsStaff, tutorLog, sessionsParents = [] } = sessionData.data;
   const meetingMode = session.type !== 'CLASS';
+  const adminMeetingMode = session.type === 'ADMIN_MEETING';
   const allowAbsenceLogging = Boolean(session.class_id || session.admin_shift_id);
   const parentsData = (sessionsParents as Array<{ id: string; parent: Tables<'parents'> | null }>)
     .filter((row): row is { id: string; parent: Tables<'parents'> } => row.parent != null)
@@ -336,10 +337,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       copyTagDisplayText={sessionTitle || sessionId}
                       {...sessionActions}
                       sessionType={session.type}
-                      sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
-                        id: d.student.id,
-                        name: `${d.student.first_name} ${d.student.last_name}`,
-                      }))}
+                      sessionStudents={
+                        adminMeetingMode
+                          ? []
+                          : studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
+                              id: d.student.id,
+                              name: `${d.student.first_name} ${d.student.last_name}`,
+                            }))
+                      }
                       onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     />
                   )}
@@ -426,8 +431,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onAddStudentToSession={meetingMode ? undefined : modals.openAddStudentToSessionModal}
                     onAddStaffToSession={meetingMode ? undefined : modals.openAddStaffToSessionModal}
                     meetingMode={meetingMode}
+                    adminMeetingMode={adminMeetingMode}
                     parentsData={parentsData}
-                    onMeetingAddStudent={async (student) => {
+                    onMeetingAddStudent={adminMeetingMode ? undefined : async (student) => {
                       if (!sessionId) return;
                       await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
                       await sessionData.refresh();
@@ -445,7 +451,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       await sessionData.refresh();
                       toast({ title: 'Staff added', description: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() });
                     }}
-                    onMeetingAddParent={async (parent) => {
+                    onMeetingAddParent={adminMeetingMode ? undefined : async (parent) => {
                       if (!sessionId) return;
                       await addParentMutation.mutateAsync({ sessionId, parentId: parent.id });
                       await sessionData.refresh();

@@ -64,11 +64,12 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
       }
     });
 
-    // Add 1 hour buffer before earliest and after latest
-    const startHour = Math.max(0, Math.floor(earliestStart / 60) - 1);
-    // Calculate end hour: add 60 minutes to latest end time, then get the hour
-    const endHourWithBuffer = latestEnd + 60; // Add 1 hour in minutes
-    const endHour = Math.min(23, Math.floor(endHourWithBuffer / 60));
+    // Snap to the hour containing the first session start; end at the hour boundary
+    // rounded up from the last session end (e.g. 10:30 end → show through 11:00, not 12:00).
+    const startHour = Math.max(0, Math.floor(earliestStart / 60));
+    const endAtHourBoundary =
+      latestEnd % 60 === 0 ? latestEnd / 60 : Math.ceil(latestEnd / 60);
+    const endHour = Math.min(23, Math.max(startHour, endAtHourBoundary - 1));
 
     // Generate slots for the range
     const slotCount = endHour - startHour + 1;

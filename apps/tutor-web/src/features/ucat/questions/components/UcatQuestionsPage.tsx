@@ -563,10 +563,12 @@ export function UcatQuestionsPage() {
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
-  async function handleCreate(payload: UcatQuestionStemFormValues) {
+  async function handleCreate(payload: UcatQuestionStemFormValues, options?: { createMore?: boolean }) {
     const mapped = formValuesToStemBundlePayload(payload)
     const result = await createMutation.mutateAsync(mapped)
-    setCreateOpen(false)
+    if (!options?.createMore) {
+      setCreateOpen(false)
+    }
     const questionCount = payload.questions?.length ?? 0
     toast({
       title: `${questionCount} question${questionCount === 1 ? '' : 's'} created`,

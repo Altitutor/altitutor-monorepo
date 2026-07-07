@@ -56,12 +56,12 @@ const LEGACY_SITE_FOOTER_HTML = `
 `;
 
 export function generateStaticParams() {
-  return getAllMarketingPages()
-    .filter((page) => page.path !== "/")
-    .map((page) => ({
-      slug: page.path.replace(/^\/|\/$/g, "").split("/"),
-    }));
+  return getAllMarketingPages().map((page) => ({
+    slug: page.path === "/" ? [] : page.path.replace(/^\/|\/$/g, "").split("/"),
+  }));
 }
+
+export const dynamicParams = false;
 
 export function generateMetadata({ params }: PageProps): Metadata {
   const page = getMarketingPage(pathFromSlug(params.slug));

@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ResourceAccessDenied,
   ResourcesBreadcrumb,
@@ -10,19 +10,30 @@ import {
   useResourceSubject,
   useResourceTopics,
 } from '@/features/resources';
-import { buildTopicTree } from '@/features/resources/lib/helpers';
+import { buildTopicTree, normalizeSlug } from '@/features/resources/lib/helpers';
 import { TutorPageContainer } from '@/shared/components/layouts';
 import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 export default function TutorResourceSubjectPage() {
   const params = useParams<{ subjectShortName: string }>();
+  const router = useRouter();
   const subjectShortName = params.subjectShortName;
+
+  useEffect(() => {
+    if (normalizeSlug(subjectShortName) === 'ucat') {
+      router.replace('/ucat');
+    }
+  }, [router, subjectShortName]);
 
   const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
   const { data: topics } = useResourceTopics(subject?.id ?? null);
   const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
 
   const tree = useMemo(() => buildTopicTree(topics ?? []), [topics]);
+
+  if (normalizeSlug(subjectShortName) === 'ucat') {
+    return null;
+  }
 
   if (!subjectLoading && !subject) {
     return (
