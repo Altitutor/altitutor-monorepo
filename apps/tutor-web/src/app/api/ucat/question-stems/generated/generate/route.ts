@@ -9,6 +9,7 @@ import {
   resolveUcatAiConfig,
   UcatAiEmptyResponseError,
   UcatAiJsonParseError,
+  type UcatAiResolvedConfig,
 } from '@/features/ucat/shared/server/ucat-ai-client'
 import {
   buildWriterPrompt,
@@ -22,14 +23,23 @@ import {
   DifficultyTargetSchema,
   GeneratedCandidateResponseSchema,
   TimeBurdenTargetSchema,
+  type GeneratedContentBlock,
   type GeneratedStem,
 } from '@/features/ucat/questions/lib/ai-generation/schema'
-import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import {
+  generatedContentToPlainText,
+} from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import { generatedContentToProseMirrorServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
 import {
   hasBlockingIssues,
   validateGeneratedStemCandidate,
   type GenerationGateIssue,
 } from '@/features/ucat/questions/lib/ai-generation/gates'
+import {
+  openAiImageToBuffer,
+  resolveImageApiConfig,
+  uploadGeneratedUcatImage,
+} from '@/app/api/ucat/authoring-agent/images/lib'
 
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,6 +51,8 @@ const GenerateBodySchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   modelProfileId: z.string().uuid().nullable().optional(),
   sourceMode: z.enum(['none', 'random', 'selected']).default('none'),
+  includeAiSourceStems: z.boolean().default(false),
+  imageGenerationMode: z.enum(['auto', 'deterministic', 'ai']).default('auto'),
   sourceStemIds: z.array(z.string().uuid()).optional(),
   stemCount: z.number().int().min(1).max(50),
   difficultyTarget: DifficultyTargetSchema.default('mixed'),
@@ -57,8 +69,11 @@ const GENERATION_TIMEOUT_MS = {
   writer: 75_000,
 } as const
 
+const RANDOM_SOURCE_STEM_LIMIT = 300
+
 type SourceStem = {
   id: string
+  is_ai_generated?: boolean | null
   question_stem_category_id?: string | null
   category_name?: string | null
   stem_text: Json | null
@@ -123,7 +138,7 @@ type GenerateBody = z.infer<typeof GenerateBodySchema>
 
 type GenerationProgressEvent = {
   type: 'progress'
-  step: 'setup' | 'sources' | 'generating' | 'gates' | 'drafts'
+  step: 'setup' | 'sources' | 'generating' | 'gates' | 'images' | 'drafts'
   message: string
   completedStems?: number
   totalStems?: number
@@ -263,34 +278,39 @@ function normalizePlannedAnswerPositions(stem: GeneratedStem, runIndex: number):
   }
 }
 
-function selectCategoryNameForIndex(brief: AiGenerationBrief, index: number): string | null {
-  if (brief.categoryName) return brief.categoryName
-  const categories = brief.availableCategories ?? []
-  if (categories.length === 0) return null
-  return categories[index % categories.length]?.name ?? null
+function plannedCategoryName(plan: unknown): string | null {
+  if (!plan || typeof plan !== 'object') return null
+  const plans = (plan as { plans?: unknown }).plans
+  const firstPlan = Array.isArray(plans) ? plans[0] : null
+  if (!firstPlan || typeof firstPlan !== 'object') return null
+  const categoryName = (firstPlan as { categoryName?: unknown }).categoryName
+  return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
 }
 
-function briefForSingleStem(brief: AiGenerationBrief, index: number): AiGenerationBrief {
-  const categoryName = selectCategoryNameForIndex(brief, index)
+function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unknown): AiGenerationBrief {
+  const planCategoryName = plannedCategoryName(plan)
+  const categoryName = brief.categoryName ?? planCategoryName
   const matchingExamples = brief.examples.filter((example) => {
-    if (example.categoryName !== categoryName) return false
+    if (categoryName && example.categoryName !== categoryName) return false
     if (normalizeLabel(categoryName) !== 'logical puzzles') return true
     const text = JSON.stringify(example).toLowerCase()
     return !/(?:probability|chance|likelihood|\d+%)/u.test(text)
   })
-  const exampleStart = matchingExamples.length > 0 ? (index * 2) % matchingExamples.length : 0
+  const examplePool = matchingExamples.length > 0 ? matchingExamples : brief.examples
+  const exampleStart = examplePool.length > 0 ? (index * 2) % examplePool.length : 0
   const examples = Array.from(
-    { length: Math.min(2, matchingExamples.length) },
-    (_, offset) => matchingExamples[(exampleStart + offset) % matchingExamples.length]
+    { length: Math.min(2, examplePool.length) },
+    (_, offset) => examplePool[(exampleStart + offset) % examplePool.length]
   ).filter((example): example is Record<string, unknown> => !!example)
   return {
     ...brief,
-    categoryName,
-    availableCategories: categoryName ? [] : brief.availableCategories,
+    categoryName: brief.categoryName,
+    availableCategories: brief.categoryName ? [] : brief.availableCategories,
     stemCount: 1,
     examples,
     promptLayers: brief.promptLayers.filter((layer) => {
-      if (layer.scopeType === 'stem_category') return layer.name === categoryName
+      if (brief.categoryName && layer.scopeType === 'stem_category') return layer.name === brief.categoryName
+      if (!brief.categoryName && layer.scopeType === 'stem_category') return layer.name === planCategoryName
       return true
     }),
   }
@@ -340,6 +360,212 @@ function issueMessages(issues: GenerationGateIssue[]): string[] {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown generation error'
+}
+
+type ImageGenerationMode = z.infer<typeof GenerateBodySchema>['imageGenerationMode']
+
+type GeneratedImageRecord = {
+  fileId: string
+  storagePath: string
+  visualType: string
+  sourceVisualTypes: string[]
+  prompt: string
+}
+
+const AI_IMAGE_AUTO_VISUAL_TYPES = new Set<string>()
+
+function shouldUseAiImageForStemVisual(params: {
+  mode: ImageGenerationMode
+  categoryName: string | null | undefined
+  block: Extract<GeneratedContentBlock, { type: 'visual' }>
+}): boolean {
+  if (params.mode === 'deterministic') return false
+  if (params.mode === 'ai') return true
+  const category = normalizeLabel(params.categoryName)
+  if (category === 'venn diagrams' || category === 'logical puzzles') return false
+  return AI_IMAGE_AUTO_VISUAL_TYPES.has(params.block.visualType)
+}
+
+function resolveStemImageApiConfig(config: UcatAiResolvedConfig) {
+  try {
+    return resolveImageApiConfig()
+  } catch (error) {
+    if (config.provider.provider_kind === 'codex_oauth') {
+      throw new Error('AI image generation needs an OpenAI API key. The selected Codex subscription provider can generate text for this app, but it does not expose an image-generation API endpoint.')
+    }
+
+    const apiKey = process.env[config.provider.secret_env_var_name]
+    if (!apiKey) throw error
+    const baseUrl = config.provider.base_url.replace(/\/$/u, '')
+    const providerLooksOpenAiCompatible = config.provider.provider_key === 'openai' || baseUrl.includes('api.openai.com')
+    if (!providerLooksOpenAiCompatible) {
+      throw new Error(`AI image generation is not configured for provider "${config.provider.name}". Configure UCAT_IMAGE_OPENAI_API_KEY/OPENAI_API_KEY, or select an OpenAI-compatible image provider.`)
+    }
+
+    return {
+      apiKey,
+      model: process.env.UCAT_IMAGE_MODEL || 'gpt-image-1',
+      baseUrl,
+    }
+  }
+}
+
+function generatedStemImagePrompt(params: {
+  stem: GeneratedStem
+  visualBlocks: Array<Extract<GeneratedContentBlock, { type: 'visual' }>>
+}): string {
+  const stemContext = generatedContentToPlainText(params.stem.stemText).slice(0, 1800)
+  const visualIntents = params.visualBlocks.map((block, index) => ({
+    index: index + 1,
+    visualTypeHint: block.visualType,
+    title: block.title ?? null,
+    altText: block.altText,
+    spec: block.spec,
+  }))
+  return [
+    'Create one clean UCAT-style exam source image as a PNG.',
+    'Use a white background, crisp black or restrained colour strokes, readable labels, and no decorative illustration.',
+    'Choose the most natural UCAT-style source-image format for the data: chart, table, map, timetable, mixed-source panel, spatial layout, Venn/set diagram, or another clear exam visual.',
+    'Do not mechanically copy the visualType hints if a different single source-image composition would be clearer or more realistic.',
+    'The image must be self-contained and must render every number, category label, unit, shape, axis, legend item, and region value exactly from the structured data and stem context.',
+    'Do not invent extra values, labels, icons, people, scenery, watermarks, logos, or explanatory prose.',
+    'If this is a Venn or set diagram, place numbers from semantic set regions, not from approximate pixel coordinates. Keep numbers inside their regions and off boundaries.',
+    'If this is a chart or multi-panel source, scale axes correctly, keep labels readable, include units where provided, and use enough visual density for UCAT quantitative reasoning.',
+    'If there are multiple visual intents, combine them into one coherent stem source image rather than separate unrelated pictures.',
+    '',
+    `Category: ${params.stem.categoryName ?? 'Unspecified'}`,
+    `Stem context: ${stemContext}`,
+    `Structured visual/data intents JSON:\n${JSON.stringify(visualIntents, null, 2)}`,
+  ].join('\n')
+}
+
+async function generateImageBytes(params: {
+  apiKey: string
+  baseUrl: string
+  model: string
+  prompt: string
+}): Promise<Buffer> {
+  const size = process.env.UCAT_GENERATED_STEM_IMAGE_SIZE || '1536x1024'
+  const imageApiModel = params.model.startsWith('gpt-image') || params.model.startsWith('dall-e')
+  if (imageApiModel) {
+    const response = await fetch(`${params.baseUrl}/images/generations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${params.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: params.model,
+        prompt: params.prompt,
+        size,
+      }),
+    })
+    return openAiImageToBuffer(response)
+  }
+
+  const response = await fetch(`${params.baseUrl}/responses`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${params.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: params.model,
+      input: params.prompt,
+      tools: [{ type: 'image_generation', action: 'generate', size }],
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`Image generation failed: ${await response.text()}`)
+  }
+  const json = (await response.json()) as { output?: Array<{ type?: string; result?: string }> }
+  const image = json.output?.find((item) => item.type === 'image_generation_call' && typeof item.result === 'string')
+  if (!image?.result) throw new Error('Image generation returned no image')
+  return Buffer.from(image.result, 'base64')
+}
+
+async function generateUploadedStemImage(params: {
+  stem: GeneratedStem
+  visualBlocks: Array<Extract<GeneratedContentBlock, { type: 'visual' }>>
+  config: UcatAiResolvedConfig
+}): Promise<{ block: GeneratedContentBlock; metadata: GeneratedImageRecord }> {
+  const prompt = generatedStemImagePrompt(params)
+  const imageConfig = resolveStemImageApiConfig(params.config)
+  const sourceVisualTypes = params.visualBlocks.map((block) => block.visualType)
+  const bytes = await generateImageBytes({
+    apiKey: imageConfig.apiKey,
+    baseUrl: imageConfig.baseUrl,
+    model: imageConfig.model,
+    prompt,
+  })
+  const uploaded = await uploadGeneratedUcatImage({
+    bytes,
+    mimeType: 'image/png',
+    filename: 'generated-stem-source-image.png',
+    sourcePrompt: prompt,
+  })
+  return {
+    block: {
+      type: 'image',
+      src: uploaded.signedUrl,
+      altText: params.visualBlocks.map((block) => block.altText).filter(Boolean).join(' '),
+      fileId: uploaded.fileId,
+    },
+    metadata: {
+      fileId: uploaded.fileId,
+      storagePath: uploaded.storagePath,
+      visualType: 'stem_source_image',
+      sourceVisualTypes,
+      prompt,
+    },
+  }
+}
+
+async function resolveStemImageBlocks(params: {
+  stem: GeneratedStem
+  mode: ImageGenerationMode
+  config: UcatAiResolvedConfig
+}): Promise<{ stem: GeneratedStem; generatedImages: GeneratedImageRecord[]; warnings: string[] }> {
+  if (typeof params.stem.stemText === 'string') {
+    return { stem: params.stem, generatedImages: [], warnings: [] }
+  }
+
+  const eligibleVisuals = params.stem.stemText.filter((block): block is Extract<GeneratedContentBlock, { type: 'visual' }> =>
+    block.type === 'visual' && shouldUseAiImageForStemVisual({ mode: params.mode, categoryName: params.stem.categoryName, block })
+  )
+  if (eligibleVisuals.length === 0) {
+    return { stem: params.stem, generatedImages: [], warnings: [] }
+  }
+
+  try {
+    const uploaded = await generateUploadedStemImage({ stem: params.stem, visualBlocks: eligibleVisuals, config: params.config })
+    let inserted = false
+    const stemText: GeneratedContentBlock[] = []
+    for (const block of params.stem.stemText) {
+      if (block.type !== 'visual' || !eligibleVisuals.includes(block)) {
+        stemText.push(block)
+        continue
+      }
+      if (!inserted) {
+        stemText.push(uploaded.block)
+        inserted = true
+      }
+    }
+
+    return {
+      stem: { ...params.stem, stemText },
+      generatedImages: [uploaded.metadata],
+      warnings: [],
+    }
+  } catch (error) {
+    if (params.mode === 'ai') throw error
+    const warning = `AI image generation is unavailable; used deterministic renderer instead. ${errorMessage(error)}`
+    return {
+      stem: { ...params.stem, warnings: [...params.stem.warnings, warning] },
+      generatedImages: [],
+      warnings: [warning],
+    }
+  }
 }
 
 function isCapturedAiResponseError(
@@ -414,12 +640,13 @@ async function fetchSourceStems(
 
   let query = asAny(client)
     .from('vtutor_ucat_question_stem_detail')
-    .select('id,question_stem_category_id,category_name,stem_text,questions')
+    .select('id,is_ai_generated,question_stem_category_id,category_name,stem_text,questions')
     .eq('section_id', body.sectionId)
     .filter('approval_status', 'eq', 'approved')
     .is('deleted_at', null)
 
   if (body.categoryId) query = query.eq('question_stem_category_id', body.categoryId)
+  if (!body.includeAiSourceStems) query = query.eq('is_ai_generated', false)
 
   if (body.sourceMode === 'selected') {
     if (!body.sourceStemIds || body.sourceStemIds.length === 0) {
@@ -427,7 +654,7 @@ async function fetchSourceStems(
     }
     query = query.in('id', body.sourceStemIds)
   } else {
-    query = query.limit(50)
+    query = query.limit(RANDOM_SOURCE_STEM_LIMIT)
   }
 
   const { data, error } = await query
@@ -435,16 +662,45 @@ async function fetchSourceStems(
 
   const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
   const shuffled = [...source].sort(() => Math.random() - 0.5)
-  if (body.sourceMode === 'selected') return shuffled.slice(0, 4)
+  const sorted = prioritizeTagMatches(shuffled, body.targetTagIds)
+  if (body.sourceMode === 'selected') return sorted.slice(0, 4)
 
   const samplesByCategory = new Map<string, SourceStem[]>()
-  for (const stem of shuffled) {
+  for (const stem of sorted) {
     const key = stem.category_name ?? stem.question_stem_category_id ?? 'uncategorized'
     const samples = samplesByCategory.get(key) ?? []
     if (samples.length < 6) samples.push(stem)
     samplesByCategory.set(key, samples)
   }
   return Array.from(samplesByCategory.values()).flat()
+}
+
+function sourceStemTagMatchCount(stem: SourceStem, targetTagIds: string[]): number {
+  if (targetTagIds.length === 0) return 0
+  const targetIds = new Set(targetTagIds)
+  const stemTagIds = new Set<string>()
+  for (const question of stem.questions ?? []) {
+    for (const tag of question.tags ?? []) {
+      if (tag.id) stemTagIds.add(tag.id)
+    }
+  }
+  let count = 0
+  for (const id of stemTagIds) {
+    if (targetIds.has(id)) count += 1
+  }
+  return count
+}
+
+function prioritizeTagMatches(stems: SourceStem[], targetTagIds: string[]): SourceStem[] {
+  if (targetTagIds.length === 0) return stems
+  return stems
+    .map((stem, index) => ({
+      stem,
+      index,
+      tagMatches: sourceStemTagMatchCount(stem, targetTagIds),
+    }))
+    .sort((a, b) => b.tagMatches - a.tagMatches || a.index - b.index)
+    .map((item) => item.stem)
 }
 
 async function fetchTargetTags(client: SupabaseClient<Database>, tagIds: string[]) {
@@ -497,11 +753,12 @@ async function buildPromptLayers(params: {
   availableCategories: StemCategoryChoice[]
   tags: Array<{ id: string; name: string }>
 }): Promise<AiGenerationBrief['promptLayers']> {
+  const includeCategoryLayers = !!params.categoryId || params.sectionName !== 'Quantitative Reasoning'
   const layers = await getUcatAiPromptLayers({
     client: params.client,
     sectionId: params.sectionId,
     categoryId: params.categoryId,
-    categoryIds: params.categoryId ? [] : params.availableCategories.map((category) => category.id),
+    categoryIds: params.categoryId || !includeCategoryLayers ? [] : params.availableCategories.map((category) => category.id),
     tagIds: params.tags.map((tag) => tag.id),
   })
   return layers.map((layer) => {
@@ -521,7 +778,7 @@ async function buildPromptLayers(params: {
   })
 }
 
-function toDraft(params: {
+async function toDraft(params: {
   stem: GeneratedStem
   body: z.infer<typeof GenerateBodySchema>
   warnings: string[]
@@ -537,27 +794,28 @@ function toDraft(params: {
     params.body.categoryId ??
     params.categoryIdByName.get(normalizeLabel(params.stem.categoryName)) ??
     null
+  const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => ({
+    index: questionIndex + 1,
+    questionText: await generatedContentToProseMirrorServer(question.questionText),
+    answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
+    difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
+    timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
+    questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
+    tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
+    options: await Promise.all(question.options.map(async (option, optionIndex) => ({
+      index: optionIndex + 1,
+      answerText: await generatedContentToProseMirrorServer(option.answerText),
+      answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
+      isAnswer: !!option.isAnswer,
+    }))),
+  })))
 
   return {
     sectionId: params.body.sectionId,
     categoryId: generatedCategoryId,
-    stemText: generatedContentToProseMirror(params.stem.stemText),
+    stemText: await generatedContentToProseMirrorServer(params.stem.stemText),
     isPrivate: true,
-    questions: params.stem.questions.map((question, questionIndex) => ({
-      index: questionIndex + 1,
-      questionText: generatedContentToProseMirror(question.questionText),
-      answerExplanation: question.answerExplanation ? generatedContentToProseMirror(question.answerExplanation) : null,
-      difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
-      timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
-      questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
-      tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
-      options: question.options.map((option, optionIndex) => ({
-        index: optionIndex + 1,
-        answerText: generatedContentToProseMirror(option.answerText),
-        answerExplanation: option.answerExplanation ? generatedContentToProseMirror(option.answerExplanation) : null,
-        isAnswer: !!option.isAnswer,
-      })),
-    })),
+    questions,
     aiGenerationMetadata: {
       source: 'ucat-ai-generation',
       generatedAt: new Date().toISOString(),
@@ -573,6 +831,8 @@ function toDraft(params: {
         difficultyTarget: params.body.difficultyTarget,
         timeBurdenTarget: params.body.timeBurdenTarget,
         targetTagIds: params.body.targetTagIds,
+        includeAiSourceStems: params.body.includeAiSourceStems,
+        imageGenerationMode: params.body.imageGenerationMode,
         runInstructions: params.body.runInstructions ?? null,
       },
       warnings: [...params.stem.warnings, ...params.warnings],
@@ -705,20 +965,29 @@ async function executeGeneration(
     const activeDebug = debug
 
     let completedStemCalls = 0
+    const generationAttemptCount = normalizeLabel(categoryName) === 'venn diagrams'
+      ? Math.min(body.stemCount * 4, body.stemCount + 12)
+      : body.stemCount
+
     emitProgress({
       type: 'progress',
       step: 'generating',
-      message: `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`,
+      message: generationAttemptCount === body.stemCount
+        ? `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`
+        : `Generating ${generationAttemptCount} Venn candidates to find ${body.stemCount} usable stem${body.stemCount === 1 ? '' : 's'}`,
       completedStems: completedStemCalls,
-      totalStems: body.stemCount,
+      totalStems: generationAttemptCount,
       runId,
     })
 
     const generatedResults = await runWithConcurrency(
-      Array.from({ length: body.stemCount }, (_, stemIndex) => async () => {
-        const singleBrief = briefForSingleStem(brief, stemIndex)
+      Array.from({ length: generationAttemptCount }, (_, attemptIndex) => async () => {
+        const stemIndex = attemptIndex % body.stemCount
+        const plan = buildLocalPlan(brief, stemIndex)
+        const planCategoryName = plannedCategoryName(plan)
+        const singleBrief = briefForSingleStem(brief, stemIndex, plan)
         const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
-        const userPrompt = buildWriterPrompt({ ...singleBrief, plan: buildLocalPlan(singleBrief, stemIndex) })
+        const userPrompt = buildWriterPrompt({ ...singleBrief, plan })
         const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
           ? 10_000
           : GENERATION_TOKEN_LIMITS.writer
@@ -729,7 +998,7 @@ async function executeGeneration(
         const startedAt = Date.now()
         const baseDebug = {
           stemIndex,
-          categoryName: singleBrief.categoryName,
+          categoryName: singleBrief.categoryName ?? planCategoryName,
           operation: 'generation_write',
           request: {
             systemPrompt,
@@ -752,7 +1021,7 @@ async function executeGeneration(
             maxCompletionTokens,
             timeoutMs: GENERATION_TIMEOUT_MS.writer,
             providerSort: 'throughput',
-            metadata: { section: singleBrief.sectionName, category: singleBrief.categoryName } as Json,
+            metadata: { section: singleBrief.sectionName, category: singleBrief.categoryName ?? planCategoryName } as Json,
           })
         } catch (error) {
           activeDebug.calls.push({
@@ -775,9 +1044,11 @@ async function executeGeneration(
           emitProgress({
             type: 'progress',
             step: 'generating',
-            message: `Stem ${stemIndex + 1} failed during model generation`,
+            message: generationAttemptCount === body.stemCount
+              ? `Stem ${stemIndex + 1} failed during model generation`
+              : `Candidate ${attemptIndex + 1} failed during model generation`,
             completedStems: completedStemCalls,
-            totalStems: body.stemCount,
+            totalStems: generationAttemptCount,
             runId,
           })
           return null
@@ -809,10 +1080,14 @@ async function executeGeneration(
           type: 'progress',
           step: 'generating',
           message: parsedWriter.success
-            ? `Stem ${stemIndex + 1} returned and matched the schema`
-            : `Stem ${stemIndex + 1} returned but did not match the schema`,
+            ? generationAttemptCount === body.stemCount
+              ? `Stem ${stemIndex + 1} returned and matched the schema`
+              : `Candidate ${attemptIndex + 1} returned and matched the schema`
+            : generationAttemptCount === body.stemCount
+              ? `Stem ${stemIndex + 1} returned but did not match the schema`
+              : `Candidate ${attemptIndex + 1} returned but did not match the schema`,
           completedStems: completedStemCalls,
-          totalStems: body.stemCount,
+          totalStems: generationAttemptCount,
           runId,
         })
         if (!parsedWriter.success) {
@@ -825,7 +1100,7 @@ async function executeGeneration(
           stemIndex
         )
       }),
-      body.stemCount
+      generationAttemptCount
     )
     const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
     const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length
@@ -882,15 +1157,35 @@ async function executeGeneration(
 
     emitProgress({
       type: 'progress',
-      step: 'drafts',
-      message: 'Preparing accepted stems for tutor review',
+      step: 'images',
+      message: body.imageGenerationMode === 'deterministic'
+        ? 'Rendering deterministic visuals'
+        : 'Resolving generated visuals',
       completedStems: accepted.length,
       totalStems: body.stemCount,
       runId,
     })
-    const stems = accepted.slice(0, body.stemCount).map((item, outputIndex) =>
-      toDraft({
+
+    const resolvedStems = await Promise.all(accepted.slice(0, body.stemCount).map(async (item) => ({
+      ...item,
+      imageResolution: await resolveStemImageBlocks({
         stem: item.stem,
+        mode: body.imageGenerationMode,
+        config,
+      }),
+    })))
+
+    emitProgress({
+      type: 'progress',
+      step: 'drafts',
+      message: 'Preparing accepted stems for tutor review',
+      completedStems: resolvedStems.length,
+      totalStems: body.stemCount,
+      runId,
+    })
+    const stems = await Promise.all(resolvedStems.map((item, outputIndex) =>
+      toDraft({
+        stem: item.imageResolution.stem,
         body,
         warnings: issueMessages(item.issues),
         sampleStemIds: sourceSamples.map((sample) => sample.id),
@@ -908,10 +1203,17 @@ async function executeGeneration(
           generatedByUserId: actor.userId,
           generatedByName: actor.name,
           generatedByEmail: actor.email,
+          imageGenerationMode: body.imageGenerationMode,
+          generatedImages: item.imageResolution.generatedImages.map((image) => ({
+            fileId: image.fileId,
+            storagePath: image.storagePath,
+            visualType: image.visualType,
+            sourceVisualTypes: image.sourceVisualTypes,
+          })),
         },
         categoryIdByName,
       })
-    )
+    ))
 
     await updateGenerationRun({
       client,

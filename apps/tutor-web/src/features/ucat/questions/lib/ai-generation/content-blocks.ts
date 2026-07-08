@@ -83,6 +83,17 @@ function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
+function imageNode(block: Extract<GeneratedContentBlock, { type: 'image' }>): Json {
+  return {
+    type: 'image',
+    attrs: {
+      src: block.src,
+      alt: block.altText ?? '',
+      fileId: block.fileId ?? null,
+    },
+  }
+}
+
 function chartPalette(spec: Record<string, unknown>): string[] {
   const style = spec.style && typeof spec.style === 'object' ? spec.style as Record<string, unknown> : {}
   const name = String(style.palette ?? '')
@@ -608,12 +619,16 @@ function distanceToSegment(point: SvgPoint, a: SvgPoint, b: SvgPoint): number {
 }
 
 function pointNearSetBoundary(point: SvgPoint, shape: Record<string, unknown>, index: number, tolerance = 34): boolean {
+  return distanceToSetBoundary(point, shape, index) < tolerance
+}
+
+function distanceToSetBoundary(point: SvgPoint, shape: Record<string, unknown>, index: number): number {
   const type = setShapeType(shape)
   if (type === 'circle') {
     const cx = finiteNumber(shape.cx, 180 + index * 90)
     const cy = finiteNumber(shape.cy, 190)
     const radius = finiteNumber(shape.r, 95)
-    return Math.abs(Math.hypot(point.x - cx, point.y - cy) - radius) < tolerance
+    return Math.abs(Math.hypot(point.x - cx, point.y - cy) - radius)
   }
   if (type === 'ellipse') {
     const cx = finiteNumber(shape.cx, 210 + index * 95)
@@ -621,10 +636,23 @@ function pointNearSetBoundary(point: SvgPoint, shape: Record<string, unknown>, i
     const rx = finiteNumber(shape.rx, 120)
     const ry = finiteNumber(shape.ry, 82)
     const value = Math.sqrt(((point.x - cx) / rx) ** 2 + ((point.y - cy) / ry) ** 2)
-    return Math.abs(value - 1) < tolerance / Math.max(rx, ry)
+    return Math.abs(value - 1) * Math.min(rx, ry)
+  }
+  if (type === 'rect') {
+    const x = finiteNumber(shape.x, 120 + index * 70)
+    const y = finiteNumber(shape.y, 115)
+    const width = finiteNumber(shape.width, 170)
+    const height = finiteNumber(shape.height, 160)
+    if (point.x < x || point.x > x + width || point.y < y || point.y > y + height) {
+      const dx = Math.max(x - point.x, 0, point.x - (x + width))
+      const dy = Math.max(y - point.y, 0, point.y - (y + height))
+      return Math.hypot(dx, dy)
+    }
+    return Math.min(point.x - x, x + width - point.x, point.y - y, y + height - point.y)
   }
   const points = polygonPoints(shape, index)
-  return points.some((a, pointIndex) => distanceToSegment(point, a, points[(pointIndex + 1) % points.length] ?? a) < tolerance)
+  if (points.length === 0) return Number.POSITIVE_INFINITY
+  return Math.min(...points.map((a, pointIndex) => distanceToSegment(point, a, points[(pointIndex + 1) % points.length] ?? a)))
 }
 
 function pointInsideSetShape(point: SvgPoint, shape: Record<string, unknown>, index: number): boolean {
@@ -729,14 +757,36 @@ function regionMatchesPoint(
   return true
 }
 
-function pointForSetRegion(
+function placementForSetRegion(
   record: Record<string, unknown>,
   shapes: unknown[],
   fallback: SvgPoint,
   placed: SvgLabelBox[] = [],
   text = '',
-  fontSize = 18
-): SvgPoint {
+  requestedFontSize = 18
+): { point: SvgPoint; fontSize: number } | null {
+  const fontSizes = Array.from(
+    new Set([requestedFontSize, 17, 16, 15, 14, 13, 12, 11, 10].filter((size) => Number.isFinite(size) && size >= 10))
+  ).sort((a, b) => b - a)
+  for (const fontSize of fontSizes) {
+    const point = pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 4, true) ??
+      pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 0, true) ??
+      pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 0, false)
+    if (point) return { point, fontSize }
+  }
+  return null
+}
+
+function pointForSetRegionAtFontSize(
+  record: Record<string, unknown>,
+  shapes: unknown[],
+  fallback: SvgPoint,
+  placed: SvgLabelBox[] = [],
+  text = '',
+  fontSize = 18,
+  minAnchorClearance = 4,
+  avoidPlacedLabels = true
+): SvgPoint | null {
   const { include, exclude } = regionExpressionForLabel(record)
   if (include.size === 0 && exclude.size === 0) return fallback
   const shapeRecords = setShapeRecords(shapes).map((shape) => ({
@@ -744,33 +794,66 @@ function pointForSetRegion(
     id: setShapeId(shape.raw, shape.index),
   }))
   if (shapeRecords.length === 0) return fallback
+  applyOnlyRegionExclusions(record, shapeRecords, include, exclude)
   let best: { point: SvgPoint; score: number } | null = null
-  for (let y = 70; y <= 360; y += 14) {
-    for (let x = 55; x <= 660; x += 14) {
-      const point = { x, y }
-      if (!regionMatchesPoint(point, shapeRecords, include, exclude)) continue
-      const boundaryDistance = Math.min(
-        ...shapeRecords.map((shape) =>
-          pointNearSetBoundary(point, shape.raw, shape.index, 18) ? 0 : 18
-        )
-      )
-      if (boundaryDistance === 0) continue
-      const box = labelBox(point, text, fontSize)
-      if (placed.some((item) => labelsOverlap(box, item))) continue
-      const includedCenters = shapeRecords
-        .filter((shape) => include.has(shape.id.toLowerCase()) || include.has(String(shape.raw.label ?? '').trim().toLowerCase()))
-        .map((shape) => shapeCenter(shape.raw, shape.index))
-      const centerScore = includedCenters.length > 0
-        ? includedCenters.reduce((sum, center) => sum + Math.hypot(point.x - center.x, point.y - center.y), 0) / includedCenters.length
-        : Math.hypot(point.x - 360, point.y - 215)
-      const labelClearance = placed.length > 0
-        ? Math.min(...placed.map((item) => Math.hypot(point.x - item.x, point.y - item.y)))
-        : 120
-      const score = centerScore + Math.hypot(point.x - fallback.x, point.y - fallback.y) * 0.08 - labelClearance * 0.15
-      if (!best || score < best.score) best = { point, score }
+  const candidates: SvgPoint[] = [
+    fallback,
+    ...candidatePoints(fallback),
+  ]
+  for (let y = 58; y <= 384; y += 4) {
+    for (let x = 36; x <= 684; x += 4) {
+      candidates.push({ x, y })
     }
   }
-  return best?.point ?? fallback
+  for (const point of candidates) {
+    const box = labelBox(point, text, fontSize)
+    const outOfBounds = box.x - box.width / 2 < 24 || box.x + box.width / 2 > 696 || box.y - box.fontSize < 44 || box.y > 412
+    if (outOfBounds) continue
+    if (!labelAnchorFitsSetRegion(point, shapeRecords, include, exclude, minAnchorClearance)) continue
+    if (avoidPlacedLabels && placed.some((item) => labelsOverlap(box, item))) continue
+    const boundaryClearance = Math.min(...shapeRecords.map((shape) => distanceToSetBoundary(point, shape.raw, shape.index)))
+    const includedCenters = shapeRecords
+      .filter((shape) => include.has(shape.id.toLowerCase()) || include.has(String(shape.raw.label ?? '').trim().toLowerCase()))
+      .map((shape) => shapeCenter(shape.raw, shape.index))
+    const centerScore = includedCenters.length > 0
+      ? includedCenters.reduce((sum, center) => sum + Math.hypot(point.x - center.x, point.y - center.y), 0) / includedCenters.length
+      : Math.hypot(point.x - 360, point.y - 215)
+    const labelClearance = placed.length > 0
+      ? Math.min(...placed.map((item) => Math.hypot(point.x - item.x, point.y - item.y)))
+      : 120
+    const score = centerScore + Math.hypot(point.x - fallback.x, point.y - fallback.y) * 0.06 - labelClearance * 0.2 - boundaryClearance * 2
+    if (!best || score < best.score) best = { point, score }
+  }
+  return best?.point ?? null
+}
+
+function applyOnlyRegionExclusions(
+  record: Record<string, unknown>,
+  shapeRecords: Array<{ raw: Record<string, unknown>; index: number; id: string }>,
+  include: Set<string>,
+  exclude: Set<string>
+) {
+  const regionText = String(record.region ?? '').toLowerCase()
+  if (!/\bonly\b/u.test(regionText) || include.size === 0) return
+  for (const shape of shapeRecords) {
+    const id = shape.id.toLowerCase()
+    const label = String(shape.raw.label ?? '').trim().toLowerCase()
+    const included = include.has(id) || (label && include.has(label))
+    if (included) continue
+    exclude.add(id)
+    if (label) exclude.add(label)
+  }
+}
+
+function labelAnchorFitsSetRegion(
+  point: SvgPoint,
+  shapeRecords: Array<{ raw: Record<string, unknown>; index: number; id: string }>,
+  include: Set<string>,
+  exclude: Set<string>,
+  minClearance: number
+): boolean {
+  if (!regionMatchesPoint(point, shapeRecords, include, exclude)) return false
+  return shapeRecords.every((shape) => distanceToSetBoundary(point, shape.raw, shape.index) >= minClearance)
 }
 
 function labelWidth(text: string, fontSize: number): number {
@@ -989,7 +1072,7 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
   shapes: Array<Record<string, unknown>>
   values: unknown[]
 } {
-  const normalizedShapes = shapes
+  let normalizedShapes = shapes
     .map((raw) => raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : null)
     .filter((shape): shape is Record<string, unknown> => Boolean(shape))
   const numericValues: unknown[] = []
@@ -1012,7 +1095,36 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
     if (candidates.length === 1 && !candidates[0]?.label) candidates[0].label = entry.label
   }
 
+  normalizedShapes = normalizeGeneratedVennShapeLayout(normalizedShapes)
+
   return { shapes: normalizedShapes, values: numericValues }
+}
+
+function normalizeGeneratedVennShapeLayout(shapes: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  if (shapes.length === 2) {
+    return shapes.map((shape, index) => ({
+      ...shape,
+      shape: 'circle',
+      cx: index === 0 ? 285 : 395,
+      cy: 220,
+      r: 122,
+    }))
+  }
+
+  if (shapes.length === 3) {
+    const layout = [
+      { cx: 285, cy: 190, r: 118 },
+      { cx: 395, cy: 190, r: 118 },
+      { cx: 340, cy: 286, r: 118 },
+    ]
+    return shapes.map((shape, index) => ({
+      ...shape,
+      shape: 'circle',
+      ...layout[index],
+    }))
+  }
+
+  return shapes
 }
 
 function renderSetDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
@@ -1044,25 +1156,32 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
     const fontSize = Number(record.fontSize ?? 18)
     const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
     const hasSemanticRegion = hasSetRegionExpression(record)
-    const origin = hasSemanticRegion ? pointForSetRegion(record, shapes, fallbackPoint, placedLabels, text, fontSize) : fallbackPoint
-    const box = placeSetLabel(
-      origin,
-      text,
-      fontSize,
-      shapes,
-      placedLabels,
-      {
-        avoidBoundaries: /\d/u.test(text),
-        maxX: useLegend ? 540 : 665,
-        minY: 46,
-      }
-    )
+    const placement = hasSemanticRegion
+      ? placementForSetRegion(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+      : { point: fallbackPoint, fontSize }
+    if (!placement) {
+      throw new Error(`No safe label position found for set region "${String(record.region ?? text)}".`)
+    }
+    const box = hasSemanticRegion
+      ? labelBox(placement.point, text, placement.fontSize)
+      : placeSetLabel(
+          placement.point,
+          text,
+          placement.fontSize,
+          shapes,
+          placedLabels,
+          {
+            avoidBoundaries: /\d/u.test(text),
+            maxX: useLegend ? 540 : 665,
+            minY: 46,
+          }
+        )
     placedLabels.push(box)
     const paddingX = 5
     const width = Math.max(18, box.width + paddingX * 2)
-    const height = fontSize + 8
-    const rect = `<rect x="${box.x - width / 2}" y="${box.y - fontSize}" width="${width}" height="${height}" rx="3" fill="white" fill-opacity="0.9"/>`
-    const label = `<text x="${box.x}" y="${box.y}" font-size="${fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
+    const height = placement.fontSize + 8
+    const rect = `<rect x="${box.x - width / 2}" y="${box.y - placement.fontSize}" width="${width}" height="${height}" rx="3" fill="white" fill-opacity="0.9"/>`
+    const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
     return `${rect}${label}`
   }).join('')
   const height = useLegend ? 520 : 430
@@ -1070,165 +1189,7 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
 }
 
 function renderVennDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
-  if (Array.isArray(spec.shapes)) return renderSetDiagram(spec, title)
-  const sets = Array.isArray(spec.sets) ? spec.sets : []
-  const regions = spec.regions && typeof spec.regions === 'object'
-    ? spec.regions as Record<string, unknown>
-    : null
-  if (sets.length === 3 && regions) {
-    const labels = sets.map((raw, index) => {
-      const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-      return escapeXml(String(record.label ?? record.id ?? String.fromCharCode(65 + index)))
-    })
-    const region = (key: string) => escapeXml(String(regions[key] ?? ''))
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20" font-family="Arial">${escapeXml(title ?? 'Venn diagram')}</text><circle cx="260" cy="180" r="120" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="380" cy="180" r="120" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="320" cy="275" r="120" fill="none" stroke="#111" stroke-width="2.5"/><line x1="500" y1="94" x2="530" y2="94" stroke="#111" stroke-width="2"/><text x="540" y="100" font-size="15" font-family="Arial">${labels[0]}</text><line x1="500" y1="124" x2="530" y2="124" stroke="#111" stroke-width="2"/><text x="540" y="130" font-size="15" font-family="Arial">${labels[1]}</text><line x1="500" y1="154" x2="530" y2="154" stroke="#111" stroke-width="2"/><text x="540" y="160" font-size="15" font-family="Arial">${labels[2]}</text><text x="205" y="165" font-size="18">${region('aOnly')}</text><text x="420" y="165" font-size="18">${region('bOnly')}</text><text x="310" y="340" font-size="18">${region('cOnly')}</text><text x="315" y="115" font-size="18">${region('abOnly')}</text><text x="250" y="255" font-size="18">${region('acOnly')}</text><text x="380" y="255" font-size="18">${region('bcOnly')}</text><text x="315" y="205" font-size="18">${region('abc')}</text><text x="550" y="365" font-size="16">${region('outside')}</text></svg>`
-  }
-  const leftLabel = String(spec.leftLabel ?? 'A')
-  const rightLabel = String(spec.rightLabel ?? 'B')
-  const intersectionLabel = String(spec.intersectionLabel ?? '')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="340" viewBox="0 0 560 340"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20">${escapeXml(title ?? 'Venn diagram')}</text><circle cx="230" cy="180" r="105" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="330" cy="180" r="105" fill="none" stroke="#111" stroke-width="2.5"/><text x="160" y="180" font-size="18">${escapeXml(leftLabel)}</text><text x="375" y="180" font-size="18">${escapeXml(rightLabel)}</text><text x="265" y="180" font-size="18">${escapeXml(intersectionLabel)}</text></svg>`
-}
-
-function renderSchematicMap(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const points = Array.isArray(spec.points) ? spec.points : []
-  const lines = Array.isArray(spec.lines) ? spec.lines : []
-  return renderRouteMap({ ...spec, points, lines }, title ?? 'Schematic map')
-}
-
-function mapLabelBox(point: SvgPoint, text: string, fontSize: number, placed: SvgLabelBox[], bounds: { minX: number; maxX: number; minY: number; maxY: number }): SvgLabelBox {
-  let best: { box: SvgLabelBox; score: number } | null = null
-  for (const candidate of candidatePoints(point)) {
-    const box = labelBox(candidate, text, fontSize)
-    const outOfBounds = box.x - box.width / 2 < bounds.minX || box.x + box.width / 2 > bounds.maxX || box.y - box.fontSize < bounds.minY || box.y > bounds.maxY
-    const overlaps = placed.some((item) => labelsOverlap(box, item))
-    const score = (outOfBounds ? 10000 : 0) + (overlaps ? 5000 : 0) + Math.hypot(candidate.x - point.x, candidate.y - point.y)
-    if (!best || score < best.score) best = { box, score }
-    if (!outOfBounds && !overlaps) return box
-  }
-  return best?.box ?? labelBox(point, text, fontSize)
-}
-
-function renderRouteMap(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const points = Array.isArray(spec.points) ? spec.points : []
-  const rawLines = Array.isArray(spec.lines) ? spec.lines : Array.isArray(spec.paths) ? spec.paths : []
-  const pointMap = new Map<string, { x: number; y: number; label: string }>()
-  points.forEach((raw, index) => {
-    const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-    const id = String(record.id ?? index)
-    pointMap.set(id, {
-      x: Number(record.x ?? 80 + index * 90),
-      y: Number(record.y ?? 160),
-      label: String(record.label ?? id),
-    })
-  })
-  const placedLabels: SvgLabelBox[] = []
-  const svgLines = rawLines
-    .map((raw) => {
-      const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-      const from = pointMap.get(String(record.from ?? ''))
-      const to = pointMap.get(String(record.to ?? ''))
-      if (!from || !to) return ''
-      const label = String(record.label ?? '')
-      const dx = to.x - from.x
-      const dy = to.y - from.y
-      const length = Math.max(1, Math.hypot(dx, dy))
-      const offset = 18
-      const origin = {
-        x: (from.x + to.x) / 2 + (-dy / length) * offset,
-        y: (from.y + to.y) / 2 + (dx / length) * offset,
-      }
-      const line = `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#111" stroke-width="3"/>`
-      if (!label) return line
-      const box = mapLabelBox(origin, label, 13, placedLabels, { minX: 26, maxX: 614, minY: 50, maxY: 330 })
-      placedLabels.push(box)
-      const rect = `<rect x="${box.x - box.width / 2}" y="${box.y - 13}" width="${box.width}" height="20" rx="3" fill="white" fill-opacity="0.92"/>`
-      return `${line}${rect}<text x="${box.x}" y="${box.y}" text-anchor="middle" font-size="13" font-family="Arial, sans-serif">${escapeXml(label)}</text>`
-    })
-    .join('')
-  const svgPoints = Array.from(pointMap.values())
-    .map((point) => {
-      const preferred = point.x <= 95
-        ? { x: point.x + 24, y: point.y + 44 }
-        : point.x >= 545
-          ? { x: point.x - 48, y: point.y + 28 }
-          : { x: point.x + 30, y: point.y - 14 }
-      const box = mapLabelBox(preferred, point.label, 14, placedLabels, { minX: 20, maxX: 620, minY: 48, maxY: 340 })
-      placedLabels.push(box)
-      const rect = `<rect x="${box.x - box.width / 2}" y="${box.y - 14}" width="${box.width}" height="22" rx="3" fill="white" fill-opacity="0.9"/>`
-      return `<circle cx="${point.x}" cy="${point.y}" r="8" fill="#2563eb"/>${rect}<text x="${box.x}" y="${box.y}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif">${escapeXml(point.label)}</text>`
-    })
-    .join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20" font-family="Arial, sans-serif">${escapeXml(title ?? 'Route map')}</text>${svgLines}${svgPoints}</svg>`
-}
-
-function renderLayoutGrid(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const rows = Math.max(1, Math.min(8, Math.round(Number(spec.rows ?? 3))))
-  const columns = Math.max(1, Math.min(8, Math.round(Number(spec.columns ?? 3))))
-  const rowLabels = stringArray(spec.rowLabels)
-  const columnLabels = stringArray(spec.columnLabels)
-  const cells = Array.isArray(spec.cells) ? spec.cells : []
-  const width = 640
-  const cell = Math.min(78, Math.floor((width - 150) / Math.max(columns, 1)))
-  const left = rowLabels.length > 0 ? 110 : 62
-  const top = columnLabels.length > 0 ? 94 : 70
-  const gridWidth = columns * cell
-  const gridHeight = rows * cell
-  const height = Math.max(260, top + gridHeight + 42)
-  const cellMap = new Map<string, Record<string, unknown>>()
-  cells.forEach((raw) => {
-    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    const row = Math.round(Number(record.row ?? 0))
-    const column = Math.round(Number(record.column ?? 0))
-    if (row >= 1 && row <= rows && column >= 1 && column <= columns) cellMap.set(`${row}:${column}`, record)
-  })
-  const columnNodes = columnLabels.map((label, index) =>
-    `<text x="${left + index * cell + cell / 2}" y="${top - 16}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>`
-  ).join('')
-  const rowNodes = rowLabels.map((label, index) =>
-    `<text x="${left - 16}" y="${top + index * cell + cell / 2 + 5}" text-anchor="end" font-size="14" font-family="Arial, sans-serif" font-weight="600">${escapeXml(label)}</text>`
-  ).join('')
-  const cellNodes = Array.from({ length: rows }, (_, rowIndex) =>
-    Array.from({ length: columns }, (_, columnIndex) => {
-      const x = left + columnIndex * cell
-      const y = top + rowIndex * cell
-      const record = cellMap.get(`${rowIndex + 1}:${columnIndex + 1}`) ?? {}
-      const label = String(record.label ?? '').trim()
-      const fill = String(record.fill ?? ((rowIndex + columnIndex) % 2 === 0 ? '#fff' : '#f8fafc'))
-      return `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${fill}" stroke="#111" stroke-width="1.5"/><text x="${x + cell / 2}" y="${y + cell / 2 + 5}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif">${escapeXml(label)}</text>`
-    }).join('')
-  ).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? String(spec.title ?? 'Layout grid'), 32, 34)}${columnNodes}${rowNodes}<rect x="${left}" y="${top}" width="${gridWidth}" height="${gridHeight}" fill="none" stroke="#111" stroke-width="2.4"/>${cellNodes}</svg>`
-}
-
-function renderTimetable(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const columns = stringArray(spec.columns)
-  const rows = Array.isArray(spec.rows)
-    ? spec.rows.map((row) => Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : [])
-    : []
-  const width = 760
-  const rowHeight = 38
-  const headerHeight = 46
-  const top = 86
-  const left = 38
-  const tableWidth = width - left * 2
-  const colWidth = columns.length > 0 ? tableWidth / columns.length : tableWidth
-  const height = Math.max(220, top + headerHeight + rows.length * rowHeight + 38)
-  const caption = String(spec.caption ?? title ?? 'Timetable').trim()
-  const header = columns.map((column, index) => {
-    const x = left + index * colWidth
-    return `<rect x="${x}" y="${top}" width="${colWidth}" height="${headerHeight}" fill="#f3f4f6" stroke="#111" stroke-width="1.4"/><text x="${x + colWidth / 2}" y="${top + 28}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="600">${escapeXml(column)}</text>`
-  }).join('')
-  const body = rows.map((row, rowIndex) => {
-    const y = top + headerHeight + rowIndex * rowHeight
-    return columns.map((_, columnIndex) => {
-      const x = left + columnIndex * colWidth
-      const text = row[columnIndex] ?? ''
-      const fill = rowIndex % 2 === 0 ? '#fff' : '#fafafa'
-      const weight = columnIndex < Number(spec.rowHeaderCount ?? 1) ? 600 : 400
-      return `<rect x="${x}" y="${y}" width="${colWidth}" height="${rowHeight}" fill="${fill}" stroke="#111" stroke-width="1"/><text x="${x + colWidth / 2}" y="${y + 24}" text-anchor="middle" font-size="13" font-family="Arial, sans-serif" font-weight="${weight}">${escapeXml(text)}</text>`
-    }).join('')
-  }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/><text x="${left}" y="38" font-size="20" font-family="Arial, sans-serif" font-weight="600">${escapeXml(caption)}</text>${header}${body}</svg>`
+  return renderSetDiagram(spec, title)
 }
 
 function escapeXml(value: string): string {
@@ -1242,26 +1203,10 @@ function escapeXml(value: string): string {
 
 export function generatedVisualBlockToImageNode(block: Extract<GeneratedContentBlock, { type: 'visual' }>): Json {
   let svg: string
-  if (block.visualType === 'bar_chart' || block.visualType === 'histogram') {
-    svg = renderBarChart(block.spec, block.title)
-  } else if (block.visualType === 'stacked_bar_chart') {
-    svg = renderBarChart(block.spec, block.title, 'stacked')
-  } else if (block.visualType === 'line_chart') {
-    svg = renderLineChart(block.spec, block.title)
-  } else if (block.visualType === 'scatter_plot') {
-    svg = renderScatterPlot(block.spec, block.title)
-  } else if (block.visualType === 'pie_chart') {
-    svg = renderPieChart(block.spec, block.title)
-  } else if (block.visualType === 'venn_diagram' || block.visualType === 'set_diagram') {
-    svg = renderVennDiagram(block.spec, block.title)
-  } else if (block.visualType === 'route_map') {
-    svg = renderRouteMap(block.spec, block.title)
-  } else if (block.visualType === 'layout_grid') {
-    svg = renderLayoutGrid(block.spec, block.title)
-  } else if (block.visualType === 'timetable') {
-    svg = renderTimetable(block.spec, block.title)
+  if (block.visualType === 'vega_lite_chart') {
+    throw new Error('vega_lite_chart visuals must be rendered on the server.')
   } else {
-    svg = renderSchematicMap(block.spec, block.title)
+    svg = renderVennDiagram(block.spec, block.title)
   }
 
   return {
@@ -1273,60 +1218,17 @@ export function generatedVisualBlockToImageNode(block: Extract<GeneratedContentB
   }
 }
 
+export async function generatedVisualBlockToImageNodeAsync(block: Extract<GeneratedContentBlock, { type: 'visual' }>): Promise<Json> {
+  return generatedVisualBlockToImageNode(block)
+}
+
 export function getGeneratedVisualSpecIssue(block: Extract<GeneratedContentBlock, { type: 'visual' }>): string | null {
   const spec = block.spec
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return 'Visual spec must be an object.'
 
-  const labels = stringArray(spec.labels)
-  const values = numberArray(spec.values)
-  const series = chartSeries(spec)
-  const panels = Array.isArray(spec.panels)
-    ? spec.panels.map((panel) => panel && typeof panel === 'object' ? panel as Record<string, unknown> : {})
-    : []
-
-  if (['bar_chart', 'histogram', 'stacked_bar_chart', 'line_chart'].includes(block.visualType)) {
-    const hasSingleChartData = values.length > 0 || series.some((item) => item.values.length > 0)
-    const hasPanelChartData = panels.some((panel) =>
-      numberArray(panel.values).length > 0 || chartSeries(panel).some((item) => item.values.length > 0)
-    )
-    if (!hasSingleChartData && !hasPanelChartData) {
-      return `${block.visualType} needs plotted numeric data in values, series, or panels.`
-    }
-    if (labels.length === 0 && panels.length === 0) {
-      return `${block.visualType} needs category/time labels so the rendered chart is interpretable.`
-    }
-  }
-
-  if (block.visualType === 'scatter_plot') {
-    const hasPoints = Array.isArray(spec.points) && spec.points.length > 0
-    const hasSeriesPoints = series.some((item) => (item.points?.length ?? 0) > 0)
-    if (!hasPoints && !hasSeriesPoints) return 'scatter_plot needs plotted points.'
-  }
-
-  if (block.visualType === 'pie_chart') {
-    const hasSinglePieData = labels.length > 0 && values.length > 0
-    const hasPanelPieData = panels.some((panel) => stringArray(panel.labels).length > 0 && numberArray(panel.values).length > 0)
-    if (!hasSinglePieData && !hasPanelPieData) return 'pie_chart needs labels and values.'
-  }
-
-  if (block.visualType === 'timetable') {
-    const rows = Array.isArray(spec.rows) ? spec.rows : []
-    if (stringArray(spec.columns).length === 0 || rows.length === 0) return 'timetable needs columns and rows.'
-  }
-
-  if (block.visualType === 'layout_grid') {
-    const rowLabels = stringArray(spec.rowLabels)
-    const columnLabels = stringArray(spec.columnLabels)
-    const rows = Number(spec.rows)
-    const columns = Number(spec.columns)
-    if ((rowLabels.length === 0 || columnLabels.length === 0) && (!Number.isFinite(rows) || !Number.isFinite(columns))) {
-      return 'layout_grid needs row/column labels or explicit row/column counts.'
-    }
-  }
-
-  if (block.visualType === 'route_map') {
-    if (!Array.isArray(spec.points) || spec.points.length === 0) return 'route_map needs labelled points.'
-    if (!Array.isArray(spec.lines) || spec.lines.length === 0) return 'route_map needs lines between points.'
+  if (block.visualType === 'vega_lite_chart') {
+    if (!hasInlineVegaData(spec)) return 'vega_lite_chart needs inline data.values or datasets.'
+    if (hasExternalVegaReference(spec)) return 'vega_lite_chart must not reference external urls.'
   }
 
   if (block.visualType === 'venn_diagram' || block.visualType === 'set_diagram') {
@@ -1338,8 +1240,72 @@ export function getGeneratedVisualSpecIssue(block: Extract<GeneratedContentBlock
     if (regions.length === 0 && regionLabels.length === 0 && shapes.length === 0) {
       return `${block.visualType} needs labelled regions, regionLabels, or shapes.`
     }
+    const placementIssue = getSetDiagramPlacementIssue(spec)
+    if (placementIssue) return placementIssue
   }
 
+  return null
+}
+
+function hasInlineVegaData(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasInlineVegaData)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    const data = record.data as Record<string, unknown>
+    if (Array.isArray(data.values) && data.values.length > 0) return true
+  }
+  if (record.datasets && typeof record.datasets === 'object' && !Array.isArray(record.datasets)) {
+    if (Object.values(record.datasets).some((dataset) => Array.isArray(dataset) && dataset.length > 0)) return true
+  }
+  return Object.values(record).some(hasInlineVegaData)
+}
+
+function hasExternalVegaReference(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasExternalVegaReference)
+  if (!value || typeof value !== 'object') return false
+  return Object.entries(value as Record<string, unknown>).some(([key, child]) => {
+    if (['url', 'href', 'src'].includes(key.toLowerCase()) && typeof child === 'string' && child.trim()) return true
+    return hasExternalVegaReference(child)
+  })
+}
+
+function getSetDiagramPlacementIssue(spec: Record<string, unknown>): string | null {
+  const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
+  const rawValues = Array.isArray(spec.regionLabels)
+    ? spec.regionLabels
+    : Array.isArray(spec.labels)
+      ? spec.labels
+      : Array.isArray(spec.regions)
+        ? spec.regions
+        : []
+  const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
+  if (shapes.length > 3) {
+    return 'Generated set diagrams support two or three sets only. Use a simpler two-set or three-set Venn diagram.'
+  }
+  if (shapes.length < 2) {
+    return 'Generated set diagrams need at least two sets.'
+  }
+  const numericLabelCount = values.filter((raw) => {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    return /\d/u.test(String(record.text ?? record.value ?? ''))
+  }).length
+  const maxNumericLabels = shapes.length === 2 ? 4 : 8
+  if (numericLabelCount > maxNumericLabels) {
+    return `Generated ${shapes.length}-set diagrams can display at most ${maxNumericLabels} numeric region labels without ambiguity.`
+  }
+  const placedLabels: SvgLabelBox[] = []
+  for (const raw of values) {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const text = String(record.text ?? record.value ?? '')
+    if (!/\d/u.test(text)) continue
+    if (!hasSetRegionExpression(record)) return `Set diagram numeric label "${text}" needs a semantic set-region expression.`
+    const fontSize = Number(record.fontSize ?? 18)
+    const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    const placement = placementForSetRegion(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+    if (!placement) return `Set diagram numeric label "${text}" cannot be placed safely inside its semantic region.`
+    placedLabels.push(labelBox(placement.point, text, placement.fontSize))
+  }
   return null
 }
 
@@ -1353,6 +1319,7 @@ export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): J
       content.push(tableNode(block))
     }
     if (block.type === 'visual') content.push(generatedVisualBlockToImageNode(block))
+    if (block.type === 'image') content.push(imageNode(block))
   }
   return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
 }
@@ -1363,6 +1330,27 @@ export function generatedContentToProseMirror(value: string | GeneratedContentBl
   return generatedBlocksToProseMirror(value)
 }
 
+export async function generatedBlocksToProseMirrorAsync(blocks: GeneratedContentBlock[]): Promise<Json> {
+  const content: Json[] = []
+  for (const block of blocks) {
+    if (block.type === 'paragraph') content.push(paragraph(block.text))
+    if (block.type === 'list') content.push(listNode(block))
+    if (block.type === 'table') {
+      if (block.caption) content.push(paragraph(block.caption))
+      content.push(tableNode(block))
+    }
+    if (block.type === 'visual') content.push(await generatedVisualBlockToImageNodeAsync(block))
+    if (block.type === 'image') content.push(imageNode(block))
+  }
+  return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
+}
+
+export async function generatedContentToProseMirrorAsync(value: string | GeneratedContentBlock[]): Promise<Json> {
+  if (typeof value === 'string' && value.includes('**')) return markedTextToProseMirror(value)
+  if (typeof value === 'string') return plainTextToProseMirrorWithLineBreaks(value)
+  return generatedBlocksToProseMirrorAsync(value)
+}
+
 export function generatedContentToPlainText(value: string | GeneratedContentBlock[]): string {
   if (typeof value === 'string') return value.replace(/\*\*([^*\n]+)\*\*/gu, '$1')
   return value
@@ -1370,6 +1358,7 @@ export function generatedContentToPlainText(value: string | GeneratedContentBloc
       if (block.type === 'paragraph') return block.text.replace(/\*\*([^*\n]+)\*\*/gu, '$1')
       if (block.type === 'list') return block.items.map((item) => `- ${item}`).join('\n')
       if (block.type === 'table') return [block.caption, block.columns.join('\t'), ...block.rows.map((row) => row.join('\t'))].filter(Boolean).join('\n')
+      if (block.type === 'image') return block.altText ?? ''
       return [block.title, block.altText].filter(Boolean).join('\n')
     })
     .join('\n')

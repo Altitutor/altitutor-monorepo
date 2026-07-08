@@ -9,6 +9,7 @@ import {
   Label,
   SearchableSelect,
   Spinner,
+  Switch,
   Textarea,
   useToast,
 } from '@altitutor/ui'
@@ -60,6 +61,7 @@ type DraftWithMetadata = BulkImportStemDraft & {
 type DifficultyTarget = 'easy' | 'medium' | 'hard' | 'mixed'
 type TimeBurdenTarget = 'low' | 'medium' | 'high' | 'mixed'
 type SourceMode = 'none' | 'random' | 'selected'
+type ImageGenerationMode = 'auto' | 'deterministic' | 'ai'
 
 type SelectOption<TValue extends string> = {
   id: TValue
@@ -84,6 +86,12 @@ const SOURCE_MODE_OPTIONS: Array<SelectOption<SourceMode>> = [
   { id: 'random', label: 'Random approved stems' },
   { id: 'selected', label: 'Manually choose source stems' },
   { id: 'none', label: 'No source examples' },
+]
+
+const IMAGE_GENERATION_MODE_OPTIONS: Array<SelectOption<ImageGenerationMode>> = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'deterministic', label: 'Deterministic renderer' },
+  { id: 'ai', label: 'AI-generated stem image' },
 ]
 
 function toFormValues(stem: {
@@ -199,9 +207,10 @@ const GENERATION_STEP_LABELS: Record<UcatGenerationProgress['step'], string> = {
   sources: 'Sources',
   generating: 'Model calls',
   gates: 'Validation',
+  images: 'Images',
   drafts: 'Drafts',
 }
-const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'drafts']
+const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'images', 'drafts']
 
 function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null }) {
   if (!debug) return null
@@ -236,7 +245,7 @@ function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null
       <div className="grid gap-3 text-sm md:grid-cols-2">
         <div>Requested stems: {debug.requestedStemCount}</div>
         <div>Section: {debug.sectionName ?? '-'}</div>
-        <div>Selected category: {debug.selectedCategoryName ?? 'Spread across categories'}</div>
+        <div>Selected category: {debug.selectedCategoryName ?? 'Realistic category mix'}</div>
         <div>Prompt layers: {debug.promptLayerCount}</div>
         <div className="md:col-span-2">Source sample IDs: {debug.sourceSampleIds.join(', ') || '-'}</div>
       </div>
@@ -369,6 +378,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>('random')
+  const [includeAiSourceStems, setIncludeAiSourceStems] = useState(false)
+  const [imageGenerationMode, setImageGenerationMode] = useState<ImageGenerationMode>('auto')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
   const [difficultyTarget, setDifficultyTarget] = useState<DifficultyTarget>('mixed')
@@ -401,9 +412,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return all.filter((stem) => {
       if (!stem.sectionId || stem.sectionId !== sectionId) return false
       if (categoryId && stem.categoryId !== categoryId) return false
+      if (!includeAiSourceStems && stem.isAiGenerated) return false
       return true
     })
-  }, [stemCatalogQuery.data, sectionId, categoryId])
+  }, [stemCatalogQuery.data, sectionId, categoryId, includeAiSourceStems])
 
   const stemById = useMemo(() => {
     const map = new Map<string, UcatStemCatalogItem>()
@@ -491,6 +503,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setCategoryId(null)
     setModelProfileId(null)
     setSourceMode('random')
+    setIncludeAiSourceStems(false)
     setSelectedSourceIds([])
     setTargetTagIds([])
     setDifficultyTarget('mixed')
@@ -504,6 +517,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setGenerationError(null)
     setGenerationDebug(null)
     setGenerationProgress(null)
+    setImageGenerationMode('auto')
   }
 
   async function handleGenerate() {
@@ -523,6 +537,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         categoryId,
         modelProfileId: effectiveModelProfileId,
         sourceMode,
+        includeAiSourceStems,
+        imageGenerationMode,
         sourceStemIds: sourceMode === 'selected' ? selectedSourceIds : [],
         stemCount,
         difficultyTarget,
@@ -705,12 +721,12 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => taxonomyDisplayLabel(item)}
-                      placeholder="Spread across categories"
+                      placeholder="Realistic category mix"
                       searchPlaceholder="Search categories..."
                       emptyMessage="No categories found"
                       disabled={!sectionId}
                       allowClear
-                      clearLabel="Spread across categories"
+                      clearLabel="Realistic category mix"
                     />
                   </div>
                   <div className="space-y-2">
@@ -816,11 +832,42 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                         setSelectedSourceIds([])
                         setStemSearch('')
                         setStemFilters({})
+                        if (value.id === 'none') setIncludeAiSourceStems(false)
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search source modes..."
                     />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+                    <Label htmlFor="include-ai-source-stems" className="text-sm font-medium">
+                      Include AI-generated source stems
+                    </Label>
+                    <Switch
+                      id="include-ai-source-stems"
+                      checked={includeAiSourceStems}
+                      disabled={sourceMode === 'none'}
+                      onCheckedChange={(checked) => {
+                        setIncludeAiSourceStems(checked)
+                        setSelectedSourceIds([])
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Image generation</Label>
+                    <SearchableSelect<SelectOption<ImageGenerationMode>>
+                      items={IMAGE_GENERATION_MODE_OPTIONS}
+                      value={IMAGE_GENERATION_MODE_OPTIONS.find((item) => item.id === imageGenerationMode) ?? null}
+                      onValueChange={(value) => {
+                        if (value) setImageGenerationMode(value.id)
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      searchPlaceholder="Search image modes..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Auto uses AI for stem-level QR source images when an image API is configured, and deterministic rendering for DM set/logical diagrams.
+                    </p>
                   </div>
                 </div>
 

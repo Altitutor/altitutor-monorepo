@@ -1,5 +1,8 @@
 import type { GeneratedStem } from '@/features/ucat/questions/lib/ai-generation/schema'
-import { generatedContentToPlainText } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import {
+  generatedContentToPlainText,
+  getGeneratedVisualSpecIssue,
+} from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 
 export type GenerationGateSeverity = 'blocking' | 'warning'
 
@@ -301,6 +304,14 @@ function validateCommon(stem: GeneratedStem, stemIndex: number, issues: Generati
     add(issues, 'warning', 'generic_ai_dash_style', 'Candidate uses generic AI-style dash punctuation.', stemIndex)
   }
 
+  generatedBlocks(stem).forEach((block) => {
+    if (block.type !== 'visual') return
+    const issue = getGeneratedVisualSpecIssue(block)
+    if (issue) {
+      add(issues, 'blocking', 'generated_visual_spec_invalid', issue, stemIndex)
+    }
+  })
+
   for (let questionIndex = 0; questionIndex < stem.questions.length; questionIndex += 1) {
     const question = stem.questions[questionIndex]
     if (!question) continue
@@ -497,6 +508,34 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
         0
       )
     }
+    const oversizedVisual = setVisuals.some((block) => block.type === 'visual' && Array.isArray(block.spec.shapes) && block.spec.shapes.length > 3)
+    if (oversizedVisual) {
+      add(
+        issues,
+        'blocking',
+        'dm_venn_too_many_sets',
+        'Generated Venn Diagram visuals must use two or three sets only; four-set diagrams create ambiguous generated regions.',
+        stemIndex,
+        0
+      )
+    }
+    const overLabelledVisual = setVisuals.some((block) => {
+      if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return false
+      const shapeCount = block.spec.shapes.length
+      const maxLabels = shapeCount === 2 ? 4 : shapeCount === 3 ? 8 : 0
+      const labelCount = setVisualRegionLabels(block).filter((label) => /\d/u.test(label.text)).length
+      return maxLabels > 0 && labelCount > maxLabels
+    })
+    if (overLabelledVisual) {
+      add(
+        issues,
+        'blocking',
+        'dm_venn_too_many_region_labels',
+        'Generated Venn Diagram visuals must not label more regions than the two-set or three-set layout can show clearly.',
+        stemIndex,
+        0
+      )
+    }
     const semanticNumericLabels = numericRegionLabels.filter((label) => label.regionKey)
     const duplicateRegionKeys = new Set<string>()
     const seenRegionKeys = new Set<string>()
@@ -549,7 +588,13 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
   }
 }
 
-function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
+function validateQr(
+  stem: GeneratedStem,
+  stemIndex: number,
+  categoryName: string | null,
+  issues: GenerationGateIssue[],
+  targetedCategory: boolean
+) {
   if (stem.questions.length < 1 || stem.questions.length > 4) {
     add(issues, 'blocking', 'qr_question_count', 'Quantitative Reasoning stems must have 1 to 4 questions.', stemIndex)
   }
@@ -568,32 +613,24 @@ function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string
   const visuals = blocks.filter((block) => block.type === 'visual')
   const hasChart = visuals.some((block) =>
     block.type === 'visual' &&
-    ['bar_chart', 'stacked_bar_chart', 'line_chart', 'scatter_plot', 'histogram', 'pie_chart'].includes(block.visualType)
+    block.visualType === 'vega_lite_chart'
   )
-  const hasMap = visuals.some((block) => block.type === 'visual' && ['schematic_map', 'route_map', 'layout_grid'].includes(block.visualType))
-  const hasTimetable = visuals.some((block) => block.type === 'visual' && block.visualType === 'timetable')
+  const categoryMismatchSeverity = targetedCategory ? 'blocking' : 'warning'
   if (category === 'data tables' && tables === 0) {
-    add(issues, 'blocking', 'qr_table_required', `${categoryName} questions must include a table block.`, stemIndex)
+    add(issues, categoryMismatchSeverity, 'qr_table_required', `${categoryName} questions should include a table block.`, stemIndex)
   }
-  if (category === 'timetables and calendars' && tables === 0 && !hasTimetable) {
-    add(issues, 'blocking', 'qr_timetable_required', 'Timetables and Calendars questions must include a table block or deterministic timetable visual.', stemIndex)
+  if (category === 'timetables and calendars' && tables === 0 && !hasChart) {
+    add(issues, categoryMismatchSeverity, 'qr_timetable_required', 'Timetables and Calendars questions should include a table block or vega_lite_chart visual.', stemIndex)
   }
   if (category === 'graphs and charts' && !hasChart) {
-    add(issues, 'blocking', 'qr_chart_required', 'Graphs and Charts questions must include a deterministic chart visual.', stemIndex)
+    add(issues, categoryMismatchSeverity, 'qr_chart_required', 'Graphs and Charts questions should include a vega_lite_chart visual.', stemIndex)
   }
   if (category === 'graphs and charts') {
     const chartVisuals = visuals.filter((block) =>
       block.type === 'visual' &&
-      ['bar_chart', 'stacked_bar_chart', 'line_chart', 'scatter_plot', 'histogram', 'pie_chart'].includes(block.visualType)
+      block.visualType === 'vega_lite_chart'
     )
-    const thinChart = chartVisuals.some((block) => {
-      if (block.type !== 'visual') return false
-      const labels = Array.isArray(block.spec.labels) ? block.spec.labels.length : 0
-      const series = Array.isArray(block.spec.series) ? block.spec.series.length : 0
-      const panels = Array.isArray(block.spec.panels) ? block.spec.panels.length : 0
-      const points = Array.isArray(block.spec.points) ? block.spec.points.length : 0
-      return Math.max(labels, points, panels * 3) < 4 && series <= 1
-    })
+    const thinChart = chartVisuals.some((block) => countVegaLiteDataRows(block.spec) < 4)
     if (thinChart) {
       add(
         issues,
@@ -603,12 +640,7 @@ function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string
         stemIndex
       )
     }
-    const lacksAxisContext = chartVisuals.some((block) => {
-      if (block.type !== 'visual' || block.visualType === 'pie_chart') return false
-      const xAxis = block.spec.xAxis && typeof block.spec.xAxis === 'object' ? block.spec.xAxis as Record<string, unknown> : {}
-      const yAxis = block.spec.yAxis && typeof block.spec.yAxis === 'object' ? block.spec.yAxis as Record<string, unknown> : {}
-      return !String(xAxis.label ?? '').trim() || !String(yAxis.label ?? yAxis.unit ?? '').trim()
-    })
+    const lacksAxisContext = chartVisuals.some((block) => !vegaLiteHasAxisOrLegendContext(block.spec))
     if (lacksAxisContext) {
       add(
         issues,
@@ -619,15 +651,56 @@ function validateQr(stem: GeneratedStem, stemIndex: number, categoryName: string
       )
     }
   }
-  if (category === 'maps and diagrams' && !hasMap) {
-    add(issues, 'blocking', 'qr_map_required', 'Maps and Diagrams questions must include a deterministic map, route, or layout-grid visual.', stemIndex)
+  if (category === 'maps and diagrams' && !hasChart) {
+    add(issues, categoryMismatchSeverity, 'qr_map_required', 'Maps and Diagrams questions should include a vega_lite_chart visual containing the map or diagram data.', stemIndex)
   }
   if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
-    add(issues, 'blocking', 'qr_mixed_sources_required', 'Mixed Data Sources questions must include a table and a visual source.', stemIndex)
+    add(issues, categoryMismatchSeverity, 'qr_mixed_sources_required', 'Mixed Data Sources questions should include a table and a visual source.', stemIndex)
   }
   if (category === 'text-only scenarios' && (tables > 0 || visuals.length > 0)) {
-    add(issues, 'blocking', 'qr_text_only_assets', 'Text-Only Scenarios must not include table or visual blocks.', stemIndex)
+    add(issues, categoryMismatchSeverity, 'qr_text_only_assets', 'Text-Only Scenarios should not include table or visual blocks.', stemIndex)
   }
+}
+
+function countVegaLiteDataRows(value: unknown): number {
+  if (Array.isArray(value)) return Math.max(0, ...value.map(countVegaLiteDataRows))
+  if (!value || typeof value !== 'object') return 0
+  const record = value as Record<string, unknown>
+  const values = record.data && typeof record.data === 'object' && !Array.isArray(record.data)
+    ? (record.data as Record<string, unknown>).values
+    : null
+  const datasets = record.datasets && typeof record.datasets === 'object' && !Array.isArray(record.datasets)
+    ? Object.values(record.datasets as Record<string, unknown>)
+    : []
+  const ownCount = Array.isArray(values) ? values.length : 0
+  const datasetCount = datasets.reduce<number>((max, dataset) => Math.max(max, Array.isArray(dataset) ? dataset.length : 0), 0)
+  const childCount = Math.max(0, ...Object.values(record).map(countVegaLiteDataRows))
+  return Math.max(ownCount, datasetCount, childCount)
+}
+
+function vegaLiteHasAxisOrLegendContext(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(vegaLiteHasAxisOrLegendContext)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  const encoding = record.encoding && typeof record.encoding === 'object' && !Array.isArray(record.encoding)
+    ? record.encoding as Record<string, unknown>
+    : {}
+  const hasContext = Object.values(encoding).some((channel) => {
+    if (!channel || typeof channel !== 'object' || Array.isArray(channel)) return false
+    const channelRecord = channel as Record<string, unknown>
+    const axis = channelRecord.axis && typeof channelRecord.axis === 'object' && !Array.isArray(channelRecord.axis)
+      ? channelRecord.axis as Record<string, unknown>
+      : {}
+    const legend = channelRecord.legend && typeof channelRecord.legend === 'object' && !Array.isArray(channelRecord.legend)
+      ? channelRecord.legend as Record<string, unknown>
+      : {}
+    return Boolean(
+      String(channelRecord.title ?? '').trim() ||
+      String(axis.title ?? '').trim() ||
+      String(legend.title ?? '').trim()
+    )
+  })
+  return hasContext || Object.values(record).some(vegaLiteHasAxisOrLegendContext)
 }
 
 function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
@@ -700,7 +773,7 @@ export function validateGeneratedStemCandidate(
 
   if (section === 'verbal reasoning') validateVr(stem, stemIndex, category, issues)
   else if (section === 'decision making') validateDm(stem, stemIndex, category, issues)
-  else if (section === 'quantitative reasoning') validateQr(stem, stemIndex, category, issues)
+  else if (section === 'quantitative reasoning') validateQr(stem, stemIndex, category, issues, !!context.categoryName)
   else if (section === 'situational judgement') validateSj(stem, stemIndex, category, issues)
   else add(issues, 'warning', 'unknown_section', 'Section-specific generation gates were not applied.', stemIndex)
 

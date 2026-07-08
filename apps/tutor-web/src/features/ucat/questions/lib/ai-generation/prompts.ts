@@ -187,9 +187,14 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
       layeredInstructions: layeredInstructions(input),
       requirements: [
         'Create exactly requestedStemCount plan rows.',
-        'For mixed difficulty/time burden, distribute targets across the batch like real UCAT question spread.',
-        'If no category is selected, distribute planned stems evenly across availableCategories and name the selected category exactly.',
-        'Vary scenario domains, question archetypes, distractor plans, wording patterns, names, and data relationships.',
+        'If category is selected, treat it as targeted practice and keep every plan row inside that category.',
+        'If category is null, do not spread evenly across availableCategories. Choose a natural UCAT-style mix, using source examples and section realism over coverage.',
+        'For mixed difficulty or mixed time burden, do not force an even easy/medium/hard or low/medium/high distribution. Use natural variation and estimate each question after writing.',
+        'For QR, category is organisational metadata unless the tutor explicitly selected a category. In default generation, do not choose the QR category before choosing the source; write a realistic source first, then classify it.',
+        "For VR, each stem must still be either Reading Comprehension or True, False, Can't Tell, but vary passage source style, traps, evidence distribution, and question mix within the category.",
+        'For DM, each stem must fit one DM category, but vary scenario domain, reasoning structure, diagrams, constraints, wording, and distractor logic within the category.',
+        'For SJ, each stem must be How Important or How Appropriate, but vary professional context, ethical principle, stakeholder, and judgement nuance within that mode.',
+        'Vary scenario domains, question archetypes, distractor plans, wording patterns, names, data relationships, and source layouts.',
         'Avoid planning disguised clones of source examples.',
       ],
       outputShape: {
@@ -236,27 +241,34 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Inside text fields, **text** is converted to bold rich text. Use it sparingly in questionText for decisive command words only.',
         'Use table blocks for data tables.',
         'Use visual blocks only for warranted QR/DM visual categories and provide exact structured data in spec. Do not write freeform image descriptions.',
-        'Chart visualTypes: bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart. Use bar_chart for grouped bars with spec {labels:string[], series:[{name:string,values:number[]}]}; stacked_bar_chart uses the same spec but stacked; bar_chart and stacked_bar_chart may also use paired/small-multiple panels with spec.panels:[{title?:string,subtitle?:string,labels:string[],values?:number[],series?:[{name:string,values:number[]}]}]. line_chart may use one values array or series arrays; scatter_plot uses {points:[{x:number,y:number,label?:string}]}; histogram uses {labels:string[],values:number[]}; pie_chart uses {labels:string[],values:number[]} or paired/small-multiple pies with spec.panels:[{title?:string,subtitle?:string,labels:string[],values:number[]}]}.',
-        'For charts, prefer official-style clean axes, gridlines where helpful, visible units, restrained colours or monochrome, and enough labelled data to support interpretation. You may include xAxis:{label,unit,min,max,tickCount}, yAxis:{label,unit,min,max,tickCount}, and style:{palette:"default"|"teal_amber"|"indigo_rose"|"slate_green"|"monochrome",showGrid?:boolean,showValueLabels?:boolean,patterned?:boolean}.',
+        'Structured visual visualType options are vega_lite_chart, set_diagram, and shape-based venn_diagram only.',
+        'QR visualType: vega_lite_chart only. spec must be a complete Vega-Lite JSON spec with inline data.values or datasets. Do not use external urls. Do not use bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart, route_map, schematic_map, layout_grid, or timetable.',
+        'For vega_lite_chart, use the freedom of Vega-Lite to create realistic UCAT source visuals: horizontal or vertical bars, grouped bars, stacked bars, line charts, multi-line charts, scatter plots, histograms, dot/strip plots, pie/donut charts only when suitable, layered rules/text annotations, small multiples, facets, hconcat/vconcat panels, independent scales, maps/route diagrams, floor-plan style layouts, timetable-style grids, tables plus mini charts where appropriate, and unusual but readable exam-style layouts.',
+        'Every vega_lite_chart must be black and white only. Differentiate series using greyscale, strokeDash, opacity, point shapes, hatching-like repeated marks where possible, text labels, or faceting. Do not use coloured palettes.',
+        'Avoid generic chart templates. Across a generated batch, no two QR charts should have the same chart structure with only labels or numbers changed. Vary mark types, orientation, axis treatment, label placement, legend placement, panel layout, annotation style, data density, and the kind of interpretation required.',
+        'Use clear axes, units, scales, legends, and enough labelled data to support realistic QR interpretation. The chart must contain all values needed to solve the questions; do not rely on prose for hidden chart values.',
         'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
         'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{id?:string,shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,region?:string,include?:string[],exclude?:string[],x?:number,y?:number,bold?:boolean,fontSize?:number}]}.',
         'Use shapes[].label only for set names. Use regionLabels only for examinable region values such as 0, 3, 12, or 45. Do not put set names such as R/S/T or Biology/Chemistry in regionLabels.',
-        'For every numeric Venn/set regionLabel, include a semantic set-region expression using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label. Raw x/y coordinates are only optional hints; the renderer places numbers from the semantic region.',
+        'For every numeric Venn/set regionLabel, include a semantic set-region expression using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label. Do not rely on raw x/y coordinates for numeric values; the renderer places numbers from the semantic region.',
         'Do not output two numeric labels with the same set-region expression unless the answer option is intentionally showing an invalid diagram. Do not leave a required numeric region unlabeled when the question depends on that region.',
         'For mixed-shape set diagrams, labels may be shown by a single visual legend. Do not also write a sentence in the stem that repeats the same shape-to-set mapping unless it contains extra examinable information.',
         'If two or more sets use the same shape type, provide clear shape labels or labelX/labelY positions on the diagram instead of relying on a legend.',
         'Keep visual altText short and accessibility-oriented only. Do not write a visible caption or prose description after the visual unless it contains extra examinable information.',
         'Do not use the old coloured three-overlapping-circle Venn template for DM Venn Diagrams. If you need a conventional three-circle answer option, still encode it as shapes with three circle entries, monochrome strokes, and no coloured fills.',
         'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed clearly inside regions and a separate legend for set names. Do not place numbers on shape outlines, intersections, or ambiguous boundary areas. Use overlapping/nested shapes where useful.',
-        'schematic_map and route_map spec: {points:[{id:string,label:string,x:number,y:number}], lines:[{from:string,to:string,label?:string}]}. Use route_map for QR path networks, journey maps, parks, roads, or distance-labelled routes. Use coordinates within a 640 by 360 canvas.',
-        'layout_grid visualType spec: {rows:number,columns:number,rowLabels?:string[],columnLabels?:string[],cells?:[{row:number,column:number,label?:string,fill?:string}]}. Use this for DM logical-puzzle seating/window/workspace layouts, QR floor plans, simple room grids, and shape-position relationship diagrams.',
-        'timetable visualType spec: {caption?:string,columns:string[],rows:string[][],rowHeaderCount?:number,columnGroupLabels?:string[]}. Use this when a schedule or calendar needs timetable-style visual density rather than a plain prose table.',
+        'For QR Maps and Diagrams, use vega_lite_chart. Encode routes, paths, spatial layouts, floor plans, seating maps, distance networks, and geometric diagrams as layered Vega-Lite specs using inline coordinate data, rule/line marks, point marks, text labels, rects, and annotations as needed.',
+        'For QR Timetables and Calendars, use table blocks for ordinary data tables or vega_lite_chart for timetable-style visual density. Encode timetable-style visuals with layered rect/text marks and inline datasets; do not use a timetable visualType.',
         'Do not output ProseMirror JSON.',
       ],
       requirements: [
         'Return JSON only.',
         'Return candidates for the full plan.',
-        'Set each stem categoryName exactly to the selected category. If the brief category is null, choose only from availableCategories.',
+        'If the brief category is selected, set each stem categoryName exactly to that selected category.',
+        'If the brief category is null, choose categoryName from availableCategories only after deciding the source and questions. Treat categoryName as metadata/classification, not as a template to satisfy.',
+        'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category. For default QR plans, categoryName may be absent from the plan so the source can be generated before classification.',
+        'If difficultyTarget or timeBurdenTarget is mixed, generate natural official-style variation and then set estimatedDifficulty/estimatedTimeBurdenSeconds honestly; do not manufacture an even distribution.',
+        'If difficultyTarget or timeBurdenTarget is easy/medium/hard or low/medium/high, treat it as a broad tutor-requested target, not an exact promise.',
         ...(sectionNameToAiGenerationKey(input.sectionName) === 'verbal_reasoning'
           ? [
               'Return stemText as 2-6 paragraph content blocks, not one unbroken string.',
@@ -294,21 +306,26 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
             ]
           : []),
         ...(input.categoryName === 'Data Tables' || input.categoryName === 'Timetables and Calendars'
-          ? ['Include at least one table content block or timetable visual containing the examinable data. Prefer timetable visualType for schedule grids with many times, route columns, days, or availability windows.']
+          ? ['Include at least one table content block or vega_lite_chart containing the examinable data. Prefer vega_lite_chart for schedule grids with many times, route columns, days, or availability windows that should be visually dense.']
           : []),
         ...(input.categoryName === 'Graphs and Charts'
           ? [
-              'Include at least one chart visual block containing the examinable data.',
-              'Choose the best chart type for the data, not always a bar chart: grouped bar, stacked bar, line, multi-line, scatter, histogram, or pie where appropriate.',
-              'When the source example needs comparison across two periods, groups, sites, or scenarios, prefer paired/small-multiple panels rather than a single generic chart.',
-              'Use official-style chart design: clear axes, legible labels, restrained colours or monochrome, and no decorative effects.',
+              'Include at least one vega_lite_chart visual block containing the examinable data.',
+              'Choose a genuinely suitable Vega-Lite composition for the data rather than defaulting to bars. Use layered, faceted, concatenated, annotated, horizontal, or multi-panel designs when they make the source more like real UCAT QR.',
+              'Keep the chart black and white only. Use greyscale, dash patterns, point shapes, opacity, labels, or panel separation to distinguish data.',
+              'Make the chart information-rich enough that interpreting the data source is part of the question, not just reading one obvious bar.',
             ]
           : []),
         ...(input.categoryName === 'Maps and Diagrams'
-          ? ['Include at least one route_map, schematic_map, or layout_grid visual block containing the examinable data. Prefer route_map for distance networks and layout_grid for floor-plan or position-grid diagrams.']
+          ? [
+              'Include at least one vega_lite_chart visual block containing the examinable map or diagram data.',
+              'Use layered Vega-Lite marks for the diagram: lines or rules for paths/edges, points or shapes for locations, text labels for place names and distances, and rects or light greyscale fills for floor-plan regions where appropriate.',
+              'Do not use route_map, schematic_map, layout_grid, or timetable. The diagram should still be black and white only, with any differentiation handled through greyscale, strokeDash, shape, opacity, or labels.',
+              'Vary map and diagram structure across generated stems: path networks, transit-style maps, floor plans, coordinate layouts, route-choice diagrams, scale diagrams, and multi-panel diagrams are all acceptable when mathematically coherent.',
+            ]
           : []),
         ...(input.categoryName === 'Mixed Data Sources'
-          ? ['Include at least two examinable structured sources, including a table plus a chart, route_map, schematic_map, layout_grid, timetable, or paired chart panels. Multiple visual blocks in one stem are allowed when the information is genuinely mixed.']
+          ? ['Include at least two examinable structured sources, including a table plus a vega_lite_chart when a visual source is needed. Multiple visual blocks in one stem are allowed when the information is genuinely mixed. For map, diagram, timetable, or chart data inside Mixed Data Sources, encode it as layered vega_lite_chart rather than a legacy visual type.']
           : []),
         ...(input.categoryName === 'Text-Only Scenarios'
           ? ['Keep the stem text-only. Do not include table or visual content blocks.']

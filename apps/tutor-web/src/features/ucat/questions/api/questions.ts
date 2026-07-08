@@ -54,7 +54,7 @@ export type UcatGenerationDebugInfo = {
 }
 
 export type UcatGenerationProgress = {
-  step: 'setup' | 'sources' | 'generating' | 'gates' | 'drafts'
+  step: 'setup' | 'sources' | 'generating' | 'gates' | 'images' | 'drafts'
   message: string
   completedStems?: number
   totalStems?: number
@@ -365,7 +365,7 @@ export const ucatQuestionsApi = {
       supabase
         .from('vtutor_ucat_question_stem_detail')
         .select(
-          'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,created_at,deleted_at'
+          'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,is_ai_generated,created_at,deleted_at'
         )
         .is('deleted_at', null)
         .filter('approval_status', 'eq', 'approved'),
@@ -397,6 +397,7 @@ export const ucatQuestionsApi = {
       question_stem_category_id: string | null
       category_name: string | null
       is_private: boolean | null
+      is_ai_generated: boolean | null
       created_at: string | null
       set_names?: unknown
       set_ids?: unknown
@@ -533,6 +534,8 @@ export const ucatQuestionsApi = {
     categoryId?: string | null
     modelProfileId?: string | null
     sourceMode: 'none' | 'random' | 'selected'
+    includeAiSourceStems?: boolean
+    imageGenerationMode?: 'auto' | 'deterministic' | 'ai'
     sourceStemIds?: string[]
     stemCount: number
     difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
@@ -554,6 +557,8 @@ export const ucatQuestionsApi = {
           categoryId: input.categoryId,
           modelProfileId: input.modelProfileId,
           sourceMode: input.sourceMode,
+          includeAiSourceStems: input.includeAiSourceStems ?? false,
+          imageGenerationMode: input.imageGenerationMode ?? 'auto',
           sourceStemIds: input.sourceStemIds,
           stemCount: input.stemCount,
           difficultyTarget: input.difficultyTarget,
