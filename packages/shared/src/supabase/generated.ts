@@ -8872,11 +8872,6 @@ export type Database = {
           ucat_online_tier_override: string
           ucat_signup_completed_at: string | null
           ucat_signup_step: number
-          ucat_target_score_s1: number | null
-          ucat_target_score_s2: number | null
-          ucat_target_score_s3: number | null
-          ucat_test_date: string | null
-          ucat_test_year: number | null
           ucat_unlimited_trial_consumed_at: string | null
           updated_at: string | null
           user_id: string | null
@@ -8912,11 +8907,6 @@ export type Database = {
           ucat_online_tier_override?: string
           ucat_signup_completed_at?: string | null
           ucat_signup_step?: number
-          ucat_target_score_s1?: number | null
-          ucat_target_score_s2?: number | null
-          ucat_target_score_s3?: number | null
-          ucat_test_date?: string | null
-          ucat_test_year?: number | null
           ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -8952,11 +8942,6 @@ export type Database = {
           ucat_online_tier_override?: string
           ucat_signup_completed_at?: string | null
           ucat_signup_step?: number
-          ucat_target_score_s1?: number | null
-          ucat_target_score_s2?: number | null
-          ucat_target_score_s3?: number | null
-          ucat_test_date?: string | null
-          ucat_test_year?: number | null
           ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -12326,72 +12311,6 @@ export type Database = {
           },
         ]
       }
-      ucat_model_config: {
-        Row: {
-          id: string
-          k_prior: number
-          p0: number
-          r_noise: number
-          s_inf_uplift: number
-          section_id: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          k_prior?: number
-          p0?: number
-          r_noise?: number
-          s_inf_uplift?: number
-          section_id: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          k_prior?: number
-          p0?: number
-          r_noise?: number
-          s_inf_uplift?: number
-          section_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ucat_model_config_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: true
-            referencedRelation: "ucat_sections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_model_config_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: true
-            referencedRelation: "vstudent_ucat_my_question_attempts"
-            referencedColumns: ["ucat_section_id"]
-          },
-          {
-            foreignKeyName: "ucat_model_config_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: true
-            referencedRelation: "vstudent_ucat_sections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_model_config_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: true
-            referencedRelation: "vtutor_ucat_sections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ucat_model_config_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: true
-            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
-            referencedColumns: ["ucat_section_id"]
-          },
-        ]
-      }
       ucat_plan_prices: {
         Row: {
           base_price_cents: number
@@ -12644,6 +12563,126 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_score_projection_settings: {
+        Row: {
+          baseline_score: number
+          created_at: string
+          default_effective_questions_per_week: number
+          effective_practice_daily_cap: number
+          id: string
+          min_practice_scored_points: number
+          mock_source_weight: number
+          optimistic_ceiling_uplift: number
+          optimistic_learning_rate: number
+          pessimistic_ceiling_uplift: number
+          pessimistic_learning_rate: number
+          practice_source_weight: number
+          realistic_ceiling_uplift: number
+          realistic_learning_rate: number
+          recency_half_life_days: number
+          recent_activity_lookback_days: number
+          section_id: string
+          set_source_weight: number
+          shrinkage_prior_weight: number
+          slow_timed_weight: number
+          timed_weight: number
+          trajectory_horizon_days: number
+          trajectory_step_days: number
+          untimed_weight: number
+          updated_at: string
+        }
+        Insert: {
+          baseline_score?: number
+          created_at?: string
+          default_effective_questions_per_week?: number
+          effective_practice_daily_cap?: number
+          id?: string
+          min_practice_scored_points?: number
+          mock_source_weight?: number
+          optimistic_ceiling_uplift?: number
+          optimistic_learning_rate?: number
+          pessimistic_ceiling_uplift?: number
+          pessimistic_learning_rate?: number
+          practice_source_weight?: number
+          realistic_ceiling_uplift?: number
+          realistic_learning_rate?: number
+          recency_half_life_days?: number
+          recent_activity_lookback_days?: number
+          section_id: string
+          set_source_weight?: number
+          shrinkage_prior_weight?: number
+          slow_timed_weight?: number
+          timed_weight?: number
+          trajectory_horizon_days?: number
+          trajectory_step_days?: number
+          untimed_weight?: number
+          updated_at?: string
+        }
+        Update: {
+          baseline_score?: number
+          created_at?: string
+          default_effective_questions_per_week?: number
+          effective_practice_daily_cap?: number
+          id?: string
+          min_practice_scored_points?: number
+          mock_source_weight?: number
+          optimistic_ceiling_uplift?: number
+          optimistic_learning_rate?: number
+          pessimistic_ceiling_uplift?: number
+          pessimistic_learning_rate?: number
+          practice_source_weight?: number
+          realistic_ceiling_uplift?: number
+          realistic_learning_rate?: number
+          recency_half_life_days?: number
+          recent_activity_lookback_days?: number
+          section_id?: string
+          set_source_weight?: number
+          shrinkage_prior_weight?: number
+          slow_timed_weight?: number
+          timed_weight?: number
+          trajectory_horizon_days?: number
+          trajectory_step_days?: number
+          untimed_weight?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_score_projection_settings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_settings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_settings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_settings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_settings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
         ]
       }
