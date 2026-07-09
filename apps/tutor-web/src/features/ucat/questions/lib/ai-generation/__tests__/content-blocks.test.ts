@@ -110,6 +110,69 @@ describe('generated content blocks', () => {
     expect(doc.content?.[0]?.attrs?.alt).toBe('Black and white chart of deliveries by zone.')
   })
 
+  it('renders layered QR bar-line charts with distinct line styling and right-axis padding', async () => {
+    const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
+    await generatedContentToProseMirrorServer([{
+      type: 'visual',
+      visualType: 'vega_lite_chart',
+      title: 'Monthly recycling collection and rejection rate',
+      altText: 'Black and white grouped bar and line chart.',
+      spec: {
+        data: {
+          values: [
+            { month: 'Jan', depot: 'East', tonnes: 118, rejected: 6 },
+            { month: 'Jan', depot: 'West', tonnes: 96, rejected: 6 },
+            { month: 'Feb', depot: 'East', tonnes: 132, rejected: 8 },
+            { month: 'Feb', depot: 'West', tonnes: 104, rejected: 8 },
+          ],
+        },
+        resolve: { scale: { y: 'independent' } },
+        layer: [
+          {
+            mark: { type: 'bar' },
+            encoding: {
+              x: { field: 'month', type: 'nominal', axis: { title: 'Month' } },
+              y: { field: 'tonnes', type: 'quantitative', axis: { title: 'Tonnes collected' } },
+              color: { field: 'depot', type: 'nominal', legend: { title: 'Depot' } },
+              xOffset: { field: 'depot' },
+            },
+          },
+          {
+            mark: { type: 'line' },
+            encoding: {
+              x: { field: 'month', type: 'nominal' },
+              y: {
+                field: 'rejected',
+                type: 'quantitative',
+                axis: { title: 'Rejected after inspection (%)', orient: 'right' },
+              },
+            },
+          },
+        ],
+      },
+    }])
+
+    const { compile } = jest.requireMock('vega-lite') as { compile: jest.Mock }
+    const compiledSpec = compile.mock.calls.at(-1)?.[0] as {
+      width?: number
+      padding?: { right?: number }
+      layer?: Array<{
+        mark?: Record<string, unknown>
+        encoding?: Record<string, { scale?: { range?: string[] }, axis?: Record<string, unknown> }>
+      }>
+    }
+
+    expect(compiledSpec.padding?.right).toBeGreaterThanOrEqual(120)
+    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#111111')
+    expect(compiledSpec.layer?.[0]?.encoding?.color?.scale?.range).not.toContain('#111111')
+    expect(compiledSpec.layer?.[1]?.mark?.strokeDash).toEqual([6, 4])
+    expect(compiledSpec.layer?.[1]?.mark?.point).toEqual(expect.objectContaining({ fill: 'white' }))
+    expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titlePadding).toBeGreaterThanOrEqual(40)
+    expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titleLimit).toBe(1000)
+    expect(Array.isArray(compiledSpec.layer?.[1]?.encoding?.y?.axis?.title)).toBe(true)
+    expect(compiledSpec.width).toBeGreaterThanOrEqual(520)
+  })
+
   it('rejects Vega-Lite chart specs without inline data', () => {
     expect(getGeneratedVisualSpecIssue({
       type: 'visual',
@@ -155,7 +218,7 @@ describe('generated content blocks', () => {
     expect(parsed.success).toBe(false)
   })
 
-  it('normalizes generated mixed-shape set diagrams into stable circle layouts', () => {
+  it('renders set diagram legends as shape swatches', () => {
     const doc = generatedContentToProseMirror([{
       type: 'visual',
       visualType: 'set_diagram',
@@ -179,12 +242,47 @@ describe('generated content blocks', () => {
     expect(svg).toContain('Biology')
     expect(svg).toContain('Chemistry')
     expect(svg).toContain('height="430"')
+    expect(svg).toContain('x="610"')
+    expect(svg).toContain('<polygon')
     expect(svg).toContain('<circle')
-    expect(svg).toContain('cx="285"')
-    expect(svg).toContain('cx="395"')
     expect(svg).toContain('>28<')
     expect(svg).toContain('>11<')
     expect(svg).toContain('>5<')
+  })
+
+  it('scales local-coordinate set diagrams into the visible drawing area', () => {
+    const block: Extract<GeneratedContentBlock, { type: 'visual' }> = {
+      type: 'visual',
+      visualType: 'set_diagram',
+      title: 'Workshop selections',
+      altText: 'Local-coordinate mixed set diagram.',
+      spec: {
+        shapes: [
+          { id: 'L', shape: 'ellipse', label: 'Language', cx: 8, cy: 8, rx: 7, ry: 5 },
+          { id: 'P', shape: 'rect', label: 'Photography', x: 4, y: 4, width: 13, height: 11 },
+          { id: 'F', shape: 'diamond', label: 'First aid', cx: 14, cy: 14, width: 10, height: 10 },
+        ],
+        regionLabels: [
+          { text: 14, region: 'L only', x: 2, y: 8 },
+          { text: 6, region: 'P only', x: 8, y: 2 },
+          { text: 3, region: 'L & P & F', x: 9, y: 9 },
+          { text: 11, region: 'F only', x: 14, y: 13 },
+          { text: 5, region: 'outside', x: 18, y: 17 },
+        ],
+      },
+    }
+
+    expect(getGeneratedVisualSpecIssue(block)).toBeNull()
+    const doc = generatedContentToProseMirror([block]) as { content?: Array<{ attrs?: { src?: string } }> }
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('Language')
+    expect(svg).toContain('Photography')
+    expect(svg).toContain('First aid')
+    expect(svg).toContain('x="610"')
+    expect(svg).not.toContain('cx="8"')
+    expect(svg).not.toContain('x="4" y="4"')
+    expect(svg).toContain('>14<')
+    expect(svg).toContain('>11<')
   })
 
   it('keeps labels on repeated same-shape diagrams instead of using an ambiguous legend', () => {
@@ -249,23 +347,27 @@ describe('generated content blocks', () => {
     expect(svg).toContain('>203<')
   })
 
-  it('normalizes generated three-circle coordinates before placing semantic regions', () => {
+  it('renders prod-style mixed-shape diagrams with explicit numeric coordinates', () => {
     const block: Extract<GeneratedContentBlock, { type: 'visual' }> = {
       type: 'visual',
-      visualType: 'venn_diagram',
-      title: 'Visitors',
-      altText: 'Three-circle Venn diagram with unstable model coordinates.',
+      visualType: 'set_diagram',
+      title: 'Role-playing classes',
+      altText: 'Mixed-shape set diagram.',
       spec: {
         shapes: [
-          { id: 'A', shape: 'circle', label: 'Audio guide', cx: 160, cy: 180, r: 70 },
-          { id: 'B', shape: 'circle', label: 'Cafe', cx: 500, cy: 180, r: 70 },
-          { id: 'C', shape: 'circle', label: 'Shop', cx: 330, cy: 350, r: 70 },
+          { id: 'W', shape: 'hexagon', label: 'Warrior', cx: 300, cy: 130, r: 120 },
+          { id: 'R', shape: 'triangle', label: 'Rogue', x: 360, y: 50, width: 230, height: 210 },
+          { id: 'C', shape: 'pentagon', label: 'Cleric', cx: 365, cy: 255, r: 110 },
+          { id: 'Z', shape: 'diamond', label: 'Wizard', cx: 215, cy: 205, width: 260, height: 250 },
+          { id: 'G', shape: 'circle', label: 'Ranger', cx: 235, cy: 285, r: 120 },
         ],
         regionLabels: [
-          { text: 4, region: 'A & B & C' },
-          { text: 12, region: 'A only' },
-          { text: 9, region: 'B only' },
-          { text: 7, region: 'C only' },
+          { text: 14, region: 'outside', x: 80, y: 170 },
+          { text: 5, include: ['W'], exclude: ['R', 'C', 'Z', 'G'], x: 300, y: 105 },
+          { text: 4, include: ['R'], exclude: ['W', 'C', 'Z', 'G'], x: 430, y: 145 },
+          { text: 2, include: ['W', 'Z'], exclude: ['R', 'C', 'G'], x: 275, y: 188 },
+          { text: 13, include: ['G'], exclude: ['W', 'R', 'C', 'Z'], x: 185, y: 330 },
+          { text: 23, include: ['Z'], exclude: ['W', 'R', 'C', 'G'], x: 120, y: 380 },
         ],
       },
     }
@@ -273,16 +375,17 @@ describe('generated content blocks', () => {
     expect(getGeneratedVisualSpecIssue(block)).toBeNull()
     const doc = generatedContentToProseMirror([block]) as { content?: Array<{ attrs?: { src?: string } }> }
     const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
-    expect(svg).toContain('>4<')
-    expect(svg).toContain('cx="285"')
-    expect(svg).toContain('cx="395"')
+    expect(svg).toContain('Warrior')
+    expect(svg).toContain('Rogue')
+    expect(svg).toContain('>14<')
+    expect(svg).toContain('x="610"')
   })
 
-  it('rejects generated four-set diagrams instead of rendering ambiguous tiny regions', () => {
-    expect(getGeneratedVisualSpecIssue({
+  it('renders four-set diagrams when numeric labels are explicitly positioned', () => {
+    const block: Extract<GeneratedContentBlock, { type: 'visual' }> = {
       type: 'visual',
       visualType: 'set_diagram',
-      title: 'Ambiguous',
+      title: 'Phone plans',
       altText: 'Four-set diagram.',
       spec: {
         shapes: [
@@ -292,12 +395,18 @@ describe('generated content blocks', () => {
           { id: 'G', shape: 'pentagon', label: 'Bought printed guide', cx: 300, cy: 260, r: 105 },
         ],
         regionLabels: [
-          { text: 4, region: 'R & C & T & G' },
-          { text: 7, region: 'R only' },
-          { text: 6, region: 'outside' },
+          { text: 4, include: ['R', 'C', 'T', 'G'], x: 322, y: 236 },
+          { text: 7, include: ['R'], exclude: ['C', 'T', 'G'], x: 185, y: 150 },
+          { text: 6, region: 'outside', x: 610, y: 95 },
         ],
       },
-    })).toBe('Generated set diagrams support two or three sets only. Use a simpler two-set or three-set Venn diagram.')
+    }
+
+    expect(getGeneratedVisualSpecIssue(block)).toBeNull()
+    const doc = generatedContentToProseMirror([block]) as { content?: Array<{ attrs?: { src?: string } }> }
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('>4<')
+    expect(svg).toContain('Bought printed guide')
   })
 
   it('renders a range of generated-like Venn and set diagrams without placement failures', () => {
@@ -332,13 +441,13 @@ describe('generated content blocks', () => {
             { id: 'S', shape: 'diamond', label: 'Subsidy', cx: 365, cy: 246, width: 230, height: 190 },
           ],
           regionLabels: [
-            { text: 51, region: 'W only' },
-            { text: 34, region: 'O only' },
-            { text: 19, region: 'S only' },
-            { text: 8, region: 'W & O & not S' },
-            { text: 5, region: 'O & S & not W' },
-            { text: 2, region: 'W & O & S' },
-            { text: 141, region: 'outside' },
+            { text: 51, region: 'W only', x: 210, y: 170 },
+            { text: 34, region: 'O only', x: 455, y: 160 },
+            { text: 19, region: 'S only', x: 368, y: 300 },
+            { text: 8, region: 'W & O & not S', x: 315, y: 182 },
+            { text: 5, region: 'O & S & not W', x: 410, y: 235 },
+            { text: 2, region: 'W & O & S', x: 350, y: 218 },
+            { text: 141, region: 'outside', x: 640, y: 340 },
           ],
         },
       },
@@ -369,7 +478,7 @@ describe('generated content blocks', () => {
           { id: 'A', shape: 'circle', label: 'A', cx: 240, cy: 190, r: 95 },
           { id: 'B', shape: 'circle', label: 'B', cx: 340, cy: 190, r: 95 },
         ],
-        regionLabels: [{ text: 12, x: 290, y: 190 }],
+        regionLabels: [{ text: 12 }],
       },
     })).toBe('Set diagram numeric label "12" needs a semantic set-region expression.')
   })

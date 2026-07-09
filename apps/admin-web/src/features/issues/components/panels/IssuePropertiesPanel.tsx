@@ -5,13 +5,11 @@ import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
-import { IssueStatusPill } from '@/features/issues/components/fields/IssueStatusPill';
-import { IssueDueDatePill } from '@/features/issues/components/fields/IssueDueDatePill';
 import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleField';
 import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
 import { IssueNotes } from '@/features/issues/components/IssueNotes';
 import type { RichTextEditorRef } from '@altitutor/ui';
-import type { IssueFormData, IssueWithTags } from '../../types';
+import type { IssueFormData, IssueTag, IssueWithTags } from '../../types';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import type { Tables } from '@altitutor/shared';
 
@@ -22,6 +20,7 @@ type NoteWithStaff = Tables<'notes'> & {
 interface IssuePropertiesPanelProps {
   form: UseFormReturn<IssueFormData>;
   issue?: IssueWithTags;
+  tags?: IssueTag[];
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
@@ -31,6 +30,7 @@ interface IssuePropertiesPanelProps {
 export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   form,
   issue,
+  tags = [],
   notes,
   isOpen,
   onClose: _onClose,
@@ -57,13 +57,8 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
     <>
       <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r">
         <div className="p-6 space-y-6">
-            {/* Status and Title */}
+            {/* Title */}
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <IssueStatusPill form={form} />
-                <IssueDueDatePill form={form} />
-              </div>
-
               <IssueTitleField
                 form={form}
                 onEnter={handleTitleEnter}
@@ -121,11 +116,11 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
                 <IssueActivityTab 
                   issueId={issue.id} 
                   isOpen={isOpen}
-                  studentIds={issue.tags.map(t => t.student_id!).filter(Boolean)}
-                  staffIds={issue.tags.map(t => t.staff_id!).filter(Boolean)}
-                  classIds={issue.tags.map(t => t.class_id!).filter(Boolean)}
-                  sessionIds={issue.tags.map(t => t.session_id!).filter(Boolean)}
-                  invoiceIds={issue.tags.map(t => t.invoice_id!).filter(Boolean)}
+                  studentIds={tags.map(t => t.student_id!).filter(Boolean)}
+                  staffIds={tags.map(t => t.staff_id!).filter(Boolean)}
+                  classIds={tags.map(t => t.class_id!).filter(Boolean)}
+                  sessionIds={tags.map(t => t.session_id!).filter(Boolean)}
+                  invoiceIds={tags.map(t => t.invoice_id!).filter(Boolean)}
                 />
               </div>
             )}

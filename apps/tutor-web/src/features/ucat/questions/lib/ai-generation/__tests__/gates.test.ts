@@ -312,7 +312,7 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_region_expression')).toBe(true)
   })
 
-  it('blocks Venn numeric labels without semantic region expressions', () => {
+  it('blocks coordinate-positioned Venn numeric labels without semantic region expressions', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
         categoryName: 'Venn Diagrams',
@@ -343,9 +343,10 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(true)
+    expect(issues.some((issue) => issue.severity === 'blocking')).toBe(true)
   })
 
-  it('blocks coordinate-only Venn labels instead of allowing ambiguous placement', () => {
+  it('does not warn on raw coordinate hints because semantic placement controls final Venn label positions', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
         categoryName: 'Venn Diagrams',
@@ -360,9 +361,9 @@ describe('validateGeneratedStemCandidate', () => {
               { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
             ],
             regionLabels: [
-              { text: 4, x: 220, y: 190 },
-              { text: 3, x: 380, y: 190 },
-              { text: 5, x: 400, y: 190 },
+              { text: 4, region: 'A only', x: 220, y: 190 },
+              { text: 3, region: 'A & B', x: 380, y: 190 },
+              { text: 5, region: 'B only', x: 400, y: 190 },
             ],
           },
         }],
@@ -375,8 +376,9 @@ describe('validateGeneratedStemCandidate', () => {
       }
     )
 
-    expect(issues.some((issue) => issue.code === 'generated_visual_spec_invalid')).toBe(true)
-    expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'generated_visual_spec_invalid')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_label_boundary_overlap')).toBe(false)
   })
 
   it('blocks legacy coloured Venn templates in Decision Making Venn diagrams', () => {

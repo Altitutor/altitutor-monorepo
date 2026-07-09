@@ -72,6 +72,7 @@ const responseSchema = z.object({
 const TOOL_CATALOG: Record<string, string[]> = {
   question_stem: [
     'updateStemText({text})',
+    'bulkParaphraseStem({stemText, questions:[{questionIndex, questionText, answerExplanation?, options:[{optionIndex, answerText, answerExplanation?}]}]})',
     'updateStemProperties({sectionId?, categoryId?, isPrivate?, approvalStatus?, tutorSourceNote?})',
     'updateQuestionText({questionIndex, text})',
     'insertQuestion({questionText, answerExplanation?, options:[{answerText,isAnswer}], tagIds?, difficulty?, timeBurdenSeconds?})',
@@ -125,6 +126,8 @@ Prefer exactly one mutating tool call per step. This is mandatory for broad auth
 For broad authoring requests, work incrementally: start with metadata or the first content block, wait for the tool result, inspect the updated snapshot, then continue with the next block or edit.
 Use the tool results to decide the next action. If a tool failed or was denied, adapt instead of repeating the same failed call.
 Show concise execution trace in your message. Do not reveal hidden reasoning.
+If the tutor invokes a named quick action such as paraphrase or explain answer, treat it as a direct edit request for the current selected target and use the appropriate update tool.
+For the paraphrase quick action, use bulkParaphraseStem when available. Rewrite the stem, every question, every answer option, and every existing explanation in one call while preserving the assessed skill, answer key, logic, numeric relationships, difficulty, category, tags, and time burden. Change names, places, institutions, scenarios, and identifiable proper nouns where possible for copyright safety.
 Only deletion tools require confirmation. Set requiresConfirmation=true for deleteQuestion, deleteAnswerOption, deleteBlock, and deleteReviewCandidate. Do not require confirmation for rewrites, property changes, visibility/approval draft changes, image generation, or additions.
 Call at most one deletion tool in a step so the tutor can approve it clearly.
 For requests about an existing visual, diagram, image, labels overlapping, lines overlapping, unreadable map, Venn diagram, chart, or "regenerate the image", call a visual/image tool. Do not answer by rewriting the content as prose or a markdown table.

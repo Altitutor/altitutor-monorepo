@@ -88,6 +88,64 @@ export function filterTutorLogsByStaff<T extends { id: string; created_by: strin
 }
 
 /**
+ * Resolve subject_id for a tutor log's session (session.subject_id or class.subject_id).
+ */
+export function getTutorLogSessionSubjectId(
+  session: Tables<'sessions'> | undefined,
+  classesById: Record<string, Tables<'classes'>>
+): string | null {
+  if (!session) return null;
+  if (session.subject_id) return session.subject_id;
+  if (session.class_id && classesById[session.class_id]?.subject_id) {
+    return classesById[session.class_id].subject_id;
+  }
+  return null;
+}
+
+export type TutorLogsSessionMetaFilters = {
+  typeFilters: string[];
+  subjectFilters: string[];
+  classFilters: string[];
+};
+
+/**
+ * Filter tutor logs by session type, subject, and/or class (client-side).
+ */
+export function filterTutorLogsBySessionMeta<T extends { session_id: string }>(
+  tutorLogs: T[],
+  sessions: Record<string, Tables<'sessions'>>,
+  classesById: Record<string, Tables<'classes'>>,
+  { typeFilters, subjectFilters, classFilters }: TutorLogsSessionMetaFilters
+): T[] {
+  const hasType = typeFilters.length > 0;
+  const hasSubject = subjectFilters.length > 0;
+  const hasClass = classFilters.length > 0;
+  if (!hasType && !hasSubject && !hasClass) {
+    return tutorLogs;
+  }
+
+  const typeSet = new Set(typeFilters);
+  const subjectSet = new Set(subjectFilters);
+  const classSet = new Set(classFilters);
+
+  return tutorLogs.filter((log) => {
+    const session = sessions[log.session_id];
+    if (!session) return false;
+
+    if (hasType && !typeSet.has(session.type)) return false;
+
+    if (hasClass && (!session.class_id || !classSet.has(session.class_id))) return false;
+
+    if (hasSubject) {
+      const subjectId = getTutorLogSessionSubjectId(session, classesById);
+      if (!subjectId || !subjectSet.has(subjectId)) return false;
+    }
+
+    return true;
+  });
+}
+
+/**
  * Filter tutor logs by student IDs.
  */
 export function filterTutorLogsByStudent<T extends { id: string }>(

@@ -4,6 +4,7 @@ import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 const GRAYSCALE = ['#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
+const FILL_GRAYSCALE = ['#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
 
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -64,22 +65,188 @@ function numberInRange(value: unknown, fallback: number, min: number, max: numbe
   return Math.max(min, Math.min(max, numeric))
 }
 
+function markType(mark: unknown): string | null {
+  if (typeof mark === 'string') return mark.toLowerCase()
+  if (!isRecord(mark)) return null
+  return typeof mark.type === 'string' ? mark.type.toLowerCase() : null
+}
+
+function wrappedText(value: unknown, maxChars: number): unknown {
+  if (typeof value !== 'string') return value
+  const text = value.trim()
+  if (text.length <= maxChars) return text
+  const words = text.split(/\s+/u)
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (next.length > maxChars && current) {
+      lines.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  }
+  if (current) lines.push(current)
+  return lines.length > 1 ? lines : text
+}
+
+function axisDefaults(axis: Record<string, unknown>, channel: string | null): Record<string, unknown> {
+  const orient = typeof axis.orient === 'string' ? axis.orient.toLowerCase() : ''
+  const isRightAxis = orient === 'right'
+  const isY = channel === 'y' || channel === 'y2' || isRightAxis
+  const isX = channel === 'x' || channel === 'x2'
+  const title = wrappedText(axis.title, isY ? 22 : 34)
+  const titleLineCount = Array.isArray(title) ? title.length : 1
+  const titlePadding = isRightAxis ? 44 : isY ? 22 + Math.max(0, titleLineCount - 1) * 6 : 14
+
+  return {
+    ...axis,
+    ...(title ? { title } : {}),
+    labelPadding: axis.labelPadding ?? (isRightAxis ? 10 : 7),
+    titlePadding: axis.titlePadding ?? titlePadding,
+    labelLimit: axis.labelLimit ?? (isX ? 92 : 120),
+    titleLimit: 1000,
+    titleLineHeight: axis.titleLineHeight ?? 17,
+    labelBound: axis.labelBound ?? true,
+    labelFlush: axis.labelFlush ?? false,
+    labelOverlap: axis.labelOverlap ?? (isX ? 'greedy' : true),
+    ...(isX ? { labelAngle: -35 } : {}),
+  }
+}
+
+function enhanceEncoding(encoding: Record<string, unknown>, currentMarkType: string | null): Record<string, unknown> {
+  const enhanced: Record<string, unknown> = {}
+  for (const [channel, value] of Object.entries(encoding)) {
+    if (!isRecord(value)) {
+      enhanced[channel] = value
+      continue
+    }
+
+    const channelDefinition = { ...value }
+    if (isRecord(channelDefinition.axis)) {
+      channelDefinition.axis = axisDefaults(channelDefinition.axis, channel.toLowerCase())
+    }
+    if (isRecord(channelDefinition.legend)) {
+      channelDefinition.legend = {
+        labelLimit: 180,
+        symbolLimit: 180,
+        columns: 3,
+        ...channelDefinition.legend,
+      }
+    }
+    if (channel.toLowerCase() === 'color' && currentMarkType === 'line') {
+      channelDefinition.scale = {
+        ...(isRecord(channelDefinition.scale) ? channelDefinition.scale : {}),
+        range: GRAYSCALE,
+      }
+    }
+    if (channel.toLowerCase() === 'color' && currentMarkType !== 'line') {
+      channelDefinition.scale = {
+        ...(isRecord(channelDefinition.scale) ? channelDefinition.scale : {}),
+        range: FILL_GRAYSCALE,
+      }
+    }
+    enhanced[channel] = channelDefinition
+  }
+  return enhanced
+}
+
+function enhanceMark(mark: unknown): unknown {
+  const type = markType(mark)
+  if (!type) return mark
+  const markObject = typeof mark === 'string' ? { type } : { ...(mark as Record<string, unknown>) }
+
+  if (type === 'line') {
+    return {
+      stroke: '#111111',
+      strokeWidth: 2.5,
+      strokeDash: [6, 4],
+      point: { filled: true, size: 58, fill: 'white', stroke: '#111111', strokeWidth: 1.8 },
+      ...markObject,
+    }
+  }
+
+  if (type === 'bar' || type === 'rect' || type === 'arc') {
+    return {
+      stroke: '#111111',
+      strokeWidth: 0.6,
+      opacity: 0.9,
+      ...markObject,
+    }
+  }
+
+  if (type === 'point' || type === 'circle' || type === 'square') {
+    return {
+      filled: true,
+      size: 70,
+      stroke: '#111111',
+      strokeWidth: 1.4,
+      ...markObject,
+    }
+  }
+
+  return markObject
+}
+
+function hasRightAxis(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasRightAxis)
+  if (!isRecord(value)) return false
+  if (isRecord(value.axis) && value.axis.orient === 'right') return true
+  if (isRecord(value.resolve) && isRecord(value.resolve.scale) && value.resolve.scale.y === 'independent') return true
+  return Object.values(value).some(hasRightAxis)
+}
+
+function enhanceVegaLiteSpec(value: unknown, currentMarkType: string | null = null): unknown {
+  if (Array.isArray(value)) return value.map((item) => enhanceVegaLiteSpec(item, currentMarkType))
+  if (!isRecord(value)) return value
+
+  const ownMarkType = markType(value.mark) ?? currentMarkType
+  const enhanced: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'mark') {
+      enhanced[key] = enhanceMark(child)
+    } else if (key === 'encoding' && isRecord(child)) {
+      enhanced[key] = enhanceEncoding(child, ownMarkType)
+    } else if (key === 'width') {
+      enhanced[key] = numberInRange(child, 640, 520, 780)
+    } else {
+      enhanced[key] = enhanceVegaLiteSpec(child, ownMarkType)
+    }
+  }
+  return enhanced
+}
+
 function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | null | undefined): Record<string, unknown> {
   const sanitized = sanitizeVegaLiteValue(spec)
   if (!isRecord(sanitized)) throw new Error('Vega-Lite chart spec must be an object.')
   if (!hasInlineVegaData(sanitized)) throw new Error('Vega-Lite chart spec must include inline data.')
 
-  const width = numberInRange(sanitized.width, 580, 240, 780)
+  const enhanced = enhanceVegaLiteSpec(sanitized)
+  if (!isRecord(enhanced)) throw new Error('Vega-Lite chart spec must be an object.')
+
+  const width = numberInRange(enhanced.width, 640, 520, 780)
   const height = numberInRange(sanitized.height, 340, 180, 620)
-  const config = isRecord(sanitized.config) ? sanitized.config : {}
+  const config = isRecord(enhanced.config) ? enhanced.config : {}
+  const existingPadding = isRecord(enhanced.padding) ? enhanced.padding : null
+  const padding = existingPadding ?? {
+    left: 96,
+    right: hasRightAxis(enhanced) ? 150 : 56,
+    top: 28,
+    bottom: 78,
+  }
 
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
     background: 'white',
-    ...(title && !sanitized.title ? { title } : {}),
-    ...sanitized,
+    ...(title && !enhanced.title ? { title } : {}),
+    autosize: isRecord(enhanced.autosize)
+      ? enhanced.autosize
+      : { type: 'pad', contains: 'padding' },
+    ...enhanced,
     width,
     height,
+    padding,
     config: {
       ...config,
       title: {
@@ -99,6 +266,10 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
         tickColor: '#111111',
         labelColor: '#111111',
         titleColor: '#111111',
+        labelPadding: 7,
+        titlePadding: 14,
+        labelBound: true,
+        labelFlush: false,
         ...(isRecord(config.axis) ? config.axis : {}),
       },
       legend: {
@@ -108,6 +279,8 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
         labelColor: '#111111',
         titleColor: '#111111',
         symbolStrokeColor: '#111111',
+        symbolStrokeWidth: 1,
+        columns: 3,
         ...(isRecord(config.legend) ? config.legend : {}),
       },
       view: {
@@ -116,8 +289,8 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
       },
       range: {
         ...(isRecord(config.range) ? config.range : {}),
-        category: GRAYSCALE,
-        ordinal: GRAYSCALE,
+        category: FILL_GRAYSCALE,
+        ordinal: FILL_GRAYSCALE,
       },
     },
   }

@@ -13,7 +13,6 @@ type StudentSignupRow = {
   ucat_signup_step: number | null;
   ucat_signup_completed_at: string | null;
   ucat_onboarding_completed_at: string | null;
-  ucat_test_year: number | null;
   first_name: string | null;
   last_name: string | null;
 };
@@ -22,7 +21,6 @@ export type ResolvedSignupState = {
   step: SignupOnboardingStep;
   signupCompleted: boolean;
   planChoiceCompleted: boolean;
-  testYear: number | null;
 };
 
 function clampStep(value: number | null | undefined): SignupOnboardingStep {
@@ -36,21 +34,19 @@ export function resolveSignupState(
 ): ResolvedSignupState {
   const signupCompleted = Boolean(student?.ucat_signup_completed_at);
   const planChoiceCompleted = Boolean(student?.ucat_onboarding_completed_at);
-  const testYear = student?.ucat_test_year ?? null;
 
   if (signupCompleted) {
     return {
-      step: SIGNUP_STEP.TARGET_SCORES,
+      step: SIGNUP_STEP.PLAN,
       signupCompleted: true,
       planChoiceCompleted,
-      testYear,
     };
   }
 
   let step = clampStep(student?.ucat_signup_step);
 
-  if (planChoiceCompleted && step < SIGNUP_STEP.TEST_DETAILS) {
-    step = SIGNUP_STEP.TEST_DETAILS;
+  if (planChoiceCompleted) {
+    step = SIGNUP_STEP.PLAN;
   } else if (profileSetupComplete && !planChoiceCompleted && step < SIGNUP_STEP.PLAN) {
     step = SIGNUP_STEP.PLAN;
   } else if (
@@ -66,7 +62,6 @@ export function resolveSignupState(
     step,
     signupCompleted: false,
     planChoiceCompleted,
-    testYear,
   };
 }
 
@@ -78,7 +73,7 @@ export async function loadStudentSignupRow(
   const { data, error } = await supabaseAdmin
     .from("students")
     .select(
-      "ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, ucat_test_year, first_name, last_name",
+      "ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, first_name, last_name",
     )
     .eq("user_id", userId)
     .maybeSingle();

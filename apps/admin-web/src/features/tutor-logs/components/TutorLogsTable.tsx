@@ -18,12 +18,32 @@ import {
 import { ArrowUpDown, Search } from 'lucide-react';
 import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
+import type { Database } from '@altitutor/shared';
+import type { MinimalClass } from '@/features/classes/api/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useTutorLogsTable } from '../hooks/useTutorLogsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { EditTutorLogDialog } from './EditTutorLogDialog';
 import { formatClassDisplayName } from '../utils/tutorLogsTableHelpers';
+
+const SESSION_TYPES: Database['public']['Enums']['session_type'][] = [
+  'CLASS',
+  'DRAFTING',
+  'EXAM_COURSE',
+  'SUBSIDY_INTERVIEW',
+  'TRIAL_SESSION',
+  'STAFF_INTERVIEW',
+  'ADMIN_SHIFT',
+  'CHECK_IN',
+  'ADMIN_MEETING',
+];
+
+function formatClassFilterOptionLabel(c: MinimalClass): string {
+  const title = c.long_name || c.short_name || 'Class';
+  const subj = c.subject?.long_name || c.subject?.name;
+  return subj ? `${title} (${subj})` : title;
+}
 
 type TutorLogsTableProps = {
   rangeStart?: string; // YYYY-MM-DD
@@ -47,6 +67,8 @@ export function TutorLogsTable({
   const defaultVisibleColumns = useMemo(() => ['date', 'class', 'staff', 'students', 'topics'], []);
   const [staffFilterSearch, setStaffFilterSearch] = useState('');
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
+  const [classFilterSearch, setClassFilterSearch] = useState('');
 
   const {
     state,
@@ -62,7 +84,7 @@ export function TutorLogsTable({
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['staff', 'student', 'from', 'to'],
+    filterKeys: ['type', 'subject', 'class', 'staff', 'student', 'from', 'to'],
   });
 
   const {
@@ -74,6 +96,8 @@ export function TutorLogsTable({
     topics,
     filteredStaff,
     filteredStudents,
+    filteredSubjects,
+    filteredClasses,
     filteredTutorLogs,
     paginatedTutorLogs,
     isLoading,
@@ -85,10 +109,37 @@ export function TutorLogsTable({
     rangeEnd,
     staffSearchQuery: staffFilterSearch,
     studentSearchQuery: studentFilterSearch,
+    subjectSearchQuery: subjectFilterSearch,
+    classSearchQuery: classFilterSearch,
     state,
   });
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    {
+      key: 'type',
+      label: 'Session type',
+      options: SESSION_TYPES.map((t) => ({ label: formatSessionType(t), value: t })),
+    },
+    {
+      key: 'subject',
+      label: 'Subject',
+      options: filteredSubjects.map((s) => ({
+        label: s.long_name ?? s.name ?? s.id,
+        value: s.id,
+      })),
+      searchable: true,
+      searchPlaceholder: 'Search subjects...',
+    },
+    {
+      key: 'class',
+      label: 'Class',
+      options: filteredClasses.map((c) => ({
+        label: formatClassFilterOptionLabel(c),
+        value: c.id,
+      })),
+      searchable: true,
+      searchPlaceholder: 'Search classes...',
+    },
     {
       key: 'staff',
       label: 'Staff',
@@ -110,7 +161,7 @@ export function TutorLogsTable({
       fromKey: 'from',
       toKey: 'to',
     },
-  ], [filteredStaff, filteredStudents]);
+  ], [filteredStaff, filteredStudents, filteredSubjects, filteredClasses]);
 
   const sortOptions: DataTableSortOption[] = [
     { key: 'session_start_at', label: 'Session Date' },
@@ -180,10 +231,14 @@ export function TutorLogsTable({
           filterSearchValues={{
             staff: staffFilterSearch,
             student: studentFilterSearch,
+            subject: subjectFilterSearch,
+            class: classFilterSearch,
           }}
           onFilterSearchChange={(filterKey, value) => {
             if (filterKey === 'staff') setStaffFilterSearch(value);
             if (filterKey === 'student') setStudentFilterSearch(value);
+            if (filterKey === 'subject') setSubjectFilterSearch(value);
+            if (filterKey === 'class') setClassFilterSearch(value);
           }}
           searchPlaceholder="Search tutor logs..."
           isLoading={isFetching}

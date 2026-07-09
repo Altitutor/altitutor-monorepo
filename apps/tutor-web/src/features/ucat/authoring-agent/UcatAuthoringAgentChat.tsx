@@ -1,8 +1,19 @@
 'use client'
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
-import { Bot, Check, Loader2, Send, Trash2, X } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  SearchableSelect,
+  Textarea,
+  useToast,
+} from '@altitutor/ui'
+import { Bot, Check, ChevronDown, Loader2, Send, Sparkles, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import type {
   UcatAuthoringAgentContextType,
@@ -44,6 +55,32 @@ type PersistedChatState = {
 
 const persistedChatStates = new Map<string, PersistedChatState>()
 
+type AuthoringQuickAction = {
+  id: 'paraphrase' | 'explain-answer'
+  label: string
+  description: string
+  prompt: string
+  contexts: UcatAuthoringAgentContextType[]
+}
+
+const AUTHORING_QUICK_ACTIONS: AuthoringQuickAction[] = [
+  {
+    id: 'paraphrase',
+    label: 'Paraphrase',
+    description: 'Copyright-safe rewrite of the full stem package.',
+    prompt: 'Paraphrase',
+    contexts: ['question_stem', 'generated_review'],
+  },
+  {
+    id: 'explain-answer',
+    label: 'Explain answer',
+    description: 'Improve the answer explanation step by step.',
+    prompt:
+      'Improve the current question answer explanation. Keep the question, answer options, and correct answer unchanged. Make the explanation student-friendly and step-by-step, explicitly explaining why the correct answer is correct and why the distractors are wrong. Apply the edit directly using the appropriate explanation update tool.',
+    contexts: ['question_stem', 'generated_review'],
+  },
+]
+
 function createMessageId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -52,8 +89,13 @@ function toolRequiresConfirmation(toolCall: UcatAuthoringToolCall) {
   return toolCall.requiresConfirmation || toolCall.name.toLowerCase().startsWith('delete')
 }
 
+function toolCompletesRun(toolCall: UcatAuthoringToolCall, result: UcatAuthoringToolResult) {
+  return result.ok && toolCall.name === 'bulkParaphraseStem'
+}
+
 const TOOL_LABELS: Record<string, string> = {
   updateStemText: 'Update Stem Text',
+  bulkParaphraseStem: 'Paraphrase Full Stem',
   updateStemProperties: 'Update Stem Properties',
   updateQuestionText: 'Update Question Text',
   insertQuestion: 'Add Question',
@@ -205,6 +247,10 @@ export function UcatAuthoringAgentChat({
     () => [scopeLabel, selectedImage?.label].filter((value): value is string => Boolean(value)),
     [scopeLabel, selectedImage],
   )
+  const quickActions = useMemo(
+    () => AUTHORING_QUICK_ACTIONS.filter((action) => action.contexts.includes(contextType)),
+    [contextType],
+  )
 
   useEffect(() => {
     if (modelProfileId || modelProfiles.length === 0) return
@@ -335,12 +381,15 @@ export function UcatAuthoringAgentChat({
 
       if (response.toolCalls.length === 0 || response.status === 'final') return
 
+      let completedRun = false
       for (const toolCall of response.toolCalls) {
         const result = await executeTool(toolCall)
         const toolResultMessage = createToolResultMessage(toolCall, result)
         conversation = [...conversation, toolResultMessage]
         setMessages((current) => [...current, toolResultMessage])
+        if (toolCompletesRun(toolCall, result)) completedRun = true
       }
+      if (completedRun) return
     }
 
     throw new Error('AI authoring stopped after too many tool steps. Try a smaller request.')
@@ -383,18 +432,18 @@ export function UcatAuthoringAgentChat({
     }
   }
 
-  async function submitMessage() {
-    const text = input.trim()
-    if (!text || isSending) return
+  async function submitAgentInstruction(text: string, options?: { clearInput?: boolean }) {
+    const trimmedText = text.trim()
+    if (!trimmedText || isSending) return
 
     const userMessage: UcatAuthoringChatMessage = {
       id: createMessageId(),
       role: 'user',
-      content: text,
+      content: trimmedText,
     }
     const nextMessages = [...messages, userMessage]
     setMessages(nextMessages)
-    setInput('')
+    if (options?.clearInput ?? true) setInput('')
     setIsSending(true)
 
     try {
@@ -407,6 +456,14 @@ export function UcatAuthoringAgentChat({
       setActivityStatus(null)
       setIsSending(false)
     }
+  }
+
+  async function submitMessage() {
+    await submitAgentInstruction(input, { clearInput: true })
+  }
+
+  async function runQuickAction(action: AuthoringQuickAction) {
+    await submitAgentInstruction(action.prompt, { clearInput: false })
   }
 
   return (
@@ -477,18 +534,51 @@ export function UcatAuthoringAgentChat({
           }}
         />
         <div className="flex items-center justify-between gap-2 border-t pt-2">
-          <div className="min-w-0 flex-1 [&_button]:h-8 [&_button]:rounded-md [&_button]:bg-muted/40 [&_button]:text-xs">
-            <SearchableSelect<(typeof modelProfiles)[number]>
-              items={modelProfiles}
-              value={modelProfiles.find((profile) => profile.id === modelProfileId) ?? null}
-              onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
-              getItemId={(profile) => profile.id}
-              getItemLabel={(profile) => profile.name}
-              placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Model'}
-              searchPlaceholder="Search models..."
-              emptyMessage="No model profiles found"
-              loading={modelProfilesQuery.isLoading}
-            />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {quickActions.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 rounded-md bg-muted/40 px-2 text-xs"
+                    disabled={isSending}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Skills
+                    <ChevronDown className="h-3 w-3 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>AI skills</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {quickActions.map((action) => (
+                    <DropdownMenuItem
+                      key={action.id}
+                      className="flex cursor-pointer flex-col items-start gap-0.5 whitespace-normal"
+                      onSelect={() => void runQuickAction(action)}
+                    >
+                      <span className="text-sm font-medium">{action.label}</span>
+                      <span className="text-xs leading-snug text-muted-foreground">{action.description}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            <div className="min-w-0 flex-1 [&_button]:h-8 [&_button]:rounded-md [&_button]:bg-muted/40 [&_button]:text-xs">
+              <SearchableSelect<(typeof modelProfiles)[number]>
+                items={modelProfiles}
+                value={modelProfiles.find((profile) => profile.id === modelProfileId) ?? null}
+                onValueChange={(profile) => setModelProfileId(profile?.id ?? null)}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => profile.name}
+                placeholder={modelProfilesQuery.isLoading ? 'Loading models...' : 'Model'}
+                searchPlaceholder="Search models..."
+                emptyMessage="No model profiles found"
+                loading={modelProfilesQuery.isLoading}
+              />
+            </div>
           </div>
           <Button type="button" size="icon" className="h-9 w-9 shrink-0 rounded-full" onClick={() => void submitMessage()} disabled={isSending || !input.trim()} aria-label="Send message">
             {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

@@ -8,6 +8,9 @@ import {
   formatSessionDate,
   extractCreatedByStaffIds,
   filterTutorLogsByStaff,
+  filterTutorLogsByStudent,
+  filterTutorLogsBySessionMeta,
+  getTutorLogSessionSubjectId,
   paginateTutorLogs,
 } from '../tutorLogsTableHelpers';
 import type { Tables } from '@altitutor/shared';
@@ -219,6 +222,108 @@ describe('tutorLogsTableHelpers', () => {
       // When staffFilters.length <= 1, server-side filtering handles it
       const result = filterTutorLogsByStaff(tutorLogs, ['staff-999'], staffAttendance);
       expect(result).toHaveLength(3); // Returns all logs, server handles filtering
+    });
+  });
+
+  describe('filterTutorLogsBySessionMeta', () => {
+    const tutorLogs = [
+      { id: 'log-1', session_id: 'session-1' },
+      { id: 'log-2', session_id: 'session-2' },
+      { id: 'log-3', session_id: 'session-3' },
+    ];
+
+    const sessions: Record<string, Tables<'sessions'>> = {
+      'session-1': {
+        id: 'session-1',
+        type: 'CLASS',
+        class_id: 'class-1',
+        subject_id: null,
+      } as Tables<'sessions'>,
+      'session-2': {
+        id: 'session-2',
+        type: 'TRIAL_SESSION',
+        class_id: null,
+        subject_id: 'subject-2',
+      } as Tables<'sessions'>,
+      'session-3': {
+        id: 'session-3',
+        type: 'ADMIN_SHIFT',
+        class_id: null,
+        subject_id: null,
+      } as Tables<'sessions'>,
+    };
+
+    const classesById: Record<string, Tables<'classes'>> = {
+      'class-1': {
+        id: 'class-1',
+        subject_id: 'subject-1',
+      } as Tables<'classes'>,
+    };
+
+    it('should return all logs when no session meta filters are set', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: [],
+        classFilters: [],
+      });
+      expect(result).toHaveLength(3);
+    });
+
+    it('should filter by session type', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: ['CLASS'],
+        subjectFilters: [],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by class', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: [],
+        classFilters: ['class-1'],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by subject via class subject_id', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: ['subject-1'],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by subject via session subject_id', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: ['subject-2'],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-2']);
+    });
+  });
+
+  describe('getTutorLogSessionSubjectId', () => {
+    const classesById: Record<string, Tables<'classes'>> = {
+      'class-1': { id: 'class-1', subject_id: 'subject-1' } as Tables<'classes'>,
+    };
+
+    it('should prefer session.subject_id', () => {
+      const session = { subject_id: 'subject-direct', class_id: 'class-1' } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBe('subject-direct');
+    });
+
+    it('should fall back to class subject_id', () => {
+      const session = { subject_id: null, class_id: 'class-1' } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBe('subject-1');
+    });
+
+    it('should return null when no subject can be resolved', () => {
+      const session = { subject_id: null, class_id: null } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBeNull();
     });
   });
 

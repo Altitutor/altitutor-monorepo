@@ -6,8 +6,6 @@ import { tasksKeys } from '@/features/tasks/api/queryKeys';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
 
 const getIssueDetailKey = (id: string) => issueKeys.detail(id);
-const getIssueTagRelatedKeys = (row: { issue_id?: string | null }) =>
-  row.issue_id ? [issueKeys.detail(row.issue_id)] : [];
 const ISSUES_REALTIME_DEBOUNCE_MS = 500;
 
 function useIssuesRealtimeInvalidation(enabled = true) {
@@ -20,13 +18,6 @@ function useIssuesRealtimeInvalidation(enabled = true) {
     enabled,
   });
 
-  useSupabaseRealtimeInvalidation({
-    table: 'issue_tags',
-    queryKey: issueKeys.all,
-    getRelatedKeys: getIssueTagRelatedKeys,
-    debounceMs: ISSUES_REALTIME_DEBOUNCE_MS,
-    enabled,
-  });
 }
 
 export function useIssues(filters?: IssueFilters) {

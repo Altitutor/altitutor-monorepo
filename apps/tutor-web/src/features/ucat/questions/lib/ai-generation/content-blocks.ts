@@ -542,6 +542,7 @@ function renderSetShape(shape: Record<string, unknown>, index: number): string {
 
 type SvgPoint = { x: number; y: number }
 type SvgLabelBox = SvgPoint & { width: number; height: number; fontSize: number; text: string }
+type SvgBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 function finiteNumber(value: unknown, fallback: number): number {
   const number = typeof value === 'number' ? value : Number(value)
@@ -608,6 +609,176 @@ function polygonPoints(shape: Record<string, unknown>, index: number): SvgPoint[
     })
   }
   return []
+}
+
+function boundsFromPoints(points: SvgPoint[]): SvgBounds | null {
+  if (points.length === 0) return null
+  return points.reduce<SvgBounds>((bounds, point) => ({
+    minX: Math.min(bounds.minX, point.x),
+    minY: Math.min(bounds.minY, point.y),
+    maxX: Math.max(bounds.maxX, point.x),
+    maxY: Math.max(bounds.maxY, point.y),
+  }), {
+    minX: points[0]?.x ?? 0,
+    minY: points[0]?.y ?? 0,
+    maxX: points[0]?.x ?? 0,
+    maxY: points[0]?.y ?? 0,
+  })
+}
+
+function mergeBounds(bounds: Array<SvgBounds | null>): SvgBounds | null {
+  const present = bounds.filter((item): item is SvgBounds => Boolean(item))
+  if (present.length === 0) return null
+  return present.reduce<SvgBounds>((merged, item) => ({
+    minX: Math.min(merged.minX, item.minX),
+    minY: Math.min(merged.minY, item.minY),
+    maxX: Math.max(merged.maxX, item.maxX),
+    maxY: Math.max(merged.maxY, item.maxY),
+  }), present[0] as SvgBounds)
+}
+
+function setShapeBounds(shape: Record<string, unknown>, index: number): SvgBounds | null {
+  const type = setShapeType(shape)
+  if (type === 'circle') {
+    const cx = finiteNumber(shape.cx, 180 + index * 90)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r, 95)
+    return { minX: cx - radius, minY: cy - radius, maxX: cx + radius, maxY: cy + radius }
+  }
+  if (type === 'ellipse') {
+    const cx = finiteNumber(shape.cx, 210 + index * 95)
+    const cy = finiteNumber(shape.cy, 190)
+    const rx = finiteNumber(shape.rx, 120)
+    const ry = finiteNumber(shape.ry, 82)
+    return { minX: cx - rx, minY: cy - ry, maxX: cx + rx, maxY: cy + ry }
+  }
+  return boundsFromPoints(polygonPoints(shape, index))
+}
+
+function normalizeShapeMinimumSize(shape: Record<string, unknown>, index: number): Record<string, unknown> {
+  const type = setShapeType(shape)
+  const bounds = setShapeBounds(shape, index)
+  if (!bounds) return shape
+  const width = bounds.maxX - bounds.minX
+  const height = bounds.maxY - bounds.minY
+  const minWidth = type === 'circle' || type === 'ellipse' ? 140 : 165
+  const minHeight = type === 'circle' || type === 'ellipse' ? 110 : 145
+
+  if (type === 'circle') {
+    const current = finiteNumber(shape.r, 95)
+    return { ...shape, r: Math.max(current, Math.max(minWidth, minHeight) / 2) }
+  }
+  if (type === 'ellipse') {
+    return {
+      ...shape,
+      rx: Math.max(finiteNumber(shape.rx, 120), minWidth / 2),
+      ry: Math.max(finiteNumber(shape.ry, 82), minHeight / 2),
+    }
+  }
+  if (type === 'rect' || type === 'triangle') {
+    const nextWidth = Math.max(finiteNumber(shape.width, type === 'rect' ? 170 : 210), minWidth)
+    const nextHeight = Math.max(finiteNumber(shape.height, type === 'rect' ? 160 : 220), minHeight)
+    return {
+      ...shape,
+      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : 160 + index * 80) - (nextWidth - width) / 2,
+      y: finiteNumber(shape.y, type === 'rect' ? 115 : 80) - (nextHeight - height) / 2,
+      width: nextWidth,
+      height: nextHeight,
+    }
+  }
+  if (type === 'diamond') {
+    return {
+      ...shape,
+      width: Math.max(finiteNumber(shape.width, 170), minWidth),
+      height: Math.max(finiteNumber(shape.height, 170), minHeight),
+    }
+  }
+  return {
+    ...shape,
+    r: Math.max(finiteNumber(shape.r ?? shape.radius, 95), Math.max(minWidth, minHeight) / 2),
+  }
+}
+
+function transformNumericRecordCoordinates(record: Record<string, unknown>, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
+  const next = { ...record }
+  if (Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))) {
+    const point = transform({ x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) })
+    next.x = point.x
+    next.y = point.y
+  }
+  return next
+}
+
+function transformSetShape(shape: Record<string, unknown>, index: number, scale: number, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
+  const next = { ...shape }
+  const type = setShapeType(shape)
+  if (type === 'circle' || type === 'ellipse' || type === 'diamond' || type === 'pentagon' || type === 'hexagon') {
+    const defaultCenter = type === 'ellipse'
+      ? { x: 210 + index * 95, y: 190 }
+      : type === 'diamond'
+        ? { x: 260 + index * 60, y: 190 }
+        : { x: 250 + index * 70, y: 190 }
+    const point = transform({
+      x: finiteNumber(shape.cx, defaultCenter.x),
+      y: finiteNumber(shape.cy, defaultCenter.y),
+    })
+    next.cx = point.x
+    next.cy = point.y
+  }
+  if (type === 'rect' || type === 'triangle') {
+    const point = transform({
+      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : 160 + index * 80),
+      y: finiteNumber(shape.y, type === 'rect' ? 115 : 80),
+    })
+    next.x = point.x
+    next.y = point.y
+  }
+  if (Number.isFinite(Number(shape.labelX)) && Number.isFinite(Number(shape.labelY))) {
+    const point = transform({ x: finiteNumber(shape.labelX, 320), y: finiteNumber(shape.labelY, 80) })
+    next.labelX = point.x
+    next.labelY = point.y
+  }
+  if (type === 'circle') next.r = finiteNumber(shape.r, 95) * scale
+  if (type === 'ellipse') {
+    next.rx = finiteNumber(shape.rx, 120) * scale
+    next.ry = finiteNumber(shape.ry, 82) * scale
+  }
+  if (type === 'rect' || type === 'triangle' || type === 'diamond') {
+    next.width = finiteNumber(shape.width, type === 'triangle' ? 210 : 170) * scale
+    next.height = finiteNumber(shape.height, type === 'triangle' ? 220 : type === 'rect' ? 160 : 170) * scale
+  }
+  if (type === 'pentagon' || type === 'hexagon') next.r = finiteNumber(shape.r ?? shape.radius, 95) * scale
+  return normalizeShapeMinimumSize(next, index)
+}
+
+function normalizeSetDiagramGeometry(
+  shapes: Array<Record<string, unknown>>,
+  values: unknown[]
+): { shapes: Array<Record<string, unknown>>; values: unknown[] } {
+  const bounds = mergeBounds(shapes.map((shape, index) => setShapeBounds(shape, index)))
+  if (!bounds) return { shapes, values }
+
+  const target = { minX: 42, minY: 58, maxX: 520, maxY: 352 }
+  const sourceWidth = Math.max(1, bounds.maxX - bounds.minX)
+  const sourceHeight = Math.max(1, bounds.maxY - bounds.minY)
+  const targetWidth = target.maxX - target.minX
+  const targetHeight = target.maxY - target.minY
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight)
+  const scaledWidth = sourceWidth * scale
+  const scaledHeight = sourceHeight * scale
+  const offsetX = target.minX + (targetWidth - scaledWidth) / 2
+  const offsetY = target.minY + (targetHeight - scaledHeight) / 2
+  const transform = (point: SvgPoint): SvgPoint => ({
+    x: offsetX + (point.x - bounds.minX) * scale,
+    y: offsetY + (point.y - bounds.minY) * scale,
+  })
+
+  return {
+    shapes: shapes.map((shape, index) => transformSetShape(shape, index, scale, transform)),
+    values: values.map((raw) => raw && typeof raw === 'object'
+      ? transformNumericRecordCoordinates(raw as Record<string, unknown>, transform)
+      : raw),
+  }
 }
 
 function distanceToSegment(point: SvgPoint, a: SvgPoint, b: SvgPoint): number {
@@ -856,6 +1027,28 @@ function labelAnchorFitsSetRegion(
   return shapeRecords.every((shape) => distanceToSetBoundary(point, shape.raw, shape.index) >= minClearance)
 }
 
+function semanticSetLabelPlacement(
+  record: Record<string, unknown>,
+  shapes: unknown[],
+  fallbackPoint: SvgPoint,
+  placed: SvgLabelBox[],
+  text: string,
+  fontSize: number
+): { point: SvgPoint; fontSize: number } | null {
+  const shapeRecords = setShapeRecords(shapes).map((shape) => ({
+    ...shape,
+    id: setShapeId(shape.raw, shape.index),
+  }))
+  const { include, exclude } = regionExpressionForLabel(record)
+  applyOnlyRegionExclusions(record, shapeRecords, include, exclude)
+  const fallbackBox = labelBox(fallbackPoint, text, fontSize)
+  const fallbackIsClear =
+    labelAnchorFitsSetRegion(fallbackPoint, shapeRecords, include, exclude, 10) &&
+    !placed.some((item) => labelsOverlap(fallbackBox, item))
+  if (fallbackIsClear) return { point: fallbackPoint, fontSize }
+  return placementForSetRegion(record, shapes, fallbackPoint, placed, text, fontSize)
+}
+
 function labelWidth(text: string, fontSize: number): number {
   return Math.max(18, text.length * fontSize * 0.58 + 10)
 }
@@ -1038,11 +1231,9 @@ function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: nu
 
 function renderSetLegend(labelledShapes: Array<{ record: Record<string, unknown>; index: number }>): string {
   return labelledShapes.map(({ record, index }, legendIndex) => {
-    const column = legendIndex % 2
-    const row = Math.floor(legendIndex / 2)
-    const x = 92 + column * 300
-    const y = 454 + row * 34
-    return `${renderLegendSwatch(record, index, x, y)}<text x="${x + 42}" y="${y}" font-size="16" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
+    const x = 560
+    const y = 78 + legendIndex * 62
+    return `${renderLegendSwatch(record, index, x, y)}<text x="${x + 50}" y="${y}" font-size="15" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
   }).join('')
 }
 
@@ -1095,36 +1286,7 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
     if (candidates.length === 1 && !candidates[0]?.label) candidates[0].label = entry.label
   }
 
-  normalizedShapes = normalizeGeneratedVennShapeLayout(normalizedShapes)
-
-  return { shapes: normalizedShapes, values: numericValues }
-}
-
-function normalizeGeneratedVennShapeLayout(shapes: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
-  if (shapes.length === 2) {
-    return shapes.map((shape, index) => ({
-      ...shape,
-      shape: 'circle',
-      cx: index === 0 ? 285 : 395,
-      cy: 220,
-      r: 122,
-    }))
-  }
-
-  if (shapes.length === 3) {
-    const layout = [
-      { cx: 285, cy: 190, r: 118 },
-      { cx: 395, cy: 190, r: 118 },
-      { cx: 340, cy: 286, r: 118 },
-    ]
-    return shapes.map((shape, index) => ({
-      ...shape,
-      shape: 'circle',
-      ...layout[index],
-    }))
-  }
-
-  return shapes
+  return normalizeSetDiagramGeometry(normalizedShapes, numericValues)
 }
 
 function renderSetDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
@@ -1156,13 +1318,16 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
     const fontSize = Number(record.fontSize ?? 18)
     const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
     const hasSemanticRegion = hasSetRegionExpression(record)
+    const hasExplicitPoint = Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))
     const placement = hasSemanticRegion
-      ? placementForSetRegion(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+      ? semanticSetLabelPlacement(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+      : hasExplicitPoint
+      ? { point: fallbackPoint, fontSize }
       : { point: fallbackPoint, fontSize }
     if (!placement) {
       throw new Error(`No safe label position found for set region "${String(record.region ?? text)}".`)
     }
-    const box = hasSemanticRegion
+    const box = hasSemanticRegion || hasExplicitPoint
       ? labelBox(placement.point, text, placement.fontSize)
       : placeSetLabel(
           placement.point,
@@ -1177,14 +1342,10 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
           }
         )
     placedLabels.push(box)
-    const paddingX = 5
-    const width = Math.max(18, box.width + paddingX * 2)
-    const height = placement.fontSize + 8
-    const rect = `<rect x="${box.x - width / 2}" y="${box.y - placement.fontSize}" width="${width}" height="${height}" rx="3" fill="white" fill-opacity="0.9"/>`
     const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
-    return `${rect}${label}`
+    return label
   }).join('')
-  const height = useLegend ? 520 : 430
+  const height = 430
   return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="${height}" viewBox="0 0 720 ${height}"><rect width="100%" height="100%" fill="white"/>${title ? renderSvgTitle(title, 40, 34) : ''}<g transform="translate(0 ${title ? 34 : 0})">${shapeNodes}${shapeLabelNodes}${labelNodes}</g>${legend}</svg>`
 }
 
@@ -1280,29 +1441,20 @@ function getSetDiagramPlacementIssue(spec: Record<string, unknown>): string | nu
         ? spec.regions
         : []
   const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
-  if (shapes.length > 3) {
-    return 'Generated set diagrams support two or three sets only. Use a simpler two-set or three-set Venn diagram.'
-  }
   if (shapes.length < 2) {
     return 'Generated set diagrams need at least two sets.'
-  }
-  const numericLabelCount = values.filter((raw) => {
-    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    return /\d/u.test(String(record.text ?? record.value ?? ''))
-  }).length
-  const maxNumericLabels = shapes.length === 2 ? 4 : 8
-  if (numericLabelCount > maxNumericLabels) {
-    return `Generated ${shapes.length}-set diagrams can display at most ${maxNumericLabels} numeric region labels without ambiguity.`
   }
   const placedLabels: SvgLabelBox[] = []
   for (const raw of values) {
     const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
     const text = String(record.text ?? record.value ?? '')
     if (!/\d/u.test(text)) continue
-    if (!hasSetRegionExpression(record)) return `Set diagram numeric label "${text}" needs a semantic set-region expression.`
     const fontSize = Number(record.fontSize ?? 18)
     const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
-    const placement = placementForSetRegion(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+    if (!hasSetRegionExpression(record)) {
+      return `Set diagram numeric label "${text}" needs a semantic set-region expression.`
+    }
+    const placement = semanticSetLabelPlacement(record, shapes, fallbackPoint, placedLabels, text, fontSize)
     if (!placement) return `Set diagram numeric label "${text}" cannot be placed safely inside its semantic region.`
     placedLabels.push(labelBox(placement.point, text, placement.fontSize))
   }

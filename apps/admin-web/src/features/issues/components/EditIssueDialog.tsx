@@ -265,6 +265,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                   <IssuePropertiesPanel
                     form={form}
                     issue={issue}
+                    tags={liveTags}
                     notes={notes}
                     isOpen={isOpen}
                     onClose={onClose}
@@ -272,8 +273,8 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                   />
 
                   <IssueContentPanel 
-                    issue={issue}
                     isOpen={isOpen}
+                    form={form}
                     tags={liveTags}
                   />
                 </form>

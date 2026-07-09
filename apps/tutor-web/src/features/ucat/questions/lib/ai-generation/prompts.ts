@@ -169,6 +169,15 @@ function layeredInstructions(input: Pick<AiGenerationBrief, 'promptLayers'>): st
   return input.promptLayers.map((layer) => `${layer.scopeType}:${layer.name} v${layer.version}\n${normalizedPromptLayerText(layer)}`)
 }
 
+function plannedCategoryName(plan: unknown): string | null {
+  if (!plan || typeof plan !== 'object') return null
+  const plans = (plan as { plans?: unknown }).plans
+  const firstPlan = Array.isArray(plans) ? plans[0] : null
+  if (!firstPlan || typeof firstPlan !== 'object') return null
+  const categoryName = (firstPlan as { categoryName?: unknown }).categoryName
+  return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
+}
+
 export function buildPlanningPrompt(input: AiGenerationBrief): string {
   return JSON.stringify(
     {
@@ -190,7 +199,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
         'If category is selected, treat it as targeted practice and keep every plan row inside that category.',
         'If category is null, do not spread evenly across availableCategories. Choose a natural UCAT-style mix, using source examples and section realism over coverage.',
         'For mixed difficulty or mixed time burden, do not force an even easy/medium/hard or low/medium/high distribution. Use natural variation and estimate each question after writing.',
-        'For QR, category is organisational metadata unless the tutor explicitly selected a category. In default generation, do not choose the QR category before choosing the source; write a realistic source first, then classify it.',
+        'For QR, category is organisational metadata unless the tutor explicitly selected a category. In default generation, use categoryName only as a soft source-format intent for retrieving and calibrating examples; write a realistic source first, then classify the final stem honestly.',
         "For VR, each stem must still be either Reading Comprehension or True, False, Can't Tell, but vary passage source style, traps, evidence distribution, and question mix within the category.",
         'For DM, each stem must fit one DM category, but vary scenario domain, reasoning structure, diagrams, constraints, wording, and distractor logic within the category.',
         'For SJ, each stem must be How Important or How Appropriate, but vary professional context, ethical principle, stakeholder, and judgement nuance within that mode.',
@@ -218,6 +227,9 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
 }
 
 export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }): string {
+  const plannedCategory = plannedCategoryName(input.plan)
+  const isDefaultQr = sectionNameToAiGenerationKey(input.sectionName) === 'quantitative_reasoning' && !input.categoryName
+
   return JSON.stringify(
     {
       task: 'Write UCAT generation candidates from the plan',
@@ -244,13 +256,14 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Structured visual visualType options are vega_lite_chart, set_diagram, and shape-based venn_diagram only.',
         'QR visualType: vega_lite_chart only. spec must be a complete Vega-Lite JSON spec with inline data.values or datasets. Do not use external urls. Do not use bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart, route_map, schematic_map, layout_grid, or timetable.',
         'For vega_lite_chart, use the freedom of Vega-Lite to create realistic UCAT source visuals: horizontal or vertical bars, grouped bars, stacked bars, line charts, multi-line charts, scatter plots, histograms, dot/strip plots, pie/donut charts only when suitable, layered rules/text annotations, small multiples, facets, hconcat/vconcat panels, independent scales, maps/route diagrams, floor-plan style layouts, timetable-style grids, tables plus mini charts where appropriate, and unusual but readable exam-style layouts.',
-        'Every vega_lite_chart must be black and white only. Differentiate series using greyscale, strokeDash, opacity, point shapes, hatching-like repeated marks where possible, text labels, or faceting. Do not use coloured palettes.',
+        'Every vega_lite_chart must be black and white only. Differentiate series using greyscale, strokeDash, opacity, point shapes, hatching-like repeated marks where possible, text labels, or faceting. Do not use coloured palettes. In mixed bar-line charts, make lines visually distinct from filled bars using dashed strokes, point markers, stronger stroke width, or a separate panel/axis where useful.',
         'Avoid generic chart templates. Across a generated batch, no two QR charts should have the same chart structure with only labels or numbers changed. Vary mark types, orientation, axis treatment, label placement, legend placement, panel layout, annotation style, data density, and the kind of interpretation required.',
-        'Use clear axes, units, scales, legends, and enough labelled data to support realistic QR interpretation. The chart must contain all values needed to solve the questions; do not rely on prose for hidden chart values.',
+        'Use clear axes, units, scales, legends, and enough labelled data to support realistic QR interpretation. The chart must contain all values needed to solve the questions; do not rely on prose for hidden chart values. Axis titles must remain fully readable because students may need them to answer the question: keep them concise, wrap long titles with title arrays where useful, give right-side axes enough padding, avoid overlapping axis labels/titles, and prefer faceting or panels over cramped dual axes when the source would otherwise become hard to read.',
         'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
         'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{id?:string,shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,region?:string,include?:string[],exclude?:string[],x?:number,y?:number,bold?:boolean,fontSize?:number}]}.',
         'Use shapes[].label only for set names. Use regionLabels only for examinable region values such as 0, 3, 12, or 45. Do not put set names such as R/S/T or Biology/Chemistry in regionLabels.',
-        'For every numeric Venn/set regionLabel, include a semantic set-region expression using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label. Do not rely on raw x/y coordinates for numeric values; the renderer places numbers from the semantic region.',
+        'For simple two- or three-set circle Venns, numeric regionLabels may use semantic set-region expressions using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label.',
+        'For every DM Venn/set numeric regionLabel, provide semantic membership metadata using region or include/exclude arrays. For complex mixed-shape Venn/set diagrams like real UCAT DM images, also provide x/y coordinates on the same coherent coordinate system as shapes; the renderer treats x/y as placement hints and the semantic metadata as authoritative. Do not mix tiny 0-20 coordinates with 500+ pixel coordinates in the same diagram. Put each number at the visual centre of its intended exact cell, comfortably away from shape outlines.',
         'Do not output two numeric labels with the same set-region expression unless the answer option is intentionally showing an invalid diagram. Do not leave a required numeric region unlabeled when the question depends on that region.',
         'For mixed-shape set diagrams, labels may be shown by a single visual legend. Do not also write a sentence in the stem that repeats the same shape-to-set mapping unless it contains extra examinable information.',
         'If two or more sets use the same shape type, provide clear shape labels or labelX/labelY positions on the diagram instead of relying on a legend.',
@@ -266,7 +279,13 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Return candidates for the full plan.',
         'If the brief category is selected, set each stem categoryName exactly to that selected category.',
         'If the brief category is null, choose categoryName from availableCategories only after deciding the source and questions. Treat categoryName as metadata/classification, not as a template to satisfy.',
-        'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category. For default QR plans, categoryName may be absent from the plan so the source can be generated before classification.',
+        'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
+        ...(isDefaultQr && plannedCategory
+          ? [
+              `For default QR, the planned categoryName "${plannedCategory}" is a soft source-format intent used to calibrate examples, not a rigid constraint. Let the generated source be realistic, then set the final categoryName honestly after writing.`,
+              'For default QR realistic mix, do not default every source to data tables. Use tables, charts, timetable-like layouts, mixed sources, maps/diagrams, or text-only sources when the source examples and soft source-format intent make them natural.',
+            ]
+          : []),
         'If difficultyTarget or timeBurdenTarget is mixed, generate natural official-style variation and then set estimatedDifficulty/estimatedTimeBurdenSeconds honestly; do not manufacture an even distribution.',
         'If difficultyTarget or timeBurdenTarget is easy/medium/hard or low/medium/high, treat it as a broad tutor-requested target, not an exact promise.',
         ...(sectionNameToAiGenerationKey(input.sectionName) === 'verbal_reasoning'
@@ -274,14 +293,14 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Return stemText as 2-6 paragraph content blocks, not one unbroken string.',
               'Write passages with a slightly higher density of named entities, titles, dates, years, quantities, percentages, study names, places, organisations, species names, quoted terms, or other scan-friendly anchors, similar to a concise Wikipedia-style article. Do not make the passage artificially list-like.',
               'Follow the planned passage length/time burden and test four distinct reading skills, but avoid making all four questions global synthesis questions.',
-              'Include at least two questions per VR stem that can be answered efficiently by scanning for a proper noun, number, date, quoted term, or distinctive phrase, then reading the surrounding sentence/paragraph. Use at most one broad whole-passage question such as main purpose, best overall support, or author attitude unless the requested time burden is high.',
+              'Where it fits the passage naturally, include questions that can be answered efficiently by locating a distinctive phrase, number, name, or paragraph-level clue. Do not force a fixed number of scan-first questions.',
               "For True, False, Can't Tell, questionText must contain only the statement being assessed. Never state or hint whether it is True, False, or Can't Tell in questionText.",
               'In answerExplanation, cite the relevant passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, using labels such as Paragraph 1 or Paragraph 3.',
             ]
           : []),
         ...(input.categoryName === 'Logical Puzzles'
           ? [
-              'Follow the planned puzzleArchetype, scenarioDomain, and questionFocus; do not substitute an ages/race ranking puzzle unless explicitly planned.',
+              'Use the plan as soft realism guidance only. Choose a natural Logical Puzzles structure rather than forcing a fixed puzzle archetype.',
               'Before returning, verify the keyed option against every arrangement satisfying the constraints and ensure no other option is also valid.',
               'The stem must contain only the scenario and constraints; put the command/question only in questionText.',
               'Write the answerExplanation as a concise teaching solution: recommend and demonstrate a suitable table, ordered list, slot diagram, or elimination grid; then give the final proof and explain each distractor.',
@@ -291,11 +310,11 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           : []),
         ...(input.categoryName === 'Venn Diagrams'
           ? [
-              'Include deterministic Venn/set visuals using the shape-based set_diagram/venn_diagram contract. Follow the planned vennVisualFormat exactly.',
+              'Include deterministic Venn/set visuals using the shape-based set_diagram/venn_diagram contract where a visual is warranted. Treat any planned visual wording as soft guidance, not a fixed template.',
               'Do not generate the legacy three coloured overlapping circles. Three-circle diagrams are allowed only as monochrome boxed answer options when the planned format asks for answer option diagrams.',
-              'Vary Venn formats in official style: two-set, three-set, four-shape diagrams, nested ellipses, overlapping ellipses, rectangles with circles, triangles/pentagons/hexagons/diamonds/circles, unlabeled or lightly labeled regions, and answer options that are themselves diagrams when appropriate.',
+              'Vary Venn formats in official style: two-set, three-set, four-shape, and five-shape diagrams; nested ellipses; overlapping ellipses; rectangles with circles; triangles/pentagons/hexagons/diamonds/circles; unlabeled or lightly labeled regions; and answer options that are themselves diagrams when appropriate. Do not default every generated Venn stem to exactly three shapes.',
               'When answer options are diagrams, each option answerText must be a visual block. Use the same canvas scale and shape layout across options, changing only the region values or membership relationship needed for the option.',
-              'Every displayed region value or diagram relationship must be sufficient to solve the question. Include at least three numeric regionLabels across the Venn/set visual(s). Place each numeric regionLabel comfortably inside a region, not between shapes or on a boundary. Use monochrome or very lightly filled shapes unless colour is part of the data.',
+              'Every displayed region value or diagram relationship must be sufficient to solve the question. Include at least three numeric regionLabels across the Venn/set visual(s). Every numeric regionLabel must include semantic region/include/exclude metadata for its exact membership cell; x/y is only a placement hint. Place each numeric regionLabel comfortably inside that exact region, not between shapes or on a boundary. Use monochrome or very lightly filled shapes unless colour is part of the data.',
             ]
           : []),
         ...(input.categoryName === 'Recognising Assumptions'
@@ -331,13 +350,12 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           ? ['Keep the stem text-only. Do not include table or visual content blocks.']
           : []),
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
-        'Follow the plan correctAnswerPattern exactly so correct answers are not concentrated in one option position.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
         'Every multiple_choice question must have exactly one isAnswer=true option and a question-level explanation.',
         'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
         'Answer explanations must act as a tutor: show the efficient setup, include a table/list/diagram content block when that representation is part of the method, explain why the correct answer is correct, and explain why every distractor is wrong.',
         'Use short paragraphs, list blocks, or table blocks in explanations so they are easy to read. Include useful shortcuts and common traps where relevant.',
-        'For questions with high estimated time burden, include a brief timed-test note telling the student how to recognise the burden and consider skipping then returning later if time permits.',
+        'For genuinely high time-burden questions, include a brief timed-test note only when it would be useful to the student; do not add a canned skip-and-return line to every high-burden explanation.',
         'Use clean human editorial prose. Do not use em dashes, double hyphens, canned AI transitions, or self-referential commentary.',
       ],
       outputShape: {

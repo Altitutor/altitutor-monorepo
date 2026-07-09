@@ -129,9 +129,9 @@ export default function SettingsPage() {
           icon: GraduationCap,
         },
         {
-          title: 'Score predictor model',
-          description: 'Configure cold-start constants for UCAT section score projections',
-          href: '/settings/ucat-model-config',
+          title: 'Score projection',
+          description: 'Configure UCAT score estimates, evidence weights, and trajectory assumptions',
+          href: '/settings/score-projection',
           icon: GraduationCap,
         },
       ],

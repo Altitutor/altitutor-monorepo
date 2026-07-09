@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CreditCard, Monitor, Palette, User } from "lucide-react";
+import { CreditCard, Palette, User } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatClickableCardLink } from "@/shared/components/ucat-clickable-card";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -24,12 +24,6 @@ const LINKS = [
     label: "Plan",
     description: "Your plan, benefits, billing, and upgrade options.",
     icon: CreditCard,
-  },
-  {
-    href: "/settings/study-planner",
-    label: "Study planner",
-    description: "Test date and per-section target scores.",
-    icon: Monitor,
   },
 ] as const;
 

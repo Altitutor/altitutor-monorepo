@@ -233,7 +233,7 @@
 - **AI generation provider** — An admin-approved OpenAI-compatible model provider used by UCAT generation, defined by endpoint, secret reference, and allowed model IDs. OpenRouter may be the default provider, but generation should not be coupled to one provider.
   _Avoid_: OpenRouter-only integration, hard-coded model
 
-- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from UCAT model config, which controls score prediction constants.
+- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from score projection settings, which control score projection assumptions.
   _Avoid_: UCAT model config, tutor prompt settings
 
 - **Layered generation prompt** — The combined instructions used for AI generation, assembled from generation system prompts, UCAT section, stem category, question tags, and optional run instructions. Model selection is independent. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
@@ -247,6 +247,9 @@
 
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
+
+- **UCAT-realistic source visual** — A data-bearing UCAT visual that should be indistinguishable from source material in a real UCAT-style question while remaining logically auditable. It may be a chart, table, Venn/set diagram, map, timetable, or mixed source panel; visual style and layout are part of the tested data-interpretation burden, not decoration.
+  _Avoid_: Generic chart, template diagram, decorative source image
 
 - **Set-region expression** — A semantic label for one region of a Decision Making set diagram, defined by which sets are included and which sets are excluded. Set-region expressions describe the logical region that a number belongs to; they are separate from the visual shape layout used to draw the diagram.
   _Avoid_: Venn template slot, fixed diagram template
@@ -348,20 +351,37 @@
 - **Unlimited trial eligibility** — Whether a student may start an Unlimited trial. False once a trial has ever been started on that account, regardless of which card was used or outcome (converted, cancelled, or lapsed). Consumed when a Stripe subscription is created with `trialing` status. Admin comp overrides do not consume trial eligibility.
   _Avoid_: Pro trial eligibility, trial available, can trial
 
-- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Four steps shown in the UI; step 4 has two internal parts (test details, then target scores) that share one progress indicator so the flow does not feel longer than four steps. Steps: (1) student details, (2) set password, (3) choose a plan (UCAT Free, Unlimited trial, or paid subscribe), (4) optional UCAT test details and target scores. Steps 1–3 are required. Step 4 is optional but each part must be intentionally skipped — closing the browser without skipping does not advance progress; the student resumes the same step (and same internal part) on next login. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
+- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) choose a plan (UCAT Free, Unlimited trial, or paid subscribe). `/subscribe` remains for returning students managing or changing plans, not first-time gating.
   _Avoid_: Onboarding flow, signup wizard
-
-- **Signup onboarding step 4 (test details)** — The optional final signup step, shown as a single "Step 4 of 4" in the UI. **Part A:** choose UCAT test year (required to proceed via Next; options are current calendar year plus the next two years), then optionally a specific test date within that year's UCAT window or "I'm not sure yet" (year saved, date null). **Part B:** optional target section scores (shown only after Part A Next, not after Part A Skip). Skip for now on Part A completes signup without Part B. Back from Part B returns to Part A; paid users returning from Stripe resume Part A without redoing plan selection.
-
-- **UCAT test year** — The calendar year a student expects to sit UCAT, stored on the student profile when set during signup onboarding or later in settings. Independent of a specific test date; when only the year is known, the study planner may show year-level messaging without a day countdown until a date is added.
-  _Avoid_: Exam year, sitting year
 
 - **Signup onboarding gate** — While signup onboarding is incomplete, the student may only reach `/signup/complete` (and auth/API paths required for the wizard). All other app routes redirect to `/signup/complete` at their persisted step. `/subscribe` is not part of first-time gating. Legacy accounts with plan choice recorded but no new completion flag are treated as fully onboarded.
   _Avoid_: Onboarding redirect, subscribe gate
 
-- **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Step 4 internal parts use the same pattern under a fixed "Step 4 of 4" indicator. Respects `prefers-reduced-motion`.
+- **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Respects `prefers-reduced-motion`.
 
-- **UCAT target score warning** — A soft, non-blocking caution shown during signup onboarding step 4 part B when the student enters section targets whose combined total is below 1800. Shown as an inline callout while editing; if they press Begin with a low total, a confirmation dialog offers adjust or continue anyway. Skipping targets bypasses the warning. Default pre-filled targets are 800 per section.
+- **Section score estimate** — The app's current estimate of a student’s latent UCAT cognitive-section score on the 300-900 scale at a point in time. It is derived from attempt evidence and should be treated as uncertain, not as a known score.
+  _Avoid_: Predicted section score, known section score
+
+- **Attempt evidence** — A scored student performance observation that can contribute to a section score estimate, such as a mock section attempt, set attempt, or aggregated practice attempt group. Very small practice samples are not attempt evidence until grouped into a minimally meaningful section-level observation.
+  _Avoid_: Individual practice question as score evidence, raw attempt
+
+- **Evidence weight** — The relative influence an attempt evidence item has on a section score estimate. It reflects exam-likeness, timing conditions, recency, and evidence volume rather than treating every observation as equally reliable.
+  _Avoid_: Attempt count, raw average weight
+
+- **Effective practice** — The amount of future practice expected to improve a section score estimate after accounting for diminishing returns from very high raw practice volume. It should not assume unlimited improvement from doing more questions.
+  _Avoid_: Raw question count, study time
+
+- **Score trajectory** — A projection of future section score estimates over dates. It is driven by effective practice and bounded by a projected ceiling rather than by calendar time alone.
+  _Avoid_: Time-only prediction, guaranteed score path
+
+- **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
+  _Avoid_: Study planner, goal tracker, target prediction
+
+- **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, shrinkage, effective-practice pace, and trajectory curve constants.
+  _Avoid_: UCAT model config, study planner settings
+
+- **UCAT scoring authority** — The shared scoring package used to convert UCAT raw performance into scaled section scores. Score projection consumes scaled scores from this authority and should not define its own raw-to-scaled conversion.
+  _Avoid_: Projection-local scoring formula, duplicate score conversion
 
 - **UCAT plan choice** — Step 3 of signup onboarding: start an Unlimited trial, subscribe to a paid tier, or explicitly continue on UCAT Free. Shown as plan cards and billing interval selector only (not the full `/subscribe` marketing page). Free proceeds immediately; paid routes through Stripe checkout and returns to signup onboarding step 4 on success (`/signup/complete?checkout=success`). Checkout abandoned mid-flow resumes step 3 on next login. Unlimited trial can still be started later from `/subscribe` or upsell CTAs if still eligible.
   _Avoid_: UCAT onboarding choice (former name), signup tier selection, onboarding modal

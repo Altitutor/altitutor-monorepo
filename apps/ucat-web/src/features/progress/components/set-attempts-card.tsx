@@ -26,7 +26,7 @@ import {
   filterByTimeFrame,
   type SharedDateRange,
 } from "../lib/progress-data-utils";
-import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
+import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
 import {
   UCAT_CARD_CHROME,
@@ -76,7 +76,7 @@ export function SetAttemptsCard({
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const projectionQuery = useStudyPlannerProjection(sectionNumber != null);
+  const projectionQuery = useScoreProjection(sectionNumber != null);
 
   const standaloneAttempts = useMemo(() => {
     const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
@@ -133,17 +133,17 @@ export function SetAttemptsCard({
   const graphProjection = useMemo(() => {
     if (!sectionProjection) return undefined;
     return {
-      conservative: sectionProjection.projection.map((p) => ({
+      pessimistic: sectionProjection.projection.map((p) => ({
         date: p.date,
-        value: p.conservative,
+        value: p.pessimistic,
       })),
       realistic: sectionProjection.projection.map((p) => ({
         date: p.date,
         value: p.realistic,
       })),
-      aggressive: sectionProjection.projection.map((p) => ({
+      optimistic: sectionProjection.projection.map((p) => ({
         date: p.date,
-        value: p.aggressive,
+        value: p.optimistic,
       })),
     };
   }, [sectionProjection]);
@@ -179,12 +179,6 @@ export function SetAttemptsCard({
                 ? graphProjection
                 : undefined
             }
-            targetScore={
-              graphDataType === "scaled_score"
-                ? sectionProjection?.target?.score
-                : undefined
-            }
-            testDate={projectionQuery.data?.testDate ?? undefined}
           />
         </CardContent>
       </Card>

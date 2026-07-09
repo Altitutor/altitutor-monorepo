@@ -3094,249 +3094,6 @@ export type Database = {
           },
         ]
       }
-      issue_tags: {
-        Row: {
-          class_id: string | null
-          created_at: string
-          id: string
-          invoice_id: string | null
-          issue_id: string
-          parent_id: string | null
-          session_id: string | null
-          staff_id: string | null
-          student_id: string | null
-          subject_id: string | null
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string
-          id?: string
-          invoice_id?: string | null
-          issue_id: string
-          parent_id?: string | null
-          session_id?: string | null
-          staff_id?: string | null
-          student_id?: string | null
-          subject_id?: string | null
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string
-          id?: string
-          invoice_id?: string | null
-          issue_id?: string
-          parent_id?: string | null
-          session_id?: string | null
-          staff_id?: string | null
-          student_id?: string | null
-          subject_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "issue_tags_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_class_detail"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_class_detail"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_void_invoice_sessions"
-            referencedColumns: ["void_invoice_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_issue_id_fkey"
-            columns: ["issue_id"]
-            isOneToOne: false
-            referencedRelation: "issues"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "parents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_student_progress_summary"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "issue_tags_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       issues: {
         Row: {
           created_at: string
@@ -8857,6 +8614,7 @@ export type Database = {
           created_by: string | null
           curriculum: string | null
           discontinued_at: string | null
+          discontinued_by: string | null
           email: string | null
           first_name: string
           id: string
@@ -8892,6 +8650,7 @@ export type Database = {
           created_by?: string | null
           curriculum?: string | null
           discontinued_at?: string | null
+          discontinued_by?: string | null
           email?: string | null
           first_name: string
           id: string
@@ -8927,6 +8686,7 @@ export type Database = {
           created_by?: string | null
           curriculum?: string | null
           discontinued_at?: string | null
+          discontinued_by?: string | null
           email?: string | null
           first_name?: string
           id?: string
@@ -8972,6 +8732,34 @@ export type Database = {
           {
             foreignKeyName: "students_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_discontinued_by_fkey"
+            columns: ["discontinued_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_discontinued_by_fkey"
+            columns: ["discontinued_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "students_discontinued_by_fkey"
+            columns: ["discontinued_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "students_discontinued_by_fkey"
+            columns: ["discontinued_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -24135,4 +23923,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -391,6 +391,131 @@ export function UcatStemEditorPropertiesPanel({
     const target = typeof input.target === 'string' ? input.target : 'stem'
 
     switch (toolCall.name) {
+      case 'bulkParaphraseStem': {
+        const stemText = typeof input.stemText === 'string' ? input.stemText : ''
+        if (!stemText.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No rewritten stem text provided.' }
+
+        const questionInputs = Array.isArray(input.questions) ? input.questions : []
+        if (questionInputs.length !== current.questions.length) {
+          return {
+            toolCallId: toolCall.id,
+            ok: false,
+            message: `Expected rewritten content for ${current.questions.length} questions.`,
+          }
+        }
+
+        const patches: Array<{
+          questionIndex: number
+          questionText: string
+          answerExplanation?: string
+          options: Array<{
+            optionIndex: number
+            answerText: string
+            answerExplanation?: string
+          }>
+        }> = []
+
+        for (const questionInput of questionInputs) {
+          const questionRecord =
+            questionInput && typeof questionInput === 'object' && !Array.isArray(questionInput)
+              ? questionInput as Record<string, Json | undefined>
+              : null
+          const qIndex = typeof questionRecord?.questionIndex === 'number' ? questionRecord.questionIndex : null
+          const questionText = typeof questionRecord?.questionText === 'string' ? questionRecord.questionText : ''
+          if (qIndex == null || !current.questions[qIndex] || !questionText.trim()) {
+            return { toolCallId: toolCall.id, ok: false, message: 'Invalid rewritten question payload.' }
+          }
+          const existingQuestionExplanation = trimTextParagraphs(
+            proseMirrorToPlainText((current.questions[qIndex].answerExplanation as Json | null) ?? null) ?? '',
+          )
+          if (
+            existingQuestionExplanation &&
+            (typeof questionRecord?.answerExplanation !== 'string' || !questionRecord.answerExplanation.trim())
+          ) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: `Expected rewritten explanation for question ${qIndex + 1}.`,
+            }
+          }
+
+          const optionInputs = Array.isArray(questionRecord?.options) ? questionRecord.options : []
+          if (optionInputs.length !== current.questions[qIndex].options.length) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: `Expected rewritten content for ${current.questions[qIndex].options.length} options in question ${qIndex + 1}.`,
+            }
+          }
+
+          const optionPatches: Array<{ optionIndex: number; answerText: string; answerExplanation?: string }> = []
+          for (const optionInput of optionInputs) {
+            const optionRecord =
+              optionInput && typeof optionInput === 'object' && !Array.isArray(optionInput)
+                ? optionInput as Record<string, Json | undefined>
+                : null
+            const oIndex = typeof optionRecord?.optionIndex === 'number' ? optionRecord.optionIndex : null
+            const answerText = typeof optionRecord?.answerText === 'string' ? optionRecord.answerText : ''
+            if (oIndex == null || !current.questions[qIndex].options[oIndex] || !answerText.trim()) {
+              return { toolCallId: toolCall.id, ok: false, message: `Invalid rewritten option payload for question ${qIndex + 1}.` }
+            }
+            const existingOptionExplanation = trimTextParagraphs(
+              proseMirrorToPlainText((current.questions[qIndex].options[oIndex].answerExplanation as Json | null) ?? null) ?? '',
+            )
+            if (
+              existingOptionExplanation &&
+              (typeof optionRecord?.answerExplanation !== 'string' || !optionRecord.answerExplanation.trim())
+            ) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Expected rewritten explanation for question ${qIndex + 1}, option ${oIndex + 1}.`,
+              }
+            }
+            optionPatches.push({
+              optionIndex: oIndex,
+              answerText,
+              answerExplanation: typeof optionRecord?.answerExplanation === 'string' ? optionRecord.answerExplanation : undefined,
+            })
+          }
+
+          patches.push({
+            questionIndex: qIndex,
+            questionText,
+            answerExplanation: typeof questionRecord?.answerExplanation === 'string' ? questionRecord.answerExplanation : undefined,
+            options: optionPatches,
+          })
+        }
+
+        form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(stemText), { shouldDirty: true })
+        for (const patch of patches) {
+          form.setValue(`questions.${patch.questionIndex}.questionText`, plainTextToProseMirrorWithLineBreaks(patch.questionText), { shouldDirty: true })
+          if (patch.answerExplanation !== undefined) {
+            form.setValue(`questions.${patch.questionIndex}.answerExplanation`, aiTextToProseMirror(patch.answerExplanation), { shouldDirty: true })
+          }
+          for (const optionPatch of patch.options) {
+            form.setValue(
+              `questions.${patch.questionIndex}.options.${optionPatch.optionIndex}.answerText`,
+              plainTextToProseMirror(optionPatch.answerText),
+              { shouldDirty: true },
+            )
+            if (optionPatch.answerExplanation !== undefined) {
+              form.setValue(
+                `questions.${patch.questionIndex}.options.${optionPatch.optionIndex}.answerExplanation`,
+                aiTextToProseMirror(optionPatch.answerExplanation),
+                { shouldDirty: true },
+              )
+            }
+          }
+        }
+
+        return {
+          toolCallId: toolCall.id,
+          ok: true,
+          message: `Paraphrased the full draft stem package across ${patches.length} questions.`,
+        }
+      }
+
       case 'updateStemText':
         if (!text.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No stem text provided.' }
         form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(text), { shouldDirty: true })

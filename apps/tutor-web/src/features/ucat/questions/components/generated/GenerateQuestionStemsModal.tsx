@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import { Copy } from 'lucide-react'
 import {
@@ -394,6 +395,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [generationDebug, setGenerationDebug] = useState<UcatGenerationDebugInfo | null>(null)
   const [generationProgress, setGenerationProgress] = useState<UcatGenerationProgress | null>(null)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
@@ -497,6 +499,12 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return () => window.clearInterval(interval)
   }, [step])
 
+  useEffect(() => {
+    if (step !== 'review') {
+      setActiveTextEditor(null)
+    }
+  }, [step])
+
   function resetState() {
     setStep('config')
     setSectionId('')
@@ -518,6 +526,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setGenerationDebug(null)
     setGenerationProgress(null)
     setImageGenerationMode('auto')
+    setActiveTextEditor(null)
   }
 
   async function handleGenerate() {
@@ -669,6 +678,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             : drafts.length === 0 || importMutation.isPending
         }
         defaultExpanded
+        richTextToolbarEditor={step === 'review' ? activeTextEditor : null}
       >
         {step === 'config' ? (
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -965,6 +975,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 )
               }
               sourceChannel="ai_generation"
+              onActiveTextEditorChange={setActiveTextEditor}
             />
             <GenerationDebugPanel debug={generationDebug} />
           </div>

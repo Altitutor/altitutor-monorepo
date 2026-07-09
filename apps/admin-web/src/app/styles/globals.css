@@ -106,38 +106,6 @@
     }
   }
 
-  [data-slot='dialog-content'] > [data-slot='dialog-header'],
-  [data-slot='dialog-content'] > [data-slot='dialog-footer'],
-  [data-slot='alert-dialog-content'] > [data-slot='alert-dialog-header'],
-  [data-slot='alert-dialog-content'] > [data-slot='alert-dialog-footer'],
-  [data-slot='sheet-header'],
-  [data-slot='sheet-footer'] {
-    background-color: hsl(var(--card));
-  }
-
-  [data-slot='dialog-content']:not([class*='p-0']) > [data-slot='dialog-header'] {
-    margin: -1rem -1rem 0;
-    padding: 1rem;
-    border-bottom: 1px solid hsl(var(--border));
-  }
-
-  [data-slot='dialog-content']:not([class*='p-0']) > [data-slot='dialog-footer'] {
-    margin: 0 -1rem -1rem;
-    padding: 1rem;
-    border-top: 1px solid hsl(var(--border));
-  }
-
-  [data-slot='alert-dialog-content']:not([class*='p-0']) > [data-slot='alert-dialog-header'] {
-    margin: -1rem -1rem 0;
-    padding: 1rem;
-    border-bottom: 1px solid hsl(var(--border));
-  }
-
-  [data-slot='alert-dialog-content']:not([class*='p-0']) > [data-slot='alert-dialog-footer'] {
-    margin: 0 -1rem -1rem;
-    padding: 1rem;
-    border-top: 1px solid hsl(var(--border));
-  }
 }
 
 /* Temporary highlight when jumping to heading or search result in notes */

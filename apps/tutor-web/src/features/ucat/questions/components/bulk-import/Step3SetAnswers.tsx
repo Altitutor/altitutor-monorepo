@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
 import {
@@ -126,6 +127,7 @@ type Step3SetAnswersProps = {
   onNewImageFileIds?: (fileIds: string[]) => void
   sourceChannel?: UcatQuestionSourceChannel | null
   onExpandedStemChange?: (stemId: string | null) => void
+  onActiveTextEditorChange?: (editor: Editor | null) => void
 }
 
 export function Step3SetAnswers({
@@ -137,6 +139,7 @@ export function Step3SetAnswers({
   onNewImageFileIds,
   sourceChannel = null,
   onExpandedStemChange,
+  onActiveTextEditorChange,
 }: Step3SetAnswersProps) {
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
@@ -191,9 +194,18 @@ export function Step3SetAnswers({
     setExpandedRowKey((current) => {
       const next = current === key ? null : key
       onExpandedStemChange?.(next ? rows.find((row) => `${row.stemId}-${row.questionIndex}` === next)?.stemId ?? null : null)
+      if (next !== current) {
+        onActiveTextEditorChange?.(null)
+      }
       return next
     })
-  }, [onExpandedStemChange, rows])
+  }, [onActiveTextEditorChange, onExpandedStemChange, rows])
+
+  useEffect(() => {
+    return () => {
+      onActiveTextEditorChange?.(null)
+    }
+  }, [onActiveTextEditorChange])
 
   if (stems.length === 0 || rows.length === 0) {
     return (
@@ -309,6 +321,7 @@ export function Step3SetAnswers({
                             tags={tags}
                             onUpdateStem={onUpdateStem}
                             onNewImageFileIds={onNewImageFileIds}
+                            onActiveTextEditorChange={onActiveTextEditorChange}
                             sourceChannel={sourceChannel}
                             aiGenerationMetadata={stem.aiGenerationMetadata ?? null}
                           />

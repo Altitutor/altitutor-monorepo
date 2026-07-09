@@ -64,6 +64,14 @@ type StudentRow = {
   registered_at: string | null;
 };
 
+type DiscontinuedStudentRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  discontinued_at: string | null;
+  discontinued_by_staff: { first_name: string | null; last_name: string | null } | null;
+};
+
 type ClassRow = Tables<'classes'> & {
   subject?: Tables<'subjects'> | null;
 };
@@ -1232,7 +1240,9 @@ export async function fetchMarketingStatsReportData(
       .lte('registered_at', endIso),
     supabase
       .from('students')
-      .select('id, first_name, last_name, discontinued_at')
+      .select(
+        'id, first_name, last_name, discontinued_at, discontinued_by_staff:staff!students_discontinued_by_fkey(first_name, last_name)'
+      )
       .gte('discontinued_at', startIso)
       .lte('discontinued_at', endIso),
   ]);
@@ -1247,12 +1257,7 @@ export async function fetchMarketingStatsReportData(
     registered_at: string | null;
   }>;
 
-  const discontinuedStudents = (discontinuationsResult.data ?? []) as Array<{
-    id: string;
-    first_name: string;
-    last_name: string;
-    discontinued_at: string | null;
-  }>;
+  const discontinuedStudents = (discontinuationsResult.data ?? []) as DiscontinuedStudentRow[];
 
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
   const registrationsByDay = buildEmptySeries(days);
@@ -1309,6 +1314,13 @@ export async function fetchMarketingStatsReportData(
         meta: {
           student: `${student.first_name} ${student.last_name}`,
           discontinuedAt: formatMetaDate(student.discontinued_at),
+          discontinuedBy: student.discontinued_by_staff
+            ? staffName(
+                student.discontinued_by_staff.first_name,
+                student.discontinued_by_staff.last_name,
+                ''
+              )
+            : undefined,
         },
       },
     ];

@@ -352,6 +352,8 @@ export function TasksList({
   defaultFilters?: Record<string, unknown[]>;
 } = {}) {
   const embedLocked = hideToolbar && embedView != null;
+  const isLinkedTaskList = Boolean(issueId || projectId);
+  const showInlineAddRow = !hideToolbar || isLinkedTaskList;
 
   const {
     filters,
@@ -792,7 +794,7 @@ export function TasksList({
         sortBy={embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
         sortDirection={embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
         onSortChange={embedLocked ? undefined : handleSortChange}
-        onAdd={hideToolbar ? undefined : handleAdd}
+        onAdd={showInlineAddRow ? handleAdd : undefined}
         onRowClick={(t) => {
           setSelectedTaskId(t.id);
           setIsEditDialogOpen(true);
@@ -800,7 +802,7 @@ export function TasksList({
         addButtonLabel="Add task"
         addButtonVariant="default"
         addButtonShowLabel={true}
-        emptyMessage="No tasks match your filters"
+        emptyMessage={isLinkedTaskList ? '' : 'No tasks match your filters'}
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}

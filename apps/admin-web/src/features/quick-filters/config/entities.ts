@@ -266,6 +266,32 @@ export const SUPPORTED_ENTITIES: EntityConfig[] = [
     label: 'Tutor Logs',
     fields: [
       {
+        key: 'type',
+        label: 'Session Type',
+        type: 'select',
+        options: [
+          { value: 'CLASS', label: 'Class' },
+          { value: 'DRAFTING', label: 'Drafting' },
+          { value: 'EXAM_COURSE', label: 'Exam Course' },
+          { value: 'SUBSIDY_INTERVIEW', label: 'Subsidy Interview' },
+          { value: 'TRIAL_SESSION', label: 'Trial Session' },
+          { value: 'STAFF_INTERVIEW', label: 'Staff Interview' },
+          { value: 'ADMIN_SHIFT', label: 'Admin Shift' },
+          { value: 'CHECK_IN', label: 'Check In' },
+          { value: 'ADMIN_MEETING', label: 'Admin Meeting' },
+        ],
+      },
+      {
+        key: 'subject',
+        label: 'Subject',
+        type: 'select',
+      },
+      {
+        key: 'class',
+        label: 'Class',
+        type: 'select',
+      },
+      {
         key: 'staff',
         label: 'Staff',
         type: 'select',

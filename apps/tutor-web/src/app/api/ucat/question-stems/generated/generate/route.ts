@@ -17,7 +17,6 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/prompts'
 import {
   buildLocalPlan,
-  correctAnswerPattern,
 } from '@/features/ucat/questions/lib/ai-generation/local-plan'
 import {
   DifficultyTargetSchema,
@@ -258,26 +257,6 @@ function normalizeVrParagraphs(stem: GeneratedStem, sectionName: string): Genera
   }
 }
 
-function normalizePlannedAnswerPositions(stem: GeneratedStem, runIndex: number): GeneratedStem {
-  const category = normalizeLabel(stem.categoryName)
-  if (category !== 'reading comprehension' && category !== 'logical puzzles') return stem
-  const desiredPositions = correctAnswerPattern(stem.categoryName ?? null, runIndex)
-  return {
-    ...stem,
-    questions: stem.questions.map((question, questionIndex) => {
-      const correctIndex = question.options.findIndex((option) => option.isAnswer)
-      const desiredLabel = desiredPositions[questionIndex] ?? 'A'
-      const desiredIndex = Math.max(0, Math.min(question.options.length - 1, desiredLabel.charCodeAt(0) - 65))
-      if (correctIndex < 0 || correctIndex === desiredIndex) return question
-      const options = [...question.options]
-      const [correctOption] = options.splice(correctIndex, 1)
-      if (!correctOption) return question
-      options.splice(desiredIndex, 0, correctOption)
-      return { ...question, options }
-    }),
-  }
-}
-
 function plannedCategoryName(plan: unknown): string | null {
   if (!plan || typeof plan !== 'object') return null
   const plans = (plan as { plans?: unknown }).plans
@@ -287,21 +266,87 @@ function plannedCategoryName(plan: unknown): string | null {
   return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
 }
 
+function promptExampleCategory(example: Record<string, unknown>): string | null {
+  const categoryName = example.categoryName
+  return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
+}
+
+function rotatingExamples(
+  examples: Array<Record<string, unknown>>,
+  index: number,
+  limit: number
+): Array<Record<string, unknown>> {
+  if (examples.length === 0 || limit <= 0) return []
+  const start = examples.length > 0 ? (index * 2) % examples.length : 0
+  return Array.from(
+    { length: Math.min(limit, examples.length) },
+    (_, offset) => examples[(start + offset) % examples.length]
+  ).filter((example): example is Record<string, unknown> => !!example)
+}
+
+function categoryBalancedExamples(
+  examples: Array<Record<string, unknown>>,
+  index: number,
+  limit: number
+): Array<Record<string, unknown>> {
+  if (examples.length === 0 || limit <= 0) return []
+
+  const groups = new Map<string, Array<Record<string, unknown>>>()
+  for (const example of examples) {
+    const key = promptExampleCategory(example) ?? 'uncategorized'
+    groups.set(key, [...(groups.get(key) ?? []), example])
+  }
+
+  const categoryKeys = Array.from(groups.keys())
+  if (categoryKeys.length <= 1) return rotatingExamples(examples, index, limit)
+
+  const picked: Array<Record<string, unknown>> = []
+  const seen = new Set<Record<string, unknown>>()
+  const offsets = new Map(categoryKeys.map((key) => [key, index % (groups.get(key)?.length || 1)]))
+
+  while (picked.length < limit && seen.size < examples.length) {
+    let pickedThisPass = false
+    for (let offset = 0; offset < categoryKeys.length && picked.length < limit; offset += 1) {
+      const key = categoryKeys[(index + offset) % categoryKeys.length]
+      const group = groups.get(key) ?? []
+      if (group.length === 0) continue
+      const groupOffset = offsets.get(key) ?? 0
+      const example = group[groupOffset % group.length]
+      offsets.set(key, groupOffset + 1)
+      if (!example || seen.has(example)) continue
+      picked.push(example)
+      seen.add(example)
+      pickedThisPass = true
+    }
+    if (!pickedThisPass) break
+  }
+
+  return picked
+}
+
 function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unknown): AiGenerationBrief {
   const planCategoryName = plannedCategoryName(plan)
   const categoryName = brief.categoryName ?? planCategoryName
+  const isQrDefault = brief.sectionName === 'Quantitative Reasoning' && !brief.categoryName
+  const maxExamples = brief.sectionName === 'Quantitative Reasoning' ? 6 : 4
   const matchingExamples = brief.examples.filter((example) => {
-    if (categoryName && example.categoryName !== categoryName) return false
+    const exampleCategoryName = promptExampleCategory(example)
+    if (categoryName && normalizeLabel(exampleCategoryName) !== normalizeLabel(categoryName)) return false
     if (normalizeLabel(categoryName) !== 'logical puzzles') return true
     const text = JSON.stringify(example).toLowerCase()
     return !/(?:probability|chance|likelihood|\d+%)/u.test(text)
   })
   const examplePool = matchingExamples.length > 0 ? matchingExamples : brief.examples
-  const exampleStart = examplePool.length > 0 ? (index * 2) % examplePool.length : 0
-  const examples = Array.from(
-    { length: Math.min(2, examplePool.length) },
-    (_, offset) => examplePool[(exampleStart + offset) % examplePool.length]
-  ).filter((example): example is Record<string, unknown> => !!example)
+  const examples = isQrDefault && planCategoryName
+    ? [
+        ...rotatingExamples(matchingExamples, index, Math.min(4, maxExamples)),
+        ...categoryBalancedExamples(
+          brief.examples.filter((example) => !matchingExamples.includes(example)),
+          index,
+          Math.max(0, maxExamples - Math.min(4, matchingExamples.length))
+        ),
+      ].slice(0, maxExamples)
+    : categoryBalancedExamples(examplePool, index, maxExamples)
   return {
     ...brief,
     categoryName: brief.categoryName,
@@ -663,16 +708,29 @@ async function fetchSourceStems(
   const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
   const shuffled = [...source].sort(() => Math.random() - 0.5)
   const sorted = prioritizeTagMatches(shuffled, body.targetTagIds)
-  if (body.sourceMode === 'selected') return sorted.slice(0, 4)
+  if (body.sourceMode === 'selected') return sorted.slice(0, 8)
 
   const samplesByCategory = new Map<string, SourceStem[]>()
   for (const stem of sorted) {
     const key = stem.category_name ?? stem.question_stem_category_id ?? 'uncategorized'
     const samples = samplesByCategory.get(key) ?? []
-    if (samples.length < 6) samples.push(stem)
+    if (samples.length < 8) samples.push(stem)
     samplesByCategory.set(key, samples)
   }
-  return Array.from(samplesByCategory.values()).flat()
+  return interleaveSourceSamples(samplesByCategory)
+}
+
+function interleaveSourceSamples(samplesByCategory: Map<string, SourceStem[]>): SourceStem[] {
+  const groups = Array.from(samplesByCategory.values()).filter((samples) => samples.length > 0)
+  const result: SourceStem[] = []
+  const maxLength = Math.max(0, ...groups.map((samples) => samples.length))
+  for (let index = 0; index < maxLength; index += 1) {
+    for (const samples of groups) {
+      const sample = samples[index]
+      if (sample) result.push(sample)
+    }
+  }
+  return result
 }
 
 function sourceStemTagMatchCount(stem: SourceStem, targetTagIds: string[]): number {
@@ -965,24 +1023,17 @@ async function executeGeneration(
     const activeDebug = debug
 
     let completedStemCalls = 0
-    const generationAttemptCount = normalizeLabel(categoryName) === 'venn diagrams'
-      ? Math.min(body.stemCount * 4, body.stemCount + 12)
-      : body.stemCount
-
     emitProgress({
       type: 'progress',
       step: 'generating',
-      message: generationAttemptCount === body.stemCount
-        ? `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`
-        : `Generating ${generationAttemptCount} Venn candidates to find ${body.stemCount} usable stem${body.stemCount === 1 ? '' : 's'}`,
+      message: `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`,
       completedStems: completedStemCalls,
-      totalStems: generationAttemptCount,
+      totalStems: body.stemCount,
       runId,
     })
 
     const generatedResults = await runWithConcurrency(
-      Array.from({ length: generationAttemptCount }, (_, attemptIndex) => async () => {
-        const stemIndex = attemptIndex % body.stemCount
+      Array.from({ length: body.stemCount }, (_, stemIndex) => async () => {
         const plan = buildLocalPlan(brief, stemIndex)
         const planCategoryName = plannedCategoryName(plan)
         const singleBrief = briefForSingleStem(brief, stemIndex, plan)
@@ -1044,11 +1095,9 @@ async function executeGeneration(
           emitProgress({
             type: 'progress',
             step: 'generating',
-            message: generationAttemptCount === body.stemCount
-              ? `Stem ${stemIndex + 1} failed during model generation`
-              : `Candidate ${attemptIndex + 1} failed during model generation`,
+            message: `Stem ${stemIndex + 1} failed during model generation`,
             completedStems: completedStemCalls,
-            totalStems: generationAttemptCount,
+            totalStems: body.stemCount,
             runId,
           })
           return null
@@ -1080,14 +1129,10 @@ async function executeGeneration(
           type: 'progress',
           step: 'generating',
           message: parsedWriter.success
-            ? generationAttemptCount === body.stemCount
-              ? `Stem ${stemIndex + 1} returned and matched the schema`
-              : `Candidate ${attemptIndex + 1} returned and matched the schema`
-            : generationAttemptCount === body.stemCount
-              ? `Stem ${stemIndex + 1} returned but did not match the schema`
-              : `Candidate ${attemptIndex + 1} returned but did not match the schema`,
+            ? `Stem ${stemIndex + 1} returned and matched the schema`
+            : `Stem ${stemIndex + 1} returned but did not match the schema`,
           completedStems: completedStemCalls,
-          totalStems: generationAttemptCount,
+          totalStems: body.stemCount,
           runId,
         })
         if (!parsedWriter.success) {
@@ -1095,12 +1140,9 @@ async function executeGeneration(
         }
         const stem = parsedWriter.data.stems[0] ?? null
         if (!stem) return null
-        return normalizePlannedAnswerPositions(
-          normalizeVrParagraphs(stem, singleBrief.sectionName),
-          stemIndex
-        )
+        return normalizeVrParagraphs(stem, singleBrief.sectionName)
       }),
-      generationAttemptCount
+      body.stemCount
     )
     const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
     const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length

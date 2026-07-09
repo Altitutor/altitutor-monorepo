@@ -7,7 +7,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -53,12 +52,10 @@ export type ProgressGraphProps = {
   /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
   yAxisMax?: number;
   projection?: {
-    conservative: { date: string; value: number }[];
+    pessimistic: { date: string; value: number }[];
     realistic: { date: string; value: number }[];
-    aggressive: { date: string; value: number }[];
+    optimistic: { date: string; value: number }[];
   };
-  targetScore?: number;
-  testDate?: string;
 };
 
 const dataTypeLabels: Record<GraphDataType, string> = {
@@ -90,16 +87,14 @@ export function ProgressGraph({
   isMockContext = false,
   yAxisMax,
   projection,
-  targetScore,
-  testDate,
 }: ProgressGraphProps) {
   type GraphLinePoint = {
     date: string;
     value: number | null;
     label?: string;
-    projectionConservative?: number;
+    projectionPessimistic?: number;
     projectionRealistic?: number;
-    projectionAggressive?: number;
+    projectionOptimistic?: number;
   };
 
   const hasAggregatedLabels = data.some((d) => d.label);
@@ -117,12 +112,12 @@ export function ProgressGraph({
         for (const point of data) {
           byDate.set(point.date, { ...point, value: point.value });
         }
-        for (const point of projection.conservative) {
+        for (const point of projection.pessimistic) {
           const current = byDate.get(point.date) ?? {
             date: point.date,
             value: null,
           };
-          current.projectionConservative = point.value;
+          current.projectionPessimistic = point.value;
           byDate.set(point.date, current);
         }
         for (const point of projection.realistic) {
@@ -133,12 +128,12 @@ export function ProgressGraph({
           current.projectionRealistic = point.value;
           byDate.set(point.date, current);
         }
-        for (const point of projection.aggressive) {
+        for (const point of projection.optimistic) {
           const current = byDate.get(point.date) ?? {
             date: point.date,
             value: null,
           };
-          current.projectionAggressive = point.value;
+          current.projectionOptimistic = point.value;
           byDate.set(point.date, current);
         }
         return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -149,7 +144,7 @@ export function ProgressGraph({
     showProjection && mergedLineData.length > 0
       ? mergedLineData.map((point, index) => ({
           x: index,
-          y: point.projectionConservative ?? point.projectionAggressive ?? 0,
+          y: point.projectionPessimistic ?? point.projectionOptimistic ?? 0,
         }))
       : undefined;
 
@@ -216,7 +211,7 @@ export function ProgressGraph({
           <>
             <Area
               type="monotone"
-              dataKey="projectionAggressive"
+              dataKey="projectionOptimistic"
               baseLine={projectionBaseLine}
               stroke="none"
               fill="hsl(var(--accent))"
@@ -225,7 +220,7 @@ export function ProgressGraph({
             />
             <Line
               type="monotone"
-              dataKey="projectionConservative"
+              dataKey="projectionPessimistic"
               stroke="hsl(var(--muted-foreground))"
               strokeDasharray="6 4"
               dot={false}
@@ -241,26 +236,12 @@ export function ProgressGraph({
             />
             <Line
               type="monotone"
-              dataKey="projectionAggressive"
+              dataKey="projectionOptimistic"
               stroke="hsl(var(--primary))"
               strokeDasharray="6 4"
               dot={false}
               connectNulls
             />
-            {targetScore != null ? (
-              <ReferenceLine
-                y={targetScore}
-                stroke="hsl(var(--destructive))"
-                strokeDasharray="4 4"
-              />
-            ) : null}
-            {testDate ? (
-              <ReferenceLine
-                x={testDate}
-                stroke="hsl(var(--muted-foreground))"
-                strokeDasharray="4 4"
-              />
-            ) : null}
           </>
         ) : null}
         <Line

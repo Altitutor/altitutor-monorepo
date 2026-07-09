@@ -11,17 +11,6 @@ import {
   resolveSignupStateForUser,
 } from "@/features/signup-onboarding/lib/resolve-signup-state";
 
-function normalizeTestYear(value: unknown): number | null | { error: string } {
-  if (value === null) return null;
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    return { error: "testYear must be an integer year" };
-  }
-  if (value < 2020 || value > 2100) {
-    return { error: "testYear is out of range" };
-  }
-  return value;
-}
-
 /**
  * GET /api/ucat/signup/progress
  * Returns persisted signup onboarding step and completion flags.
@@ -46,7 +35,7 @@ export async function GET() {
 
 /**
  * PATCH /api/ucat/signup/progress
- * Updates wizard step, test year, or marks signup onboarding complete.
+ * Updates wizard step or marks signup onboarding complete.
  */
 export async function PATCH(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -65,7 +54,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 503 });
   }
 
-  let body: { step?: unknown; complete?: unknown; testYear?: unknown; planComplete?: unknown };
+  let body: { step?: unknown; complete?: unknown; planComplete?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -74,13 +63,11 @@ export async function PATCH(request: NextRequest) {
 
   const hasStep = body.step !== undefined;
   const hasComplete = body.complete === true;
-  const hasTestYear = Object.prototype.hasOwnProperty.call(body, "testYear");
-
   const hasPlanComplete = body.planComplete === true;
 
-  if (!hasStep && !hasComplete && !hasTestYear && !hasPlanComplete) {
+  if (!hasStep && !hasComplete && !hasPlanComplete) {
     return NextResponse.json(
-      { error: "Provide step, complete, planComplete, and/or testYear" },
+      { error: "Provide step, complete, and/or planComplete" },
       { status: 400 },
     );
   }
@@ -89,19 +76,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid step" }, { status: 400 });
   }
 
-  let normalizedTestYear: number | null | undefined;
-  if (hasTestYear) {
-    const parsed = normalizeTestYear(body.testYear);
-    if (parsed !== null && typeof parsed === "object" && "error" in parsed) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
-    }
-    normalizedTestYear = parsed;
-  }
-
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
     .select(
-      "id, ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, ucat_test_year, first_name, last_name",
+      "id, ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, first_name, last_name",
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -124,18 +102,14 @@ export async function PATCH(request: NextRequest) {
     updates.ucat_signup_step = body.step as SignupOnboardingStep;
   }
 
-  if (hasTestYear) {
-    updates.ucat_test_year = normalizedTestYear ?? null;
-  }
-
   if (hasComplete) {
     updates.ucat_signup_completed_at = new Date().toISOString();
-    updates.ucat_signup_step = SIGNUP_STEP.TARGET_SCORES;
+    updates.ucat_signup_step = SIGNUP_STEP.PLAN;
   }
 
   if (hasPlanComplete) {
     updates.ucat_onboarding_completed_at = new Date().toISOString();
-    updates.ucat_signup_step = SIGNUP_STEP.TEST_DETAILS;
+    updates.ucat_signup_step = SIGNUP_STEP.PLAN;
   }
 
   const { error: updateError } = await supabaseAdmin
@@ -156,8 +130,6 @@ export async function PATCH(request: NextRequest) {
     ucat_onboarding_completed_at:
       (updates.ucat_onboarding_completed_at as string | undefined) ??
       student.ucat_onboarding_completed_at,
-    ucat_test_year:
-      (updates.ucat_test_year as number | null | undefined) ?? student.ucat_test_year,
   };
 
   const profileSetupComplete =

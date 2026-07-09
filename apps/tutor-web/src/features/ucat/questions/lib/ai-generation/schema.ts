@@ -187,7 +187,6 @@ export const GenerationPlanSchema = z.object({
       difficultyTarget: DifficultyTargetSchema,
       timeBurdenTarget: TimeBurdenTargetSchema,
       notes: z.string().trim().optional(),
-      vennVisualFormat: z.string().trim().optional(),
     })
   ),
 })

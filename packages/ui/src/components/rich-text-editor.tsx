@@ -13,6 +13,7 @@ import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { CollapsibleHeading } from '../extensions/collapsible-heading';
+import { ExternalVideoExtension } from '../extensions/external-video';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -599,6 +600,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         },
       }),
       ImageUploadPlaceholderExtension,
+      ExternalVideoExtension,
       ...(slashMenuSuggestions
         ? [
             SlashCommandExtension.configure({

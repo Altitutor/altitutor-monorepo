@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import {
+  Button,
   KanbanBoard,
+  SearchableSelect,
   type KanbanColumnDef,
   type EntityListPillColumn,
   type EntityListStatusColumn,
@@ -170,11 +172,39 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       groupable: true,
       sortable: true,
       filterable: true,
-      renderPill: (item, _onChange, collapsed) => (
-        <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-          {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
-        </span>
-      ),
+      renderPill: (item, onChange, collapsed) => {
+        const status = (item.status ?? 'backlog') as TaskStatus;
+        const StatusIcon = getStatusIcon(status);
+        const iconColor = getStatusIconColor(status);
+        const selectedItem = TASK_STATUS_OPTIONS.find((option) => option.value === status) ?? TASK_STATUS_OPTIONS[0];
+
+        return (
+          <SearchableSelect<(typeof TASK_STATUS_OPTIONS)[number]>
+            items={TASK_STATUS_OPTIONS}
+            value={selectedItem}
+            onValueChange={(option) => {
+              const nextStatus = (option?.value ?? 'backlog') as TaskStatus;
+              handleUpdate(item, { status: nextStatus });
+              onChange(nextStatus);
+            }}
+            getItemLabel={(option) => option.label}
+            getItemId={(option) => option.value}
+            trigger={
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  'h-8 border rounded-full bg-background group gap-1.5',
+                  collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                )}
+              >
+                <StatusIcon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+                {!collapsed && <span className="truncate">{getStatusLabel(status)}</span>}
+              </Button>
+            }
+          />
+        );
+      },
     },
     {
       key: 'due_date',
@@ -432,6 +462,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
           <TaskCard
             task={t}
             visiblePillKeys={visiblePillKeys}
+            rightPills={rightPills}
             onClick={() => {
               setSelectedTaskId(t.id);
               setIsEditDialogOpen(true);

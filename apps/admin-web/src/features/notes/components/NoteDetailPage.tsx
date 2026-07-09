@@ -492,7 +492,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <FormItem className="flex-1 flex flex-col min-h-0">
                       <FormControl className="flex-1 flex flex-col min-h-0">
                         <NoteEditor
-                          key={`${noteId}-${acceptedServerVersion}-${isEditing ? 'edit' : 'view'}`}
+                          key={`${noteId}-${acceptedServerVersion}`}
                           ref={noteEditorRef}
                           content={field.value}
                           onChange={handleContentChange(field.onChange)}

@@ -1,5 +1,5 @@
 import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent, type MentionClickDetail } from '@altitutor/ui';
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { JumpHighlightExtension } from '../extensions/JumpHighlightExtension';
@@ -36,24 +36,43 @@ interface NoteEditorProps {
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
   const {
     content,
+    onChange,
     onChangeDebounceMs = 200,
     enableCollapsibleHeadings = false,
     minHeight = 'full',
     autoHeight = false,
     fillContainer = false,
     className,
+    editable = true,
     ...rest
   } = props;
+  const initialContentRef = useRef(content);
+  const hasLocalEditRef = useRef(false);
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes_documents',
     editorRef: ref as React.RefObject<NoteEditorRef | null>,
   });
   const slashMenuSuggestions = useSlashCommandSuggestions();
-  const jsonContent =
-    content && typeof content === 'object'
-      ? (content as unknown as Record<string, unknown>)
-      : null;
+  const jsonContent = useMemo(
+    () =>
+      initialContentRef.current && typeof initialContentRef.current === 'object'
+        ? (initialContentRef.current as unknown as Record<string, unknown>)
+        : null,
+    []
+  );
   const { content: refreshedContent } = useRefreshedAdminContent(jsonContent);
+  const editorContent =
+    refreshedContent && !(editable && hasLocalEditRef.current)
+      ? (refreshedContent as JSONContent)
+      : initialContentRef.current;
+
+  const handleChange = useCallback(
+    (json: JSONContent) => {
+      hasLocalEditRef.current = true;
+      onChange(json);
+    },
+    [onChange]
+  );
 
   return (
     <div
@@ -63,11 +82,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
     >
       <RichTextEditor
         {...rest}
-        content={(refreshedContent as JSONContent | null) ?? content}
+        content={editorContent}
+        onChange={handleChange}
         ref={ref}
         className={cn(fillContainer && '[&_.ProseMirror]:min-h-full', !fillContainer && className)}
         minHeight={fillContainer ? 'full' : minHeight}
         autoHeight={autoHeight}
+        editable={editable}
         onChangeDebounceMs={onChangeDebounceMs}
         enableCollapsibleHeadings={enableCollapsibleHeadings}
         extensions={[JumpHighlightExtension]}

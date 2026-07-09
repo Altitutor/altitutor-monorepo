@@ -4,10 +4,18 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
+import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
+import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -28,6 +36,7 @@ import {
   ProgressCircular,
 } from "./progress-animated-display";
 import { formatUcatPercentile } from "../lib/percentiles";
+import { ProgressGraph } from "./progress-graph";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
@@ -45,6 +54,7 @@ export function SectionProgressPage({
   mocksOnly = false,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress();
+  const projectionQuery = useScoreProjection(!mocksOnly);
   const progressMode = useProgressMode();
   const backHref = mocksOnly ? "/progress/mocks" : "/progress";
   const backLabel = mocksOnly ? "Back to mock progress" : "Back to progress";
@@ -196,20 +206,20 @@ export function SectionProgressPage({
   }
 
   const score =
-    progressMode.mode === "weighted"
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore;
-  const percentage =
-    progressMode.mode === "weighted" &&
-    section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage;
-
+    !mocksOnly
+      ? (projectionQuery.data?.sections.find(
+          (s) => s.sectionNumber === section.sectionNumber,
+        )?.currentEstimate ??
+        (progressMode.mode === "weighted"
+          ? section.weightedAverageScaledScore
+          : section.averageScaledScore))
+      : progressMode.mode === "weighted"
+        ? section.weightedAverageScaledScore
+        : section.averageScaledScore;
   return (
     <SectionProgressContent
       section={section}
       score={score}
-      percentage={percentage}
       totalPublicQuestions={section.totalPublicQuestions}
       totalPublicSets={
         filteredData?.totalPublicSetsBySection?.[section.sectionId]
@@ -225,6 +235,13 @@ export function SectionProgressPage({
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
+      scoreProjection={
+        !mocksOnly
+          ? (projectionQuery.data?.sections.find(
+              (s) => s.sectionNumber === section.sectionNumber,
+            ) ?? null)
+          : null
+      }
       mocksOnly={mocksOnly}
       backHref={backHref}
       backLabel={backLabel}
@@ -235,7 +252,6 @@ export function SectionProgressPage({
 function SectionProgressContent({
   section,
   score,
-  percentage,
   totalPublicQuestions,
   totalPublicSets,
   totalPublicUntimedSets,
@@ -245,13 +261,13 @@ function SectionProgressContent({
   categoryProgress,
   progressMode,
   sharedDateRange,
+  scoreProjection,
   mocksOnly,
   backHref,
   backLabel,
 }: {
   section: { sectionId: string; sectionName: string; sectionNumber: number };
   score: number | null;
-  percentage: number;
   totalPublicQuestions?: number;
   totalPublicSets?: number;
   totalPublicUntimedSets?: number;
@@ -261,6 +277,7 @@ function SectionProgressContent({
   categoryProgress: SectionCategoryProgress[];
   progressMode: ReturnType<typeof useProgressMode>;
   sharedDateRange?: ReturnType<typeof getSharedDateRange>;
+  scoreProjection: SectionScoreProjection | null;
   mocksOnly: boolean;
   backHref: string;
   backLabel: string;
@@ -314,6 +331,10 @@ function SectionProgressContent({
     };
   }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
   const percentile = formatUcatPercentile(score, "section");
+  const questionsCorrectPercentage =
+    stats.completed > 0
+      ? Math.round((stats.correct / stats.completed) * 100)
+      : 0;
 
   return (
     <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
@@ -342,7 +363,7 @@ function SectionProgressContent({
           <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium text-center">
-                Scaled score
+                {mocksOnly ? "Scaled score" : "Predicted section score"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -383,7 +404,7 @@ function SectionProgressContent({
                   </span>
                 </div>
                 <ProgressCircular
-                  percentage={stats.completed > 0 ? percentage : 0}
+                  percentage={questionsCorrectPercentage}
                   size={48}
                   className="text-accent shrink-0"
                 />
@@ -398,21 +419,16 @@ function SectionProgressContent({
                       const catsWithAttempts = categoryProgress.filter(
                         (c) => c.maxScore > 0,
                       );
-                      const pct = (c: SectionCategoryProgress) =>
-                        progressMode.mode === "weighted" &&
-                        c.weightedAveragePercentage != null
-                          ? c.weightedAveragePercentage
-                          : c.percentage;
                       const best =
                         catsWithAttempts.length > 0
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) >= pct(b) ? a : b,
+                              a.percentage >= b.percentage ? a : b,
                             )
                           : null;
                       const worst =
                         catsWithAttempts.length > 1
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) <= pct(b) ? a : b,
+                              a.percentage <= b.percentage ? a : b,
                             )
                           : null;
                       return categoryProgress.map((cat) => (
@@ -594,6 +610,8 @@ function SectionProgressContent({
         </div>
       </div>
 
+      {!mocksOnly ? <ScoreProjectionCard projection={scoreProjection} /> : null}
+
       <QuestionAttemptsCard
         attempts={filteredQuestionAttempts}
         mode={progressMode.mode}
@@ -618,5 +636,103 @@ function SectionProgressContent({
         showAttemptFilter={!mocksOnly}
       />
     </div>
+  );
+}
+
+function ScoreProjectionCard({
+  projection,
+}: {
+  projection: SectionScoreProjection | null;
+}) {
+  if (!projection) {
+    return (
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader>
+          <CardTitle>Score projection</CardTitle>
+          <CardDescription>
+            Projection will appear after your score estimate has loaded.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px] rounded-lg bg-muted/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const currentPoint = projection.projection.find((point) => point.day === 0);
+  const currentDate =
+    currentPoint?.date ?? new Date().toISOString().slice(0, 10);
+  const graphProjection = {
+    pessimistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.pessimistic,
+    })),
+    realistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.realistic,
+    })),
+    optimistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.optimistic,
+    })),
+  };
+
+  return (
+    <Card className={UCAT_CARD_CHROME}>
+      <CardHeader>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Score projection</CardTitle>
+            <CardDescription>
+              Based on weighted mocks, sets, practice attempts, timing, recency,
+              and recent effective practice pace.
+            </CardDescription>
+          </div>
+          <div className="text-left sm:text-right">
+            <div className="text-2xl font-bold tabular-nums">
+              <AnimatedInteger value={projection.currentEstimate} />
+            </div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {projection.confidence} confidence +/- {projection.uncertainty}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <ProgressGraph
+          data={[
+            {
+              date: currentDate,
+              value: projection.currentEstimate,
+              label: "Current",
+            },
+          ]}
+          type="line"
+          dataType="scaled_score"
+          dateRangeLabel={`${projection.effectivePracticePerWeek} effective questions/week`}
+          projection={graphProjection}
+        />
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {projection.horizons.map((horizon) => (
+            <div
+              key={horizon.day}
+              className="rounded-lg border border-border bg-card/50 p-3"
+            >
+              <div className="text-xs font-medium text-muted-foreground">
+                {horizon.day} days
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums">
+                {horizon.realistic}
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {horizon.pessimistic} - {horizon.optimistic}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

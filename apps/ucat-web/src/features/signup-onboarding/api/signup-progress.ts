@@ -5,7 +5,6 @@ export type SignupProgressResponse = {
   step: SignupOnboardingStep;
   signupCompleted: boolean;
   planChoiceCompleted: boolean;
-  testYear: number | null;
 };
 
 export async function fetchSignupProgress(): Promise<SignupProgressResponse> {
@@ -21,7 +20,6 @@ export async function patchSignupProgress(input: {
   step?: SignupOnboardingStep;
   complete?: boolean;
   planComplete?: boolean;
-  testYear?: number | null;
 }): Promise<SignupProgressResponse> {
   const res = await fetch("/api/ucat/signup/progress", {
     method: "PATCH",
@@ -45,6 +43,5 @@ export function parseSignupProgressResponse(
     step: v.step,
     signupCompleted: Boolean(v.signupCompleted),
     planChoiceCompleted: Boolean(v.planChoiceCompleted),
-    testYear: typeof v.testYear === "number" ? v.testYear : null,
   };
 }

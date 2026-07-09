@@ -80,95 +80,6 @@ function numberValue(value: unknown): number | null {
   return Number.isFinite(number) ? number : null
 }
 
-function shapePoints(shape: Record<string, unknown>): Array<{ x: number; y: number }> {
-  const type = String(shape.shape ?? shape.type ?? 'ellipse')
-  if (type === 'triangle') {
-    const x = numberValue(shape.x) ?? 160
-    const y = numberValue(shape.y) ?? 80
-    const width = numberValue(shape.width) ?? 210
-    const height = numberValue(shape.height) ?? 220
-    return [
-      { x: x + width / 2, y },
-      { x, y: y + height },
-      { x: x + width, y: y + height },
-    ]
-  }
-  if (type === 'diamond') {
-    const cx = numberValue(shape.cx) ?? 260
-    const cy = numberValue(shape.cy) ?? 190
-    const width = numberValue(shape.width) ?? 170
-    const height = numberValue(shape.height) ?? 170
-    return [
-      { x: cx, y: cy - height / 2 },
-      { x: cx + width / 2, y: cy },
-      { x: cx, y: cy + height / 2 },
-      { x: cx - width / 2, y: cy },
-    ]
-  }
-  if (type === 'pentagon' || type === 'hexagon') {
-    const cx = numberValue(shape.cx) ?? 250
-    const cy = numberValue(shape.cy) ?? 190
-    const radius = numberValue(shape.r) ?? numberValue(shape.radius) ?? 95
-    const sides = type === 'pentagon' ? 5 : 6
-    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
-    return Array.from({ length: sides }, (_, index) => {
-      const angle = rotation + (index / sides) * Math.PI * 2
-      return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius }
-    })
-  }
-  return []
-}
-
-function distanceToSegment(point: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const lengthSq = dx * dx + dy * dy
-  if (lengthSq === 0) return Math.hypot(point.x - a.x, point.y - a.y)
-  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq))
-  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
-}
-
-function isLabelNearShapeBoundary(label: { x: number; y: number }, shape: Record<string, unknown>): boolean {
-  const type = String(shape.shape ?? shape.type ?? 'ellipse')
-  const tolerancePx = 14
-  if (type === 'circle') {
-    const cx = numberValue(shape.cx) ?? 180
-    const cy = numberValue(shape.cy) ?? 190
-    const r = numberValue(shape.r) ?? 95
-    return Math.abs(Math.hypot(label.x - cx, label.y - cy) - r) <= tolerancePx
-  }
-  if (type === 'ellipse') {
-    const cx = numberValue(shape.cx) ?? 210
-    const cy = numberValue(shape.cy) ?? 190
-    const rx = numberValue(shape.rx) ?? 120
-    const ry = numberValue(shape.ry) ?? 82
-    const scaled = Math.sqrt(((label.x - cx) / rx) ** 2 + ((label.y - cy) / ry) ** 2)
-    return Math.abs(scaled - 1) * Math.min(rx, ry) <= tolerancePx
-  }
-  if (type === 'rect') {
-    const x = numberValue(shape.x) ?? 120
-    const y = numberValue(shape.y) ?? 115
-    const width = numberValue(shape.width) ?? 170
-    const height = numberValue(shape.height) ?? 160
-    const withinBand =
-      label.x >= x - tolerancePx &&
-      label.x <= x + width + tolerancePx &&
-      label.y >= y - tolerancePx &&
-      label.y <= y + height + tolerancePx
-    if (!withinBand) return false
-    return (
-      Math.abs(label.x - x) <= tolerancePx ||
-      Math.abs(label.x - (x + width)) <= tolerancePx ||
-      Math.abs(label.y - y) <= tolerancePx ||
-      Math.abs(label.y - (y + height)) <= tolerancePx
-    )
-  }
-  const points = shapePoints(shape)
-  return points.some((point, index) =>
-    distanceToSegment(label, point, points[(index + 1) % points.length] ?? point) <= tolerancePx
-  )
-}
-
 function stringSet(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.map((item) => norm(String(item ?? ''))).filter(Boolean)
@@ -508,35 +419,8 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
         0
       )
     }
-    const oversizedVisual = setVisuals.some((block) => block.type === 'visual' && Array.isArray(block.spec.shapes) && block.spec.shapes.length > 3)
-    if (oversizedVisual) {
-      add(
-        issues,
-        'blocking',
-        'dm_venn_too_many_sets',
-        'Generated Venn Diagram visuals must use two or three sets only; four-set diagrams create ambiguous generated regions.',
-        stemIndex,
-        0
-      )
-    }
-    const overLabelledVisual = setVisuals.some((block) => {
-      if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return false
-      const shapeCount = block.spec.shapes.length
-      const maxLabels = shapeCount === 2 ? 4 : shapeCount === 3 ? 8 : 0
-      const labelCount = setVisualRegionLabels(block).filter((label) => /\d/u.test(label.text)).length
-      return maxLabels > 0 && labelCount > maxLabels
-    })
-    if (overLabelledVisual) {
-      add(
-        issues,
-        'blocking',
-        'dm_venn_too_many_region_labels',
-        'Generated Venn Diagram visuals must not label more regions than the two-set or three-set layout can show clearly.',
-        stemIndex,
-        0
-      )
-    }
     const semanticNumericLabels = numericRegionLabels.filter((label) => label.regionKey)
+    const positionedNumericLabels = numericRegionLabels.filter((label) => label.regionKey)
     const duplicateRegionKeys = new Set<string>()
     const seenRegionKeys = new Set<string>()
     for (const label of semanticNumericLabels) {
@@ -555,32 +439,12 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
         0
       )
     }
-    if (hasVenn && numericRegionLabels.length >= 3 && semanticNumericLabels.length < numericRegionLabels.length) {
+    if (hasVenn && numericRegionLabels.length >= 3 && positionedNumericLabels.length < numericRegionLabels.length) {
       add(
         issues,
         'blocking',
         'dm_venn_region_expression_required',
-        'Every Venn Diagram numeric label must include a set-region expression so duplicate or missing logical regions can be detected.',
-        stemIndex,
-        0
-      )
-    }
-    const hasBoundaryLabel = setVisuals.some((block) => {
-      if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return false
-      const shapes = (block.spec.shapes as unknown[])
-        .map((raw) => raw && typeof raw === 'object' ? raw as Record<string, unknown> : null)
-        .filter((shape): shape is Record<string, unknown> => !!shape)
-      const visualNumericLabels = setVisualRegionLabels(block).filter((label): label is { text: string; x: number; y: number; regionKey: string | null } =>
-        /\d/u.test(label.text) && label.x != null && label.y != null
-      )
-      return visualNumericLabels.some((label) => shapes.some((shape) => isLabelNearShapeBoundary(label, shape)))
-    })
-    if (hasBoundaryLabel) {
-      add(
-        issues,
-        'warning',
-        'dm_venn_region_label_boundary_overlap',
-        'Venn Diagram numeric labels may be close to shape boundaries; review placement for visual ambiguity.',
+        'Every Venn Diagram numeric label must include a semantic set-region expression; x/y coordinates are optional placement hints only.',
         stemIndex,
         0
       )

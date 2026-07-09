@@ -58,6 +58,7 @@ export * from './components/rich-text-editor';
 export * from './components/skill-trainer';
 export * from './components/rich-text-editor-bottom-toolbar';
 export { CollapsibleHeading } from './extensions/collapsible-heading';
+export { ExternalVideoExtension } from './extensions/external-video';
 export * from './components/ucat-page-placeholder';
 export * from './components/ucat/ucat-exam-action-button';
 export * from './components/ucat/ucat-exam-dialog';

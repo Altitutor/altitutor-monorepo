@@ -237,7 +237,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
-          <SheetHeader className="px-6 py-4">
+          <SheetHeader className="border-b bg-card px-6 py-4">
             <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
           {isLoading && (
