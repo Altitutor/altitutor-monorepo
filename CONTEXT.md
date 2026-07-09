@@ -10,6 +10,24 @@
 
 ## Subject resources
 
+- **Form** — A staff-defined set of questions that can collect structured responses from students, staff, parents, or public respondents. A form may be used for surveys, feedback, check-ins, unenrolment, discontinuation, or unsubscribe flows; those are form purposes, not separate product concepts.
+  _Avoid_: Survey, questionnaire
+
+- **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student.
+  _Avoid_: Survey result, submission
+
+- **Form respondent** — The person or anonymous actor who completes and submits a form response. The respondent may be a student, staff member, parent, public contact, or anonymous visitor.
+  _Avoid_: User, participant, submitter
+
+- **Form subject** — The person or operational object that a form response is about. The subject may be the same as the respondent, a different person, or absent for general feedback.
+  _Avoid_: Target, related record, entity
+
+- **Form version** — An immutable published definition of a form's questions, options, validation, and conditional display rules. Form responses always belong to the version that was answered; editing a published form creates a new draft or published version rather than changing historical response meaning.
+  _Avoid_: Current form JSON, editable published form
+
+- **Feedback** — The operational area where staff review form responses, form reports, and check-in recency. Feedback is for interpreting people-facing responses and follow-up signals, not for defining the forms themselves.
+  _Avoid_: People, relationships, HR, survey dashboard
+
 - **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
   _Avoid_: Learning module, UCAT module
 

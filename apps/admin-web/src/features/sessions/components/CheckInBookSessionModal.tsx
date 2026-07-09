@@ -27,6 +27,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SmartDatePickerField,
   useToast,
 } from '@altitutor/ui';
 import {
@@ -269,7 +270,7 @@ export function CheckInBookSessionModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
                 <div className="min-w-0 space-y-2">
                   <Label htmlFor="checkin-date">Date</Label>
-                  <Input id="checkin-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                  <SmartDatePickerField value={date} onChange={(value) => setDate(value ?? '')} />
                 </div>
                 <div className="min-w-0 space-y-2">
                   <Label htmlFor="checkin-time">Start time</Label>

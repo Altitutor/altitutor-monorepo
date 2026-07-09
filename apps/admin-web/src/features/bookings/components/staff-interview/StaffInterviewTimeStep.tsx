@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
+import { SmartDatePickerField } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { BookingConfirmationCalendar } from '../BookingConfirmationCalendar';
@@ -88,13 +89,10 @@ export function StaffInterviewTimeStep({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="interview-date">Date</Label>
-          <Input
-            id="interview-date"
-            type="date"
+          <SmartDatePickerField
             value={startAtDate}
-            onChange={(e) => {
-              const date = e.target.value;
-              handleDateTimeChange(date, startAtTime);
+            onChange={(value) => {
+              if (value) handleDateTimeChange(value, startAtTime);
             }}
           />
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { format, addDays, startOfWeek, eachDayOfInterval, isSameDay, parseISO, isBefore, isPast } from 'date-fns';
-import { Button } from '@altitutor/ui';
+import { Button, SmartDatePickerField } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SkeletonTimeSlotGrid } from '@altitutor/ui';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
@@ -171,6 +171,13 @@ export function TimeSlotPicker({
     return selectedSlot?.startAt === slot.start_at && selectedSlot?.endAt === slot.end_at;
   };
 
+  const handleDateJump = (value: string | null) => {
+    if (!value) return;
+    const selectedDate = parseISO(value);
+    const selectedWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    setCurrentWeekStart(isBefore(selectedWeekStart, minBookingWeekStart) ? minBookingWeekStart : selectedWeekStart);
+  };
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* Week Navigation */}
@@ -186,9 +193,12 @@ export function TimeSlotPicker({
           Previous Week
         </Button>
         
-        <div className="text-sm font-medium">
-          {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
-        </div>
+        <SmartDatePickerField
+          value={format(currentWeekStart, 'yyyy-MM-dd')}
+          onChange={handleDateJump}
+          minDate={format(minBookingDate, 'yyyy-MM-dd')}
+          className="h-9 w-[13rem] text-center"
+        />
         
         <Button
           variant="outline"
@@ -290,4 +300,3 @@ export function TimeSlotPicker({
     </div>
   );
 }
-

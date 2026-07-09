@@ -18,6 +18,7 @@ import {
   Input,
   Label,
   SearchableSelect,
+  SmartDatePickerField,
   SkeletonTable,
   Table,
   TableBody,
@@ -486,7 +487,7 @@ export function UcatFreeTierStudentsTable() {
       >
         <div className="space-y-2">
           <Label htmlFor="expiresOn">Expiry date</Label>
-          <Input id="expiresOn" type="date" value={expiresOn} onChange={(event) => setExpiresOn(event.target.value)} />
+          <SmartDatePickerField value={expiresOn} onChange={(value) => setExpiresOn(value ?? '')} />
         </div>
       </AdminDialogShell>
 

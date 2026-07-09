@@ -206,6 +206,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const setHideEmptyColumns = onHideEmptyColumnsChange ?? setInternalHideEmptyColumns;
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
+  const cardVisiblePillKeys = React.useMemo(() => {
+    const hiddenKeys = new Set([activeColumnKey, groupBy].filter(Boolean) as string[]);
+    return visiblePillKeys.filter((key) => !hiddenKeys.has(key));
+  }, [activeColumnKey, groupBy, visiblePillKeys]);
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
   const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
@@ -882,9 +886,9 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     groupBy={groupBy}
                     getGroupLabel={getGroupLabel}
                     statusColumn={statusColumn}
-                    rightPills={rightPills.filter(p => visiblePillKeys.includes(p.key))}
+                    rightPills={rightPills.filter(p => cardVisiblePillKeys.includes(p.key))}
                     columnDefs={columnDefs}
-                    visiblePillKeys={visiblePillKeys}
+                    visiblePillKeys={cardVisiblePillKeys}
                     emptyMessage={emptyMessage}
                   />
                 );
@@ -895,7 +899,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           <DragOverlay>
             {activeDragItem ? (
               <div className="opacity-50 rotate-3 scale-105 pointer-events-none">
-                {renderCard(activeDragItem, visiblePillKeys)}
+                {renderCard(activeDragItem, cardVisiblePillKeys)}
               </div>
             ) : null}
           </DragOverlay>

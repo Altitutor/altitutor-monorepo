@@ -6,6 +6,7 @@ import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
+import { SmartDatePickerField } from "@altitutor/ui";
 import { Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -256,12 +257,11 @@ export function AdminShiftInfoTab({
                 control={form.control}
                 name="sessionStartDate"
                 render={({ field }) => (
-                  <Input 
-                    id="sessionStartDate" 
-                    type="date"
-                    {...field}
+                  <SmartDatePickerField
                     value={field.value || ''}
-                    disabled={isLoading} 
+                    onChange={(value) => field.onChange(value)}
+                    onBlur={field.onBlur}
+                    className={isLoading ? 'pointer-events-none opacity-50' : undefined}
                   />
                 )}
               />
@@ -276,13 +276,12 @@ export function AdminShiftInfoTab({
                 control={form.control}
                 name="sessionEndDate"
                 render={({ field }) => (
-                  <Input 
-                    id="sessionEndDate" 
-                    type="date"
-                    {...field}
+                  <SmartDatePickerField
                     value={field.value || ''}
-                    min={form.watch('sessionStartDate') || undefined}
-                    disabled={isLoading} 
+                    onChange={(value) => field.onChange(value)}
+                    onBlur={field.onBlur}
+                    minDate={form.watch('sessionStartDate') || undefined}
+                    className={isLoading ? 'pointer-events-none opacity-50' : undefined}
                   />
                 )}
               />

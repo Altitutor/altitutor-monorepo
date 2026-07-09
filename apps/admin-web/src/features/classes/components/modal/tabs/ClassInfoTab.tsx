@@ -5,6 +5,7 @@ import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
+import { SmartDatePickerField } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
 import { Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
@@ -392,12 +393,10 @@ export function ClassInfoTab({
                     control={form.control}
                     name="sessionStartDate"
                     render={({ field }) => (
-                      <Input 
-                        id="sessionStartDate" 
-                        type="date"
+                      <SmartDatePickerField
                         value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading} 
+                        onChange={(value) => field.onChange(value)}
+                        className={isLoading ? 'pointer-events-none opacity-50' : undefined}
                       />
                     )}
                   />
@@ -415,13 +414,11 @@ export function ClassInfoTab({
                     control={form.control}
                     name="sessionEndDate"
                     render={({ field }) => (
-                      <Input 
-                        id="sessionEndDate" 
-                        type="date"
+                      <SmartDatePickerField
                         value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading}
-                        min={form.watch('sessionStartDate') || undefined}
+                        onChange={(value) => field.onChange(value)}
+                        minDate={form.watch('sessionStartDate') || undefined}
+                        className={isLoading ? 'pointer-events-none opacity-50' : undefined}
                       />
                     )}
                   />

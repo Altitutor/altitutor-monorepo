@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Plus, Search, ChevronDown } from 'lucide-react';
 import { 
   Button, 
   Input, 
@@ -19,6 +19,7 @@ import {
   Badge,
   Label,
   SearchableSelect,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useToast } from '@altitutor/ui';
@@ -769,15 +770,10 @@ export function StudentSelector({
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-4" align="start">
               <div className="space-y-3">
-                <div className="relative">
-                  <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="date"
-                    value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : undefined)}
-                    className="pl-9"
-                  />
-                </div>
+                <SmartDatePickerField
+                  value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+                  onChange={(value) => setSelectedDate(value ? new Date(value) : undefined)}
+                />
                 <Button
                   onClick={handleAddBySessionDate}
                   disabled={!selectedDate || isLoading}

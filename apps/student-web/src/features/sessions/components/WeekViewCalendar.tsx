@@ -1,10 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Button } from '@altitutor/ui';
+import { Button, SmartDatePickerField } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { studentBtnIconOutline } from '@/shared/lib/student-visual';
-import { formatDate } from '@/shared/utils/datetime';
 import { StudentSessionsCard } from './StudentSessionsCard';
 
 // Base session type that both StudentSession and RescheduleSession share
@@ -20,6 +19,22 @@ type BaseSession = {
   subject_year_level?: number | null;
   session_type?: string | null;
 };
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMonday(date: Date): Date {
+  const next = new Date(date);
+  const dayOfWeek = next.getDay();
+  const diff = next.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  next.setDate(diff);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
 
 interface WeekViewCalendarProps {
   sessions: BaseSession[];
@@ -103,6 +118,13 @@ export function WeekViewCalendar({
     onWeekChange(newWeekStart);
   };
 
+  const handleDateJump = (value: string | null) => {
+    if (!value) return;
+    const selected = new Date(`${value}T00:00:00`);
+    const nextWeekStart = getMonday(selected);
+    onWeekChange(minDate && nextWeekStart < minDate ? minDate : nextWeekStart);
+  };
+
   const formatDayHeader = (date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -174,9 +196,12 @@ export function WeekViewCalendar({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         
-        <div className="text-sm font-medium">
-          {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
-        </div>
+        <SmartDatePickerField
+          value={toDateInputValue(weekDays[0])}
+          onChange={handleDateJump}
+          minDate={minDate ? toDateInputValue(minDate) : undefined}
+          className="h-9 w-[13rem] text-center"
+        />
         
         <Button
           variant="outline"

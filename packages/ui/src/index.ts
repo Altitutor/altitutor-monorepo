@@ -8,6 +8,7 @@ export * from './components/calendar';
 export * from './components/card';
 export * from './components/checkbox';
 export * from './components/command';
+export * from './components/smart-date-picker';
 export * from './components/data-table';
 export * from './components/data-table-toolbar';
 export * from './components/dialog';

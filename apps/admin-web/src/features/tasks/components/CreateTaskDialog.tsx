@@ -191,7 +191,7 @@ export function CreateTaskDialog({
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogHeader className="flex-shrink-0 border-b bg-card px-6 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
               <Button

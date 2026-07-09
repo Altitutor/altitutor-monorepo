@@ -153,7 +153,7 @@ export function ProjectsBoard() {
                   type="button"
                   variant="outline"
                   className={cn(
-                    'h-8 border rounded-full bg-background group gap-1.5',
+                    'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
                     collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
                   )}
                 >
@@ -310,14 +310,21 @@ export function ProjectsBoard() {
                   type="button"
                   variant="outline"
                   className={cn(
-                    'h-8 border rounded-full bg-background group gap-1.5',
+                    'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
                     collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
                   )}
                 >
-                  <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-[10px] font-medium shrink-0">
+                  <span className={cn(
+                    'w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0',
+                    lead ? 'text-foreground' : 'text-muted-foreground opacity-40 group-hover:opacity-100'
+                  )}>
                     {initials}
                   </span>
-                  {!collapsed && <span className="truncate">{name}</span>}
+                  {!collapsed && (
+                    <span className={cn('truncate', !lead && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+                      {name}
+                    </span>
+                  )}
                 </Button>
               }
             />

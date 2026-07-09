@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Separator, Button, Input, Label, SearchableSelect } from '@altitutor/ui';
+import { Badge, Separator, Button, Input, Label, SearchableSelect, SmartDatePickerField } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -353,11 +353,11 @@ export function SessionDetailsTab({
                 control={form.control}
                 name="date"
                 render={({ field }) => (
-                  <Input
-                    id="session-date"
-                    type="date"
-                    {...field}
-                    disabled={isUpdating}
+                  <SmartDatePickerField
+                    value={field.value}
+                    onChange={(value) => field.onChange(value ?? '')}
+                    onBlur={field.onBlur}
+                    className={isUpdating ? 'pointer-events-none opacity-50' : undefined}
                   />
                 )}
               />

@@ -10,9 +10,10 @@ import {
   Input,
   Button,
   SearchableSelect,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import { User, Calendar, Flag } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
@@ -160,15 +161,10 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         render={({ field }) => (
           <FormItem>
             <FormControl>
-              <div className="relative">
-                <Calendar className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="pl-9"
-                />
-              </div>
+              <SmartDatePickerField
+                value={field.value || ''}
+                onChange={(value) => field.onChange(value)}
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -181,15 +177,10 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         render={({ field }) => (
           <FormItem>
             <FormControl>
-              <div className="relative">
-                <Flag className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="pl-9"
-                />
-              </div>
+              <SmartDatePickerField
+                value={field.value || ''}
+                onChange={(value) => field.onChange(value)}
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
