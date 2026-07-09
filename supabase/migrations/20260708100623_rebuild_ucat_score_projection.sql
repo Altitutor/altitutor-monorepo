@@ -102,37 +102,43 @@ SELECT
     WHEN 1 THEN 0.0055
     WHEN 2 THEN 0.006
     WHEN 3 THEN 0.0065
+    WHEN 4 THEN 0.005
     ELSE 0.006
   END,
   CASE s.section_number
     WHEN 1 THEN 0.0085
     WHEN 2 THEN 0.009
     WHEN 3 THEN 0.0095
+    WHEN 4 THEN 0.008
     ELSE 0.009
   END,
   CASE s.section_number
     WHEN 1 THEN 0.0032
     WHEN 2 THEN 0.0035
     WHEN 3 THEN 0.0038
+    WHEN 4 THEN 0.003
     ELSE 0.0035
   END,
   CASE s.section_number
     WHEN 1 THEN 120
     WHEN 2 THEN 130
     WHEN 3 THEN 140
+    WHEN 4 THEN 100
     ELSE 130
   END,
   CASE s.section_number
     WHEN 1 THEN 170
     WHEN 2 THEN 180
     WHEN 3 THEN 190
+    WHEN 4 THEN 150
     ELSE 180
   END,
   CASE s.section_number
     WHEN 1 THEN 70
     WHEN 2 THEN 80
     WHEN 3 THEN 90
+    WHEN 4 THEN 60
     ELSE 80
   END
 FROM public.ucat_sections s
-WHERE s.section_number BETWEEN 1 AND 3;
+WHERE s.section_number BETWEEN 1 AND 4;
