@@ -23,7 +23,7 @@ export function ProjectCard({ project, onClick, visiblePillKeys = [], rightPills
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
+        <h4 className="text-sm font-medium line-clamp-2">
           {project.name ?? ''}
         </h4>
       </div>

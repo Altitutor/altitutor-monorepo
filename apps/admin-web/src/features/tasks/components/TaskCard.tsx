@@ -24,7 +24,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = [], rightPills = [] 
       )}
     >
       {/* Title */}
-      <div className="font-medium text-sm group-hover:text-primary transition-colors">
+      <div className="font-medium text-sm">
         {task.title ?? ''}
       </div>
 

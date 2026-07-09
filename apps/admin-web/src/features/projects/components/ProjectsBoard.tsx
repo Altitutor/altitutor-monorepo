@@ -37,6 +37,8 @@ export function ProjectsBoard() {
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -56,7 +58,7 @@ export function ProjectsBoard() {
     useState<ProjectPriority | null>(null);
   const [createDefaultLeadId, setCreateDefaultLeadId] = useState<string | null>(null);
 
-  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
+  const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
 
   const handleUpdate = useCallback(
@@ -444,6 +446,9 @@ export function ProjectsBoard() {
         emptyMessage="No projects found"
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search projects..."
       />
 
       {selectedProjectId && (

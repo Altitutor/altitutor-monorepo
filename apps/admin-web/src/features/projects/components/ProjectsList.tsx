@@ -47,6 +47,8 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy,
     setGroupBy,
     sortBy,
@@ -65,7 +67,7 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
+  const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const displayProjects = useMemo(() => {
     if (!embedLocked || !embedView.secondarySortBy) return projects;
 
@@ -332,6 +334,9 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
         hideToolbar={hideToolbar}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
+        searchValue={search}
+        onSearchChange={hideToolbar ? undefined : setSearch}
+        searchPlaceholder="Search projects..."
         descriptionConfig={
           hideToolbar
             ? undefined

@@ -58,6 +58,8 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -98,7 +100,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
-    search: initialFilters?.search,
+    search: search || initialFilters?.search,
   } as TaskFilters);
 
   const updateTask = useUpdateTask();
@@ -478,6 +480,9 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onSortChange={handleSortChange}
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search tasks..."
         quickFilters={quickFilters}
         onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}

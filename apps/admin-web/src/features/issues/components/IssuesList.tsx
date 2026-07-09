@@ -43,6 +43,8 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy,
     setGroupBy,
     sortBy,
@@ -61,7 +63,7 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: issues = [], isLoading } = useIssues(filters);
+  const { data: issues = [], isLoading } = useIssues({ ...filters, search });
   const updateIssue = useUpdateIssue();
   const createIssue = useCreateIssue();
   const { data: currentStaff } = useCurrentStaff();
@@ -219,6 +221,9 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
         hideToolbar={hideToolbar}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
+        searchValue={search}
+        onSearchChange={hideToolbar ? undefined : setSearch}
+        searchPlaceholder="Search issues..."
         descriptionConfig={
           hideToolbar
             ? undefined

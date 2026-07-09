@@ -36,6 +36,7 @@ export interface SmartDatePickerPillProps {
   onBlur?: () => void;
   valueFormat?: SmartDatePickerValueFormat;
   icon?: React.ReactNode;
+  emptyLabel?: string;
   overdue?: boolean;
   emptyOpacity?: boolean;
   className?: string;
@@ -230,6 +231,7 @@ export function SmartDatePickerPill({
   onBlur,
   valueFormat = 'date',
   icon,
+  emptyLabel = 'Date',
   overdue = false,
   emptyOpacity = true,
   className,
@@ -258,7 +260,8 @@ export function SmartDatePickerPill({
         type="button"
         className={cn(
           'relative inline-flex h-8 items-center gap-1.5 rounded-full border bg-background cursor-pointer select-none transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white group',
-          formattedDate ? 'px-3 text-xs w-auto' : 'w-8 justify-center',
+          'px-3 text-xs w-auto',
+          !formattedDate && 'text-muted-foreground',
           overdue && 'border-red-500',
           className
         )}
@@ -277,16 +280,16 @@ export function SmartDatePickerPill({
             )}
           />
         )}
-        {formattedDate ? (
-          <span
-            className={cn(
-              'truncate whitespace-nowrap pointer-events-none',
-              overdue && 'text-red-700 dark:text-red-400'
-            )}
-          >
-            {formattedDate}
-          </span>
-        ) : null}
+        <span
+          className={cn(
+            'truncate whitespace-nowrap pointer-events-none',
+            !formattedDate && 'text-muted-foreground',
+            !formattedDate && emptyOpacity && 'opacity-40 group-hover:opacity-100',
+            overdue && formattedDate && 'text-red-700 dark:text-red-400'
+          )}
+        >
+          {formattedDate ?? emptyLabel}
+        </span>
       </button>
     </SmartDatePickerPopover>
   );

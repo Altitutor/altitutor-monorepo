@@ -25,6 +25,15 @@
 - **Form version** — An immutable published definition of a form's questions, options, validation, and conditional display rules. Form responses always belong to the version that was answered; editing a published form creates a new draft or published version rather than changing historical response meaning.
   _Avoid_: Current form JSON, editable published form
 
+- **Form block** — One ordered item in a form version. A block may be an answerable question or non-answering content such as explanatory text with optional link buttons.
+  _Avoid_: Page, section, survey element
+
+- **Public form link** — An unguessable link that lets a respondent open a published form without first signing in. Public form links still belong to a form version and may collect respondent contact details when the form requires them.
+  _Avoid_: Survey link, public survey, anonymous form URL
+
+- **Form route** — The respondent-facing route for opening and answering a form. Use `/form`, not `/survey`, even when the form's purpose is feedback collection.
+  _Avoid_: Survey route, survey page
+
 - **Feedback** — The operational area where staff review form responses, form reports, and check-in recency. Feedback is for interpreting people-facing responses and follow-up signals, not for defining the forms themselves.
   _Avoid_: People, relationships, HR, survey dashboard
 

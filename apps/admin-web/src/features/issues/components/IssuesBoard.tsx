@@ -33,6 +33,8 @@ export function IssuesBoard() {
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -50,7 +52,7 @@ export function IssuesBoard() {
   const [createColumnValue, setCreateColumnValue] = useState<IssueStatus>('open');
   const [createDefaultDueDate, setCreateDefaultDueDate] = useState<string | null>(null);
 
-  const { data: issues = [], isLoading } = useIssues(filters);
+  const { data: issues = [], isLoading } = useIssues({ ...filters, search });
   const updateIssue = useUpdateIssue();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -275,6 +277,9 @@ export function IssuesBoard() {
         emptyMessage="No issues found"
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search issues..."
       />
 
       {selectedIssueId && (

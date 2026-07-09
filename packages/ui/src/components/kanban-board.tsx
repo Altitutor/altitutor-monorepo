@@ -19,10 +19,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from './button';
+import { Input } from './input';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -45,6 +45,7 @@ import {
   Plus,
   X,
   Layers,
+  Search,
 } from 'lucide-react';
 import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './entity-list';
 
@@ -96,6 +97,10 @@ export interface KanbanBoardProps<TItem> {
 
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
+
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
 
   onAdd?: (columnValue: unknown) => void;
   addButtonLabel?: string;
@@ -156,9 +161,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     renderCard,
     statusColumn,
     rightPills,
-    groupByOptions = [],
     groupBy: controlledGroupBy,
-    onGroupByChange,
     getGroupLabel,
     sortByOptions = [],
     sortBy: controlledSortBy,
@@ -167,31 +170,55 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     filters: controlledFilters,
     onFiltersChange,
     hideEmptyColumns: controlledHideEmptyColumns,
-    onHideEmptyColumnsChange,
     visiblePillKeys: controlledVisiblePills,
     onVisiblePillKeysChange,
     quickFilters = [],
     onApplyQuickFilter,
+    searchValue,
+    onSearchChange,
+    searchPlaceholder = 'Search...',
     onAdd,
     addButtonLabel = 'Add',
     isLoading = false,
     emptyMessage = 'No items',
   } = props;
 
-  const [internalGroupBy, setInternalGroupBy] = React.useState<string | null>(null);
+  const [internalGroupBy] = React.useState<string | null>(null);
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
   const [internalSortDirection, setInternalSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
-  const [internalHideEmptyColumns, setInternalHideEmptyColumns] = React.useState(false);
+  const [internalHideEmptyColumns] = React.useState(false);
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
     rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
   );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
-  const [groupByOpen, setGroupByOpen] = React.useState(false);
+  const [columnSelectOpen, setColumnSelectOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const [sortSearchValue, setSortSearchValue] = React.useState('');
+  const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
+  const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    setLocalSearchValue(searchValue ?? '');
+  }, [searchValue]);
+
+  React.useEffect(() => {
+    if (!onSearchChange) return;
+    const timeout = window.setTimeout(() => {
+      if (localSearchValue !== (searchValue ?? '')) {
+        onSearchChange(localSearchValue);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [localSearchValue, onSearchChange, searchValue]);
+
+  React.useEffect(() => {
+    if (!sortOpen) return;
+    requestAnimationFrame(() => sortSearchInputRef.current?.focus());
+  }, [sortOpen]);
 
   const groupBy = controlledGroupBy ?? internalGroupBy;
-  const setGroupBy = onGroupByChange ?? setInternalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
   const setSortBy = onSortChange
     ? (k: string, d: 'asc' | 'desc') => onSortChange(k, d)
@@ -203,7 +230,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
   const hideEmptyColumns = controlledHideEmptyColumns ?? internalHideEmptyColumns;
-  const setHideEmptyColumns = onHideEmptyColumnsChange ?? setInternalHideEmptyColumns;
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
   const cardVisiblePillKeys = React.useMemo(() => {
@@ -213,6 +239,9 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
   const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
+  const filteredSortByOptions = visibleSortByOptions.filter((option) =>
+    option.label.toLowerCase().includes(sortSearchValue.trim().toLowerCase())
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -336,97 +365,83 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   return (
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
       {/* Toolbar */}
-      <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center justify-center gap-2 overflow-hidden p-2 sm:justify-start">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
-              <LayoutGrid className="h-4 w-4 md:mr-2" />
-              <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[200px]">
-            <DropdownMenuLabel>Display</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={hideEmptyColumns}
-              onCheckedChange={setHideEmptyColumns}
-            >
-              Hide empty columns
-            </DropdownMenuCheckboxItem>
+      <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-2 overflow-hidden border-b p-2">
+        {onSearchChange ? (
+          <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Search className="h-3.5 w-3.5" />
+            </span>
+            <Input
+              placeholder={searchPlaceholder}
+              value={localSearchValue}
+              onChange={(event) => setLocalSearchValue(event.target.value)}
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            {localSearchValue ? (
+              <button
+                type="button"
+                onClick={() => setLocalSearchValue('')}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-            {columnDefs.length > 1 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Columns</DropdownMenuLabel>
-                <div className="px-2 pb-2">
-                  <SearchableSelectInline<KanbanColumnDef<TItem>>
-                    items={columnDefs}
-                    value={activeColumnDef}
-                    onValueChange={(col) => col && onActiveColumnKeyChange?.(col.key)}
-                    getItemId={(c) => c.key}
-                    getItemLabel={(c) => c.label}
-                    searchPlaceholder="Search columns..."
-                    emptyMessage="No columns found"
-                  />
-                </div>
-              </>
-            )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
+                <LayoutGrid className="h-4 w-4 md:mr-2" />
+                <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px] p-0">
+              <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
+                items={rightPills}
+                value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
+                onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
+                getItemId={(p) => p.key}
+                getItemLabel={(p) => p.label}
+                searchPlaceholder="Search pills..."
+                emptyMessage="No pills found"
+                multiSelect
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            {rightPills.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Show pills</DropdownMenuLabel>
-                <div className="px-2 pb-2">
-                  <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                    items={rightPills}
-                    value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
-                    onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
-                    getItemId={(p) => p.key}
-                    getItemLabel={(p) => p.label}
-                    searchPlaceholder="Search columns..."
-                    emptyMessage="No columns found"
-                    multiSelect
-                  />
-                </div>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {groupByOptions.length > 0 && (
-          <div className="relative flex items-center">
-            <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
+          {columnDefs.length > 1 && (
+            <div className="relative flex items-center">
+              <DropdownMenu open={columnSelectOpen} onOpenChange={setColumnSelectOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
                   <Layers className="h-4 w-4 md:mr-2" />
-                  <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
-                    Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                  </span>
+                  <span className="hidden md:inline">Group by {activeColumnDef.label}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
                 <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <SearchableSelectInline<{ key: string; label: string }>
-                  items={groupByOptions}
-                  value={groupBy ? groupByOptions.find((o) => o.key === groupBy) ?? null : null}
-                  onValueChange={(opt) => {
-                    setGroupBy(opt?.key ?? null);
-                    setGroupByOpen(false);
+                <SearchableSelectInline<KanbanColumnDef<TItem>>
+                  items={columnDefs}
+                  value={activeColumnDef}
+                  onValueChange={(col) => {
+                    if (col) {
+                      onActiveColumnKeyChange?.(col.key);
+                      setColumnSelectOpen(false);
+                    }
                   }}
-                  getItemId={(o) => o.key}
-                  getItemLabel={(o) => o.label}
+                  getItemId={(c) => c.key}
+                  getItemLabel={(c) => c.label}
                   searchPlaceholder="Search..."
                   emptyMessage="No options found"
-                  allowClear
-                  clearLabel="None"
                 />
               </DropdownMenuContent>
             </DropdownMenu>
-            {groupBy ? (
-              <ToolbarActiveBadge onClear={() => setGroupBy(null)} ariaLabel="Clear group by">
-                1
-              </ToolbarActiveBadge>
-            ) : null}
           </div>
         )}
 
@@ -441,9 +456,18 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                   </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuContent align="end" className="w-[240px]">
                 <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+                <div className="flex items-center border-b px-3">
+                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <Input
+                    ref={sortSearchInputRef}
+                    value={sortSearchValue}
+                    onChange={(event) => setSortSearchValue(event.target.value)}
+                    placeholder="Search sort options..."
+                    className="flex h-11 w-full rounded-md border-0 bg-transparent px-0 py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
                 <DropdownMenuItem
                   onSelect={() => {
                     setSortBy('name', 'asc');
@@ -452,7 +476,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 >
                   None (by name)
                 </DropdownMenuItem>
-                {visibleSortByOptions.map((option) => {
+                {filteredSortByOptions.map((option) => {
                   const selected = sortBy === option.key;
                   return (
                     <DropdownMenuItem
@@ -849,6 +873,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             ) : null}
           </div>
         </div>
+      </div>
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">
