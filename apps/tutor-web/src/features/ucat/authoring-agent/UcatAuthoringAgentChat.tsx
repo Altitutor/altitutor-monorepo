@@ -241,7 +241,10 @@ export function UcatAuthoringAgentChat({
   const snapshotRef = useRef<Json>(snapshot)
   const conversationKeyRef = useRef<string | null>(conversationKey)
   const modelProfilesQuery = useUcatGenerationModelProfiles(true)
-  const modelProfiles = modelProfilesQuery.data?.modelProfiles ?? []
+  const modelProfiles = useMemo(
+    () => modelProfilesQuery.data?.modelProfiles ?? [],
+    [modelProfilesQuery.data?.modelProfiles],
+  )
 
   const activePills = useMemo(
     () => [scopeLabel, selectedImage?.label].filter((value): value is string => Boolean(value)),

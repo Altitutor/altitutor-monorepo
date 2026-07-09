@@ -103,15 +103,15 @@ function plannedCategoryName(brief: AiGenerationBrief, runIndex: number): string
   return pick(fallbackWeighted.length > 0 ? fallbackWeighted : available, `${brief.sectionName}:fallback:${runIndex}`)
 }
 
-function naturalDifficultyIntent(target: DifficultyTarget, runIndex: number): DifficultyTarget {
+function naturalDifficultyIntent(target: DifficultyTarget, _runIndex: number): DifficultyTarget {
   return target
 }
 
-function naturalTimeBurdenIntent(target: TimeBurdenTarget, runIndex: number): TimeBurdenTarget {
+function naturalTimeBurdenIntent(target: TimeBurdenTarget, _runIndex: number): TimeBurdenTarget {
   return target
 }
 
-function sectionRealismPlan(brief: AiGenerationBrief, categoryName: string | null, runIndex: number): Record<string, string> {
+function sectionRealismPlan(brief: AiGenerationBrief, categoryName: string | null, _runIndex: number): Record<string, string> {
   const section = normalizeLabel(brief.sectionName)
   const category = normalizeLabel(categoryName)
   const hasEnoughExamples = brief.examples.length >= 3
@@ -175,7 +175,7 @@ function sectionRealismPlan(brief: AiGenerationBrief, categoryName: string | nul
   return {}
 }
 
-function defaultQuestionArchetype(brief: AiGenerationBrief, categoryName: string | null, runIndex: number): string {
+function defaultQuestionArchetype(brief: AiGenerationBrief, categoryName: string | null, _runIndex: number): string {
   const section = normalizeLabel(brief.sectionName)
   if (section === 'quantitative reasoning') {
     return brief.examples.length >= 3
@@ -196,7 +196,7 @@ function defaultQuestionArchetype(brief: AiGenerationBrief, categoryName: string
   return 'UCAT-style reasoning item'
 }
 
-function defaultDistractorPlan(brief: AiGenerationBrief, runIndex: number): string {
+function defaultDistractorPlan(brief: AiGenerationBrief, _runIndex: number): string {
   const section = normalizeLabel(brief.sectionName)
   if (section === 'quantitative reasoning') {
     return brief.examples.length >= 3

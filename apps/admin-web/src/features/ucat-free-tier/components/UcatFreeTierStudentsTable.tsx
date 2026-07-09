@@ -15,7 +15,6 @@ import {
   Button,
   Checkbox,
   DataTableToolbar,
-  Input,
   Label,
   SearchableSelect,
   SmartDatePickerField,

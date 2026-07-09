@@ -88,7 +88,7 @@ function recencyWeight(evidence: AttemptEvidence, settings: ScoreProjectionSetti
   return Math.pow(0.5, daysAgo(evidence.timestamp, now) / settings.recencyHalfLifeDays);
 }
 
-function volumeWeight(evidence: AttemptEvidence, settings: ScoreProjectionSettings): number {
+function volumeWeight(evidence: AttemptEvidence, _settings: ScoreProjectionSettings): number {
   const referencePoints = evidence.source === "practice" ? 40 : 44;
   return clamp(evidence.totalPoints / referencePoints, 0.1, 1);
 }

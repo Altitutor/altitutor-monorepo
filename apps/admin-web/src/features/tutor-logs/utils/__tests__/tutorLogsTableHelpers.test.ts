@@ -8,7 +8,6 @@ import {
   formatSessionDate,
   extractCreatedByStaffIds,
   filterTutorLogsByStaff,
-  filterTutorLogsByStudent,
   filterTutorLogsBySessionMeta,
   getTutorLogSessionSubjectId,
   paginateTutorLogs,

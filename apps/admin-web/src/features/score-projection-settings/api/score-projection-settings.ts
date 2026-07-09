@@ -1,3 +1,5 @@
+import type { Database } from "@altitutor/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 
 export type ScoreProjectionSettingsRow = {
@@ -45,7 +47,7 @@ type SectionRow = {
 
 export const scoreProjectionSettingsApi = {
   async getAll(): Promise<ScoreProjectionSettingsWithSection[]> {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const [settingsRes, sectionRes] = await Promise.all([
       supabase
         .from("ucat_score_projection_settings")
@@ -84,7 +86,7 @@ export const scoreProjectionSettingsApi = {
   },
 
   async update(id: string, updates: ScoreProjectionSettingsUpdate): Promise<void> {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { error } = await supabase
       .from("ucat_score_projection_settings")
       .update({

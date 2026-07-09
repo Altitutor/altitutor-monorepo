@@ -137,26 +137,25 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = supabase as any;
   const [sectionsRes, setAttemptsRes, practiceRes, settingsRes] =
     await Promise.all([
-      db
+      supabase
         .from("vstudent_ucat_sections")
         .select("id, name, section_number")
         .order("section_number"),
-      db
+      supabase
         .from("vstudent_ucat_my_set_attempts")
         .select(
           "attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, student_ucat_mock_attempt_id, was_timed, student_exam_speed",
         )
         .not("completed_at", "is", null),
-      db
+      supabase
         .from("vstudent_ucat_my_practice_sessions")
         .select(
           "started_at, completed_at, ucat_section_id, score_points, total_points",
         )
         .not("completed_at", "is", null),
-      db
+      supabase
         .from("ucat_score_projection_settings")
         .select("*"),
     ]);
@@ -215,7 +214,7 @@ export async function GET() {
   ];
   const setMetaRes =
     setIds.length > 0
-      ? await db
+      ? await supabase
           .from("vstudent_ucat_question_sets")
           .select("id, sections")
           .in("id", setIds)

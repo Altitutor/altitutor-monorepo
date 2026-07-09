@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import type { UseFormReturn } from 'react-hook-form'
@@ -254,76 +254,79 @@ export function UcatQuestionStemDialog({
     })
   }
 
-  function sameIds(left: string[], right: string[]): boolean {
+  const sameIds = useCallback((left: string[], right: string[]): boolean => {
     if (left.length !== right.length) return false
     const leftSorted = [...left].sort()
     const rightSorted = [...right].sort()
     return leftSorted.every((id, index) => id === rightSorted[index])
-  }
+  }, [])
 
-  function applyMetadataRecommendation(
-    recommendation: ManualStemMetadataRecommendation,
-    values: UcatQuestionStemFormValues
-  ): boolean {
-    const previous = {
-      sectionId: values.sectionId,
-      categoryId: values.categoryId ?? null,
-      questionTypes: (values.questions ?? []).map((question) => question.questionType),
-      tagIdsByQuestionIndex: Object.fromEntries(
-        (values.questions ?? []).map((question, index) => [index, [...(question.tagIds ?? [])]])
-      ) as Record<number, string[]>,
-    }
-    let changed = false
+  const applyMetadataRecommendation = useCallback(
+    (
+      recommendation: ManualStemMetadataRecommendation,
+      values: UcatQuestionStemFormValues
+    ): boolean => {
+      const previous = {
+        sectionId: values.sectionId,
+        categoryId: values.categoryId ?? null,
+        questionTypes: (values.questions ?? []).map((question) => question.questionType),
+        tagIdsByQuestionIndex: Object.fromEntries(
+          (values.questions ?? []).map((question, index) => [index, [...(question.tagIds ?? [])]])
+        ) as Record<number, string[]>,
+      }
+      let changed = false
 
-    if (recommendation.sectionId && recommendation.sectionId !== values.sectionId) {
-      form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
-      changed = true
-    }
-    if (recommendation.categoryId && recommendation.categoryId !== (values.categoryId ?? null)) {
-      form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
-      changed = true
-    }
-    if (recommendation.questionType) {
-      const questionType = recommendation.questionType
-      ;(values.questions ?? []).forEach((question, index) => {
-        if (question.questionType !== questionType) {
-          form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+      if (recommendation.sectionId && recommendation.sectionId !== values.sectionId) {
+        form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
+        changed = true
+      }
+      if (recommendation.categoryId && recommendation.categoryId !== (values.categoryId ?? null)) {
+        form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
+        changed = true
+      }
+      if (recommendation.questionType) {
+        const questionType = recommendation.questionType
+        ;(values.questions ?? []).forEach((question, index) => {
+          if (question.questionType !== questionType) {
+            form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+            changed = true
+          }
+        })
+      }
+      Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
+        const index = Number(indexText)
+        const current = values.questions?.[index]?.tagIds ?? []
+        if (!sameIds(current, tagIds)) {
+          form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
           changed = true
         }
       })
-    }
-    Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-      const index = Number(indexText)
-      const current = values.questions?.[index]?.tagIds ?? []
-      if (!sameIds(current, tagIds)) {
-        form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-        changed = true
-      }
-    })
 
-    if (!changed) return false
+      if (!changed) return false
 
-    toast({
-      title: 'Detected UCAT metadata',
-      description: 'Section, category, question type, or question tags were updated from the parser suggestion.',
-      duration: 10_000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          form.setValue('sectionId', previous.sectionId, { shouldDirty: true })
-          form.setValue('categoryId', previous.categoryId, { shouldDirty: true })
-          previous.questionTypes.forEach((questionType, index) => {
-            form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
-          })
-          Object.entries(previous.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-            const index = Number(indexText)
-            form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-          })
+      toast({
+        title: 'Detected UCAT metadata',
+        description: 'Section, category, question type, or question tags were updated from the parser suggestion.',
+        duration: 10_000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            form.setValue('sectionId', previous.sectionId, { shouldDirty: true })
+            form.setValue('categoryId', previous.categoryId, { shouldDirty: true })
+            previous.questionTypes.forEach((questionType, index) => {
+              form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+            })
+            Object.entries(previous.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
+              const index = Number(indexText)
+              form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
+            })
+          },
         },
-      },
-    })
-    return true
-  }
+      })
+      return true
+    },
+    [form, sameIds, toast]
+  )
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -400,7 +403,7 @@ export function UcatQuestionStemDialog({
     if (lastAutoAppliedMetadataSignatureRef.current === signature) return
     lastAutoAppliedMetadataSignatureRef.current = signature
     applyMetadataRecommendation(recommendation, watchedValues)
-  }, [open, initial, watchedValues, sections, categories, tags])
+  }, [open, initial, watchedValues, sections, categories, tags, applyMetadataRecommendation])
 
   const hasUnsavedChanges =
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
@@ -524,7 +527,11 @@ export function QuestionTagsSelect({
 }) {
   const [open, setOpen] = useState(false)
   const sectionId = form.watch('sectionId')
-  const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
+  const watchedTagIds = form.watch(`questions.${questionIndex}.tagIds`)
+  const selectedIds = useMemo(
+    () => (watchedTagIds ?? []) as string[],
+    [watchedTagIds]
+  )
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
   const selectableTags = useMemo(
     () => filterTagsForImportSection(tags, sectionId),

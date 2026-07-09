@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -63,7 +63,6 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   const [checkoutConfirming, setCheckoutConfirming] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const goToStep = (next: SignupOnboardingStep, dir: number) => {
@@ -72,13 +71,13 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
   };
 
-  const navigateAfterSignupComplete = async () => {
+  const navigateAfterSignupComplete = useCallback(async () => {
     markSignupOnboardingTourPending();
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
     router.replace("/dashboard");
-  };
+  }, [queryClient, router]);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -127,18 +126,15 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
         setError(e instanceof Error ? e.message : "Failed to confirm plan");
       }
     })();
-  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, router]);
+  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, navigateAfterSignupComplete]);
 
   const finishOnboarding = async () => {
-    setIsSubmitting(true);
     setError(null);
     try {
       await patchSignupProgress({ complete: true });
       await navigateAfterSignupComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
