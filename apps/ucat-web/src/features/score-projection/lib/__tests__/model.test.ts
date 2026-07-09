@@ -56,16 +56,30 @@ describe("score projection model", () => {
     expect(old.weight).toBeCloseTo(currentTimed.weight * 0.5, 6);
   });
 
-  it("shrinks low-evidence estimates toward the section baseline", () => {
-    const settings = { ...defaultSettings(), baselineScore: 500 };
+  it("does not show a prediction when effective evidence is too sparse", () => {
+    const settings = defaultSettings();
     const estimate = estimateSectionScore(
       [{ ...baseEvidence, source: "practice", score: 800, totalPoints: 8 }],
       settings,
       NOW,
     );
 
-    expect(estimate.currentEstimate).toBeGreaterThan(500);
-    expect(estimate.currentEstimate).toBeLessThan(800);
+    expect(estimate.currentEstimate).toBeNull();
+    expect(estimate.effectiveEvidenceWeight).toBeLessThan(
+      settings.minPredictionEvidenceWeight,
+    );
+    expect(estimate.confidence).toBe("low");
+  });
+
+  it("uses the weighted evidence average once enough evidence exists", () => {
+    const settings = defaultSettings();
+    const estimate = estimateSectionScore(
+      [{ ...baseEvidence, score: 300 }],
+      settings,
+      NOW,
+    );
+
+    expect(estimate.currentEstimate).toBe(300);
     expect(estimate.confidence).toBe("low");
   });
 

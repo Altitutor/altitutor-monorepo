@@ -39,16 +39,9 @@ const FIELD_GROUPS: Array<{ title: string; fields: FieldConfig[] }> = [
     title: 'Current estimate',
     fields: [
       {
-        key: 'baseline_score',
-        label: 'Baseline score',
-        description: 'Cold-start score used when the section has little attempt evidence.',
-        step: '1',
-        min: 300,
-      },
-      {
-        key: 'shrinkage_prior_weight',
-        label: 'Shrinkage prior weight',
-        description: 'How strongly low-evidence estimates are pulled toward the baseline score.',
+        key: 'min_prediction_evidence_weight',
+        label: 'Minimum prediction evidence weight',
+        description: 'Minimum effective evidence required before a predicted section score is shown.',
         step: '0.1',
         min: 0.1,
       },
@@ -242,11 +235,6 @@ export function ScoreProjectionSettingsDialog({
       }
       (updates as Record<string, number>)[field.key] = parsed;
     }
-    if ((updates.baseline_score ?? 0) > 900) {
-      setError('Baseline score must be between 300 and 900.');
-      return;
-    }
-
     try {
       await updateMutation.mutateAsync({ id: initial.id, updates });
       onClose();

@@ -7,7 +7,7 @@ import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, C
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -83,6 +83,11 @@ const navItems: NavItem[] = [
     title: 'Messages',
     href: '/messages',
     icon: MessageCircle,
+  },
+  {
+    title: 'Feedback',
+    href: '/feedback',
+    icon: MessageSquareText,
   },
   {
     type: 'heading',

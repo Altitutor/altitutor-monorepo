@@ -9,7 +9,6 @@ export const SCORE_MAX = 900;
 export const DEFAULT_HORIZONS = [30, 60, 90, 120] as const;
 
 export type ScoreProjectionSettings = {
-  baselineScore: number;
   mockSourceWeight: number;
   setSourceWeight: number;
   practiceSourceWeight: number;
@@ -18,7 +17,7 @@ export type ScoreProjectionSettings = {
   untimedWeight: number;
   recencyHalfLifeDays: number;
   minPracticeScoredPoints: number;
-  shrinkagePriorWeight: number;
+  minPredictionEvidenceWeight: number;
   defaultEffectiveQuestionsPerWeek: number;
   recentActivityLookbackDays: number;
   effectivePracticeDailyCap: number;
@@ -50,7 +49,7 @@ export type WeightedEvidence = AttemptEvidence & {
 };
 
 export type SectionEstimate = {
-  currentEstimate: number;
+  currentEstimate: number | null;
   confidence: ProjectionConfidence;
   uncertainty: number;
   effectiveEvidenceWeight: number;
@@ -128,14 +127,15 @@ export function estimateSectionScore(
     (sum, item) => sum + item.score * item.weight,
     0,
   );
-  const denominator = effectiveEvidenceWeight + settings.shrinkagePriorWeight;
   const currentEstimate =
-    denominator > 0
-      ? (weightedScoreSum + settings.baselineScore * settings.shrinkagePriorWeight) / denominator
-      : settings.baselineScore;
+    effectiveEvidenceWeight >= settings.minPredictionEvidenceWeight &&
+    effectiveEvidenceWeight > 0
+      ? weightedScoreSum / effectiveEvidenceWeight
+      : null;
 
   return {
-    currentEstimate: roundScore(currentEstimate),
+    currentEstimate:
+      currentEstimate == null ? null : roundScore(currentEstimate),
     confidence: confidenceForWeight(effectiveEvidenceWeight),
     uncertainty: uncertaintyForWeight(effectiveEvidenceWeight),
     effectiveEvidenceWeight,
@@ -271,7 +271,6 @@ export function generateTrajectory(params: {
 
 export function defaultSettings(): ScoreProjectionSettings {
   return {
-    baselineScore: 500,
     mockSourceWeight: 1,
     setSourceWeight: 0.55,
     practiceSourceWeight: 0.25,
@@ -280,7 +279,7 @@ export function defaultSettings(): ScoreProjectionSettings {
     untimedWeight: 0.65,
     recencyHalfLifeDays: 30,
     minPracticeScoredPoints: 8,
-    shrinkagePriorWeight: 2,
+    minPredictionEvidenceWeight: 1,
     defaultEffectiveQuestionsPerWeek: 120,
     recentActivityLookbackDays: 21,
     effectivePracticeDailyCap: 60,

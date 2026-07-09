@@ -5,7 +5,6 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 export type ScoreProjectionSettingsRow = {
   id: string;
   section_id: string;
-  baseline_score: number;
   mock_source_weight: number;
   set_source_weight: number;
   practice_source_weight: number;
@@ -14,7 +13,7 @@ export type ScoreProjectionSettingsRow = {
   untimed_weight: number;
   recency_half_life_days: number;
   min_practice_scored_points: number;
-  shrinkage_prior_weight: number;
+  min_prediction_evidence_weight: number;
   default_effective_questions_per_week: number;
   recent_activity_lookback_days: number;
   effective_practice_daily_cap: number;

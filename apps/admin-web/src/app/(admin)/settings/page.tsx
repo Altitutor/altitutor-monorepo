@@ -15,6 +15,7 @@ import {
   GraduationCap,
   TrendingUp,
   Layers,
+  ClipboardList,
 } from 'lucide-react';
 import { AdminSettingsCard } from '@/shared/components';
 
@@ -156,6 +157,12 @@ export default function SettingsPage() {
           description: 'Create and manage templates for issues, projects, tasks, and notes',
           href: '/settings/rich-text-templates',
           icon: FileStack,
+        },
+        {
+          title: 'Forms',
+          description: 'Create forms and publish respondent links',
+          href: '/settings/forms',
+          icon: ClipboardList,
         },
         {
           title: 'Manual online access',

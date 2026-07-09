@@ -205,14 +205,18 @@ export function SectionProgressPage({
     );
   }
 
-  const score =
-    !mocksOnly
-      ? (projectionQuery.data?.sections.find(
+  const sectionProjection =
+    !mocksOnly && projectionQuery.data
+      ? (projectionQuery.data.sections.find(
           (s) => s.sectionNumber === section.sectionNumber,
-        )?.currentEstimate ??
-        (progressMode.mode === "weighted"
-          ? section.weightedAverageScaledScore
-          : section.averageScaledScore))
+        ) ?? null)
+      : null;
+  const score = mocksOnly
+    ? progressMode.mode === "weighted"
+      ? section.weightedAverageScaledScore
+      : section.averageScaledScore
+    : projectionQuery.data
+      ? (sectionProjection?.currentEstimate ?? null)
       : progressMode.mode === "weighted"
         ? section.weightedAverageScaledScore
         : section.averageScaledScore;
@@ -235,13 +239,7 @@ export function SectionProgressPage({
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
-      scoreProjection={
-        !mocksOnly
-          ? (projectionQuery.data?.sections.find(
-              (s) => s.sectionNumber === section.sectionNumber,
-            ) ?? null)
-          : null
-      }
+      scoreProjection={sectionProjection}
       mocksOnly={mocksOnly}
       backHref={backHref}
       backLabel={backLabel}
@@ -660,6 +658,31 @@ function ScoreProjectionCard({
     );
   }
 
+  if (projection.currentEstimate == null) {
+    return (
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader>
+          <CardTitle>Score projection</CardTitle>
+          <CardDescription>
+            Complete more timed sets or mocks before showing a predicted section
+            score.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
+            <div className="text-2xl font-bold">Not enough evidence yet</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Current effective evidence weight is{" "}
+              {projection.effectiveEvidenceWeight.toFixed(2)}. Once it reaches
+              the configured threshold, this section will show a prediction and
+              trajectory.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const currentPoint = projection.projection.find((point) => point.day === 0);
   const currentDate =
     currentPoint?.date ?? new Date().toISOString().slice(0, 10);
@@ -705,7 +728,6 @@ function ScoreProjectionCard({
             {
               date: currentDate,
               value: projection.currentEstimate,
-              label: "Current",
             },
           ]}
           type="line"

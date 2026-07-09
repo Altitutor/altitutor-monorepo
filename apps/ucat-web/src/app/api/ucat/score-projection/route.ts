@@ -51,7 +51,6 @@ type SetMetaRow = {
 
 type SettingsRow = {
   section_id: string | null;
-  baseline_score: number | null;
   mock_source_weight: number | null;
   set_source_weight: number | null;
   practice_source_weight: number | null;
@@ -60,7 +59,7 @@ type SettingsRow = {
   untimed_weight: number | null;
   recency_half_life_days: number | null;
   min_practice_scored_points: number | null;
-  shrinkage_prior_weight: number | null;
+  min_prediction_evidence_weight: number | null;
   default_effective_questions_per_week: number | null;
   recent_activity_lookback_days: number | null;
   effective_practice_daily_cap: number | null;
@@ -84,7 +83,6 @@ function withDefaults(row: SettingsRow | undefined): ScoreProjectionSettings {
   const defaults = defaultSettings();
   if (!row) return defaults;
   return {
-    baselineScore: row.baseline_score ?? defaults.baselineScore,
     mockSourceWeight: row.mock_source_weight ?? defaults.mockSourceWeight,
     setSourceWeight: row.set_source_weight ?? defaults.setSourceWeight,
     practiceSourceWeight:
@@ -96,8 +94,9 @@ function withDefaults(row: SettingsRow | undefined): ScoreProjectionSettings {
       row.recency_half_life_days ?? defaults.recencyHalfLifeDays,
     minPracticeScoredPoints:
       row.min_practice_scored_points ?? defaults.minPracticeScoredPoints,
-    shrinkagePriorWeight:
-      row.shrinkage_prior_weight ?? defaults.shrinkagePriorWeight,
+    minPredictionEvidenceWeight:
+      row.min_prediction_evidence_weight ??
+      defaults.minPredictionEvidenceWeight,
     defaultEffectiveQuestionsPerWeek:
       row.default_effective_questions_per_week ??
       defaults.defaultEffectiveQuestionsPerWeek,
@@ -299,13 +298,16 @@ export async function GET() {
             pace: settings.defaultEffectiveQuestionsPerWeek,
             source: "default" as const,
           };
-      const trajectory = generateTrajectory({
-        currentEstimate: estimate.currentEstimate,
-        effectivePracticePerWeek: effectivePractice.pace,
-        settings,
-        now: generatedAt,
-        horizons: DEFAULT_HORIZONS,
-      });
+      const trajectory =
+        estimate.currentEstimate == null
+          ? { projection: [], horizons: [] }
+          : generateTrajectory({
+              currentEstimate: estimate.currentEstimate,
+              effectivePracticePerWeek: effectivePractice.pace,
+              settings,
+              now: generatedAt,
+              horizons: DEFAULT_HORIZONS,
+            });
 
       return {
         sectionId: section.id,

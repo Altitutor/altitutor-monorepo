@@ -21,7 +21,7 @@ export type SectionScoreProjection = {
   sectionId: string;
   sectionName: string;
   sectionNumber: number;
-  currentEstimate: number;
+  currentEstimate: number | null;
   confidence: ProjectionConfidence;
   uncertainty: number;
   effectiveEvidenceWeight: number;

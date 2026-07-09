@@ -30,11 +30,11 @@ export default function ScoreProjectionSettingsPage() {
       searchValue: (row) => row.sectionName,
     },
     {
-      key: 'baseline',
-      label: 'Baseline',
-      render: (row) => row.baseline_score,
-      sortValue: (row) => row.baseline_score,
-      searchValue: (row) => String(row.baseline_score),
+      key: 'minimum_evidence',
+      label: 'Minimum evidence',
+      render: (row) => row.min_prediction_evidence_weight,
+      sortValue: (row) => row.min_prediction_evidence_weight,
+      searchValue: (row) => String(row.min_prediction_evidence_weight),
     },
     {
       key: 'source_weights',

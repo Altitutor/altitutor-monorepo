@@ -404,7 +404,7 @@
 - **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
   _Avoid_: Study planner, goal tracker, target prediction
 
-- **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, shrinkage, effective-practice pace, and trajectory curve constants.
+- **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, minimum evidence threshold, effective-practice pace, and trajectory curve constants.
   _Avoid_: UCAT model config, study planner settings
 
 - **UCAT scoring authority** — The shared scoring package used to convert UCAT raw performance into scaled section scores. Score projection consumes scaled scores from this authority and should not define its own raw-to-scaled conversion.

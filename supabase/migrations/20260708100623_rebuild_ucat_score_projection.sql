@@ -14,7 +14,6 @@ ALTER TABLE public.students
 CREATE TABLE public.ucat_score_projection_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   section_id UUID NOT NULL UNIQUE REFERENCES public.ucat_sections(id) ON DELETE CASCADE,
-  baseline_score NUMERIC NOT NULL DEFAULT 500,
   mock_source_weight DOUBLE PRECISION NOT NULL DEFAULT 1.0,
   set_source_weight DOUBLE PRECISION NOT NULL DEFAULT 0.55,
   practice_source_weight DOUBLE PRECISION NOT NULL DEFAULT 0.25,
@@ -23,7 +22,7 @@ CREATE TABLE public.ucat_score_projection_settings (
   untimed_weight DOUBLE PRECISION NOT NULL DEFAULT 0.65,
   recency_half_life_days DOUBLE PRECISION NOT NULL DEFAULT 30,
   min_practice_scored_points NUMERIC NOT NULL DEFAULT 8,
-  shrinkage_prior_weight DOUBLE PRECISION NOT NULL DEFAULT 2,
+  min_prediction_evidence_weight DOUBLE PRECISION NOT NULL DEFAULT 1,
   default_effective_questions_per_week DOUBLE PRECISION NOT NULL DEFAULT 120,
   recent_activity_lookback_days INTEGER NOT NULL DEFAULT 21,
   effective_practice_daily_cap DOUBLE PRECISION NOT NULL DEFAULT 60,
@@ -38,8 +37,7 @@ CREATE TABLE public.ucat_score_projection_settings (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT ucat_score_projection_settings_score_bounds CHECK (
-    baseline_score BETWEEN 300 AND 900
-    AND pessimistic_ceiling_uplift > 0
+    pessimistic_ceiling_uplift > 0
     AND realistic_ceiling_uplift > 0
     AND optimistic_ceiling_uplift > 0
   ),
@@ -52,7 +50,7 @@ CREATE TABLE public.ucat_score_projection_settings (
     AND untimed_weight > 0
     AND recency_half_life_days > 0
     AND min_practice_scored_points > 0
-    AND shrinkage_prior_weight > 0
+    AND min_prediction_evidence_weight > 0
     AND default_effective_questions_per_week > 0
     AND recent_activity_lookback_days > 0
     AND effective_practice_daily_cap > 0
@@ -66,8 +64,8 @@ CREATE TABLE public.ucat_score_projection_settings (
 
 COMMENT ON TABLE public.ucat_score_projection_settings IS
   'Admin-editable assumptions for UCAT score projection by cognitive section.';
-COMMENT ON COLUMN public.ucat_score_projection_settings.baseline_score IS
-  'Section baseline used for low-evidence shrinkage on the 300-900 scale.';
+COMMENT ON COLUMN public.ucat_score_projection_settings.min_prediction_evidence_weight IS
+  'Minimum effective evidence weight required before showing a predicted section score.';
 COMMENT ON COLUMN public.ucat_score_projection_settings.default_effective_questions_per_week IS
   'Fallback effective-practice pace used when recent activity is too sparse.';
 
@@ -91,7 +89,6 @@ CREATE TRIGGER update_ucat_score_projection_settings_updated_at
 
 INSERT INTO public.ucat_score_projection_settings (
   section_id,
-  baseline_score,
   realistic_learning_rate,
   optimistic_learning_rate,
   pessimistic_learning_rate,
@@ -101,7 +98,6 @@ INSERT INTO public.ucat_score_projection_settings (
 )
 SELECT
   s.id,
-  500,
   CASE s.section_number
     WHEN 1 THEN 0.0055
     WHEN 2 THEN 0.006
