@@ -126,28 +126,28 @@ ALTER TABLE public.form_response_answers ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "ADMINSTAFF full access to forms" ON public.forms
   FOR ALL TO authenticated
-  USING (public.is_adminstaff())
-  WITH CHECK (public.is_adminstaff());
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
 CREATE POLICY "ADMINSTAFF full access to form_versions" ON public.form_versions
   FOR ALL TO authenticated
-  USING (public.is_adminstaff())
-  WITH CHECK (public.is_adminstaff());
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
 CREATE POLICY "ADMINSTAFF full access to form_tokens" ON public.form_tokens
   FOR ALL TO authenticated
-  USING (public.is_adminstaff())
-  WITH CHECK (public.is_adminstaff());
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
 CREATE POLICY "ADMINSTAFF full access to form_responses" ON public.form_responses
   FOR ALL TO authenticated
-  USING (public.is_adminstaff())
-  WITH CHECK (public.is_adminstaff());
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
 CREATE POLICY "ADMINSTAFF full access to form_response_answers" ON public.form_response_answers
   FOR ALL TO authenticated
-  USING (public.is_adminstaff())
-  WITH CHECK (public.is_adminstaff());
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
 COMMENT ON TABLE public.forms IS 'Staff-defined forms. Draft content is mutable; published content is stored immutably in form_versions.';
 COMMENT ON TABLE public.form_versions IS 'Immutable published form definitions answered by respondents.';
