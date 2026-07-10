@@ -10,7 +10,13 @@ import {
   type AttemptEvidence,
   type ScoreProjectionSettings,
 } from "@/features/score-projection/lib/model";
-import type { ScoreProjectionResponse } from "@/features/score-projection/types/score-projection";
+import type {
+  HistoricalProjectionPoint,
+  ScoreProjectionResponse,
+} from "@/features/score-projection/types/score-projection";
+
+const HISTORY_LOOKBACK_DAYS = 84;
+const HISTORY_STEP_DAYS = 7;
 
 type SectionRow = {
   id: string | null;
@@ -83,6 +89,50 @@ function timestamp(value: string | null): number | null {
   if (!value) return null;
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function historicalCheckpoints(generatedAt: Date): Date[] {
+  const checkpoints: Date[] = [];
+  for (
+    let dayOffset = HISTORY_LOOKBACK_DAYS;
+    dayOffset >= 0;
+    dayOffset -= HISTORY_STEP_DAYS
+  ) {
+    const checkpoint = new Date(generatedAt);
+    checkpoint.setDate(checkpoint.getDate() - dayOffset);
+    checkpoints.push(checkpoint);
+  }
+  return checkpoints;
+}
+
+function buildHistoricalProjection(
+  evidence: AttemptEvidence[],
+  settings: ScoreProjectionSettings,
+  generatedAt: Date,
+): HistoricalProjectionPoint[] {
+  return historicalCheckpoints(generatedAt).flatMap((checkpoint) => {
+    const checkpointMs = checkpoint.getTime();
+    const estimate = estimateSectionScore(
+      evidence.filter((item) => item.timestamp <= checkpointMs),
+      settings,
+      checkpointMs,
+    );
+
+    if (estimate.currentEstimate == null) return [];
+    return [
+      {
+        date: isoDate(checkpoint),
+        value: estimate.currentEstimate,
+        confidence: estimate.confidence,
+        uncertainty: estimate.uncertainty,
+        effectiveEvidenceWeight: estimate.effectiveEvidenceWeight,
+      },
+    ];
+  });
 }
 
 function withDefaults(row: SettingsRow | undefined): ScoreProjectionSettings {
@@ -316,8 +366,9 @@ export async function GET() {
     horizons: [...DEFAULT_HORIZONS],
     sections: sections.map((section) => {
       const settings = withDefaults(settingsBySection.get(section.id));
+      const evidence = evidenceBySection.get(section.id) ?? [];
       const estimate = estimateSectionScore(
-        evidenceBySection.get(section.id) ?? [],
+        evidence,
         settings,
         generatedAt.getTime(),
       );
@@ -353,6 +404,7 @@ export async function GET() {
         evidenceCount: estimate.evidenceCount,
         paceSource: effectivePractice.source,
         effectivePracticePerWeek: Math.round(effectivePractice.pace),
+        history: buildHistoricalProjection(evidence, settings, generatedAt),
         projection: trajectory.projection,
         horizons: trajectory.horizons,
       };

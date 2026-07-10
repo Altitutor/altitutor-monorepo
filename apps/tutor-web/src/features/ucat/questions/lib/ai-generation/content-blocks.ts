@@ -1,5 +1,4 @@
 import type { Json } from '@altitutor/shared'
-import { plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 function textNode(text: string): Json {
@@ -31,8 +30,45 @@ function paragraph(text: string): Json {
 }
 
 function markedTextToProseMirror(text: string): Json {
-  const paragraphs = text.split(/\r?\n/u).map(paragraph)
-  return { type: 'doc', content: paragraphs.length > 0 ? paragraphs : [paragraph('')] }
+  const content: Json[] = []
+  const lines = text.split(/\r?\n/u)
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index] ?? ''
+    const bullet = line.match(/^\s*[-*]\s+(.+)$/u)
+    const ordered = line.match(/^\s*(\d+)[.)]\s+(.+)$/u)
+
+    if (bullet) {
+      const items: Json[] = []
+      while (index < lines.length) {
+        const item = (lines[index] ?? '').match(/^\s*[-*]\s+(.+)$/u)
+        if (!item?.[1]) break
+        items.push({ type: 'listItem', content: [paragraph(item[1])] })
+        index += 1
+      }
+      content.push({ type: 'bulletList', content: items })
+      continue
+    }
+
+    if (ordered) {
+      const start = Number(ordered[1]) || 1
+      const items: Json[] = []
+      while (index < lines.length) {
+        const item = (lines[index] ?? '').match(/^\s*\d+[.)]\s+(.+)$/u)
+        if (!item?.[1]) break
+        items.push({ type: 'listItem', content: [paragraph(item[1])] })
+        index += 1
+      }
+      content.push({ type: 'orderedList', attrs: { start }, content: items })
+      continue
+    }
+
+    content.push(paragraph(line))
+    index += 1
+  }
+
+  return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
 }
 
 function tableCell(text: string, header = false): Json {
@@ -1086,8 +1122,7 @@ export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): J
 }
 
 export function generatedContentToProseMirror(value: string | GeneratedContentBlock[]): Json {
-  if (typeof value === 'string' && value.includes('**')) return markedTextToProseMirror(value)
-  if (typeof value === 'string') return plainTextToProseMirrorWithLineBreaks(value)
+  if (typeof value === 'string') return markedTextToProseMirror(value)
   return generatedBlocksToProseMirror(value)
 }
 
@@ -1107,8 +1142,7 @@ export async function generatedBlocksToProseMirrorAsync(blocks: GeneratedContent
 }
 
 export async function generatedContentToProseMirrorAsync(value: string | GeneratedContentBlock[]): Promise<Json> {
-  if (typeof value === 'string' && value.includes('**')) return markedTextToProseMirror(value)
-  if (typeof value === 'string') return plainTextToProseMirrorWithLineBreaks(value)
+  if (typeof value === 'string') return markedTextToProseMirror(value)
   return generatedBlocksToProseMirrorAsync(value)
 }
 

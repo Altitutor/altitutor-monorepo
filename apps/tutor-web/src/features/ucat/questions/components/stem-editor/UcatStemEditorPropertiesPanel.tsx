@@ -56,6 +56,7 @@ import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFi
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 
 const APPROVAL_OPTIONS: Array<{ value: UcatApprovalStatus; label: string }> = [
   { value: 'approved', label: 'Approved' },
@@ -85,6 +86,10 @@ type UcatStemEditorPropertiesPanelProps = {
   createdByFirstName?: string | null
   createdByLastName?: string | null
   metadataRecommendation?: ManualStemMetadataRecommendation | null
+  activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
+  onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
+  className?: string
+  onDeleteStem?: () => void
 }
 
 function trimTextParagraphs(text: string): string {
@@ -212,10 +217,21 @@ export function UcatStemEditorPropertiesPanel({
   createdByFirstName,
   createdByLastName,
   metadataRecommendation = null,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  className,
+  onDeleteStem,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
+  const activeTab = controlledActiveTab ?? uncontrolledActiveTab
+
+  function handleActiveTabChange(value: string) {
+    const next = value as 'properties' | 'ai'
+    setUncontrolledActiveTab(next)
+    onActiveTabChange?.(next)
+  }
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
@@ -780,9 +796,9 @@ export function UcatStemEditorPropertiesPanel({
   }
 
   return (
-    <aside className="flex min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
-        <TabsList className="grid w-full grid-cols-2">
+    <aside className={cn('flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-80 lg:border-l lg:p-4', className)}>
+      <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="hidden w-full grid-cols-2 lg:grid">
           <TabsTrigger value="properties">Properties</TabsTrigger>
           <TabsTrigger value="ai">AI Tools</TabsTrigger>
         </TabsList>
@@ -1124,6 +1140,17 @@ export function UcatStemEditorPropertiesPanel({
             </div>
           </PropertiesCard>
         </Accordion>
+        {onDeleteStem ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-destructive/30 text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+            onClick={onDeleteStem}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete question stem
+          </Button>
+        ) : null}
       </div>
         </TabsContent>
         <TabsContent

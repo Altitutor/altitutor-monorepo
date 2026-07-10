@@ -76,6 +76,10 @@ function getQuestionMaxPoints(question: QuestionItem): number {
   return question.questionType === "syllogism" ? 2 : 1;
 }
 
+function formatPoints(points: number): string {
+  return Number.isInteger(points) ? String(points) : points.toFixed(1);
+}
+
 function isQuestionNotAnswered(
   question: QuestionItem,
   attempt?: QuestionAttemptForCard,
@@ -481,7 +485,7 @@ export function SetAnswersCard({
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="tabular-nums">
-                  Points: {Math.round(points ?? currentAttempt?.score ?? 0)} /{" "}
+                  Points: {formatPoints(points ?? currentAttempt?.score ?? 0)} /{" "}
                   {currentQuestion ? getQuestionMaxPoints(currentQuestion) : 1}
                 </span>
                 {resultBadge ? (

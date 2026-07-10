@@ -13,8 +13,11 @@
 - **Form** — A staff-defined set of questions that can collect structured responses from students, staff, parents, or public respondents. A form may be used for surveys, feedback, check-ins, unenrolment, discontinuation, or unsubscribe flows; those are form purposes, not separate product concepts.
   _Avoid_: Survey, questionnaire
 
-- **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student.
+- **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
   _Avoid_: Survey result, submission
+
+- **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
+  _Avoid_: Form response, public form link, unenrolment form
 
 - **Form respondent** — The person or anonymous actor who completes and submits a form response. The respondent may be a student, staff member, parent, public contact, or anonymous visitor.
   _Avoid_: User, participant, submitter

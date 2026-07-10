@@ -17,6 +17,7 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "./question-content";
+import { getSituationalJudgementMarkingOutcome } from "@altitutor/ucat-marking";
 
 type ResultsViewerVariant = "ucat" | "site";
 
@@ -141,12 +142,13 @@ function QuestionPointsFooter({
   question: QuestionItem;
 }) {
   const maxPoints = getQuestionMaxPoints(question);
-  const scored = Math.round(points);
+  const scored = points;
+  const formattedPoints = Number.isInteger(scored) ? String(scored) : scored.toFixed(1);
 
   return (
     <div className="font-medium">
       <span className={getPointsColorClass(scored, maxPoints)}>
-        Points: {scored} / {maxPoints}
+        Points: {formattedPoints} / {maxPoints}
       </span>
     </div>
   );
@@ -407,6 +409,18 @@ export function ResultsQuestionViewer({
     return <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>;
   }
 
+  const selectedIndex = question.options.findIndex(
+    (option) => option.id === selectedOptionId,
+  );
+  const correctIndex = question.options.findIndex(
+    (option) => option.id === correctOptionId,
+  );
+  const sjOutcome = getSituationalJudgementMarkingOutcome({
+    sectionName: question.sectionName,
+    optionCount: question.options.length,
+    selectedIndex,
+    correctIndex,
+  });
   const answeredIncorrectly =
     correctOptionId != null && selectedOptionId !== correctOptionId;
 
@@ -414,7 +428,8 @@ export function ResultsQuestionViewer({
     const optionIsCorrect = option.id === correctOptionId;
     const optionIsSelected = option.id === selectedOptionId;
     const optionIsWrongSelection =
-      answeredIncorrectly && optionIsSelected && !optionIsCorrect;
+      answeredIncorrectly && optionIsSelected && !optionIsCorrect && sjOutcome !== "partial";
+    const optionIsPartialSelection = optionIsSelected && sjOutcome === "partial";
     const letter = optionLabel(index);
     const hasStats =
       option.totalAnswered != null &&
@@ -424,6 +439,8 @@ export function ResultsQuestionViewer({
 
     const bgClass = optionIsCorrect
       ? theme.correctRowBg
+      : optionIsPartialSelection
+        ? "bg-amber-100 dark:bg-amber-950/40"
       : optionIsWrongSelection
         ? theme.wrongRowBg
         : "";
@@ -433,6 +450,11 @@ export function ResultsQuestionViewer({
           text: answeredIncorrectly ? "Correct answer" : "Correct",
           color: "text-green-700 dark:text-green-400",
         }
+      : optionIsPartialSelection
+        ? {
+            text: "Partially correct · 0.5 points",
+            color: "text-amber-700 dark:text-amber-400",
+          }
       : optionIsWrongSelection
         ? {
             text: "Your answer",

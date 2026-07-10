@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  DataTableToolbar,
   SearchableSelect,
   SegmentedControl,
   Table,
@@ -17,6 +18,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -24,9 +26,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type {
+  DataTableFilterDefinition,
+  DataTableState,
+} from '@altitutor/shared';
 import { format } from 'date-fns';
 import { AdminDialogShell } from '@/shared/components';
-import type { AdminFormRow } from '@/features/forms/types';
+import type { AdminFormRow, AdminFormVersionRow } from '@/features/forms/types';
 import {
   FormResponseDialog,
   type FormResponseAnswer,
@@ -48,6 +54,17 @@ const PIE_COLORS = [
   'hsl(var(--chart-5, 280 65% 60%))',
 ];
 
+const REPORT_FILTER_STATE: DataTableState = {
+  search: '',
+  filters: {},
+  sortBy: null,
+  sortDirection: 'asc',
+  groupBy: null,
+  page: 1,
+  pageSize: 50,
+  visibleColumns: [],
+};
+
 function personKey(response: FormResponseDetail, kind: 'respondent' | 'subject') {
   const person =
     kind === 'respondent'
@@ -66,12 +83,12 @@ function answerValue(answer: AnswerRow | FormResponseAnswer) {
 export function FormReportsPage() {
   const [forms, setForms] = useState<AdminFormRow[]>([]);
   const [formId, setFormId] = useState<string>('');
+  const [versions, setVersions] = useState<AdminFormVersionRow[]>([]);
+  const [versionId, setVersionId] = useState<string>('');
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [responses, setResponses] = useState<FormResponseDetail[]>([]);
   const [responseCount, setResponseCount] = useState(0);
-  const [respondentType, setRespondentType] = useState<string>('');
-  const [respondentId, setRespondentId] = useState<string>('');
-  const [subjectId, setSubjectId] = useState<string>('');
+  const [filterState, setFilterState] = useState<DataTableState>(REPORT_FILTER_STATE);
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionGroup | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<FormResponseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +106,7 @@ export function FormReportsPage() {
   const loadReport = async () => {
     if (!formId) return;
     setError(null);
-    const res = await fetch(`/api/forms/reports?formId=${formId}`);
+    const res = await fetch(`/api/forms/reports?formId=${formId}${versionId ? `&versionId=${versionId}` : ''}`);
     const json = await res.json();
     if (!res.ok) {
       setError(json.error ?? 'Failed to load report');
@@ -104,6 +121,18 @@ export function FormReportsPage() {
 
   useEffect(() => {
     void loadReport();
+  }, [formId, versionId]);
+
+  useEffect(() => {
+    if (!formId) return;
+    fetch(`/api/forms/${formId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        const nextVersions = json.versions ?? [];
+        setVersions(nextVersions);
+        setVersionId(nextVersions[0]?.id ?? '');
+      })
+      .catch((err) => setError(err.message));
   }, [formId]);
 
   const selectedForm = forms.find((form) => form.id === formId) ?? null;
@@ -119,22 +148,45 @@ export function FormReportsPage() {
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [responses]);
 
-  const subjectOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const response of responses) map.set(personKey(response, 'subject'), responsePersonLabel(response, 'subject'));
-    return [...map.entries()].map(([value, label]) => ({ value, label }));
-  }, [responses]);
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(
+    () => [
+      {
+        key: 'respondent_type',
+        label: 'Respondent type',
+        options: respondentTypeOptions,
+      },
+      {
+        key: 'respondent',
+        label: 'Respondent',
+        options: respondentOptions,
+        searchable: true,
+      },
+    ],
+    [respondentOptions, respondentTypeOptions],
+  );
 
   const filteredAnswers = useMemo(
     () =>
       answers.filter((answer) => {
         const response = answer.response;
-        if (respondentType && response.respondent_type !== respondentType) return false;
-        if (respondentId && personKey(response, 'respondent') !== respondentId) return false;
-        if (subjectId && personKey(response, 'subject') !== subjectId) return false;
+        const filters = filterState.filters;
+        const query = filterState.search.trim().toLowerCase();
+        if (filters.respondent_type?.length && !filters.respondent_type.includes(response.respondent_type)) return false;
+        if (filters.respondent?.length && !filters.respondent.includes(personKey(response, 'respondent'))) return false;
+        if (query) {
+          const haystack = [
+            answer.question_label_snapshot,
+            answerValue(answer),
+            responsePersonLabel(response, 'respondent'),
+            responsePersonLabel(response, 'subject'),
+          ]
+            .join(' ')
+            .toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
         return true;
       }),
-    [answers, respondentId, respondentType, subjectId],
+    [answers, filterState.filters, filterState.search],
   );
 
   const groups = useMemo(() => {
@@ -164,9 +216,7 @@ export function FormReportsPage() {
             value={selectedForm}
             onValueChange={(form) => {
               setFormId(form?.id ?? '');
-              setRespondentType('');
-              setRespondentId('');
-              setSubjectId('');
+              setFilterState(REPORT_FILTER_STATE);
             }}
             getItemId={(form) => form.id}
             getItemLabel={(form) => form.name}
@@ -179,22 +229,33 @@ export function FormReportsPage() {
             }
           />
         </div>
-        <FilterSelect
-          label="Respondent type"
-          value={respondentType}
-          options={respondentTypeOptions}
-          onValueChange={setRespondentType}
-        />
-        <FilterSelect
-          label="Respondent"
-          value={respondentId}
-          options={respondentOptions}
-          onValueChange={setRespondentId}
-        />
-        <FilterSelect label="Subject" value={subjectId} options={subjectOptions} onValueChange={setSubjectId} />
-        <Button variant="outline" onClick={loadReport}>Refresh</Button>
+        <div className="w-52 max-w-full">
+          <SearchableSelect<AdminFormVersionRow>
+            items={versions}
+            value={versions.find((version) => version.id === versionId) ?? null}
+            onValueChange={(version) => setVersionId(version?.id ?? '')}
+            getItemId={(version) => version.id}
+            getItemLabel={(version) => `Version ${version.version_number}`}
+            placeholder="Select version"
+            searchPlaceholder="Search versions..."
+            trigger={<Button type="button" variant="outline" className="w-full justify-start font-normal">{versionId ? `Version ${versions.find((version) => version.id === versionId)?.version_number ?? ''}` : 'Select version'}</Button>}
+          />
+        </div>
         <div className="text-sm text-muted-foreground">{filteredAnswers.length ? `${responseCount} responses` : `${responseCount} responses`}</div>
       </div>
+      <DataTableToolbar
+        state={filterState}
+        onSearchChange={(search) => setFilterState((current) => ({ ...current, search, page: 1 }))}
+        onFiltersChange={(filters) => setFilterState((current) => ({ ...current, filters, page: 1 }))}
+        onSortChange={(sortBy, sortDirection) => setFilterState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
+        onGroupByChange={(groupBy) => setFilterState((current) => ({ ...current, groupBy }))}
+        onVisibleColumnsChange={(visibleColumns) => setFilterState((current) => ({ ...current, visibleColumns }))}
+        onQuickFilterApply={() => undefined}
+        onReset={() => setFilterState(REPORT_FILTER_STATE)}
+        filterDefinitions={filterDefinitions}
+        sortOptions={[]}
+        columnDefinitions={[]}
+      />
 
       <div className="space-y-8">
         {groups.map((group) => (
@@ -217,40 +278,6 @@ export function FormReportsPage() {
         onOpenResponse={(response) => setSelectedResponse(response)}
       />
       <FormResponseDialog response={selectedResponse} onClose={() => setSelectedResponse(null)} />
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  onValueChange,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onValueChange: (value: string) => void;
-}) {
-  const selected = options.find((option) => option.value === value) ?? null;
-  return (
-    <div className="w-56 max-w-full">
-      <SearchableSelect<{ value: string; label: string }>
-        items={options}
-        value={selected}
-        onValueChange={(option) => onValueChange(option?.value ?? '')}
-        getItemId={(option) => option.value}
-        getItemLabel={(option) => option.label}
-        allowClear
-        clearLabel={`All ${label.toLowerCase()}`}
-        placeholder={label}
-        searchPlaceholder={`Search ${label.toLowerCase()}...`}
-        trigger={
-          <Button type="button" variant="outline" className="w-full justify-start font-normal">
-            {selected?.label ?? label}
-          </Button>
-        }
-      />
     </div>
   );
 }
@@ -314,15 +341,20 @@ function ChoiceQuestionReport({ group, onViewQuestion }: { group: QuestionGroup;
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReportHeader label={group.label} onViewQuestion={onViewQuestion} />
-        <SegmentedControl
-          value={mode}
-          onValueChange={(value) => setMode(value === 'pie' ? 'pie' : 'bar')}
-          options={[
-            { value: 'bar', label: 'Bar' },
-            { value: 'pie', label: 'Pie' },
-          ]}
-        />
+        <h3 className="font-semibold">{group.label}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            value={mode}
+            onValueChange={(value) => setMode(value === 'pie' ? 'pie' : 'bar')}
+            options={[
+              { value: 'bar', label: 'Bar' },
+              { value: 'pie', label: 'Pie' },
+            ]}
+          />
+          <Button type="button" variant="outline" size="sm" onClick={onViewQuestion}>
+            View question
+          </Button>
+        </div>
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
@@ -337,7 +369,14 @@ function ChoiceQuestionReport({ group, onViewQuestion }: { group: QuestionGroup;
           ) : (
             <PieChart>
               <Tooltip />
-              <Pie data={data} dataKey="count" nameKey="name" outerRadius={95} label>
+              <Legend />
+              <Pie
+                data={data}
+                dataKey="count"
+                nameKey="name"
+                outerRadius={88}
+                label={(entry) => `${entry.name}: ${entry.value}`}
+              >
                 {data.map((entry, index) => (
                   <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}

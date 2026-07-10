@@ -24,6 +24,7 @@ type UcatStemEngineInlineEditorProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
   questionIndex: number
   sectionDisplayColumns: 1 | 2
+  sectionName?: string | null
   stemId?: string | null
   enableImages?: boolean
   onNewImageFileIds?: (fileIds: string[]) => void
@@ -34,6 +35,7 @@ export function UcatStemEngineInlineEditor({
   form,
   questionIndex,
   sectionDisplayColumns,
+  sectionName,
   stemId = null,
   enableImages = true,
   onNewImageFileIds,
@@ -120,6 +122,7 @@ export function UcatStemEngineInlineEditor({
       options={options}
       setOptions={setOptions}
       correctOptionIndex={correctOptionIndex}
+      sectionName={sectionName}
       setCorrectOptionIndex={setCorrectOptionIndex}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
@@ -160,7 +163,7 @@ export function UcatStemEngineInlineEditor({
         className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed ${ENGINE_LIGHT_TEXT}`}
       >
         <article
-          className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] py-4 pr-4 sm:py-5"
+          className="flex-[3] h-full min-w-0 overscroll-contain overflow-y-auto border-r-[6px] py-4 pr-4 sm:py-5"
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
           data-ucat-preview-scroll-target="true"
         >
@@ -179,7 +182,7 @@ export function UcatStemEngineInlineEditor({
           </div>
         </article>
         <section
-          className="flex-[2] h-full min-w-0 overflow-y-auto py-4 pl-2 pr-1 sm:py-5"
+          className="flex-[2] h-full min-w-0 overscroll-contain overflow-y-auto py-4 pl-2 pr-1 sm:py-5"
           data-ucat-preview-scroll-target="true"
         >
           {isSyllogism ? (
@@ -211,6 +214,7 @@ export function UcatStemEngineInlineEditor({
               options={options}
               setOptions={setOptions}
               correctOptionIndex={correctOptionIndex}
+              sectionName={sectionName}
               setCorrectOptionIndex={setCorrectOptionIndex}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}

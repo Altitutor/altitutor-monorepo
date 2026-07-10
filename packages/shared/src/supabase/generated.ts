@@ -2754,6 +2754,7 @@ export type Database = {
           respondent_student_id: string | null
           respondent_type: string
           response_json: Json
+          session_id: string | null
           subject_parent_id: string | null
           subject_staff_id: string | null
           subject_student_id: string | null
@@ -2774,6 +2775,7 @@ export type Database = {
           respondent_student_id?: string | null
           respondent_type?: string
           response_json: Json
+          session_id?: string | null
           subject_parent_id?: string | null
           subject_staff_id?: string | null
           subject_student_id?: string | null
@@ -2794,6 +2796,7 @@ export type Database = {
           respondent_student_id?: string | null
           respondent_type?: string
           response_json?: Json
+          session_id?: string | null
           subject_parent_id?: string | null
           subject_staff_id?: string | null
           subject_student_id?: string | null
@@ -2920,6 +2923,55 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "form_responses_subject_parent_id_fkey"
@@ -3160,6 +3212,8 @@ export type Database = {
           submission_limit: Database["public"]["Enums"]["form_submission_limit"]
           updated_at: string
           updated_by: string | null
+          workflow_key: Database["public"]["Enums"]["form_workflow_key"] | null
+          workflow_request_expiry_days: number | null
         }
         Insert: {
           access_type?: Database["public"]["Enums"]["form_access_type"]
@@ -3176,6 +3230,8 @@ export type Database = {
           submission_limit?: Database["public"]["Enums"]["form_submission_limit"]
           updated_at?: string
           updated_by?: string | null
+          workflow_key?: Database["public"]["Enums"]["form_workflow_key"] | null
+          workflow_request_expiry_days?: number | null
         }
         Update: {
           access_type?: Database["public"]["Enums"]["form_access_type"]
@@ -3192,6 +3248,8 @@ export type Database = {
           submission_limit?: Database["public"]["Enums"]["form_submission_limit"]
           updated_at?: string
           updated_by?: string | null
+          workflow_key?: Database["public"]["Enums"]["form_workflow_key"] | null
+          workflow_request_expiry_days?: number | null
         }
         Relationships: [
           {
@@ -7925,6 +7983,226 @@ export type Database = {
           stripe_event_id?: string
         }
         Relationships: []
+      }
+      student_exit_request_enrolments: {
+        Row: {
+          classes_students_id: string
+          final_session_at: string
+          id: string
+          student_exit_request_id: string
+          unenrolled_at: string
+        }
+        Insert: {
+          classes_students_id: string
+          final_session_at: string
+          id?: string
+          student_exit_request_id: string
+          unenrolled_at: string
+        }
+        Update: {
+          classes_students_id?: string
+          final_session_at?: string
+          id?: string
+          student_exit_request_id?: string
+          unenrolled_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_exit_request_enrolments_classes_students_id_fkey"
+            columns: ["classes_students_id"]
+            isOneToOne: false
+            referencedRelation: "classes_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_request_enrolments_classes_students_id_fkey"
+            columns: ["classes_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_classes"
+            referencedColumns: ["enrollment_id"]
+          },
+          {
+            foreignKeyName: "student_exit_request_enrolments_student_exit_request_id_fkey"
+            columns: ["student_exit_request_id"]
+            isOneToOne: false
+            referencedRelation: "student_exit_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_exit_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          expires_at: string | null
+          form_id: string
+          form_response_id: string | null
+          form_token_id: string
+          form_version_id: string
+          id: string
+          requested_by: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          status: Database["public"]["Enums"]["student_exit_request_status"]
+          student_id: string
+          workflow_key: Database["public"]["Enums"]["form_workflow_key"]
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          form_id: string
+          form_response_id?: string | null
+          form_token_id: string
+          form_version_id: string
+          id?: string
+          requested_by: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: Database["public"]["Enums"]["student_exit_request_status"]
+          student_id: string
+          workflow_key: Database["public"]["Enums"]["form_workflow_key"]
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          form_id?: string
+          form_response_id?: string | null
+          form_token_id?: string
+          form_version_id?: string
+          id?: string
+          requested_by?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: Database["public"]["Enums"]["student_exit_request_status"]
+          student_id?: string
+          workflow_key?: Database["public"]["Enums"]["form_workflow_key"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_exit_requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_form_response_id_fkey"
+            columns: ["form_response_id"]
+            isOneToOne: false
+            referencedRelation: "form_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_form_token_id_fkey"
+            columns: ["form_token_id"]
+            isOneToOne: false
+            referencedRelation: "form_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_form_version_id_fkey"
+            columns: ["form_version_id"]
+            isOneToOne: false
+            referencedRelation: "form_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
       student_flashcard_review_states: {
         Row: {
@@ -23361,6 +23639,7 @@ export type Database = {
         Args: { enum_name: string; new_value: string }
         Returns: undefined
       }
+      apply_scheduled_student_discontinuations: { Args: never; Returns: number }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -23442,6 +23721,16 @@ export type Database = {
       cleanup_session_files: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      complete_student_exit_request: {
+        Args: {
+          p_answers: Json
+          p_form_token_id: string
+          p_response_json: Json
+          p_student_id: string
+          p_submitted_by_user_id: string
+        }
+        Returns: Json
       }
       complete_student_registration: {
         Args: {
@@ -24298,6 +24587,7 @@ export type Database = {
         | "one_per_token"
         | "one_per_authenticated_respondent"
         | "unlimited"
+      form_workflow_key: "student_unenrolment" | "student_discontinuation"
       invoice_billing_source: "session_runner" | "subscription"
       resource_answers: "BLANK" | "ANSWERS"
       resource_type:
@@ -24325,6 +24615,7 @@ export type Database = {
         | "SESSION_COUNT"
         | "TIME_SINCE_LAST_PROMOTION"
       staff_tier_promotion_outcome: "approved" | "deferred" | "not_ready"
+      student_exit_request_status: "pending" | "completed" | "revoked"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
         | "MATHEMATICS"
@@ -24482,6 +24773,7 @@ export const Constants = {
         "one_per_authenticated_respondent",
         "unlimited",
       ],
+      form_workflow_key: ["student_unenrolment", "student_discontinuation"],
       invoice_billing_source: ["session_runner", "subscription"],
       resource_answers: ["BLANK", "ANSWERS"],
       resource_type: [
@@ -24512,6 +24804,7 @@ export const Constants = {
         "TIME_SINCE_LAST_PROMOTION",
       ],
       staff_tier_promotion_outcome: ["approved", "deferred", "not_ready"],
+      student_exit_request_status: ["pending", "completed", "revoked"],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
       subject_discipline: [
         "MATHEMATICS",

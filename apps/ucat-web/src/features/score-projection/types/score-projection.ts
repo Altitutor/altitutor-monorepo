@@ -17,6 +17,14 @@ export type ProjectionHorizon = {
   optimistic: number;
 };
 
+export type HistoricalProjectionPoint = {
+  date: string;
+  value: number;
+  confidence: ProjectionConfidence;
+  uncertainty: number;
+  effectiveEvidenceWeight: number;
+};
+
 export type SectionScoreProjection = {
   sectionId: string;
   sectionName: string;
@@ -28,6 +36,7 @@ export type SectionScoreProjection = {
   evidenceCount: number;
   paceSource: "recent_activity" | "default";
   effectivePracticePerWeek: number;
+  history: HistoricalProjectionPoint[];
   projection: ProjectionPoint[];
   horizons: ProjectionHorizon[];
 };
@@ -44,6 +53,7 @@ export type TotalScoreProjection = {
   uncertainty: number | null;
   effectiveEvidenceWeight: number;
   missingSectionNumbers: number[];
+  history: HistoricalProjectionPoint[];
   projection: ProjectionPoint[];
   horizons: ProjectionHorizon[];
 };

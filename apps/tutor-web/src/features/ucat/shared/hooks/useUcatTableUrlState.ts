@@ -137,12 +137,12 @@ export function useUcatTableUrlState(
 
   const updateState = useCallback(
     (updater: DataTableState | ((prev: DataTableState) => DataTableState)) => {
-      setState((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater
-        if (isUcatTableStateEqual(prev, next)) return prev
-        syncToUrl(next)
-        return next
-      })
+      const prev = stateRef.current
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      if (isUcatTableStateEqual(prev, next)) return
+      stateRef.current = next
+      setState(next)
+      syncToUrl(next)
     },
     [syncToUrl],
   )
@@ -150,13 +150,12 @@ export function useUcatTableUrlState(
   const setShowDeleted = useCallback(
     (value: boolean | ((prev: boolean) => boolean)) => {
       if (!syncShowDeleted) return
-      setShowDeletedState((prev) => {
-        const next = typeof value === 'function' ? value(prev) : value
-        if (next !== prev) {
-          syncToUrl(stateRef.current, next)
-        }
-        return next
-      })
+      const prev = showDeletedRef.current
+      const next = typeof value === 'function' ? value(prev) : value
+      if (next === prev) return
+      showDeletedRef.current = next
+      setShowDeletedState(next)
+      syncToUrl(stateRef.current, next)
     },
     [syncShowDeleted, syncToUrl],
   )

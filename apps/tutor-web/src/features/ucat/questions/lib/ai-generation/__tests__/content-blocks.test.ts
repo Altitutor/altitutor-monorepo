@@ -36,6 +36,24 @@ describe('generated content blocks', () => {
     })
   })
 
+  it('converts dash-prefixed generated text into a ProseMirror bullet list', () => {
+    const doc = generatedContentToProseMirror('First point\n- Second point\n- Third point')
+
+    expect(doc).toEqual({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'First point' }] },
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Second point' }] }] },
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Third point' }] }] },
+          ],
+        },
+      ],
+    })
+  })
+
   it('removes bold markers from comparison text', () => {
     expect(generatedContentToPlainText('Which option **CANNOT** be true?')).toBe(
       'Which option CANNOT be true?'
@@ -71,6 +89,69 @@ describe('generated content blocks', () => {
       caption: 'Results',
       columns: ['Name', 'Score'],
       rows: [['Asha', '12']],
+    }])
+  })
+
+  it('normalizes object-shaped Venn region membership metadata', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: [
+          {
+            type: 'visual',
+            visualType: 'set_diagram',
+            altText: 'Two overlapping sets with one labelled overlap.',
+            spec: {
+              shapes: [
+                { id: 'A', type: 'circle', label: 'A', cx: 100, cy: 100, r: 60 },
+                { id: 'B', type: 'rectangle', label: 'B', x: 120, y: 50, width: 120, height: 120 },
+              ],
+              regionLabels: [{ text: 12, region: { include: ['A', 'B'], exclude: [] } }],
+            },
+          },
+        ],
+        questions: [{
+          questionText: 'How many are in both sets?',
+          questionType: 'multiple_choice',
+          answerExplanation: 'Use the overlap label.',
+          options: [
+            { answerText: '12', isAnswer: true },
+            { answerText: '6', isAnswer: false },
+          ],
+        }],
+      }],
+    })
+
+    const visual = parsed.stems[0]?.stemText
+    expect(Array.isArray(visual) && visual[0]?.type === 'visual' ? visual[0].spec : null).toMatchObject({
+      shapes: [{ type: 'circle' }, { type: 'rect' }],
+      regionLabels: [{ include: ['A', 'B'], exclude: [] }],
+    })
+  })
+
+  it('accepts a blank first header for a contingency table', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: [{
+          type: 'table',
+          columns: ['', 'Attended', 'Did not attend'],
+          rows: [['Received reminder', '18', '2'], ['No reminder', '6', '4']],
+        }],
+        questions: [{
+          questionText: 'Which is correct?',
+          questionType: 'multiple_choice',
+          answerExplanation: 'Use the relevant row and total.',
+          options: [
+            { answerText: 'A', isAnswer: true },
+            { answerText: 'B', isAnswer: false },
+          ],
+        }],
+      }],
+    })
+
+    expect(parsed.stems[0]?.stemText).toEqual([{
+      type: 'table',
+      columns: ['', 'Attended', 'Did not attend'],
+      rows: [['Received reminder', '18', '2'], ['No reminder', '6', '4']],
     }])
   })
 
@@ -164,8 +245,10 @@ describe('generated content blocks', () => {
 
     expect(compiledSpec.padding?.right).toBeGreaterThanOrEqual(220)
     expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#111111')
-    expect(compiledSpec.layer?.[0]?.mark?.fill).toBe('#d9d9d9')
-    expect(compiledSpec.layer?.[0]?.encoding?.color?.scale?.range).not.toContain('#111111')
+    expect(compiledSpec.layer?.[0]?.mark?.fill).toBeUndefined()
+    expect(compiledSpec.layer?.[0]?.encoding?.color?.scale?.range).toEqual([
+      '#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0',
+    ])
     expect(compiledSpec.layer?.[1]?.mark?.strokeDash).toEqual([6, 4])
     expect(compiledSpec.layer?.[1]?.mark?.point).toEqual(expect.objectContaining({ fill: 'white' }))
     expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titlePadding).toBeGreaterThanOrEqual(70)
@@ -174,7 +257,7 @@ describe('generated content blocks', () => {
     expect(compiledSpec.width).toBeGreaterThanOrEqual(520)
   })
 
-  it('adds readable text halos to Vega-Lite map labels', async () => {
+  it('renders Vega-Lite map labels as solid dark text', async () => {
     const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
     await generatedContentToProseMirrorServer([{
       type: 'visual',
@@ -214,14 +297,89 @@ describe('generated content blocks', () => {
       layer?: Array<{ mark?: Record<string, unknown> }>
     }
 
-    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#111111')
+    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#4b4b4b')
     expect(compiledSpec.layer?.[0]?.mark?.strokeWidth).toBe(3)
     expect(compiledSpec.layer?.[0]?.mark?.strokeDash).toBeUndefined()
     expect(compiledSpec.layer?.[1]?.mark).toEqual(expect.objectContaining({
       fill: '#111111',
-      stroke: 'white',
-      strokeWidth: 1.25,
     }))
+    expect(compiledSpec.layer?.[1]?.mark?.stroke).toBeUndefined()
+    expect(compiledSpec.layer?.[1]?.mark?.strokeWidth).toBeUndefined()
+  })
+
+  it('keeps encoded line colours and their legend on the same scale', async () => {
+    const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
+    await generatedContentToProseMirrorServer([{
+      type: 'visual',
+      visualType: 'vega_lite_chart',
+      title: 'Clinic appointments',
+      altText: 'Two-series line chart.',
+      spec: {
+        data: {
+          values: [
+            { month: 'April', series: 'Scheduled', value: 480 },
+            { month: 'April', series: 'Not attended', value: 38 },
+          ],
+        },
+        mark: { type: 'line', stroke: '#ffffff' },
+        encoding: {
+          x: { field: 'month', type: 'ordinal' },
+          y: { field: 'value', type: 'quantitative' },
+          color: { field: 'series', type: 'nominal', legend: { title: 'Status' } },
+        },
+      },
+    }])
+
+    const { compile } = jest.requireMock('vega-lite') as { compile: jest.Mock }
+    const compiledSpec = compile.mock.calls.at(-1)?.[0] as {
+      mark?: Record<string, unknown>
+      encoding?: Record<string, { scale?: { range?: string[] } }>
+      config?: { legend?: Record<string, unknown> }
+    }
+
+    expect(compiledSpec.mark?.stroke).toBeUndefined()
+    expect(compiledSpec.mark?.point).toEqual(expect.objectContaining({ filled: true }))
+    expect((compiledSpec.mark?.point as Record<string, unknown>)?.fill).toBeUndefined()
+    expect(compiledSpec.encoding?.color?.scale?.range).toEqual([
+      '#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0',
+    ])
+    expect(compiledSpec.config?.legend?.symbolStrokeColor).toBeUndefined()
+  })
+
+  it('preserves parent layer colour encodings for grouped bars', async () => {
+    const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
+    await generatedContentToProseMirrorServer([{
+      type: 'visual',
+      visualType: 'vega_lite_chart',
+      title: 'Parcels delivered',
+      altText: 'Grouped bar chart.',
+      spec: {
+        data: {
+          values: [
+            { quarter: 'Q1', transport: 'Van', parcels: 48 },
+            { quarter: 'Q1', transport: 'Bicycle', parcels: 32 },
+          ],
+        },
+        encoding: {
+          color: { field: 'transport', type: 'nominal', legend: { title: 'Transport type' } },
+        },
+        layer: [{
+          mark: { type: 'bar', fill: '#ffffff' },
+          encoding: {
+            x: { field: 'quarter', type: 'nominal' },
+            y: { field: 'parcels', type: 'quantitative' },
+            xOffset: { field: 'transport' },
+          },
+        }],
+      },
+    }])
+
+    const { compile } = jest.requireMock('vega-lite') as { compile: jest.Mock }
+    const compiledSpec = compile.mock.calls.at(-1)?.[0] as {
+      layer?: Array<{ mark?: Record<string, unknown> }>
+    }
+
+    expect(compiledSpec.layer?.[0]?.mark?.fill).toBeUndefined()
   })
 
   it('rejects Vega-Lite chart specs without inline data', () => {

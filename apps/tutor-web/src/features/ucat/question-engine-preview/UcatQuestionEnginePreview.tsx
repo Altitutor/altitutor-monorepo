@@ -301,7 +301,7 @@ function SyllogismPreviewBody({
         className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed ${ENGINE_LIGHT_TEXT}`}
       >
         <article
-          className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
+          className="flex-[3] h-full min-w-0 overscroll-contain overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
           data-ucat-preview-scroll-target="true"
         >
@@ -315,7 +315,7 @@ function SyllogismPreviewBody({
           </div>
         </article>
         <section
-          className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5"
+          className="flex-[2] h-full min-w-0 overscroll-contain overflow-y-auto pl-2 pr-1 py-4 sm:py-5"
           data-ucat-preview-scroll-target="true"
         >
           {content}
@@ -423,7 +423,7 @@ function MultipleChoicePreviewBody({
         className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed ${ENGINE_LIGHT_TEXT}`}
       >
         <article
-          className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
+          className="flex-[3] h-full min-w-0 overscroll-contain overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
           data-ucat-preview-scroll-target="true"
         >
@@ -437,7 +437,7 @@ function MultipleChoicePreviewBody({
           </div>
         </article>
         <section
-          className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5"
+          className="flex-[2] h-full min-w-0 overscroll-contain overflow-y-auto pl-2 pr-1 py-4 sm:py-5"
           data-ucat-preview-scroll-target="true"
         >
           {innerSection}

@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       .from('form_responses')
       .select(`
         id,
+        session_id,
         respondent_type,
         subject_type,
         submitted_at,

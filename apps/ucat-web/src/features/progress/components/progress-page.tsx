@@ -240,6 +240,19 @@ function TotalScoreProjectionCard({
   const currentPoint = projection.projection.find((point) => point.day === 0);
   const currentDate =
     currentPoint?.date ?? new Date().toISOString().slice(0, 10);
+  const historyData = projection.history.map((point) => ({
+    date: point.date,
+    value: point.value,
+  }));
+  const graphData = historyData.some((point) => point.date === currentDate)
+    ? historyData
+    : [
+        ...historyData,
+        {
+          date: currentDate,
+          value: projection.currentEstimate,
+        },
+      ];
   const graphProjection = {
     pessimistic: projection.projection.map((point) => ({
       date: point.date,
@@ -262,8 +275,9 @@ function TotalScoreProjectionCard({
           <div>
             <CardTitle>Predicted UCAT score</CardTitle>
             <CardDescription>
-              Sum of Verbal Reasoning, Decision Making, and Quantitative
-              Reasoning. Situational Judgement is excluded.
+              Historical estimates and future projection for Verbal Reasoning,
+              Decision Making, and Quantitative Reasoning. Situational Judgement
+              is excluded.
             </CardDescription>
           </div>
           <div className="text-left sm:text-right">
@@ -278,12 +292,7 @@ function TotalScoreProjectionCard({
       </CardHeader>
       <CardContent className="space-y-5">
         <ProgressGraph
-          data={[
-            {
-              date: currentDate,
-              value: projection.currentEstimate,
-            },
-          ]}
+          data={graphData}
           type="line"
           dataType="scaled_score"
           yAxisDomain={[900, 2700]}

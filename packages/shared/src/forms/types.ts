@@ -1,6 +1,13 @@
 export const FORM_ACCESS_TYPES = ['public_link', 'authenticated'] as const;
 export type FormAccessType = (typeof FORM_ACCESS_TYPES)[number];
 
+export const FORM_WORKFLOW_KEYS = ['student_unenrolment', 'student_discontinuation'] as const;
+export type FormWorkflowKey = (typeof FORM_WORKFLOW_KEYS)[number];
+export const FORM_WORKFLOW_KEY_OPTIONS = [
+  { value: 'student_unenrolment', label: 'Student unenrolment' },
+  { value: 'student_discontinuation', label: 'Student discontinuation' },
+] as const;
+
 export const FORM_SUBMISSION_LIMITS = [
   'one_per_token',
   'one_per_authenticated_respondent',

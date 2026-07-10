@@ -345,9 +345,7 @@ function SectionProgressContent({
         backHref={backHref}
         backLabel={backLabel}
         breadcrumbOverrides={
-          mocksOnly
-            ? { 2: section.sectionName }
-            : { 1: section.sectionName }
+          mocksOnly ? { 2: section.sectionName } : { 1: section.sectionName }
         }
       />
 
@@ -476,7 +474,9 @@ function SectionProgressContent({
                     totalPublicQuestions != null ? (
                       <>
                         {" / "}
-                        <span className="tabular-nums">{totalPublicQuestions}</span>
+                        <span className="tabular-nums">
+                          {totalPublicQuestions}
+                        </span>
                       </>
                     ) : null}
                   </span>
@@ -683,6 +683,19 @@ function ScoreProjectionCard({
   const currentPoint = projection.projection.find((point) => point.day === 0);
   const currentDate =
     currentPoint?.date ?? new Date().toISOString().slice(0, 10);
+  const historyData = projection.history.map((point) => ({
+    date: point.date,
+    value: point.value,
+  }));
+  const graphData = historyData.some((point) => point.date === currentDate)
+    ? historyData
+    : [
+        ...historyData,
+        {
+          date: currentDate,
+          value: projection.currentEstimate,
+        },
+      ];
   const graphProjection = {
     pessimistic: projection.projection.map((point) => ({
       date: point.date,
@@ -705,8 +718,8 @@ function ScoreProjectionCard({
           <div>
             <CardTitle>Score projection</CardTitle>
             <CardDescription>
-              Based on weighted mocks, sets, practice attempts, timing, recency,
-              and recent effective practice pace.
+              Historical estimates recomputed with today&apos;s model, plus a
+              future projection from recent effective practice pace.
             </CardDescription>
           </div>
           <div className="text-left sm:text-right">
@@ -721,12 +734,7 @@ function ScoreProjectionCard({
       </CardHeader>
       <CardContent className="space-y-5">
         <ProgressGraph
-          data={[
-            {
-              date: currentDate,
-              value: projection.currentEstimate,
-            },
-          ]}
+          data={graphData}
           type="line"
           dataType="scaled_score"
           dateRangeLabel={`${projection.effectivePracticePerWeek} effective questions/week`}

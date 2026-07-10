@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import {
   CartesianGrid,
   Legend,
@@ -13,13 +14,14 @@ import {
 } from "recharts";
 import {
   Button,
-  Card,
-  CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
   Input,
   Label,
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@altitutor/ui";
 import type { ScoreProjectionSettingsWithSection } from "@/features/score-projection-settings/api/score-projection-settings";
 
@@ -65,6 +67,7 @@ type ProjectionPoint = {
 type NumberField = {
   key: keyof SimulatorValues;
   label: string;
+  description: string;
   min: number;
   max?: number;
   step: number;
@@ -74,6 +77,8 @@ const STUDENT_FIELDS: NumberField[] = [
   {
     key: "currentEstimate",
     label: "Current section score",
+    description:
+      "Starting score for the simulated section. The projection curves begin from this value.",
     min: 300,
     max: 900,
     step: 1,
@@ -81,24 +86,32 @@ const STUDENT_FIELDS: NumberField[] = [
   {
     key: "effectiveQuestionsPerWeek",
     label: "Effective questions/week",
+    description:
+      "Assumed weekly practice pace after source and timing weights. Higher values move the curve further over the same time window, with diminishing returns from the daily cap.",
     min: 0,
     step: 1,
   },
   {
     key: "horizonDays",
     label: "Projection horizon days",
+    description:
+      "How far into the future the simulator draws the projection curve.",
     min: 1,
     step: 1,
   },
   {
     key: "stepDays",
     label: "Curve step days",
+    description:
+      "Spacing between generated points on the curve. Smaller values make a smoother chart; larger values make fewer points.",
     min: 1,
     step: 1,
   },
   {
     key: "effectivePracticeDailyCap",
     label: "Effective practice daily cap",
+    description:
+      "Soft daily cap for practice. It models diminishing returns, so very high daily volume still helps but less efficiently.",
     min: 1,
     step: 1,
   },
@@ -111,9 +124,30 @@ const SCENARIO_FIELDS: Array<{
   {
     title: "Base gain",
     fields: [
-      { key: "pessimisticBaseGain", label: "Pessimistic", min: 0, step: 1 },
-      { key: "realisticBaseGain", label: "Realistic", min: 0, step: 1 },
-      { key: "optimisticBaseGain", label: "Optimistic", min: 0, step: 1 },
+      {
+        key: "pessimisticBaseGain",
+        label: "Pessimistic",
+        description:
+          "Minimum reachable gain for the pessimistic curve before adding upside from remaining room to 900.",
+        min: 0,
+        step: 1,
+      },
+      {
+        key: "realisticBaseGain",
+        label: "Realistic",
+        description:
+          "Minimum reachable gain for the realistic curve before adding upside from remaining room to 900.",
+        min: 0,
+        step: 1,
+      },
+      {
+        key: "optimisticBaseGain",
+        label: "Optimistic",
+        description:
+          "Minimum reachable gain for the optimistic curve before adding upside from remaining room to 900.",
+        min: 0,
+        step: 1,
+      },
     ],
   },
   {
@@ -122,6 +156,8 @@ const SCENARIO_FIELDS: Array<{
       {
         key: "pessimisticRoomFraction",
         label: "Pessimistic",
+        description:
+          "Fraction of the remaining room to 900 that can become reachable on the pessimistic curve.",
         min: 0,
         max: 1,
         step: 0.01,
@@ -129,6 +165,8 @@ const SCENARIO_FIELDS: Array<{
       {
         key: "realisticRoomFraction",
         label: "Realistic",
+        description:
+          "Fraction of the remaining room to 900 that can become reachable on the realistic curve.",
         min: 0,
         max: 1,
         step: 0.01,
@@ -136,6 +174,8 @@ const SCENARIO_FIELDS: Array<{
       {
         key: "optimisticRoomFraction",
         label: "Optimistic",
+        description:
+          "Fraction of the remaining room to 900 that can become reachable on the optimistic curve.",
         min: 0,
         max: 1,
         step: 0.01,
@@ -148,13 +188,24 @@ const SCENARIO_FIELDS: Array<{
       {
         key: "pessimisticLowScoreBoost",
         label: "Pessimistic",
+        description:
+          "Extra room-based upside for lower starting scores on the pessimistic curve. No effect once the starting score is 700 or higher.",
         min: 0,
         step: 0.01,
       },
-      { key: "realisticLowScoreBoost", label: "Realistic", min: 0, step: 0.01 },
+      {
+        key: "realisticLowScoreBoost",
+        label: "Realistic",
+        description:
+          "Extra room-based upside for lower starting scores on the realistic curve. No effect once the starting score is 700 or higher.",
+        min: 0,
+        step: 0.01,
+      },
       {
         key: "optimisticLowScoreBoost",
         label: "Optimistic",
+        description:
+          "Extra room-based upside for lower starting scores on the optimistic curve. No effect once the starting score is 700 or higher.",
         min: 0,
         step: 0.01,
       },
@@ -166,18 +217,24 @@ const SCENARIO_FIELDS: Array<{
       {
         key: "pessimisticEffortHalfSaturation",
         label: "Pessimistic",
+        description:
+          "Effective practice units needed to realise half of the pessimistic curve's reachable gain. Higher values make improvement slower.",
         min: 1,
         step: 1,
       },
       {
         key: "realisticEffortHalfSaturation",
         label: "Realistic",
+        description:
+          "Effective practice units needed to realise half of the realistic curve's reachable gain. Higher values make improvement slower.",
         min: 1,
         step: 1,
       },
       {
         key: "optimisticEffortHalfSaturation",
         label: "Optimistic",
+        description:
+          "Effective practice units needed to realise half of the optimistic curve's reachable gain. Higher values make improvement slower.",
         min: 1,
         step: 1,
       },
@@ -264,6 +321,7 @@ function projectScore(
 }
 
 function generateProjection(values: SimulatorValues): ProjectionPoint[] {
+  const currentEstimate = clamp(values.currentEstimate, 300, SCORE_MAX);
   const maxDay = Math.max(values.horizonDays, ...HORIZONS);
   const step = Math.max(1, values.stepDays);
   const days = new Set<number>([0, ...HORIZONS]);
@@ -277,17 +335,17 @@ function generateProjection(values: SimulatorValues): ProjectionPoint[] {
       return {
         day,
         pessimistic: projectScore(
-          values.currentEstimate,
+          currentEstimate,
           effectivePractice,
           scenarioSettings(values, "pessimistic"),
         ),
         realistic: projectScore(
-          values.currentEstimate,
+          currentEstimate,
           effectivePractice,
           scenarioSettings(values, "realistic"),
         ),
         optimistic: projectScore(
-          values.currentEstimate,
+          currentEstimate,
           effectivePractice,
           scenarioSettings(values, "optimistic"),
         ),
@@ -297,10 +355,10 @@ function generateProjection(values: SimulatorValues): ProjectionPoint[] {
 
 function reachableGain(values: SimulatorValues, scenario: Scenario): number {
   const settings = scenarioSettings(values, scenario);
-  const remainingRoom = SCORE_MAX - values.currentEstimate;
+  const currentEstimate = clamp(values.currentEstimate, 300, SCORE_MAX);
+  const remainingRoom = SCORE_MAX - currentEstimate;
   const lowScoreRoomBoost =
-    1 +
-    settings.lowScoreBoost * clamp((700 - values.currentEstimate) / 400, 0, 1);
+    1 + settings.lowScoreBoost * clamp((700 - currentEstimate) / 400, 0, 1);
   return Math.round(
     clamp(
       settings.baseGain +
@@ -320,24 +378,62 @@ function NumericInput({
   values: SimulatorValues;
   onChange: (key: keyof SimulatorValues, value: number) => void;
 }) {
+  const value = values[field.key];
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commitDraft = () => {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = clamp(
+      parsed,
+      field.min,
+      field.max ?? Number.POSITIVE_INFINITY,
+    );
+    setDraft(String(clamped));
+    onChange(field.key, clamped);
+  };
+
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={`simulator-${String(field.key)}`}>{field.label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={`simulator-${String(field.key)}`}>{field.label}</Label>
+        <UiTooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`${field.label} info`}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>{field.description}</p>
+          </TooltipContent>
+        </UiTooltip>
+      </div>
       <Input
         id={`simulator-${String(field.key)}`}
         type="number"
         min={field.min}
         max={field.max}
         step={field.step}
-        value={values[field.key]}
+        value={draft}
         onChange={(event) => {
-          const parsed = Number(event.target.value);
-          if (!Number.isFinite(parsed)) return;
-          onChange(
-            field.key,
-            clamp(parsed, field.min, field.max ?? Number.POSITIVE_INFINITY),
-          );
+          const next = event.target.value;
+          setDraft(next);
+          if (next === "" || next === "-" || next === ".") return;
+          const parsed = Number(next);
+          if (Number.isFinite(parsed)) onChange(field.key, parsed);
         }}
+        onBlur={commitDraft}
       />
     </div>
   );
@@ -409,8 +505,8 @@ export function ScoreProjectionSimulator({
   );
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <CardTitle>Score prediction simulator</CardTitle>
@@ -440,8 +536,7 @@ export function ScoreProjectionSimulator({
             </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
+
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <div className="space-y-4">
             <div className="h-[360px]">
@@ -568,7 +663,7 @@ export function ScoreProjectionSimulator({
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </TooltipProvider>
   );
 }

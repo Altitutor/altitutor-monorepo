@@ -124,6 +124,7 @@ export function UcatLearningModuleDialog({
       hideCancel
       headerActions={headerActions}
       defaultExpanded
+      mobileFullscreen
       richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import { Copy } from 'lucide-react'
@@ -396,6 +396,9 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [generationDebug, setGenerationDebug] = useState<UcatGenerationDebugInfo | null>(null)
   const [generationProgress, setGenerationProgress] = useState<UcatGenerationProgress | null>(null)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const isGeneratingRef = useRef(false)
+  const allowNavigationRef = useRef(false)
+  const ignoreNextPopStateRef = useRef(false)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
@@ -485,7 +488,79 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     (sourceMode !== 'selected' || selectedSourceIds.length > 0)
 
   const isBusy = generateMutation.isPending || importMutation.isPending
+  const isGenerating = step === 'generating' && generateMutation.isPending
   const showSourceStemPicker = step === 'config' && sourceMode === 'selected'
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating
+  }, [isGenerating])
+
+  useEffect(() => {
+    const message = 'Question generation is still running. Leaving this page may interrupt active AI model calls. Leave anyway?'
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        !isGeneratingRef.current ||
+        allowNavigationRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null
+      if (!anchor || anchor.target || anchor.hasAttribute('download')) return
+
+      const destination = new URL(anchor.href, window.location.href)
+      if (
+        destination.origin === window.location.origin &&
+        destination.pathname === window.location.pathname &&
+        destination.search === window.location.search
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (!window.confirm(message)) return
+
+      allowNavigationRef.current = true
+      anchor.click()
+    }
+
+    const handlePopState = () => {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false
+        return
+      }
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      if (window.confirm(message)) {
+        allowNavigationRef.current = true
+        return
+      }
+      ignoreNextPopStateRef.current = true
+      window.history.forward()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleDocumentClick, true)
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleDocumentClick, true)
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   useEffect(() => {
     if (step !== 'generating') {
@@ -624,6 +699,13 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   }
 
   function handleRequestClose() {
+    if (isGenerating) {
+      if (!window.confirm('Question generation is still running. Close this dialog? Generation will continue while you stay on this page.')) {
+        return
+      }
+      onClose()
+      return
+    }
     if (isBusy) return
     if (
       step === 'review' &&

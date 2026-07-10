@@ -1,9 +1,11 @@
-import type { FormAccessType, FormBlock, FormSubmissionLimit } from '@altitutor/shared';
+import type { FormAccessType, FormBlock, FormSubmissionLimit, FormWorkflowKey } from '@altitutor/shared';
 
 export interface AdminFormRow {
   id: string;
   name: string;
   purpose: string;
+  workflow_key: FormWorkflowKey | null;
+  workflow_request_expiry_days: number | null;
   status: string;
   access_type: FormAccessType;
   submission_limit: FormSubmissionLimit;

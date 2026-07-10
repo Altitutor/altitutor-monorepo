@@ -70,6 +70,25 @@ export async function POST(request: Request, { params }: { params: { token: stri
   if (errors.length) return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
 
   const admin = getServerSupabaseAdmin() as any;
+  const normalized = normalizeFormAnswers(blocks, answers);
+  const { data: exitRequest } = await admin
+    .from('student_exit_requests')
+    .select('id')
+    .eq('form_token_id', tokenRow.id)
+    .maybeSingle();
+  if (exitRequest) {
+    if (!student) return NextResponse.json({ error: 'Sign in to answer this form' }, { status: 401 });
+    const { data, error } = await admin.rpc('complete_student_exit_request', {
+      p_form_token_id: tokenRow.id,
+      p_student_id: student.id,
+      p_submitted_by_user_id: user?.id ?? null,
+      p_response_json: { answers },
+      p_answers: normalized,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (!data?.success) return NextResponse.json({ error: data?.error ?? 'Could not complete this exit request.' }, { status: 409 });
+    return NextResponse.json({ ok: true, alreadyCompleted: Boolean(data.already_completed), scheduled: Boolean(data.scheduled) });
+  }
   if (tokenRow.submission_limit === 'one_per_token') {
     const { count } = await admin
       .from('form_responses')
@@ -106,7 +125,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   if (responseError) return NextResponse.json({ error: responseError.message }, { status: 500 });
 
-  const normalized = normalizeFormAnswers(blocks, answers).map((answer) => ({
+  const responseAnswers = normalized.map((answer) => ({
     form_response_id: response.id,
     form_id: tokenRow.form_id,
     form_version_id: tokenRow.form_version_id,
@@ -119,8 +138,8 @@ export async function POST(request: Request, { params }: { params: { token: stri
     text_value: answer.textValue ?? null,
     number_value: answer.numberValue ?? null,
   }));
-  if (normalized.length) {
-    const { error: answersError } = await admin.from('form_response_answers').insert(normalized);
+  if (responseAnswers.length) {
+    const { error: answersError } = await admin.from('form_response_answers').insert(responseAnswers);
     if (answersError) return NextResponse.json({ error: answersError.message }, { status: 500 });
   }
 

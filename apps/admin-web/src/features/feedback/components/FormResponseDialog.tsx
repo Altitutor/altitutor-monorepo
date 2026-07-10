@@ -1,6 +1,7 @@
 'use client';
 
 import { format } from 'date-fns';
+import { Badge } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
 
 type Person = { id: string; first_name?: string | null; last_name?: string | null } | null | undefined;
@@ -22,6 +23,7 @@ export type FormResponseDetail = {
   respondent_type: string;
   subject_type: string;
   submitted_at: string;
+  session_id?: string | null;
   forms?: { id?: string; name?: string | null; purpose?: string | null } | null;
   form_versions?: { id?: string; version_number?: number | null } | null;
   respondent_student?: Person;
@@ -61,6 +63,29 @@ function answerValue(answer: FormResponseAnswer) {
   return answer.text_value || '-';
 }
 
+function AnswerDisplay({ answer }: { answer: FormResponseAnswer }) {
+  if (answer.question_type === 'single_choice') {
+    const value = answer.choice_label_snapshot ?? answer.choice_value;
+    return value ? <Badge variant="secondary">{value}</Badge> : <span className="text-muted-foreground">-</span>;
+  }
+
+  if (answer.question_type === 'multi_select') {
+    const values = answer.choice_values ?? [];
+    if (!values.length) return <span className="text-muted-foreground">-</span>;
+    return (
+      <div className="flex flex-wrap gap-2">
+        {values.map((choice) => (
+          <Badge key={choice.value} variant="secondary">
+            {choice.label}
+          </Badge>
+        ))}
+      </div>
+    );
+  }
+
+  return <span className="whitespace-pre-wrap">{answerValue(answer)}</span>;
+}
+
 export function FormResponseDialog({
   response,
   onClose,
@@ -78,7 +103,7 @@ export function FormResponseDialog({
     >
       {response ? (
         <div className="space-y-6">
-          <div className="grid gap-3 text-sm sm:grid-cols-3">
+          <div className="grid gap-3 text-sm sm:grid-cols-4">
             <div>
               <div className="text-xs text-muted-foreground">Respondent</div>
               <div className="font-medium">{responsePersonLabel(response, 'respondent')}</div>
@@ -91,13 +116,16 @@ export function FormResponseDialog({
               <div className="text-xs text-muted-foreground">Submitted</div>
               <div className="font-medium">{format(new Date(response.submitted_at), 'PP p')}</div>
             </div>
+            {response.session_id ? <div><div className="text-xs text-muted-foreground">Context</div><div className="font-medium">Session-linked</div></div> : null}
           </div>
 
           <div className="space-y-4">
             {(response.form_response_answers ?? []).map((answer) => (
               <div key={answer.id ?? answer.question_id} className="space-y-1">
                 <div className="text-sm font-medium">{answer.question_label_snapshot}</div>
-                <div className="rounded-md bg-muted/40 p-3 text-sm whitespace-pre-wrap">{answerValue(answer)}</div>
+                <div className="rounded-md bg-muted/40 p-3 text-sm">
+                  <AnswerDisplay answer={answer} />
+                </div>
               </div>
             ))}
           </div>

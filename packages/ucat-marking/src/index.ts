@@ -1,5 +1,9 @@
 export { computeMaxRawScore, computeRawScore } from './raw-score'
 export {
+  getSituationalJudgementMarkingOutcome,
+  type SituationalJudgementMarkingOutcome,
+} from './situational-judgement'
+export {
   linearScaledScore,
   scaleTo300_900,
 } from './scaled-score'

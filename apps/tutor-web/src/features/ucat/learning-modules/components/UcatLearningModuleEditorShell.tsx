@@ -26,6 +26,11 @@ import type { Json } from '@altitutor/shared'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
+import {
+  UcatAuthoringWorkspaceTabs,
+  type UcatAuthoringWorkspaceTab,
+} from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import { cn } from '@/shared/utils'
 
 type LearningModuleEditor = ReturnType<typeof useLearningModuleEditor>
 
@@ -58,6 +63,7 @@ export function UcatLearningModuleEditorShell({
   onActiveTextEditorChange,
 }: UcatLearningModuleEditorShellProps) {
   const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
+  const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
   const blockCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const handleTextEditorActive = useCallback(
@@ -405,7 +411,15 @@ export function UcatLearningModuleEditorShell({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <UcatAuthoringWorkspaceTabs
+        value={activeWorkspace}
+        onValueChange={setActiveWorkspace}
+        editorLabel="Lesson"
+        aiAvailable={editor.kind === 'lesson'}
+        className="shrink-0 border-b bg-background p-2 lg:hidden"
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row">
+        <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', activeWorkspace !== 'editor' && 'hidden', 'lg:flex')}>
         {editorMode === 'view' && editor.kind === 'lesson' ? (
           <UcatLearningModuleLessonPreview
             title={editor.title}
@@ -481,6 +495,8 @@ export function UcatLearningModuleEditorShell({
           </div>
         ) : null}
 
+        </div>
+
         <UcatLearningModuleSettingsPanel
           moduleId={editor.moduleId}
           kind={editor.kind}
@@ -537,6 +553,9 @@ export function UcatLearningModuleEditorShell({
               />
             ) : null
           }
+          activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
+          onActiveTabChange={setActiveWorkspace}
+          className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}
         />
       </div>
 

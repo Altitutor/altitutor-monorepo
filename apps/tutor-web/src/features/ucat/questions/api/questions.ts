@@ -50,6 +50,7 @@ export type UcatGenerationDebugInfo = {
     message: string
     stemIndex: number
     questionIndex?: number
+    details?: Record<string, unknown>
   }>
 }
 

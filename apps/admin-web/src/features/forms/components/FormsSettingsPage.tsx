@@ -26,6 +26,7 @@ import type {
 } from '@altitutor/shared';
 import {
   FORM_PURPOSE_OPTIONS,
+  FORM_WORKFLOW_KEY_OPTIONS,
   createDefaultContentBlock,
   createDefaultQuestion,
   createId,
@@ -225,6 +226,8 @@ export function FormsSettingsPage() {
         body: JSON.stringify({
           name: selected.name,
           purpose: selected.purpose,
+          workflowKey: selected.workflow_key,
+          workflowRequestExpiryDays: selected.workflow_request_expiry_days,
           accessType: selected.access_type,
           submissionLimit: selected.submission_limit,
           blocks: selected.draft_blocks,
@@ -491,6 +494,26 @@ function FormPropertiesEditor({
               value={selected.purpose}
               onValueChange={(purpose) => updateSelected({ purpose })}
               placeholder="Select purpose"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Workflow</Label>
+            <OptionSelect
+              items={[{ value: '', label: 'Not assigned' }, ...FORM_WORKFLOW_KEY_OPTIONS]}
+              value={selected.workflow_key ?? ''}
+              onValueChange={(workflow_key) => updateSelected({ workflow_key: workflow_key ? workflow_key as AdminFormRow['workflow_key'] : null })}
+              placeholder="Not assigned"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Workflow link expiry (days)</Label>
+            <Input
+              type="number"
+              min={1}
+              placeholder="No expiry"
+              value={selected.workflow_request_expiry_days ?? ''}
+              onChange={(event) => updateSelected({ workflow_request_expiry_days: event.target.value ? Number(event.target.value) : null })}
+              disabled={!selected.workflow_key}
             />
           </div>
           <div className="space-y-2">

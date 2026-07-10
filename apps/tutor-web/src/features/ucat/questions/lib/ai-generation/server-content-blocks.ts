@@ -4,7 +4,6 @@ import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 const GRAYSCALE = ['#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
-const FILL_GRAYSCALE = ['#d9d9d9', '#9b9b9b', '#c4c4c4', '#737373', '#e8e8e8']
 
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -71,6 +70,11 @@ function markType(mark: unknown): string | null {
   return typeof mark.type === 'string' ? mark.type.toLowerCase() : null
 }
 
+function hasEncodingChannel(encoding: unknown, channels: string[]): boolean {
+  if (!isRecord(encoding)) return false
+  return channels.some((channel) => Object.hasOwn(encoding, channel) && encoding[channel] !== null)
+}
+
 function wrappedText(value: unknown, maxChars: number): unknown {
   if (typeof value !== 'string') return value
   const text = value.trim()
@@ -115,7 +119,7 @@ function axisDefaults(axis: Record<string, unknown>, channel: string | null): Re
   }
 }
 
-function enhanceEncoding(encoding: Record<string, unknown>, currentMarkType: string | null): Record<string, unknown> {
+function enhanceEncoding(encoding: Record<string, unknown>): Record<string, unknown> {
   const enhanced: Record<string, unknown> = {}
   for (const [channel, value] of Object.entries(encoding)) {
     if (!isRecord(value)) {
@@ -135,16 +139,10 @@ function enhanceEncoding(encoding: Record<string, unknown>, currentMarkType: str
         ...channelDefinition.legend,
       }
     }
-    if (channel.toLowerCase() === 'color' && currentMarkType === 'line') {
+    if (['color', 'fill', 'stroke'].includes(channel.toLowerCase()) && channelDefinition.scale !== null) {
       channelDefinition.scale = {
         ...(isRecord(channelDefinition.scale) ? channelDefinition.scale : {}),
         range: GRAYSCALE,
-      }
-    }
-    if (channel.toLowerCase() === 'color' && currentMarkType !== 'line') {
-      channelDefinition.scale = {
-        ...(isRecord(channelDefinition.scale) ? channelDefinition.scale : {}),
-        range: FILL_GRAYSCALE,
       }
     }
     enhanced[channel] = channelDefinition
@@ -169,46 +167,71 @@ function enhanceMark(mark: unknown, encoding: unknown = null): unknown {
   const markObject: Record<string, unknown> = typeof mark === 'string' ? { type } : { ...(mark as Record<string, unknown>) }
 
   if (type === 'line') {
+    const encodedStroke = hasEncodingChannel(encoding, ['color', 'stroke'])
+    const styledMark = { ...markObject }
+    if (encodedStroke) {
+      delete styledMark.color
+      delete styledMark.stroke
+    }
     return {
-      ...markObject,
-      stroke: '#111111',
-      strokeWidth: 3,
+      ...styledMark,
+      ...(!encodedStroke ? { stroke: markObject.stroke ?? '#111111' } : {}),
+      strokeWidth: markObject.strokeWidth ?? 3,
       ...(lineMarkShouldBeDashed(encoding) ? { strokeDash: markObject.strokeDash ?? [6, 4] } : {}),
-      point: { filled: true, size: 74, fill: 'white', stroke: '#111111', strokeWidth: 2 },
+      point: encodedStroke
+        ? { filled: true, size: 74, strokeWidth: 2 }
+        : { filled: true, size: 74, fill: 'white', stroke: '#111111', strokeWidth: 2 },
     }
   }
 
   if (type === 'bar' || type === 'rect' || type === 'arc') {
+    const encodedFill = hasEncodingChannel(encoding, ['color', 'fill'])
+    const encodedStroke = hasEncodingChannel(encoding, ['stroke'])
+    const styledMark = { ...markObject }
+    if (encodedFill) {
+      delete styledMark.color
+      delete styledMark.fill
+    }
+    if (encodedStroke) delete styledMark.stroke
     return {
-      ...markObject,
-      fill: markObject.fill ?? '#d9d9d9',
-      stroke: '#111111',
-      strokeWidth: 0.6,
-      opacity: 0.9,
+      ...styledMark,
+      ...(!encodedFill ? { fill: markObject.fill ?? '#737373' } : {}),
+      ...(!encodedStroke ? { stroke: markObject.stroke ?? '#111111' } : {}),
+      strokeWidth: markObject.strokeWidth ?? 0.6,
+      opacity: markObject.opacity ?? 0.9,
     }
   }
 
   if (type === 'point' || type === 'circle' || type === 'square') {
+    const encodedFill = hasEncodingChannel(encoding, ['color', 'fill'])
+    const encodedStroke = hasEncodingChannel(encoding, ['stroke'])
+    const styledMark = { ...markObject }
+    if (encodedFill) {
+      delete styledMark.color
+      delete styledMark.fill
+    }
+    if (encodedStroke) delete styledMark.stroke
     return {
-      ...markObject,
-      filled: true,
-      size: 70,
-      fill: markObject.fill ?? 'white',
-      stroke: '#111111',
-      strokeWidth: 1.4,
+      ...styledMark,
+      filled: markObject.filled ?? true,
+      size: markObject.size ?? 70,
+      ...(!encodedFill ? { fill: markObject.fill ?? 'white' } : {}),
+      ...(!encodedStroke ? { stroke: markObject.stroke ?? '#111111' } : {}),
+      strokeWidth: markObject.strokeWidth ?? 1.4,
     }
   }
 
   if (type === 'text') {
-    return {
+    const styledMark: Record<string, unknown> = {
       ...markObject,
       fill: '#111111',
-      stroke: 'white',
-      strokeWidth: 1.25,
       font: 'Arial',
       fontSize: markObject.fontSize ?? 14,
       fontWeight: markObject.fontWeight ?? 500,
     }
+    delete styledMark.stroke
+    delete styledMark.strokeWidth
+    return styledMark
   }
 
   return markObject
@@ -272,19 +295,27 @@ function normalizeIndependentYLayerAxes(value: unknown): unknown {
   return normalized
 }
 
-function enhanceVegaLiteSpec(value: unknown, currentMarkType: string | null = null): unknown {
-  if (Array.isArray(value)) return value.map((item) => enhanceVegaLiteSpec(item, currentMarkType))
+function enhanceVegaLiteSpec(
+  value: unknown,
+  currentMarkType: string | null = null,
+  inheritedEncoding: Record<string, unknown> = {}
+): unknown {
+  if (Array.isArray(value)) return value.map((item) => enhanceVegaLiteSpec(item, currentMarkType, inheritedEncoding))
   if (!isRecord(value)) return value
 
   const ownMarkType = markType(value.mark) ?? currentMarkType
+  const ownEncoding = isRecord(value.encoding) ? value.encoding : {}
+  const effectiveEncoding = { ...inheritedEncoding, ...ownEncoding }
   const enhanced: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value)) {
     if (key === 'mark') {
-      enhanced[key] = enhanceMark(child, value.encoding)
+      enhanced[key] = enhanceMark(child, effectiveEncoding)
     } else if (key === 'encoding' && isRecord(child)) {
-      enhanced[key] = enhanceEncoding(child, ownMarkType)
+      enhanced[key] = enhanceEncoding(child)
     } else if (key === 'width') {
       enhanced[key] = numberInRange(child, 640, 520, 780)
+    } else if (key === 'layer' || key === 'spec') {
+      enhanced[key] = enhanceVegaLiteSpec(child, ownMarkType, effectiveEncoding)
     } else {
       enhanced[key] = enhanceVegaLiteSpec(child, ownMarkType)
     }
@@ -319,13 +350,15 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
     config: {
       ...config,
       title: {
+        ...(isRecord(config.title) ? config.title : {}),
         font: 'Arial',
         fontSize: 20,
         fontWeight: 600,
         anchor: 'start',
-        ...(isRecord(config.title) ? config.title : {}),
+        color: '#111111',
       },
       axis: {
+        ...(isRecord(config.axis) ? config.axis : {}),
         labelFont: 'Arial',
         titleFont: 'Arial',
         labelFontSize: 13,
@@ -339,18 +372,15 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
         titlePadding: 14,
         labelBound: true,
         labelFlush: false,
-        ...(isRecord(config.axis) ? config.axis : {}),
       },
       legend: {
+        ...(isRecord(config.legend) ? config.legend : {}),
         labelFont: 'Arial',
         titleFont: 'Arial',
         orient: 'bottom',
         labelColor: '#111111',
         titleColor: '#111111',
-        symbolStrokeColor: '#111111',
-        symbolStrokeWidth: 1,
         columns: 3,
-        ...(isRecord(config.legend) ? config.legend : {}),
       },
       view: {
         stroke: null,
@@ -358,8 +388,8 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
       },
       range: {
         ...(isRecord(config.range) ? config.range : {}),
-        category: FILL_GRAYSCALE,
-        ordinal: FILL_GRAYSCALE,
+        category: GRAYSCALE,
+        ordinal: GRAYSCALE,
       },
     },
   }

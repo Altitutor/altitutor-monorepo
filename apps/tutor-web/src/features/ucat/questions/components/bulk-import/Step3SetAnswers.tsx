@@ -255,7 +255,7 @@ export function Step3SetAnswers({
               const rowKey = `${row.stemId}-${row.questionIndex}`
               const isExpanded = expandedRowKey === rowKey
               const isMissingExplanation = missingExplanationRowKeys.has(rowKey)
-              const stem = stems.find((s) => s.id === row.stemId)
+              const stem = stems.find((item) => item.id === row.stemId)
               const correctDisplay = row.isSyllogism
                 ? (row.syllogismPattern ?? '')
                 : row.correctLetter
@@ -308,7 +308,7 @@ export function Step3SetAnswers({
                     <TableRow className="bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={totalCols} className="p-0 align-top">
                         <div
-                          className="h-[min(75vh,900px)] min-h-[32rem] border-t border-border"
+                          className="h-[min(75vh,900px)] min-h-[32rem] overflow-hidden border-t border-border"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <BulkImportReviewStemEditor

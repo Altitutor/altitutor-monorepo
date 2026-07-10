@@ -1,4 +1,5 @@
 import type {
+  HistoricalProjectionPoint,
   ProjectionConfidence,
   ProjectionHorizon,
   ProjectionPoint,
@@ -90,6 +91,49 @@ function sumHorizons(sections: SectionScoreProjection[]): ProjectionHorizon[] {
     });
 }
 
+function sumHistory(
+  sections: SectionScoreProjection[],
+): HistoricalProjectionPoint[] {
+  const dates = new Set<string>();
+  for (const section of sections) {
+    for (const point of section.history) dates.add(point.date);
+  }
+
+  return [...dates]
+    .sort((a, b) => a.localeCompare(b))
+    .flatMap((date) => {
+      const points = sections.map((section) =>
+        section.history.find((point) => point.date === date),
+      );
+      if (points.some((point) => point == null)) return [];
+      const confidence = lowestConfidence(
+        sections.map((section, index) => ({
+          ...section,
+          confidence: points[index]!.confidence,
+        })),
+      );
+      return [
+        {
+          date,
+          value: points.reduce((sum, point) => sum + point!.value, 0),
+          confidence,
+          uncertainty: Math.round(
+            Math.sqrt(
+              points.reduce(
+                (sum, point) => sum + Math.pow(point!.uncertainty, 2),
+                0,
+              ),
+            ),
+          ),
+          effectiveEvidenceWeight: points.reduce(
+            (sum, point) => sum + point!.effectiveEvidenceWeight,
+            0,
+          ),
+        },
+      ];
+    });
+}
+
 export function deriveTotalScoreProjection(
   sections: SectionScoreProjection[],
 ): TotalScoreProjection {
@@ -120,6 +164,7 @@ export function deriveTotalScoreProjection(
       uncertainty: null,
       effectiveEvidenceWeight,
       missingSectionNumbers,
+      history: [],
       projection: [],
       horizons: [],
     };
@@ -141,6 +186,7 @@ export function deriveTotalScoreProjection(
     ),
     effectiveEvidenceWeight,
     missingSectionNumbers: [],
+    history: sumHistory(cognitiveSections),
     projection: sumProjectionPoints(cognitiveSections),
     horizons: sumHorizons(cognitiveSections),
   };

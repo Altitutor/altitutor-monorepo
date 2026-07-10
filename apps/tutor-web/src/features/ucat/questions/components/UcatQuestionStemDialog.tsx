@@ -480,6 +480,7 @@ export function UcatQuestionStemDialog({
       warningPills={warningPills}
       hideCancel
       defaultExpanded
+      mobileFullscreen
       richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -508,6 +509,7 @@ export function UcatQuestionStemDialog({
             })
           }
           metadataRecommendation={showCreateMore ? metadataRecommendation : null}
+          onDeleteStem={!readOnly ? onDelete : undefined}
         />
       </div>
     </UcatDialogShell>

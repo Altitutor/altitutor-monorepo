@@ -35,6 +35,7 @@ import { generatedContentToProseMirrorServer } from '@/features/ucat/questions/l
 import {
   hasBlockingIssues,
   validateGeneratedStemCandidate,
+  type GenerationComparisonSource,
   type GenerationGateIssue,
 } from '@/features/ucat/questions/lib/ai-generation/gates'
 import {
@@ -513,6 +514,7 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
   const categoryName = brief.categoryName ?? planCategoryName
   const isQrDefault = brief.sectionName === 'Quantitative Reasoning' && !brief.categoryName
   const maxExamples = brief.sectionName === 'Quantitative Reasoning' ? 6 : 4
+  const referenceExample = isQrDefault ? rotatingExamples(brief.examples, index, 1)[0] ?? null : null
   const matchingExamples = brief.examples.filter((example) => {
     const exampleCategoryName = promptExampleCategory(example)
     if (categoryName && normalizeLabel(exampleCategoryName) !== normalizeLabel(categoryName)) return false
@@ -521,7 +523,13 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
     return !/(?:probability|chance|likelihood|\d+%)/u.test(text)
   })
   const examplePool = matchingExamples.length > 0 ? matchingExamples : brief.examples
-  const examples = isQrDefault && planCategoryName
+  const examples = isQrDefault && referenceExample
+    ? [
+        referenceExample,
+        ...categoryBalancedExamples(brief.examples, index, maxExamples)
+          .filter((example) => example !== referenceExample),
+      ].slice(0, maxExamples)
+    : isQrDefault && planCategoryName
     ? [
         ...rotatingExamples(matchingExamples, index, Math.min(4, maxExamples)),
         ...categoryBalancedExamples(
@@ -538,6 +546,13 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
     availableCategories: brief.categoryName ? [] : brief.availableCategories,
     stemCount: 1,
     examples,
+    presentationReference: referenceExample
+      ? {
+          id: typeof referenceExample.id === 'string' ? referenceExample.id : null,
+          categoryName: promptExampleCategory(referenceExample),
+          stemText: referenceExample.stemText ?? null,
+        }
+      : null,
     sourceImagesForCalibration: (brief.sourceImagesForCalibration ?? []).filter((image) => {
       const sourceStemId = image.sourceStemId
       return typeof sourceStemId === 'string' && exampleIds.has(sourceStemId)
@@ -912,27 +927,9 @@ async function fetchSourceStems(
   const sorted = prioritizeTagMatches(shuffled, body.targetTagIds)
   if (body.sourceMode === 'selected') return sorted.slice(0, 8)
 
-  const samplesByCategory = new Map<string, SourceStem[]>()
-  for (const stem of sorted) {
-    const key = stem.category_name ?? stem.question_stem_category_id ?? 'uncategorized'
-    const samples = samplesByCategory.get(key) ?? []
-    if (samples.length < 8) samples.push(stem)
-    samplesByCategory.set(key, samples)
-  }
-  return interleaveSourceSamples(samplesByCategory)
-}
-
-function interleaveSourceSamples(samplesByCategory: Map<string, SourceStem[]>): SourceStem[] {
-  const groups = Array.from(samplesByCategory.values()).filter((samples) => samples.length > 0)
-  const result: SourceStem[] = []
-  const maxLength = Math.max(0, ...groups.map((samples) => samples.length))
-  for (let index = 0; index < maxLength; index += 1) {
-    for (const samples of groups) {
-      const sample = samples[index]
-      if (sample) result.push(sample)
-    }
-  }
-  return result
+  // Keep the random database sample's natural category frequency. Individual
+  // writer calls still select a small rotating calibration subset downstream.
+  return sorted
 }
 
 function sourceStemTagMatchCount(stem: SourceStem, targetTagIds: string[]): number {
@@ -992,7 +989,10 @@ async function fetchSectionCategories(
   }))
 }
 
-async function fetchBankComparisonTexts(client: SupabaseClient<Database>, sectionId: string): Promise<string[]> {
+async function fetchBankComparisonSources(
+  client: SupabaseClient<Database>,
+  sectionId: string
+): Promise<GenerationComparisonSource[]> {
   const { data, error } = await asAny(client)
     .from('vtutor_ucat_question_stem_detail')
     .select('id,stem_text,questions')
@@ -1001,7 +1001,9 @@ async function fetchBankComparisonTexts(client: SupabaseClient<Database>, sectio
     .is('deleted_at', null)
     .limit(300)
   if (error) return []
-  return ((data ?? []) as unknown as SourceStem[]).map(sourcePlainText).filter((text) => text.trim().length > 0)
+  return ((data ?? []) as unknown as SourceStem[])
+    .map((source) => ({ id: source.id, text: sourcePlainText(source) }))
+    .filter((source) => source.text.trim().length > 0)
 }
 
 async function buildPromptLayers(params: {
@@ -1400,21 +1402,28 @@ async function executeGeneration(
       totalStems: body.stemCount,
       runId,
     })
-    const sourcePlainTexts = [...sourceSamples.map(sourcePlainText), ...(await fetchBankComparisonTexts(client, body.sectionId))]
+    const sourceComparisonSources: GenerationComparisonSource[] = [
+      ...sourceSamples.map((source) => ({ id: source.id, text: sourcePlainText(source) })),
+      ...(await fetchBankComparisonSources(client, body.sectionId)),
+    ]
     const accepted: Array<{ stem: GeneratedStem; issues: GenerationGateIssue[]; rewritten: boolean }> = []
     const discarded: Array<{ issues: GenerationGateIssue[]; rewritten: boolean }> = []
 
-    for (const [candidateIndex, candidate] of generatedStems.entries()) {
+    const assessCandidate = (candidate: GeneratedStem, candidateIndex: number) => {
       const issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
         sectionName: brief.sectionName,
         categoryName,
-        sourcePlainTexts,
+        sourceComparisonSources,
       })
 
       activeDebug.gateIssues.push(...issues)
 
       if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten: false })
       else accepted.push({ stem: candidate, issues, rewritten: false })
+    }
+
+    for (const [candidateIndex, candidate] of generatedStems.entries()) {
+      assessCandidate(candidate, candidateIndex)
       if (accepted.length >= body.stemCount) break
     }
 

@@ -45,6 +45,7 @@ import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
@@ -890,14 +891,15 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       })()}
 
       {studentToDiscontinue && (
-        <DiscontinueStudentConfirmDialog
-          isOpen={!!studentToDiscontinue}
+        <StudentExitRequestDialog
+          open={!!studentToDiscontinue}
           onOpenChange={(open) => {
             if (!open) setStudentToDiscontinue(null);
           }}
+          studentId={studentToDiscontinue.id}
           studentName={[studentToDiscontinue.first_name, studentToDiscontinue.last_name].filter(Boolean).join(' ') || 'this student'}
-          onConfirm={handleDiscontinueStudent}
-          isDiscontinuing={isDiscontinuing}
+          workflowKey="student_discontinuation"
+          onCreated={refetch}
         />
       )}
     </div>

@@ -49,6 +49,7 @@ import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { AdminLoadingSkeleton } from '@/shared/components';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
@@ -506,12 +507,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
       {/* Discontinue Confirmation Dialog */}
       {student && (
-        <DiscontinueStudentConfirmDialog
-          isOpen={isDiscontinueDialogOpen}
+        <StudentExitRequestDialog
+          open={isDiscontinueDialogOpen}
           onOpenChange={setIsDiscontinueDialogOpen}
+          studentId={student.id}
           studentName={`${student.first_name} ${student.last_name}`}
-          onConfirm={handleDiscontinue}
-          isDiscontinuing={isDiscontinuing}
+          workflowKey="student_discontinuation"
+          onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
         />
       )}
     </div>

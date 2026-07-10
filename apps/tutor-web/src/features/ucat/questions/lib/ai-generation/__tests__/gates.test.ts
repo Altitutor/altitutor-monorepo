@@ -126,6 +126,30 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'qr_chart_required')).toBe(true)
   })
 
+  it('does not enforce a post-write QR category when no category was requested', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        questions: [mcQuestion({
+          options: [
+            { answerText: 'A', isAnswer: true, answerExplanation: null },
+            { answerText: 'B', isAnswer: false, answerExplanation: null },
+            { answerText: 'C', isAnswer: false, answerExplanation: null },
+            { answerText: 'D', isAnswer: false, answerExplanation: null },
+            { answerText: 'E', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: null,
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_required')).toBe(false)
+  })
+
   it('accepts Venn diagrams in Decision Making answer options', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -636,6 +660,128 @@ describe('validateGeneratedStemCandidate', () => {
 
     expect(issues.some((issue) => issue.code === 'qr_chart_low_information_density')).toBe(true)
     expect(issues.some((issue) => issue.code === 'qr_chart_axis_context_missing')).toBe(true)
+  })
+
+  it('blocks multi-measure charts that do not identify their series', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Volunteer hours by project',
+          altText: 'Comparison chart.',
+          spec: {
+            data: { values: [
+              { project: 'Garden', scheduled: 320, recorded: 368 },
+              { project: 'Mentoring', scheduled: 450, recorded: 414 },
+            ] },
+            layer: [
+              { mark: 'point', encoding: { x: { field: 'scheduled', type: 'quantitative' }, y: { field: 'project', type: 'nominal' } } },
+              { mark: 'point', encoding: { x: { field: 'recorded', type: 'quantitative' }, y: { field: 'project', type: 'nominal' } } },
+            ],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: 'A', isAnswer: true, answerExplanation: null },
+            { answerText: 'B', isAnswer: false, answerExplanation: null },
+            { answerText: 'C', isAnswer: false, answerExplanation: null },
+            { answerText: 'D', isAnswer: false, answerExplanation: null },
+            { answerText: 'E', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Quantitative Reasoning', categoryName: 'Graphs and Charts' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_series_key_missing' && issue.severity === 'blocking')).toBe(true)
+  })
+
+  it('does not mistake generic QR vocabulary for source copying', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Text-Only Scenarios',
+        stemText: 'A regional library recorded the number of books borrowed during each month. In April, 480 books were borrowed, which was 20% more than in March.',
+        questions: [mcQuestion({
+          questionText: 'How many books were borrowed in March?',
+          options: [
+            { answerText: '360', isAnswer: false, answerExplanation: null },
+            { answerText: '384', isAnswer: false, answerExplanation: null },
+            { answerText: '400', isAnswer: true, answerExplanation: null },
+            { answerText: '460', isAnswer: false, answerExplanation: null },
+            { answerText: '576', isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Text-Only Scenarios',
+        sourceComparisonSources: [{
+          id: 'hospital-table',
+          text: 'The table shows the total number of patients in each month. What percentage increase is there between the following values? Which option shows the most accurate calculation?',
+        }],
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'source_similarity')).toBe(false)
+  })
+
+  it('does not treat required Decision Making question scaffolds as copied content', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Recognising Assumptions',
+        stemText: 'A council is considering reserving a proportion of public study spaces for students during examination weeks.',
+        questions: [mcQuestion({
+          questionText: 'Select the strongest argument from the statements below.',
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Recognising Assumptions',
+        sourceComparisonSources: [{
+          id: 'different-argument-source',
+          text: 'A transport authority is considering replacing printed route maps with digital displays at suburban interchanges. Select the strongest argument from the statements below. The authority must decide whether the proposed display system gives passengers clearer journey information during disruption and delays.',
+        }],
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'source_similarity')).toBe(false)
+  })
+
+  it('blocks near-copied sources and records the matching evidence', () => {
+    const copiedStem = 'A community shuttle charges a booking fee of $42 plus $0.68 per kilometre travelled. A journey costs $178 in total, and the booking fee is waived on Sundays.'
+    const copiedQuestion = 'What is the charge for the same 200 kilometre journey on Sunday?'
+    const copiedOptions = [
+      { answerText: '$128', isAnswer: false, answerExplanation: null },
+      { answerText: '$136', isAnswer: true, answerExplanation: null },
+      { answerText: '$170', isAnswer: false, answerExplanation: null },
+      { answerText: '$178', isAnswer: false, answerExplanation: null },
+      { answerText: '$220', isAnswer: false, answerExplanation: null },
+    ]
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Text-Only Scenarios',
+        stemText: copiedStem,
+        questions: [mcQuestion({ questionText: copiedQuestion, options: copiedOptions })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Text-Only Scenarios',
+        sourceComparisonSources: [{
+          id: 'copied-shuttle-source',
+          text: `${copiedStem} ${copiedQuestion} ${copiedOptions.map((option) => option.answerText).join(' ')}`,
+        }],
+      }
+    )
+
+    const similarityIssue = issues.find((issue) => issue.code === 'source_similarity')
+    expect(similarityIssue?.severity).toBe('blocking')
+    expect(similarityIssue?.details).toEqual(expect.objectContaining({ sourceId: 'copied-shuttle-source' }))
   })
 
   it('blocks syllogisms without five explained statements', () => {

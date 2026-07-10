@@ -2,7 +2,16 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@altitutor/ui'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { X } from 'lucide-react'
 import {
@@ -35,6 +44,7 @@ export function UcatDialogShell({
   headerActions,
   warningPills,
   defaultExpanded = false,
+  mobileFullscreen = false,
   richTextToolbarEditor = null,
 }: {
   open: boolean
@@ -51,6 +61,8 @@ export function UcatDialogShell({
   headerActions?: ReactNode
   warningPills?: string[]
   defaultExpanded?: boolean
+  /** Make dense authoring workspaces use the whole viewport on phones. */
+  mobileFullscreen?: boolean
   /** When set, renders the rich-text toolbar inline in the dialog footer beside action buttons. */
   richTextToolbarEditor?: Editor | null
 }) {
@@ -71,6 +83,7 @@ export function UcatDialogShell({
       <DialogContent
         className={cn(
           'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          mobileFullscreen && 'max-w-none rounded-none !h-[100dvh] !w-screen sm:!h-[90vh] sm:!w-full sm:max-w-4xl sm:!rounded-2xl',
           tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,
           expandedContentClass,
@@ -84,7 +97,9 @@ export function UcatDialogShell({
               </Button>
               <div className="flex-1">
                 <DialogTitle>{title}</DialogTitle>
-                {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+                <DialogDescription className={cn(!subtitle && 'sr-only', subtitle && 'mt-1')}>
+                  {subtitle ?? title}
+                </DialogDescription>
                 {warningPills && warningPills.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {warningPills.map((warning) => (

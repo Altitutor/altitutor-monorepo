@@ -32,6 +32,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (typeof body.name === 'string') patch.name = body.name.trim() || 'Untitled form';
   if (typeof body.purpose === 'string') patch.purpose = body.purpose.trim() || 'other';
+  if (body.workflowKey === 'student_unenrolment' || body.workflowKey === 'student_discontinuation') {
+    patch.workflow_key = body.workflowKey;
+  } else if (body.workflowKey === null) {
+    patch.workflow_key = null;
+  }
+  if (body.workflowRequestExpiryDays === null) {
+    patch.workflow_request_expiry_days = null;
+  } else if (Number.isInteger(body.workflowRequestExpiryDays) && body.workflowRequestExpiryDays > 0) {
+    patch.workflow_request_expiry_days = body.workflowRequestExpiryDays;
+  }
   if (body.accessType === 'public_link' || body.accessType === 'authenticated') patch.access_type = body.accessType;
   if (
     body.submissionLimit === 'one_per_token' ||

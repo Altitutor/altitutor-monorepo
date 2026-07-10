@@ -12,12 +12,18 @@ export type GenerationGateIssue = {
   message: string
   stemIndex: number
   questionIndex?: number
+  details?: Record<string, unknown>
+}
+
+export type GenerationComparisonSource = {
+  id: string
+  text: string
 }
 
 export type GenerationContext = {
   sectionName: string
   categoryName: string | null
-  sourcePlainTexts?: string[]
+  sourceComparisonSources?: GenerationComparisonSource[]
 }
 
 const DM_CATEGORIES = new Set([
@@ -479,21 +485,36 @@ function validateQr(
     block.type === 'visual' &&
     block.visualType === 'vega_lite_chart'
   )
-  const categoryMismatchSeverity = targetedCategory ? 'blocking' : 'warning'
-  if (category === 'data tables' && tables === 0) {
-    add(issues, categoryMismatchSeverity, 'qr_table_required', `${categoryName} questions should include a table block.`, stemIndex)
+  const chartVisuals = visuals.filter((block) =>
+    block.type === 'visual' &&
+    block.visualType === 'vega_lite_chart'
+  )
+
+  // For unfiltered QR, category is assigned after writing and is only an
+  // organisational label. Do not turn that output label into a generation
+  // constraint retroactively. Explicit category requests remain enforceable.
+  if (targetedCategory) {
+    if (category === 'data tables' && tables === 0) {
+      add(issues, 'blocking', 'qr_table_required', `${categoryName} questions should include a table block.`, stemIndex)
+    }
+    if (category === 'timetables and calendars' && tables === 0 && !hasChart) {
+      add(issues, 'blocking', 'qr_timetable_required', 'Timetables and Calendars questions should include a table block or vega_lite_chart visual.', stemIndex)
+    }
+    if (category === 'graphs and charts' && !hasChart) {
+      add(issues, 'blocking', 'qr_chart_required', 'Graphs and Charts questions should include a vega_lite_chart visual.', stemIndex)
+    }
+    if (category === 'maps and diagrams' && !hasChart) {
+      add(issues, 'blocking', 'qr_map_required', 'Maps and Diagrams questions should include a vega_lite_chart visual containing the map or diagram data.', stemIndex)
+    }
+    if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
+      add(issues, 'blocking', 'qr_mixed_sources_required', 'Mixed Data Sources questions should include a table and a visual source.', stemIndex)
+    }
+    if (category === 'text-only scenarios' && (tables > 0 || visuals.length > 0)) {
+      add(issues, 'blocking', 'qr_text_only_assets', 'Text-Only Scenarios should not include table or visual blocks.', stemIndex)
+    }
   }
-  if (category === 'timetables and calendars' && tables === 0 && !hasChart) {
-    add(issues, categoryMismatchSeverity, 'qr_timetable_required', 'Timetables and Calendars questions should include a table block or vega_lite_chart visual.', stemIndex)
-  }
-  if (category === 'graphs and charts' && !hasChart) {
-    add(issues, categoryMismatchSeverity, 'qr_chart_required', 'Graphs and Charts questions should include a vega_lite_chart visual.', stemIndex)
-  }
-  if (category === 'graphs and charts') {
-    const chartVisuals = visuals.filter((block) =>
-      block.type === 'visual' &&
-      block.visualType === 'vega_lite_chart'
-    )
+
+  if (chartVisuals.length > 0) {
     const thinChart = chartVisuals.some((block) => countVegaLiteDataRows(block.spec) < 4)
     if (thinChart) {
       add(
@@ -514,16 +535,19 @@ function validateQr(
         stemIndex
       )
     }
+    const chartWithoutSeriesKey = chartVisuals.some((block) => vegaLiteNeedsSeriesKey(block.spec))
+    if (chartWithoutSeriesKey) {
+      add(
+        issues,
+        'blocking',
+        'qr_chart_series_key_missing',
+        'Charts with multiple series must identify them with a Vega-Lite legend or direct series labels.',
+        stemIndex
+      )
+    }
   }
-  if (category === 'maps and diagrams' && !hasChart) {
-    add(issues, categoryMismatchSeverity, 'qr_map_required', 'Maps and Diagrams questions should include a vega_lite_chart visual containing the map or diagram data.', stemIndex)
-  }
-  if (category === 'maps and diagrams') {
-    const mapVisuals = visuals.filter((block) =>
-      block.type === 'visual' &&
-      block.visualType === 'vega_lite_chart'
-    )
-    const unlabeledMap = mapVisuals.some((block) => !vegaLiteHasTextEncoding(block.spec))
+  if (targetedCategory && category === 'maps and diagrams') {
+    const unlabeledMap = chartVisuals.some((block) => !vegaLiteHasTextEncoding(block.spec))
     if (unlabeledMap) {
       add(
         issues,
@@ -533,12 +557,6 @@ function validateQr(
         stemIndex
       )
     }
-  }
-  if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
-    add(issues, categoryMismatchSeverity, 'qr_mixed_sources_required', 'Mixed Data Sources questions should include a table and a visual source.', stemIndex)
-  }
-  if (category === 'text-only scenarios' && (tables > 0 || visuals.length > 0)) {
-    add(issues, categoryMismatchSeverity, 'qr_text_only_assets', 'Text-Only Scenarios should not include table or visual blocks.', stemIndex)
   }
 }
 
@@ -600,6 +618,94 @@ function vegaLiteHasTextEncoding(value: unknown): boolean {
   return Object.values(record).some(vegaLiteHasTextEncoding)
 }
 
+const SERIES_ENCODING_CHANNELS = new Set(['color', 'fill', 'stroke', 'shape', 'strokedash'])
+const QUANTITATIVE_POSITION_CHANNELS = ['x', 'x2', 'y', 'y2']
+
+function isSeriesEncoding(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const definition = value as Record<string, unknown>
+  return definition.legend !== null && (typeof definition.field === 'string' || definition.datum !== undefined)
+}
+
+function vegaLiteHasEncodedSeries(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(vegaLiteHasEncodedSeries)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  const encoding = record.encoding && typeof record.encoding === 'object' && !Array.isArray(record.encoding)
+    ? record.encoding as Record<string, unknown>
+    : {}
+  const hasSeries = Object.entries(encoding).some(([channel, definition]) =>
+    SERIES_ENCODING_CHANNELS.has(channel.toLowerCase()) && isSeriesEncoding(definition)
+  )
+  return hasSeries || Object.values(record).some(vegaLiteHasEncodedSeries)
+}
+
+function vegaLiteHasExplicitSeriesLabel(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(vegaLiteHasExplicitSeriesLabel)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  const mark = typeof record.mark === 'string'
+    ? record.mark.toLowerCase()
+    : record.mark && typeof record.mark === 'object' && !Array.isArray(record.mark)
+      ? String((record.mark as Record<string, unknown>).type ?? '').toLowerCase()
+      : ''
+  const encoding = record.encoding && typeof record.encoding === 'object' && !Array.isArray(record.encoding)
+    ? record.encoding as Record<string, unknown>
+    : {}
+  const text = encoding.text && typeof encoding.text === 'object' && !Array.isArray(encoding.text)
+    ? encoding.text as Record<string, unknown>
+    : {}
+  const explicitText = text.value ?? text.datum
+  const hasLabel = mark === 'text' && typeof explicitText === 'string' && /[a-z]/iu.test(explicitText)
+  return hasLabel || Object.values(record).some(vegaLiteHasExplicitSeriesLabel)
+}
+
+function collectQuantitativeMeasureFields(
+  value: unknown,
+  inheritedEncoding: Record<string, unknown> = {},
+  fields: Set<string> = new Set()
+): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectQuantitativeMeasureFields(item, inheritedEncoding, fields))
+    return fields
+  }
+  if (!value || typeof value !== 'object') return fields
+
+  const record = value as Record<string, unknown>
+  const ownEncoding = record.encoding && typeof record.encoding === 'object' && !Array.isArray(record.encoding)
+    ? record.encoding as Record<string, unknown>
+    : {}
+  const effectiveEncoding = { ...inheritedEncoding, ...ownEncoding }
+  const mark = typeof record.mark === 'string'
+    ? record.mark.toLowerCase()
+    : record.mark && typeof record.mark === 'object' && !Array.isArray(record.mark)
+      ? String((record.mark as Record<string, unknown>).type ?? '').toLowerCase()
+      : ''
+
+  if (mark && !['text', 'rule'].includes(mark)) {
+    for (const channel of QUANTITATIVE_POSITION_CHANNELS) {
+      const definition = effectiveEncoding[channel]
+      if (!definition || typeof definition !== 'object' || Array.isArray(definition)) continue
+      const field = (definition as Record<string, unknown>).field
+      const type = String((definition as Record<string, unknown>).type ?? '').toLowerCase()
+      if (typeof field === 'string' && type === 'quantitative') fields.add(field)
+    }
+  }
+
+  if (Array.isArray(record.layer)) {
+    record.layer.forEach((layer) => collectQuantitativeMeasureFields(layer, effectiveEncoding, fields))
+  }
+  if (record.spec && typeof record.spec === 'object') {
+    collectQuantitativeMeasureFields(record.spec, effectiveEncoding, fields)
+  }
+  return fields
+}
+
+function vegaLiteNeedsSeriesKey(value: unknown): boolean {
+  if (vegaLiteHasEncodedSeries(value) || vegaLiteHasExplicitSeriesLabel(value)) return false
+  return collectQuantitativeMeasureFields(value).size > 1
+}
+
 function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
   const category = norm(categoryName)
   if (stem.questions.length !== 4) {
@@ -632,8 +738,51 @@ function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string
   })
 }
 
-function validateSimilarity(stem: GeneratedStem, stemIndex: number, sourcePlainTexts: string[], issues: GenerationGateIssue[]) {
-  if (sourcePlainTexts.length === 0) return
+const SIMILARITY_IGNORED_TOKENS = new Set([
+  'about', 'after', 'answer', 'answers', 'before', 'between', 'calculate', 'calculation',
+  'chart', 'data', 'decrease', 'following', 'increase', 'more', 'most', 'number', 'numbers',
+  'option', 'options', 'percentage', 'percentages', 'table', 'than', 'that', 'their', 'there',
+  'these', 'this', 'total', 'using', 'value', 'values', 'what', 'which', 'with', 'would',
+])
+
+const REQUIRED_DM_QUESTION_SCAFFOLDS = [
+  /place\s+['"]?yes['"]?\s+if\s+the\s+conclusion\s+does\s+follow\.?\s*place\s+['"]?no['"]?\s+if\s+the\s+conclusion\s+does\s+not\s+follow\.?/giu,
+  /select\s+the\s+strongest\s+argument\s+from\s+the\s+statements\s+below\.?/giu,
+]
+
+function stripRequiredDmQuestionScaffolds(value: string): string {
+  return REQUIRED_DM_QUESTION_SCAFFOLDS.reduce(
+    (text, pattern) => text.replace(pattern, ' '),
+    value
+  )
+}
+
+function similarityWords(value: string): string[] {
+  return norm(stripRequiredDmQuestionScaffolds(value))
+    .replace(/[^a-z0-9]+/gu, ' ')
+    .split(' ')
+    .filter((token) => (token.length >= 3 || /^\d{2,}$/u.test(token)) && !SIMILARITY_IGNORED_TOKENS.has(token))
+}
+
+function wordTrigrams(words: string[]): Set<string> {
+  const trigrams = new Set<string>()
+  for (let index = 0; index <= words.length - 3; index += 1) {
+    trigrams.add(words.slice(index, index + 3).join(' '))
+  }
+  return trigrams
+}
+
+function sharedItems<T>(left: Set<T>, right: Set<T>): T[] {
+  return [...left].filter((item) => right.has(item))
+}
+
+function validateSimilarity(
+  stem: GeneratedStem,
+  stemIndex: number,
+  sourceComparisonSources: GenerationComparisonSource[],
+  issues: GenerationGateIssue[]
+) {
+  if (sourceComparisonSources.length === 0) return
   const candidate = norm(
     [
       stemText(stem),
@@ -644,15 +793,39 @@ function validateSimilarity(stem: GeneratedStem, stemIndex: number, sourcePlainT
     ].join(' ')
   )
   if (candidate.length < 120) return
-  for (const source of sourcePlainTexts) {
-    const sourceText = norm(source)
+  const candidateWords = similarityWords(candidate)
+  const candidateTokens = new Set(candidateWords)
+  const candidateTrigrams = wordTrigrams(candidateWords)
+  if (candidateTokens.size === 0) return
+
+  for (const source of sourceComparisonSources) {
+    const sourceText = norm(source.text)
     if (sourceText.length < 120) continue
-    const candidateTokens = new Set(candidate.split(' ').filter((token) => token.length > 4))
-    const sourceTokens = sourceText.split(' ').filter((token) => token.length > 4)
-    const overlap = sourceTokens.filter((token) => candidateTokens.has(token)).length
-    const ratio = overlap / Math.max(1, Math.min(candidateTokens.size, sourceTokens.length))
-    if (ratio >= 0.72) {
-      add(issues, 'blocking', 'source_similarity', 'Candidate is too textually similar to a selected source example.', stemIndex)
+    const sourceWords = similarityWords(sourceText)
+    const sourceTokens = new Set(sourceWords)
+    const sourceTrigrams = wordTrigrams(sourceWords)
+    const sharedTokens = sharedItems(candidateTokens, sourceTokens)
+    const sharedTrigrams = sharedItems(candidateTrigrams, sourceTrigrams)
+    const tokenRatio = sharedTokens.length / Math.max(1, Math.min(candidateTokens.size, sourceTokens.size))
+    const trigramRatio = sharedTrigrams.length / Math.max(1, Math.min(candidateTrigrams.size, sourceTrigrams.size))
+    const isNearCopy =
+      (sharedTokens.length >= 8 && tokenRatio >= 0.72) ||
+      (sharedTrigrams.length >= 3 && trigramRatio >= 0.45)
+
+    if (isNearCopy) {
+      issues.push({
+        severity: 'blocking',
+        code: 'source_similarity',
+        message: 'Candidate is too textually similar to a source stem.',
+        stemIndex,
+        details: {
+          sourceId: source.id,
+          tokenRatio: Number(tokenRatio.toFixed(3)),
+          trigramRatio: Number(trigramRatio.toFixed(3)),
+          sharedTokens: sharedTokens.slice(0, 12),
+          sharedPhrases: sharedTrigrams.slice(0, 6),
+        },
+      })
       return
     }
   }
@@ -674,7 +847,7 @@ export function validateGeneratedStemCandidate(
   else if (section === 'situational judgement') validateSj(stem, stemIndex, category, issues)
   else add(issues, 'warning', 'unknown_section', 'Section-specific generation gates were not applied.', stemIndex)
 
-  validateSimilarity(stem, stemIndex, context.sourcePlainTexts ?? [], issues)
+  validateSimilarity(stem, stemIndex, context.sourceComparisonSources ?? [], issues)
   return issues
 }
 

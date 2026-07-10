@@ -16,6 +16,25 @@ function section(
     evidenceCount: 3,
     paceSource: "recent_activity",
     effectivePracticePerWeek: 100,
+    history:
+      currentEstimate == null
+        ? []
+        : [
+            {
+              date: "2026-07-02",
+              value: currentEstimate - 10,
+              confidence: "medium",
+              uncertainty: 35,
+              effectiveEvidenceWeight: 1.5,
+            },
+            {
+              date: "2026-07-09",
+              value: currentEstimate,
+              confidence: sectionNumber === 2 ? "medium" : "high",
+              uncertainty: 30,
+              effectiveEvidenceWeight: 2,
+            },
+          ],
     projection:
       currentEstimate == null
         ? []
@@ -60,6 +79,11 @@ describe("deriveTotalScoreProjection", () => {
 
     expect(total.currentEstimate).toBe(1950);
     expect(total.confidence).toBe("medium");
+    expect(total.history.at(-1)).toMatchObject({
+      date: "2026-07-09",
+      value: 1950,
+      confidence: "medium",
+    });
     expect(total.horizons[0]).toEqual({
       day: 30,
       pessimistic: 1980,
@@ -77,6 +101,7 @@ describe("deriveTotalScoreProjection", () => {
 
     expect(total.currentEstimate).toBeNull();
     expect(total.confidence).toBeNull();
+    expect(total.history).toEqual([]);
     expect(total.projection).toEqual([]);
     expect(total.missingSectionNumbers).toEqual([2]);
   });

@@ -6,6 +6,8 @@ export const TimeBurdenTargetSchema = z.enum(['low', 'medium', 'high', 'mixed'])
 export type DifficultyTarget = z.infer<typeof DifficultyTargetSchema>
 export type TimeBurdenTarget = z.infer<typeof TimeBurdenTargetSchema>
 
+const GeneratedTableColumnSchema = z.string().trim()
+
 const GeneratedTableBlockSchema = z.preprocess((value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
   const table = value as Record<string, unknown>
@@ -34,8 +36,17 @@ const GeneratedTableBlockSchema = z.preprocess((value) => {
 }, z.object({
   type: z.literal('table'),
   caption: z.string().trim().optional().nullable(),
-  columns: z.array(z.string().trim().min(1)).min(1).max(10),
+  columns: z.array(GeneratedTableColumnSchema).min(1).max(10),
   rows: z.array(z.array(z.string().trim().min(1)).min(1).max(10)).min(1).max(20),
+}).superRefine((table, ctx) => {
+  table.columns.forEach((column, index) => {
+    if (column || index === 0) return
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only the first table column header may be blank.',
+      path: ['columns', index],
+    })
+  })
 }))
 
 const VegaLiteSpecSchema = z.record(z.unknown()).superRefine((spec, ctx) => {
@@ -53,10 +64,19 @@ const VegaLiteSpecSchema = z.record(z.unknown()).superRefine((spec, ctx) => {
   }
 })
 
+const SetShapeTypeSchema = z.preprocess(
+  (value) => {
+    if (value === 'rectangle' || value === 'rounded_rectangle') return 'rect'
+    if (value === 'oval') return 'ellipse'
+    return value
+  },
+  z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'])
+)
+
 const ShapeSpecSchema = z.object({
   id: z.string().trim().min(1).max(24).optional(),
-  shape: z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon']).optional(),
-  type: z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon']).optional(),
+  shape: SetShapeTypeSchema.optional(),
+  type: SetShapeTypeSchema.optional(),
   label: z.string().trim().min(1).max(80).optional(),
   cx: z.coerce.number().optional(),
   cy: z.coerce.number().optional(),
@@ -74,7 +94,19 @@ const ShapeSpecSchema = z.object({
   stroke: z.string().trim().optional(),
 }).passthrough()
 
-const SetRegionLabelSchema = z.object({
+const SetRegionLabelSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const label = value as Record<string, unknown>
+  const region = label.region
+  if (!region || typeof region !== 'object' || Array.isArray(region)) return value
+  const membership = region as Record<string, unknown>
+  return {
+    ...label,
+    include: label.include ?? membership.include,
+    exclude: label.exclude ?? membership.exclude,
+    region: typeof membership.expression === 'string' ? membership.expression : undefined,
+  }
+}, z.object({
   text: z.union([z.string().trim().min(1), z.coerce.number()]).optional(),
   value: z.union([z.string().trim().min(1), z.coerce.number()]).optional(),
   region: z.string().trim().min(1).max(120).optional(),
@@ -84,7 +116,7 @@ const SetRegionLabelSchema = z.object({
   y: z.coerce.number().optional(),
   bold: z.boolean().optional(),
   fontSize: z.coerce.number().min(8).max(32).optional(),
-}).passthrough()
+}).passthrough())
 
 const SetDiagramSpecSchema = z.object({
   shapes: z.array(ShapeSpecSchema).min(2).max(8),

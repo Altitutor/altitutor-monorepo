@@ -15,8 +15,7 @@ When writing answer explanations, act as a tutor teaching the student how to sol
 Explanations must teach an efficient timed-test method, not merely report the result. Name or demonstrate a useful representation such as a table, ordered list, diagram, equation, elimination grid, or annotated evidence when it genuinely helps. If the explanation relies on a table, grid, diagram, or list, include that representation as structured content blocks inside the answerExplanation.
 Make explanations easy to scan using short paragraphs, list blocks, or table blocks where relevant. Include useful shortcuts, traps to watch for, and for genuinely high time-burden questions advise the student to recognise the burden, skip, and return later if time permits.
 Do not copy sample stems, distinctive premises, data relationships, names, or near-exact wording. Use examples only to calibrate style, length, difficulty, and answer format.
-Avoid generic AI prose and punctuation habits. Do not use em dashes, double hyphens, canned headings, false starts, self-correction, or phrases such as "it is important to note".
-Avoid image-dependent questions unless the selected category warrants a deterministic table, chart, diagram, or visual spec that contains examinable data.`
+Avoid generic AI prose and punctuation habits. Do not use em dashes, double hyphens, canned headings, false starts, self-correction, or phrases such as "it is important to note".`
 
 const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
   verbal_reasoning: `Verbal Reasoning rules:
@@ -151,6 +150,11 @@ export type AiGenerationBrief = {
   targetTags: Array<{ id: string; name: string }>
   runInstructions?: string | null
   examples: Array<Record<string, unknown>>
+  presentationReference?: {
+    id: string | null
+    categoryName: string | null
+    stemText: unknown
+  } | null
   sourceImagesForCalibration?: Array<Record<string, unknown>>
   promptLayers: AiGenerationPromptLayer[]
 }
@@ -168,15 +172,6 @@ function normalizedPromptLayerText(layer: AiGenerationPromptLayer): string {
 
 function layeredInstructions(input: Pick<AiGenerationBrief, 'promptLayers'>): string[] {
   return input.promptLayers.map((layer) => `${layer.scopeType}:${layer.name} v${layer.version}\n${normalizedPromptLayerText(layer)}`)
-}
-
-function plannedCategoryName(plan: unknown): string | null {
-  if (!plan || typeof plan !== 'object') return null
-  const plans = (plan as { plans?: unknown }).plans
-  const firstPlan = Array.isArray(plans) ? plans[0] : null
-  if (!firstPlan || typeof firstPlan !== 'object') return null
-  const categoryName = (firstPlan as { categoryName?: unknown }).categoryName
-  return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
 }
 
 export function buildPlanningPrompt(input: AiGenerationBrief): string {
@@ -227,10 +222,41 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
   )
 }
 
-export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }): string {
-  const plannedCategory = plannedCategoryName(input.plan)
-  const isDefaultQr = sectionNameToAiGenerationKey(input.sectionName) === 'quantitative_reasoning' && !input.categoryName
+function contentBlockContract(sectionName: string): string[] {
+  const base = [
+    'stemText, questionText, answerText, and explanations may be strings or arrays of generated content blocks.',
+    'Content blocks: paragraph {type,text}, list {type,ordered:boolean,items:string[]}, table {type,caption,columns,rows}, visual {type,visualType,title,altText,spec}.',
+    'Inside text fields, **text** is converted to bold rich text. Use it sparingly in questionText for decisive command words only.',
+    'Use table blocks for examinable tabular data and visual blocks only when the visual itself is part of the reasoning.',
+    'Do not write freeform image descriptions or ProseMirror JSON.',
+  ]
 
+  const section = sectionNameToAiGenerationKey(sectionName)
+  if (section === 'quantitative_reasoning') {
+    return [
+      ...base,
+      'QR visuals use visualType vega_lite_chart only. Provide a complete Vega-Lite JSON spec with inline data.values or datasets and no external URLs.',
+      'When a source visual is used, its data, labels, units, axes, legends, and layout must be readable and sufficient to answer every question.',
+      'Vega-Lite visuals must be black and white or greyscale. Use labels, dash patterns, shapes, opacity, or panel separation when series need differentiating.',
+    ]
+  }
+
+  if (section === 'decision_making') {
+    return [
+      ...base,
+      'DM Venn/set visuals use visualType venn_diagram or set_diagram only. Use shape-based specs with labelled shapes and clearly placed region values.',
+      'Use shapes[].label only for set names and regionLabels only for examinable values. For simple circle Venns, numeric regionLabels may use semantic region expressions or include/exclude arrays matching a shape id or label.',
+      'For every examinable Venn/set numeric label, provide semantic membership metadata using region or include/exclude arrays. Place values inside their exact region, not on a boundary.',
+      'Do not put two numeric values in the same semantic set region unless an answer option is intentionally invalid. Do not leave a required region unlabeled.',
+      'For mixed-shape diagrams, keep coordinate values on one coherent scale and use labels or a legend to identify each set. Do not repeat the legend in stem prose unless it adds examinable information.',
+      'Keep Venn/set diagrams monochrome or lightly filled. Do not use the legacy coloured three-overlapping-circle template.',
+    ]
+  }
+
+  return base
+}
+
+export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }): string {
   return JSON.stringify(
     {
       task: 'Write UCAT generation candidates from the plan',
@@ -248,53 +274,39 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       sectionRules: getAiGenerationSectionPrompt(sectionNameToAiGenerationKey(input.sectionName)),
       layeredInstructions: layeredInstructions(input),
       sourceExamplesForCalibrationOnly: input.examples,
+      presentationReferenceForSourceFormat: input.presentationReference ?? null,
       sourceImagesForCalibrationOnly: input.sourceImagesForCalibration ?? [],
-      contentBlockContract: [
-        'stemText, questionText, answerText, and explanations may be strings or arrays of generated content blocks.',
-        'Content blocks: paragraph {type,text}, list {type,ordered:boolean,items:string[]}, table {type,caption,columns,rows}, visual {type,visualType,title,altText,spec}.',
-        'Inside text fields, **text** is converted to bold rich text. Use it sparingly in questionText for decisive command words only.',
-        'Use table blocks for data tables.',
-        'Use visual blocks only for warranted QR/DM visual categories and provide exact structured data in spec. Do not write freeform image descriptions.',
-        'Structured visual visualType options are vega_lite_chart, set_diagram, and shape-based venn_diagram only.',
-        'QR visualType: vega_lite_chart only. This is the app visual block type for any QR Vega-Lite source visual, not a chart-template name. The spec must be complete Vega-Lite JSON with inline data.values or datasets. Do not use external urls. Do not use bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart, route_map, schematic_map, layout_grid, or timetable as visualType values.',
-        'For vega_lite_chart, use Vega-Lite as a source-visual grammar, not only a basic chart library. You may build exam source visuals with primitive marks and compositions: bar, line, point, circle, square, tick, rect, rule, text, area, arc, layer, facet, repeat, hconcat, vconcat, concat, independent scales, and other valid Vega-Lite chart types or mark combinations.',
-        'Vega-Lite QR source visuals can include horizontal or vertical bars, grouped or stacked bars, line or multi-line charts, bar-line combinations, scatter or labelled point charts, dot or strip plots, range displays, slope-style comparisons, area charts, pie or donut charts when suitable, rect/text matrix displays, timetable-style grids, calendar-style grids, small multiples, annotated panels, tables plus mini charts, maps/route diagrams, floor-plan style layouts, coordinate layouts, or another appropriate Vega-Lite composition.',
-        'Every vega_lite_chart must be black and white only. Differentiate series using greyscale, strokeDash, opacity, point shapes, hatching-like repeated marks where possible, text labels, or faceting. Do not use coloured palettes. In mixed bar-line charts, make lines visually distinct from filled bars using dashed strokes, point markers, stronger stroke width, or a separate panel/axis where useful.',
-        'Avoid generic chart templates. Plain bar and line charts are allowed, but they should not be the automatic fallback when another Vega-Lite composition would better match the source data. Across a generated batch, no two QR visuals should have the same source structure with only labels or numbers changed. Vary mark combinations, orientation, axis treatment, label placement, legend placement, panel layout, annotation style, data density, and the kind of interpretation required.',
-        'Use clear axes, units, scales, legends, and enough labelled data to support realistic QR interpretation. The chart must contain all values needed to solve the questions; do not rely on prose for hidden chart values. Axis titles must remain fully readable because students may need them to answer the question: keep them concise, wrap long titles with title arrays where useful, give right-side axes enough padding, avoid overlapping axis labels/titles, and prefer faceting or panels over cramped dual axes when the source would otherwise become hard to read.',
-        'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
-        'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{id?:string,shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,region?:string,include?:string[],exclude?:string[],x?:number,y?:number,bold?:boolean,fontSize?:number}]}.',
-        'Use shapes[].label only for set names. Use regionLabels only for examinable region values such as 0, 3, 12, or 45. Do not put set names such as R/S/T or Biology/Chemistry in regionLabels.',
-        'For simple two- or three-set circle Venns, numeric regionLabels may use semantic set-region expressions using either region:"A&B&not C" style or include/exclude arrays matching shapes[].id or shapes[].label.',
-        'For every DM Venn/set numeric regionLabel, provide semantic membership metadata using region or include/exclude arrays. For complex mixed-shape Venn/set diagrams like real UCAT DM images, also provide x/y coordinates on the same coherent coordinate system as shapes; the renderer treats x/y as placement hints and the semantic metadata as authoritative. Do not mix tiny 0-20 coordinates with 500+ pixel coordinates in the same diagram. Put each number at the visual centre of its intended exact cell, comfortably away from shape outlines.',
-        'Do not output two numeric labels with the same set-region expression unless the answer option is intentionally showing an invalid diagram. Do not leave a required numeric region unlabeled when the question depends on that region.',
-        'For mixed-shape set diagrams, labels may be shown by a single visual legend. Do not also write a sentence in the stem that repeats the same shape-to-set mapping unless it contains extra examinable information.',
-        'If two or more sets use the same shape type, provide clear shape labels or labelX/labelY positions on the diagram instead of relying on a legend.',
-        'Keep visual altText short and accessibility-oriented only. Do not write a visible caption or prose description after the visual unless it contains extra examinable information.',
-        'Do not use the old coloured three-overlapping-circle Venn template for DM Venn Diagrams. If you need a conventional three-circle answer option, still encode it as shapes with three circle entries, monochrome strokes, and no coloured fills.',
-        'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed clearly inside regions and a separate legend for set names. Do not place numbers on shape outlines, intersections, or ambiguous boundary areas. Use overlapping/nested shapes where useful.',
-        'For QR Maps and Diagrams, use vega_lite_chart. Encode routes, paths, spatial layouts, floor plans, seating maps, distance networks, and geometric diagrams as layered Vega-Lite specs using inline coordinate data, rule/line marks, point marks, text labels, rects, and annotations as needed. Place readable text labels for all examinable places, distances, rooms, or regions, offset from nodes and lines rather than directly on top of them.',
-        'For QR Timetables and Calendars, use table blocks for ordinary data tables or vega_lite_chart for timetable-style visual density. Encode timetable-style visuals with layered rect/text marks and inline datasets; do not use a timetable visualType.',
-        'Do not output ProseMirror JSON.',
-      ],
+      contentBlockContract: contentBlockContract(input.sectionName),
       requirements: [
         'Return JSON only.',
         'Return candidates for the full plan.',
         ...(input.sourceImagesForCalibration?.length
           ? [
               'Some source examples include attached images. Use those images only to understand UCAT visual source conventions such as layout density, chart/diagram style, labels, and how questions depend on visuals.',
-              'Do not copy exact numbers, labels, names, premises, visual composition, or answer logic from any attached source image. Generate a new source with new data relationships.',
+              'Do not copy exact numbers, labels, names, premises, or answer logic from any attached source image. Generate a new source with new data relationships.',
             ]
           : []),
-        'If the brief category is selected, set each stem categoryName exactly to that selected category.',
-        'If the brief category is null, choose categoryName from availableCategories only after deciding the source and questions. Treat categoryName as metadata/classification, not as a template to satisfy.',
-        'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
-        ...(isDefaultQr && plannedCategory
+        ...(sectionNameToAiGenerationKey(input.sectionName) === 'quantitative_reasoning'
           ? [
-              `For default QR, the planned categoryName "${plannedCategory}" is a soft source-format intent used to calibrate examples, not a rigid constraint. Let the generated source be realistic, then set the final categoryName honestly after writing.`,
-              'For default QR realistic mix, do not default every source to data tables. Use tables, charts, timetable-like layouts, mixed sources, maps/diagrams, or text-only sources when the source examples and soft source-format intent make them natural.',
+              ...(input.presentationReference?.categoryName
+                ? [
+                    `The designated presentation reference is a real ${input.presentationReference.categoryName} stem. The new stem MUST use that same broad presentation family. Invent a new scenario, data, reasoning, and layout; this is a source-led format target, not a subtype template.`,
+                    `Set categoryName exactly to ${JSON.stringify(input.presentationReference.categoryName)} after writing.`,
+                  ]
+                : [
+                    'Treat the presentation forms in the supplied source examples and images as legitimate options for the new stem. Choose the form that best supports the newly invented data and reasoning; do not default to a table when another presentation is more natural. This is guidance, not a format quota or template.',
+                  ]),
+              input.categoryName
+                ? 'The selected QR category is a broad practice constraint. Calibrate from its source examples without forcing a fixed source format or subtype; set categoryName to that selected category after writing.'
+                : input.presentationReference?.categoryName
+                  ? 'Use the designated reference as the broad presentation target, then classify the completed stem to that same category. Do not add an unrelated second source or turn the category into a subtype template.'
+                  : 'For QR, decide the source and questions from the supplied examples first. Only then assign the single best-fit categoryName from availableCategories as organisational metadata. Do not use categoryName to choose the source format.',
             ]
-          : []),
+          : [
+              'If the brief category is selected, set each stem categoryName exactly to that selected category.',
+              'If the brief category is null, choose categoryName from availableCategories only after deciding the source and questions.',
+            ]),
+        'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
         'If difficultyTarget or timeBurdenTarget is mixed, generate natural official-style variation and then set estimatedDifficulty/estimatedTimeBurdenSeconds honestly; do not manufacture an even distribution.',
         'If difficultyTarget or timeBurdenTarget is easy/medium/hard or low/medium/high, treat it as a broad tutor-requested target, not an exact promise.',
         ...(sectionNameToAiGenerationKey(input.sectionName) === 'verbal_reasoning'
@@ -319,11 +331,10 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           : []),
         ...(input.categoryName === 'Venn Diagrams'
           ? [
-              'Include deterministic Venn/set visuals using the shape-based set_diagram/venn_diagram contract where a visual is warranted. Treat any planned visual wording as soft guidance, not a fixed template.',
-              'Do not generate the legacy three coloured overlapping circles. Three-circle diagrams are allowed only as monochrome boxed answer options when the planned format asks for answer option diagrams.',
-              'Vary Venn formats in official style: two-set, three-set, four-shape, and five-shape diagrams; nested ellipses; overlapping ellipses; rectangles with circles; triangles/pentagons/hexagons/diamonds/circles; unlabeled or lightly labeled regions; and answer options that are themselves diagrams when appropriate. Do not default every generated Venn stem to exactly three shapes.',
-              'When answer options are diagrams, each option answerText must be a visual block. Use the same canvas scale and shape layout across options, changing only the region values or membership relationship needed for the option.',
-              'Every displayed region value or diagram relationship must be sufficient to solve the question. Include at least three numeric regionLabels across the Venn/set visual(s). Every numeric regionLabel must include semantic region/include/exclude metadata for its exact membership cell; x/y is only a placement hint. Place each numeric regionLabel comfortably inside that exact region, not between shapes or on a boundary. Use monochrome or very lightly filled shapes unless colour is part of the data.',
+              'Include one or more examinable shape-based set_diagrams or venn_diagrams. Choose the diagram complexity that makes the reasoning realistic: this may use three or more sets, nested sets, mixed overlapping circles, ellipses, rectangles, triangles, diamonds, pentagons, or hexagons. Do not default to the legacy coloured three-circle template.',
+              'Diagram answer options are allowed when the task genuinely asks which diagram represents the stated set relationships. In that case, return each diagram as a visual content block in answerText, with one unambiguously correct option.',
+              'Keep each visual spec focused on examinable geometry, set names, and region values. Every numeric regionLabel must identify its exact semantic set region using region or include/exclude arrays; include coordinate hints only where necessary to render an unambiguous mixed-shape diagram.',
+              'Include enough labelled regions for the task to require genuine diagram interpretation. Keep the scenario, set names, values, relationships, and reasoning new.',
             ]
           : []),
         ...(input.categoryName === 'Recognising Assumptions'
@@ -332,31 +343,6 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Give each distractor exactly one clear weakness: emotive assertion, tangential concern, unsupported prediction, anecdote, or scope too narrow to answer the policy question. Do not include a second evidence-based argument that directly answers the question from the opposite side.',
               'In the explanation, name the strength criteria first, apply them consistently to all four options, and do not dismiss a directly relevant argument merely because it supports the opposite conclusion.',
             ]
-          : []),
-        ...(input.categoryName === 'Data Tables' || input.categoryName === 'Timetables and Calendars'
-          ? ['Include at least one table content block or vega_lite_chart containing the examinable data. Prefer vega_lite_chart for schedule grids with many times, route columns, days, or availability windows that should be visually dense.']
-          : []),
-        ...(input.categoryName === 'Graphs and Charts'
-          ? [
-              'Include at least one vega_lite_chart visual block containing the examinable data.',
-              'Choose a genuinely suitable Vega-Lite composition for the data rather than defaulting to bars or lines. Consider primitive-mark combinations, layered annotations, faceted or concatenated panels, rect/text matrices, dot or tick displays, range or slope-style comparisons, small multiples, or another appropriate Vega-Lite chart type when it better fits the source.',
-              'Keep the chart black and white only. Use greyscale, dash patterns, point shapes, opacity, labels, or panel separation to distinguish data.',
-              'Make the chart information-rich enough that interpreting the data source is part of the question, not just reading one obvious bar.',
-            ]
-          : []),
-        ...(input.categoryName === 'Maps and Diagrams'
-          ? [
-              'Include at least one vega_lite_chart visual block containing the examinable map or diagram data.',
-              'Use layered Vega-Lite marks for the diagram: lines or rules for paths/edges, points or shapes for locations, text labels for place names and distances, and rects or light greyscale fills for floor-plan regions where appropriate. Do not return a path network with only lines and points; include text labels for the features needed to answer.',
-              'Do not use route_map, schematic_map, layout_grid, or timetable. The diagram should still be black and white only, with any differentiation handled through greyscale, strokeDash, shape, opacity, or labels.',
-              'Vary map and diagram structure across generated stems: path networks, transit-style maps, floor plans, coordinate layouts, route-choice diagrams, scale diagrams, and multi-panel diagrams are all acceptable when mathematically coherent.',
-            ]
-          : []),
-        ...(input.categoryName === 'Mixed Data Sources'
-          ? ['Include at least two examinable structured sources, including a table plus a vega_lite_chart when a visual source is needed. Multiple visual blocks in one stem are allowed when the information is genuinely mixed. For map, diagram, timetable, or chart data inside Mixed Data Sources, encode it as layered vega_lite_chart rather than a legacy visual type.']
-          : []),
-        ...(input.categoryName === 'Text-Only Scenarios'
-          ? ['Keep the stem text-only. Do not include table or visual content blocks.']
           : []),
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',

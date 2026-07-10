@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     .from('form_responses')
     .select(`
       *,
+      sessions ( id, start_at, short_name, long_name ),
       forms ( id, name, purpose ),
       form_versions ( id, version_number ),
       respondent_student:students!form_responses_respondent_student_id_fkey ( id, first_name, last_name ),

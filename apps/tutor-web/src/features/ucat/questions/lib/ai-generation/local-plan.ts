@@ -31,15 +31,6 @@ function availableCategoryNames(brief: AiGenerationBrief): string[] {
   return (brief.availableCategories ?? []).map((category) => category.name).filter(Boolean)
 }
 
-function sourceCategoryNames(brief: AiGenerationBrief): string[] {
-  return brief.examples
-    .map((example) => {
-      const categoryName = (example as { categoryName?: unknown }).categoryName
-      return typeof categoryName === 'string' ? exactAvailableCategory(brief, categoryName) : null
-    })
-    .filter((categoryName): categoryName is string => !!categoryName)
-}
-
 function weightedCategoryFallback(sectionName: string): string[] {
   switch (normalizeLabel(sectionName)) {
     case 'verbal reasoning':
@@ -56,16 +47,6 @@ function weightedCategoryFallback(sectionName: string): string[] {
         'Recognising Assumptions',
         'Probabilistic and Statistical Reasoning',
         'Venn Diagrams',
-      ]
-    case 'quantitative reasoning':
-      return [
-        'Data Tables',
-        'Data Tables',
-        'Graphs and Charts',
-        'Mixed Data Sources',
-        'Text-Only Scenarios',
-        'Timetables and Calendars',
-        'Maps and Diagrams',
       ]
     case 'situational judgement':
       return [
@@ -84,15 +65,18 @@ function plannedCategoryName(brief: AiGenerationBrief, runIndex: number): string
   if (available.length === 0) return null
 
   const isQr = normalizeLabel(brief.sectionName) === 'quantitative reasoning'
-  const sourceWeighted = sourceCategoryNames(brief)
-  if (isQr) {
-    const sourceDiversity = new Set(sourceWeighted.map(normalizeLabel)).size
-    if (sourceDiversity >= 2) {
-      return pick(sourceWeighted, `${brief.sectionName}:source-format:${runIndex}`) ?? pick(available, `${runIndex}`) ?? null
-    }
-  }
+  // QR categories describe a completed source's presentation. Do not preselect
+  // one for unfiltered generation: the writer should choose a natural source
+  // from the supplied examples and classify it only after writing.
+  if (isQr) return null
 
-  if (!isQr && sourceWeighted.length > 0) {
+  const sourceWeighted = brief.examples
+    .map((example) => {
+      const categoryName = (example as { categoryName?: unknown }).categoryName
+      return typeof categoryName === 'string' ? exactAvailableCategory(brief, categoryName) : null
+    })
+    .filter((categoryName): categoryName is string => !!categoryName)
+  if (sourceWeighted.length > 0) {
     return pick(sourceWeighted, `${brief.sectionName}:source:${runIndex}`) ?? pick(available, `${runIndex}`) ?? null
   }
 
@@ -119,8 +103,8 @@ function sectionRealismPlan(brief: AiGenerationBrief, categoryName: string | nul
   if (section === 'quantitative reasoning') {
     return {
       categoryRole: brief.categoryName
-        ? 'selected category is a targeted-practice constraint'
-        : 'planned category is a soft source-format intent for source-example retrieval only; final category remains metadata/classification after writing',
+        ? 'selected category is a broad targeted-practice constraint; use its source examples for calibration without turning it into a fixed visual template'
+        : 'do not preselect a category or source format; write a realistic source from the supplied examples, then assign the best-fit organisational category after writing',
       ...(hasEnoughExamples
         ? {}
         : {
@@ -213,6 +197,21 @@ export function buildLocalPlan(brief: AiGenerationBrief, runIndex: number): Reco
   const categoryName = plannedCategoryName(brief, runIndex)
   const difficultyIntent = naturalDifficultyIntent(brief.difficultyTarget, runIndex)
   const timeBurdenIntent = naturalTimeBurdenIntent(brief.timeBurdenTarget, runIndex)
+
+  if (normalizeLabel(brief.sectionName) === 'quantitative reasoning' && !brief.categoryName) {
+    return {
+      plans: [
+        {
+          stemIndex: runIndex,
+          difficultyTarget: difficultyIntent,
+          timeBurdenTarget: timeBurdenIntent,
+          ...sectionRealismPlan(brief, null, runIndex),
+          notes:
+            'Write directly from the supplied source examples. Do not preselect a presentation format or category; create a realistic, non-cloned QR source and classify it only after writing.',
+        },
+      ],
+    }
+  }
 
   return {
     plans: [
