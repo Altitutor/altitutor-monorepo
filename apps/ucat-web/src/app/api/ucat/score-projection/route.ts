@@ -65,12 +65,18 @@ type SettingsRow = {
   effective_practice_daily_cap: number | null;
   trajectory_horizon_days: number | null;
   trajectory_step_days: number | null;
-  pessimistic_learning_rate: number | null;
-  realistic_learning_rate: number | null;
-  optimistic_learning_rate: number | null;
-  pessimistic_ceiling_uplift: number | null;
-  realistic_ceiling_uplift: number | null;
-  optimistic_ceiling_uplift: number | null;
+  pessimistic_base_gain: number | null;
+  realistic_base_gain: number | null;
+  optimistic_base_gain: number | null;
+  pessimistic_room_fraction: number | null;
+  realistic_room_fraction: number | null;
+  optimistic_room_fraction: number | null;
+  pessimistic_low_score_boost: number | null;
+  realistic_low_score_boost: number | null;
+  optimistic_low_score_boost: number | null;
+  pessimistic_effort_half_saturation: number | null;
+  realistic_effort_half_saturation: number | null;
+  optimistic_effort_half_saturation: number | null;
 };
 
 function timestamp(value: string | null): number | null {
@@ -107,18 +113,31 @@ function withDefaults(row: SettingsRow | undefined): ScoreProjectionSettings {
     trajectoryHorizonDays:
       row.trajectory_horizon_days ?? defaults.trajectoryHorizonDays,
     trajectoryStepDays: row.trajectory_step_days ?? defaults.trajectoryStepDays,
-    pessimisticLearningRate:
-      row.pessimistic_learning_rate ?? defaults.pessimisticLearningRate,
-    realisticLearningRate:
-      row.realistic_learning_rate ?? defaults.realisticLearningRate,
-    optimisticLearningRate:
-      row.optimistic_learning_rate ?? defaults.optimisticLearningRate,
-    pessimisticCeilingUplift:
-      row.pessimistic_ceiling_uplift ?? defaults.pessimisticCeilingUplift,
-    realisticCeilingUplift:
-      row.realistic_ceiling_uplift ?? defaults.realisticCeilingUplift,
-    optimisticCeilingUplift:
-      row.optimistic_ceiling_uplift ?? defaults.optimisticCeilingUplift,
+    pessimisticBaseGain:
+      row.pessimistic_base_gain ?? defaults.pessimisticBaseGain,
+    realisticBaseGain: row.realistic_base_gain ?? defaults.realisticBaseGain,
+    optimisticBaseGain: row.optimistic_base_gain ?? defaults.optimisticBaseGain,
+    pessimisticRoomFraction:
+      row.pessimistic_room_fraction ?? defaults.pessimisticRoomFraction,
+    realisticRoomFraction:
+      row.realistic_room_fraction ?? defaults.realisticRoomFraction,
+    optimisticRoomFraction:
+      row.optimistic_room_fraction ?? defaults.optimisticRoomFraction,
+    pessimisticLowScoreBoost:
+      row.pessimistic_low_score_boost ?? defaults.pessimisticLowScoreBoost,
+    realisticLowScoreBoost:
+      row.realistic_low_score_boost ?? defaults.realisticLowScoreBoost,
+    optimisticLowScoreBoost:
+      row.optimistic_low_score_boost ?? defaults.optimisticLowScoreBoost,
+    pessimisticEffortHalfSaturation:
+      row.pessimistic_effort_half_saturation ??
+      defaults.pessimisticEffortHalfSaturation,
+    realisticEffortHalfSaturation:
+      row.realistic_effort_half_saturation ??
+      defaults.realisticEffortHalfSaturation,
+    optimisticEffortHalfSaturation:
+      row.optimistic_effort_half_saturation ??
+      defaults.optimisticEffortHalfSaturation,
   };
 }
 
@@ -154,13 +173,14 @@ export async function GET() {
           "started_at, completed_at, ucat_section_id, score_points, total_points",
         )
         .not("completed_at", "is", null),
-      supabase
-        .from("ucat_score_projection_settings")
-        .select("*"),
+      supabase.from("ucat_score_projection_settings").select("*"),
     ]);
 
   if (sectionsRes.error) {
-    return NextResponse.json({ error: sectionsRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: sectionsRes.error.message },
+      { status: 500 },
+    );
   }
   if (setAttemptsRes.error) {
     return NextResponse.json(
@@ -169,10 +189,16 @@ export async function GET() {
     );
   }
   if (practiceRes.error) {
-    return NextResponse.json({ error: practiceRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: practiceRes.error.message },
+      { status: 500 },
+    );
   }
   if (settingsRes.error) {
-    return NextResponse.json({ error: settingsRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: settingsRes.error.message },
+      { status: 500 },
+    );
   }
 
   const sections: ResolvedSection[] = ((sectionsRes.data ?? []) as SectionRow[])
@@ -182,7 +208,7 @@ export async function GET() {
         !section.name ||
         section.section_number == null ||
         section.section_number < 1 ||
-        section.section_number > 3
+        section.section_number > 4
       ) {
         return [];
       }
@@ -220,7 +246,10 @@ export async function GET() {
       : { data: [], error: null };
 
   if (setMetaRes.error) {
-    return NextResponse.json({ error: setMetaRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: setMetaRes.error.message },
+      { status: 500 },
+    );
   }
 
   const sectionBySetId = new Map<string, string>();
@@ -259,7 +288,11 @@ export async function GET() {
   );
 
   for (const row of (practiceRes.data ?? []) as PracticeSessionRow[]) {
-    if (!row.ucat_section_id || row.score_points == null || row.total_points == null) {
+    if (
+      !row.ucat_section_id ||
+      row.score_points == null ||
+      row.total_points == null
+    ) {
       continue;
     }
     const settings = withDefaults(settingsBySection.get(row.ucat_section_id));

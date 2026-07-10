@@ -2,23 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Badge,
   Button,
+  Card,
+  CardContent,
+  FormAnswerer,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
   RichTextEditor,
-  FormAnswerer,
-  Badge,
+  SearchableSelect,
+  SegmentedControl,
   Separator,
+  Switch,
+  Textarea,
 } from '@altitutor/ui';
 import type {
   FormAccessType,
   FormBlock,
+  FormButtonStyle,
   FormContentBlock,
   FormQuestion,
   FormSubmissionLimit,
@@ -30,7 +31,14 @@ import {
   createId,
 } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
-import { ArrowDown, ArrowUp, Copy, Plus, Save, Send, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Plus, Send, Trash2 } from 'lucide-react';
+import {
+  AdminDialogShell,
+  AdminPageActionButton,
+  SettingsDataTable,
+  SettingsPageHeader,
+  type SettingsDataTableColumn,
+} from '@/shared/components';
 import type { AdminFormRow, AdminFormTokenRow, AdminFormVersionRow } from '../types';
 
 const BLOCK_TYPES = [
@@ -40,10 +48,52 @@ const BLOCK_TYPES = [
   { value: 'short_text', label: 'Short text' },
   { value: 'long_text', label: 'Long text' },
   { value: 'number', label: 'Number' },
-] as const;
+] as const satisfies Array<{ value: FormBlock['type']; label: string }>;
+
+const ACCESS_OPTIONS = [
+  { value: 'public_link', label: 'Public link' },
+  { value: 'authenticated', label: 'Authenticated' },
+] as const satisfies Array<{ value: FormAccessType; label: string }>;
+
+const SUBMISSION_LIMIT_OPTIONS = [
+  { value: 'unlimited', label: 'Unlimited' },
+  { value: 'one_per_token', label: 'One per token' },
+  { value: 'one_per_authenticated_respondent', label: 'One per authenticated respondent' },
+] as const satisfies Array<{ value: FormSubmissionLimit; label: string }>;
+
+const BUTTON_STYLE_OPTIONS = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+] as const satisfies Array<{ value: FormButtonStyle; label: string }>;
+
+type NumberDisplay = Extract<FormQuestion, { type: 'number' }>['display'];
+
+const NUMBER_DISPLAY_OPTIONS = [
+  { value: 'input', label: 'Input' },
+  { value: 'slider', label: 'Slider' },
+  { value: 'rating', label: 'Rating' },
+] as const satisfies Array<{ value: NumberDisplay; label: string }>;
+
+type FormDialogTab = 'properties' | 'questions' | 'preview';
 
 function questionTypeLabel(type: FormBlock['type']) {
   return BLOCK_TYPES.find((item) => item.value === type)?.label ?? type;
+}
+
+function purposeLabel(value: string) {
+  return FORM_PURPOSE_OPTIONS.find((item) => item.value === value)?.label ?? value;
+}
+
+function accessLabel(value: FormAccessType) {
+  return ACCESS_OPTIONS.find((item) => item.value === value)?.label ?? value;
+}
+
+function submissionLimitLabel(value: FormSubmissionLimit) {
+  return SUBMISSION_LIMIT_OPTIONS.find((item) => item.value === value)?.label ?? value;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(value));
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -59,21 +109,54 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return json as T;
 }
 
+function OptionSelect<T extends { value: string; label: string }>({
+  items,
+  value,
+  onValueChange,
+  placeholder = 'Select...',
+}: {
+  items: readonly T[];
+  value: string;
+  onValueChange: (value: T['value']) => void;
+  placeholder?: string;
+}) {
+  const selected = items.find((item) => item.value === value) ?? null;
+  return (
+    <SearchableSelect<T>
+      items={[...items]}
+      value={selected}
+      onValueChange={(item) => {
+        if (item) onValueChange(item.value);
+      }}
+      getItemId={(item) => item.value}
+      getItemLabel={(item) => item.label}
+      placeholder={placeholder}
+      trigger={
+        <Button type="button" variant="outline" className="w-full justify-start font-normal">
+          {selected?.label ?? placeholder}
+        </Button>
+      }
+    />
+  );
+}
+
 export function FormsSettingsPage() {
   const [forms, setForms] = useState<AdminFormRow[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminFormRow | null>(null);
   const [versions, setVersions] = useState<AdminFormVersionRow[]>([]);
   const [tokens, setTokens] = useState<AdminFormTokenRow[]>([]);
+  const [activeTab, setActiveTab] = useState<FormDialogTab>('properties');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishedToken, setPublishedToken] = useState<string | null>(null);
+  const [formLinks, setFormLinks] = useState<Record<string, string>>({});
 
   const loadForms = async () => {
     const data = await fetchJson<{ forms: AdminFormRow[] }>('/api/forms');
     setForms(data.forms);
-    if (!selectedId && data.forms[0]) setSelectedId(data.forms[0].id);
   };
 
   const loadSelected = async (id: string) => {
@@ -88,12 +171,38 @@ export function FormsSettingsPage() {
   };
 
   useEffect(() => {
-    void loadForms().catch((err) => setError(err.message));
+    setLoading(true);
+    void loadForms()
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load forms'))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (selectedId) void loadSelected(selectedId).catch((err) => setError(err.message));
-  }, [selectedId]);
+  const openForm = async (id: string) => {
+    setError(null);
+    setPublishedToken(null);
+    setActiveTab('properties');
+    setEditingId(id);
+    await loadSelected(id).catch((err) => setError(err instanceof Error ? err.message : 'Failed to load form'));
+  };
+
+  const closeDialog = () => {
+    setEditingId(null);
+    setSelected(null);
+    setVersions([]);
+    setTokens([]);
+    setPublishedToken(null);
+    setActiveTab('properties');
+  };
+
+  const createForm = async () => {
+    setError(null);
+    const data = await fetchJson<{ form: AdminFormRow }>('/api/forms', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Untitled form' }),
+    });
+    await loadForms();
+    await openForm(data.form.id);
+  };
 
   const updateSelected = (patch: Partial<AdminFormRow>) => {
     setSelected((current) => (current ? { ...current, ...patch } : current));
@@ -106,14 +215,8 @@ export function FormsSettingsPage() {
     updateSelected({ draft_blocks: next });
   };
 
-  const addBlock = (type: FormBlock['type']) => {
-    if (!selected) return;
-    const block = type === 'content' ? createDefaultContentBlock() : createDefaultQuestion(type as FormQuestion['type']);
-    updateSelected({ draft_blocks: [...selected.draft_blocks, block] });
-  };
-
   const save = async () => {
-    if (!selected) return;
+    if (!selected) return null;
     setSaving(true);
     setError(null);
     try {
@@ -130,8 +233,10 @@ export function FormsSettingsPage() {
       });
       setSelected(data.form);
       await loadForms();
+      return data.form;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
+      return null;
     } finally {
       setSaving(false);
     }
@@ -143,13 +248,15 @@ export function FormsSettingsPage() {
     setError(null);
     setPublishedToken(null);
     try {
-      await save();
+      const saved = await save();
+      if (!saved) return;
       const data = await fetchJson<{ token: AdminFormTokenRow & { token: string } }>(
-        `/api/forms/${selected.id}/publish`,
-        { method: 'POST', body: JSON.stringify({}) }
+        `/api/forms/${saved.id}/publish`,
+        { method: 'POST', body: JSON.stringify({}) },
       );
       setPublishedToken(data.token.token);
-      await loadSelected(selected.id);
+      setFormLinks((current) => ({ ...current, [saved.id]: `/form/${data.token.token}` }));
+      await loadSelected(saved.id);
       await loadForms();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed');
@@ -158,200 +265,188 @@ export function FormsSettingsPage() {
     }
   };
 
-  const createForm = async () => {
-    setError(null);
-    const data = await fetchJson<{ form: AdminFormRow }>('/api/forms', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'Untitled form' }),
-    });
-    await loadForms();
-    setSelectedId(data.form.id);
+  const columns: SettingsDataTableColumn<AdminFormRow>[] = useMemo(
+    () => [
+      {
+        key: 'name',
+        label: 'Name',
+        render: (form) => <span className="font-medium">{form.name}</span>,
+        sortValue: (form) => form.name,
+        searchValue: (form) => form.name,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (form) => <Badge variant={form.status === 'published' ? 'default' : 'secondary'}>{form.status}</Badge>,
+        sortValue: (form) => form.status,
+        filterValue: (form) => form.status,
+      },
+      {
+        key: 'purpose',
+        label: 'Purpose',
+        render: (form) => <span>{purposeLabel(form.purpose)}</span>,
+        sortValue: (form) => purposeLabel(form.purpose),
+        filterValue: (form) => form.purpose,
+        searchValue: (form) => purposeLabel(form.purpose),
+      },
+      {
+        key: 'access',
+        label: 'Access',
+        render: (form) => <span>{accessLabel(form.access_type)}</span>,
+        sortValue: (form) => accessLabel(form.access_type),
+        filterValue: (form) => form.access_type,
+      },
+      {
+        key: 'responses',
+        label: 'Responses',
+        render: (form) => <span className="tabular-nums">{form.response_count ?? 0}</span>,
+        sortValue: (form) => form.response_count ?? 0,
+      },
+      {
+        key: 'updated',
+        label: 'Updated',
+        render: (form) => <span>{formatDate(form.updated_at)}</span>,
+        sortValue: (form) => new Date(form.updated_at),
+      },
+    ],
+    [],
+  );
+
+  const latestTokenUrl = publishedToken ? `/form/${publishedToken}` : null;
+
+  const copyFormLink = async (form: AdminFormRow) => {
+    const link = formLinks[form.id];
+    if (!link) return;
+    await navigator.clipboard.writeText(`${window.location.origin}${link}`);
   };
 
-  const latestTokenUrl = useMemo(() => {
-    const token = publishedToken;
-    if (!token) return null;
-    return `/form/${token}`;
-  }, [publishedToken]);
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Forms</h1>
-          <p className="text-sm text-muted-foreground">Create form definitions and publish answer links.</p>
-        </div>
-        <Button onClick={createForm}>
-          <Plus className="mr-2 h-4 w-4" />
-          New form
-        </Button>
-      </div>
+    <div className="p-6">
+      <SettingsPageHeader
+        title="Forms"
+        actions={
+          <AdminPageActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="New form"
+            onClick={() => void createForm()}
+          />
+        }
+      />
 
       {error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-2">
-          {forms.map((form) => (
-            <button
-              key={form.id}
-              type="button"
-              onClick={() => setSelectedId(form.id)}
-              className={`w-full rounded-md border p-3 text-left hover:bg-muted ${
-                selectedId === form.id ? 'border-primary bg-muted' : ''
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium">{form.name}</div>
-                <Badge variant={form.status === 'published' ? 'default' : 'secondary'}>{form.status}</Badge>
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {form.purpose} · {form.response_count ?? 0} responses
-              </div>
-            </button>
-          ))}
-        </aside>
+      <SettingsDataTable
+        data={forms}
+        columns={columns}
+        getRowId={(form) => form.id}
+        isLoading={loading}
+        emptyMessage="No forms configured"
+        searchPlaceholder="Search forms..."
+        filterKeys={['status', 'purpose', 'access']}
+        filterDefinitions={[
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { label: 'Draft', value: 'draft' },
+              { label: 'Published', value: 'published' },
+              { label: 'Archived', value: 'archived' },
+            ],
+          },
+          {
+            key: 'purpose',
+            label: 'Purpose',
+            options: FORM_PURPOSE_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+          },
+          {
+            key: 'access',
+            label: 'Access',
+            options: ACCESS_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+          },
+        ]}
+        defaultSort={{ field: 'updated', direction: 'desc' }}
+        getActions={(form) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => void openForm(form.id),
+          },
+          {
+            id: 'copy-link',
+            label: 'Copy link',
+            description: formLinks[form.id] ? 'Copy the latest link created in this session' : 'Publish this form to generate a copyable link',
+            disabled: !formLinks[form.id],
+            icon: Copy,
+            onSelect: () => void copyFormLink(form),
+          },
+        ]}
+      />
 
-        {selected ? (
-          <main className="space-y-8">
-            <section className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Purpose</Label>
-                  <Select value={selected.purpose} onValueChange={(purpose) => updateSelected({ purpose })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FORM_PURPOSE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Access</Label>
-                  <Select
-                    value={selected.access_type}
-                    onValueChange={(access_type) => updateSelected({ access_type: access_type as FormAccessType })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public_link">Public link</SelectItem>
-                      <SelectItem value="authenticated">Authenticated</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Submission limit</Label>
-                  <Select
-                    value={selected.submission_limit}
-                    onValueChange={(submission_limit) =>
-                      updateSelected({ submission_limit: submission_limit as FormSubmissionLimit })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unlimited">Unlimited</SelectItem>
-                      <SelectItem value="one_per_token">One per token</SelectItem>
-                      <SelectItem value="one_per_authenticated_respondent">One per authenticated respondent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Thank-you message</Label>
-                <Textarea
-                  value={selected.draft_thank_you_message}
-                  onChange={(event) => updateSelected({ draft_thank_you_message: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={save} disabled={saving}>
-                  <Save className="mr-2 h-4 w-4" />
+      <AdminDialogShell
+        open={!!editingId}
+        onClose={closeDialog}
+        title={selected?.name ?? 'Edit form'}
+        subtitle="Edit the draft form, then preview and publish answer links."
+        defaultExpanded
+        contentClassName="md:max-w-6xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDialog}>
+              Close
+            </Button>
+            {activeTab !== 'preview' ? (
+              <>
+                <Button type="button" variant="outline" onClick={() => void save()} disabled={!selected || saving}>
                   {saving ? 'Saving...' : 'Save draft'}
                 </Button>
-                <Button onClick={publish} disabled={publishing}>
+                <Button type="button" onClick={() => void publish()} disabled={!selected || publishing}>
                   <Send className="mr-2 h-4 w-4" />
                   {publishing ? 'Publishing...' : 'Publish'}
                 </Button>
-              </div>
-              {latestTokenUrl ? (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm">
-                  <span className="font-medium">Published link:</span>
-                  <code>{latestTokenUrl}</code>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}${latestTokenUrl}`)}
-                  >
-                    <Copy className="mr-2 h-3.5 w-3.5" />
-                    Copy
-                  </Button>
-                </div>
-              ) : null}
-              {tokens.length ? (
-                <div className="text-xs text-muted-foreground">
-                  Latest published version: {versions[0]?.version_number ?? 'none'} · Existing tokens: {tokens.length}
-                </div>
-              ) : null}
-            </section>
+              </>
+            ) : null}
+          </>
+        }
+      >
+        {selected ? (
+          <div className="space-y-6">
+            <SegmentedControl
+              value={activeTab}
+              onValueChange={(value) => {
+                if (value === 'questions' || value === 'preview') setActiveTab(value);
+                else setActiveTab('properties');
+              }}
+              options={[
+                { value: 'properties', label: 'Properties' },
+                { value: 'questions', label: 'Questions' },
+                { value: 'preview', label: 'Preview' },
+              ]}
+            />
 
-            <Separator />
+            {activeTab === 'properties' ? (
+              <FormPropertiesEditor
+                selected={selected}
+                versions={versions}
+                tokens={tokens}
+                latestTokenUrl={latestTokenUrl}
+                updateSelected={updateSelected}
+              />
+            ) : null}
 
-            <section className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold">Blocks</h2>
-                <div className="flex flex-wrap gap-2">
-                  {BLOCK_TYPES.map((type) => (
-                    <Button key={type.value} variant="outline" size="sm" onClick={() => addBlock(type.value)}>
-                      <Plus className="mr-1 h-3.5 w-3.5" />
-                      {type.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                {selected.draft_blocks.map((block, index) => (
-                  <BlockEditor
-                    key={block.id}
-                    block={block}
-                    index={index}
-                    onChange={(next) => updateBlock(index, next)}
-                    onMove={(direction) => {
-                      const next = [...selected.draft_blocks];
-                      const target = index + direction;
-                      if (target < 0 || target >= next.length) return;
-                      [next[index], next[target]] = [next[target], next[index]];
-                      updateSelected({ draft_blocks: next });
-                    }}
-                    onDelete={() => {
-                      updateSelected({ draft_blocks: selected.draft_blocks.filter((_, i) => i !== index) });
-                    }}
-                  />
-                ))}
-              </div>
-            </section>
+            {activeTab === 'questions' ? (
+              <FormQuestionsEditor
+                selected={selected}
+                updateSelected={updateSelected}
+                updateBlock={updateBlock}
+              />
+            ) : null}
 
-            <Separator />
-
-            <section>
-              <h2 className="mb-4 text-xl font-semibold">Preview</h2>
-              <div className="rounded-md border">
+            {activeTab === 'preview' ? (
+              <div>
                 <FormAnswerer
                   title={selected.name}
                   blocks={selected.draft_blocks}
@@ -359,12 +454,180 @@ export function FormsSettingsPage() {
                   onSubmit={() => undefined}
                 />
               </div>
-            </section>
-          </main>
+            ) : null}
+          </div>
         ) : (
-          <main className="rounded-md border p-8 text-center text-muted-foreground">Create a form to get started.</main>
+          <div className="py-12 text-center text-muted-foreground">Loading form...</div>
         )}
-      </div>
+      </AdminDialogShell>
+    </div>
+  );
+}
+
+function FormPropertiesEditor({
+  selected,
+  versions,
+  tokens,
+  latestTokenUrl,
+  updateSelected,
+}: {
+  selected: AdminFormRow;
+  versions: AdminFormVersionRow[];
+  tokens: AdminFormTokenRow[];
+  latestTokenUrl: string | null;
+  updateSelected: (patch: Partial<AdminFormRow>) => void;
+}) {
+  return (
+    <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Purpose</Label>
+            <OptionSelect
+              items={FORM_PURPOSE_OPTIONS}
+              value={selected.purpose}
+              onValueChange={(purpose) => updateSelected({ purpose })}
+              placeholder="Select purpose"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Access</Label>
+            <OptionSelect
+              items={ACCESS_OPTIONS}
+              value={selected.access_type}
+              onValueChange={(access_type) => updateSelected({ access_type: access_type as FormAccessType })}
+              placeholder="Select access"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Submission limit</Label>
+            <OptionSelect
+              items={SUBMISSION_LIMIT_OPTIONS}
+              value={selected.submission_limit}
+              onValueChange={(submission_limit) =>
+                updateSelected({ submission_limit: submission_limit as FormSubmissionLimit })
+              }
+              placeholder="Select submission limit"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Thank-you message</Label>
+          <Textarea
+            value={selected.draft_thank_you_message}
+            onChange={(event) => updateSelected({ draft_thank_you_message: event.target.value })}
+          />
+        </div>
+        {latestTokenUrl ? (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <span className="font-medium">Published link:</span>
+            <code>{latestTokenUrl}</code>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(`${window.location.origin}${latestTokenUrl}`)}
+            >
+              <Copy className="mr-2 h-3.5 w-3.5" />
+              Copy
+            </Button>
+          </div>
+        ) : null}
+        {tokens.length ? (
+          <div className="text-xs text-muted-foreground">
+            Latest published version: {versions[0]?.version_number ?? 'none'} · Existing tokens: {tokens.length}
+          </div>
+        ) : null}
+    </div>
+  );
+}
+
+function FormQuestionsEditor({
+  selected,
+  updateSelected,
+  updateBlock,
+}: {
+  selected: AdminFormRow;
+  updateSelected: (patch: Partial<AdminFormRow>) => void;
+  updateBlock: (index: number, block: FormBlock) => void;
+}) {
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightedBlockId) return;
+    const timeout = window.setTimeout(() => setHighlightedBlockId(null), 900);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedBlockId]);
+
+  const handleInsert = (type: FormBlock['type'], index: number) => {
+    const block = type === 'content' ? createDefaultContentBlock() : createDefaultQuestion(type as FormQuestion['type']);
+    const next = [...selected.draft_blocks];
+    next.splice(index, 0, block);
+    updateSelected({ draft_blocks: next });
+    setHighlightedBlockId(block.id);
+  };
+
+  return (
+    <div className="space-y-3">
+      <BlockInsertControl onInsert={(type) => handleInsert(type, 0)} label="Add first block" />
+      {selected.draft_blocks.map((block, index) => (
+        <div key={block.id} className="space-y-3 transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-1">
+          <BlockEditor
+            block={block}
+            index={index}
+            highlighted={highlightedBlockId === block.id}
+            onChange={(next) => updateBlock(index, next)}
+            onMove={(direction) => {
+              const next = [...selected.draft_blocks];
+              const target = index + direction;
+              if (target < 0 || target >= next.length) return;
+              [next[index], next[target]] = [next[target], next[index]];
+              updateSelected({ draft_blocks: next });
+              setHighlightedBlockId(block.id);
+            }}
+            onDelete={() => {
+              if (!window.confirm(`Delete block ${index + 1}? This cannot be undone.`)) return;
+              updateSelected({ draft_blocks: selected.draft_blocks.filter((_, i) => i !== index) });
+            }}
+          />
+          <BlockInsertControl onInsert={(type) => handleInsert(type, index + 1)} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BlockInsertControl({
+  onInsert,
+  label = 'Add block',
+}: {
+  onInsert: (type: FormBlock['type']) => void;
+  label?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <Separator className="flex-1" />
+      <SearchableSelect<(typeof BLOCK_TYPES)[number]>
+        items={[...BLOCK_TYPES]}
+        value={null}
+        onValueChange={(item) => {
+          if (item) onInsert(item.value);
+        }}
+        getItemId={(item) => item.value}
+        getItemLabel={(item) => item.label}
+        placeholder={label}
+        searchPlaceholder="Search block types..."
+        trigger={
+          <Button type="button" variant="outline" size="sm">
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            {label}
+          </Button>
+        }
+      />
+      <Separator className="flex-1" />
     </div>
   );
 }
@@ -372,41 +635,52 @@ export function FormsSettingsPage() {
 function BlockEditor({
   block,
   index,
+  highlighted,
   onChange,
   onMove,
   onDelete,
 }: {
   block: FormBlock;
   index: number;
+  highlighted?: boolean;
   onChange: (block: FormBlock) => void;
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium">Block {index + 1}</div>
-          <div className="text-xs text-muted-foreground">{questionTypeLabel(block.type)}</div>
+    <Card
+      className={[
+        'transition-all duration-300 ease-out',
+        highlighted ? 'ring-2 ring-primary/70 bg-primary/5 shadow-sm' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <CardContent className="p-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Block {index + 1}</div>
+            <div className="text-xs text-muted-foreground">{questionTypeLabel(block.type)}</div>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="outline" size="icon" onClick={() => onMove(-1)} type="button">
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => onMove(1)} type="button">
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <Button variant="destructive" size="icon" onClick={onDelete} type="button">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-1">
-          <Button variant="outline" size="icon" onClick={() => onMove(-1)} type="button">
-            <ArrowUp className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => onMove(1)} type="button">
-            <ArrowDown className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={onDelete} type="button">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      {block.type === 'content' ? (
-        <ContentBlockEditor block={block} onChange={onChange} />
-      ) : (
-        <QuestionEditor block={block} onChange={onChange} />
-      )}
-    </div>
+        {block.type === 'content' ? (
+          <ContentBlockEditor block={block} onChange={onChange} />
+        ) : (
+          <QuestionEditor block={block} onChange={onChange} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -453,7 +727,7 @@ function ContentBlockEditor({
           </Button>
         </div>
         {(block.buttons ?? []).map((button, index) => (
-          <div key={button.id} className="grid gap-2 md:grid-cols-[1fr_1.5fr_130px_auto]">
+          <div key={button.id} className="grid gap-2 md:grid-cols-[1fr_1.5fr_160px_auto]">
             <Input
               value={button.label}
               placeholder="Label"
@@ -472,25 +746,19 @@ function ContentBlockEditor({
                 onChange({ ...block, buttons });
               }}
             />
-            <Select
+            <OptionSelect
+              items={BUTTON_STYLE_OPTIONS}
               value={button.style}
               onValueChange={(style) => {
                 const buttons = [...(block.buttons ?? [])];
-                buttons[index] = { ...button, style: style === 'primary' ? 'primary' : 'secondary' };
+                buttons[index] = { ...button, style: style as FormButtonStyle };
                 onChange({ ...block, buttons });
               }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="primary">Primary</SelectItem>
-                <SelectItem value="secondary">Secondary</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Button style"
+            />
             <Button
               type="button"
-              variant="outline"
+              variant="destructive"
               size="icon"
               onClick={() => onChange({ ...block, buttons: (block.buttons ?? []).filter((_, i) => i !== index) })}
             >
@@ -517,14 +785,13 @@ function QuestionEditor({
           <Label>Question</Label>
           <Input value={block.title} onChange={(event) => onChange({ ...block, title: event.target.value })} />
         </div>
-        <label className="flex items-end gap-2 pb-2 text-sm">
-          <input
-            type="checkbox"
+        <div className="flex items-end justify-between gap-3 pb-2">
+          <Label className="text-sm">Required</Label>
+          <Switch
             checked={block.required}
-            onChange={(event) => onChange({ ...block, required: event.target.checked })}
+            onCheckedChange={(required) => onChange({ ...block, required })}
           />
-          Required
-        </label>
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Description</Label>
@@ -573,7 +840,7 @@ function QuestionEditor({
               />
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
                 size="icon"
                 onClick={() => onChange({ ...block, options: block.options.filter((_, i) => i !== index) })}
               >
@@ -583,35 +850,12 @@ function QuestionEditor({
           ))}
         </div>
       )}
-      {(block.type === 'short_text' || block.type === 'long_text') && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Min length</Label>
-            <Input
-              type="number"
-              value={block.minLength ?? ''}
-              onChange={(event) =>
-                onChange({ ...block, minLength: event.target.value === '' ? undefined : Number(event.target.value) })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Max length</Label>
-            <Input
-              type="number"
-              value={block.maxLength ?? ''}
-              onChange={(event) =>
-                onChange({ ...block, maxLength: event.target.value === '' ? undefined : Number(event.target.value) })
-              }
-            />
-          </div>
-        </div>
-      )}
       {block.type === 'number' && (
         <div className="grid gap-4 md:grid-cols-4">
           <div className="space-y-2">
             <Label>Display</Label>
-            <Select
+            <OptionSelect
+              items={NUMBER_DISPLAY_OPTIONS}
               value={block.display}
               onValueChange={(display) =>
                 onChange({
@@ -619,16 +863,8 @@ function QuestionEditor({
                   display: display === 'slider' || display === 'rating' ? display : 'input',
                 })
               }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="input">Input</SelectItem>
-                <SelectItem value="slider">Slider</SelectItem>
-                <SelectItem value="rating">Rating</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Display"
+            />
           </div>
           {(['min', 'max', 'step'] as const).map((field) => (
             <div key={field} className="space-y-2">

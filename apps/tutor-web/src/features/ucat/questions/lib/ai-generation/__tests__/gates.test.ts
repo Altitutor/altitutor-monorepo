@@ -551,6 +551,48 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(vegaIssues.some((issue) => issue.code === 'qr_map_required')).toBe(false)
+    expect(vegaIssues.some((issue) => issue.code === 'qr_map_labels_missing')).toBe(false)
+  })
+
+  it('warns for QR maps without text labels', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Maps and Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Park paths',
+          altText: 'Unlabelled path network.',
+          spec: {
+            data: {
+              values: [
+                { route: 'A', order: 1, x: 0, y: 0 },
+                { route: 'A', order: 2, x: 2, y: 0 },
+                { route: 'B', order: 1, x: 2, y: 0 },
+                { route: 'B', order: 2, x: 3, y: 1 },
+              ],
+            },
+            layer: [{
+              mark: { type: 'line' },
+              encoding: {
+                x: { field: 'x', type: 'quantitative', axis: null },
+                y: { field: 'y', type: 'quantitative', axis: null },
+                detail: { field: 'route' },
+                order: { field: 'order' },
+              },
+            }],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Maps and Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_map_labels_missing')).toBe(true)
   })
 
   it('warns for low-information QR Vega-Lite charts without axis context', () => {

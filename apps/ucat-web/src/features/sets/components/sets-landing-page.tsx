@@ -1,3 +1,5 @@
+"use client";
+
 import { ListChecks, Sparkles } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";

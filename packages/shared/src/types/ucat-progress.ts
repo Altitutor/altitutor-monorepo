@@ -10,9 +10,12 @@ export type SectionProgress = {
   correctScore: number
   maxScore: number
   percentage: number
-  averageScaledScore: number | null
-  weightedAverageScaledScore: number | null
-  weightedAveragePercentage: number | null
+  /** @deprecated ucat-web no longer uses legacy section-level scaled score averages. */
+  averageScaledScore?: number | null
+  /** @deprecated ucat-web no longer uses legacy section-level scaled score EMA. */
+  weightedAverageScaledScore?: number | null
+  /** @deprecated ucat-web no longer uses legacy section-level percentage EMA. */
+  weightedAveragePercentage?: number | null
   /** Total accessible question progress points in this section (question-based; syllogism stem=2 once, else 1 per question) */
   totalPublicQuestions?: number
 }
@@ -91,7 +94,8 @@ export type SectionCategoryProgress = {
   correctScore: number
   maxScore: number
   percentage: number
-  weightedAveragePercentage: number | null
+  /** @deprecated ucat-web now uses raw/filtered category correctness only. */
+  weightedAveragePercentage?: number | null
   /** Total accessible question progress points in this category (question-based; syllogism stem=2 once, else 1 per question) */
   totalPublicQuestions?: number
 }
@@ -102,7 +106,7 @@ export type ProgressResponse = {
   mockAttempts: MockAttemptRow[]
   practiceAttempts: PracticeAttemptRow[]
   questionAttempts: QuestionAttemptRow[]
-  /** Per-section category stats (all-time and weighted %) */
+  /** Per-section category stats */
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>
   /** Total count of public mocks (for mocks completed card) */
   totalPublicMocks?: number

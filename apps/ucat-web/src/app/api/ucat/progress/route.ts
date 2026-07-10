@@ -193,9 +193,6 @@ export async function GET() {
       maxScore: data.max,
       percentage:
         data.max > 0 ? Math.round((data.correct / data.max) * 100) : 0,
-      averageScaledScore: null as number | null,
-      weightedAverageScaledScore: null as number | null,
-      weightedAveragePercentage: null as number | null,
     }))
     .sort((a, b) => a.sectionNumber - b.sectionNumber);
 
@@ -211,9 +208,6 @@ export async function GET() {
       correctScore: 0,
       maxScore: 0,
       percentage: 0,
-      averageScaledScore: null,
-      weightedAverageScaledScore: null,
-      weightedAveragePercentage: null,
     });
   }
   sectionProgress.sort((a, b) => a.sectionNumber - b.sectionNumber);
@@ -407,126 +401,6 @@ export async function GET() {
     };
   });
 
-  // Compute average and weighted average (EMA) scaled score per section from standalone set attempts
-  const sectionByNumberForEma = new Map(
-    sectionProgress.map((s) => [s.sectionNumber, s.sectionId]),
-  );
-  const sectionScaledSums = new Map<string, { sum: number; count: number }>();
-  const sectionScaledScoresOrdered = new Map<string, number[]>();
-  for (const s of sectionProgress) {
-    sectionScaledSums.set(s.sectionId, { sum: 0, count: 0 });
-    sectionScaledScoresOrdered.set(s.sectionId, []);
-  }
-  const standaloneSetAttempts = setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId,
-  );
-  const attemptsWithSection = standaloneSetAttempts
-    .filter((a) => {
-      if (a.scaledScore == null) return false;
-      const details = a.questionSetId
-        ? timeLimitBySetId.get(a.questionSetId)
-        : undefined;
-      const sectionsArr = details?.sections;
-      const firstSectionNum =
-        Array.isArray(sectionsArr) && sectionsArr.length > 0
-          ? sectionsArr[0]?.section_number
-          : undefined;
-      const sectionId =
-        firstSectionNum != null
-          ? sectionByNumberForEma.get(firstSectionNum)
-          : undefined;
-      return sectionId != null;
-    })
-    .map((a) => {
-      const details = a.questionSetId
-        ? timeLimitBySetId.get(a.questionSetId)
-        : undefined;
-      const sectionsArr = details?.sections;
-      const firstSectionNum =
-        Array.isArray(sectionsArr) && sectionsArr.length > 0
-          ? sectionsArr[0]?.section_number
-          : undefined;
-      const sectionId =
-        firstSectionNum != null
-          ? sectionByNumberForEma.get(firstSectionNum)
-          : undefined;
-      return {
-        sectionId: sectionId!,
-        scaledScore: a.scaledScore!,
-        date: a.completedAt ?? a.attemptedAt,
-      };
-    });
-  attemptsWithSection.sort((a, b) => a.date.localeCompare(b.date));
-  for (const { sectionId, scaledScore } of attemptsWithSection) {
-    const entry = sectionScaledSums.get(sectionId);
-    if (entry) {
-      entry.sum += scaledScore;
-      entry.count += 1;
-    }
-    const ordered = sectionScaledScoresOrdered.get(sectionId);
-    if (ordered) ordered.push(scaledScore);
-  }
-  const EMA_ALPHA = 0.5;
-  const computeEma = (scores: number[]): number | null => {
-    if (scores.length === 0) return null;
-    let ema = scores[0];
-    for (let i = 1; i < scores.length; i++) {
-      ema = EMA_ALPHA * scores[i] + (1 - EMA_ALPHA) * ema;
-    }
-    return ema;
-  };
-  // Compute weighted average percentage from question attempts (daily % per section, then EMA)
-  const sectionDailyPercentages = new Map<string, number[]>();
-  for (const s of sectionProgress) {
-    sectionDailyPercentages.set(s.sectionId, []);
-  }
-  const qaBySectionDate = new Map<
-    string,
-    { correct: number; max: number; syllogismStems: Set<string> }
-  >();
-  for (const qa of uniqueQuestionAttempts) {
-    const sectionId = qa.ucat_section_id;
-    if (!sectionId) continue;
-    const dateStr = qa.attempted_at
-      ? new Date(qa.attempted_at).toISOString().slice(0, 10)
-      : "";
-    if (!dateStr) continue;
-    const key = `${sectionId}:${dateStr}`;
-    accumulateProgressAttempt(
-      getOrCreateProgressBucket(qaBySectionDate, key),
-      {
-        questionId: qa.question_id ?? qa.id ?? "",
-        questionStemId: qa.question_stem_id,
-        questionType: qa.question_type,
-        score: qa.score,
-      },
-    );
-  }
-  const sectionDateKeys = [...qaBySectionDate.keys()].sort();
-  for (const key of sectionDateKeys) {
-    const [sectionId] = key.split(":");
-    const { correct, max } = qaBySectionDate.get(key)!;
-    if (max > 0) {
-      const pct = (correct / max) * 100;
-      const arr = sectionDailyPercentages.get(sectionId);
-      if (arr) arr.push(pct);
-    }
-  }
-
-  sectionProgress = sectionProgress.map((s) => ({
-    ...s,
-    averageScaledScore: (() => {
-      const entry = sectionScaledSums.get(s.sectionId);
-      return entry && entry.count > 0 ? entry.sum / entry.count : null;
-    })(),
-    weightedAverageScaledScore: computeEma(
-      sectionScaledScoresOrdered.get(s.sectionId) ?? [],
-    ),
-    weightedAveragePercentage: computeEma(
-      sectionDailyPercentages.get(s.sectionId) ?? [],
-    ),
-  }));
-
   // publicCountsRaw fetched in wave 2. View added in migration 20260316190000.
   const { data: publicCountsRaw } = publicCountsRes as {
     data: PublicCountRow[] | null;
@@ -550,12 +424,8 @@ export async function GET() {
     totalPublicQuestions: sectionTotalPublic.get(s.sectionId),
   }));
 
-  // Compute per-section, per-category stats (all-time and weighted %)
+  // Compute raw per-section, per-category correctness stats.
   const sectionCategorySums = new Map<
-    string,
-    { correct: number; max: number; syllogismStems: Set<string> }
-  >();
-  const qaBySectionCategoryDate = new Map<
     string,
     { correct: number; max: number; syllogismStems: Set<string> }
   >();
@@ -568,40 +438,16 @@ export async function GET() {
     const sectionId = qa.ucat_section_id;
     if (!sectionId) continue;
     const categoryId = qa.question_stem_category_id ?? "__uncategorized__";
-    const dateStr = qa.attempted_at
-      ? new Date(qa.attempted_at).toISOString().slice(0, 10)
-      : "";
-    if (!dateStr) continue;
     const sumKey = `${sectionId}:${categoryId}`;
-    const dateKey = `${sectionId}:${categoryId}:${dateStr}`;
-    const attempt = {
-      questionId: qa.question_id ?? qa.id ?? "",
-      questionStemId: qa.question_stem_id,
-      questionType: qa.question_type,
-      score: qa.score,
-    };
     accumulateProgressAttempt(
       getOrCreateProgressBucket(sectionCategorySums, sumKey),
-      attempt,
+      {
+        questionId: qa.question_id ?? qa.id ?? "",
+        questionStemId: qa.question_stem_id,
+        questionType: qa.question_type,
+        score: qa.score,
+      },
     );
-    accumulateProgressAttempt(
-      getOrCreateProgressBucket(qaBySectionCategoryDate, dateKey),
-      attempt,
-    );
-  }
-  const sectionCategoryDailyPctArrays = new Map<string, number[]>();
-  for (const [dateKey, { correct, max }] of qaBySectionCategoryDate) {
-    if (max > 0) {
-      const pct = (correct / max) * 100;
-      const parts = dateKey.split(":");
-      const arrayKey = `${parts[0]}:${parts[1]}`;
-      const arr = sectionCategoryDailyPctArrays.get(arrayKey) ?? [];
-      arr.push(pct);
-      sectionCategoryDailyPctArrays.set(arrayKey, arr);
-    }
-  }
-  for (const [, arr] of sectionCategoryDailyPctArrays) {
-    arr.sort();
   }
   // categoriesData fetched in wave 2
   const { data: categoriesData } = categoriesRes as {
@@ -634,14 +480,12 @@ export async function GET() {
         correct: 0,
         max: 0,
       };
-      const dailyPcts = sectionCategoryDailyPctArrays.get(sumKey) ?? [];
       result.push({
         categoryId: cat.id,
         categoryName: cat.name,
         correctScore: correct,
         maxScore: max,
         percentage: max > 0 ? Math.round((correct / max) * 100) : 0,
-        weightedAveragePercentage: computeEma(dailyPcts),
         totalPublicQuestions: categoryTotalPublic.get(sumKey),
       });
     }
@@ -649,16 +493,12 @@ export async function GET() {
       `${s.sectionId}:__uncategorized__`,
     );
     if (uncatSum && uncatSum.max > 0) {
-      const dailyPcts =
-        sectionCategoryDailyPctArrays.get(`${s.sectionId}:__uncategorized__`) ??
-        [];
       result.push({
         categoryId: "__uncategorized__",
         categoryName: "Uncategorized",
         correctScore: uncatSum.correct,
         maxScore: uncatSum.max,
         percentage: Math.round((uncatSum.correct / uncatSum.max) * 100),
-        weightedAveragePercentage: computeEma(dailyPcts),
         totalPublicQuestions: categoryTotalPublic.get(
           `${s.sectionId}:__uncategorized__`,
         ),

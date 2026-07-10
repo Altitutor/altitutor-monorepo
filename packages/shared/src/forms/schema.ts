@@ -125,8 +125,6 @@ export function validateFormAnswers(blocks: FormBlock[], answers: FormAnswerPayl
     }
     if ((block.type === 'short_text' || block.type === 'long_text') && typeof value === 'string') {
       if (block.type === 'short_text' && value.includes('\n')) errors.push(`${block.title} cannot contain line breaks.`);
-      if (block.minLength !== undefined && value.length < block.minLength) errors.push(`${block.title} is too short.`);
-      if (block.maxLength !== undefined && value.length > block.maxLength) errors.push(`${block.title} is too long.`);
     }
     if (block.type === 'number') {
       const n = typeof value === 'number' ? value : Number(value);

@@ -1,3 +1,5 @@
 # Multi-pass UCAT generation pipeline
 
 UCAT AI generation uses a bounded multi-pass pipeline instead of one model call that writes and self-checks. A planner creates diversity and target assignments, a writer generates candidates, deterministic validators check schema and format rules, a separate solver/critic checks answer validity and UCAT fit, and one rewrite attempt may repair salvageable candidates before final gating. This costs more than a single call but better matches the goal of producing tutor-review drafts that need minimal edits.
+
+When source examples include images, the writer may receive those images directly as calibration attachments if the selected provider/model accepts multimodal input. The planner, deterministic gates, and critic remain text/structured-data stages. This avoids adding a separate source-image analysis model call on every generation run while still letting the writer see visual-source layout conventions; if image input is rejected, generation falls back to the text-only writer path.

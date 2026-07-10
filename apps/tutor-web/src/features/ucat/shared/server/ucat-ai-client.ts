@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@altitutor/shared'
-import { callCodexOAuthJson } from './ucat-codex-oauth'
+import { callCodexOAuthJson, type CodexOAuthUserContentPart } from './ucat-codex-oauth'
 
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +23,10 @@ export type UcatAiJsonResult = {
   finishReason: string | null
   maxCompletionTokens: number | null
 }
+
+export type UcatAiUserContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; imageUrl: string; detail?: 'low' | 'high' | 'auto' }
 
 export class UcatAiJsonParseError extends Error {
   content: string
@@ -318,6 +322,7 @@ export async function callUcatAiJson(params: {
   modelProfileId?: string | null
   systemPrompt: string
   userPrompt: string
+  userContentParts?: UcatAiUserContentPart[]
   temperature?: number
   maxCompletionTokens?: number
   timeoutMs?: number
@@ -336,12 +341,18 @@ export async function callUcatAiJson(params: {
   let usage: UcatAiUsage = null
 
   if (config.provider.provider_kind === 'codex_oauth') {
+    const codexContentParts: CodexOAuthUserContentPart[] | undefined = params.userContentParts?.map((part) => (
+      part.type === 'text'
+        ? { type: 'input_text', text: part.text }
+        : { type: 'input_image', image_url: part.imageUrl, detail: part.detail }
+    ))
     const result = await callCodexOAuthJson({
       providerId: config.provider.id,
       baseUrl: config.provider.base_url,
       model: config.modelProfile.model,
       systemPrompt: params.systemPrompt,
       userPrompt: params.userPrompt,
+      userContentParts: codexContentParts,
       timeoutMs,
     })
     content = result.content
@@ -376,7 +387,16 @@ export async function callUcatAiJson(params: {
             : undefined,
           messages: [
             { role: 'system', content: params.systemPrompt },
-            { role: 'user', content: params.userPrompt },
+            {
+              role: 'user',
+              content: params.userContentParts
+                ? params.userContentParts.map((part) => (
+                    part.type === 'text'
+                      ? { type: 'text', text: part.text }
+                      : { type: 'image_url', image_url: { url: part.imageUrl, detail: part.detail } }
+                  ))
+                : params.userPrompt,
+            },
           ],
         }),
       })

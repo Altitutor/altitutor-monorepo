@@ -162,15 +162,66 @@ describe('generated content blocks', () => {
       }>
     }
 
-    expect(compiledSpec.padding?.right).toBeGreaterThanOrEqual(120)
+    expect(compiledSpec.padding?.right).toBeGreaterThanOrEqual(220)
     expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#111111')
+    expect(compiledSpec.layer?.[0]?.mark?.fill).toBe('#d9d9d9')
     expect(compiledSpec.layer?.[0]?.encoding?.color?.scale?.range).not.toContain('#111111')
     expect(compiledSpec.layer?.[1]?.mark?.strokeDash).toEqual([6, 4])
     expect(compiledSpec.layer?.[1]?.mark?.point).toEqual(expect.objectContaining({ fill: 'white' }))
-    expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titlePadding).toBeGreaterThanOrEqual(40)
+    expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titlePadding).toBeGreaterThanOrEqual(70)
     expect(compiledSpec.layer?.[1]?.encoding?.y?.axis?.titleLimit).toBe(1000)
     expect(Array.isArray(compiledSpec.layer?.[1]?.encoding?.y?.axis?.title)).toBe(true)
     expect(compiledSpec.width).toBeGreaterThanOrEqual(520)
+  })
+
+  it('adds readable text halos to Vega-Lite map labels', async () => {
+    const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
+    await generatedContentToProseMirrorServer([{
+      type: 'visual',
+      visualType: 'vega_lite_chart',
+      title: 'Reserve path map',
+      altText: 'Black and white path map.',
+      spec: {
+        data: {
+          values: [
+            { place: 'Gate', x: 0, y: 1 },
+            { place: 'Cafe', x: 2, y: 3 },
+            { place: 'Lake', x: 4, y: 2 },
+          ],
+        },
+        layer: [
+          {
+            mark: { type: 'line', stroke: '#555555' },
+            encoding: {
+              x: { field: 'x', type: 'quantitative', axis: null },
+              y: { field: 'y', type: 'quantitative', axis: null },
+            },
+          },
+          {
+            mark: { type: 'text' },
+            encoding: {
+              x: { field: 'x', type: 'quantitative', axis: null },
+              y: { field: 'y', type: 'quantitative', axis: null },
+              text: { field: 'place' },
+            },
+          },
+        ],
+      },
+    }])
+
+    const { compile } = jest.requireMock('vega-lite') as { compile: jest.Mock }
+    const compiledSpec = compile.mock.calls.at(-1)?.[0] as {
+      layer?: Array<{ mark?: Record<string, unknown> }>
+    }
+
+    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#111111')
+    expect(compiledSpec.layer?.[0]?.mark?.strokeWidth).toBe(3)
+    expect(compiledSpec.layer?.[0]?.mark?.strokeDash).toBeUndefined()
+    expect(compiledSpec.layer?.[1]?.mark).toEqual(expect.objectContaining({
+      fill: '#111111',
+      stroke: 'white',
+      strokeWidth: 1.25,
+    }))
   })
 
   it('rejects Vega-Lite chart specs without inline data', () => {

@@ -518,6 +518,22 @@ function validateQr(
   if (category === 'maps and diagrams' && !hasChart) {
     add(issues, categoryMismatchSeverity, 'qr_map_required', 'Maps and Diagrams questions should include a vega_lite_chart visual containing the map or diagram data.', stemIndex)
   }
+  if (category === 'maps and diagrams') {
+    const mapVisuals = visuals.filter((block) =>
+      block.type === 'visual' &&
+      block.visualType === 'vega_lite_chart'
+    )
+    const unlabeledMap = mapVisuals.some((block) => !vegaLiteHasTextEncoding(block.spec))
+    if (unlabeledMap) {
+      add(
+        issues,
+        'warning',
+        'qr_map_labels_missing',
+        'Map or diagram visuals should include readable text labels for places, distances, regions, or other examinable features.',
+        stemIndex
+      )
+    }
+  }
   if (category === 'mixed data sources' && (tables === 0 || visuals.length === 0)) {
     add(issues, categoryMismatchSeverity, 'qr_mixed_sources_required', 'Mixed Data Sources questions should include a table and a visual source.', stemIndex)
   }
@@ -565,6 +581,23 @@ function vegaLiteHasAxisOrLegendContext(value: unknown): boolean {
     )
   })
   return hasContext || Object.values(record).some(vegaLiteHasAxisOrLegendContext)
+}
+
+function vegaLiteHasTextEncoding(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(vegaLiteHasTextEncoding)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  const mark = typeof record.mark === 'string'
+    ? record.mark.toLowerCase()
+    : record.mark && typeof record.mark === 'object' && !Array.isArray(record.mark)
+      ? String((record.mark as Record<string, unknown>).type ?? '').toLowerCase()
+      : ''
+  const encoding = record.encoding && typeof record.encoding === 'object' && !Array.isArray(record.encoding)
+    ? record.encoding as Record<string, unknown>
+    : {}
+  const hasTextChannel = Boolean(encoding.text)
+  if (mark === 'text' && hasTextChannel) return true
+  return Object.values(record).some(vegaLiteHasTextEncoding)
 }
 
 function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {

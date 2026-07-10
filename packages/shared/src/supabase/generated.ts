@@ -12952,13 +12952,19 @@ export type Database = {
           min_practice_scored_points: number
           min_prediction_evidence_weight: number
           mock_source_weight: number
-          optimistic_ceiling_uplift: number
-          optimistic_learning_rate: number
-          pessimistic_ceiling_uplift: number
-          pessimistic_learning_rate: number
+          optimistic_base_gain: number
+          optimistic_effort_half_saturation: number
+          optimistic_low_score_boost: number
+          optimistic_room_fraction: number
+          pessimistic_base_gain: number
+          pessimistic_effort_half_saturation: number
+          pessimistic_low_score_boost: number
+          pessimistic_room_fraction: number
           practice_source_weight: number
-          realistic_ceiling_uplift: number
-          realistic_learning_rate: number
+          realistic_base_gain: number
+          realistic_effort_half_saturation: number
+          realistic_low_score_boost: number
+          realistic_room_fraction: number
           recency_half_life_days: number
           recent_activity_lookback_days: number
           section_id: string
@@ -12978,13 +12984,19 @@ export type Database = {
           min_practice_scored_points?: number
           min_prediction_evidence_weight?: number
           mock_source_weight?: number
-          optimistic_ceiling_uplift?: number
-          optimistic_learning_rate?: number
-          pessimistic_ceiling_uplift?: number
-          pessimistic_learning_rate?: number
+          optimistic_base_gain?: number
+          optimistic_effort_half_saturation?: number
+          optimistic_low_score_boost?: number
+          optimistic_room_fraction?: number
+          pessimistic_base_gain?: number
+          pessimistic_effort_half_saturation?: number
+          pessimistic_low_score_boost?: number
+          pessimistic_room_fraction?: number
           practice_source_weight?: number
-          realistic_ceiling_uplift?: number
-          realistic_learning_rate?: number
+          realistic_base_gain?: number
+          realistic_effort_half_saturation?: number
+          realistic_low_score_boost?: number
+          realistic_room_fraction?: number
           recency_half_life_days?: number
           recent_activity_lookback_days?: number
           section_id: string
@@ -13004,13 +13016,19 @@ export type Database = {
           min_practice_scored_points?: number
           min_prediction_evidence_weight?: number
           mock_source_weight?: number
-          optimistic_ceiling_uplift?: number
-          optimistic_learning_rate?: number
-          pessimistic_ceiling_uplift?: number
-          pessimistic_learning_rate?: number
+          optimistic_base_gain?: number
+          optimistic_effort_half_saturation?: number
+          optimistic_low_score_boost?: number
+          optimistic_room_fraction?: number
+          pessimistic_base_gain?: number
+          pessimistic_effort_half_saturation?: number
+          pessimistic_low_score_boost?: number
+          pessimistic_room_fraction?: number
           practice_source_weight?: number
-          realistic_ceiling_uplift?: number
-          realistic_learning_rate?: number
+          realistic_base_gain?: number
+          realistic_effort_half_saturation?: number
+          realistic_low_score_boost?: number
+          realistic_room_fraction?: number
           recency_half_life_days?: number
           recent_activity_lookback_days?: number
           section_id?: string
@@ -24522,4 +24540,3 @@ export const Constants = {
     },
   },
 } as const
-

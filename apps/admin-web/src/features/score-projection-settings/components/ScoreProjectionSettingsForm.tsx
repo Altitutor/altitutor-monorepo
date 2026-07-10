@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import { useEffect, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import {
   Button,
   Input,
@@ -10,13 +10,13 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@altitutor/ui';
-import { AdminDialogShell } from '@/shared/components';
+} from "@altitutor/ui";
+import { AdminDialogShell } from "@/shared/components";
 import type {
   ScoreProjectionSettingsUpdate,
   ScoreProjectionSettingsWithSection,
-} from '@/features/score-projection-settings/api/score-projection-settings';
-import { useUpdateScoreProjectionSettings } from '@/features/score-projection-settings/hooks/use-score-projection-settings';
+} from "@/features/score-projection-settings/api/score-projection-settings";
+import { useUpdateScoreProjectionSettings } from "@/features/score-projection-settings/hooks/use-score-projection-settings";
 
 type ScoreProjectionSettingsDialogProps = {
   initial: ScoreProjectionSettingsWithSection | null;
@@ -32,175 +32,244 @@ type FieldConfig = {
   description: string;
   step: string;
   min: number;
+  max?: number;
 };
 
 const FIELD_GROUPS: Array<{ title: string; fields: FieldConfig[] }> = [
   {
-    title: 'Current estimate',
+    title: "Current estimate",
     fields: [
       {
-        key: 'min_prediction_evidence_weight',
-        label: 'Minimum prediction evidence weight',
-        description: 'Minimum effective evidence required before a predicted section score is shown.',
-        step: '0.1',
+        key: "min_prediction_evidence_weight",
+        label: "Minimum prediction evidence weight",
+        description:
+          "Minimum effective evidence required before a predicted section score is shown.",
+        step: "0.1",
         min: 0.1,
       },
       {
-        key: 'recency_half_life_days',
-        label: 'Recency half-life days',
-        description: 'Number of days for an attempt to lose half of its recency weight.',
-        step: '1',
+        key: "recency_half_life_days",
+        label: "Recency half-life days",
+        description:
+          "Number of days for an attempt to lose half of its recency weight.",
+        step: "1",
         min: 1,
       },
       {
-        key: 'min_practice_scored_points',
-        label: 'Minimum practice scored points',
-        description: 'Practice sessions below this total point count are ignored as too small.',
-        step: '1',
-        min: 1,
-      },
-    ],
-  },
-  {
-    title: 'Evidence weights',
-    fields: [
-      {
-        key: 'mock_source_weight',
-        label: 'Mock source weight',
-        description: 'Multiplier applied to mock attempt evidence before recency and volume weighting.',
-        step: '0.05',
-        min: 0.01,
-      },
-      {
-        key: 'set_source_weight',
-        label: 'Set source weight',
-        description: 'Multiplier applied to standalone set attempt evidence.',
-        step: '0.05',
-        min: 0.01,
-      },
-      {
-        key: 'practice_source_weight',
-        label: 'Practice source weight',
-        description: 'Multiplier applied to practice-session evidence.',
-        step: '0.05',
-        min: 0.01,
-      },
-      {
-        key: 'timed_weight',
-        label: 'Timed weight',
-        description: 'Timing multiplier for timed attempts at or faster than exam pace.',
-        step: '0.05',
-        min: 0.01,
-      },
-      {
-        key: 'slow_timed_weight',
-        label: 'Slow timed weight',
-        description: 'Timing multiplier for timed attempts slower than exam pace.',
-        step: '0.05',
-        min: 0.01,
-      },
-      {
-        key: 'untimed_weight',
-        label: 'Untimed weight',
-        description: 'Timing multiplier for untimed attempts.',
-        step: '0.05',
-        min: 0.01,
-      },
-    ],
-  },
-  {
-    title: 'Practice pace',
-    fields: [
-      {
-        key: 'default_effective_questions_per_week',
-        label: 'Default effective questions/week',
-        description: 'Fallback weekly pace used when recent activity is too sparse.',
-        step: '1',
-        min: 1,
-      },
-      {
-        key: 'recent_activity_lookback_days',
-        label: 'Recent activity lookback days',
-        description: 'Window used to calculate recent effective practice pace.',
-        step: '1',
-        min: 1,
-      },
-      {
-        key: 'effective_practice_daily_cap',
-        label: 'Effective practice daily cap',
-        description: 'Soft daily cap used to model diminishing returns from high practice volume.',
-        step: '1',
+        key: "min_practice_scored_points",
+        label: "Minimum practice scored points",
+        description:
+          "Practice sessions below this total point count are ignored as too small.",
+        step: "1",
         min: 1,
       },
     ],
   },
   {
-    title: 'Trajectory',
+    title: "Evidence weights",
     fields: [
       {
-        key: 'trajectory_horizon_days',
-        label: 'Trajectory horizon days',
-        description: 'How far ahead the projection curve is generated.',
-        step: '1',
+        key: "mock_source_weight",
+        label: "Mock source weight",
+        description:
+          "Multiplier applied to mock attempt evidence before recency and volume weighting.",
+        step: "0.05",
+        min: 0.01,
+      },
+      {
+        key: "set_source_weight",
+        label: "Set source weight",
+        description: "Multiplier applied to standalone set attempt evidence.",
+        step: "0.05",
+        min: 0.01,
+      },
+      {
+        key: "practice_source_weight",
+        label: "Practice source weight",
+        description: "Multiplier applied to practice-session evidence.",
+        step: "0.05",
+        min: 0.01,
+      },
+      {
+        key: "timed_weight",
+        label: "Timed weight",
+        description:
+          "Timing multiplier for timed attempts at or faster than exam pace.",
+        step: "0.05",
+        min: 0.01,
+      },
+      {
+        key: "slow_timed_weight",
+        label: "Slow timed weight",
+        description:
+          "Timing multiplier for timed attempts slower than exam pace.",
+        step: "0.05",
+        min: 0.01,
+      },
+      {
+        key: "untimed_weight",
+        label: "Untimed weight",
+        description: "Timing multiplier for untimed attempts.",
+        step: "0.05",
+        min: 0.01,
+      },
+    ],
+  },
+  {
+    title: "Practice pace",
+    fields: [
+      {
+        key: "default_effective_questions_per_week",
+        label: "Default effective questions/week",
+        description:
+          "Fallback weekly pace used when recent activity is too sparse.",
+        step: "1",
         min: 1,
       },
       {
-        key: 'trajectory_step_days',
-        label: 'Trajectory step days',
-        description: 'Spacing between generated points on the projection curve.',
-        step: '1',
+        key: "recent_activity_lookback_days",
+        label: "Recent activity lookback days",
+        description: "Window used to calculate recent effective practice pace.",
+        step: "1",
         min: 1,
       },
       {
-        key: 'pessimistic_learning_rate',
-        label: 'Pessimistic learning rate',
-        description: 'Improvement rate for the lower projection curve.',
-        step: '0.0001',
-        min: 0.0001,
+        key: "effective_practice_daily_cap",
+        label: "Effective practice daily cap",
+        description:
+          "Soft daily cap used to model diminishing returns from high practice volume.",
+        step: "1",
+        min: 1,
       },
+    ],
+  },
+  {
+    title: "Trajectory",
+    fields: [
       {
-        key: 'realistic_learning_rate',
-        label: 'Realistic learning rate',
-        description: 'Improvement rate for the central projection curve.',
-        step: '0.0001',
-        min: 0.0001,
-      },
-      {
-        key: 'optimistic_learning_rate',
-        label: 'Optimistic learning rate',
-        description: 'Improvement rate for the upper projection curve.',
-        step: '0.0001',
-        min: 0.0001,
-      },
-      {
-        key: 'pessimistic_ceiling_uplift',
-        label: 'Pessimistic ceiling uplift',
-        description: 'Maximum score gain allowed by the lower projection curve.',
-        step: '1',
+        key: "trajectory_horizon_days",
+        label: "Trajectory horizon days",
+        description: "How far ahead the projection curve is generated.",
+        step: "1",
         min: 1,
       },
       {
-        key: 'realistic_ceiling_uplift',
-        label: 'Realistic ceiling uplift',
-        description: 'Maximum score gain allowed by the central projection curve.',
-        step: '1',
+        key: "trajectory_step_days",
+        label: "Trajectory step days",
+        description:
+          "Spacing between generated points on the projection curve.",
+        step: "1",
         min: 1,
       },
       {
-        key: 'optimistic_ceiling_uplift',
-        label: 'Optimistic ceiling uplift',
-        description: 'Maximum score gain allowed by the upper projection curve.',
-        step: '1',
+        key: "pessimistic_base_gain",
+        label: "Pessimistic base gain",
+        description:
+          "Minimum possible score gain available to the lower curve before adding room-based upside.",
+        step: "1",
+        min: 0,
+      },
+      {
+        key: "realistic_base_gain",
+        label: "Realistic base gain",
+        description:
+          "Minimum possible score gain available to the central curve before adding room-based upside.",
+        step: "1",
+        min: 0,
+      },
+      {
+        key: "optimistic_base_gain",
+        label: "Optimistic base gain",
+        description:
+          "Minimum possible score gain available to the upper curve before adding room-based upside.",
+        step: "1",
+        min: 0,
+      },
+      {
+        key: "pessimistic_room_fraction",
+        label: "Pessimistic room fraction",
+        description:
+          "Share of remaining room to 900 that can become reachable under the lower curve.",
+        step: "0.01",
+        min: 0,
+        max: 1,
+      },
+      {
+        key: "realistic_room_fraction",
+        label: "Realistic room fraction",
+        description:
+          "Share of remaining room to 900 that can become reachable under the central curve.",
+        step: "0.01",
+        min: 0,
+        max: 1,
+      },
+      {
+        key: "optimistic_room_fraction",
+        label: "Optimistic room fraction",
+        description:
+          "Share of remaining room to 900 that can become reachable under the upper curve.",
+        step: "0.01",
+        min: 0,
+        max: 1,
+      },
+      {
+        key: "pessimistic_low_score_boost",
+        label: "Pessimistic low-score boost",
+        description:
+          "Extra room-based upside for lower starting scores on the lower curve.",
+        step: "0.01",
+        min: 0,
+      },
+      {
+        key: "realistic_low_score_boost",
+        label: "Realistic low-score boost",
+        description:
+          "Extra room-based upside for lower starting scores on the central curve.",
+        step: "0.01",
+        min: 0,
+      },
+      {
+        key: "optimistic_low_score_boost",
+        label: "Optimistic low-score boost",
+        description:
+          "Extra room-based upside for lower starting scores on the upper curve.",
+        step: "0.01",
+        min: 0,
+      },
+      {
+        key: "pessimistic_effort_half_saturation",
+        label: "Pessimistic effort half-saturation",
+        description:
+          "Effective practice units needed to realise half of the lower curve gain.",
+        step: "1",
+        min: 1,
+      },
+      {
+        key: "realistic_effort_half_saturation",
+        label: "Realistic effort half-saturation",
+        description:
+          "Effective practice units needed to realise half of the central curve gain.",
+        step: "1",
+        min: 1,
+      },
+      {
+        key: "optimistic_effort_half_saturation",
+        label: "Optimistic effort half-saturation",
+        description:
+          "Effective practice units needed to realise half of the upper curve gain.",
+        step: "1",
         min: 1,
       },
     ],
   },
 ];
 
-function initialValues(row: ScoreProjectionSettingsWithSection): Record<FieldKey, string> {
+function initialValues(
+  row: ScoreProjectionSettingsWithSection,
+): Record<FieldKey, string> {
   const entries = FIELD_GROUPS.flatMap((group) => group.fields).map((field) => [
     field.key,
-    String(row[field.key] ?? ''),
+    String(row[field.key] ?? ""),
   ]);
   return Object.fromEntries(entries) as Record<FieldKey, string>;
 }
@@ -221,7 +290,10 @@ export function ScoreProjectionSettingsDialog({
     setError(null);
   }, [initial]);
 
-  const fields = useMemo(() => FIELD_GROUPS.flatMap((group) => group.fields), []);
+  const fields = useMemo(
+    () => FIELD_GROUPS.flatMap((group) => group.fields),
+    [],
+  );
 
   const handleSave = async () => {
     if (!initial) return;
@@ -233,13 +305,17 @@ export function ScoreProjectionSettingsDialog({
         setError(`${field.label} must be at least ${field.min}.`);
         return;
       }
+      if (field.max != null && parsed > field.max) {
+        setError(`${field.label} must be no more than ${field.max}.`);
+        return;
+      }
       (updates as Record<string, number>)[field.key] = parsed;
     }
     try {
       await updateMutation.mutateAsync({ id: initial.id, updates });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save');
+      setError(e instanceof Error ? e.message : "Failed to save");
     }
   };
 
@@ -247,7 +323,7 @@ export function ScoreProjectionSettingsDialog({
     <AdminDialogShell
       open={open}
       onClose={onClose}
-      title={initial?.sectionName ?? 'Edit score projection settings'}
+      title={initial?.sectionName ?? "Edit score projection settings"}
       subtitle={
         initial
           ? `Section ${initial.sectionNumber} projection assumptions`
@@ -269,7 +345,7 @@ export function ScoreProjectionSettingsDialog({
             onClick={handleSave}
             disabled={!initial || updateMutation.isPending}
           >
-            {updateMutation.isPending ? 'Saving...' : 'Save settings'}
+            {updateMutation.isPending ? "Saving..." : "Save settings"}
           </Button>
         </>
       }
@@ -307,6 +383,7 @@ export function ScoreProjectionSettingsDialog({
                         type="number"
                         step={field.step}
                         min={field.min}
+                        max={field.max}
                         value={values[field.key]}
                         onChange={(event) =>
                           setValues((current) => ({
@@ -333,7 +410,7 @@ function emptyValues(): Record<FieldKey, string> {
   return Object.fromEntries(
     FIELD_GROUPS.flatMap((group) => group.fields).map((field) => [
       field.key,
-      '',
+      "",
     ]),
   ) as Record<FieldKey, string>;
 }

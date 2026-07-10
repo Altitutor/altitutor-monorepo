@@ -23,12 +23,18 @@ export type ScoreProjectionSettings = {
   effectivePracticeDailyCap: number;
   trajectoryHorizonDays: number;
   trajectoryStepDays: number;
-  pessimisticLearningRate: number;
-  realisticLearningRate: number;
-  optimisticLearningRate: number;
-  pessimisticCeilingUplift: number;
-  realisticCeilingUplift: number;
-  optimisticCeilingUplift: number;
+  pessimisticBaseGain: number;
+  realisticBaseGain: number;
+  optimisticBaseGain: number;
+  pessimisticRoomFraction: number;
+  realisticRoomFraction: number;
+  optimisticRoomFraction: number;
+  pessimisticLowScoreBoost: number;
+  realisticLowScoreBoost: number;
+  optimisticLowScoreBoost: number;
+  pessimisticEffortHalfSaturation: number;
+  realisticEffortHalfSaturation: number;
+  optimisticEffortHalfSaturation: number;
 };
 
 export type EvidenceSource = "mock" | "set" | "practice";
@@ -69,25 +75,44 @@ function daysAgo(timestamp: number, now: number): number {
   return Math.max(0, (now - timestamp) / (24 * 60 * 60 * 1000));
 }
 
-function sourceWeight(source: EvidenceSource, settings: ScoreProjectionSettings): number {
+function sourceWeight(
+  source: EvidenceSource,
+  settings: ScoreProjectionSettings,
+): number {
   if (source === "mock") return settings.mockSourceWeight;
   if (source === "set") return settings.setSourceWeight;
   return settings.practiceSourceWeight;
 }
 
-function timingWeight(evidence: AttemptEvidence, settings: ScoreProjectionSettings): number {
+function timingWeight(
+  evidence: AttemptEvidence,
+  settings: ScoreProjectionSettings,
+): number {
   if (!evidence.wasTimed) return settings.untimedWeight;
   const ratio = evidence.examSpeedRatio;
   if (ratio == null || !Number.isFinite(ratio)) return settings.timedWeight;
   if (ratio >= 1) return settings.timedWeight;
-  return settings.slowTimedWeight + (settings.timedWeight - settings.slowTimedWeight) * clamp(ratio, 0, 1);
+  return (
+    settings.slowTimedWeight +
+    (settings.timedWeight - settings.slowTimedWeight) * clamp(ratio, 0, 1)
+  );
 }
 
-function recencyWeight(evidence: AttemptEvidence, settings: ScoreProjectionSettings, now: number): number {
-  return Math.pow(0.5, daysAgo(evidence.timestamp, now) / settings.recencyHalfLifeDays);
+function recencyWeight(
+  evidence: AttemptEvidence,
+  settings: ScoreProjectionSettings,
+  now: number,
+): number {
+  return Math.pow(
+    0.5,
+    daysAgo(evidence.timestamp, now) / settings.recencyHalfLifeDays,
+  );
 }
 
-function volumeWeight(evidence: AttemptEvidence, _settings: ScoreProjectionSettings): number {
+function volumeWeight(
+  evidence: AttemptEvidence,
+  _settings: ScoreProjectionSettings,
+): number {
   const referencePoints = evidence.source === "practice" ? 40 : 44;
   return clamp(evidence.totalPoints / referencePoints, 0.1, 1);
 }
@@ -190,18 +215,26 @@ function effectivePracticeOverDays(
 function projectScore(params: {
   currentEstimate: number;
   effectivePractice: number;
-  learningRate: number;
-  ceilingUplift: number;
+  baseGain: number;
+  roomFraction: number;
+  lowScoreBoost: number;
+  effortHalfSaturation: number;
 }): number {
-  const ceiling = clamp(
-    params.currentEstimate + params.ceilingUplift,
-    params.currentEstimate,
-    SCORE_MAX,
+  const remainingRoom = SCORE_MAX - params.currentEstimate;
+  const lowScoreRoomBoost =
+    1 +
+    params.lowScoreBoost * clamp((700 - params.currentEstimate) / 400, 0, 1);
+  const maxGain = clamp(
+    params.baseGain + params.roomFraction * remainingRoom * lowScoreRoomBoost,
+    0,
+    remainingRoom,
   );
-  const projected =
-    ceiling -
-    (ceiling - params.currentEstimate) *
-      Math.exp(-params.learningRate * params.effectivePractice);
+  const effortFactor =
+    1 -
+    Math.exp(
+      -(Math.log(2) * params.effectivePractice) / params.effortHalfSaturation,
+    );
+  const projected = params.currentEstimate + maxGain * effortFactor;
   return roundScore(projected);
 }
 
@@ -235,20 +268,26 @@ export function generateTrajectory(params: {
       pessimistic: projectScore({
         currentEstimate,
         effectivePractice,
-        learningRate: settings.pessimisticLearningRate,
-        ceilingUplift: settings.pessimisticCeilingUplift,
+        baseGain: settings.pessimisticBaseGain,
+        roomFraction: settings.pessimisticRoomFraction,
+        lowScoreBoost: settings.pessimisticLowScoreBoost,
+        effortHalfSaturation: settings.pessimisticEffortHalfSaturation,
       }),
       realistic: projectScore({
         currentEstimate,
         effectivePractice,
-        learningRate: settings.realisticLearningRate,
-        ceilingUplift: settings.realisticCeilingUplift,
+        baseGain: settings.realisticBaseGain,
+        roomFraction: settings.realisticRoomFraction,
+        lowScoreBoost: settings.realisticLowScoreBoost,
+        effortHalfSaturation: settings.realisticEffortHalfSaturation,
       }),
       optimistic: projectScore({
         currentEstimate,
         effectivePractice,
-        learningRate: settings.optimisticLearningRate,
-        ceilingUplift: settings.optimisticCeilingUplift,
+        baseGain: settings.optimisticBaseGain,
+        roomFraction: settings.optimisticRoomFraction,
+        lowScoreBoost: settings.optimisticLowScoreBoost,
+        effortHalfSaturation: settings.optimisticEffortHalfSaturation,
       }),
     };
   };
@@ -285,11 +324,17 @@ export function defaultSettings(): ScoreProjectionSettings {
     effectivePracticeDailyCap: 60,
     trajectoryHorizonDays: 120,
     trajectoryStepDays: 7,
-    pessimisticLearningRate: 0.0035,
-    realisticLearningRate: 0.006,
-    optimisticLearningRate: 0.009,
-    pessimisticCeilingUplift: 80,
-    realisticCeilingUplift: 130,
-    optimisticCeilingUplift: 180,
+    pessimisticBaseGain: 10,
+    realisticBaseGain: 25,
+    optimisticBaseGain: 40,
+    pessimisticRoomFraction: 0.35,
+    realisticRoomFraction: 0.55,
+    optimisticRoomFraction: 0.75,
+    pessimisticLowScoreBoost: 0.15,
+    realisticLowScoreBoost: 0.25,
+    optimisticLowScoreBoost: 0.35,
+    pessimisticEffortHalfSaturation: 850,
+    realisticEffortHalfSaturation: 650,
+    optimisticEffortHalfSaturation: 550,
   };
 }

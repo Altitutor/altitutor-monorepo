@@ -10,7 +10,10 @@ import {
   UcatAiEmptyResponseError,
   UcatAiJsonParseError,
   type UcatAiResolvedConfig,
+  type UcatAiUserContentPart,
 } from '@/features/ucat/shared/server/ucat-ai-client'
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
+import { extractUcatImagePathFromSignedUrl, REFRESHED_URL_EXPIRY_SECONDS } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 import {
   buildWriterPrompt,
   type AiGenerationBrief,
@@ -69,6 +72,8 @@ const GENERATION_TIMEOUT_MS = {
 } as const
 
 const RANDOM_SOURCE_STEM_LIMIT = 300
+const MAX_SOURCE_IMAGES_FOR_WRITER = 8
+const SOURCE_IMAGE_DETAIL: Extract<UcatAiUserContentPart, { type: 'image' }>['detail'] = 'high'
 
 type SourceStem = {
   id: string
@@ -89,6 +94,20 @@ type SourceStem = {
   }> | null
 }
 
+type SourceImageRef = {
+  sourceStemId: string
+  field: string
+  imageIndex: number
+  fileId: string | null
+  storagePath: string | null
+  src: string | null
+  alt: string | null
+}
+
+type SourceWriterImage = SourceImageRef & {
+  signedUrl: string
+}
+
 type StemCategoryChoice = {
   id: string
   name: string
@@ -105,6 +124,9 @@ type GenerationDebugCall = {
   request: {
     systemPrompt: string
     userPrompt: string
+    userContentPartCount?: number
+    sourceImageCount?: number
+    sourceImagesForWriter?: Array<Record<string, unknown>>
     maxCompletionTokens: number
     timeoutMs: number
     providerSort: 'throughput'
@@ -114,6 +136,7 @@ type GenerationDebugCall = {
     finishReason: string | null
     usage: unknown
     contentLength: number
+    sourceImageFallback?: 'model_rejected_image_input'
   }
   parsedSummary?: {
     stemCount: number
@@ -128,6 +151,8 @@ type GenerationDebugInfo = {
   sectionName: string | null
   selectedCategoryName: string | null
   sourceSampleIds: string[]
+  sourceImageCount: number
+  sourceImagesForWriter: Array<Record<string, unknown>>
   promptLayerCount: number
   calls: GenerationDebugCall[]
   gateIssues: GenerationGateIssue[]
@@ -220,6 +245,165 @@ function compactStemForPrompt(stem: SourceStem): Record<string, unknown> {
       })),
     })),
   }
+}
+
+function collectImageRefsFromJson(value: Json | null | undefined, params: {
+  sourceStemId: string
+  field: string
+  imageIndex: { value: number }
+}): SourceImageRef[] {
+  const refs: SourceImageRef[] = []
+
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const child of node) visit(child)
+      return
+    }
+
+    const record = node as Record<string, unknown>
+    if (record.type === 'image' && record.attrs && typeof record.attrs === 'object' && !Array.isArray(record.attrs)) {
+      const attrs = record.attrs as Record<string, unknown>
+      const src = typeof attrs.src === 'string' && attrs.src.trim() ? attrs.src.trim() : null
+      const fileId = typeof attrs.fileId === 'string' && attrs.fileId.trim() ? attrs.fileId.trim() : null
+      const alt = typeof attrs.alt === 'string' && attrs.alt.trim() ? attrs.alt.trim() : null
+      const storagePath = src ? extractUcatImagePathFromSignedUrl(src) : null
+      if (src || fileId || storagePath) {
+        params.imageIndex.value += 1
+        refs.push({
+          sourceStemId: params.sourceStemId,
+          field: params.field,
+          imageIndex: params.imageIndex.value,
+          fileId,
+          storagePath,
+          src,
+          alt,
+        })
+      }
+    }
+
+    const content = record.content
+    if (Array.isArray(content)) {
+      for (const child of content) visit(child)
+    }
+  }
+
+  visit(value)
+  return refs
+}
+
+function collectSourceImageRefs(stems: SourceStem[], limit = MAX_SOURCE_IMAGES_FOR_WRITER): SourceImageRef[] {
+  const refs: SourceImageRef[] = []
+  for (const stem of stems) {
+    const imageIndex = { value: 0 }
+    refs.push(...collectImageRefsFromJson(stem.stem_text, {
+      sourceStemId: stem.id,
+      field: 'stemText',
+      imageIndex,
+    }))
+    for (const [questionIndex, question] of (stem.questions ?? []).entries()) {
+      refs.push(...collectImageRefsFromJson((question.question_text ?? null) as Json | null, {
+        sourceStemId: stem.id,
+        field: `questions.${questionIndex}.questionText`,
+        imageIndex,
+      }))
+      for (const [optionIndex, option] of (question.answer_options ?? []).entries()) {
+        refs.push(...collectImageRefsFromJson((option.answer_text ?? null) as Json | null, {
+          sourceStemId: stem.id,
+          field: `questions.${questionIndex}.options.${optionIndex}.answerText`,
+          imageIndex,
+        }))
+      }
+    }
+    if (refs.length >= limit) break
+  }
+  return refs.slice(0, limit)
+}
+
+async function resolveSourceWriterImages(refs: SourceImageRef[]): Promise<SourceWriterImage[]> {
+  if (refs.length === 0) return []
+
+  const pathsByFileId = new Map<string, string>()
+  const missingFileIds = [...new Set(refs
+    .filter((ref) => !ref.storagePath && ref.fileId)
+    .map((ref) => ref.fileId!)
+  )]
+
+  if (missingFileIds.length > 0 && supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from('files')
+      .select('id,bucket,storage_path')
+      .in('id', missingFileIds)
+    for (const file of data ?? []) {
+      if (file.bucket === 'ucat-images' && typeof file.storage_path === 'string') {
+        pathsByFileId.set(file.id, file.storage_path)
+      }
+    }
+  }
+
+  const resolved: SourceWriterImage[] = []
+  for (const ref of refs) {
+    const path = ref.storagePath ?? (ref.fileId ? pathsByFileId.get(ref.fileId) ?? null : null)
+    let signedUrl: string | null = null
+
+    if (path && supabaseAdmin) {
+      const { data } = await supabaseAdmin.storage
+        .from('ucat-images')
+        .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS)
+      signedUrl = data?.signedUrl ?? null
+    } else if (ref.src && /^https?:\/\//iu.test(ref.src)) {
+      signedUrl = ref.src
+    }
+
+    if (signedUrl) {
+      resolved.push({ ...ref, storagePath: path ?? ref.storagePath, signedUrl })
+    }
+  }
+
+  return resolved
+}
+
+function sourceImagePromptSummary(images: SourceWriterImage[]): Array<Record<string, unknown>> {
+  return images.map((image) => ({
+    sourceStemId: image.sourceStemId,
+    imageIndex: image.imageIndex,
+    field: image.field,
+    alt: image.alt,
+    fileId: image.fileId,
+    storagePath: image.storagePath,
+  }))
+}
+
+function buildWriterUserContentParts(params: {
+  userPrompt: string
+  images: SourceWriterImage[]
+}): UcatAiUserContentPart[] | undefined {
+  if (params.images.length === 0) return undefined
+  const parts: UcatAiUserContentPart[] = [
+    { type: 'text', text: params.userPrompt },
+    {
+      type: 'text',
+      text: [
+        'Attached source-example images follow.',
+        'Use them only to calibrate UCAT visual-source style, density, and layout conventions.',
+        'Do not copy exact values, labels, premises, image composition, or answer logic from the source examples.',
+      ].join(' '),
+    },
+  ]
+
+  for (const image of params.images) {
+    parts.push({
+      type: 'text',
+      text: `Source example ${image.sourceStemId}, image ${image.imageIndex}, field ${image.field}${image.alt ? `, alt: ${image.alt}` : ''}.`,
+    })
+    parts.push({
+      type: 'image',
+      imageUrl: image.signedUrl,
+      detail: SOURCE_IMAGE_DETAIL,
+    })
+  }
+
+  return parts
 }
 
 function normalizeVrParagraphs(stem: GeneratedStem, sectionName: string): GeneratedStem {
@@ -347,12 +531,17 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
         ),
       ].slice(0, maxExamples)
     : categoryBalancedExamples(examplePool, index, maxExamples)
+  const exampleIds = new Set(examples.map((example) => typeof example.id === 'string' ? example.id : null).filter(Boolean))
   return {
     ...brief,
     categoryName: brief.categoryName,
     availableCategories: brief.categoryName ? [] : brief.availableCategories,
     stemCount: 1,
     examples,
+    sourceImagesForCalibration: (brief.sourceImagesForCalibration ?? []).filter((image) => {
+      const sourceStemId = image.sourceStemId
+      return typeof sourceStemId === 'string' && exampleIds.has(sourceStemId)
+    }),
     promptLayers: brief.promptLayers.filter((layer) => {
       if (brief.categoryName && layer.scopeType === 'stem_category') return layer.name === brief.categoryName
       if (!brief.categoryName && layer.scopeType === 'stem_category') return layer.name === planCategoryName
@@ -405,6 +594,19 @@ function issueMessages(issues: GenerationGateIssue[]): string[] {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown generation error'
+}
+
+function isImageInputUnsupportedError(error: unknown): boolean {
+  const message = errorMessage(error).toLowerCase()
+  return (
+    message.includes('input_image') ||
+    message.includes('image_url') ||
+    message.includes('image input') ||
+    message.includes('image inputs') ||
+    message.includes('does not support image') ||
+    message.includes('unsupported image') ||
+    message.includes('multimodal')
+  )
 }
 
 type ImageGenerationMode = z.infer<typeof GenerateBodySchema>['imageGenerationMode']
@@ -998,6 +1200,8 @@ async function executeGeneration(
       tags: targetTags,
     })
     const examples = sourceSamples.map(compactStemForPrompt)
+    const sourceImages = await resolveSourceWriterImages(collectSourceImageRefs(sourceSamples))
+    const sourceImageSummary = sourceImagePromptSummary(sourceImages)
     const brief: AiGenerationBrief = {
       sectionName: sectionRow.name ?? 'UCAT',
       categoryName,
@@ -1008,6 +1212,7 @@ async function executeGeneration(
       targetTags,
       runInstructions: body.runInstructions ?? null,
       examples,
+      sourceImagesForCalibration: sourceImageSummary,
       promptLayers,
     }
     debug = {
@@ -1016,6 +1221,8 @@ async function executeGeneration(
       sectionName: sectionRow.name ?? null,
       selectedCategoryName: categoryName,
       sourceSampleIds: sourceSamples.map((sample) => sample.id),
+      sourceImageCount: sourceImages.length,
+      sourceImagesForWriter: sourceImageSummary,
       promptLayerCount: promptLayers.length,
       calls: [],
       gateIssues: [],
@@ -1039,6 +1246,12 @@ async function executeGeneration(
         const singleBrief = briefForSingleStem(brief, stemIndex, plan)
         const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
         const userPrompt = buildWriterPrompt({ ...singleBrief, plan })
+        const singleExampleIds = new Set(singleBrief.examples
+          .map((example) => typeof example.id === 'string' ? example.id : null)
+          .filter((id): id is string => !!id)
+        )
+        const writerSourceImages = sourceImages.filter((image) => singleExampleIds.has(image.sourceStemId))
+        const writerContentParts = buildWriterUserContentParts({ userPrompt, images: writerSourceImages })
         const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
           ? 10_000
           : GENERATION_TOKEN_LIMITS.writer
@@ -1054,6 +1267,9 @@ async function executeGeneration(
           request: {
             systemPrompt,
             userPrompt,
+            userContentPartCount: writerContentParts?.length ?? 1,
+            sourceImageCount: writerSourceImages.length,
+            sourceImagesForWriter: sourceImagePromptSummary(writerSourceImages),
             maxCompletionTokens,
             timeoutMs: GENERATION_TIMEOUT_MS.writer,
             providerSort: 'throughput' as const,
@@ -1061,19 +1277,47 @@ async function executeGeneration(
         }
 
         let writer
+        let retriedWithoutImages = false
         try {
-          writer = await callUcatAiJson({
-            client,
-            operation: 'generation_write',
-            modelProfileId: body.modelProfileId,
-            systemPrompt,
-            userPrompt,
-            temperature: Number(config.modelProfile.temperature),
-            maxCompletionTokens,
-            timeoutMs: GENERATION_TIMEOUT_MS.writer,
-            providerSort: 'throughput',
-            metadata: { section: singleBrief.sectionName, category: singleBrief.categoryName ?? planCategoryName } as Json,
-          })
+          try {
+            writer = await callUcatAiJson({
+              client,
+              operation: 'generation_write',
+              modelProfileId: body.modelProfileId,
+              systemPrompt,
+              userPrompt,
+              userContentParts: writerContentParts,
+              temperature: Number(config.modelProfile.temperature),
+              maxCompletionTokens,
+              timeoutMs: GENERATION_TIMEOUT_MS.writer,
+              providerSort: 'throughput',
+              metadata: {
+                section: singleBrief.sectionName,
+                category: singleBrief.categoryName ?? planCategoryName,
+                sourceImageCount: writerSourceImages.length,
+              } as Json,
+            })
+          } catch (error) {
+            if (!writerContentParts || !isImageInputUnsupportedError(error)) throw error
+            retriedWithoutImages = true
+            writer = await callUcatAiJson({
+              client,
+              operation: 'generation_write',
+              modelProfileId: body.modelProfileId,
+              systemPrompt,
+              userPrompt,
+              temperature: Number(config.modelProfile.temperature),
+              maxCompletionTokens,
+              timeoutMs: GENERATION_TIMEOUT_MS.writer,
+              providerSort: 'throughput',
+              metadata: {
+                section: singleBrief.sectionName,
+                category: singleBrief.categoryName ?? planCategoryName,
+                sourceImageCount: writerSourceImages.length,
+                sourceImageFallback: 'model_rejected_image_input',
+              } as Json,
+            })
+          }
         } catch (error) {
           activeDebug.calls.push({
             ...baseDebug,
@@ -1115,6 +1359,7 @@ async function executeGeneration(
             finishReason: writer.finishReason,
             usage: writer.usage,
             contentLength: writer.content.length,
+            ...(retriedWithoutImages ? { sourceImageFallback: 'model_rejected_image_input' } : {}),
           },
           parsedSummary: parsedWriter.success
             ? {
@@ -1246,6 +1491,10 @@ async function executeGeneration(
           generatedByName: actor.name,
           generatedByEmail: actor.email,
           imageGenerationMode: body.imageGenerationMode,
+          sourceImageCalibration: {
+            count: sourceImageSummary.length,
+            images: sourceImageSummary,
+          },
           generatedImages: item.imageResolution.generatedImages.map((image) => ({
             fileId: image.fileId,
             storagePath: image.storagePath,

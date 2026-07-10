@@ -27,13 +27,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ report: null });
   }
 
-  const [{ data: version }, { data: answers }, { count }] = await Promise.all([
+  const [{ data: version }, { data: responses }, { count }] = await Promise.all([
     admin.from('form_versions').select('*').eq('id', selectedVersionId).single(),
     admin
-      .from('form_response_answers')
-      .select('*')
+      .from('form_responses')
+      .select(`
+        id,
+        respondent_type,
+        subject_type,
+        submitted_at,
+        respondent_student:students!form_responses_respondent_student_id_fkey ( id, first_name, last_name ),
+        respondent_staff:staff!form_responses_respondent_staff_id_fkey ( id, first_name, last_name ),
+        respondent_parent:parents!form_responses_respondent_parent_id_fkey ( id, first_name, last_name ),
+        subject_student:students!form_responses_subject_student_id_fkey ( id, first_name, last_name ),
+        subject_staff:staff!form_responses_subject_staff_id_fkey ( id, first_name, last_name ),
+        subject_parent:parents!form_responses_subject_parent_id_fkey ( id, first_name, last_name ),
+        form_response_answers ( id, question_id, question_label_snapshot, question_type, choice_value, choice_label_snapshot, choice_values, text_value, number_value, created_at )
+      `)
       .eq('form_version_id', selectedVersionId)
-      .order('created_at', { ascending: false }),
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: false }),
     admin
       .from('form_responses')
       .select('id', { count: 'exact', head: true })
@@ -46,7 +59,13 @@ export async function GET(request: Request) {
       form,
       version,
       responseCount: count ?? 0,
-      answers: answers ?? [],
+      responses: responses ?? [],
+      answers: (responses ?? []).flatMap((response: any) =>
+        (response.form_response_answers ?? []).map((answer: any) => ({
+          ...answer,
+          response,
+        }))
+      ),
     },
   });
 }

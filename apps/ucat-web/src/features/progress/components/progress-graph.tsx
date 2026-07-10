@@ -51,6 +51,8 @@ export type ProgressGraphProps = {
   isMockContext?: boolean;
   /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
   yAxisMax?: number;
+  yAxisDomain?: [number, number];
+  yAxisLabel?: string;
   projection?: {
     pessimistic: { date: string; value: number }[];
     realistic: { date: string; value: number }[];
@@ -86,6 +88,8 @@ export function ProgressGraph({
   className,
   isMockContext = false,
   yAxisMax,
+  yAxisDomain,
+  yAxisLabel,
   projection,
 }: ProgressGraphProps) {
   type GraphLinePoint = {
@@ -98,8 +102,9 @@ export function ProgressGraph({
   };
 
   const hasAggregatedLabels = data.some((d) => d.label);
-  const label = dataTypeLabels[dataType];
-  const domain = getYAxisDomain(dataType, isMockContext, yAxisMax);
+  const label = yAxisLabel ?? dataTypeLabels[dataType];
+  const domain =
+    yAxisDomain ?? getYAxisDomain(dataType, isMockContext, yAxisMax);
   const showProjection =
     type === "line" &&
     dataType === "scaled_score" &&
@@ -136,7 +141,9 @@ export function ProgressGraph({
           current.projectionOptimistic = point.value;
           byDate.set(point.date, current);
         }
-        return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+        return [...byDate.values()].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        );
       })()
     : data.map((point) => ({ ...point }));
 

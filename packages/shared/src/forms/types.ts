@@ -67,8 +67,6 @@ export interface FormChoiceQuestion extends FormBaseQuestion {
 
 export interface FormTextQuestion extends FormBaseQuestion {
   type: 'short_text' | 'long_text';
-  minLength?: number;
-  maxLength?: number;
 }
 
 export interface FormNumberQuestion extends FormBaseQuestion {

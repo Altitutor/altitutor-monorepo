@@ -265,8 +265,8 @@ export function SectionProgressPage({
 
   const score =
     progressMode.mode === 'weighted'
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore
+      ? (section.weightedAverageScaledScore ?? null)
+      : (section.averageScaledScore ?? null)
   const percentage =
     progressMode.mode === 'weighted' &&
     section.weightedAveragePercentage != null

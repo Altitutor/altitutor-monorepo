@@ -27,7 +27,11 @@ describe("score projection model", () => {
   it("weights mock evidence above set and practice evidence", () => {
     const settings = defaultSettings();
     const mock = weightEvidence(baseEvidence, settings, NOW);
-    const set = weightEvidence({ ...baseEvidence, source: "set" }, settings, NOW);
+    const set = weightEvidence(
+      { ...baseEvidence, source: "set" },
+      settings,
+      NOW,
+    );
     const practice = weightEvidence(
       { ...baseEvidence, source: "practice" },
       settings,
@@ -86,10 +90,7 @@ describe("score projection model", () => {
   it("uses recent activity pace when enough effective practice exists", () => {
     const settings = defaultSettings();
     const estimate = estimateSectionScore(
-      [
-        baseEvidence,
-        { ...baseEvidence, source: "set", timestamp: daysAgo(3) },
-      ],
+      [baseEvidence, { ...baseEvidence, source: "set", timestamp: daysAgo(3) }],
       settings,
       NOW,
     );
@@ -117,5 +118,37 @@ describe("score projection model", () => {
     expect(day90!.pessimistic).toBeGreaterThanOrEqual(620);
     expect(day90!.realistic).toBeGreaterThanOrEqual(day90!.pessimistic);
     expect(day90!.optimistic).toBeGreaterThanOrEqual(day90!.realistic);
+  });
+
+  it("lets sustained practice volume raise the projected future score", () => {
+    const settings = defaultSettings();
+    const lowPractice = generateTrajectory({
+      currentEstimate: 420,
+      effectivePracticePerWeek: 30,
+      settings,
+      now: new Date(NOW),
+    });
+    const highPractice = generateTrajectory({
+      currentEstimate: 420,
+      effectivePracticePerWeek: 240,
+      settings,
+      now: new Date(NOW),
+    });
+
+    expect(highPractice.horizons[2]!.realistic).toBeGreaterThan(
+      lowPractice.horizons[2]!.realistic,
+    );
+  });
+
+  it("keeps high starting scores bounded by the section maximum", () => {
+    const settings = defaultSettings();
+    const trajectory = generateTrajectory({
+      currentEstimate: 860,
+      effectivePracticePerWeek: 500,
+      settings,
+      now: new Date(NOW),
+    });
+
+    expect(trajectory.horizons.at(-1)!.optimistic).toBeLessThanOrEqual(900);
   });
 });

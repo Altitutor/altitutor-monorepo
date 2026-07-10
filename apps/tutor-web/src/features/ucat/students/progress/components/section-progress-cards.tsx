@@ -91,8 +91,8 @@ export function SectionProgressCards({
 }: SectionProgressCardsProps) {
   const getScaledScore = (section: SectionProgress): number | null =>
     mode === 'weighted'
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore
+      ? (section.weightedAverageScaledScore ?? null)
+      : (section.averageScaledScore ?? null)
 
   const getPercentage = (section: SectionProgress): number =>
     mode === 'weighted' && section.weightedAveragePercentage != null

@@ -151,6 +151,7 @@ export type AiGenerationBrief = {
   targetTags: Array<{ id: string; name: string }>
   runInstructions?: string | null
   examples: Array<Record<string, unknown>>
+  sourceImagesForCalibration?: Array<Record<string, unknown>>
   promptLayers: AiGenerationPromptLayer[]
 }
 
@@ -247,6 +248,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       sectionRules: getAiGenerationSectionPrompt(sectionNameToAiGenerationKey(input.sectionName)),
       layeredInstructions: layeredInstructions(input),
       sourceExamplesForCalibrationOnly: input.examples,
+      sourceImagesForCalibrationOnly: input.sourceImagesForCalibration ?? [],
       contentBlockContract: [
         'stemText, questionText, answerText, and explanations may be strings or arrays of generated content blocks.',
         'Content blocks: paragraph {type,text}, list {type,ordered:boolean,items:string[]}, table {type,caption,columns,rows}, visual {type,visualType,title,altText,spec}.',
@@ -254,10 +256,11 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Use table blocks for data tables.',
         'Use visual blocks only for warranted QR/DM visual categories and provide exact structured data in spec. Do not write freeform image descriptions.',
         'Structured visual visualType options are vega_lite_chart, set_diagram, and shape-based venn_diagram only.',
-        'QR visualType: vega_lite_chart only. spec must be a complete Vega-Lite JSON spec with inline data.values or datasets. Do not use external urls. Do not use bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart, route_map, schematic_map, layout_grid, or timetable.',
-        'For vega_lite_chart, use the freedom of Vega-Lite to create realistic UCAT source visuals: horizontal or vertical bars, grouped bars, stacked bars, line charts, multi-line charts, scatter plots, histograms, dot/strip plots, pie/donut charts only when suitable, layered rules/text annotations, small multiples, facets, hconcat/vconcat panels, independent scales, maps/route diagrams, floor-plan style layouts, timetable-style grids, tables plus mini charts where appropriate, and unusual but readable exam-style layouts.',
+        'QR visualType: vega_lite_chart only. This is the app visual block type for any QR Vega-Lite source visual, not a chart-template name. The spec must be complete Vega-Lite JSON with inline data.values or datasets. Do not use external urls. Do not use bar_chart, stacked_bar_chart, line_chart, scatter_plot, histogram, pie_chart, route_map, schematic_map, layout_grid, or timetable as visualType values.',
+        'For vega_lite_chart, use Vega-Lite as a source-visual grammar, not only a basic chart library. You may build exam source visuals with primitive marks and compositions: bar, line, point, circle, square, tick, rect, rule, text, area, arc, layer, facet, repeat, hconcat, vconcat, concat, independent scales, and other valid Vega-Lite chart types or mark combinations.',
+        'Vega-Lite QR source visuals can include horizontal or vertical bars, grouped or stacked bars, line or multi-line charts, bar-line combinations, scatter or labelled point charts, dot or strip plots, range displays, slope-style comparisons, area charts, pie or donut charts when suitable, rect/text matrix displays, timetable-style grids, calendar-style grids, small multiples, annotated panels, tables plus mini charts, maps/route diagrams, floor-plan style layouts, coordinate layouts, or another appropriate Vega-Lite composition.',
         'Every vega_lite_chart must be black and white only. Differentiate series using greyscale, strokeDash, opacity, point shapes, hatching-like repeated marks where possible, text labels, or faceting. Do not use coloured palettes. In mixed bar-line charts, make lines visually distinct from filled bars using dashed strokes, point markers, stronger stroke width, or a separate panel/axis where useful.',
-        'Avoid generic chart templates. Across a generated batch, no two QR charts should have the same chart structure with only labels or numbers changed. Vary mark types, orientation, axis treatment, label placement, legend placement, panel layout, annotation style, data density, and the kind of interpretation required.',
+        'Avoid generic chart templates. Plain bar and line charts are allowed, but they should not be the automatic fallback when another Vega-Lite composition would better match the source data. Across a generated batch, no two QR visuals should have the same source structure with only labels or numbers changed. Vary mark combinations, orientation, axis treatment, label placement, legend placement, panel layout, annotation style, data density, and the kind of interpretation required.',
         'Use clear axes, units, scales, legends, and enough labelled data to support realistic QR interpretation. The chart must contain all values needed to solve the questions; do not rely on prose for hidden chart values. Axis titles must remain fully readable because students may need them to answer the question: keep them concise, wrap long titles with title arrays where useful, give right-side axes enough padding, avoid overlapping axis labels/titles, and prefer faceting or panels over cramped dual axes when the source would otherwise become hard to read.',
         'DM Venn/set visualTypes: venn_diagram and set_diagram. These can appear in stemText, questionText, answerText, or answerExplanation. Use answerText visual blocks when answer options are diagrams.',
         'For DM Venn Diagrams, use shape-based set_diagram or venn_diagram specs only: {shapes:[{id?:string,shape:"circle"|"ellipse"|"rect"|"triangle"|"diamond"|"pentagon"|"hexagon",label?:string,cx?:number,cy?:number,r?:number,rx?:number,ry?:number,x?:number,y?:number,width?:number,height?:number}], regionLabels:[{text:string|number,region?:string,include?:string[],exclude?:string[],x?:number,y?:number,bold?:boolean,fontSize?:number}]}.',
@@ -270,13 +273,19 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'Keep visual altText short and accessibility-oriented only. Do not write a visible caption or prose description after the visual unless it contains extra examinable information.',
         'Do not use the old coloured three-overlapping-circle Venn template for DM Venn Diagrams. If you need a conventional three-circle answer option, still encode it as shapes with three circle entries, monochrome strokes, and no coloured fills.',
         'Official-style DM set diagrams should usually be monochrome or very lightly filled, with region numbers placed clearly inside regions and a separate legend for set names. Do not place numbers on shape outlines, intersections, or ambiguous boundary areas. Use overlapping/nested shapes where useful.',
-        'For QR Maps and Diagrams, use vega_lite_chart. Encode routes, paths, spatial layouts, floor plans, seating maps, distance networks, and geometric diagrams as layered Vega-Lite specs using inline coordinate data, rule/line marks, point marks, text labels, rects, and annotations as needed.',
+        'For QR Maps and Diagrams, use vega_lite_chart. Encode routes, paths, spatial layouts, floor plans, seating maps, distance networks, and geometric diagrams as layered Vega-Lite specs using inline coordinate data, rule/line marks, point marks, text labels, rects, and annotations as needed. Place readable text labels for all examinable places, distances, rooms, or regions, offset from nodes and lines rather than directly on top of them.',
         'For QR Timetables and Calendars, use table blocks for ordinary data tables or vega_lite_chart for timetable-style visual density. Encode timetable-style visuals with layered rect/text marks and inline datasets; do not use a timetable visualType.',
         'Do not output ProseMirror JSON.',
       ],
       requirements: [
         'Return JSON only.',
         'Return candidates for the full plan.',
+        ...(input.sourceImagesForCalibration?.length
+          ? [
+              'Some source examples include attached images. Use those images only to understand UCAT visual source conventions such as layout density, chart/diagram style, labels, and how questions depend on visuals.',
+              'Do not copy exact numbers, labels, names, premises, visual composition, or answer logic from any attached source image. Generate a new source with new data relationships.',
+            ]
+          : []),
         'If the brief category is selected, set each stem categoryName exactly to that selected category.',
         'If the brief category is null, choose categoryName from availableCategories only after deciding the source and questions. Treat categoryName as metadata/classification, not as a template to satisfy.',
         'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
@@ -330,7 +339,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         ...(input.categoryName === 'Graphs and Charts'
           ? [
               'Include at least one vega_lite_chart visual block containing the examinable data.',
-              'Choose a genuinely suitable Vega-Lite composition for the data rather than defaulting to bars. Use layered, faceted, concatenated, annotated, horizontal, or multi-panel designs when they make the source more like real UCAT QR.',
+              'Choose a genuinely suitable Vega-Lite composition for the data rather than defaulting to bars or lines. Consider primitive-mark combinations, layered annotations, faceted or concatenated panels, rect/text matrices, dot or tick displays, range or slope-style comparisons, small multiples, or another appropriate Vega-Lite chart type when it better fits the source.',
               'Keep the chart black and white only. Use greyscale, dash patterns, point shapes, opacity, labels, or panel separation to distinguish data.',
               'Make the chart information-rich enough that interpreting the data source is part of the question, not just reading one obvious bar.',
             ]
@@ -338,7 +347,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         ...(input.categoryName === 'Maps and Diagrams'
           ? [
               'Include at least one vega_lite_chart visual block containing the examinable map or diagram data.',
-              'Use layered Vega-Lite marks for the diagram: lines or rules for paths/edges, points or shapes for locations, text labels for place names and distances, and rects or light greyscale fills for floor-plan regions where appropriate.',
+              'Use layered Vega-Lite marks for the diagram: lines or rules for paths/edges, points or shapes for locations, text labels for place names and distances, and rects or light greyscale fills for floor-plan regions where appropriate. Do not return a path network with only lines and points; include text labels for the features needed to answer.',
               'Do not use route_map, schematic_map, layout_grid, or timetable. The diagram should still be black and white only, with any differentiation handled through greyscale, strokeDash, shape, opacity, or labels.',
               'Vary map and diagram structure across generated stems: path networks, transit-style maps, floor plans, coordinate layouts, route-choice diagrams, scale diagrams, and multi-panel diagrams are all acceptable when mathematically coherent.',
             ]

@@ -1,7 +1,8 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { SegmentedControl } from '@altitutor/ui';
+import { Button, SegmentedControl } from '@altitutor/ui';
+import { ClipboardList } from 'lucide-react';
 
 const NAV = [
   { segment: 'responses', href: '/feedback/responses', label: 'Form responses' },
@@ -18,8 +19,12 @@ export function FeedbackShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
-      <div>
+      <div className="flex items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Feedback</h1>
+        <Button type="button" variant="outline" onClick={() => router.push('/settings/forms')}>
+          <ClipboardList className="mr-2 h-4 w-4" />
+          Edit forms
+        </Button>
       </div>
       <SegmentedControl
         className="w-full max-w-3xl min-w-0"

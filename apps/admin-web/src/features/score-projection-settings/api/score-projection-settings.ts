@@ -19,12 +19,18 @@ export type ScoreProjectionSettingsRow = {
   effective_practice_daily_cap: number;
   trajectory_horizon_days: number;
   trajectory_step_days: number;
-  pessimistic_learning_rate: number;
-  realistic_learning_rate: number;
-  optimistic_learning_rate: number;
-  pessimistic_ceiling_uplift: number;
-  realistic_ceiling_uplift: number;
-  optimistic_ceiling_uplift: number;
+  pessimistic_base_gain: number;
+  realistic_base_gain: number;
+  optimistic_base_gain: number;
+  pessimistic_room_fraction: number;
+  realistic_room_fraction: number;
+  optimistic_room_fraction: number;
+  pessimistic_low_score_boost: number;
+  realistic_low_score_boost: number;
+  optimistic_low_score_boost: number;
+  pessimistic_effort_half_saturation: number;
+  realistic_effort_half_saturation: number;
+  optimistic_effort_half_saturation: number;
   updated_at: string;
 };
 
@@ -56,7 +62,7 @@ export const scoreProjectionSettingsApi = {
         .from("ucat_sections")
         .select("id, name, section_number")
         .gte("section_number", 1)
-        .lte("section_number", 3)
+        .lte("section_number", 4)
         .order("section_number", { ascending: true }),
     ]);
 
@@ -84,7 +90,10 @@ export const scoreProjectionSettingsApi = {
       .sort((a, b) => a.sectionNumber - b.sectionNumber);
   },
 
-  async update(id: string, updates: ScoreProjectionSettingsUpdate): Promise<void> {
+  async update(
+    id: string,
+    updates: ScoreProjectionSettingsUpdate,
+  ): Promise<void> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { error } = await supabase
       .from("ucat_score_projection_settings")

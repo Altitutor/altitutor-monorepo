@@ -8,6 +8,7 @@ import {
   type SettingsDataTableColumn,
 } from '@/shared/components';
 import { ScoreProjectionSettingsDialog } from '@/features/score-projection-settings/components/ScoreProjectionSettingsForm';
+import { ScoreProjectionSimulator } from '@/features/score-projection-settings/components/ScoreProjectionSimulator';
 import { useScoreProjectionSettings } from '@/features/score-projection-settings/hooks/use-score-projection-settings';
 import type { ScoreProjectionSettingsWithSection } from '@/features/score-projection-settings/api/score-projection-settings';
 
@@ -65,6 +66,8 @@ export default function ScoreProjectionSettingsPage() {
       <SettingsPageHeader title="Score projection settings" />
 
       {error ? <p className="mb-4 text-sm text-destructive">{error.message}</p> : null}
+
+      <ScoreProjectionSimulator settings={rows} />
 
       <SettingsDataTable
         data={rows}

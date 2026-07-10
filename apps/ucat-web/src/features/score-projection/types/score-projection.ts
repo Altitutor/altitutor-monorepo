@@ -37,3 +37,13 @@ export type ScoreProjectionResponse = {
   horizons: number[];
   sections: SectionScoreProjection[];
 };
+
+export type TotalScoreProjection = {
+  currentEstimate: number | null;
+  confidence: ProjectionConfidence | null;
+  uncertainty: number | null;
+  effectiveEvidenceWeight: number;
+  missingSectionNumbers: number[];
+  projection: ProjectionPoint[];
+  horizons: ProjectionHorizon[];
+};

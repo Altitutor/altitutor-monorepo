@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
   // Public paths that don't require authentication
-  const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth');
+  const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth') || pathname.startsWith('/form/');
 
   if (pathname.startsWith('/api') || isPublicPath) {
     return NextResponse.next({

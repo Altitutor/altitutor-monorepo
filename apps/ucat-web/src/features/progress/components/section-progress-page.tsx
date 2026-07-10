@@ -29,6 +29,7 @@ import {
   getBestAttemptPerQuestion,
   applyAttemptFilterToProgress,
   getSharedDateRange,
+  getSectionProgressPercentage,
 } from "../lib/progress-data-utils";
 import {
   AnimatedFraction,
@@ -211,19 +212,15 @@ export function SectionProgressPage({
           (s) => s.sectionNumber === section.sectionNumber,
         ) ?? null)
       : null;
-  const score = mocksOnly
-    ? progressMode.mode === "weighted"
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore
-    : projectionQuery.data
+  const score =
+    !mocksOnly && projectionQuery.data
       ? (sectionProjection?.currentEstimate ?? null)
-      : progressMode.mode === "weighted"
-        ? section.weightedAverageScaledScore
-        : section.averageScaledScore;
+      : null;
   return (
     <SectionProgressContent
       section={section}
       score={score}
+      percentage={getSectionProgressPercentage(section, progressMode.mode)}
       totalPublicQuestions={section.totalPublicQuestions}
       totalPublicSets={
         filteredData?.totalPublicSetsBySection?.[section.sectionId]
@@ -250,6 +247,7 @@ export function SectionProgressPage({
 function SectionProgressContent({
   section,
   score,
+  percentage,
   totalPublicQuestions,
   totalPublicSets,
   totalPublicUntimedSets,
@@ -266,6 +264,7 @@ function SectionProgressContent({
 }: {
   section: { sectionId: string; sectionName: string; sectionNumber: number };
   score: number | null;
+  percentage: number;
   totalPublicQuestions?: number;
   totalPublicSets?: number;
   totalPublicUntimedSets?: number;
@@ -329,10 +328,6 @@ function SectionProgressContent({
     };
   }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
   const percentile = formatUcatPercentile(score, "section");
-  const questionsCorrectPercentage =
-    stats.completed > 0
-      ? Math.round((stats.correct / stats.completed) * 100)
-      : 0;
 
   return (
     <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
@@ -357,34 +352,36 @@ function SectionProgressContent({
       />
 
       <div className="flex flex-col gap-4">
-        <div className="flex justify-center">
-          <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                {mocksOnly ? "Scaled score" : "Predicted section score"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "text-4xl font-bold tabular-nums text-center",
-                  score == null && "text-muted-foreground",
-                )}
-              >
-                {score != null ? (
-                  <AnimatedInteger value={Math.round(score)} />
-                ) : (
-                  "—"
-                )}
-              </div>
-              {percentile ? (
-                <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
-                  {percentile}
+        {!mocksOnly ? (
+          <div className="flex justify-center">
+            <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-center">
+                  Predicted section score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={cn(
+                    "text-4xl font-bold tabular-nums text-center",
+                    score == null && "text-muted-foreground",
+                  )}
+                >
+                  {score != null ? (
+                    <AnimatedInteger value={Math.round(score)} />
+                  ) : (
+                    "—"
+                  )}
                 </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
+                {percentile ? (
+                  <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
+                    {percentile}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className={UCAT_CARD_CHROME}>
@@ -402,7 +399,7 @@ function SectionProgressContent({
                   </span>
                 </div>
                 <ProgressCircular
-                  percentage={questionsCorrectPercentage}
+                  percentage={stats.completed > 0 ? percentage : 0}
                   size={48}
                   className="text-accent shrink-0"
                 />

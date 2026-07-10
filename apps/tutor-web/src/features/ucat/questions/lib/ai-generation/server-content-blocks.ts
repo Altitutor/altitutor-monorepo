@@ -4,7 +4,7 @@ import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 const GRAYSCALE = ['#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
-const FILL_GRAYSCALE = ['#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
+const FILL_GRAYSCALE = ['#d9d9d9', '#9b9b9b', '#c4c4c4', '#737373', '#e8e8e8']
 
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -98,20 +98,20 @@ function axisDefaults(axis: Record<string, unknown>, channel: string | null): Re
   const isX = channel === 'x' || channel === 'x2'
   const title = wrappedText(axis.title, isY ? 22 : 34)
   const titleLineCount = Array.isArray(title) ? title.length : 1
-  const titlePadding = isRightAxis ? 44 : isY ? 22 + Math.max(0, titleLineCount - 1) * 6 : 14
+  const titlePadding = isRightAxis ? 72 : isY ? 28 + Math.max(0, titleLineCount - 1) * 8 : 18
 
   return {
     ...axis,
     ...(title ? { title } : {}),
-    labelPadding: axis.labelPadding ?? (isRightAxis ? 10 : 7),
+    labelPadding: axis.labelPadding ?? (isRightAxis ? 16 : 8),
     titlePadding: axis.titlePadding ?? titlePadding,
-    labelLimit: axis.labelLimit ?? (isX ? 92 : 120),
+    labelLimit: axis.labelLimit ?? (isX ? 150 : 150),
     titleLimit: 1000,
-    titleLineHeight: axis.titleLineHeight ?? 17,
+    titleLineHeight: axis.titleLineHeight ?? 18,
     labelBound: axis.labelBound ?? true,
     labelFlush: axis.labelFlush ?? false,
     labelOverlap: axis.labelOverlap ?? (isX ? 'greedy' : true),
-    ...(isX ? { labelAngle: -35 } : {}),
+    ...(isX ? { labelAngle: axis.labelAngle ?? -35 } : {}),
   }
 }
 
@@ -152,37 +152,62 @@ function enhanceEncoding(encoding: Record<string, unknown>, currentMarkType: str
   return enhanced
 }
 
-function enhanceMark(mark: unknown): unknown {
+function axisIsHidden(channel: unknown): boolean {
+  return isRecord(channel) && channel.axis === null
+}
+
+function lineMarkShouldBeDashed(encoding: unknown): boolean {
+  if (!isRecord(encoding)) return true
+  const xAxisHidden = axisIsHidden(encoding.x)
+  const yAxisHidden = axisIsHidden(encoding.y)
+  return !(xAxisHidden && yAxisHidden)
+}
+
+function enhanceMark(mark: unknown, encoding: unknown = null): unknown {
   const type = markType(mark)
   if (!type) return mark
-  const markObject = typeof mark === 'string' ? { type } : { ...(mark as Record<string, unknown>) }
+  const markObject: Record<string, unknown> = typeof mark === 'string' ? { type } : { ...(mark as Record<string, unknown>) }
 
   if (type === 'line') {
     return {
-      stroke: '#111111',
-      strokeWidth: 2.5,
-      strokeDash: [6, 4],
-      point: { filled: true, size: 58, fill: 'white', stroke: '#111111', strokeWidth: 1.8 },
       ...markObject,
+      stroke: '#111111',
+      strokeWidth: 3,
+      ...(lineMarkShouldBeDashed(encoding) ? { strokeDash: markObject.strokeDash ?? [6, 4] } : {}),
+      point: { filled: true, size: 74, fill: 'white', stroke: '#111111', strokeWidth: 2 },
     }
   }
 
   if (type === 'bar' || type === 'rect' || type === 'arc') {
     return {
+      ...markObject,
+      fill: markObject.fill ?? '#d9d9d9',
       stroke: '#111111',
       strokeWidth: 0.6,
       opacity: 0.9,
-      ...markObject,
     }
   }
 
   if (type === 'point' || type === 'circle' || type === 'square') {
     return {
+      ...markObject,
       filled: true,
       size: 70,
+      fill: markObject.fill ?? 'white',
       stroke: '#111111',
       strokeWidth: 1.4,
+    }
+  }
+
+  if (type === 'text') {
+    return {
       ...markObject,
+      fill: '#111111',
+      stroke: 'white',
+      strokeWidth: 1.25,
+      font: 'Arial',
+      fontSize: markObject.fontSize ?? 14,
+      fontWeight: markObject.fontWeight ?? 500,
     }
   }
 
@@ -197,6 +222,56 @@ function hasRightAxis(value: unknown): boolean {
   return Object.values(value).some(hasRightAxis)
 }
 
+function normalizedPadding(value: unknown, needsRightAxis: boolean): Record<string, number> {
+  const existing = isRecord(value) ? value : {}
+  return {
+    left: Math.max(numberInRange(existing.left, 104, 80, 180), 104),
+    right: Math.max(numberInRange(existing.right, needsRightAxis ? 220 : 72, 56, 280), needsRightAxis ? 220 : 72),
+    top: Math.max(numberInRange(existing.top, 34, 18, 100), 34),
+    bottom: Math.max(numberInRange(existing.bottom, 96, 64, 160), 96),
+  }
+}
+
+function normalizeIndependentYLayerAxes(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeIndependentYLayerAxes)
+  if (!isRecord(value)) return value
+
+  const normalized: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    normalized[key] = normalizeIndependentYLayerAxes(child)
+  }
+
+  const hasIndependentY = isRecord(normalized.resolve) &&
+    isRecord(normalized.resolve.scale) &&
+    normalized.resolve.scale.y === 'independent'
+  if (!hasIndependentY || !Array.isArray(normalized.layer)) return normalized
+
+  let leftAxisAssigned = false
+  let rightAxisAssigned = false
+  normalized.layer = normalized.layer.map((child) => {
+    if (!isRecord(child) || !isRecord(child.encoding) || !isRecord(child.encoding.y)) return child
+    const childMarkType = markType(child.mark)
+    const encoding = { ...child.encoding }
+    const y = { ...child.encoding.y }
+    const existingAxis = isRecord(y.axis) ? y.axis : {}
+    if (childMarkType === 'text') {
+      y.axis = null
+    } else if (childMarkType === 'line' && !rightAxisAssigned) {
+      y.axis = axisDefaults({ ...existingAxis, orient: 'right' }, 'y')
+      rightAxisAssigned = true
+    } else if (!leftAxisAssigned) {
+      y.axis = axisDefaults({ ...existingAxis, orient: 'left' }, 'y')
+      leftAxisAssigned = true
+    } else {
+      y.axis = null
+    }
+    encoding.y = y
+    return { ...child, encoding }
+  })
+
+  return normalized
+}
+
 function enhanceVegaLiteSpec(value: unknown, currentMarkType: string | null = null): unknown {
   if (Array.isArray(value)) return value.map((item) => enhanceVegaLiteSpec(item, currentMarkType))
   if (!isRecord(value)) return value
@@ -205,7 +280,7 @@ function enhanceVegaLiteSpec(value: unknown, currentMarkType: string | null = nu
   const enhanced: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value)) {
     if (key === 'mark') {
-      enhanced[key] = enhanceMark(child)
+      enhanced[key] = enhanceMark(child, value.encoding)
     } else if (key === 'encoding' && isRecord(child)) {
       enhanced[key] = enhanceEncoding(child, ownMarkType)
     } else if (key === 'width') {
@@ -222,19 +297,13 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
   if (!isRecord(sanitized)) throw new Error('Vega-Lite chart spec must be an object.')
   if (!hasInlineVegaData(sanitized)) throw new Error('Vega-Lite chart spec must include inline data.')
 
-  const enhanced = enhanceVegaLiteSpec(sanitized)
+  const enhanced = normalizeIndependentYLayerAxes(enhanceVegaLiteSpec(sanitized))
   if (!isRecord(enhanced)) throw new Error('Vega-Lite chart spec must be an object.')
 
   const width = numberInRange(enhanced.width, 640, 520, 780)
   const height = numberInRange(sanitized.height, 340, 180, 620)
   const config = isRecord(enhanced.config) ? enhanced.config : {}
-  const existingPadding = isRecord(enhanced.padding) ? enhanced.padding : null
-  const padding = existingPadding ?? {
-    left: 96,
-    right: hasRightAxis(enhanced) ? 150 : 56,
-    top: 28,
-    bottom: 78,
-  }
+  const padding = normalizedPadding(enhanced.padding, hasRightAxis(enhanced))
 
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
