@@ -139,7 +139,9 @@ function mapSetToQuestions(
 
       const options = (question.answer_options || [])
         .map((option) => {
-          const optionExplanation = mapRichExplanation(option.answer_explanation);
+          const optionExplanation = mapRichExplanation(
+            option.answer_explanation,
+          );
 
           return {
             id: option.id,
@@ -160,7 +162,9 @@ function mapSetToQuestions(
         })
         .sort((a, b) => a.index - b.index);
       const correctOption = options.find((o) => o.isAnswer);
-      const questionExplanation = mapRichExplanation(question.answer_explanation);
+      const questionExplanation = mapRichExplanation(
+        question.answer_explanation,
+      );
       const stemJson =
         stem.stem_text != null && typeof stem.stem_text === "object"
           ? (stem.stem_text as Record<string, unknown>)
@@ -223,6 +227,31 @@ async function loadSetDetail(setId: string): Promise<SetDetailRow> {
     throw new Error(error?.message ?? "Unable to load question set detail");
   }
 
+  return data;
+}
+
+async function loadSetDetails(setIds: string[]): Promise<SetDetailRow[]> {
+  if (setIds.length === 0) return [];
+  const supabase = getSupabaseBrowserClient() as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        in: (
+          column: string,
+          values: string[],
+        ) => Promise<{
+          data: SetDetailRow[] | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await supabase
+    .from("vstudent_ucat_question_set_detail")
+    .select("id,name,description,time_limit_seconds,stems")
+    .in("id", setIds);
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to load question set details");
+  }
   return data;
 }
 
@@ -347,44 +376,55 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
   const mockDetail = await loadMockDetail(mockId);
   const setIds = (mockDetail.sets || []).map((set) => set.id) as string[];
 
-  const setPayloadsWithTiming = await Promise.all(
-    setIds.map(async (setId, idx) => {
-      const setDetail = await loadSetDetail(setId);
-      const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id);
-      const stemDetails = await loadStemDetails(stemIds);
-      const questions = mapSetToQuestions(setDetail, stemDetails);
-      const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
-      const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
-      const instructionStem = selectInstructionStem(setDetail, stemDetails);
-      const hasInstructions = !!(
-        instructionStem &&
-        hasInstructionsContent(instructionStem.section_instructions_text)
-      );
-      const instructionsTimeLimitSeconds =
-        isSetTimed && instructionStem
-          ? (instructionStem.section_instructions_time_limit_seconds ?? null)
-          : null;
-      const sectionInstructionsJson =
-        instructionStem &&
-        hasInstructionsContent(instructionStem.section_instructions_text)
-          ? (instructionStem.section_instructions_text as Record<
-              string,
-              unknown
-            >)
-          : null;
-      return {
-        name:
-          (setDetail.name && typeof setDetail.name === "string"
-            ? setDetail.name
-            : null) ?? `Set ${idx + 1}`,
-        questions,
-        setTimeLimitSeconds,
-        instructionsTimeLimitSeconds,
-        hasInstructions,
-        sectionInstructionsJson,
-      } satisfies SetPayloadWithTiming;
-    }),
-  );
+  const setDetails = await loadSetDetails(setIds);
+  const setDetailById = new Map(setDetails.map((set) => [set.id, set]));
+  const allStemIds = [
+    ...new Set(
+      setDetails.flatMap((set) =>
+        (set.stems || []).map((stem) => stem.stem_id),
+      ),
+    ),
+  ];
+  const allStemDetails = await loadStemDetails(allStemIds);
+  const stemDetailById = new Map(allStemDetails.map((stem) => [stem.id, stem]));
+
+  const setPayloadsWithTiming = setIds.map((setId, idx) => {
+    const setDetail = setDetailById.get(setId);
+    if (!setDetail) {
+      throw new Error(`Unable to load question set detail: ${setId}`);
+    }
+    const stemDetails = (setDetail.stems || [])
+      .map((stem) => stemDetailById.get(stem.stem_id))
+      .filter((stem): stem is StemDetailRow => stem != null);
+    const questions = mapSetToQuestions(setDetail, stemDetails);
+    const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
+    const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
+    const instructionStem = selectInstructionStem(setDetail, stemDetails);
+    const hasInstructions = !!(
+      instructionStem &&
+      hasInstructionsContent(instructionStem.section_instructions_text)
+    );
+    const instructionsTimeLimitSeconds =
+      isSetTimed && instructionStem
+        ? (instructionStem.section_instructions_time_limit_seconds ?? null)
+        : null;
+    const sectionInstructionsJson =
+      instructionStem &&
+      hasInstructionsContent(instructionStem.section_instructions_text)
+        ? (instructionStem.section_instructions_text as Record<string, unknown>)
+        : null;
+    return {
+      name:
+        (setDetail.name && typeof setDetail.name === "string"
+          ? setDetail.name
+          : null) ?? `Set ${idx + 1}`,
+      questions,
+      setTimeLimitSeconds,
+      instructionsTimeLimitSeconds,
+      hasInstructions,
+      sectionInstructionsJson,
+    } satisfies SetPayloadWithTiming;
+  });
 
   const instructionsScreens: QuestionEngineExam["instructionsScreens"] = [];
   const mockTimingSegments: NonNullable<

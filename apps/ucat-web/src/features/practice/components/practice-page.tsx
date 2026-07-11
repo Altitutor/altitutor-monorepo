@@ -20,10 +20,7 @@ import {
   clearPracticeSession,
   setPracticeSession,
 } from "@/features/practice/lib/session-storage";
-import {
-  fetchActiveExamAttempt,
-  finalizeExamAttempt,
-} from "@/features/exam-attempts/api/exam-attempts-api";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -38,7 +35,11 @@ import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function PracticePage() {
   const router = useRouter();
-  const { refresh: refreshActiveAttempt } = useActiveExamAttempt();
+  const {
+    active: activeExamAttempt,
+    isLoading: activeAttemptLoading,
+    refresh: refreshActiveAttempt,
+  } = useActiveExamAttempt();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitModal();
   const filters = useStemFilters({
@@ -94,24 +95,6 @@ export function PracticePage() {
         return { unlimited: true as const, stems: [], sessionId };
       }
 
-      const stemsRes = await fetch("/api/ucat/practice-stems", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: payload }),
-      });
-
-      if (!stemsRes.ok) {
-        await assertOkOrQuotaExceeded(stemsRes);
-        const body = await stemsRes.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to load practice stems");
-      }
-
-      const stemsData = (await stemsRes.json()) as {
-        stems: QuestionStemWithQuestions[];
-        questionCount: number;
-        totalMatchingQuestions: number;
-      };
-
       const createSessionRes = await fetch("/api/ucat/practice-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,7 +102,6 @@ export function PracticePage() {
           sectionKey,
           ucatSectionId,
           filtersSnapshot: input,
-          stemsSnapshot: stemsData.stems,
           unlimited: false,
         }),
       });
@@ -130,15 +112,18 @@ export function PracticePage() {
         throw new Error(body.error ?? "Failed to create practice session");
       }
 
-      const { id: sessionId } = (await createSessionRes.json()) as {
+      const sessionData = (await createSessionRes.json()) as {
         id: string;
+        stems: QuestionStemWithQuestions[];
+        questionCount: number;
+        totalMatchingQuestions: number;
       };
 
       return {
-        stems: stemsData.stems,
-        questionCount: stemsData.questionCount,
-        totalMatchingQuestions: stemsData.totalMatchingQuestions,
-        sessionId,
+        stems: sessionData.stems,
+        questionCount: sessionData.questionCount,
+        totalMatchingQuestions: sessionData.totalMatchingQuestions,
+        sessionId: sessionData.id,
       };
     },
     onSuccess: (data, variables) => {
@@ -239,7 +224,7 @@ export function PracticePage() {
     startMutation.mutate({ payload, ucatSectionId });
   }
 
-  async function handleStart() {
+  function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
 
@@ -249,10 +234,9 @@ export function PracticePage() {
       unlimited: unlimited || undefined,
     };
 
-    const active = await fetchActiveExamAttempt();
-    if (active) {
+    if (activeExamAttempt) {
       pendingStartRef.current = { payload, ucatSectionId };
-      setConflictActive(active);
+      setConflictActive(activeExamAttempt);
       return;
     }
 
@@ -284,10 +268,16 @@ export function PracticePage() {
       type="button"
       data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
-      disabled={startMutation.isPending || !filters.selectedSection?.id}
+      disabled={
+        startMutation.isPending ||
+        activeAttemptLoading ||
+        !filters.selectedSection?.id
+      }
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
-      {startMutation.isPending ? "Loading…" : "Start practice"}
+      {startMutation.isPending || activeAttemptLoading
+        ? "Loading…"
+        : "Start practice"}
     </Button>
   );
 

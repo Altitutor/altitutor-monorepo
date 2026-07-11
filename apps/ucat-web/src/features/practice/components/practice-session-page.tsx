@@ -13,7 +13,7 @@ import {
   setPracticeSession,
   type PracticeSessionData,
 } from "@/features/practice/lib/session-storage";
-import { fetchActiveExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
@@ -237,6 +237,8 @@ function PracticeSessionStatsCards({
 export function PracticeSessionPage() {
   const router = useRouter();
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
+  const { active: activeExamAttempt, isLoading: activeAttemptLoading } =
+    useActiveExamAttempt();
   const { openQuotaLimit } = useQuotaLimitModal();
   const [session, setSession] = useState<
     PracticeSessionData | null | "loading"
@@ -256,45 +258,56 @@ export function PracticeSessionPage() {
   }, []);
 
   useEffect(() => {
-    if (quotaLoading) return;
+    let cancelled = false;
+    const localSession = getPracticeSession();
+    if (localSession) {
+      setSession(localSession);
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (activeAttemptLoading) return;
+
     void (async () => {
-      let data = getPracticeSession();
-      if (!data) {
-        const active = await fetchActiveExamAttempt();
-        if (active?.kind === "practice" && active.practiceSessionId) {
-          const stemsRes = await fetch(
-            `/api/ucat/practice-sessions/${active.practiceSessionId}`,
-          );
-          if (stemsRes.ok) {
-            const detail = (await stemsRes.json()) as {
-              stemsSnapshot?: QuestionStemWithQuestions[];
-              filtersSnapshot?: SetGeneratorInput;
-              unlimited?: boolean;
+      let data: PracticeSessionData | null = null;
+      if (
+        activeExamAttempt?.kind === "practice" &&
+        activeExamAttempt.practiceSessionId
+      ) {
+        const stemsRes = await fetch(
+          `/api/ucat/practice-sessions/${activeExamAttempt.practiceSessionId}`,
+        );
+        if (stemsRes.ok) {
+          const detail = (await stemsRes.json()) as {
+            stemsSnapshot?: QuestionStemWithQuestions[];
+            filtersSnapshot?: SetGeneratorInput;
+            unlimited?: boolean;
+          };
+          if (detail.unlimited && detail.filtersSnapshot) {
+            data = {
+              mode: "unlimited",
+              sessionId: activeExamAttempt.practiceSessionId,
+              filters: detail.filtersSnapshot,
+              stems: detail.stemsSnapshot ?? [],
+              timePerQuestionSeconds: null,
+              startedAtMs: Date.now(),
             };
-            if (detail.unlimited && detail.filtersSnapshot) {
-              data = {
-                mode: "unlimited",
-                sessionId: active.practiceSessionId,
-                filters: detail.filtersSnapshot,
-                stems: detail.stemsSnapshot ?? [],
-                timePerQuestionSeconds: null,
-                startedAtMs: Date.now(),
-              };
-            } else if (detail.stemsSnapshot?.length) {
-              data = {
-                mode: "set",
-                sessionId: active.practiceSessionId,
-                stems: detail.stemsSnapshot,
-                filters: detail.filtersSnapshot,
-                timePerQuestionSeconds: null,
-                startedAtMs: Date.now(),
-              };
-            }
-            if (data) setPracticeSession(data);
+          } else if (detail.stemsSnapshot?.length) {
+            data = {
+              mode: "set",
+              sessionId: activeExamAttempt.practiceSessionId,
+              stems: detail.stemsSnapshot,
+              filters: detail.filtersSnapshot,
+              timePerQuestionSeconds: null,
+              startedAtMs: Date.now(),
+            };
           }
+          if (data) setPracticeSession(data);
         }
       }
+      if (cancelled) return;
       if (!data) {
+        if (quotaLoading) return;
         const practiceQuota = quota?.areas.find(
           (area) => area.area === "practice",
         );
@@ -324,7 +337,17 @@ export function PracticeSessionPage() {
       }
       setSession(data);
     })();
-  }, [openQuotaLimit, quota, quotaLoading, router]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeAttemptLoading,
+    activeExamAttempt,
+    openQuotaLimit,
+    quota,
+    quotaLoading,
+    router,
+  ]);
 
   const handleDone = useCallback(() => {
     clearPracticeSession();

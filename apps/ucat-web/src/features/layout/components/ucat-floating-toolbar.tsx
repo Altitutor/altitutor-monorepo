@@ -55,6 +55,7 @@ export function UcatFloatingToolbar() {
           <div className="relative flex items-center gap-1">
             <button
               type="button"
+              data-tour="question-engine-menu"
               title="Open menu"
               aria-label="Open menu"
               onClick={handleMenuClick}
@@ -64,6 +65,7 @@ export function UcatFloatingToolbar() {
             </button>
             <button
               type="button"
+              data-tour="question-engine-settings"
               title="Open settings"
               aria-label="Open settings"
               onClick={handleSettingsClick}

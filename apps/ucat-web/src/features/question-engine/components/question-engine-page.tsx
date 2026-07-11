@@ -164,7 +164,7 @@ function QuestionEngineLoadingSkeleton({
           ? embeddedInLesson
             ? LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS
             : PRACTICE_EMBEDDED_VIEWPORT_CLASS
-          : "mx-auto h-[calc(100dvh-8rem)] min-h-[420px] w-full overflow-hidden",
+          : "h-full min-h-0 w-full overflow-hidden",
       )}
       aria-busy="true"
       aria-live="polite"
@@ -283,6 +283,7 @@ export function QuestionEnginePage({
   disableQuestionAttemptLogging = false,
   embeddedInLesson = false,
   onRegisterFinishPracticeDialog,
+  tutorialMode = false,
 }: {
   mode: QuestionEngineMode;
   sourceId?: string;
@@ -318,11 +319,11 @@ export function QuestionEnginePage({
   embeddedInLesson?: boolean;
   /** Parent can call the registered opener to show the finish-practice confirmation dialog. */
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
+  /** Runs the real engine with local tutorial data and no persistence or leave warning. */
+  tutorialMode?: boolean;
 }) {
   const invalidLearningMode =
-    learningModuleBlockId &&
-    mode !== "questions" &&
-    mode !== "questionStem";
+    learningModuleBlockId && mode !== "questions" && mode !== "questionStem";
 
   const queryClient = useQueryClient();
   const practiceTimingQueryKey = useMemo(
@@ -333,7 +334,6 @@ export function QuestionEnginePage({
     queryKey: practiceTimingQueryKey,
     queryFn: () => fetchPracticeQuestionTiming(practiceSessionId!),
     enabled: practice && practiceSessionId != null && !embeddedInLesson,
-    refetchInterval: practice && practiceSessionId != null ? 5000 : false,
   });
   const query = useQuestionEngineData({
     mode,
@@ -410,6 +410,11 @@ export function QuestionEnginePage({
     goToReviewQuestionByGlobalIndex,
     setSyllogismSnapshot,
   } = useQuestionEngineState(exam, { practice, onNeedMoreStems });
+
+  useEffect(() => {
+    if (!tutorialMode || !exam || state.phase !== "intro") return;
+    setState((current) => ({ ...current, phase: "question" }));
+  }, [tutorialMode, exam, state.phase, setState]);
   const router = useRouter();
   const { toast } = useToast();
   const {
@@ -505,16 +510,15 @@ export function QuestionEnginePage({
     serverSegmentEndsAt,
     isHydrating: isHydratingExamAttempt,
     flushQuestionTiming,
-  } =
-    useExamAttemptLifecycle({
-      enabled: examAttemptLifecycleEnabled,
-      exam,
-      state,
-      setState,
-      practice: isPracticeMode,
-      practiceSessionId,
-      attemptStateRef,
-    });
+  } = useExamAttemptLifecycle({
+    enabled: examAttemptLifecycleEnabled,
+    exam,
+    state,
+    setState,
+    practice: isPracticeMode,
+    practiceSessionId,
+    attemptStateRef,
+  });
 
   useEffect(() => {
     const href =
@@ -581,7 +585,8 @@ export function QuestionEnginePage({
     exam && (isSetOrMock || isQuestionsOrStem)
       ? getCurrentSegmentTimeLimitSeconds(exam, state)
       : null;
-  const isTimed = currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
+  const isTimed =
+    currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
   const activeServerSegmentEndsAt = isTimed ? serverSegmentEndsAt : null;
   const remainingSeconds =
     exam && isTimed
@@ -599,10 +604,10 @@ export function QuestionEnginePage({
   const awaitingServerSegmentStartRef = useRef(false);
   const displayRemainingSeconds =
     exam && isTimed
-      ? (examAttemptManaged &&
+      ? examAttemptManaged &&
         (!activeServerSegmentEndsAt || awaitingServerSegmentStartRef.current)
-          ? getRemainingSeconds(exam, state, state.timerStartedAt, null)
-          : remainingSeconds)
+        ? getRemainingSeconds(exam, state, state.timerStartedAt, null)
+        : remainingSeconds
       : null;
 
   useEffect(() => {
@@ -701,7 +706,7 @@ export function QuestionEnginePage({
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   const skipBeforeUnloadRef = useRef(false);
   useEffect(() => {
-    if (embeddedInLesson) return;
+    if (embeddedInLesson || tutorialMode) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (skipBeforeUnloadRef.current) return;
@@ -739,7 +744,7 @@ export function QuestionEnginePage({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("click", handleClick, true);
     };
-  }, [embeddedInLesson]);
+  }, [embeddedInLesson, tutorialMode]);
 
   const redirectToManagedResults = useCallback(
     async (href: string) => {
@@ -2110,6 +2115,7 @@ export function QuestionEnginePage({
   return (
     <>
       <div
+        data-tour="question-engine-shell"
         className={cn(
           isPracticeMode
             ? embeddedInLesson
@@ -2174,6 +2180,7 @@ export function QuestionEnginePage({
                 ) : null}
                 <button
                   type="button"
+                  data-tour="question-engine-calculator"
                   className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
                   onClick={() =>
                     void runWithLag(() =>
@@ -2201,6 +2208,7 @@ export function QuestionEnginePage({
             isLoadingMorePhase ? null : (
               <button
                 type="button"
+                data-tour="question-engine-flag"
                 className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
                 onClick={() =>
                   void runWithLag(() => {
@@ -2295,6 +2303,7 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) >
                 (state.practiceAnswerUnitStartIndex ?? 0) ? (
                   <UcatExamActionButton
+                    data-tour="question-engine-navigator"
                     onClick={() => void runWithLag(() => goPrevious())}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >

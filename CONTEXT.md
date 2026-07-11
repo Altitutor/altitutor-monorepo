@@ -470,7 +470,10 @@
 - **Plan availability** — A paid tier or billing interval is offered on the subscribe page only when admin has configured the corresponding Stripe product and plan price. Unconfigured tiers show a student-facing "Coming soon" state instead of checkout. UCAT Free is always available.
   _Avoid_: Plan disabled, tier locked
 
-- **Practice-day discount** — A paid-tier billing perk: complete the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the base (penalty) bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. Applies to UCAT Unlimited and UCAT Pro subscribers, including during Unlimited trial (`trialing`); credits earned during trial reduce the first paid invoice when the trial converts. UCAT Free practice does not contribute.
+- **Accountability Pricing** — The customer-facing proposition in which consistent UCAT practice earns reductions from the standard subscription price through practice-day discounts.
+  _Avoid_: Penalty pricing, penalty fee
+
+- **Practice-day discount** — A paid-tier billing perk: complete the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the standard bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. Applies to UCAT Unlimited and UCAT Pro subscribers, including during Unlimited trial (`trialing`); credits earned during trial reduce the first paid invoice when the trial converts. UCAT Free practice does not contribute.
   _Avoid_: Daily discount, practice credit
 
 - **Practice-day discount cap** — The maximum number of practice-day discounts a student can earn in one Stripe billing period (`current_period_start` through `current_period_end`) for their current billing interval. Configured per billing interval; admin may set any value from 1 up to that interval's canonical period day count (7 for weekly, 30 for monthly, 365 for yearly). Once the cap is reached, further qualifying practice days in that period earn no additional discount until the next period. A student may earn at most one practice-day discount per calendar day (student timezone), regardless of how many qualifying sessions they complete that day.
@@ -493,6 +496,9 @@
 
 - **Billing interval lock** — A student's billing interval (weekly / monthly / yearly) is chosen at first paid checkout (or Unlimited trial start) and cannot be changed afterward. Interval is not a plan-change dimension — only tier (UCAT Unlimited ↔ UCAT Pro) may change on an existing subscription. Prevents practice-day discount credits earned under one interval's economics from being applied after switching to a shorter interval.
   _Avoid_: Billing cadence change, switch to monthly
+
+- **Checkout availability** — Whether a specific paid tier and billing interval combination is intentionally offered for new checkout (for example, UCAT Unlimited monthly). Independent of its base price and Stripe Price configuration; an interval is offered when at least one tier at that interval has checkout availability and complete payment configuration.
+  _Avoid_: Feature flag, enabled price, configured plan
 
 - **UCAT subscription plan change** — A change to a paid student's tier between UCAT Unlimited and UCAT Pro on the **same billing interval**. A student may have at most one active UCAT subscription at a time. The stored plan always reflects what the student has actually paid for. Billing interval changes are not permitted — see billing interval lock. Moving between UCAT Free and a paid tier is subscribe or cancel, not an in-place plan change.
   _Avoid_: Plan switch, change plan

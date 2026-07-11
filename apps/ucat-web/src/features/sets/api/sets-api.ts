@@ -22,7 +22,7 @@ export type SetsFilters = {
   timed?: "timed" | "untimed" | "all";
   source?: "my" | "public" | "all";
   sectionNumber?: number | null;
-  attempted?: "all" | "unattempted";
+  attempted?: "all" | "attempted" | "unattempted";
 };
 
 export async function getStudentSets(): Promise<StudentSetRow[]> {
@@ -123,6 +123,9 @@ export function filterSets(
       if (!hasSection) return false;
     }
     if (filters.attempted === "unattempted" && attemptedSetIds?.has(set.id)) {
+      return false;
+    }
+    if (filters.attempted === "attempted" && !attemptedSetIds?.has(set.id)) {
       return false;
     }
     return true;

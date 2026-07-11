@@ -79,7 +79,8 @@ function getActiveAttemptFromConflict(
 ): ActiveExamAttempt | null {
   if (!(error instanceof Error)) return null;
   if (error.message !== "EXAM_ATTEMPT_IN_PROGRESS") return null;
-  const active = (error as Error & { active?: ActiveExamAttempt | null }).active;
+  const active = (error as Error & { active?: ActiveExamAttempt | null })
+    .active;
   return active ?? null;
 }
 
@@ -536,10 +537,11 @@ export function useExamAttemptLifecycle({
     syncTimerRef.current = setTimeout(() => {
       if (syncBlockedRef.current) return;
       if (kind && isExamAttemptAtResults(kind, state.phase)) return;
+      const engineSnapshot = toExamEngineSnapshot(state);
       void syncExamAttempt({
         kind,
         attemptId: attemptIdRef.current!,
-        engineSnapshot: toExamEngineSnapshot(state),
+        engineSnapshot,
         currentSegmentEndsAt: serverSegmentEndsAt,
         setAttemptIdsBySetId: Object.fromEntries(
           attemptStateRef.current.setAttemptIdsBySetId.entries(),
@@ -553,13 +555,18 @@ export function useExamAttemptLifecycle({
         mockAttemptId: attemptStateRef.current.mockAttemptId,
         questionActiveTiming: latestQuestionTimingRef.current,
       })
-        .then(({ setAttemptIdsBySetId }) => {
+        .then(({ currentSegmentEndsAt, setAttemptIdsBySetId }) => {
           if (setAttemptIdsBySetId) {
             attemptStateRef.current.setAttemptIdsBySetId = new Map(
               Object.entries(setAttemptIdsBySetId),
             );
           }
-          return refresh();
+          setServerSegmentEndsAt(currentSegmentEndsAt);
+          updateLocal(attemptIdRef.current!, {
+            currentSegmentEndsAt,
+            engineSnapshot,
+            ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+          });
         })
         .catch(() => {
           // Keep the local engine usable and retry on the next state change.
@@ -574,9 +581,9 @@ export function useExamAttemptLifecycle({
     kind,
     state,
     practice,
-    refresh,
     attemptStateRef,
     serverSegmentEndsAt,
+    updateLocal,
   ]);
 
   const activeQuestionTimingKey = latestQuestionTimingRef.current
@@ -619,7 +626,6 @@ export function useExamAttemptLifecycle({
         engineSnapshot: toExamEngineSnapshot(state),
         ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
       });
-      await refresh();
       return true;
     } catch {
       // Question timing retries on the next heartbeat or transition.
@@ -634,7 +640,6 @@ export function useExamAttemptLifecycle({
     attemptStateRef,
     practice,
     updateLocal,
-    refresh,
   ]);
 
   useEffect(() => {
@@ -687,7 +692,6 @@ export function useExamAttemptLifecycle({
         },
         ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
       });
-      await refresh();
       return true;
     } catch {
       return false;
@@ -701,7 +705,6 @@ export function useExamAttemptLifecycle({
     attemptStateRef,
     practice,
     updateLocal,
-    refresh,
   ]);
 
   useEffect(() => {

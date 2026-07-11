@@ -42,6 +42,7 @@ const SECTION_OPTIONS: DataTableFilterDefinition["options"] = [
 ];
 
 const ATTEMPTED_OPTIONS: DataTableFilterDefinition["options"] = [
+  { value: "attempted", label: "Attempted" },
   { value: "unattempted", label: "Unattempted" },
 ];
 
