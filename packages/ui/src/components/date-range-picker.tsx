@@ -5,6 +5,7 @@ import { Button } from './button';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { parseISO, format, addDays, subDays, isValid, isAfter, setDate, setMonth, setYear, getDate, getMonth, getYear } from 'date-fns';
 import { cn } from '../lib/cn';
+import { SmartDatePickerPopover } from './smart-date-picker';
 
 interface DateRangePickerProps {
   from: string; // YYYY-MM-DD or empty string
@@ -52,9 +53,7 @@ export function DateRangePicker({
     to: { day?: number; month?: number; year?: number } | null;
   }>({ from: null, to: null });
   
-  // Refs for hidden date inputs and debounce timer
-  const fromDateInputRef = useRef<HTMLInputElement>(null);
-  const toDateInputRef = useRef<HTMLInputElement>(null);
+  // Refs for debounce timer and click-outside detection
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -443,31 +442,7 @@ export function DateRangePicker({
     setInputValue('');
   };
 
-  // Handle clicking on date to open native calendar
-  const handleDateClick = (side: DateSide, e: React.MouseEvent) => {
-    // Don't trigger if clicking on a date part button or clear button
-    const target = e.target as HTMLElement;
-    // Check if click is on a button (date part or clear button)
-    if (target.tagName === 'BUTTON' || target.closest('button')) {
-      return;
-    }
-
-    const dateInput = side === 'from' ? fromDateInputRef.current : toDateInputRef.current;
-    if (dateInput) {
-      // showPicker() is supported in modern browsers
-      if (typeof dateInput.showPicker === 'function') {
-        dateInput.showPicker();
-      } else {
-        // Fallback: focus and click
-        dateInput.focus();
-        dateInput.click();
-      }
-    }
-  };
-
-  // Handle native date input change
-  const handleNativeDateChange = (side: DateSide, e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handlePickerDateChange = (side: DateSide, value: string | null) => {
     if (value) {
       // Check date range validity
       const otherDate = side === 'from' ? toValue : fromValue;
@@ -603,24 +578,6 @@ export function DateRangePicker({
 
   return (
     <div ref={containerRef} className={cn('flex items-center gap-1 border rounded-md', className)}>
-      {/* Hidden native date inputs for calendar widget */}
-      <input
-        ref={fromDateInputRef}
-        type="date"
-        value={fromValue || ''}
-        onChange={(e) => handleNativeDateChange('from', e)}
-        className="hidden"
-        aria-hidden="true"
-      />
-      <input
-        ref={toDateInputRef}
-        type="date"
-        value={toValue || ''}
-        onChange={(e) => handleNativeDateChange('to', e)}
-        className="hidden"
-        aria-hidden="true"
-      />
-
       {/* Left Arrow Button */}
       <Button
         type="button"
@@ -636,24 +593,35 @@ export function DateRangePicker({
       {/* Date Range Display */}
       <div className="flex items-center gap-0.5 px-0.5 py-1.5 min-w-0 flex-1 justify-center">
         {/* From Date */}
-        <div
-          onClick={(e) => handleDateClick('from', e)}
-          className="flex items-center hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
-          title="Click to open calendar or click date parts to edit"
+        <SmartDatePickerPopover
+          value={fromValue || null}
+          onChange={(value) => handlePickerDateChange('from', value ? value.split('T')[0] : null)}
+          stopPropagation
         >
-          {renderDate('from', fromValue)}
-        </div>
+          <div
+            className="flex items-center hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+            title="Click to open date selector or click date parts to edit"
+          >
+            {renderDate('from', fromValue)}
+          </div>
+        </SmartDatePickerPopover>
 
         <span className="text-muted-foreground mx-1">-</span>
 
         {/* To Date */}
-        <div
-          onClick={(e) => handleDateClick('to', e)}
-          className="flex items-center hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
-          title="Click to open calendar or click date parts to edit"
+        <SmartDatePickerPopover
+          value={toValue || null}
+          onChange={(value) => handlePickerDateChange('to', value ? value.split('T')[0] : null)}
+          minDate={fromValue || undefined}
+          stopPropagation
         >
-          {renderDate('to', toValue)}
-        </div>
+          <div
+            className="flex items-center hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+            title="Click to open date selector or click date parts to edit"
+          >
+            {renderDate('to', toValue)}
+          </div>
+        </SmartDatePickerPopover>
       </div>
 
       {/* Right Arrow Button */}
@@ -670,4 +638,3 @@ export function DateRangePicker({
     </div>
   );
 }
-

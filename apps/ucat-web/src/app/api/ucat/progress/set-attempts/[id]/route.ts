@@ -4,6 +4,11 @@ import { extractTextFromRichJson } from "@/features/question-engine/model/rich-t
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
 import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
+import {
+  fetchAttemptReviewCategoryDescriptions,
+  fetchAttemptReviewQuestionMetadata,
+  type AttemptReviewQuestionTag,
+} from "@/features/progress/lib/attempt-review-question-metadata";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -21,10 +26,17 @@ export type SetAttemptDetailResponse = {
     stemIndex: number;
     score: number | null;
     timeSpentSeconds: number | null;
+    averageTimeSeconds: number | null;
+    averageTimeSampleSize: number;
+    timeBurdenSeconds: number | null;
+    difficulty: number | null;
+    questionTags: AttemptReviewQuestionTag[];
+    isFlagged: boolean;
     questionType: "multiple_choice" | "syllogism" | null;
     /** 'correct' | 'partial' | 'incorrect' | 'not_attempted' */
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     categoryName: string | null;
+    categoryDescription: string | null;
     questionStemCategoryId: string | null;
     /** For answers view: selected option id (multiple choice) or null */
     questionAnswerOptionId: string | null;
@@ -162,7 +174,7 @@ export async function GET(
   const { data: questionAttemptsRaw, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot",
+      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
     )
     .eq("student_question_set_attempt_id", attemptId)
     .eq("is_submitted", true);
@@ -177,6 +189,7 @@ export async function GET(
       {
         score: qa.score,
         timeSpentSeconds: qa.time_spent_seconds,
+        timeBurdenSeconds: qa.time_burden_seconds,
         questionType: qa.question_type as
           | "multiple_choice"
           | "syllogism"
@@ -185,8 +198,25 @@ export async function GET(
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
         answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        isFlagged: qa.is_flagged ?? false,
       },
     ]),
+  );
+
+  const questionMetadata = await fetchAttemptReviewQuestionMetadata(
+    supabase,
+    orderedQuestions.map((q) => q.questionId),
+  );
+  const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
+    supabase,
+    [
+      ...Array.from(stemCategoryMap.values()).map(
+        (category) => category.categoryId,
+      ),
+      ...(questionAttemptsRaw ?? [])
+        .map((qa) => qa.question_stem_category_id)
+        .filter((id): id is string => !!id),
+    ],
   );
 
   const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
@@ -211,12 +241,18 @@ export async function GET(
         syllogismOptionsByQuestionId,
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
+      const metadata = questionMetadata.get(questionId);
+      const timeBurdenSeconds =
+        attemptData?.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
       const questionType = attemptData?.questionType ?? null;
 
       const categoryName =
         attemptData?.categoryName ?? stemCategory?.categoryName ?? null;
       const questionStemCategoryId =
         attemptData?.questionStemCategoryId ?? stemCategory?.categoryId ?? null;
+      const categoryDescription = questionStemCategoryId
+        ? (categoryDescriptions.get(questionStemCategoryId) ?? null)
+        : null;
 
       const questionAnswerOptionId =
         attemptData?.questionAnswerOptionId ?? null;
@@ -228,9 +264,16 @@ export async function GET(
         stemIndex,
         score,
         timeSpentSeconds,
+        averageTimeSeconds: metadata?.averageTimeSeconds ?? null,
+        averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
+        timeBurdenSeconds,
+        difficulty: metadata?.difficulty ?? null,
+        questionTags: metadata?.questionTags ?? [],
+        isFlagged: attemptData?.isFlagged ?? false,
         questionType,
         result,
         categoryName,
+        categoryDescription,
         questionStemCategoryId,
         questionAnswerOptionId,
         answerSnapshot,

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
 import type { ProgressMode } from "../lib/progress-mode";
 import { formatUcatPercentile } from "../lib/percentiles";
+import { getSectionProgressPercentage } from "../lib/progress-data-utils";
+import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import {
   AnimatedInteger,
   ProgressCircular,
@@ -22,6 +24,7 @@ type SectionProgressCardsProps = {
   sectionHrefPrefix?: string;
   mode: ProgressMode;
   timeFrameDays: string;
+  scoreProjections?: SectionScoreProjection[];
 };
 
 export function SectionProgressCards({
@@ -30,22 +33,22 @@ export function SectionProgressCards({
   sectionHrefPrefix = "/progress/sections",
   mode,
   timeFrameDays: _timeFrameDays,
+  scoreProjections,
 }: SectionProgressCardsProps) {
-  const getScaledScore = (section: SectionProgress): number | null =>
-    mode === "weighted"
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore;
-
-  const getPercentage = (section: SectionProgress): number =>
-    mode === "weighted" && section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage;
+  const showPredictedScores = scoreProjections != null;
+  const scoreBySectionNumber = new Map(
+    (scoreProjections ?? []).map((projection) => [
+      projection.sectionNumber,
+      projection,
+    ]),
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => {
-          const score = getScaledScore(section);
+          const projection = scoreBySectionNumber.get(section.sectionNumber);
+          const score = projection?.currentEstimate ?? null;
           const percentile = formatUcatPercentile(score, "section");
           const card = (
             <Card
@@ -70,34 +73,40 @@ export function SectionProgressCards({
                 ) : null}
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Scaled score
-                  </div>
-                  <div
-                    className={cn(
-                      "text-3xl font-bold tabular-nums",
-                      score == null && "text-muted-foreground",
-                    )}
-                  >
-                    {score != null ? (
-                      <AnimatedInteger value={Math.round(score)} />
-                    ) : (
-                      "—"
-                    )}
-                  </div>
-                  {percentile ? (
-                    <div className="mt-1 text-xs font-medium text-muted-foreground">
-                      {percentile}
+                {showPredictedScores ? (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Predicted section score
                     </div>
-                  ) : null}
-                </div>
+                    <div
+                      className={cn(
+                        "text-3xl font-bold tabular-nums",
+                        score == null && "text-muted-foreground",
+                      )}
+                    >
+                      {score != null ? (
+                        <AnimatedInteger value={Math.round(score)} />
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                    {score == null && projection ? (
+                      <div className="mt-1 text-xs font-medium text-muted-foreground">
+                        Not enough evidence yet
+                      </div>
+                    ) : percentile ? (
+                      <div className="mt-1 text-xs font-medium text-muted-foreground">
+                        {percentile}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">
                     Percentage correct
                   </div>
                   <ProgressCircular
-                    percentage={getPercentage(section)}
+                    percentage={getSectionProgressPercentage(section, mode)}
                     size={120}
                     strokeWidth={10}
                     className="text-accent"

@@ -15,6 +15,7 @@ import {
   GraduationCap,
   TrendingUp,
   Layers,
+  ClipboardList,
 } from 'lucide-react';
 import { AdminSettingsCard } from '@/shared/components';
 
@@ -129,9 +130,9 @@ export default function SettingsPage() {
           icon: GraduationCap,
         },
         {
-          title: 'Score predictor model',
-          description: 'Configure cold-start constants for UCAT section score projections',
-          href: '/settings/ucat-model-config',
+          title: 'Score projection',
+          description: 'Configure UCAT score estimates, evidence weights, and trajectory assumptions',
+          href: '/settings/score-projection',
           icon: GraduationCap,
         },
       ],
@@ -156,6 +157,12 @@ export default function SettingsPage() {
           description: 'Create and manage templates for issues, projects, tasks, and notes',
           href: '/settings/rich-text-templates',
           icon: FileStack,
+        },
+        {
+          title: 'Forms',
+          description: 'Create forms and publish respondent links',
+          href: '/settings/forms',
+          icon: ClipboardList,
         },
         {
           title: 'Manual online access',

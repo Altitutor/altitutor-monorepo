@@ -15,7 +15,9 @@ import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
 import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
 import {
+  cacheSignedUrls,
   docStructureFingerprint,
+  extractUcatImagePathFromSignedUrl,
   extractImageUrlsFromDoc,
 } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 import {
@@ -111,8 +113,59 @@ function toJsonContent(value: UcatRichTextValue): JSONContent | null {
   return value as JSONContent
 }
 
+/**
+ * Older pasted stems can contain a block image inside a paragraph. Split that
+ * invalid shape into sibling blocks before TipTap receives the document.
+ */
+function normalizeBlockImagesInDocument(value: JSONContent | null): JSONContent | null {
+  if (value == null) return value
+
+  function normalizeNode(node: JSONContent): JSONContent[] {
+    const normalizedContent = node.content?.flatMap(normalizeNode)
+    const normalizedNode = normalizedContent
+      ? { ...node, content: normalizedContent }
+      : node
+
+    if (
+      normalizedNode.type !== 'paragraph' ||
+      !normalizedContent?.some((child) => child.type === 'image')
+    ) {
+      return [normalizedNode]
+    }
+
+    const blocks: JSONContent[] = []
+    let inlineContent: JSONContent[] = []
+    for (const child of normalizedContent) {
+      if (child.type !== 'image') {
+        inlineContent.push(child)
+        continue
+      }
+      if (inlineContent.length > 0) {
+        blocks.push({ ...normalizedNode, content: inlineContent })
+      }
+      blocks.push(child)
+      inlineContent = []
+    }
+    // Keep a text block after a trailing image so the next typed character has
+    // a valid inline parent rather than an invalid document-level selection.
+    blocks.push({ ...normalizedNode, content: inlineContent })
+    return blocks
+  }
+
+  return normalizeNode(value)[0] ?? value
+}
+
 function fromJsonContent(json: JSONContent): Json {
   return json as unknown as Json
+}
+
+function cacheUploadedUcatImageUrl(fileId: string, signedUrl: string): void {
+  const storagePath = extractUcatImagePathFromSignedUrl(signedUrl)
+  if (storagePath) {
+    cacheSignedUrls([storagePath], [fileId], [signedUrl, signedUrl])
+    return
+  }
+  cacheSignedUrls([], [fileId], [signedUrl])
 }
 
 export function UcatRichTextEditor({
@@ -194,6 +247,7 @@ export function UcatRichTextEditor({
 
         try {
           const { fileId, signedUrl } = await uploadUcatImage({ file, stemId })
+          cacheUploadedUcatImageUrl(fileId, signedUrl)
           collectedFileIds.push(fileId)
 
           if (maxImagesPerDocument === 1) {
@@ -368,6 +422,7 @@ export function UcatRichTextEditor({
                   file,
                   stemId,
                 })
+                cacheUploadedUcatImageUrl(fileId, signedUrl)
                 collectedFileIds.push(fileId)
                 signedUrls.push(signedUrl)
               } catch (error) {
@@ -431,10 +486,12 @@ export function UcatRichTextEditor({
 
   const jsonRecord =
     value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-  const { content: refreshedContent, isLoading: isRefreshingImages, hasImageRefs } =
-    useRefreshedUcatContent(jsonRecord)
+  const { content: refreshedContent, hasImageRefs } = useRefreshedUcatContent(jsonRecord)
 
-  const liveEditorContent = useMemo(() => toJsonContent(value), [value])
+  const liveEditorContent = useMemo(
+    () => normalizeBlockImagesInDocument(toJsonContent(value)),
+    [value]
+  )
   const liveStructureKey = useMemo(
     () => docStructureFingerprint(liveEditorContent as Record<string, unknown>),
     [liveEditorContent]
@@ -450,19 +507,25 @@ export function UcatRichTextEditor({
     return extractImageUrlsFromDoc(refreshedContent).join('\0')
   }, [hasImageRefs, refreshedContent])
 
-  // Match UcatRichContentBlock: never mount TipTap with expired signed URLs — broken
-  // images do not recover when src is updated via setContent after the first failed load.
+  // Signed URL refresh produces a second, asynchronously updated document. That is
+  // safe for read-only output, but replacing a live TipTap document during an edit
+  // can discard image nodes from legacy content. Editable fields retain their live
+  // document; newly uploaded images are cached above and existing URLs are renewed
+  // when rendered in read-only previews.
   const waitingForImageRefresh =
-    hasImageRefs && (isRefreshingImages || refreshedContent == null)
+    !editable && hasImageRefs && refreshedContent == null
   const editorContent = waitingForImageRefresh
     ? null
-    : refreshedContent != null && refreshedStructureKey === liveStructureKey
+    : !editable && refreshedContent != null && refreshedStructureKey === liveStructureKey
       ? (refreshedContent as JSONContent)
       : liveEditorContent
 
   const editorMountKey = useMemo(
-    () => (hasImageRefs ? refreshedImageUrlsKey : 'ucat-rte-stable'),
-    [hasImageRefs, refreshedImageUrlsKey]
+    () =>
+      !editable && hasImageRefs
+        ? refreshedImageUrlsKey
+        : 'ucat-rte-stable',
+    [editable, hasImageRefs, refreshedImageUrlsKey]
   )
 
   const omitTypography =

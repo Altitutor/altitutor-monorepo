@@ -27,6 +27,9 @@ type FeedbackDialogProps = {
     email?: string | null;
     id?: string | null;
   };
+  initialSubject?: string;
+  initialMessage?: string;
+  diagnostics?: Record<string, unknown>;
 };
 
 const TITLES: Record<FeedbackKind, string> = {
@@ -45,6 +48,9 @@ export function FeedbackDialog({
   kind,
   appName,
   user,
+  initialSubject = "",
+  initialMessage = "",
+  diagnostics,
 }: FeedbackDialogProps) {
   const { toast } = useToast();
   const [subject, setSubject] = React.useState("");
@@ -52,12 +58,16 @@ export function FeedbackDialog({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
-    if (!open) {
+    if (open) {
+      setSubject(initialSubject);
+      setMessage(initialMessage);
+      setIsSubmitting(false);
+    } else {
       setSubject("");
       setMessage("");
       setIsSubmitting(false);
     }
-  }, [open]);
+  }, [initialMessage, initialSubject, open]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,6 +98,7 @@ export function FeedbackDialog({
             userAgent: window.navigator.userAgent,
             viewport: `${window.innerWidth}x${window.innerHeight}`,
             timestamp: new Date().toISOString(),
+            ...diagnostics,
           },
         }),
       });

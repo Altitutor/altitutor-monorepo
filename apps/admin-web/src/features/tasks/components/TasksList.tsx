@@ -352,10 +352,14 @@ export function TasksList({
   defaultFilters?: Record<string, unknown[]>;
 } = {}) {
   const embedLocked = hideToolbar && embedView != null;
+  const isLinkedTaskList = Boolean(issueId || projectId);
+  const showInlineAddRow = !hideToolbar || isLinkedTaskList;
 
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy,
     setGroupBy,
     sortBy,
@@ -375,7 +379,8 @@ export function TasksList({
     ...filters,
     ...(issueId ? { issue_id: [issueId as unknown] } : {}),
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
-  }), [filters, issueId, projectId]);
+    search,
+  }), [filters, issueId, projectId, search]);
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -792,7 +797,7 @@ export function TasksList({
         sortBy={embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
         sortDirection={embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
         onSortChange={embedLocked ? undefined : handleSortChange}
-        onAdd={hideToolbar ? undefined : handleAdd}
+        onAdd={showInlineAddRow ? handleAdd : undefined}
         onRowClick={(t) => {
           setSelectedTaskId(t.id);
           setIsEditDialogOpen(true);
@@ -800,10 +805,13 @@ export function TasksList({
         addButtonLabel="Add task"
         addButtonVariant="default"
         addButtonShowLabel={true}
-        emptyMessage="No tasks match your filters"
+        emptyMessage={isLinkedTaskList ? '' : 'No tasks match your filters'}
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
+        searchValue={search}
+        onSearchChange={hideToolbar ? undefined : setSearch}
+        searchPlaceholder="Search tasks..."
         quickFilters={hideToolbar ? [] : quickFilters}
         onApplyQuickFilter={hideToolbar ? undefined : handleApplyQuickFilter}
         getGroupOrder={getGroupOrder}

@@ -1,9 +1,20 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { issuesApi } from './issues';
 import { issueKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
-import type { IssueUpdate } from '../types';
+import type { Issue, IssueUpdate, IssueWithTags } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
+
+type IssueUpdateVariables = { id: string; updates: IssueUpdate };
+
+type IssueUpdateSnapshot = {
+  previousLists: Array<[QueryKey, IssueWithTags[] | undefined]>;
+  previousDetail: IssueWithTags | undefined;
+};
+
+function applyIssueOptimisticUpdate(issue: IssueWithTags, updates: IssueUpdate): IssueWithTags {
+  return { ...issue, ...updates };
+}
 
 export function useCreateIssue() {
   const queryClient = useQueryClient();
@@ -37,18 +48,43 @@ export function useUpdateIssue() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: string, updates: IssueUpdate }) => issuesApi.update(id, updates),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: issueKeys.detail(id) });
+  return useMutation<Issue, Error, IssueUpdateVariables, IssueUpdateSnapshot>({
+    mutationFn: ({ id, updates }: IssueUpdateVariables) => issuesApi.update(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: issueKeys.lists() }),
+        queryClient.cancelQueries({ queryKey: issueKeys.detail(id) }),
+      ]);
+
+      const previousLists = queryClient.getQueriesData<IssueWithTags[]>({
+        queryKey: issueKeys.lists(),
+      });
+      const previousDetail = queryClient.getQueryData<IssueWithTags>(issueKeys.detail(id));
+
+      queryClient.setQueriesData<IssueWithTags[]>({ queryKey: issueKeys.lists() }, (current) =>
+        current?.map((issue) => (issue.id === id ? applyIssueOptimisticUpdate(issue, updates) : issue))
+      );
+      queryClient.setQueryData<IssueWithTags>(issueKeys.detail(id), (current) =>
+        current ? applyIssueOptimisticUpdate(current, updates) : current
+      );
+
+      return { previousLists, previousDetail };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, { id }, context) => {
+      context?.previousLists.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      queryClient.setQueryData(issueKeys.detail(id), context?.previousDetail);
+
       toast({ 
         title: 'Error updating issue', 
         description: error.message || 'An unexpected error occurred.',
         variant: 'destructive' 
       });
+    },
+    onSettled: (_updatedIssue, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: issueKeys.detail(id) });
     },
   });
 }

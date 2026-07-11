@@ -46,7 +46,7 @@ export function ProgressModeSelector({
                 value: "weighted",
                 label: "Weighted average",
                 infoTooltip:
-                  "Recent attempts are weighted more heavily than older ones. Percentages and scaled scores use EMA; counts show all time.",
+                  "Uses recent-weighted aggregation for progress graphs. Section prediction cards use the score predictor, and question-correct cards use raw correctness.",
               },
               { value: "time_frame", label: "Time frame" },
             ]}

@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@altitutor/shared";
+import {
+  isSetGeneratorEnabled,
+  isSetGeneratorPath,
+} from "@/lib/feature-flags";
 
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
@@ -20,6 +24,10 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/pricing") {
     return NextResponse.redirect(new URL("/subscribe", origin));
+  }
+
+  if (!isSetGeneratorEnabled() && isSetGeneratorPath(pathname)) {
+    return NextResponse.redirect(new URL("/sets", origin));
   }
 
   const publicPaths = ["/", "/login", "/signup", "/forgot-password"];

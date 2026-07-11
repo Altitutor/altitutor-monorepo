@@ -52,8 +52,8 @@ export const appNavigation: NavSection[] = [
   {
     title: "PRACTICE",
     items: [
-      { href: "/practice", label: "Practice", icon: BrainCircuit },
       { href: "/skill-trainer", label: "Skill trainer", icon: Target },
+      { href: "/practice", label: "Practice questions", icon: BrainCircuit },
     ],
   },
   {

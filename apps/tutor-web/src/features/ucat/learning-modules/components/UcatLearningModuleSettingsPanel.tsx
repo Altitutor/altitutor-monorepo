@@ -25,6 +25,7 @@ import {
   isDescendantOf,
   resolveRootSectionId,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 export type LearningModuleEditorMode = 'edit' | 'view'
 
 type UcatLearningModuleSettingsPanelProps = {
@@ -47,6 +48,9 @@ type UcatLearningModuleSettingsPanelProps = {
   editorMode: LearningModuleEditorMode
   onEditorModeChange: (mode: LearningModuleEditorMode) => void
   aiActions?: ReactNode
+  activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
+  onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
+  className?: string
 }
 
 function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
@@ -78,8 +82,18 @@ export function UcatLearningModuleSettingsPanel({
   editorMode,
   onEditorModeChange,
   aiActions,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  className,
 }: UcatLearningModuleSettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
+  const activeTab = controlledActiveTab ?? uncontrolledActiveTab
+
+  function handleActiveTabChange(value: string) {
+    const next = value as 'properties' | 'ai'
+    setUncontrolledActiveTab(next)
+    onActiveTabChange?.(next)
+  }
   const draftModules = useMemo(
     () =>
       modules.map((row) =>
@@ -136,9 +150,9 @@ export function UcatLearningModuleSettingsPanel({
   ]
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
-        <TabsList className="grid w-full grid-cols-2">
+    <aside className={cn('flex h-full w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-72 lg:border-l lg:p-4', className)}>
+      <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="hidden w-full grid-cols-2 lg:grid">
           <TabsTrigger value="properties">Properties</TabsTrigger>
           <TabsTrigger value="ai" disabled={!aiActions}>AI Tools</TabsTrigger>
         </TabsList>

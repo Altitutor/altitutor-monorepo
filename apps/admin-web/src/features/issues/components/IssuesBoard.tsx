@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import {
+  Button,
   KanbanBoard,
+  SearchableSelect,
   type KanbanColumnDef,
   type EntityListPillColumn,
   type EntityListStatusColumn,
@@ -31,6 +33,8 @@ export function IssuesBoard() {
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -48,7 +52,7 @@ export function IssuesBoard() {
   const [createColumnValue, setCreateColumnValue] = useState<IssueStatus>('open');
   const [createDefaultDueDate, setCreateDefaultDueDate] = useState<string | null>(null);
 
-  const { data: issues = [], isLoading } = useIssues(filters);
+  const { data: issues = [], isLoading } = useIssues({ ...filters, search });
   const updateIssue = useUpdateIssue();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -116,13 +120,41 @@ export function IssuesBoard() {
         defaultValue: null,
         filterOptions: ISSUE_STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
         groupable: true,
-        sortable: true,
-        filterable: true,
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {getIssueStatusLabel((item.status ?? 'open') as IssueStatus)}
-          </span>
-        ),
+      sortable: true,
+      filterable: true,
+        renderPill: (item, onChange, collapsed) => {
+          const status = (item.status ?? 'open') as IssueStatus;
+          const StatusIcon = getIssueStatusIcon(status);
+          const iconColor = getIssueStatusIconColor(status);
+          const selectedItem = ISSUE_STATUS_OPTIONS.find((option) => option.value === status) ?? ISSUE_STATUS_OPTIONS[0];
+
+          return (
+            <SearchableSelect<(typeof ISSUE_STATUS_OPTIONS)[number]>
+              items={ISSUE_STATUS_OPTIONS}
+              value={selectedItem}
+              onValueChange={(option) => {
+                const nextStatus = (option?.value ?? 'open') as IssueStatus;
+                handleUpdate(item, { status: nextStatus });
+                onChange(nextStatus);
+              }}
+              getItemLabel={(option) => option.label}
+              getItemId={(option) => option.value}
+              trigger={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
+                    collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                  )}
+                >
+                  <StatusIcon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+                  {!collapsed && <span className="truncate">{getIssueStatusLabel(status)}</span>}
+                </Button>
+              }
+            />
+          );
+        },
       },
       {
         key: 'due_date',
@@ -151,22 +183,6 @@ export function IssuesBoard() {
           />
         ),
       },
-      {
-        key: 'tags',
-        label: 'Tags',
-        visibleByDefault: true,
-        getValue: (issue) => (issue.tags?.length ? issue.tags.length : null),
-        defaultValue: null,
-        groupable: false,
-        sortable: true,
-        filterable: false,
-        compare: (a, b) => (Number(a) ?? 0) - (Number(b) ?? 0),
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {item.tags?.length ? `${item.tags.length} tags` : 'No tags'}
-          </span>
-        ),
-      },
     ],
     [handleUpdate]
   );
@@ -175,7 +191,6 @@ export function IssuesBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'due_date', label: 'Due date' },
-      { key: 'tags', label: 'Tags' },
     ],
     []
   );
@@ -184,7 +199,6 @@ export function IssuesBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'due_date', label: 'Due date' },
-      { key: 'tags', label: 'Tags' },
     ],
     []
   );
@@ -233,6 +247,7 @@ export function IssuesBoard() {
           <IssueCard
             issue={i}
             visiblePillKeys={visiblePillKeys}
+            rightPills={rightPills}
             onClick={() => {
               setSelectedIssueId(i.id);
               setIsEditDialogOpen(true);
@@ -255,10 +270,6 @@ export function IssuesBoard() {
             if (valueKey === '__null__') return 'No due date';
             return formatIssueDueDate(valueKey);
           }
-          if (columnKey === 'tags') {
-            if (valueKey === '__null__') return 'No tags';
-            return `${valueKey} tag${Number(valueKey) !== 1 ? 's' : ''}`;
-          }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
         onAdd={handleAdd}
@@ -266,6 +277,9 @@ export function IssuesBoard() {
         emptyMessage="No issues found"
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search issues..."
       />
 
       {selectedIssueId && (

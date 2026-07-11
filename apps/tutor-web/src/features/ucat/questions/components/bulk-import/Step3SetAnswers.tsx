@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
 import {
@@ -42,7 +43,16 @@ type ReviewCategoryOption = {
   label?: string | null
 }
 type ReviewSectionOption = { id: string | null; name?: string | null; display_columns?: number | null }
-type ReviewTagOption = { id: string; name: string; label?: string | null }
+type ReviewTagOption = {
+  id: string
+  name: string
+  label?: string | null
+  parent_question_tag_id?: string | null
+  ucat_section_id?: string | null
+}
+type ReviewStemDraft = BulkImportStemDraft & {
+  aiGenerationMetadata?: Json | null
+}
 
 export type AnswerRow = {
   stemId: string
@@ -62,7 +72,7 @@ export type AnswerRow = {
   answerExplanationJson: Json | null
 }
 
-function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
+function buildAnswerRows(stems: ReviewStemDraft[]): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
   stems.forEach((stem, stemIndex) => {
@@ -109,7 +119,7 @@ function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
 }
 
 type Step3SetAnswersProps = {
-  stems: BulkImportStemDraft[]
+  stems: ReviewStemDraft[]
   categories?: ReviewCategoryOption[]
   sections?: ReviewSectionOption[]
   tags?: ReviewTagOption[]
@@ -117,6 +127,7 @@ type Step3SetAnswersProps = {
   onNewImageFileIds?: (fileIds: string[]) => void
   sourceChannel?: UcatQuestionSourceChannel | null
   onExpandedStemChange?: (stemId: string | null) => void
+  onActiveTextEditorChange?: (editor: Editor | null) => void
 }
 
 export function Step3SetAnswers({
@@ -128,6 +139,7 @@ export function Step3SetAnswers({
   onNewImageFileIds,
   sourceChannel = null,
   onExpandedStemChange,
+  onActiveTextEditorChange,
 }: Step3SetAnswersProps) {
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
@@ -182,9 +194,18 @@ export function Step3SetAnswers({
     setExpandedRowKey((current) => {
       const next = current === key ? null : key
       onExpandedStemChange?.(next ? rows.find((row) => `${row.stemId}-${row.questionIndex}` === next)?.stemId ?? null : null)
+      if (next !== current) {
+        onActiveTextEditorChange?.(null)
+      }
       return next
     })
-  }, [onExpandedStemChange, rows])
+  }, [onActiveTextEditorChange, onExpandedStemChange, rows])
+
+  useEffect(() => {
+    return () => {
+      onActiveTextEditorChange?.(null)
+    }
+  }, [onActiveTextEditorChange])
 
   if (stems.length === 0 || rows.length === 0) {
     return (
@@ -234,7 +255,7 @@ export function Step3SetAnswers({
               const rowKey = `${row.stemId}-${row.questionIndex}`
               const isExpanded = expandedRowKey === rowKey
               const isMissingExplanation = missingExplanationRowKeys.has(rowKey)
-              const stem = stems.find((s) => s.id === row.stemId)
+              const stem = stems.find((item) => item.id === row.stemId)
               const correctDisplay = row.isSyllogism
                 ? (row.syllogismPattern ?? '')
                 : row.correctLetter
@@ -287,7 +308,7 @@ export function Step3SetAnswers({
                     <TableRow className="bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={totalCols} className="p-0 align-top">
                         <div
-                          className="h-[min(75vh,900px)] min-h-[32rem] border-t border-border"
+                          className="h-[min(75vh,900px)] min-h-[32rem] overflow-hidden border-t border-border"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <BulkImportReviewStemEditor
@@ -300,7 +321,9 @@ export function Step3SetAnswers({
                             tags={tags}
                             onUpdateStem={onUpdateStem}
                             onNewImageFileIds={onNewImageFileIds}
+                            onActiveTextEditorChange={onActiveTextEditorChange}
                             sourceChannel={sourceChannel}
+                            aiGenerationMetadata={stem.aiGenerationMetadata ?? null}
                           />
                         </div>
                       </TableCell>

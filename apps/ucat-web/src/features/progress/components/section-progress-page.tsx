@@ -4,12 +4,24 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
+import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
+import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  sumCorrectScoreFromAttempts,
+  sumProgressPointsFromAttempts,
+} from "@altitutor/shared";
 import {
   filterByTimeFrame,
   computeSingleSectionFromFiltered,
@@ -17,6 +29,7 @@ import {
   getBestAttemptPerQuestion,
   applyAttemptFilterToProgress,
   getSharedDateRange,
+  getSectionProgressPercentage,
 } from "../lib/progress-data-utils";
 import {
   AnimatedFraction,
@@ -24,6 +37,7 @@ import {
   ProgressCircular,
 } from "./progress-animated-display";
 import { formatUcatPercentile } from "../lib/percentiles";
+import { ProgressGraph } from "./progress-graph";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
@@ -41,6 +55,7 @@ export function SectionProgressPage({
   mocksOnly = false,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress();
+  const projectionQuery = useScoreProjection(!mocksOnly);
   const progressMode = useProgressMode();
   const backHref = mocksOnly ? "/progress/mocks" : "/progress";
   const backLabel = mocksOnly ? "Back to mock progress" : "Back to progress";
@@ -191,21 +206,21 @@ export function SectionProgressPage({
     );
   }
 
+  const sectionProjection =
+    !mocksOnly && projectionQuery.data
+      ? (projectionQuery.data.sections.find(
+          (s) => s.sectionNumber === section.sectionNumber,
+        ) ?? null)
+      : null;
   const score =
-    progressMode.mode === "weighted"
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore;
-  const percentage =
-    progressMode.mode === "weighted" &&
-    section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage;
-
+    !mocksOnly && projectionQuery.data
+      ? (sectionProjection?.currentEstimate ?? null)
+      : null;
   return (
     <SectionProgressContent
       section={section}
       score={score}
-      percentage={percentage}
+      percentage={getSectionProgressPercentage(section, progressMode.mode)}
       totalPublicQuestions={section.totalPublicQuestions}
       totalPublicSets={
         filteredData?.totalPublicSetsBySection?.[section.sectionId]
@@ -221,6 +236,7 @@ export function SectionProgressPage({
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
+      scoreProjection={sectionProjection}
       mocksOnly={mocksOnly}
       backHref={backHref}
       backLabel={backLabel}
@@ -241,6 +257,7 @@ function SectionProgressContent({
   categoryProgress,
   progressMode,
   sharedDateRange,
+  scoreProjection,
   mocksOnly,
   backHref,
   backLabel,
@@ -257,6 +274,7 @@ function SectionProgressContent({
   categoryProgress: SectionCategoryProgress[];
   progressMode: ReturnType<typeof useProgressMode>;
   sharedDateRange?: ReturnType<typeof getSharedDateRange>;
+  scoreProjection: SectionScoreProjection | null;
   mocksOnly: boolean;
   backHref: string;
   backLabel: string;
@@ -271,13 +289,8 @@ function SectionProgressContent({
           )
         : filteredQuestionAttempts;
     const unique = getBestAttemptPerQuestion(timeFiltered);
-    let completed = 0;
-    let correct = 0;
-    for (const a of unique) {
-      const maxPerQuestion = a.questionType === "syllogism" ? 2 : 1;
-      completed += maxPerQuestion;
-      correct += a.score ?? 0;
-    }
+    const completed = sumProgressPointsFromAttempts(unique);
+    const correct = sumCorrectScoreFromAttempts(unique);
     return {
       completed,
       correct,
@@ -332,41 +345,41 @@ function SectionProgressContent({
         backHref={backHref}
         backLabel={backLabel}
         breadcrumbOverrides={
-          mocksOnly
-            ? { 2: section.sectionName }
-            : { 1: section.sectionName }
+          mocksOnly ? { 2: section.sectionName } : { 1: section.sectionName }
         }
       />
 
       <div className="flex flex-col gap-4">
-        <div className="flex justify-center">
-          <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                Scaled score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "text-4xl font-bold tabular-nums text-center",
-                  score == null && "text-muted-foreground",
-                )}
-              >
-                {score != null ? (
-                  <AnimatedInteger value={Math.round(score)} />
-                ) : (
-                  "—"
-                )}
-              </div>
-              {percentile ? (
-                <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
-                  {percentile}
+        {!mocksOnly ? (
+          <div className="flex justify-center">
+            <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-center">
+                  Predicted section score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={cn(
+                    "text-4xl font-bold tabular-nums text-center",
+                    score == null && "text-muted-foreground",
+                  )}
+                >
+                  {score != null ? (
+                    <AnimatedInteger value={Math.round(score)} />
+                  ) : (
+                    "—"
+                  )}
                 </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
+                {percentile ? (
+                  <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
+                    {percentile}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className={UCAT_CARD_CHROME}>
@@ -399,21 +412,16 @@ function SectionProgressContent({
                       const catsWithAttempts = categoryProgress.filter(
                         (c) => c.maxScore > 0,
                       );
-                      const pct = (c: SectionCategoryProgress) =>
-                        progressMode.mode === "weighted" &&
-                        c.weightedAveragePercentage != null
-                          ? c.weightedAveragePercentage
-                          : c.percentage;
                       const best =
                         catsWithAttempts.length > 0
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) >= pct(b) ? a : b,
+                              a.percentage >= b.percentage ? a : b,
                             )
                           : null;
                       const worst =
                         catsWithAttempts.length > 1
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) <= pct(b) ? a : b,
+                              a.percentage <= b.percentage ? a : b,
                             )
                           : null;
                       return categoryProgress.map((cat) => (
@@ -466,7 +474,9 @@ function SectionProgressContent({
                     totalPublicQuestions != null ? (
                       <>
                         {" / "}
-                        <span className="tabular-nums">{totalPublicQuestions}</span>
+                        <span className="tabular-nums">
+                          {totalPublicQuestions}
+                        </span>
                       </>
                     ) : null}
                   </span>
@@ -595,6 +605,8 @@ function SectionProgressContent({
         </div>
       </div>
 
+      {!mocksOnly ? <ScoreProjectionCard projection={scoreProjection} /> : null}
+
       <QuestionAttemptsCard
         attempts={filteredQuestionAttempts}
         mode={progressMode.mode}
@@ -619,5 +631,135 @@ function SectionProgressContent({
         showAttemptFilter={!mocksOnly}
       />
     </div>
+  );
+}
+
+function ScoreProjectionCard({
+  projection,
+}: {
+  projection: SectionScoreProjection | null;
+}) {
+  if (!projection) {
+    return (
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader>
+          <CardTitle>Score projection</CardTitle>
+          <CardDescription>
+            Projection will appear after your score estimate has loaded.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px] rounded-lg bg-muted/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (projection.currentEstimate == null) {
+    return (
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader>
+          <CardTitle>Score projection</CardTitle>
+          <CardDescription>
+            Complete more timed sets or mocks before showing a predicted section
+            score.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
+            <div className="text-2xl font-bold">Not enough evidence yet</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Current effective evidence weight is{" "}
+              {projection.effectiveEvidenceWeight.toFixed(2)}. Once it reaches
+              the configured threshold, this section will show a prediction and
+              trajectory.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const currentPoint = projection.projection.find((point) => point.day === 0);
+  const currentDate =
+    currentPoint?.date ?? new Date().toISOString().slice(0, 10);
+  const historyData = projection.history.map((point) => ({
+    date: point.date,
+    value: point.value,
+  }));
+  const graphData = historyData.some((point) => point.date === currentDate)
+    ? historyData
+    : [
+        ...historyData,
+        {
+          date: currentDate,
+          value: projection.currentEstimate,
+        },
+      ];
+  const graphProjection = {
+    pessimistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.pessimistic,
+    })),
+    realistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.realistic,
+    })),
+    optimistic: projection.projection.map((point) => ({
+      date: point.date,
+      value: point.optimistic,
+    })),
+  };
+
+  return (
+    <Card className={UCAT_CARD_CHROME}>
+      <CardHeader>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Score projection</CardTitle>
+            <CardDescription>
+              Historical estimates recomputed with today&apos;s model, plus a
+              future projection from recent effective practice pace.
+            </CardDescription>
+          </div>
+          <div className="text-left sm:text-right">
+            <div className="text-2xl font-bold tabular-nums">
+              <AnimatedInteger value={projection.currentEstimate} />
+            </div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {projection.confidence} confidence +/- {projection.uncertainty}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <ProgressGraph
+          data={graphData}
+          type="line"
+          dataType="scaled_score"
+          dateRangeLabel={`${projection.effectivePracticePerWeek} effective questions/week`}
+          projection={graphProjection}
+        />
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {projection.horizons.map((horizon) => (
+            <div
+              key={horizon.day}
+              className="rounded-lg border border-border bg-card/50 p-3"
+            >
+              <div className="text-xs font-medium text-muted-foreground">
+                {horizon.day} days
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums">
+                {horizon.realistic}
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {horizon.pessimistic} - {horizon.optimistic}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

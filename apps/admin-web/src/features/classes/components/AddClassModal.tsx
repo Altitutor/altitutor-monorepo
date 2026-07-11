@@ -7,6 +7,7 @@ import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
+import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateClass } from '../hooks/useClassesQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
@@ -267,11 +268,9 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
-              <Input
-                id="session-start-date"
-                type="date"
+              <SmartDatePickerField
                 value={sessionStartDate}
-                onChange={(e) => setSessionStartDate(e.target.value)}
+                onChange={(value) => setSessionStartDate(value ?? '')}
               />
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions from today. Set a future date to delay session creation.
@@ -280,12 +279,10 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             
             <div className="space-y-2">
               <Label htmlFor="session-end-date">Session End Date (Optional)</Label>
-              <Input
-                id="session-end-date"
-                type="date"
+              <SmartDatePickerField
                 value={sessionEndDate}
-                onChange={(e) => setSessionEndDate(e.target.value)}
-                min={sessionStartDate || undefined}
+                onChange={(value) => setSessionEndDate(value ?? '')}
+                minDate={sessionStartDate || undefined}
               />
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions until end of year. Set an end date to limit session creation.

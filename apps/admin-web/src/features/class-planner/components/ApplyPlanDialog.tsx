@@ -11,8 +11,8 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
+import { SmartDatePickerField } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { useApplyClassPlan } from '../hooks/useClassPlansQuery';
 import { useClassPlan } from '../hooks/useClassPlansQuery';
@@ -172,13 +172,10 @@ export function ApplyPlanDialog({
 
           <div className="space-y-2">
             <Label htmlFor="session-start-date">Start Creating Sessions From *</Label>
-            <Input
-              id="session-start-date"
-              type="date"
+            <SmartDatePickerField
               value={format(sessionStartDate, 'yyyy-MM-dd')}
-              onChange={(e) => setSessionStartDate(new Date(e.target.value))}
-              min={format(today, 'yyyy-MM-dd')}
-              required
+              onChange={(value) => value && setSessionStartDate(new Date(value))}
+              minDate={format(today, 'yyyy-MM-dd')}
             />
             <p className="text-xs text-muted-foreground">
               Classes will be applied immediately. Sessions will be generated from this date until the end of {planYear}.

@@ -187,7 +187,7 @@ export function Step2PasteDocument({
   onImageFileIdsChange,
   parsingOptions = DEFAULT_PARSING_OPTIONS,
   onParsingOptionsChange,
-  pasteTableBehavior = 'strip_all',
+  pasteTableBehavior = 'keep',
   onPasteTableBehaviorChange,
   layout = 'default',
   liveParseSection = null,

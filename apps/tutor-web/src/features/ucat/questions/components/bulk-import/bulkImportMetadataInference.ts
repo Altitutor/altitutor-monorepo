@@ -1,6 +1,12 @@
-import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
-import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
+import type { Json } from '@altitutor/shared'
 import {
+  bulkImportSectionFromUcatName,
+  type BulkImportParseSection,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import {
+  getDecisionMakingTagPathsForQuestion,
   getDecisionMakingStemCategoryName,
   isSyllogismQuestionText,
   type ParsedDecisionMakingStem,
@@ -9,8 +15,15 @@ import {
   getQuantitativeReasoningStemCategoryName,
   getQuantitativeReasoningTagPathsForQuestion,
 } from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
-import { getSituationalJudgementStemCategoryName } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
-import { getVerbalReasoningStemCategoryName } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
+import {
+  getSituationalJudgementStemCategoryName,
+  getSituationalJudgementTagPathsForQuestion,
+} from '@/features/ucat/questions/lib/parsers/situationalJudgement'
+import {
+  getVerbalReasoningStemCategoryName,
+  getVerbalReasoningTagPathsForQuestion,
+} from '@/features/ucat/questions/lib/parsers/verbalReasoning'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type BulkImportCategoryRow = {
   id?: string | null
@@ -23,6 +36,18 @@ export type BulkImportTagRow = {
   name?: string | null
   parent_question_tag_id?: string | null
   ucat_section_id?: string | null
+}
+
+export type ManualStemMetadataRecommendation = {
+  sectionId: string | null
+  categoryId: string | null
+  questionType: 'multiple_choice' | 'syllogism' | null
+  tagIdsByQuestionIndex: Record<number, string[]>
+}
+
+export type ManualStemMetadataSectionRow = {
+  id?: string | null
+  name?: string | null
 }
 
 type ResolvedTagRow = BulkImportTagRow & { id: string; name: string }
@@ -44,6 +69,33 @@ function toDecisionMakingStem(stem: ParsedStem): ParsedDecisionMakingStem {
   }
 }
 
+function inferCategoryNameForParsedStem(
+  stem: ParsedStem,
+  section: BulkImportParseSection
+): string | null {
+  switch (section) {
+    case 'verbal_reasoning':
+      return getVerbalReasoningStemCategoryName(stem)
+    case 'decision_making':
+      return getDecisionMakingStemCategoryName(toDecisionMakingStem(stem))
+    case 'quantitative_reasoning':
+      return getQuantitativeReasoningStemCategoryName(stem)
+    case 'situational_judgement':
+      return getSituationalJudgementStemCategoryName(stem)
+  }
+}
+
+function isHighConfidenceSectionCategory(
+  section: BulkImportParseSection,
+  categoryName: string | null
+): boolean {
+  if (!categoryName) return false
+  if (section === 'verbal_reasoning') return categoryName !== 'Reading Comprehension'
+  if (section === 'decision_making') return categoryName !== 'Logical Puzzles'
+  if (section === 'quantitative_reasoning') return categoryName !== 'Text-Only Scenarios'
+  return true
+}
+
 export function inferBulkImportCategoryIdForParsedStem(args: {
   stem: ParsedStem
   section: BulkImportParseSection
@@ -51,16 +103,7 @@ export function inferBulkImportCategoryIdForParsedStem(args: {
   categories: BulkImportCategoryRow[]
 }): string | null {
   const { stem, section, sectionId, categories } = args
-  switch (section) {
-    case 'verbal_reasoning':
-      return getCategoryIdByName(categories, sectionId, getVerbalReasoningStemCategoryName(stem))
-    case 'decision_making':
-      return getCategoryIdByName(categories, sectionId, getDecisionMakingStemCategoryName(toDecisionMakingStem(stem)))
-    case 'quantitative_reasoning':
-      return getCategoryIdByName(categories, sectionId, getQuantitativeReasoningStemCategoryName(stem))
-    case 'situational_judgement':
-      return getCategoryIdByName(categories, sectionId, getSituationalJudgementStemCategoryName(stem))
-  }
+  return getCategoryIdByName(categories, sectionId, inferCategoryNameForParsedStem(stem, section))
 }
 
 export function buildBulkImportTagIdByPath(tags: BulkImportTagRow[], sectionId: string): (path: string[]) => string | null {
@@ -103,12 +146,172 @@ export function inferBulkImportTagIdsForParsedQuestion(args: {
   sectionId: string
   tags: BulkImportTagRow[]
 }): string[] {
-  if (args.section !== 'quantitative_reasoning') return []
   const getTagIdByPath = buildBulkImportTagIdByPath(args.tags, args.sectionId)
-  return getQuantitativeReasoningTagPathsForQuestion({
-    stem: args.stem,
-    question: args.question,
-  })
+
+  const tagPaths =
+    args.section === 'decision_making'
+      ? getDecisionMakingTagPathsForQuestion({
+          stem: toDecisionMakingStem(args.stem),
+          question: {
+            number: args.question.number,
+            text: args.question.text,
+            options: args.question.options,
+            questionType: isSyllogismQuestionText(args.question.text)
+              ? 'syllogism'
+              : 'multiple_choice',
+          },
+        })
+      : args.section === 'quantitative_reasoning'
+      ? getQuantitativeReasoningTagPathsForQuestion({
+          stem: args.stem,
+          question: args.question,
+        })
+      : args.section === 'verbal_reasoning'
+        ? getVerbalReasoningTagPathsForQuestion({
+            stem: args.stem,
+            question: args.question,
+          })
+        : args.section === 'situational_judgement'
+          ? getSituationalJudgementTagPathsForQuestion({
+              stem: args.stem,
+              question: args.question,
+            })
+          : []
+
+  return tagPaths
     .map((path) => getTagIdByPath(path))
     .filter((id): id is string => id != null)
+}
+
+export function inferQuestionTagIdsForFormValues(args: {
+  values: UcatQuestionStemFormValues
+  sectionId: string
+  section?: BulkImportParseSection | null
+  sectionName?: string | null
+  tags: BulkImportTagRow[]
+}): Record<number, string[]> {
+  const section = args.section ?? bulkImportSectionFromUcatName(args.sectionName)
+  if (!section) return {}
+
+  const stem = formValuesToParsedStem(args.values)
+  const tagIdsByQuestionIndex: Record<number, string[]> = {}
+  stem.questions.forEach((question, index) => {
+    const tagIds = inferBulkImportTagIdsForParsedQuestion({
+      stem,
+      question,
+      section,
+      sectionId: args.sectionId,
+      tags: args.tags,
+    })
+    if (tagIds.length > 0) {
+      tagIdsByQuestionIndex[index] = tagIds
+    }
+  })
+  return tagIdsByQuestionIndex
+}
+
+function richTextToPlainText(value: Json | null | undefined): string {
+  return proseMirrorToPlainText(value ?? null)?.trim() ?? ''
+}
+
+function formValuesToParsedStem(values: UcatQuestionStemFormValues): ParsedStem {
+  return {
+    stemText: richTextToPlainText(values.stemText as Json),
+    questions: (values.questions ?? []).map((question, index) => ({
+      number: index + 1,
+      text: richTextToPlainText(question.questionText as Json),
+      options: (question.options ?? []).map((option, optionIndex) => ({
+        label: String.fromCharCode(65 + optionIndex),
+        text: richTextToPlainText(option.answerText as Json),
+      })),
+    })),
+  }
+}
+
+function hasManualStemContent(stem: ParsedStem): boolean {
+  if (stem.stemText.trim().length > 0) return true
+  return stem.questions.some(
+    (question) =>
+      question.text.trim().length > 0 ||
+      question.options.some((option) => option.text.trim().length > 0)
+  )
+}
+
+function findSectionDetectionCandidate(args: {
+  stem: ParsedStem
+  sections: ManualStemMetadataSectionRow[]
+  categories: BulkImportCategoryRow[]
+}): { sectionId: string; section: BulkImportParseSection; categoryId: string } | null {
+  for (const sectionRow of args.sections) {
+    if (!sectionRow.id) continue
+    const section = bulkImportSectionFromUcatName(sectionRow.name)
+    if (!section) continue
+    const categoryName = inferCategoryNameForParsedStem(args.stem, section)
+    if (!isHighConfidenceSectionCategory(section, categoryName)) continue
+    const categoryId = getCategoryIdByName(args.categories, sectionRow.id, categoryName)
+    if (categoryId) return { sectionId: sectionRow.id, section, categoryId }
+  }
+  return null
+}
+
+export function inferManualStemMetadataRecommendation(args: {
+  values: UcatQuestionStemFormValues
+  sections: ManualStemMetadataSectionRow[]
+  categories: BulkImportCategoryRow[]
+  tags: BulkImportTagRow[]
+}): ManualStemMetadataRecommendation | null {
+  const stem = formValuesToParsedStem(args.values)
+  if (!hasManualStemContent(stem)) return null
+
+  const sectionCandidate = findSectionDetectionCandidate({
+    stem,
+    sections: args.sections,
+    categories: args.categories,
+  })
+  const currentSection =
+    args.sections.find((section) => section.id === args.values.sectionId) ?? null
+  const fallbackSection = currentSection?.id
+    ? bulkImportSectionFromUcatName(currentSection.name)
+    : null
+  const sectionId = sectionCandidate?.sectionId ?? currentSection?.id ?? null
+  const section = sectionCandidate?.section ?? fallbackSection
+  const categoryId =
+    sectionCandidate?.categoryId ??
+    (section && sectionId
+      ? inferBulkImportCategoryIdForParsedStem({
+          stem,
+          section,
+          sectionId,
+          categories: args.categories,
+        })
+      : null)
+  const questionType = section === 'decision_making' && categoryId
+    ? (() => {
+        const category = args.categories.find((row) => row.id === categoryId)
+        return (category?.name ?? '').trim().toLowerCase().startsWith('syllogism')
+          ? 'syllogism' as const
+          : null
+      })()
+    : null
+
+  const tagIdsByQuestionIndex: Record<number, string[]> = {}
+  if (section && sectionId) {
+    Object.assign(tagIdsByQuestionIndex, inferQuestionTagIdsForFormValues({
+      values: args.values,
+      sectionId,
+      section,
+      sectionName: currentSection?.name ?? null,
+      tags: args.tags,
+    }))
+  }
+
+  const hasTags = Object.keys(tagIdsByQuestionIndex).length > 0
+  if (!sectionCandidate && !categoryId && !hasTags) return null
+
+  return {
+    sectionId: sectionCandidate?.sectionId ?? null,
+    categoryId,
+    questionType,
+    tagIdsByQuestionIndex,
+  }
 }

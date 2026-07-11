@@ -5,6 +5,8 @@ import {
   handleModalInteractOutside,
   isInsideModal,
   isPortaledOverlayTarget,
+  isToastInteraction,
+  isToastTarget,
 } from '../modal-interact-outside';
 
 describe('isInsideModal', () => {
@@ -53,6 +55,32 @@ describe('isPortaledOverlayTarget', () => {
   });
 });
 
+describe('isToastTarget', () => {
+  it('returns true for clicks inside a Sonner toast', () => {
+    const toast = document.createElement('div');
+    toast.setAttribute('data-sonner-toast', '');
+    const button = document.createElement('button');
+    toast.appendChild(button);
+    document.body.appendChild(toast);
+
+    expect(isToastTarget(button)).toBe(true);
+
+    document.body.removeChild(toast);
+  });
+
+  it('returns true for clicks inside the app toast container marker', () => {
+    const toaster = document.createElement('div');
+    toaster.setAttribute('data-toast-container', '');
+    const button = document.createElement('button');
+    toaster.appendChild(button);
+    document.body.appendChild(toaster);
+
+    expect(isToastTarget(button)).toBe(true);
+
+    document.body.removeChild(toaster);
+  });
+});
+
 describe('handleModalInteractOutside', () => {
   it('prevents dismiss when interacting with a portaled popover', () => {
     const popper = document.createElement('div');
@@ -70,5 +98,43 @@ describe('handleModalInteractOutside', () => {
     expect(event.preventDefault).toHaveBeenCalled();
 
     document.body.removeChild(popper);
+  });
+
+  it('prevents dismiss when interacting with a Sonner toast action', () => {
+    const toast = document.createElement('div');
+    toast.setAttribute('data-sonner-toast', '');
+    const button = document.createElement('button');
+    toast.appendChild(button);
+    document.body.appendChild(toast);
+
+    const event = {
+      target: button,
+      preventDefault: jest.fn(),
+    } as unknown as Event;
+
+    handleModalInteractOutside(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+
+    document.body.removeChild(toast);
+  });
+
+  it('recognizes a Radix outside event whose original event came from a toast', () => {
+    const toast = document.createElement('div');
+    toast.setAttribute('data-sonner-toast', '');
+    const button = document.createElement('button');
+    toast.appendChild(button);
+    document.body.appendChild(toast);
+
+    const originalEvent = {
+      target: button,
+      composedPath: () => [button, toast, document.body, document],
+    } as unknown as Event;
+    const event = new CustomEvent('pointerdownoutside', {
+      detail: { originalEvent },
+    });
+
+    expect(isToastInteraction(event)).toBe(true);
+
+    document.body.removeChild(toast);
   });
 });

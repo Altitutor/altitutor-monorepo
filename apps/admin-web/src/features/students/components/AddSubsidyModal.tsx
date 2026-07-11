@@ -12,6 +12,7 @@ import {
   Label,
   SearchableSelect,
   Input,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
@@ -204,21 +205,18 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
 
           <div className="space-y-2">
             <Label htmlFor="effective-from">Effective From</Label>
-            <Input
-              id="effective-from"
-              type="date"
+            <SmartDatePickerField
               value={effectiveFrom}
-              onChange={(e) => setEffectiveFrom(e.target.value)}
+              onChange={(value) => setEffectiveFrom(value ?? '')}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="effective-until">Effective Until (optional - leave empty for indefinitely)</Label>
-            <Input
-              id="effective-until"
-              type="date"
+            <SmartDatePickerField
               value={effectiveUntil}
-              onChange={(e) => setEffectiveUntil(e.target.value)}
+              onChange={(value) => setEffectiveUntil(value ?? '')}
+              minDate={effectiveFrom || undefined}
             />
           </div>
         </div>
@@ -236,4 +234,3 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
     </Dialog>
   );
 }
-

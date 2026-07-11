@@ -22,6 +22,8 @@ const pathLabelMap: Record<string, string> = {
   classes: 'Classes',
   sessions: 'Sessions',
   messages: 'Messages',
+  feedback: 'Feedback',
+  forms: 'Forms',
   invoices: 'Invoices',
   reports: 'Reports',
   subjects: 'Subjects',

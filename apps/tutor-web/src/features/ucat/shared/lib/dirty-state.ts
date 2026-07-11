@@ -56,20 +56,23 @@ export function snapshotQuestionStemFormValues(values: {
     }>
   }>
 }): string {
+  // React Hook Form can briefly expose a partial field-array item while it is
+  // registering/resetting nested fields. A dirty check must never crash then.
+  const questions = Array.isArray(values.questions) ? values.questions : []
   const snapshot = {
     sectionId: values.sectionId,
     categoryId: values.categoryId ?? null,
     stemText: jsonToPlainText(values.stemText),
     isPrivate: values.isPrivate,
     approvalStatus: values.approvalStatus ?? null,
-    questions: values.questions.map((q) => ({
+    questions: questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
       questionType: q.questionType,
       answerExplanation: jsonToPlainText(q.answerExplanation ?? null),
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.timeBurdenSeconds ?? '',
       tagIds: [...(q.tagIds ?? [])].sort(),
-      options: q.options.map((opt) => ({
+      options: (Array.isArray(q.options) ? q.options : []).map((opt) => ({
         answerText: jsonToPlainText(opt.answerText),
         answerExplanation: jsonToPlainText(opt.answerExplanation ?? null),
         isAnswer: opt.isAnswer,

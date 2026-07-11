@@ -1,5 +1,8 @@
-import { useState, type DragEventHandler } from "react";
-import type { AnswerOption, QuestionItem } from "@/features/question-engine/model/types";
+import { useMemo, useState, type DragEventHandler } from "react";
+import type {
+  AnswerOption,
+  QuestionItem,
+} from "@/features/question-engine/model/types";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
@@ -14,6 +17,81 @@ export function hasAnswerExplanation(item: {
   return Boolean(item.answerExplanation || item.answerExplanationJson);
 }
 
+type RichTextNodeLike = {
+  type?: unknown;
+  text?: unknown;
+  content?: unknown;
+};
+
+function isWhitespaceNode(node: unknown): boolean {
+  if (!node || typeof node !== "object") return false;
+  const candidate = node as RichTextNodeLike;
+  if (candidate.type === "hardBreak") return true;
+  if (candidate.type === "text") {
+    return typeof candidate.text === "string" && candidate.text.trim() === "";
+  }
+  if (Array.isArray(candidate.content)) {
+    return candidate.content.every(isWhitespaceNode);
+  }
+  return false;
+}
+
+function isEmptyBlockNode(node: unknown): boolean {
+  if (!node || typeof node !== "object") return false;
+  const candidate = node as RichTextNodeLike;
+  if (
+    candidate.type !== "paragraph" &&
+    candidate.type !== "hardBreak" &&
+    candidate.type !== "text"
+  ) {
+    return false;
+  }
+  if (candidate.type === "hardBreak") return true;
+  if (candidate.type === "text") {
+    return typeof candidate.text === "string" && candidate.text.trim() === "";
+  }
+  if (!Array.isArray(candidate.content) || candidate.content.length === 0) {
+    return true;
+  }
+  return candidate.content.every(isWhitespaceNode);
+}
+
+function trimTrailingWhitespaceFromNode(node: unknown): unknown {
+  if (!node || typeof node !== "object") return node;
+  const candidate = node as RichTextNodeLike;
+  if (candidate.type === "text" && typeof candidate.text === "string") {
+    return { ...candidate, text: candidate.text.trimEnd() };
+  }
+  if (!Array.isArray(candidate.content)) return node;
+
+  const content = [...candidate.content];
+  while (content.length > 0 && isWhitespaceNode(content[content.length - 1])) {
+    content.pop();
+  }
+  if (content.length > 0) {
+    content[content.length - 1] = trimTrailingWhitespaceFromNode(
+      content[content.length - 1],
+    );
+  }
+  return { ...candidate, content };
+}
+
+function trimTrailingExplanationWhitespace(
+  json?: Record<string, unknown> | null,
+): Record<string, unknown> | null | undefined {
+  if (!json || !Array.isArray(json.content)) return json;
+  const content = [...json.content];
+  while (content.length > 0 && isEmptyBlockNode(content[content.length - 1])) {
+    content.pop();
+  }
+  if (content.length > 0) {
+    content[content.length - 1] = trimTrailingWhitespaceFromNode(
+      content[content.length - 1],
+    );
+  }
+  return { ...json, content };
+}
+
 export function AnswerExplanation({
   text,
   json,
@@ -23,14 +101,25 @@ export function AnswerExplanation({
   json?: Record<string, unknown> | null;
   className?: string;
 }) {
-  if (!hasAnswerExplanation({ answerExplanation: text, answerExplanationJson: json })) {
+  const trimmedText = text?.trim();
+  const trimmedJson = useMemo(
+    () => trimTrailingExplanationWhitespace(json),
+    [json],
+  );
+
+  if (
+    !hasAnswerExplanation({
+      answerExplanation: text,
+      answerExplanationJson: json,
+    })
+  ) {
     return null;
   }
 
   return (
     <RichContentBlock
-      json={json}
-      plainText={text ?? ""}
+      json={trimmedJson}
+      plainText={trimmedText ?? ""}
       className={className}
       paragraphSpacing
     />
@@ -153,57 +242,55 @@ function SyllogismQuestionContent({
             const choice = answers[option.id] ?? null;
             return (
               <div key={option.id} className="space-y-1">
-              <div
-                className="flex flex-row items-stretch gap-4"
-              >
-                <div className="flex-1">
-                  <div className="flex min-h-[50px] items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
-                    <span className="whitespace-pre-wrap">
-                      <OptionText option={option} />
-                    </span>
+                <div className="flex flex-row items-stretch gap-4">
+                  <div className="flex-1">
+                    <div className="flex min-h-[50px] items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
+                      <span className="whitespace-pre-wrap">
+                        <OptionText option={option} />
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className="flex h-12 w-24 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50 text-[11pt]"
+                    onDrop={makeHandleDrop(option.id)}
+                    onDragOver={handleDragOver}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop Yes or No here"
+                    onClick={() =>
+                      handleAssign(option.id, choice === "yes" ? "no" : "yes")
+                    }
+                  >
+                    {choice ? (
+                      <div
+                        className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData(
+                            "ucat-syllogism-choice",
+                            choice,
+                          );
+                          event.dataTransfer.setData(
+                            "ucat-syllogism-source",
+                            option.id,
+                          );
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                      >
+                        {choice === "yes" ? "Yes" : "No"}
+                      </div>
+                    ) : (
+                      <span className="text-[9pt] text-transparent">_</span>
+                    )}
                   </div>
                 </div>
-                <div
-                  className="flex h-12 w-24 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50 text-[11pt]"
-                  onDrop={makeHandleDrop(option.id)}
-                  onDragOver={handleDragOver}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Drop Yes or No here"
-                  onClick={() =>
-                    handleAssign(option.id, choice === "yes" ? "no" : "yes")
-                  }
-                >
-                  {choice ? (
-                    <div
-                      className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
-                      draggable
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData(
-                          "ucat-syllogism-choice",
-                          choice,
-                        );
-                        event.dataTransfer.setData(
-                          "ucat-syllogism-source",
-                          option.id,
-                        );
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                    >
-                      {choice === "yes" ? "Yes" : "No"}
-                    </div>
-                  ) : (
-                    <span className="text-[9pt] text-transparent">_</span>
-                  )}
-                </div>
-              </div>
-              {showAnswerExplanations && hasAnswerExplanation(option) ? (
-                <AnswerExplanation
-                  text={option.answerExplanation}
-                  json={option.answerExplanationJson}
-                  className="pl-1"
-                />
-              ) : null}
+                {showAnswerExplanations && hasAnswerExplanation(option) ? (
+                  <AnswerExplanation
+                    text={option.answerExplanation}
+                    json={option.answerExplanationJson}
+                    className="pl-1"
+                  />
+                ) : null}
               </div>
             );
           })}

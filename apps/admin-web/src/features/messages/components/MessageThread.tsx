@@ -33,15 +33,20 @@ function getTagKey(tag: Partial<IssueTagInsert>) {
   return null;
 }
 
-function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | null {
-  if (tag.student_id) return { student_id: tag.student_id };
-  if (tag.staff_id) return { staff_id: tag.staff_id };
-  if (tag.parent_id) return { parent_id: tag.parent_id };
-  if (tag.class_id) return { class_id: tag.class_id };
-  if (tag.session_id) return { session_id: tag.session_id };
-  if (tag.invoice_id) return { invoice_id: tag.invoice_id };
-  if (tag.subject_id) return { subject_id: tag.subject_id };
-  return null;
+function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[] {
+  const description = issue.description as JSONContent | null;
+  return extractMentions(description)
+    .map((mention): IssueTagDraft | null => {
+      if (mention.type === 'student') return { student_id: mention.id };
+      if (mention.type === 'staff') return { staff_id: mention.id };
+      if (mention.type === 'parent') return { parent_id: mention.id };
+      if (mention.type === 'class') return { class_id: mention.id };
+      if (mention.type === 'session') return { session_id: mention.id };
+      if (mention.type === 'invoice') return { invoice_id: mention.id };
+      if (mention.type === 'subject') return { subject_id: mention.id };
+      return null;
+    })
+    .filter((tag): tag is IssueTagDraft => !!tag);
 }
 
 interface Props {
@@ -587,7 +592,7 @@ export function MessageThread({
     if (wantedKeys.size === 0) return [] as IssueWithTags[];
 
     return candidateIssues.filter((issue) =>
-      issue.tags.some((tag) => {
+      issueDescriptionMentionsToDrafts(issue).some((tag) => {
         const key = getTagKey(tag);
         return !!key && wantedKeys.has(key);
       })
@@ -595,9 +600,7 @@ export function MessageThread({
   }, [candidateIssues, contactIssueTags]);
 
   const appendTagsToIssueDescription = async (issue: IssueWithTags) => {
-    const existingIssueTags = issue.tags
-      .map(issueTagToDraft)
-      .filter((tag): tag is IssueTagDraft => !!tag);
+    const existingIssueTags = issueDescriptionMentionsToDrafts(issue);
     const allTags = [...existingIssueTags, ...contactIssueTags].filter((tag, index, arr) => {
       const key = getTagKey(tag);
       if (!key) return false;

@@ -13,7 +13,6 @@ import {
   endOfMonth,
   format,
 } from 'date-fns';
-import { Input } from './input';
 import {
   Command,
   CommandEmpty,
@@ -23,6 +22,7 @@ import {
   CommandList,
 } from './command';
 import { cn } from '../lib/cn';
+import { SmartDatePickerField } from './smart-date-picker';
 
 export interface DateRangeQuickPick {
   id: string;
@@ -199,10 +199,9 @@ export function DateRangeFilter({
           <label className="text-xs font-medium text-muted-foreground">
             {fromLabel}
           </label>
-          <Input
-            type="date"
+          <SmartDatePickerField
             value={fromValue}
-            onChange={(e) => onFromChange(e.target.value)}
+            onChange={(value) => onFromChange(value ?? '')}
             className="h-8 mt-1"
           />
         </div>
@@ -210,10 +209,10 @@ export function DateRangeFilter({
           <label className="text-xs font-medium text-muted-foreground">
             {toLabel}
           </label>
-          <Input
-            type="date"
+          <SmartDatePickerField
             value={toValue}
-            onChange={(e) => onToChange(e.target.value)}
+            onChange={(value) => onToChange(value ?? '')}
+            minDate={fromValue || undefined}
             className="h-8 mt-1"
           />
         </div>

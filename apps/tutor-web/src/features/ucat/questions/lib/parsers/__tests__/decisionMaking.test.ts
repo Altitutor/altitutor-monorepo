@@ -4,6 +4,7 @@
 
 import {
   getDecisionMakingStemCategoryName,
+  getDecisionMakingTagPathsForQuestion,
   isSyllogismQuestionText,
   parseDecisionMakingPlainText,
 } from '../decisionMaking';
@@ -196,5 +197,119 @@ b) No.`,
     expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
       'Probabilistic and Statistical Reasoning'
     );
+  });
+});
+
+describe('getDecisionMakingTagPathsForQuestion', () => {
+  it('tags syllogisms with deductive operators', () => {
+    const stem = parseDecisionMakingPlainText(`All exhibits in the east wing are insured. If an exhibit is made of gold, it is kept in the east wing.
+
+1. Place Yes if the conclusion does follow. Place No if the conclusion does not follow.
+A. Some insured exhibits are made of gold.
+B. No gold exhibits are uninsured.
+C. All east wing exhibits are made of gold.
+D. Some exhibits are not insured.
+E. All insured exhibits are in the east wing.`)[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem,
+      question: stem.questions[0]!,
+    })).toEqual(expect.arrayContaining([
+      ['Deductive logic', 'Quantifiers: all / some / none'],
+      ['Deductive logic', 'Conditional reasoning'],
+      ['Deductive logic', 'Must be true / necessarily follows'],
+      ['Decision wording traps', 'Yes/no sufficiency'],
+    ]));
+  });
+
+  it('tags seating and matching puzzles as rule-based reasoning', () => {
+    const stem = parseDecisionMakingPlainText(`5.
+A group of seven friends are going for a road trip.
+Bob and Alex should not travel in the same car.
+Sangeetha and Joseph sit in the same row of the same car.
+If Ellie and Alex sit in the same car with Ellie in the back row, determine the possible position of Bob?
+A.
+In the front row of the other car
+B.
+In the front row of the same car
+C.
+With Tarek in the back row of the other car
+D.
+With Candice in the back row of the other car`, {
+      questionNumberPlacement: 'item_stem',
+      answerOptionOnOwnLine: true,
+    })[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem,
+      question: stem.questions[0]!,
+    })).toEqual(expect.arrayContaining([
+      ['Rule-based problem solving', 'Seating or spatial arrangement'],
+      ['Rule-based problem solving', 'Multi-constraint deduction'],
+    ]));
+  });
+
+  it('tags probability method and comparison traps', () => {
+    const stem = parseDecisionMakingPlainText(`A bag contains five red balls and three blue balls. Two balls are selected without replacement.
+
+1. What is the probability that the chance of selecting two red balls is greater than selecting two blue balls?
+A. It is greater than the chance of two blue balls.
+B. It is less than the chance of two blue balls.`)[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem,
+      question: stem.questions[0]!,
+    })).toEqual(expect.arrayContaining([
+      ['Probability and data reasoning', 'Basic probability'],
+      ['Probability and data reasoning', 'Without replacement / combinations'],
+      ['Probability and data reasoning', 'Fraction / percentage comparison'],
+      ['Decision wording traps', 'Greater than / less than comparison'],
+    ]));
+  });
+
+  it('tags recognising-assumption questions by argument pattern', () => {
+    const stem = parseDecisionMakingPlainText(`Will decreasing university fees reduce unemployment levels?
+
+1. Select the strongest argument from the statements below.
+A. Yes, because cheaper degrees will encourage more people to gain qualifications.
+B. No, because government policy should focus on public health instead.
+C. Yes, because universities are important.`)[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem,
+      question: stem.questions[0]!,
+    })).toEqual(expect.arrayContaining([
+      ['Argument evaluation', 'Strongest argument'],
+      ['Argument evaluation', 'Causal assumption'],
+      ['Argument evaluation', 'Policy or public benefit'],
+    ]));
+  });
+
+  it('tags Venn questions without applying broad set tags to ordinary puzzles', () => {
+    const vennStem = parseDecisionMakingPlainText(`The diagram shows three groups: students who play tennis, cricket and hockey.
+
+1. How many students play tennis only and did not play cricket?
+A. 2
+B. 3`)[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem: vennStem,
+      question: vennStem.questions[0]!,
+    })).toEqual(expect.arrayContaining([
+      ['Set and Venn reasoning', 'Region counting'],
+      ['Set and Venn reasoning', 'Only / neither / complements'],
+      ['Set and Venn reasoning', 'Three-plus sets'],
+    ]));
+
+    const ordinaryStem = parseDecisionMakingPlainText(`A group of friends choose red or blue folders.
+
+1. Which friend must choose blue?
+A. Anna
+B. Ben`)[0]!;
+
+    expect(getDecisionMakingTagPathsForQuestion({
+      stem: ordinaryStem,
+      question: ordinaryStem.questions[0]!,
+    }).some((path) => path[0] === 'Set and Venn reasoning')).toBe(false);
   });
 });

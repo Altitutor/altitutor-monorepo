@@ -37,7 +37,7 @@ const cards: DashboardCard[] = [
   },
   {
     href: "/practice",
-    label: "Practice",
+    label: "Practice questions",
     description: "Practice questions and drills",
     icon: BrainCircuit,
   },

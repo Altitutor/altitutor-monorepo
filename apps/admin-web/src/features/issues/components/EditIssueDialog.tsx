@@ -190,7 +190,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
         )}
       >
         <Form {...form}>
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+          <DialogHeader className="flex-shrink-0 border-b bg-card px-6 py-4">
             <div className="flex items-center justify-between gap-4 w-full">
               <div className="flex items-center gap-3 flex-1">
                 <Button
@@ -265,6 +265,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                   <IssuePropertiesPanel
                     form={form}
                     issue={issue}
+                    tags={liveTags}
                     notes={notes}
                     isOpen={isOpen}
                     onClose={onClose}
@@ -272,8 +273,8 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                   />
 
                   <IssueContentPanel 
-                    issue={issue}
                     isOpen={isOpen}
+                    form={form}
                     tags={liveTags}
                   />
                 </form>

@@ -47,6 +47,10 @@ export type CodexOAuthJsonResponse = {
   finishReason: string | null
 }
 
+export type CodexOAuthUserContentPart =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string; detail?: 'low' | 'high' | 'auto' }
+
 const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const DEFAULT_ISSUER = 'https://auth.openai.com'
 const DEFAULT_CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex'
@@ -363,6 +367,7 @@ export async function callCodexOAuthJson(params: {
   model: string
   systemPrompt: string
   userPrompt: string
+  userContentParts?: CodexOAuthUserContentPart[]
   timeoutMs: number
 }): Promise<CodexOAuthJsonResponse> {
   const tokens = await getFreshTokens(params.providerId)
@@ -387,7 +392,7 @@ export async function callCodexOAuthJson(params: {
         input: [
           {
             role: 'user',
-            content: [{ type: 'input_text', text: params.userPrompt }],
+            content: params.userContentParts ?? [{ type: 'input_text', text: params.userPrompt }],
           },
         ],
       }),

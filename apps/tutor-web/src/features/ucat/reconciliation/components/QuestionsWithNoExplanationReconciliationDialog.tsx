@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Button,
@@ -21,6 +22,7 @@ import type { QuestionWithNoExplanation } from '../api/reconciliation'
 import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { useUcatCategories, useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
+import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
@@ -60,6 +62,7 @@ export function QuestionsWithNoExplanationReconciliationDialog({
   const [countValue, setCountValue] = useState('10')
   const [drafts, setDrafts] = useState<BulkImportStemDraft[]>([])
   const [loadedDraftKey, setLoadedDraftKey] = useState('')
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   const targetQuestions = useMemo(() => {
     const limit = countValue === 'all' ? questions.length : Number(countValue)
@@ -111,6 +114,7 @@ export function QuestionsWithNoExplanationReconciliationDialog({
     if (!open) {
       setDrafts([])
       setLoadedDraftKey('')
+      setActiveTextEditor(null)
     }
   }, [open])
 
@@ -220,29 +224,40 @@ export function QuestionsWithNoExplanationReconciliationDialog({
               categories={categories}
               tags={tags}
               onUpdateStem={updateDraft}
+              onActiveTextEditorChange={setActiveTextEditor}
             />
           )}
         </div>
 
-        <DialogFooter className={cn('flex-shrink-0 flex-row items-center gap-2 px-6 py-4', tutorDialogFooterStrip)}>
-          <div className="flex-1" />
-          <Button
-            type="button"
-            variant="outline"
-            className={tutorBtnOutline}
-            onClick={() => onOpenChange(false)}
-            disabled={saveMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            className={tutorBtnPrimary}
-            onClick={() => saveMutation.mutate(drafts)}
-            disabled={isLoading || drafts.length === 0 || saveMutation.isPending}
-          >
-            {saveMutation.isPending ? 'Saving...' : 'Save'}
-          </Button>
+        <DialogFooter className={cn('flex-shrink-0 flex-row items-center gap-3 px-6 py-4 sm:justify-start', tutorDialogFooterStrip)}>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            {activeTextEditor ? (
+              <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
+                <UcatRichTextToolbar editor={activeTextEditor} />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className={tutorBtnOutline}
+                onClick={() => onOpenChange(false)}
+                disabled={saveMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className={tutorBtnPrimary}
+                onClick={() => saveMutation.mutate(drafts)}
+                disabled={isLoading || drafts.length === 0 || saveMutation.isPending}
+              >
+                {saveMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -22,6 +22,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/register/') ||
     pathname.startsWith('/auth/') ||
+    pathname.startsWith('/form/') ||
     pathname.startsWith('/booking/trial-session') ||
     pathname.startsWith('/booking-success');
 

@@ -501,7 +501,11 @@ export function QuestionEnginePage({
 
   const examAttemptLifecycleEnabled = examAttemptManaged;
 
-  const { serverSegmentEndsAt, isHydrating: isHydratingExamAttempt } =
+  const {
+    serverSegmentEndsAt,
+    isHydrating: isHydratingExamAttempt,
+    flushQuestionTiming,
+  } =
     useExamAttemptLifecycle({
       enabled: examAttemptLifecycleEnabled,
       exam,
@@ -981,6 +985,7 @@ export function QuestionEnginePage({
       }
 
       if (practiceSessionId && practiceMarkingResult) {
+        await flushQuestionTiming();
         const questionScores = practiceMarkingResult.rows.map((r) => ({
           questionId: r.question.id,
           score: r.points,
@@ -1052,6 +1057,7 @@ export function QuestionEnginePage({
     router,
     refreshActiveExamAttempt,
     clearActiveExamAttempt,
+    flushQuestionTiming,
   ]);
 
   const submitCurrentPracticeUnit = useCallback(async () => {

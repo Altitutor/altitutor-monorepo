@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@altitutor/shared'
-import { callCodexOAuthJson } from './ucat-codex-oauth'
+import { callCodexOAuthJson, type CodexOAuthUserContentPart } from './ucat-codex-oauth'
 
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +23,10 @@ export type UcatAiJsonResult = {
   finishReason: string | null
   maxCompletionTokens: number | null
 }
+
+export type UcatAiUserContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; imageUrl: string; detail?: 'low' | 'high' | 'auto' }
 
 export class UcatAiJsonParseError extends Error {
   content: string
@@ -161,18 +165,110 @@ function parseHeaders(value: unknown): Record<string, string> {
   return headers
 }
 
+function repairCommonGeneratedJson(value: string): string | null {
+  const stack: Array<{ opening: '{' | '['; propertyName: string | null }> = []
+  let repaired = ''
+  let inString = false
+  let escaped = false
+  let propertyName: string | null = null
+  let stringStart = -1
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (inString) {
+      repaired += character
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') {
+        inString = false
+        const next = value.slice(index + 1).match(/^\s*:/u)
+        if (next) propertyName = value.slice(stringStart + 1, index)
+      }
+      continue
+    }
+
+    if (character === '"') {
+      inString = true
+      stringStart = index
+      repaired += character
+      continue
+    }
+
+    if (character === '{' || character === '[') {
+      stack.push({ opening: character, propertyName })
+      propertyName = null
+      repaired += character
+      continue
+    }
+
+    if (character === '}' || character === ']') {
+      const requiredOpening = character === '}' ? '{' : '['
+      const top = stack.at(-1)
+      if (top?.opening !== requiredOpening) {
+        // Some completed responses add an extra object closer between content
+        // blocks (for example, `table}}, {paragraph...}`). It is safe to drop
+        // only when the surrounding array is a generated-content field and a
+        // further typed block immediately follows.
+        if (
+          character === '}'
+          && top?.opening === '['
+          && ['stemText', 'answerText', 'answerExplanation'].includes(top.propertyName ?? '')
+          && /^\s*,\s*\{\s*"type"\s*:/u.test(value.slice(index + 1))
+        ) {
+          continue
+        }
+        // A frequent writer slip is closing a table object after its final row
+        // without first closing the rows array. Repair only that exact case.
+        if (character === '}' && top?.opening === '[' && top.propertyName === 'rows') {
+          repaired += ']'
+          stack.pop()
+        } else {
+          return null
+        }
+      }
+      if (stack.at(-1)?.opening !== requiredOpening) return null
+      stack.pop()
+      repaired += character
+      continue
+    }
+
+    repaired += character
+  }
+
+  if (inString || stack.length > 2) return null
+  if (stack.length === 0) return repaired
+  if (stack[0]?.opening !== '{') return null
+  if (stack.length === 2 && (stack[1]?.opening !== '[' || stack[1]?.propertyName !== 'stems')) return null
+  if (stack.length === 1 && !/^\s*\{\s*"stems"\s*:/u.test(value)) return null
+
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    repaired += stack[index].opening === '{' ? '}' : ']'
+  }
+  return repaired
+}
+
+function parseJsonCandidate(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    const repaired = repairCommonGeneratedJson(value)
+    if (!repaired) throw error
+    return JSON.parse(repaired)
+  }
+}
+
 export function parseUcatAiJsonContent(content: string): unknown {
   const trimmed = content.trim()
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu)
-  if (fenced?.[1]) return JSON.parse(fenced[1])
+  if (fenced?.[1]) return parseJsonCandidate(fenced[1])
 
   try {
-    return JSON.parse(trimmed)
+    return parseJsonCandidate(trimmed)
   } catch (directError) {
     const objectStart = trimmed.indexOf('{')
     const objectEnd = trimmed.lastIndexOf('}')
     if (objectStart >= 0 && objectEnd > objectStart) {
-      return JSON.parse(trimmed.slice(objectStart, objectEnd + 1))
+      return parseJsonCandidate(trimmed.slice(objectStart, objectEnd + 1))
     }
     throw directError
   }
@@ -318,6 +414,7 @@ export async function callUcatAiJson(params: {
   modelProfileId?: string | null
   systemPrompt: string
   userPrompt: string
+  userContentParts?: UcatAiUserContentPart[]
   temperature?: number
   maxCompletionTokens?: number
   timeoutMs?: number
@@ -336,12 +433,18 @@ export async function callUcatAiJson(params: {
   let usage: UcatAiUsage = null
 
   if (config.provider.provider_kind === 'codex_oauth') {
+    const codexContentParts: CodexOAuthUserContentPart[] | undefined = params.userContentParts?.map((part) => (
+      part.type === 'text'
+        ? { type: 'input_text', text: part.text }
+        : { type: 'input_image', image_url: part.imageUrl, detail: part.detail }
+    ))
     const result = await callCodexOAuthJson({
       providerId: config.provider.id,
       baseUrl: config.provider.base_url,
       model: config.modelProfile.model,
       systemPrompt: params.systemPrompt,
       userPrompt: params.userPrompt,
+      userContentParts: codexContentParts,
       timeoutMs,
     })
     content = result.content
@@ -376,7 +479,16 @@ export async function callUcatAiJson(params: {
             : undefined,
           messages: [
             { role: 'system', content: params.systemPrompt },
-            { role: 'user', content: params.userPrompt },
+            {
+              role: 'user',
+              content: params.userContentParts
+                ? params.userContentParts.map((part) => (
+                    part.type === 'text'
+                      ? { type: 'text', text: part.text }
+                      : { type: 'image_url', image_url: { url: part.imageUrl, detail: part.detail } }
+                  ))
+                : params.userPrompt,
+            },
           ],
         }),
       })

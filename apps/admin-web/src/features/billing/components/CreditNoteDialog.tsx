@@ -21,6 +21,7 @@ import {
   Textarea,
   useToast,
   SearchableSelect,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
@@ -277,10 +278,9 @@ export function CreditNoteDialog({
               Set an effective date
             </Label>
             {effectiveDateEnabled && (
-              <Input
-                type="date"
+              <SmartDatePickerField
                 value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
+                onChange={(value) => setEffectiveDate(value ?? '')}
                 className="w-40"
               />
             )}

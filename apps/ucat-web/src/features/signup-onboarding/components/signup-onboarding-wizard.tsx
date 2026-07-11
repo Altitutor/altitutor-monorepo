@@ -1,43 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@altitutor/ui";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
 import { patchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
 import { markSignupOnboardingTourPending, markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
-import {
-  DEFAULT_TARGET_SCORE,
-  LOW_TARGET_SCORE_THRESHOLD,
-  MAX_TARGET_SCORE,
-  MIN_TARGET_SCORE,
-  SIGNUP_STEP,
-  snapTargetScore,
-  TARGET_SCORE_STEP,
-  ucatTestDateBounds,
-  ucatTestYearOptions,
-  validateTargetScoreValue,
-} from "@/features/signup-onboarding/lib/steps";
+import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
 import type { SignupOnboardingInitial, SignupOnboardingStep } from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
-import { patchStudyPlannerSettings } from "@/features/signup-onboarding/api/study-planner-settings";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { useSections } from "@/features/progress/hooks/use-sections";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -64,21 +41,9 @@ function stepHeading(step: SignupOnboardingStep): { kicker: string; title: strin
       };
     case SIGNUP_STEP.PLAN:
       return {
-        kicker: "Step 3 of 4",
+        kicker: "Step 3 of 3",
         title: "Choose your plan",
         desc: "Start free or unlock unlimited access.",
-      };
-    case SIGNUP_STEP.TEST_DETAILS:
-      return {
-        kicker: "Step 4 of 4",
-        title: "UCAT test details",
-        desc: "When are you sitting UCAT? This helps us personalise your study plan.",
-      };
-    case SIGNUP_STEP.TARGET_SCORES:
-      return {
-        kicker: "Step 4 of 4",
-        title: "Set your target scores",
-        desc: "Optional targets for sections 1–3. You can change these later in settings.",
       };
     default:
       return { kicker: "", title: "", desc: "" };
@@ -90,7 +55,6 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const access = useUcatAccess();
-  const sections = useSections();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
@@ -99,33 +63,7 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   const [checkoutConfirming, setCheckoutConfirming] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
-  const [testYear, setTestYear] = useState<number | null>(initial.testYear);
-  const [testDate, setTestDate] = useState(initial.testDate ?? "");
-  const [dateUnsure, setDateUnsure] = useState(false);
-
-  const [s1, setS1] = useState(String(initial.targetScores.s1 ?? DEFAULT_TARGET_SCORE));
-  const [s2, setS2] = useState(String(initial.targetScores.s2 ?? DEFAULT_TARGET_SCORE));
-  const [s3, setS3] = useState(String(initial.targetScores.s3 ?? DEFAULT_TARGET_SCORE));
-  const [lowScoreDialogOpen, setLowScoreDialogOpen] = useState(false);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const yearOptions = useMemo(() => ucatTestYearOptions(), []);
-
-  const sectionNames = useMemo(() => {
-    const byNumber = new Map<number, string>();
-    for (const section of sections.data ?? []) {
-      if (section.sectionNumber >= 1 && section.sectionNumber <= 3) {
-        byNumber.set(section.sectionNumber, section.name);
-      }
-    }
-    return {
-      s1: byNumber.get(1) ?? "Section 1",
-      s2: byNumber.get(2) ?? "Section 2",
-      s3: byNumber.get(3) ?? "Section 3",
-    };
-  }, [sections.data]);
 
   const goToStep = (next: SignupOnboardingStep, dir: number) => {
     setDirection(dir);
@@ -133,29 +71,13 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
   };
 
-  const navigateAfterSignupComplete = async () => {
+  const navigateAfterSignupComplete = useCallback(async () => {
     markSignupOnboardingTourPending();
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
     router.replace("/dashboard");
-  };
-
-  const handleTargetBlur = (value: string, setter: (next: string) => void) => {
-    if (!value.trim()) return;
-    const num = Number(value);
-    if (!Number.isFinite(num)) return;
-    setter(String(snapTargetScore(num)));
-  };
-
-  const totalTarget = useMemo(() => {
-    const vals = [s1, s2, s3].map((v) => (v.trim() ? Number(v) : 0));
-    if (vals.some((v) => !Number.isFinite(v))) return null;
-    return vals.reduce((a, b) => a + b, 0);
-  }, [s1, s2, s3]);
-
-  const showLowScoreWarning =
-    totalTarget !== null && totalTarget > 0 && totalTarget < LOW_TARGET_SCORE_THRESHOLD;
+  }, [queryClient, router]);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -197,82 +119,22 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
         await patchSignupProgress({ planComplete: true });
         await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         setCheckoutConfirming(false);
-        goToStep(SIGNUP_STEP.TEST_DETAILS, 1);
-        router.replace("/signup/complete");
+        await patchSignupProgress({ complete: true });
+        await navigateAfterSignupComplete();
       } catch (e) {
         setCheckoutConfirming(false);
         setError(e instanceof Error ? e.message : "Failed to confirm plan");
       }
     })();
-  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, router]);
+  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, navigateAfterSignupComplete]);
 
-  const finishOnboarding = async (saveTargets: boolean) => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      if (saveTargets) {
-        for (const value of [s1, s2, s3]) {
-          const validationError = validateTargetScoreValue(value);
-          if (validationError) {
-            setError(validationError);
-            return;
-          }
-        }
-        const parsed = [s1, s2, s3].map((value) =>
-          value.trim() ? snapTargetScore(Number(value)) : null,
-        );
-        await patchStudyPlannerSettings({
-          targetScores: { s1: parsed[0], s2: parsed[1], s3: parsed[2] },
-        });
-      }
-      await patchSignupProgress({ complete: true });
-      await navigateAfterSignupComplete();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSkipTestDetails = async () => {
-    setIsSubmitting(true);
+  const finishOnboarding = async () => {
     setError(null);
     try {
       await patchSignupProgress({ complete: true });
       await navigateAfterSignupComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleTestDetailsNext = async () => {
-    if (testYear == null) {
-      setError("Please select the year you expect to sit UCAT.");
-      return;
-    }
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const dateToSave = dateUnsure || !testDate.trim() ? null : testDate.trim();
-      if (dateToSave) {
-        const bounds = ucatTestDateBounds(testYear);
-        if (dateToSave < bounds.min || dateToSave > bounds.max) {
-          setError(`Test date must be between ${bounds.min} and ${bounds.max}.`);
-          return;
-        }
-      }
-      await patchSignupProgress({ testYear, step: SIGNUP_STEP.TARGET_SCORES });
-      await patchStudyPlannerSettings({
-        testYear,
-        testDate: dateToSave,
-      });
-      goToStep(SIGNUP_STEP.TARGET_SCORES, 1);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save test details.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -282,15 +144,7 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   };
 
   const handlePlanComplete = () => {
-    goToStep(SIGNUP_STEP.TEST_DETAILS, 1);
-  };
-
-  const handleBegin = () => {
-    if (showLowScoreWarning) {
-      setLowScoreDialogOpen(true);
-      return;
-    }
-    void finishOnboarding(true);
+    void finishOnboarding();
   };
 
   const heading = stepHeading(step);
@@ -375,196 +229,10 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
               {step === SIGNUP_STEP.PLAN ? (
                 <SignupCompletePlanStep onComplete={handlePlanComplete} />
               ) : null}
-
-              {step === SIGNUP_STEP.TEST_DETAILS ? (
-                <div className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
-                  <fieldset className="space-y-3">
-                    <legend
-                      className={`text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                    >
-                      Which year will you sit UCAT?
-                    </legend>
-                    <div className="grid grid-cols-3 gap-2">
-                      {yearOptions.map((year) => (
-                        <button
-                          key={year}
-                          type="button"
-                          onClick={() => {
-                            setTestYear(year);
-                            setDateUnsure(false);
-                            if (testDate) {
-                              const y = testDate.slice(0, 4);
-                              if (y !== String(year)) setTestDate("");
-                            }
-                          }}
-                          className={cn(
-                            `rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${typo.secondarySans}`,
-                            testYear === year
-                              ? "border-marketing-accent/50 bg-marketing-accent/15 text-marketing-cream"
-                              : "border-white/10 bg-white/5 text-marketing-cream/70 hover:border-white/20",
-                          )}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {testYear != null ? (
-                    <div className="space-y-3">
-                      <label
-                        htmlFor="signup-test-date"
-                        className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                      >
-                        Test date{" "}
-                        <span className="text-marketing-cream/40">(optional)</span>
-                      </label>
-                      <input
-                        id="signup-test-date"
-                        type="date"
-                        min={ucatTestDateBounds(testYear).min}
-                        max={ucatTestDateBounds(testYear).max}
-                        value={testDate}
-                        disabled={dateUnsure || isSubmitting}
-                        onChange={(e) => {
-                          setTestDate(e.target.value);
-                          setDateUnsure(false);
-                        }}
-                        className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none focus:border-marketing-accent/50 disabled:opacity-40 ${typo.secondarySans}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDateUnsure((v) => !v);
-                          if (!dateUnsure) setTestDate("");
-                        }}
-                        className={`text-sm text-marketing-cream/50 underline-offset-4 hover:text-marketing-cream/80 hover:underline ${typo.secondarySans}`}
-                      >
-                        I&apos;m not sure yet
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {error ? (
-                    <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void handleTestDetailsNext()}
-                    className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors hover:bg-marketing-accent/90 disabled:opacity-50 ${typo.headingSans}`}
-                  >
-                    {isSubmitting ? "Saving…" : "Next"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void handleSkipTestDetails()}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    Skip for now
-                  </button>
-                </div>
-              ) : null}
-
-              {step === SIGNUP_STEP.TARGET_SCORES ? (
-                <div className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {(
-                      [
-                        ["s1", s1, setS1, sectionNames.s1],
-                        ["s2", s2, setS2, sectionNames.s2],
-                        ["s3", s3, setS3, sectionNames.s3],
-                      ] as const
-                    ).map(([key, value, setter, label]) => (
-                      <div key={key} className="space-y-1.5">
-                        <label
-                          htmlFor={`signup-target-${key}`}
-                          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                        >
-                          {label}
-                        </label>
-                        <input
-                          id={`signup-target-${key}`}
-                          type="number"
-                          min={MIN_TARGET_SCORE}
-                          max={MAX_TARGET_SCORE}
-                          step={TARGET_SCORE_STEP}
-                          value={value}
-                          onChange={(e) => setter(e.target.value)}
-                          onBlur={() => handleTargetBlur(value, setter)}
-                          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none focus:border-marketing-accent/50 ${typo.secondarySans}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  {showLowScoreWarning ? (
-                    <p
-                      className={`rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ${typo.secondarySans}`}
-                    >
-                      A combined target below 1800 is unlikely to be competitive for
-                      medical interviews. You can still save these — consider aiming
-                      higher or revisiting in settings.
-                    </p>
-                  ) : null}
-
-                  {error ? (
-                    <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleBegin}
-                    className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors hover:bg-marketing-accent/90 disabled:opacity-50 ${typo.headingSans}`}
-                  >
-                    {isSubmitting ? "Starting…" : "Begin"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void finishOnboarding(false)}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    Skip targets
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => goToStep(SIGNUP_STEP.TEST_DETAILS, -1)}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    ← Back
-                  </button>
-                </div>
-              ) : null}
             </div>
           </AnimatedStepPanel>
         </motion.div>
       </main>
-
-      <AlertDialog open={lowScoreDialogOpen} onOpenChange={setLowScoreDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Targets look low</AlertDialogTitle>
-            <AlertDialogDescription>
-              A combined target below 1800 is unlikely to be competitive for medical
-              interviews. Continue anyway or adjust your targets first.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Adjust targets</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void finishOnboarding(true)}>
-              Continue anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

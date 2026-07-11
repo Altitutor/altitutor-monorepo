@@ -253,7 +253,10 @@ async function main() {
       ? validateGeneratedStemCandidate(stem, 0, {
           sectionName,
           categoryName,
-          sourcePlainTexts: sources.map(sourceText),
+          sourceComparisonSources: sources.map((source) => ({
+            id: source.id,
+            text: sourceText(source),
+          })),
         })
       : []
     record = {

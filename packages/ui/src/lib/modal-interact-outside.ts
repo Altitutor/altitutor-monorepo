@@ -15,6 +15,12 @@ const PORTALED_OVERLAY_SELECTOR = [
   '[data-radix-menu-content]',
 ].join(', ');
 
+const TOAST_SELECTOR = [
+  '[data-toast-container]',
+  '[data-sonner-toaster]',
+  '[data-sonner-toast]',
+].join(', ');
+
 /** Returns true when `element` sits inside a modal dialog or sheet. */
 export function isInsideModal(element: HTMLElement | null | undefined): boolean {
   if (!element) return false;
@@ -26,6 +32,30 @@ export function isPortaledOverlayTarget(target: Event['target']): boolean {
   if (typeof HTMLElement === 'undefined') return false;
   if (!(target instanceof HTMLElement)) return false;
   return Boolean(target.closest(PORTALED_OVERLAY_SELECTOR));
+}
+
+/** Sonner toasts are portaled above dialogs and should remain interactive. */
+export function isToastTarget(target: Event['target']): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(TOAST_SELECTOR));
+}
+
+function eventPathIncludesSelector(event: Event, selector: string): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  return path.some((target) => target instanceof HTMLElement && Boolean(target.closest(selector)));
+}
+
+export function isToastInteraction(event: Event): boolean {
+  if (isToastTarget(event.target) || eventPathIncludesSelector(event, TOAST_SELECTOR)) {
+    return true;
+  }
+
+  const originalEvent = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent;
+  if (!originalEvent) return false;
+
+  return isToastTarget(originalEvent.target) || eventPathIncludesSelector(originalEvent, TOAST_SELECTOR);
 }
 
 /** Shared handler for Radix Dialog / Sheet / AlertDialog outside interactions. */
@@ -43,8 +73,7 @@ export function handleModalInteractOutside(
     return;
   }
 
-  const target = event.target as HTMLElement | null;
-  if (target?.closest('[data-toast-container]')) {
+  if (isToastInteraction(event)) {
     event.preventDefault();
     return;
   }

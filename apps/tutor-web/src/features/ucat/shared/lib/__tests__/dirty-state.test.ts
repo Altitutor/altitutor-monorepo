@@ -133,6 +133,24 @@ describe('question stem form snapshot', () => {
 
     expect(isSnapshotDirty(changed, baseline)).toBe(true)
   })
+
+  it('tolerates a question whose nested options are still registering', () => {
+    const partialValues = {
+      sectionId: 's1',
+      categoryId: null,
+      stemText: emptyDoc,
+      isPrivate: false,
+      questions: [
+        {
+          questionText: docWithText,
+          questionType: 'multiple_choice',
+          options: undefined,
+        },
+      ],
+    } as unknown as Parameters<typeof snapshotQuestionStemFormValues>[0]
+
+    expect(() => snapshotQuestionStemFormValues(partialValues)).not.toThrow()
+  })
 })
 
 describe('mock draft snapshot', () => {

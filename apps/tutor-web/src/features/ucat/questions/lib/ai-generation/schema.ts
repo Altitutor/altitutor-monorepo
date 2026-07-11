@@ -6,6 +6,8 @@ export const TimeBurdenTargetSchema = z.enum(['low', 'medium', 'high', 'mixed'])
 export type DifficultyTarget = z.infer<typeof DifficultyTargetSchema>
 export type TimeBurdenTarget = z.infer<typeof TimeBurdenTargetSchema>
 
+const GeneratedTableColumnSchema = z.string().trim()
+
 const GeneratedTableBlockSchema = z.preprocess((value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
   const table = value as Record<string, unknown>
@@ -34,74 +36,47 @@ const GeneratedTableBlockSchema = z.preprocess((value) => {
 }, z.object({
   type: z.literal('table'),
   caption: z.string().trim().optional().nullable(),
-  columns: z.array(z.string().trim().min(1)).min(1).max(10),
+  columns: z.array(GeneratedTableColumnSchema).min(1).max(10),
   rows: z.array(z.array(z.string().trim().min(1)).min(1).max(10)).min(1).max(20),
+}).superRefine((table, ctx) => {
+  table.columns.forEach((column, index) => {
+    if (column || index === 0) return
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only the first table column header may be blank.',
+      path: ['columns', index],
+    })
+  })
 }))
 
-const ChartSeriesSchema = z.object({
-  name: z.string().trim().min(1),
-  values: z.array(z.coerce.number()).min(1).max(20),
-  points: z.array(z.object({
-    x: z.coerce.number(),
-    y: z.coerce.number(),
-    label: z.string().trim().optional(),
-  })).max(30).optional(),
+const VegaLiteSpecSchema = z.record(z.unknown()).superRefine((spec, ctx) => {
+  if (!hasInlineVegaData(spec)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Vega-Lite chart specs must include inline data values or datasets.',
+    })
+  }
+  if (hasExternalReference(spec)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Vega-Lite chart specs must not reference external urls.',
+    })
+  }
 })
 
-const ChartAxisSchema = z.object({
-  label: z.string().trim().min(1).max(80).optional(),
-  unit: z.string().trim().min(1).max(24).optional(),
-  min: z.coerce.number().optional(),
-  max: z.coerce.number().optional(),
-  tickCount: z.coerce.number().int().min(2).max(12).optional(),
-}).passthrough()
-
-const ChartStyleSchema = z.object({
-  palette: z.enum(['default', 'teal_amber', 'indigo_rose', 'slate_green', 'monochrome']).optional(),
-  showGrid: z.boolean().optional(),
-  showValueLabels: z.boolean().optional(),
-  patterned: z.boolean().optional(),
-}).passthrough()
-
-const CartesianChartPanelSchema = z.object({
-  title: z.string().trim().min(1).max(80).optional(),
-  subtitle: z.string().trim().min(1).max(80).optional(),
-  labels: z.array(z.string().trim().min(1)).min(1).max(16),
-  values: z.array(z.coerce.number()).min(1).max(16).optional(),
-  series: z.array(z.object({
-    name: z.string().trim().min(1),
-    values: z.array(z.coerce.number()).min(1).max(16),
-  })).min(1).max(5).optional(),
-}).passthrough()
-
-const CartesianChartSpecSchema = z.object({
-  labels: z.array(z.string().trim().min(1)).min(1).max(20).optional(),
-  values: z.array(z.coerce.number()).min(1).max(20).optional(),
-  series: z.array(ChartSeriesSchema).min(1).max(6).optional(),
-  panels: z.array(CartesianChartPanelSchema).min(1).max(3).optional(),
-  xAxis: ChartAxisSchema.optional(),
-  yAxis: ChartAxisSchema.optional(),
-  style: ChartStyleSchema.optional(),
-}).passthrough()
-
-const PieChartPanelSchema = z.object({
-  title: z.string().trim().min(1).max(80).optional(),
-  subtitle: z.string().trim().min(1).max(80).optional(),
-  labels: z.array(z.string().trim().min(1)).min(1).max(10),
-  values: z.array(z.coerce.number()).min(1).max(10),
-})
-
-const PieChartSpecSchema = z.object({
-  labels: z.array(z.string().trim().min(1)).min(1).max(10).optional(),
-  values: z.array(z.coerce.number()).min(1).max(10).optional(),
-  panels: z.array(PieChartPanelSchema).min(1).max(3).optional(),
-  style: ChartStyleSchema.optional(),
-}).passthrough()
+const SetShapeTypeSchema = z.preprocess(
+  (value) => {
+    if (value === 'rectangle' || value === 'rounded_rectangle') return 'rect'
+    if (value === 'oval') return 'ellipse'
+    return value
+  },
+  z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'])
+)
 
 const ShapeSpecSchema = z.object({
   id: z.string().trim().min(1).max(24).optional(),
-  shape: z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon']).optional(),
-  type: z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon']).optional(),
+  shape: SetShapeTypeSchema.optional(),
+  type: SetShapeTypeSchema.optional(),
   label: z.string().trim().min(1).max(80).optional(),
   cx: z.coerce.number().optional(),
   cy: z.coerce.number().optional(),
@@ -119,7 +94,19 @@ const ShapeSpecSchema = z.object({
   stroke: z.string().trim().optional(),
 }).passthrough()
 
-const SetRegionLabelSchema = z.object({
+const SetRegionLabelSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const label = value as Record<string, unknown>
+  const region = label.region
+  if (!region || typeof region !== 'object' || Array.isArray(region)) return value
+  const membership = region as Record<string, unknown>
+  return {
+    ...label,
+    include: label.include ?? membership.include,
+    exclude: label.exclude ?? membership.exclude,
+    region: typeof membership.expression === 'string' ? membership.expression : undefined,
+  }
+}, z.object({
   text: z.union([z.string().trim().min(1), z.coerce.number()]).optional(),
   value: z.union([z.string().trim().min(1), z.coerce.number()]).optional(),
   region: z.string().trim().min(1).max(120).optional(),
@@ -129,7 +116,7 @@ const SetRegionLabelSchema = z.object({
   y: z.coerce.number().optional(),
   bold: z.boolean().optional(),
   fontSize: z.coerce.number().min(8).max(32).optional(),
-}).passthrough()
+}).passthrough())
 
 const SetDiagramSpecSchema = z.object({
   shapes: z.array(ShapeSpecSchema).min(2).max(8),
@@ -138,67 +125,34 @@ const SetDiagramSpecSchema = z.object({
   regions: z.array(SetRegionLabelSchema).max(24).optional(),
 }).passthrough()
 
-const LegacyVennSpecSchema = z.object({
-  sets: z.array(z.object({
-    id: z.string().trim().optional(),
-    label: z.string().trim().optional(),
-  }).passthrough()).min(1).max(4).optional(),
-  regions: z.record(z.unknown()).optional(),
-  leftLabel: z.string().trim().optional(),
-  rightLabel: z.string().trim().optional(),
-  intersectionLabel: z.string().trim().optional(),
-}).passthrough()
-
-const MapSpecSchema = z.object({
-  points: z.array(z.object({
-    id: z.string().trim().min(1).max(24),
-    label: z.string().trim().min(1).max(80),
-    x: z.coerce.number(),
-    y: z.coerce.number(),
-  }).passthrough()).min(1).max(20),
-  lines: z.array(z.object({
-    from: z.string().trim().min(1).max(24),
-    to: z.string().trim().min(1).max(24),
-    label: z.string().trim().max(40).optional(),
-  }).passthrough()).max(30),
-}).passthrough()
-
-const LayoutGridSpecSchema = z.object({
-  title: z.string().trim().max(120).optional(),
-  rows: z.coerce.number().int().min(1).max(8),
-  columns: z.coerce.number().int().min(1).max(8),
-  rowLabels: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
-  columnLabels: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
-  cells: z.array(z.object({
-    row: z.coerce.number().int().min(1).max(8),
-    column: z.coerce.number().int().min(1).max(8),
-    label: z.string().trim().min(1).max(80).optional(),
-    fill: z.string().trim().optional(),
-  }).passthrough()).max(64).optional(),
-}).passthrough()
-
-const TimetableSpecSchema = z.object({
-  caption: z.string().trim().max(120).optional(),
-  columns: z.array(z.string().trim().min(1)).min(2).max(10),
-  rows: z.array(z.array(z.string().trim().min(1)).min(1).max(10)).min(2).max(20),
-  rowHeaderCount: z.coerce.number().int().min(0).max(3).optional(),
-  columnGroupLabels: z.array(z.string().trim().min(1)).max(10).optional(),
-}).passthrough()
-
 const GeneratedVisualBlockSchema = z.discriminatedUnion('visualType', [
-  z.object({ type: z.literal('visual'), visualType: z.literal('bar_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: CartesianChartSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('stacked_bar_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: CartesianChartSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('line_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: CartesianChartSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('scatter_plot'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: CartesianChartSpecSchema.extend({ points: z.array(z.object({ x: z.coerce.number(), y: z.coerce.number(), label: z.string().trim().optional() })).min(1).max(40).optional() }).passthrough() }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('histogram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: CartesianChartSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('pie_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: PieChartSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('venn_diagram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: z.union([SetDiagramSpecSchema, LegacyVennSpecSchema]) }),
+  z.object({ type: z.literal('visual'), visualType: z.literal('vega_lite_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: VegaLiteSpecSchema }),
+  z.object({ type: z.literal('visual'), visualType: z.literal('venn_diagram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
   z.object({ type: z.literal('visual'), visualType: z.literal('set_diagram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('schematic_map'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: MapSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('route_map'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: MapSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('layout_grid'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: LayoutGridSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('timetable'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: TimetableSpecSchema }),
 ])
+
+function hasInlineVegaData(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  if (Array.isArray(value)) return value.some(hasInlineVegaData)
+  const record = value as Record<string, unknown>
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    const data = record.data as Record<string, unknown>
+    if (Array.isArray(data.values) && data.values.length > 0) return true
+  }
+  if (record.datasets && typeof record.datasets === 'object' && !Array.isArray(record.datasets)) {
+    if (Object.values(record.datasets).some((dataset) => Array.isArray(dataset) && dataset.length > 0)) return true
+  }
+  return Object.values(record).some(hasInlineVegaData)
+}
+
+function hasExternalReference(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  if (Array.isArray(value)) return value.some(hasExternalReference)
+  return Object.entries(value as Record<string, unknown>).some(([key, child]) => {
+    if (['url', 'href', 'src'].includes(key.toLowerCase()) && typeof child === 'string' && child.trim()) return true
+    return hasExternalReference(child)
+  })
+}
 
 export const GeneratedContentBlockSchema = z.union([
   z.object({
@@ -212,6 +166,12 @@ export const GeneratedContentBlockSchema = z.union([
   }),
   GeneratedTableBlockSchema,
   GeneratedVisualBlockSchema,
+  z.object({
+    type: z.literal('image'),
+    src: z.string().trim().min(1),
+    altText: z.string().trim().optional().nullable(),
+    fileId: z.string().uuid().optional().nullable(),
+  }),
 ])
 
 export type GeneratedContentBlock = z.infer<typeof GeneratedContentBlockSchema>
@@ -252,13 +212,13 @@ export const GenerationPlanSchema = z.object({
   plans: z.array(
     z.object({
       stemIndex: z.number().int().nonnegative(),
+      categoryName: z.string().trim().nullable().optional(),
       scenarioDomain: z.string().trim().min(1),
       questionArchetype: z.string().trim().min(1),
       distractorPlan: z.string().trim().min(1),
       difficultyTarget: DifficultyTargetSchema,
       timeBurdenTarget: TimeBurdenTargetSchema,
       notes: z.string().trim().optional(),
-      vennVisualFormat: z.string().trim().optional(),
     })
   ),
 })

@@ -3,10 +3,14 @@ import { useSearchTutorLogs } from './useTutorLogsQuery';
 import { useStaffByIds } from './useStaffByIds';
 import { useStaffSearchForFilter } from './useStaffSearchForFilter';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
+import { useSubjectsSearchForFilter } from '@/features/classes/hooks/useSubjectsSearchForFilter';
+import { useClassesSearchForFilter } from '@/features/classes/hooks/useClassesSearchForFilter';
+import type { MinimalClass } from '@/features/classes/api/classes';
 import {
   extractCreatedByStaffIds,
   filterTutorLogsByStaff,
   filterTutorLogsByStudent,
+  filterTutorLogsBySessionMeta,
   paginateTutorLogs,
 } from '../utils/tutorLogsTableHelpers';
 import type { Tables, DataTableState } from '@altitutor/shared';
@@ -47,6 +51,8 @@ export interface UseTutorLogsTableParams {
   state?: DataTableState;
   staffSearchQuery?: string;
   studentSearchQuery?: string;
+  subjectSearchQuery?: string;
+  classSearchQuery?: string;
 }
 
 export interface UseTutorLogsTableReturn {
@@ -72,6 +78,8 @@ export interface UseTutorLogsTableReturn {
   // Filter state
   filteredStaff: Tables<'staff'>[];
   filteredStudents: Tables<'students'>[];
+  filteredSubjects: Tables<'subjects'>[];
+  filteredClasses: MinimalClass[];
   
   // Filtered count (for pagination total)
   filteredTutorLogs: Array<{
@@ -106,6 +114,8 @@ export function useTutorLogsTable({
   state,
   staffSearchQuery = '',
   studentSearchQuery = '',
+  subjectSearchQuery = '',
+  classSearchQuery = '',
 }: UseTutorLogsTableParams = {}): UseTutorLogsTableReturn {
   // Use state from useDataTable if provided
   const search = state?.search || '';
@@ -128,16 +138,36 @@ export function useTutorLogsTable({
     () => (filters.student as string[]) || [],
     [filters.student]
   );
+  const typeFilters = useMemo(
+    () => (filters.type as string[]) || [],
+    [filters.type]
+  );
+  const subjectFilters = useMemo(
+    () => (filters.subject as string[]) || [],
+    [filters.subject]
+  );
+  const classFilters = useMemo(
+    () => (filters.class as string[]) || [],
+    [filters.class]
+  );
 
   // Staff search hook (for filter options)
   const { data: staffSearchResults } = useStaffSearchForFilter(staffSearchQuery);
   const { data: studentSearchResults } = useStudentSearchForFilter(studentSearchQuery, ['ACTIVE', 'TRIAL']);
+  const { data: subjectSearchResults } = useSubjectsSearchForFilter(subjectSearchQuery);
+  const { data: classSearchResults } = useClassesSearchForFilter(classSearchQuery);
   const filteredStaff = useMemo(() => {
     return (staffSearchResults?.staff || []) as Tables<'staff'>[];
   }, [staffSearchResults?.staff]);
   const filteredStudents = useMemo(() => {
     return (studentSearchResults?.students || []) as Tables<'students'>[];
   }, [studentSearchResults?.students]);
+  const filteredSubjects = useMemo(() => {
+    return (subjectSearchResults?.subjects || []) as Tables<'subjects'>[];
+  }, [subjectSearchResults?.subjects]);
+  const filteredClasses = useMemo(() => {
+    return (classSearchResults?.classes || []) as MinimalClass[];
+  }, [classSearchResults?.classes]);
 
   // Determine which staff filter to use for API call
   const apiStaffId = staffFilters.length === 1 ? staffFilters[0] : undefined;
@@ -229,8 +259,24 @@ export function useTutorLogsTable({
   // Filter tutor logs (client-side filtering for multiple staff)
   const filteredTutorLogs = useMemo(() => {
     const staffFiltered = filterTutorLogsByStaff(tutorLogs, staffFilters, staffAttendance);
-    return filterTutorLogsByStudent(staffFiltered, studentFilters, studentAttendance);
-  }, [tutorLogs, staffFilters, staffAttendance, studentFilters, studentAttendance]);
+    const studentFiltered = filterTutorLogsByStudent(staffFiltered, studentFilters, studentAttendance);
+    return filterTutorLogsBySessionMeta(studentFiltered, sessions, classesById, {
+      typeFilters,
+      subjectFilters,
+      classFilters,
+    });
+  }, [
+    tutorLogs,
+    staffFilters,
+    staffAttendance,
+    studentFilters,
+    studentAttendance,
+    sessions,
+    classesById,
+    typeFilters,
+    subjectFilters,
+    classFilters,
+  ]);
 
   // Paginated tutor logs
   const paginatedTutorLogs = useMemo(() => {
@@ -252,6 +298,8 @@ export function useTutorLogsTable({
     createdByStaffMap,
     filteredStaff,
     filteredStudents,
+    filteredSubjects,
+    filteredClasses,
     paginatedTutorLogs,
     isLoading,
     isFetching,

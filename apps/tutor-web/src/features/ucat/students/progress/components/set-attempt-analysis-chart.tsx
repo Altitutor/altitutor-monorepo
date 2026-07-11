@@ -63,9 +63,6 @@ export function SetAttemptAnalysisChart({
 
   return (
     <div className={cn('relative flex min-w-0 flex-col gap-2', className)}>
-      <div className="text-sm text-muted-foreground">
-        Time taken per question
-      </div>
       <div className="absolute right-0 top-0 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs">
         {(['correct', 'partial', 'incorrect', 'not_attempted'] as const).map(
           (r) => (

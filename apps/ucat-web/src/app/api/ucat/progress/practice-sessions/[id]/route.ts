@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
 import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
+import {
+  fetchAttemptReviewCategoryDescriptions,
+  fetchAttemptReviewQuestionMetadata,
+  type AttemptReviewQuestionTag,
+} from "@/features/progress/lib/attempt-review-question-metadata";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -19,9 +24,16 @@ export type PracticeAttemptDetailResponse = {
     stemIndex: number;
     score: number | null;
     timeSpentSeconds: number | null;
+    averageTimeSeconds: number | null;
+    averageTimeSampleSize: number;
+    timeBurdenSeconds: number | null;
+    difficulty: number | null;
+    questionTags: AttemptReviewQuestionTag[];
+    isFlagged: boolean;
     questionType: "multiple_choice" | "syllogism" | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     categoryName: string | null;
+    categoryDescription: string | null;
     questionStemCategoryId: string | null;
     questionAnswerOptionId: string | null;
     answerSnapshot: Record<string, boolean> | null;
@@ -123,7 +135,7 @@ export async function GET(
   const { data: questionAttemptsRaw, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot",
+      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
     )
     .eq("student_practice_session_id", sessionId)
     .eq("is_submitted", true);
@@ -138,6 +150,7 @@ export async function GET(
       {
         score: qa.score,
         timeSpentSeconds: qa.time_spent_seconds,
+        timeBurdenSeconds: qa.time_burden_seconds,
         questionType: qa.question_type as
           | "multiple_choice"
           | "syllogism"
@@ -146,6 +159,7 @@ export async function GET(
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
         answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        isFlagged: qa.is_flagged ?? false,
       },
     ]),
   );
@@ -154,6 +168,16 @@ export async function GET(
   const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
     supabase,
     stemIds,
+  );
+  const questionMetadata = await fetchAttemptReviewQuestionMetadata(
+    supabase,
+    orderedQuestions.map((q) => q.questionId),
+  );
+  const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
+    supabase,
+    (questionAttemptsRaw ?? [])
+      .map((qa) => qa.question_stem_category_id)
+      .filter((id): id is string => !!id),
   );
 
   let currentStemId: string | null = null;
@@ -172,6 +196,9 @@ export async function GET(
         syllogismOptionsByQuestionId,
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
+      const metadata = questionMetadata.get(questionId);
+      const timeBurdenSeconds =
+        attemptData?.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
       const questionType = attemptData?.questionType ?? null;
 
       return {
@@ -180,9 +207,19 @@ export async function GET(
         stemIndex,
         score,
         timeSpentSeconds,
+        averageTimeSeconds: metadata?.averageTimeSeconds ?? null,
+        averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
+        timeBurdenSeconds,
+        difficulty: metadata?.difficulty ?? null,
+        questionTags: metadata?.questionTags ?? [],
+        isFlagged: attemptData?.isFlagged ?? false,
         questionType,
         result,
         categoryName: attemptData?.categoryName ?? null,
+        categoryDescription: attemptData?.questionStemCategoryId
+          ? (categoryDescriptions.get(attemptData.questionStemCategoryId) ??
+            null)
+          : null,
         questionStemCategoryId: attemptData?.questionStemCategoryId ?? null,
         questionAnswerOptionId: attemptData?.questionAnswerOptionId ?? null,
         answerSnapshot: attemptData?.answerSnapshot ?? null,

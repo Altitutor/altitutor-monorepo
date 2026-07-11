@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import type { UseFormReturn } from 'react-hook-form'
@@ -8,7 +8,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
-  Checkbox,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -21,7 +20,7 @@ import {
   Switch,
   useToast,
 } from '@altitutor/ui'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
@@ -37,6 +36,12 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  inferManualStemMetadataRecommendation,
+  type ManualStemMetadataRecommendation,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -67,7 +72,13 @@ export type CategoryOption = {
   ucat_section_id?: string | null
   label?: string | null
 }
-export type TagOption = { id: string; name: string; label?: string | null }
+export type TagOption = {
+  id: string
+  name: string
+  label?: string | null
+  parent_question_tag_id?: string | null
+  ucat_section_id?: string | null
+}
 
 /** Section row for the stem form + engine preview layout (two-column vs single column). */
 export type UcatSectionOption = { id: string | null; name: string | null; display_columns?: number | null }
@@ -113,6 +124,10 @@ export function UcatQuestionStemDialog({
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
+  const [metadataRecommendation, setMetadataRecommendation] =
+    useState<ManualStemMetadataRecommendation | null>(null)
+  const lastAutoAppliedMetadataSignatureRef = useRef<string | null>(null)
+  const lastMetadataRecommendationSnapshotRef = useRef<string | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -136,6 +151,7 @@ export function UcatQuestionStemDialog({
   // Only reset when opening a different stem—not when a refetch returns for the same stem.
   // A refetch during save would overwrite user edits with stale data before the mutation completes.
   const lastResetStemIdRef = useRef<string | null>(null)
+  const createResetOpenRef = useRef(false)
   useEffect(() => {
     if (initial) {
       const stemId = initial.id
@@ -155,12 +171,17 @@ export function UcatQuestionStemDialog({
       lastResetStemIdRef.current = null
       setActiveTextEditor(null)
       setCreateMore(false)
+      setMetadataRecommendation(null)
+      lastAutoAppliedMetadataSignatureRef.current = null
+      lastMetadataRecommendationSnapshotRef.current = null
+      createResetOpenRef.current = false
     }
   }, [open])
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
-    if (open && !initial) {
+    if (open && !initial && !createResetOpenRef.current) {
+      createResetOpenRef.current = true
       const emptyDefaults: UcatQuestionStemFormValues = {
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
@@ -188,13 +209,124 @@ export function UcatQuestionStemDialog({
 
   function buildNextCreateValues(values: UcatQuestionStemFormValues): UcatQuestionStemFormValues {
     const nextValues = buildEmptyStemFormValues(values.sectionId)
+    const previousQuestions = values.questions?.length ? values.questions : nextValues.questions
+    const nextQuestions = previousQuestions.map((question) => {
+      const questionType = question.questionType ?? 'multiple_choice'
+      return {
+        ...nextValues.questions[0]!,
+        questionType,
+        questionText:
+          questionType === 'syllogism'
+            ? question.questionText
+            : EMPTY_DOC,
+        answerExplanation: null,
+        difficulty: question.difficulty ?? null,
+        timeBurdenSeconds: question.timeBurdenSeconds ?? '',
+        tagIds: [...(question.tagIds ?? [])],
+        sourceChannel: 'individual' as const,
+        aiGenerationMetadata: null,
+        options:
+          questionType === 'syllogism'
+            ? Array.from({ length: 5 }, () => ({
+                answerText: EMPTY_DOC,
+                answerExplanation: null,
+                isAnswer: false,
+              }))
+            : [...DEFAULT_OPTIONS],
+      }
+    })
     return {
       ...nextValues,
       categoryId: values.categoryId ?? null,
       isPrivate: values.isPrivate,
       tutorSourceNote: values.tutorSourceNote ?? '',
+      questions: nextQuestions,
     }
   }
+
+  function buildMetadataDetectionSignature(values: UcatQuestionStemFormValues): string {
+    return JSON.stringify({
+      stemText: proseMirrorToPlainText(values.stemText) ?? '',
+      questions: (values.questions ?? []).map((question) => ({
+        questionText: proseMirrorToPlainText(question.questionText) ?? '',
+        options: (question.options ?? []).map((option) => proseMirrorToPlainText(option.answerText) ?? ''),
+      })),
+    })
+  }
+
+  const sameIds = useCallback((left: string[], right: string[]): boolean => {
+    if (left.length !== right.length) return false
+    const leftSorted = [...left].sort()
+    const rightSorted = [...right].sort()
+    return leftSorted.every((id, index) => id === rightSorted[index])
+  }, [])
+
+  const applyMetadataRecommendation = useCallback(
+    (
+      recommendation: ManualStemMetadataRecommendation,
+      values: UcatQuestionStemFormValues
+    ): boolean => {
+      const previous = {
+        sectionId: values.sectionId,
+        categoryId: values.categoryId ?? null,
+        questionTypes: (values.questions ?? []).map((question) => question.questionType),
+        tagIdsByQuestionIndex: Object.fromEntries(
+          (values.questions ?? []).map((question, index) => [index, [...(question.tagIds ?? [])]])
+        ) as Record<number, string[]>,
+      }
+      let changed = false
+
+      if (recommendation.sectionId && recommendation.sectionId !== values.sectionId) {
+        form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
+        changed = true
+      }
+      if (recommendation.categoryId && recommendation.categoryId !== (values.categoryId ?? null)) {
+        form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
+        changed = true
+      }
+      if (recommendation.questionType) {
+        const questionType = recommendation.questionType
+        ;(values.questions ?? []).forEach((question, index) => {
+          if (question.questionType !== questionType) {
+            form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+            changed = true
+          }
+        })
+      }
+      Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
+        const index = Number(indexText)
+        const current = values.questions?.[index]?.tagIds ?? []
+        if (!sameIds(current, tagIds)) {
+          form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
+          changed = true
+        }
+      })
+
+      if (!changed) return false
+
+      toast({
+        title: 'Detected UCAT metadata',
+        description: 'Section, category, question type, or question tags were updated from the parser suggestion.',
+        duration: 10_000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            form.setValue('sectionId', previous.sectionId, { shouldDirty: true })
+            form.setValue('categoryId', previous.categoryId, { shouldDirty: true })
+            previous.questionTypes.forEach((questionType, index) => {
+              form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+            })
+            Object.entries(previous.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
+              const index = Number(indexText)
+              form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
+            })
+          },
+        },
+      })
+      return true
+    },
+    [form, sameIds, toast]
+  )
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -253,6 +385,26 @@ export function UcatQuestionStemDialog({
   }
 
   const watchedValues = form.watch()
+  useEffect(() => {
+    if (!open || initial) return
+    const signature = buildMetadataDetectionSignature(watchedValues)
+    const recommendation = inferManualStemMetadataRecommendation({
+      values: watchedValues,
+      sections,
+      categories,
+      tags,
+    })
+    const recommendationSnapshot = JSON.stringify(recommendation)
+    if (lastMetadataRecommendationSnapshotRef.current !== recommendationSnapshot) {
+      lastMetadataRecommendationSnapshotRef.current = recommendationSnapshot
+      setMetadataRecommendation(recommendation)
+    }
+    if (!recommendation) return
+    if (lastAutoAppliedMetadataSignatureRef.current === signature) return
+    lastAutoAppliedMetadataSignatureRef.current = signature
+    applyMetadataRecommendation(recommendation, watchedValues)
+  }, [open, initial, watchedValues, sections, categories, tags, applyMetadataRecommendation])
+
   const hasUnsavedChanges =
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
@@ -328,6 +480,7 @@ export function UcatQuestionStemDialog({
       warningPills={warningPills}
       hideCancel
       defaultExpanded
+      mobileFullscreen
       richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -355,6 +508,8 @@ export function UcatQuestionStemDialog({
               return next
             })
           }
+          metadataRecommendation={showCreateMore ? metadataRecommendation : null}
+          onDeleteStem={!readOnly ? onDelete : undefined}
         />
       </div>
     </UcatDialogShell>
@@ -373,54 +528,91 @@ export function QuestionTagsSelect({
   compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
+  const sectionId = form.watch('sectionId')
+  const watchedTagIds = form.watch(`questions.${questionIndex}.tagIds`)
+  const selectedIds = useMemo(
+    () => (watchedTagIds ?? []) as string[],
+    [watchedTagIds]
+  )
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
+  const selectableTags = useMemo(
+    () => filterTagsForImportSection(tags, sectionId),
+    [tags, sectionId]
+  )
+  const availableTags = useMemo(
+    () => selectableTags.filter((tag) => !selectedIds.includes(tag.id)),
+    [selectableTags, selectedIds]
+  )
 
-  const toggleTag = (tagId: string) => {
-    const next = selectedIds.includes(tagId)
-      ? selectedIds.filter((id) => id !== tagId)
-      : [...selectedIds, tagId]
+  const addTag = (tagId: string) => {
+    if (selectedIds.includes(tagId)) return
+    form.setValue(`questions.${questionIndex}.tagIds`, [...selectedIds, tagId], { shouldDirty: true })
+    setOpen(false)
+  }
+
+  const removeTag = (tagId: string) => {
+    const next = selectedIds.filter((id) => id !== tagId)
     form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'justify-start text-left font-normal min-h-9',
-            compact ? 'w-full truncate px-2 text-xs' : 'w-full'
-          )}
+    <div className={cn('flex flex-wrap items-center gap-1.5', compact ? 'text-xs' : 'text-sm')}>
+      {selectedTags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs font-medium text-foreground"
         >
-          {selectedTags.length === 0 ? 'Add tags...' : `${selectedTags.length} tag(s) selected`}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search tags..." />
-          <CommandList>
-            <CommandEmpty>No tags found.</CommandEmpty>
-            <CommandGroup>
-              {tags.map((tag) => {
-                const isSelected = selectedIds.includes(tag.id)
-                return (
+          <span className="min-w-0 truncate">{taxonomyDisplayLabel(tag)}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${taxonomyDisplayLabel(tag)}`}
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={() => removeTag(tag.id)}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant={selectedTags.length === 0 ? 'outline' : 'ghost'}
+            size="sm"
+            className={cn(
+              'h-8 gap-1 rounded-full px-2.5 text-xs',
+              selectedTags.length === 0 && 'w-full justify-start'
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add tag
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="z-[100] flex max-h-[min(400px,80vh)] w-[340px] flex-col overflow-hidden p-0" align="start">
+          <Command className="flex min-h-0 flex-1 flex-col rounded-lg border-0">
+            <CommandInput placeholder="Search tags..." />
+            <CommandList
+              className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain"
+              onWheel={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+            >
+              <CommandEmpty>No tags found.</CommandEmpty>
+              <CommandGroup>
+                {availableTags.map((tag) => (
                   <CommandItem
                     key={tag.id}
                     value={`${tag.id}-${taxonomyDisplayLabel(tag)}`}
-                    onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
+                    onSelect={() => addTag(tag.id)}
+                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
-                    <Checkbox checked={isSelected} />
-                    <span>{taxonomyDisplayLabel(tag)}</span>
+                    <span className="min-w-0 flex-1 truncate">{taxonomyDisplayLabel(tag)}</span>
                   </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

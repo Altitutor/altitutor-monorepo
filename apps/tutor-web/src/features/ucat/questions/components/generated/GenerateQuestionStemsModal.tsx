@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import { Copy } from 'lucide-react'
 import {
@@ -9,6 +10,7 @@ import {
   Label,
   SearchableSelect,
   Spinner,
+  Switch,
   Textarea,
   useToast,
 } from '@altitutor/ui'
@@ -38,10 +40,8 @@ import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '
 import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
+import { inferQuestionTagIdsForFormValues } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
-import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
-import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
 import {
   UcatStemCatalogAddPanel,
   UcatStemCatalogLabel,
@@ -49,9 +49,6 @@ import {
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { cn } from '@/shared/utils'
-import { aiTextToProseMirror, plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
-import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 type GenerateQuestionStemsModalProps = {
   open: boolean
@@ -65,6 +62,7 @@ type DraftWithMetadata = BulkImportStemDraft & {
 type DifficultyTarget = 'easy' | 'medium' | 'hard' | 'mixed'
 type TimeBurdenTarget = 'low' | 'medium' | 'high' | 'mixed'
 type SourceMode = 'none' | 'random' | 'selected'
+type ImageGenerationMode = 'auto' | 'deterministic' | 'ai'
 
 type SelectOption<TValue extends string> = {
   id: TValue
@@ -89,6 +87,12 @@ const SOURCE_MODE_OPTIONS: Array<SelectOption<SourceMode>> = [
   { id: 'random', label: 'Random approved stems' },
   { id: 'selected', label: 'Manually choose source stems' },
   { id: 'none', label: 'No source examples' },
+]
+
+const IMAGE_GENERATION_MODE_OPTIONS: Array<SelectOption<ImageGenerationMode>> = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'deterministic', label: 'Deterministic renderer' },
+  { id: 'ai', label: 'AI-generated stem image' },
 ]
 
 function toFormValues(stem: {
@@ -164,6 +168,30 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
   }
 }
 
+function mergeInferredQuestionTags(args: {
+  values: UcatQuestionStemFormValues
+  sectionId: string
+  sectionName?: string | null
+  tags: Parameters<typeof inferQuestionTagIdsForFormValues>[0]['tags']
+}): UcatQuestionStemFormValues {
+  const inferredTagIds = inferQuestionTagIdsForFormValues(args)
+  if (Object.keys(inferredTagIds).length === 0) return args.values
+
+  return {
+    ...args.values,
+    questions: args.values.questions.map((question, questionIndex) => {
+      const mergedTagIds = Array.from(new Set([
+        ...(question.tagIds ?? []),
+        ...(inferredTagIds[questionIndex] ?? []),
+      ]))
+      return {
+        ...question,
+        tagIds: mergedTagIds,
+      }
+    }),
+  }
+}
+
 function metadataWarnings(metadata: Json | null): string[] {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return []
   const warnings = (metadata as Record<string, unknown>).warnings
@@ -180,9 +208,10 @@ const GENERATION_STEP_LABELS: Record<UcatGenerationProgress['step'], string> = {
   sources: 'Sources',
   generating: 'Model calls',
   gates: 'Validation',
+  images: 'Images',
   drafts: 'Drafts',
 }
-const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'drafts']
+const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'images', 'drafts']
 
 function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null }) {
   if (!debug) return null
@@ -217,7 +246,7 @@ function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null
       <div className="grid gap-3 text-sm md:grid-cols-2">
         <div>Requested stems: {debug.requestedStemCount}</div>
         <div>Section: {debug.sectionName ?? '-'}</div>
-        <div>Selected category: {debug.selectedCategoryName ?? 'Spread across categories'}</div>
+        <div>Selected category: {debug.selectedCategoryName ?? 'Realistic category mix'}</div>
         <div>Prompt layers: {debug.promptLayerCount}</div>
         <div className="md:col-span-2">Source sample IDs: {debug.sourceSampleIds.join(', ') || '-'}</div>
       </div>
@@ -350,6 +379,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>('random')
+  const [includeAiSourceStems, setIncludeAiSourceStems] = useState(false)
+  const [imageGenerationMode, setImageGenerationMode] = useState<ImageGenerationMode>('auto')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
   const [difficultyTarget, setDifficultyTarget] = useState<DifficultyTarget>('mixed')
@@ -357,7 +388,6 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [runInstructions, setRunInstructions] = useState('')
   const [stemCount, setStemCount] = useState<number>(5)
   const [drafts, setDrafts] = useState<DraftWithMetadata[]>([])
-  const [expandedReviewStemId, setExpandedReviewStemId] = useState<string | null>(null)
   const [stemSearch, setStemSearch] = useState('')
   const [stemFilters, setStemFilters] = useState<Record<string, unknown[]>>({})
   const [viewingStemId, setViewingStemId] = useState<string | null>(null)
@@ -365,6 +395,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [generationDebug, setGenerationDebug] = useState<UcatGenerationDebugInfo | null>(null)
   const [generationProgress, setGenerationProgress] = useState<UcatGenerationProgress | null>(null)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const isGeneratingRef = useRef(false)
+  const allowNavigationRef = useRef(false)
+  const ignoreNextPopStateRef = useRef(false)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
@@ -383,9 +417,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return all.filter((stem) => {
       if (!stem.sectionId || stem.sectionId !== sectionId) return false
       if (categoryId && stem.categoryId !== categoryId) return false
+      if (!includeAiSourceStems && stem.isAiGenerated) return false
       return true
     })
-  }, [stemCatalogQuery.data, sectionId, categoryId])
+  }, [stemCatalogQuery.data, sectionId, categoryId, includeAiSourceStems])
 
   const stemById = useMemo(() => {
     const map = new Map<string, UcatStemCatalogItem>()
@@ -453,7 +488,79 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     (sourceMode !== 'selected' || selectedSourceIds.length > 0)
 
   const isBusy = generateMutation.isPending || importMutation.isPending
+  const isGenerating = step === 'generating' && generateMutation.isPending
   const showSourceStemPicker = step === 'config' && sourceMode === 'selected'
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating
+  }, [isGenerating])
+
+  useEffect(() => {
+    const message = 'Question generation is still running. Leaving this page may interrupt active AI model calls. Leave anyway?'
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        !isGeneratingRef.current ||
+        allowNavigationRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null
+      if (!anchor || anchor.target || anchor.hasAttribute('download')) return
+
+      const destination = new URL(anchor.href, window.location.href)
+      if (
+        destination.origin === window.location.origin &&
+        destination.pathname === window.location.pathname &&
+        destination.search === window.location.search
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (!window.confirm(message)) return
+
+      allowNavigationRef.current = true
+      anchor.click()
+    }
+
+    const handlePopState = () => {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false
+        return
+      }
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      if (window.confirm(message)) {
+        allowNavigationRef.current = true
+        return
+      }
+      ignoreNextPopStateRef.current = true
+      window.history.forward()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleDocumentClick, true)
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleDocumentClick, true)
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   useEffect(() => {
     if (step !== 'generating') {
@@ -467,12 +574,19 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return () => window.clearInterval(interval)
   }, [step])
 
+  useEffect(() => {
+    if (step !== 'review') {
+      setActiveTextEditor(null)
+    }
+  }, [step])
+
   function resetState() {
     setStep('config')
     setSectionId('')
     setCategoryId(null)
     setModelProfileId(null)
     setSourceMode('random')
+    setIncludeAiSourceStems(false)
     setSelectedSourceIds([])
     setTargetTagIds([])
     setDifficultyTarget('mixed')
@@ -486,6 +600,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setGenerationError(null)
     setGenerationDebug(null)
     setGenerationProgress(null)
+    setImageGenerationMode('auto')
+    setActiveTextEditor(null)
   }
 
   async function handleGenerate() {
@@ -505,6 +621,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         categoryId,
         modelProfileId: effectiveModelProfileId,
         sourceMode,
+        includeAiSourceStems,
+        imageGenerationMode,
         sourceStemIds: sourceMode === 'selected' ? selectedSourceIds : [],
         stemCount,
         difficultyTarget,
@@ -513,14 +631,22 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         runInstructions: runInstructions.trim() || null,
         onProgress: setGenerationProgress,
       })
-      const nextDrafts: DraftWithMetadata[] = result.stems.map((stem, index) => ({
-        id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `generated-${index + 1}`,
-        values: toFormValues(stem),
-        aiGenerationMetadata: stem.aiGenerationMetadata,
-      }))
+      const nextDrafts: DraftWithMetadata[] = result.stems.map((stem, index) => {
+        const values = toFormValues(stem)
+        return {
+          id:
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `generated-${index + 1}`,
+          values: mergeInferredQuestionTags({
+            values,
+            sectionId,
+            sectionName: selectedSection?.name ?? null,
+            tags,
+          }),
+          aiGenerationMetadata: stem.aiGenerationMetadata,
+        }
+      })
       setGenerationDebug(result.debug ?? null)
       setGenerationProgress({
         step: 'drafts',
@@ -572,230 +698,14 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     }
   }
 
-  async function executeGeneratedReviewTool(toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> {
-    const input = toolCall.input
-    const stemId = typeof input.stemId === 'string' ? input.stemId : expandedReviewStemId
-    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : null
-    const optionIndex = typeof input.optionIndex === 'number' ? input.optionIndex : null
-    const text = typeof input.text === 'string' ? input.text : ''
-    const targetName = typeof input.target === 'string' ? input.target : 'stem'
-
-    if (!stemId) {
-      return { toolCallId: toolCall.id, ok: false, message: 'No review candidate is targeted.' }
-    }
-
-    const target = drafts.find((draft) => draft.id === stemId)
-    if (!target) {
-      return { toolCallId: toolCall.id, ok: false, message: 'Review candidate not found.' }
-    }
-
-    const updateStem = (updater: (values: UcatQuestionStemFormValues) => UcatQuestionStemFormValues) => {
-      setDrafts((current) =>
-        current.map((draft) => draft.id === stemId ? { ...draft, values: updater(draft.values) } : draft),
-      )
-    }
-
-    switch (toolCall.name) {
-      case 'updateReviewCandidateStemText':
-        updateStem((values) => ({ ...values, stemText: aiTextToProseMirror(text) }))
-        return { toolCallId: toolCall.id, ok: true, message: 'Updated review candidate stem text.' }
-
-      case 'updateReviewCandidateQuestionText':
-        if (questionIndex == null || !target.values.questions[questionIndex]) {
-          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
-        }
-        updateStem((values) => ({
-          ...values,
-          questions: values.questions.map((question, index) =>
-            index === questionIndex
-              ? { ...question, questionText: aiTextToProseMirror(text) }
-              : question,
-          ),
-        }))
-        return { toolCallId: toolCall.id, ok: true, message: `Updated candidate question ${questionIndex + 1}.` }
-
-      case 'updateReviewCandidateQuestionProperties':
-        if (questionIndex == null || !target.values.questions[questionIndex]) {
-          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
-        }
-        updateStem((values) => ({
-          ...values,
-          questions: values.questions.map((question, index) =>
-            index === questionIndex
-              ? {
-                  ...question,
-                  difficulty: typeof input.difficulty === 'number' || input.difficulty === null ? input.difficulty : question.difficulty,
-                  timeBurdenSeconds: typeof input.timeBurdenSeconds === 'string' ? input.timeBurdenSeconds : question.timeBurdenSeconds,
-                  tagIds: Array.isArray(input.tagIds)
-                    ? input.tagIds.filter((id): id is string => typeof id === 'string')
-                    : question.tagIds,
-                }
-              : question,
-          ),
-        }))
-        return { toolCallId: toolCall.id, ok: true, message: `Updated candidate question ${questionIndex + 1} properties.` }
-
-      case 'updateReviewCandidateAnswerOption':
-        if (questionIndex == null || optionIndex == null || !target.values.questions[questionIndex]?.options[optionIndex]) {
-          return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
-        }
-        updateStem((values) => ({
-          ...values,
-          questions: values.questions.map((question, qIndex) =>
-            qIndex === questionIndex
-              ? {
-                  ...question,
-                  options: question.options.map((option, oIndex) =>
-                    oIndex === optionIndex
-                      ? {
-                          ...option,
-                          answerText: typeof input.answerText === 'string' ? plainTextToProseMirror(input.answerText) : option.answerText,
-                          answerExplanation: typeof input.answerExplanation === 'string' ? aiTextToProseMirror(input.answerExplanation) : option.answerExplanation,
-                          isAnswer: typeof input.isAnswer === 'boolean' ? input.isAnswer : option.isAnswer,
-                        }
-                      : option,
-                  ),
-                }
-              : question,
-          ),
-        }))
-        return { toolCallId: toolCall.id, ok: true, message: `Updated candidate answer option ${optionIndex + 1}.` }
-
-      case 'updateReviewCandidateExplanation':
-        if (questionIndex == null || !target.values.questions[questionIndex]) {
-          return { toolCallId: toolCall.id, ok: false, message: 'Question not found.' }
-        }
-        updateStem((values) => ({
-          ...values,
-          questions: values.questions.map((question, index) =>
-            index === questionIndex
-              ? { ...question, answerExplanation: aiTextToProseMirror(text) }
-              : question,
-          ),
-        }))
-        return { toolCallId: toolCall.id, ok: true, message: `Updated candidate question ${questionIndex + 1} explanation.` }
-
-      case 'deleteReviewCandidate':
-        setDrafts((current) => current.filter((draft) => draft.id !== stemId))
-        if (expandedReviewStemId === stemId) setExpandedReviewStemId(null)
-        return { toolCallId: toolCall.id, ok: true, message: 'Deleted review candidate.' }
-
-      case 'insertImage':
-      case 'replaceImageFromPrompt': {
-        const prompt = typeof input.prompt === 'string' ? input.prompt : ''
-        if (!prompt.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No image prompt provided.' }
-        const response = await fetch('/api/ucat/authoring-agent/images/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            alt: typeof input.alt === 'string' ? input.alt : null,
-          }),
-        })
-        const image = (await response.json()) as {
-          fileId?: string
-          signedUrl?: string
-          alt?: string | null
-          error?: string
-        }
-        if (!response.ok || !image.fileId || !image.signedUrl) {
-          return { toolCallId: toolCall.id, ok: false, message: image.error ?? 'Image generation failed.' }
-        }
-        const nextImage = { src: image.signedUrl, fileId: image.fileId, alt: image.alt ?? null }
-        const imageDoc = (value: Json | null | undefined) =>
-          toolCall.name === 'replaceImageFromPrompt'
-            ? replaceFirstImageNodeInDoc(value, nextImage)
-            : appendImageNodeToDoc(value, nextImage)
-        const action = toolCall.name === 'replaceImageFromPrompt' ? 'Replaced' : 'Inserted'
-        const qIndex = questionIndex ?? 0
-
-        updateStem((values) => {
-          if (targetName === 'stem') {
-            return { ...values, stemText: imageDoc(values.stemText as Json | null) }
-          }
-          if (!values.questions[qIndex]) return values
-          return {
-            ...values,
-            questions: values.questions.map((question, index) => {
-              if (index !== qIndex) return question
-              if (targetName === 'question') {
-                return { ...question, questionText: imageDoc(question.questionText as Json | null) }
-              }
-              if (targetName === 'explanation') {
-                return { ...question, answerExplanation: imageDoc(question.answerExplanation as Json | null) }
-              }
-              if (targetName === 'answerOption') {
-                const oIndex = optionIndex ?? 0
-                return {
-                  ...question,
-                  options: question.options.map((option, index) =>
-                    index === oIndex ? { ...option, answerText: imageDoc(option.answerText as Json | null) } : option
-                  ),
-                }
-              }
-              return question
-            }),
-          }
-        })
-        return { toolCallId: toolCall.id, ok: true, message: `${action} generated image in review candidate ${targetName}.` }
-      }
-
-      case 'replaceVisualSpec': {
-        const spec = input.spec && typeof input.spec === 'object' && !Array.isArray(input.spec)
-          ? input.spec as Record<string, unknown>
-          : null
-        if (!spec) return { toolCallId: toolCall.id, ok: false, message: 'No visual spec provided.' }
-        const visualBlock = {
-          type: 'visual',
-          visualType: typeof input.visualType === 'string' ? input.visualType : 'venn_diagram',
-          title: typeof input.title === 'string' ? input.title : null,
-          altText: typeof input.altText === 'string' ? input.altText : '',
-          spec,
-        } as Extract<GeneratedContentBlock, { type: 'visual' }>
-        const specIssue = getGeneratedVisualSpecIssue(visualBlock)
-        if (specIssue) return { toolCallId: toolCall.id, ok: false, message: specIssue }
-        const imageNode = generatedVisualBlockToImageNode(visualBlock)
-        const writeVisual = (value: Json | null | undefined) =>
-          input.mode === 'append' ? appendImageNode(value, imageNode) : replaceFirstImageNode(value, imageNode)
-        const qIndex = questionIndex ?? 0
-
-        updateStem((values) => {
-          if (targetName === 'stem') {
-            return { ...values, stemText: writeVisual(values.stemText as Json | null) }
-          }
-          if (!values.questions[qIndex]) return values
-          return {
-            ...values,
-            questions: values.questions.map((question, index) => {
-              if (index !== qIndex) return question
-              if (targetName === 'question') {
-                return { ...question, questionText: writeVisual(question.questionText as Json | null) }
-              }
-              if (targetName === 'explanation') {
-                return { ...question, answerExplanation: writeVisual(question.answerExplanation as Json | null) }
-              }
-              if (targetName === 'answerOption') {
-                const oIndex = optionIndex ?? 0
-                return {
-                  ...question,
-                  options: question.options.map((option, index) =>
-                    index === oIndex ? { ...option, answerText: writeVisual(option.answerText as Json | null) } : option
-                  ),
-                }
-              }
-              return question
-            }),
-          }
-        })
-        return { toolCallId: toolCall.id, ok: true, message: `Inserted deterministic visual in review candidate ${targetName}.` }
-      }
-
-      default:
-        return { toolCallId: toolCall.id, ok: false, message: `${toolCall.name} is not available in generated review yet.` }
-    }
-  }
-
   function handleRequestClose() {
+    if (isGenerating) {
+      if (!window.confirm('Question generation is still running. Close this dialog? Generation will continue while you stay on this page.')) {
+        return
+      }
+      onClose()
+      return
+    }
     if (isBusy) return
     if (
       step === 'review' &&
@@ -850,6 +760,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             : drafts.length === 0 || importMutation.isPending
         }
         defaultExpanded
+        richTextToolbarEditor={step === 'review' ? activeTextEditor : null}
       >
         {step === 'config' ? (
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -902,12 +813,12 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => taxonomyDisplayLabel(item)}
-                      placeholder="Spread across categories"
+                      placeholder="Realistic category mix"
                       searchPlaceholder="Search categories..."
                       emptyMessage="No categories found"
                       disabled={!sectionId}
                       allowClear
-                      clearLabel="Spread across categories"
+                      clearLabel="Realistic category mix"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1013,11 +924,42 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                         setSelectedSourceIds([])
                         setStemSearch('')
                         setStemFilters({})
+                        if (value.id === 'none') setIncludeAiSourceStems(false)
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search source modes..."
                     />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+                    <Label htmlFor="include-ai-source-stems" className="text-sm font-medium">
+                      Include AI-generated source stems
+                    </Label>
+                    <Switch
+                      id="include-ai-source-stems"
+                      checked={includeAiSourceStems}
+                      disabled={sourceMode === 'none'}
+                      onCheckedChange={(checked) => {
+                        setIncludeAiSourceStems(checked)
+                        setSelectedSourceIds([])
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Image generation</Label>
+                    <SearchableSelect<SelectOption<ImageGenerationMode>>
+                      items={IMAGE_GENERATION_MODE_OPTIONS}
+                      value={IMAGE_GENERATION_MODE_OPTIONS.find((item) => item.id === imageGenerationMode) ?? null}
+                      onValueChange={(value) => {
+                        if (value) setImageGenerationMode(value.id)
+                      }}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      searchPlaceholder="Search image modes..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Auto uses AI for stem-level QR source images when an image API is configured, and deterministic rendering for DM set/logical diagrams.
+                    </p>
                   </div>
                 </div>
 
@@ -1089,8 +1031,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             />
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 gap-4 px-6 py-4">
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
             {allWarnings.length > 0 ? (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
                 <div className="font-medium">{allWarnings.length} generation warning{allWarnings.length === 1 ? '' : 's'}</div>
@@ -1104,6 +1045,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             <Step3SetAnswers
               stems={drafts}
               categories={categories}
+              tags={stemDialogTags}
               sections={sections.map((s) => ({
                 id: s.id,
                 name: s.name,
@@ -1115,25 +1057,9 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 )
               }
               sourceChannel="ai_generation"
-              onExpandedStemChange={setExpandedReviewStemId}
+              onActiveTextEditorChange={setActiveTextEditor}
             />
             <GenerationDebugPanel debug={generationDebug} />
-            </div>
-            <aside className="flex min-h-0 w-80 shrink-0 flex-col">
-              <UcatAuthoringAgentChat
-                contextType="generated_review"
-                scope={expandedReviewStemId ? 'review_current_stem' : 'review_batch'}
-                scopeLabel={expandedReviewStemId ? 'Current expanded stem' : 'Review batch'}
-                snapshot={{
-                  expandedStemId: expandedReviewStemId,
-                  drafts: expandedReviewStemId
-                    ? drafts.filter((draft) => draft.id === expandedReviewStemId)
-                    : drafts,
-                } as Json}
-                placeholder="Ask AI to edit these review candidates..."
-                onExecuteTool={executeGeneratedReviewTool}
-              />
-            </aside>
           </div>
         )}
       </UcatDialogShell>

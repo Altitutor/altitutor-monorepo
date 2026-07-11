@@ -33,14 +33,12 @@ const NAV = [
   { segment: 'scheduling', href: '/reconciliation/scheduling', label: 'Scheduling' },
   { segment: 'communication', href: '/reconciliation/communication', label: 'Communication' },
   { segment: 'operations', href: '/reconciliation/operations', label: 'Operations' },
-  { segment: 'family', href: '/reconciliation/family', label: 'Family' },
 ] as const;
 
 function tabCountForSegment(
   segment: (typeof NAV)[number]['segment'],
   counts: { financial: number; scheduling: number; communication: number; operations: number } | undefined
 ): number | undefined {
-  if (segment === 'family') return undefined;
   if (!counts) return undefined;
   if (segment === 'financial') return counts.financial;
   if (segment === 'scheduling') return counts.scheduling;
@@ -51,9 +49,72 @@ function tabCountForSegment(
 export function ReconciliationShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const tabCounts = useReconciliationTabCounts();
+
+  const counts = tabCounts.data;
+  const totalItems =
+    counts !== undefined
+      ? counts.financial + counts.scheduling + counts.communication + counts.operations
+      : undefined;
+
+  const formatBadge = (segment: (typeof NAV)[number]['segment']): string | null => {
+    if (tabCounts.isPending) return '…';
+    if (tabCounts.isError) return '—';
+    const n = tabCountForSegment(segment, counts);
+    return n === undefined ? '—' : String(n);
+  };
+
+  const activeSegment =
+    NAV.find(({ href }) => pathname === href || pathname?.startsWith(`${href}/`))?.segment ??
+    NAV[0].segment;
+
+  return (
+    <ReconciliationInteractionProvider>
+      <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
+        </div>
+
+        {tabCounts.isError && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Could not load tab counts. Navigation totals may be incomplete.</span>
+          </div>
+        )}
+
+        <SegmentedControl
+          className="w-full max-w-5xl min-w-0"
+          fullWidth
+          value={activeSegment}
+          onValueChange={(segment) => {
+            const item = NAV.find((navItem) => navItem.segment === segment);
+            if (item) router.push(item.href);
+          }}
+          options={NAV.map(({ segment, label }) => {
+            const badge = formatBadge(segment);
+            return {
+              value: segment,
+              label: badge === null ? label : `${label} (${badge})`,
+            };
+          })}
+        />
+
+        {children}
+
+        {tabCounts.isSuccess && totalItems === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg">No reconciliation items found</p>
+            <p className="text-sm mt-2">All data is consistent!</p>
+          </div>
+        )}
+      </div>
+    </ReconciliationInteractionProvider>
+  );
+}
+
+export function ReconciliationInteractionProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
-  const tabCounts = useReconciliationTabCounts();
   const modals = useReconciliationModals();
   const assignStaffMutation = useAssignStaffMutation();
   const enrollStudentMutation = useEnrollStudentMutation();
@@ -106,24 +167,6 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
     await enrollStudentMutation.mutateAsync(params);
   };
 
-  const counts = tabCounts.data;
-  const totalItems =
-    counts !== undefined
-      ? counts.financial + counts.scheduling + counts.communication + counts.operations
-      : undefined;
-
-  const formatBadge = (segment: (typeof NAV)[number]['segment']): string | null => {
-    if (segment === 'family') return null;
-    if (tabCounts.isPending) return '…';
-    if (tabCounts.isError) return '—';
-    const n = tabCountForSegment(segment, counts);
-    return n === undefined ? '—' : String(n);
-  };
-
-  const activeSegment =
-    NAV.find(({ href }) => pathname === href || pathname?.startsWith(`${href}/`))?.segment ??
-    NAV[0].segment;
-
   return (
     <ReconciliationHandlersProvider
       handlers={{
@@ -139,46 +182,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
         onAddClass: modals.handleAddClass,
       }}
     >
-      <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
-        </div>
-
-        {tabCounts.isError && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>Could not load tab counts. Navigation totals may be incomplete.</span>
-          </div>
-        )}
-
-        <SegmentedControl
-          className="w-full max-w-5xl min-w-0"
-          fullWidth
-          value={activeSegment}
-          onValueChange={(segment) => {
-            const item = NAV.find((navItem) => navItem.segment === segment);
-            if (item) router.push(item.href);
-          }}
-          options={NAV.map(({ segment, label }) => {
-            const badge = formatBadge(segment);
-            return {
-              value: segment,
-              label: badge === null ? label : `${label} (${badge})`,
-            };
-          })}
-        />
-
-        {children}
-
-        {tabCounts.isSuccess &&
-          totalItems === 0 &&
-          pathname !== '/reconciliation/family' &&
-          !pathname?.startsWith('/reconciliation/family/') && (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-lg">No reconciliation items found</p>
-            <p className="text-sm mt-2">All data is consistent!</p>
-          </div>
-        )}
+      {children}
 
         <ViewStudentModal
           isOpen={modals.isStudentModalOpen}
@@ -265,7 +269,6 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
             onEnroll={handleEnrollStudent}
           />
         )}
-      </div>
     </ReconciliationHandlersProvider>
   );
 }

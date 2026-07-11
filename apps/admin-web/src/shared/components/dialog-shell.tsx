@@ -51,7 +51,7 @@ export function AdminDialogShell({
           contentClassName,
         )}
       >
-        <DialogHeader className="shrink-0 border-b px-6 py-4">
+        <DialogHeader className="shrink-0 border-b bg-card px-6 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <Button type="button" variant="outline" size="icon" onClick={onClose} className="shrink-0">
@@ -73,7 +73,7 @@ export function AdminDialogShell({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
 
         {footer ? (
-          <DialogFooter className="shrink-0 border-t px-6 py-4 sm:justify-end">{footer}</DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end">{footer}</DialogFooter>
         ) : null}
       </DialogContent>
     </Dialog>

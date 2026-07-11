@@ -13,6 +13,8 @@ import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { CollapsibleHeading } from '../extensions/collapsible-heading';
+import { ExternalVideoExtension } from '../extensions/external-video';
+import { ImageSelectionHighlight } from '../extensions/image-selection-highlight';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -304,6 +306,36 @@ function hasEmbeddablePastedImages(html: string): boolean {
   return /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
 }
 
+/** Images are configured as block nodes, so lift pasted images out of paragraphs before TipTap parses them. */
+function liftPastedImagesOutOfParagraphs(html: string): string {
+  if (!/<img\b/i.test(html)) return html;
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const images = Array.from(doc.body.querySelectorAll('p img'));
+    for (const image of images) {
+      const paragraph = image.closest('p');
+      const parent = paragraph?.parentNode;
+      if (!paragraph || !parent) continue;
+
+      const trailingParagraph = paragraph.cloneNode(false) as HTMLParagraphElement;
+      while (image.nextSibling) {
+        trailingParagraph.appendChild(image.nextSibling);
+      }
+      image.remove();
+      parent.insertBefore(image, paragraph.nextSibling);
+      if (trailingParagraph.hasChildNodes()) {
+        parent.insertBefore(trailingParagraph, image.nextSibling);
+      }
+      if (!paragraph.hasChildNodes()) {
+        paragraph.remove();
+      }
+    }
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 type PasteHtmlInsertOptions = {
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
   pasteStripFormatting?: boolean;
@@ -325,10 +357,10 @@ async function preparePastedHtmlForInsert(
     }
   }
 
-  const html = applyPasteHtmlTransforms(htmlToTransform, {
+  const html = liftPastedImagesOutOfParagraphs(applyPasteHtmlTransforms(htmlToTransform, {
     pasteTableBehavior: options.pasteTableBehavior,
     pasteStripFormatting: options.pasteStripFormatting,
-  });
+  }));
 
   return { html, imageFiles };
 }
@@ -598,7 +630,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
       }),
+      ImageSelectionHighlight,
       ImageUploadPlaceholderExtension,
+      ExternalVideoExtension,
       ...(slashMenuSuggestions
         ? [
             SlashCommandExtension.configure({
@@ -682,7 +716,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         ) {
           event.preventDefault();
           const tr = state.tr
-            .setSelection(TextSelection.create(state.doc, posAfter))
+            .setSelection(TextSelection.near(state.doc.resolve(posAfter), 1))
             .insertText(event.key);
           view.dispatch(tr);
           return true;

@@ -38,8 +38,7 @@ export type ActivityEntityType =
   | 'tutor_logs_topics_students'
   | 'admin_shifts'
   | 'admin_shifts_staff'
-  | 'issues'
-  | 'issue_tags';
+  | 'issues';
 
 /**
  * Event type
@@ -181,4 +180,3 @@ export interface ActivityEventsResponse {
   studentsSubjectsToSubjectId?: Record<string, string>;
   total: number;
 }
-

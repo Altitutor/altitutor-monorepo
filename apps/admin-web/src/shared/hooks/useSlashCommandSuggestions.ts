@@ -9,6 +9,7 @@ import type { SlashCommandListRef } from '@/shared/components/SlashCommandList';
 import { useRichTextTemplates } from '@/features/rich-text-templates/api/templates';
 import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import type { Json } from '@altitutor/shared';
+import { parseExternalVideoEmbed } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
 import type { Tables } from '@altitutor/shared';
 
@@ -132,6 +133,37 @@ export function useSlashCommandSuggestions({
         keywords: ['hr', 'separator', 'line'],
         onSelect: ({ editor, range }) => {
           editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+        },
+      },
+      {
+        title: 'Video',
+        subtext: 'Embed a YouTube or Vimeo URL',
+        group: 'Insert',
+        keywords: ['youtube', 'vimeo', 'embed', 'iframe'],
+        onSelect: ({ editor, range }) => {
+          const rawUrl = window.prompt('Paste a YouTube or Vimeo URL');
+          if (!rawUrl) return;
+
+          const parsed = parseExternalVideoEmbed(rawUrl);
+          if (!parsed) {
+            window.alert('Use a supported YouTube or Vimeo URL.');
+            return;
+          }
+
+          editor
+            .chain()
+            .focus()
+            .deleteRange(range)
+            .insertContent({
+              type: 'externalVideo',
+              attrs: {
+                src: rawUrl.trim(),
+                embedUrl: parsed.embedUrl,
+                provider: parsed.provider,
+                title: `${parsed.provider === 'youtube' ? 'YouTube' : 'Vimeo'} video`,
+              },
+            })
+            .run();
         },
       },
     ];

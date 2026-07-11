@@ -5,7 +5,7 @@ import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { UcatQuestionSourceChannel, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
 import {
@@ -23,6 +23,12 @@ import type {
   TagOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import {
+  UcatAuthoringWorkspaceTabs,
+  type UcatAuthoringWorkspaceTab,
+} from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import { cn } from '@/shared/utils'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -54,6 +60,8 @@ type UcatStemEditorShellProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  metadataRecommendation?: ManualStemMetadataRecommendation | null
+  onDeleteStem?: () => void
 }
 
 export function UcatStemEditorShell({
@@ -79,10 +87,13 @@ export function UcatStemEditorShell({
   aiGenerationMetadata = null,
   createdByFirstName = null,
   createdByLastName = null,
+  metadataRecommendation = null,
+  onDeleteStem,
 }: UcatStemEditorShellProps) {
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex ?? 0)
+  const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
 
   const handleTextEditorActive = useCallback(
     (textEditor: Editor | null) => {
@@ -156,8 +167,15 @@ export function UcatStemEditorShell({
   }, [editorMode, onActiveTextEditorChange])
 
   return (
-    <div className={className ?? 'flex min-h-0 flex-1 overflow-hidden'}>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}>
+      <UcatAuthoringWorkspaceTabs
+        value={activeWorkspace}
+        onValueChange={setActiveWorkspace}
+        editorLabel="Question stem"
+        className="shrink-0 border-b bg-background p-2 lg:hidden"
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row">
+      <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', activeWorkspace !== 'editor' && 'hidden', 'lg:flex')}>
         <div
           className={
             flush
@@ -177,6 +195,7 @@ export function UcatStemEditorShell({
                 form={form}
                 questionIndex={safeQuestionIndex}
                 sectionDisplayColumns={sectionDisplayColumns}
+                sectionName={previewSectionTitle}
                 stemId={stemId}
                 enableImages={enableImages}
                 onNewImageFileIds={onNewImageFileIds}
@@ -210,7 +229,13 @@ export function UcatStemEditorShell({
         aiGenerationMetadata={aiGenerationMetadata}
         createdByFirstName={createdByFirstName}
         createdByLastName={createdByLastName}
+        metadataRecommendation={metadataRecommendation}
+        onDeleteStem={onDeleteStem}
+        activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
+        onActiveTabChange={setActiveWorkspace}
+        className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}
       />
+      </div>
     </div>
   )
 }

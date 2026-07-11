@@ -10,6 +10,36 @@
 
 ## Subject resources
 
+- **Form** — A staff-defined set of questions that can collect structured responses from students, staff, parents, or public respondents. A form may be used for surveys, feedback, check-ins, unenrolment, discontinuation, or unsubscribe flows; those are form purposes, not separate product concepts.
+  _Avoid_: Survey, questionnaire
+
+- **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
+  _Avoid_: Survey result, submission
+
+- **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
+  _Avoid_: Form response, public form link, unenrolment form
+
+- **Form respondent** — The person or anonymous actor who completes and submits a form response. The respondent may be a student, staff member, parent, public contact, or anonymous visitor.
+  _Avoid_: User, participant, submitter
+
+- **Form subject** — The person or operational object that a form response is about. The subject may be the same as the respondent, a different person, or absent for general feedback.
+  _Avoid_: Target, related record, entity
+
+- **Form version** — An immutable published definition of a form's questions, options, validation, and conditional display rules. Form responses always belong to the version that was answered; editing a published form creates a new draft or published version rather than changing historical response meaning.
+  _Avoid_: Current form JSON, editable published form
+
+- **Form block** — One ordered item in a form version. A block may be an answerable question or non-answering content such as explanatory text with optional link buttons.
+  _Avoid_: Page, section, survey element
+
+- **Public form link** — An unguessable link that lets a respondent open a published form without first signing in. Public form links still belong to a form version and may collect respondent contact details when the form requires them.
+  _Avoid_: Survey link, public survey, anonymous form URL
+
+- **Form route** — The respondent-facing route for opening and answering a form. Use `/form`, not `/survey`, even when the form's purpose is feedback collection.
+  _Avoid_: Survey route, survey page
+
+- **Feedback** — The operational area where staff review form responses, form reports, and check-in recency. Feedback is for interpreting people-facing responses and follow-up signals, not for defining the forms themselves.
+  _Avoid_: People, relationships, HR, survey dashboard
+
 - **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
   _Avoid_: Learning module, UCAT module
 
@@ -176,6 +206,12 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
+  _Avoid_: Stem point, question attempt count
+
+- **Accessible question bank** — The set of non-deleted questions on approved, accessible question stems that define the denominator for a student's UCAT progress totals.
+  _Avoid_: Public question bank (ambiguous with `is_private` stems), stem catalog
+
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
   _Avoid_: Question type, answer mode, category
 
@@ -227,7 +263,7 @@
 - **AI generation provider** — An admin-approved OpenAI-compatible model provider used by UCAT generation, defined by endpoint, secret reference, and allowed model IDs. OpenRouter may be the default provider, but generation should not be coupled to one provider.
   _Avoid_: OpenRouter-only integration, hard-coded model
 
-- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from UCAT model config, which controls score prediction constants.
+- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from score projection settings, which control score projection assumptions.
   _Avoid_: UCAT model config, tutor prompt settings
 
 - **Layered generation prompt** — The combined instructions used for AI generation, assembled from generation system prompts, UCAT section, stem category, question tags, and optional run instructions. Model selection is independent. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
@@ -241,6 +277,9 @@
 
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
+
+- **UCAT-realistic source visual** — A data-bearing UCAT visual that should be indistinguishable from source material in a real UCAT-style question while remaining logically auditable. It may be a chart, table, Venn/set diagram, map, timetable, or mixed source panel; visual style and layout are part of the tested data-interpretation burden, not decoration.
+  _Avoid_: Generic chart, template diagram, decorative source image
 
 - **Set-region expression** — A semantic label for one region of a Decision Making set diagram, defined by which sets are included and which sets are excluded. Set-region expressions describe the logical region that a number belongs to; they are separate from the visual shape layout used to draw the diagram.
   _Avoid_: Venn template slot, fixed diagram template
@@ -278,12 +317,12 @@
 - **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.
   _Avoid_: Randomness, prompt temperature
 
-- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat, mutually exclusive presentation categories: Data Tables, Graphs and Charts, Timetables and Calendars, Maps and Diagrams, Mixed Data Sources, and Text-Only Scenarios.
+- **Question stem category** — A single label describing the broad stem format within its UCAT section. Quantitative Reasoning categories describe mutually exclusive presentation formats, while Verbal Reasoning categories distinguish answer mode rather than reading skill.
   _Avoid_: Topic, tag, data subtype
 
 - **Answer option** — One selectable response for a UCAT question.
 
-- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. A question may have multiple tags, and tags may be hierarchical when the domain has meaningful parent-child relationships; root tags may optionally belong to one UCAT section, while child tags inherit their section from their root.
+- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. Verbal Reasoning reading skills belong here rather than in question stem categories; Decision Making tags describe reusable subskills and wording traps because its categories already cover broad formats; Situational Judgement uses practical scenario tags alongside cross-cutting ethical principle tags.
   _Avoid_: Category, stem type
 
 - **Target question tag** — An optional question tag included in a generation brief to steer AI-generated questions toward specific skills or topics. When target tags are provided, generation gates should check whether the candidate fits them; when omitted, tags may be suggested after generation.
@@ -342,20 +381,37 @@
 - **Unlimited trial eligibility** — Whether a student may start an Unlimited trial. False once a trial has ever been started on that account, regardless of which card was used or outcome (converted, cancelled, or lapsed). Consumed when a Stripe subscription is created with `trialing` status. Admin comp overrides do not consume trial eligibility.
   _Avoid_: Pro trial eligibility, trial available, can trial
 
-- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Four steps shown in the UI; step 4 has two internal parts (test details, then target scores) that share one progress indicator so the flow does not feel longer than four steps. Steps: (1) student details, (2) set password, (3) choose a plan (UCAT Free, Unlimited trial, or paid subscribe), (4) optional UCAT test details and target scores. Steps 1–3 are required. Step 4 is optional but each part must be intentionally skipped — closing the browser without skipping does not advance progress; the student resumes the same step (and same internal part) on next login. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
+- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) choose a plan (UCAT Free, Unlimited trial, or paid subscribe). `/subscribe` remains for returning students managing or changing plans, not first-time gating.
   _Avoid_: Onboarding flow, signup wizard
-
-- **Signup onboarding step 4 (test details)** — The optional final signup step, shown as a single "Step 4 of 4" in the UI. **Part A:** choose UCAT test year (required to proceed via Next; options are current calendar year plus the next two years), then optionally a specific test date within that year's UCAT window or "I'm not sure yet" (year saved, date null). **Part B:** optional target section scores (shown only after Part A Next, not after Part A Skip). Skip for now on Part A completes signup without Part B. Back from Part B returns to Part A; paid users returning from Stripe resume Part A without redoing plan selection.
-
-- **UCAT test year** — The calendar year a student expects to sit UCAT, stored on the student profile when set during signup onboarding or later in settings. Independent of a specific test date; when only the year is known, the study planner may show year-level messaging without a day countdown until a date is added.
-  _Avoid_: Exam year, sitting year
 
 - **Signup onboarding gate** — While signup onboarding is incomplete, the student may only reach `/signup/complete` (and auth/API paths required for the wizard). All other app routes redirect to `/signup/complete` at their persisted step. `/subscribe` is not part of first-time gating. Legacy accounts with plan choice recorded but no new completion flag are treated as fully onboarded.
   _Avoid_: Onboarding redirect, subscribe gate
 
-- **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Step 4 internal parts use the same pattern under a fixed "Step 4 of 4" indicator. Respects `prefers-reduced-motion`.
+- **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Respects `prefers-reduced-motion`.
 
-- **UCAT target score warning** — A soft, non-blocking caution shown during signup onboarding step 4 part B when the student enters section targets whose combined total is below 1800. Shown as an inline callout while editing; if they press Begin with a low total, a confirmation dialog offers adjust or continue anyway. Skipping targets bypasses the warning. Default pre-filled targets are 800 per section.
+- **Section score estimate** — The app's current estimate of a student’s latent UCAT cognitive-section score on the 300-900 scale at a point in time. It is derived from attempt evidence and should be treated as uncertain, not as a known score.
+  _Avoid_: Predicted section score, known section score
+
+- **Attempt evidence** — A scored student performance observation that can contribute to a section score estimate, such as a mock section attempt, set attempt, or aggregated practice attempt group. Very small practice samples are not attempt evidence until grouped into a minimally meaningful section-level observation.
+  _Avoid_: Individual practice question as score evidence, raw attempt
+
+- **Evidence weight** — The relative influence an attempt evidence item has on a section score estimate. It reflects exam-likeness, timing conditions, recency, and evidence volume rather than treating every observation as equally reliable.
+  _Avoid_: Attempt count, raw average weight
+
+- **Effective practice** — The amount of future practice expected to improve a section score estimate after accounting for diminishing returns from very high raw practice volume. It should not assume unlimited improvement from doing more questions.
+  _Avoid_: Raw question count, study time
+
+- **Score trajectory** — A projection of future section score estimates over dates. It is driven by effective practice and bounded by a projected ceiling rather than by calendar time alone.
+  _Avoid_: Time-only prediction, guaranteed score path
+
+- **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
+  _Avoid_: Study planner, goal tracker, target prediction
+
+- **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, minimum evidence threshold, effective-practice pace, and trajectory curve constants.
+  _Avoid_: UCAT model config, study planner settings
+
+- **UCAT scoring authority** — The shared scoring package used to convert UCAT raw performance into scaled section scores. Score projection consumes scaled scores from this authority and should not define its own raw-to-scaled conversion.
+  _Avoid_: Projection-local scoring formula, duplicate score conversion
 
 - **UCAT plan choice** — Step 3 of signup onboarding: start an Unlimited trial, subscribe to a paid tier, or explicitly continue on UCAT Free. Shown as plan cards and billing interval selector only (not the full `/subscribe` marketing page). Free proceeds immediately; paid routes through Stripe checkout and returns to signup onboarding step 4 on success (`/signup/complete?checkout=success`). Checkout abandoned mid-flow resumes step 3 on next login. Unlimited trial can still be started later from `/subscribe` or upsell CTAs if still eligible.
   _Avoid_: UCAT onboarding choice (former name), signup tier selection, onboarding modal

@@ -1,4 +1,10 @@
 import {
+  progressPointsForQuestion,
+  sumCorrectScoreFromAttempts,
+  sumProgressPointsFromAttempts,
+  toProgressQuestionRef,
+} from "@altitutor/shared";
+import {
   getTimeFrameRange,
   getGraphBucketDays,
   getBucketKey,
@@ -18,6 +24,13 @@ import type {
   TimeFrameDays,
   AttemptFilter,
 } from "./progress-mode";
+
+export function getSectionProgressPercentage(
+  section: SectionProgress,
+  _mode: ProgressMode,
+): number {
+  return section.percentage;
+}
 
 /** Filter question attempts, set attempts, and mock attempts by the global attempt filter */
 export function applyAttemptFilter(
@@ -93,8 +106,7 @@ export function applyAttemptFilterToProgress(
       number: number;
       correct: number;
       max: number;
-      scaledSum: number;
-      scaledCount: number;
+      syllogismStems: Set<string>;
     }
   >();
   for (const s of data.sectionProgress) {
@@ -103,67 +115,52 @@ export function applyAttemptFilterToProgress(
       number: s.sectionNumber,
       correct: 0,
       max: 0,
-      scaledSum: 0,
-      scaledCount: 0,
+      syllogismStems: new Set(),
     });
   }
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.correct += qa.score ?? 0;
-      entry.max += maxPerQuestion;
-    }
+    if (!entry) continue;
+    entry.correct += qa.score ?? 0;
+    entry.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      entry.syllogismStems,
+    );
   }
-  const standaloneSetAttempts = setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId,
-  );
-  for (const a of standaloneSetAttempts) {
-    const sectionId = a.sectionId;
-    if (!sectionId || a.scaledScore == null) continue;
-    const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.scaledSum += a.scaledScore;
-      entry.scaledCount += 1;
-    }
-  }
-
   const sectionProgress: SectionProgress[] = data.sectionProgress.map((s) => {
     const d = sectionMap.get(s.sectionId);
     if (!d) return s;
     const percentage = d.max > 0 ? Math.round((d.correct / d.max) * 100) : 0;
-    const averageScaledScore =
-      d.scaledCount > 0 ? d.scaledSum / d.scaledCount : null;
     return {
       ...s,
       correctScore: d.correct,
       maxScore: d.max,
       percentage,
-      averageScaledScore,
-      weightedAverageScaledScore: averageScaledScore,
-      weightedAveragePercentage: percentage,
     };
   });
 
-  const categoryMap = new Map<string, { correct: number; max: number }>();
+  const categoryMap = new Map<
+    string,
+    { correct: number; max: number; syllogismStems: Set<string> }
+  >();
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
     const categoryId = qa.questionStemCategoryId ?? "__uncategorized__";
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const key = `${sectionId}:${categoryId}`;
-    const existing = categoryMap.get(key);
-    if (existing) {
-      existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
-    } else {
-      categoryMap.set(key, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    const existing = categoryMap.get(key) ?? {
+      correct: 0,
+      max: 0,
+      syllogismStems: new Set<string>(),
+    };
+    existing.correct += qa.score ?? 0;
+    existing.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      existing.syllogismStems,
+    );
+    categoryMap.set(key, existing);
   }
 
   const sectionCategoryProgress: Record<string, SectionCategoryProgress[]> = {};
@@ -179,7 +176,6 @@ export function applyAttemptFilterToProgress(
         correctScore: correct,
         maxScore: max,
         percentage,
-        weightedAveragePercentage: percentage,
       };
     });
   }
@@ -236,45 +232,25 @@ export function filterByTimeFrame<
 /** Compute stats for a single section from filtered attempts (for time_frame mode) */
 export function computeSingleSectionFromFiltered(
   questionAttempts: QuestionAttemptRow[],
-  setAttempts: SetAttemptRow[],
+  _setAttempts: SetAttemptRow[],
   section: SectionProgress,
 ): SectionProgress {
   const unique = getBestAttemptPerQuestion(questionAttempts);
-  let correct = 0;
-  let max = 0;
-  let scaledSum = 0;
-  let scaledCount = 0;
-  for (const qa of unique) {
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
-    correct += qa.score ?? 0;
-    max += maxPerQuestion;
-  }
-  const standaloneSetAttempts = setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId,
-  );
-  for (const a of standaloneSetAttempts) {
-    if (a.scaledScore != null) {
-      scaledSum += a.scaledScore;
-      scaledCount += 1;
-    }
-  }
+  const correct = sumCorrectScoreFromAttempts(unique);
+  const max = sumProgressPointsFromAttempts(unique);
   const percentage = max > 0 ? Math.round((correct / max) * 100) : 0;
-  const averageScaledScore = scaledCount > 0 ? scaledSum / scaledCount : null;
   return {
     ...section,
     correctScore: correct,
     maxScore: max,
     percentage,
-    averageScaledScore,
-    weightedAverageScaledScore: averageScaledScore,
-    weightedAveragePercentage: percentage,
   };
 }
 
 /** Compute section progress from filtered data (for time_frame mode) */
 export function computeSectionProgressFromFiltered(
   questionAttempts: QuestionAttemptRow[],
-  setAttempts: SetAttemptRow[],
+  _setAttempts: SetAttemptRow[],
   sectionProgress: SectionProgress[],
 ): SectionProgress[] {
   const sectionMap = new Map<
@@ -284,8 +260,7 @@ export function computeSectionProgressFromFiltered(
       number: number;
       correct: number;
       max: number;
-      scaledSum: number;
-      scaledCount: number;
+      syllogismStems: Set<string>;
     }
   >();
   for (const s of sectionProgress) {
@@ -294,48 +269,31 @@ export function computeSectionProgressFromFiltered(
       number: s.sectionNumber,
       correct: 0,
       max: 0,
-      scaledSum: 0,
-      scaledCount: 0,
+      syllogismStems: new Set(),
     });
   }
   const unique = getBestAttemptPerQuestion(questionAttempts);
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.correct += qa.score ?? 0;
-      entry.max += maxPerQuestion;
-    }
-  }
-  const standaloneSetAttempts = setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId,
-  );
-  for (const a of standaloneSetAttempts) {
-    const sectionId = a.sectionId;
-    if (!sectionId || a.scaledScore == null) continue;
-    const entry = sectionMap.get(sectionId);
-    if (entry) {
-      entry.scaledSum += a.scaledScore;
-      entry.scaledCount += 1;
-    }
+    if (!entry) continue;
+    entry.correct += qa.score ?? 0;
+    entry.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      entry.syllogismStems,
+    );
   }
   return sectionProgress.map((s) => {
     const data = sectionMap.get(s.sectionId);
     if (!data) return s;
     const percentage =
       data.max > 0 ? Math.round((data.correct / data.max) * 100) : 0;
-    const averageScaledScore =
-      data.scaledCount > 0 ? data.scaledSum / data.scaledCount : null;
     return {
       ...s,
       correctScore: data.correct,
       maxScore: data.max,
       percentage,
-      averageScaledScore,
-      weightedAverageScaledScore: averageScaledScore,
-      weightedAveragePercentage: percentage,
     };
   });
 }
@@ -346,24 +304,27 @@ export function computeCategoryProgressFromFiltered(
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>,
 ): Record<string, SectionCategoryProgress[]> {
   const result: Record<string, SectionCategoryProgress[]> = {};
-  const categoryMap = new Map<string, { correct: number; max: number }>();
+  const categoryMap = new Map<
+    string,
+    { correct: number; max: number; syllogismStems: Set<string> }
+  >();
   const unique = getBestAttemptPerQuestion(questionAttempts);
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
     if (!sectionId) continue;
     const categoryId = qa.questionStemCategoryId ?? "__uncategorized__";
-    const maxPerQuestion = qa.questionType === "syllogism" ? 2 : 1;
     const key = `${sectionId}:${categoryId}`;
-    const existing = categoryMap.get(key);
-    if (existing) {
-      existing.correct += qa.score ?? 0;
-      existing.max += maxPerQuestion;
-    } else {
-      categoryMap.set(key, {
-        correct: qa.score ?? 0,
-        max: maxPerQuestion,
-      });
-    }
+    const existing = categoryMap.get(key) ?? {
+      correct: 0,
+      max: 0,
+      syllogismStems: new Set<string>(),
+    };
+    existing.correct += qa.score ?? 0;
+    existing.max += progressPointsForQuestion(
+      toProgressQuestionRef(qa),
+      existing.syllogismStems,
+    );
+    categoryMap.set(key, existing);
   }
   for (const [sectionId, cats] of Object.entries(sectionCategoryProgress)) {
     result[sectionId] = cats.map((cat) => {
@@ -375,7 +336,6 @@ export function computeCategoryProgressFromFiltered(
         correctScore: correct,
         maxScore: max,
         percentage,
-        weightedAveragePercentage: percentage,
         totalPublicQuestions: cat.totalPublicQuestions,
       };
     });
@@ -443,78 +403,29 @@ export function computeSectionProgressFromMockAttempts(
     {
       name: string;
       number: number;
-      scaledSum: number;
-      scaledCount: number;
       scoreSum: number;
       totalSum: number;
-      scaledScoresOrdered: number[];
-      dailyPcts: number[];
     }
   >();
   for (const s of sectionProgress) {
     sectionMap.set(s.sectionId, {
       name: s.sectionName,
       number: s.sectionNumber,
-      scaledSum: 0,
-      scaledCount: 0,
       scoreSum: 0,
       totalSum: 0,
-      scaledScoresOrdered: [],
-      dailyPcts: [],
     });
   }
 
-  const bySectionDate = new Map<string, { score: number; total: number }>();
   for (const a of mockSetAttempts) {
     const sectionId = a.sectionId;
     if (!sectionId) continue;
     const entry = sectionMap.get(sectionId);
     if (!entry) continue;
 
-    if (a.scaledScore != null) {
-      entry.scaledSum += a.scaledScore;
-      entry.scaledCount += 1;
-      entry.scaledScoresOrdered.push(a.scaledScore);
-    }
     const score = a.scorePoints ?? 0;
     const total = a.totalPoints ?? 0;
     entry.scoreSum += score;
     entry.totalSum += total;
-
-    const dateStr = (a.completedAt ?? a.attemptedAt)?.slice(0, 10) ?? "";
-    if (dateStr && total > 0) {
-      const key = `${sectionId}:${dateStr}`;
-      const existing = bySectionDate.get(key);
-      if (existing) {
-        existing.score += score;
-        existing.total += total;
-      } else {
-        bySectionDate.set(key, { score, total });
-      }
-    }
-  }
-
-  const EMA_ALPHA = 0.5;
-  const computeEma = (values: number[]): number | null => {
-    if (values.length === 0) return null;
-    let ema = values[0];
-    for (let i = 1; i < values.length; i++) {
-      ema = EMA_ALPHA * values[i] + (1 - EMA_ALPHA) * ema;
-    }
-    return ema;
-  };
-
-  const dailyPctsBySection = new Map<string, number[]>();
-  for (const [key, { score, total }] of bySectionDate) {
-    if (total > 0) {
-      const [sectionId] = key.split(":");
-      const arr = dailyPctsBySection.get(sectionId) ?? [];
-      arr.push((score / total) * 100);
-      dailyPctsBySection.set(sectionId, arr);
-    }
-  }
-  for (const arr of dailyPctsBySection.values()) {
-    arr.sort();
   }
 
   return sectionProgress.map((s) => {
@@ -523,21 +434,12 @@ export function computeSectionProgressFromMockAttempts(
 
     const percentage =
       data.totalSum > 0 ? Math.round((data.scoreSum / data.totalSum) * 100) : 0;
-    const averageScaledScore =
-      data.scaledCount > 0 ? data.scaledSum / data.scaledCount : null;
-    const weightedScaledScore = computeEma(data.scaledScoresOrdered);
-    const weightedPercentage = computeEma(
-      dailyPctsBySection.get(s.sectionId) ?? [],
-    );
 
     return {
       ...s,
       correctScore: data.scoreSum,
       maxScore: data.totalSum,
       percentage,
-      averageScaledScore,
-      weightedAverageScaledScore: weightedScaledScore,
-      weightedAveragePercentage: weightedPercentage,
     };
   });
 }

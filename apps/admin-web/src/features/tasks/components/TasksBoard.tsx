@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import {
+  Button,
   KanbanBoard,
+  SearchableSelect,
   type KanbanColumnDef,
   type EntityListPillColumn,
   type EntityListStatusColumn,
@@ -56,6 +58,8 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -96,7 +100,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
-    search: initialFilters?.search,
+    search: search || initialFilters?.search,
   } as TaskFilters);
 
   const updateTask = useUpdateTask();
@@ -170,11 +174,39 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       groupable: true,
       sortable: true,
       filterable: true,
-      renderPill: (item, _onChange, collapsed) => (
-        <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-          {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
-        </span>
-      ),
+      renderPill: (item, onChange, collapsed) => {
+        const status = (item.status ?? 'backlog') as TaskStatus;
+        const StatusIcon = getStatusIcon(status);
+        const iconColor = getStatusIconColor(status);
+        const selectedItem = TASK_STATUS_OPTIONS.find((option) => option.value === status) ?? TASK_STATUS_OPTIONS[0];
+
+        return (
+          <SearchableSelect<(typeof TASK_STATUS_OPTIONS)[number]>
+            items={TASK_STATUS_OPTIONS}
+            value={selectedItem}
+            onValueChange={(option) => {
+              const nextStatus = (option?.value ?? 'backlog') as TaskStatus;
+              handleUpdate(item, { status: nextStatus });
+              onChange(nextStatus);
+            }}
+            getItemLabel={(option) => option.label}
+            getItemId={(option) => option.value}
+            trigger={
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
+                  collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                )}
+              >
+                <StatusIcon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+                {!collapsed && <span className="truncate">{getStatusLabel(status)}</span>}
+              </Button>
+            }
+          />
+        );
+      },
     },
     {
       key: 'due_date',
@@ -279,7 +311,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     {
       key: 'issue_id',
       label: 'Issue',
-      visibleByDefault: true,
+      visibleByDefault: false,
       getValue: (t) => t.issue_id ?? null,
       defaultValue: null,
       filterOptions: issueFilterOptions,
@@ -302,7 +334,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     {
       key: 'project_id',
       label: 'Project',
-      visibleByDefault: true,
+      visibleByDefault: false,
       getValue: (t) => t.project_id ?? null,
       defaultValue: null,
       filterOptions: projectFilterOptions,
@@ -432,6 +464,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
           <TaskCard
             task={t}
             visiblePillKeys={visiblePillKeys}
+            rightPills={rightPills}
             onClick={() => {
               setSelectedTaskId(t.id);
               setIsEditDialogOpen(true);
@@ -447,6 +480,9 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onSortChange={handleSortChange}
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search tasks..."
         quickFilters={quickFilters}
         onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}

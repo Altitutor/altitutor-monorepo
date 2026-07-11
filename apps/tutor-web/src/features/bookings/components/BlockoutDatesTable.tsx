@@ -10,6 +10,7 @@ import {
   TableRow,
   Input,
   Button,
+  SmartDatePickerField,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -398,22 +399,18 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-start-date">Start Date</Label>
-                <Input
-                  id="edit-start-date"
-                  type="date"
+                <SmartDatePickerField
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(value) => setStartDate(value ?? '')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="edit-end-date">End Date</Label>
-                <Input
-                  id="edit-end-date"
-                  type="date"
+                <SmartDatePickerField
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(value) => setEndDate(value ?? '')}
+                  minDate={startDate}
                 />
               </div>
             </div>
@@ -463,22 +460,18 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="add-start-date">Start Date</Label>
-                <Input
-                  id="add-start-date"
-                  type="date"
+                <SmartDatePickerField
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(value) => setStartDate(value ?? '')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="add-end-date">End Date</Label>
-                <Input
-                  id="add-end-date"
-                  type="date"
+                <SmartDatePickerField
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(value) => setEndDate(value ?? '')}
+                  minDate={startDate}
                 />
               </div>
             </div>
@@ -509,4 +502,3 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
     </>
   );
 }
-

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  isToastInteraction,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import {
@@ -83,6 +85,7 @@ import {
   StepQuestionTags,
   type BulkImportTagOption,
 } from '@/features/ucat/questions/components/bulk-import/StepQuestionTags'
+import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
@@ -142,7 +145,7 @@ export function BulkImportQuestionStemsModal({
   const [answerParsingOptions, setAnswerParsingOptions] = useState<AnswerParsingOptions>(
     DEFAULT_ANSWER_PARSING_OPTIONS
   )
-  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('keep')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
   const [expanded, setExpanded] = useState(true)
@@ -160,6 +163,7 @@ export function BulkImportQuestionStemsModal({
     []
   )
   const [syllogismManualStepIncluded, setSyllogismManualStepIncluded] = useState(false)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
   /** Blocks parent Dialog close while a nested confirm is opening/open (Radix races onOpenChange). */
   const suppressDialogCloseRef = useRef(false)
@@ -250,7 +254,7 @@ export function BulkImportQuestionStemsModal({
     setPerStemQuestionDocs([])
     setPastedAnswersJson(null)
     setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
-    setPasteTableBehavior('strip_outside')
+    setPasteTableBehavior('keep')
     setAddToSetEnabled(false)
     setAddToSetConfig(null)
     setParsingOptions({
@@ -266,10 +270,17 @@ export function BulkImportQuestionStemsModal({
     setPendingConfirm(null)
     setSyllogismManualTargets([])
     setSyllogismManualStepIncluded(false)
+    setActiveTextEditor(null)
     step2NewImageFileIdsRef.current = new Set()
     wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
+
+  useEffect(() => {
+    if (stepKind !== 'review') {
+      setActiveTextEditor(null)
+    }
+  }, [stepKind])
 
   const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
     fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
@@ -396,8 +407,7 @@ export function BulkImportQuestionStemsModal({
   }
 
   function handleDismissAttempt(event: Event) {
-    const target = event.target as HTMLElement | null
-    if (target?.closest('[data-toast-container]')) {
+    if (isToastInteraction(event)) {
       event.preventDefault()
       return
     }
@@ -844,6 +854,7 @@ export function BulkImportQuestionStemsModal({
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
           sourceChannel="bulk_import"
+          onActiveTextEditorChange={setActiveTextEditor}
         />
       )
     }
@@ -996,11 +1007,19 @@ export function BulkImportQuestionStemsModal({
             )}
           </div>
 
-          <div className="flex justify-between border-t bg-background px-6 py-4">
+          <div className="flex items-center gap-3 border-t bg-background px-6 py-4">
             <Button variant="outline" onClick={handlePreviousClick} disabled={!canGoPrevious}>
               <ChevronLeft className="mr-2 h-4 w-4" />
               Previous
             </Button>
+
+            {stepKind === 'review' && activeTextEditor ? (
+              <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
+                <UcatRichTextToolbar editor={activeTextEditor} />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
 
             {status === 'success' ? (
               <Button onClick={handleRequestClose}>Close</Button>

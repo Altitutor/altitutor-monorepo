@@ -12,6 +12,7 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
+import { getSituationalJudgementMarkingOutcome } from '@/features/ucat/questions/lib/situational-judgement-marking'
 
 const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
 
@@ -45,6 +46,7 @@ export type ResultsMcQuestionBlockProps = {
   options: OptionsState
   setOptions: Dispatch<SetStateAction<OptionsState>>
   correctOptionIndex: number
+  sectionName?: string | null
   setCorrectOptionIndex: (i: number) => void
   answerExplanation: Json | null | undefined
   setAnswerExplanation: (v: Json | null | undefined) => void
@@ -63,6 +65,7 @@ export function ResultsMcQuestionBlock({
   options,
   setOptions,
   correctOptionIndex,
+  sectionName,
   setCorrectOptionIndex,
   answerExplanation,
   setAnswerExplanation,
@@ -138,21 +141,62 @@ export function ResultsMcQuestionBlock({
         {options.map((opt, index) => {
           const optionIsCorrect = index === correctOptionIndex && options.length > 0
           const letter = optionLabel(index)
-          const bgClass = optionIsCorrect ? 'bg-green-100' : ''
+          const sjOutcome = getSituationalJudgementMarkingOutcome({
+            sectionName,
+            optionCount: options.length,
+            selectedIndex: index,
+            correctIndex: correctOptionIndex,
+          })
+          const isPartial = sjOutcome === 'partial'
+          const bgClass = optionIsCorrect
+            ? 'bg-green-100'
+            : isPartial
+              ? 'bg-amber-100'
+              : 'bg-red-50'
 
           return (
             <div key={index} className="space-y-0.5">
-              <div className={`flex items-start gap-2 rounded py-1 pl-6 pr-3 ${bgClass}`}>
-                <input
-                  type="radio"
-                  name="bulk-import-correct-mc"
-                  checked={correctOptionIndex === index}
-                  onChange={() => setCorrectOptionIndex(index)}
-                  className="mt-1 h-4 w-4 shrink-0 cursor-pointer"
-                  aria-label={`Mark option ${letter} as correct`}
-                />
-                <span className={cn('inline-block w-8 shrink-0', ENGINE_MUTED_LABEL)}>{letter}.</span>
-                <div className="min-w-0 flex-1">
+              <div className={`rounded px-3 py-2 ${bgClass}`}>
+                <div className="flex min-h-8 items-center gap-2">
+                  <input
+                    type="radio"
+                    name="bulk-import-correct-mc"
+                    checked={correctOptionIndex === index}
+                    onChange={() => setCorrectOptionIndex(index)}
+                    className="h-4 w-4 shrink-0 cursor-pointer"
+                    aria-label={`Mark option ${letter} as correct`}
+                  />
+                  <span className={cn('inline-block w-7 shrink-0', ENGINE_MUTED_LABEL)}>{letter}.</span>
+                  {optionIsCorrect ? (
+                    <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">
+                      Correct
+                    </span>
+                  ) : isPartial ? (
+                    <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[9pt] font-medium text-amber-800">
+                      Partial
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9pt] font-medium text-red-700">
+                      {sjOutcome === 'incorrect' ? 'Wrong polarity' : 'Wrong'}
+                    </span>
+                  )}
+                  <div className="flex-1" />
+                  {allowOptionAddRemove && options.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10"
+                      onClick={() =>
+                        setOptions((prev) => prev.filter((_, optionIndex) => optionIndex !== index))
+                      }
+                      aria-label={`Remove option ${letter}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="pt-1.5">
                   <UcatRichTextEditor
                     {...RTE}
                     {...imageProps}
@@ -169,28 +213,9 @@ export function ResultsMcQuestionBlock({
                     onEditorReady={onEditorReady}
                   />
                 </div>
-                {optionIsCorrect ? (
-                  <span className="shrink-0 pr-2 text-[10pt] font-medium text-green-700">
-                    Correct
-                  </span>
-                ) : null}
-                {allowOptionAddRemove && options.length > 1 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10"
-                    onClick={() =>
-                      setOptions((prev) => prev.filter((_, optionIndex) => optionIndex !== index))
-                    }
-                    aria-label={`Remove option ${letter}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                ) : null}
               </div>
               {showOptionExplanations ? (
-                <div className="ml-6 pl-8">
+                <div className="px-3 sm:pl-14">
                   <UcatRichTextEditor
                     {...RTE}
                     {...imageProps}

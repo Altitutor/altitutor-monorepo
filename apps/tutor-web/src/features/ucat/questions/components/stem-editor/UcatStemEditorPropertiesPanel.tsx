@@ -17,9 +17,13 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
@@ -41,13 +45,18 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { applyStemTypeSwitch } from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
+import {
+  applyStemTypeSwitch,
+  isSyllogismCategory,
+} from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
+import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 
 const APPROVAL_OPTIONS: Array<{ value: UcatApprovalStatus; label: string }> = [
   { value: 'approved', label: 'Approved' },
@@ -76,6 +85,11 @@ type UcatStemEditorPropertiesPanelProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  metadataRecommendation?: ManualStemMetadataRecommendation | null
+  activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
+  onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
+  className?: string
+  onDeleteStem?: () => void
 }
 
 function trimTextParagraphs(text: string): string {
@@ -95,6 +109,66 @@ function PropertyRow({ label, children }: { label: ReactNode; children: ReactNod
       <div className="min-w-0 w-[58%]">{children}</div>
     </div>
   )
+}
+
+function ParserRecommendationWarning({
+  message,
+  onAccept,
+}: {
+  message: string | null
+  onAccept?: (() => void) | null
+}) {
+  if (!message) return null
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-help items-center text-amber-600 dark:text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+            <span className="sr-only">Parser recommendation differs</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[280px] space-y-2 text-xs">
+          <p>{message}</p>
+          {onAccept ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={onAccept}
+            >
+              Accept suggestion
+            </Button>
+          ) : null}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function PropertyLabel({
+  children,
+  warning,
+  onAcceptSuggestion,
+}: {
+  children: ReactNode
+  warning?: string | null
+  onAcceptSuggestion?: (() => void) | null
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {children}
+      <ParserRecommendationWarning message={warning ?? null} onAccept={onAcceptSuggestion ?? null} />
+    </span>
+  )
+}
+
+function sameIds(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  const leftSorted = [...left].sort()
+  const rightSorted = [...right].sort()
+  return leftSorted.every((id, index) => id === rightSorted[index])
 }
 
 function ReadOnlyValue({ children }: { children: ReactNode }) {
@@ -142,10 +216,22 @@ export function UcatStemEditorPropertiesPanel({
   aiGenerationMetadata,
   createdByFirstName,
   createdByLastName,
+  metadataRecommendation = null,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  className,
+  onDeleteStem,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [activeTab, setActiveTab] = useState<'properties' | 'ai'>('properties')
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
+  const activeTab = controlledActiveTab ?? uncontrolledActiveTab
+
+  function handleActiveTabChange(value: string) {
+    const next = value as 'properties' | 'ai'
+    setUncontrolledActiveTab(next)
+    onActiveTabChange?.(next)
+  }
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
@@ -155,7 +241,10 @@ export function UcatStemEditorPropertiesPanel({
   const isSyllogism = stemType === 'syllogism'
   const aiModel = metadataString(aiGenerationMetadata, 'model')
   const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
-  const generatedByName = formatStaffDisplayName(createdByFirstName, createdByLastName)
+  const generatedByName =
+    formatStaffDisplayName(createdByFirstName, createdByLastName) ??
+    metadataString(aiGenerationMetadata, 'generatedByName') ??
+    metadataString(aiGenerationMetadata, 'generatedByEmail')
 
   const watchedApprovalStatus = form.watch('approvalStatus')
 
@@ -166,6 +255,87 @@ export function UcatStemEditorPropertiesPanel({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
   const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
+  const recommendedSectionLabel = metadataRecommendation?.sectionId
+    ? sections.find((section) => section.id === metadataRecommendation.sectionId)?.name ?? 'the detected section'
+    : null
+  const recommendedCategoryLabel = metadataRecommendation?.categoryId
+    ? taxonomyDisplayLabel(categories.find((category) => category.id === metadataRecommendation.categoryId) ?? { name: 'the detected category' })
+    : null
+  const recommendedTagIds = metadataRecommendation?.tagIdsByQuestionIndex[safeQuestionIndex] ?? []
+  const recommendedTagLabel = recommendedTagIds.length > 0
+    ? recommendedTagIds
+        .map((tagId) => taxonomyDisplayLabel(tags.find((tag) => tag.id === tagId) ?? { name: 'detected tag' }))
+        .join(', ')
+    : null
+  const sectionWarning =
+    metadataRecommendation?.sectionId && metadataRecommendation.sectionId !== sectionId
+      ? `The parser detects ${recommendedSectionLabel}. Consider changing this section.`
+      : null
+  const categoryWarning =
+    metadataRecommendation?.categoryId && metadataRecommendation.categoryId !== (watchedStem.categoryId ?? null)
+      ? `The parser detects ${recommendedCategoryLabel}. Consider changing this category.`
+      : null
+  const tagWarning =
+    recommendedTagIds.length > 0 && !sameIds(activeQuestion?.tagIds ?? [], recommendedTagIds)
+      ? `The parser detects ${recommendedTagLabel}. Consider changing these question tags.`
+      : null
+
+  function applyRecommendedQuestionTypeInPlace(questionType: 'multiple_choice' | 'syllogism'): void {
+    const questions = form.getValues('questions') ?? []
+    questions.forEach((question, index) => {
+      if (question.questionType !== questionType) {
+        form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+      }
+    })
+    if (questionType === 'syllogism') {
+      onQuestionIndexChange(0)
+    }
+  }
+
+  function acceptSectionSuggestion(): void {
+    if (!metadataRecommendation?.sectionId) return
+    form.setValue('sectionId', metadataRecommendation.sectionId, { shouldDirty: true })
+    if (metadataRecommendation.categoryId) {
+      form.setValue('categoryId', metadataRecommendation.categoryId, { shouldDirty: true })
+    }
+    if (metadataRecommendation.questionType) {
+      applyRecommendedQuestionTypeInPlace(metadataRecommendation.questionType)
+    }
+  }
+
+  function acceptCategorySuggestion(): void {
+    if (!metadataRecommendation?.categoryId) return
+    form.setValue('categoryId', metadataRecommendation.categoryId, { shouldDirty: true })
+    if (metadataRecommendation.sectionId) {
+      form.setValue('sectionId', metadataRecommendation.sectionId, { shouldDirty: true })
+    }
+    if (metadataRecommendation.questionType) {
+      applyRecommendedQuestionTypeInPlace(metadataRecommendation.questionType)
+    }
+  }
+
+  function acceptTagSuggestion(): void {
+    if (recommendedTagIds.length === 0) return
+    form.setValue(`questions.${safeQuestionIndex}.tagIds`, recommendedTagIds, { shouldDirty: true })
+  }
+
+  function handleCategoryChange(nextCategoryId: string | null): void {
+    const nextCategory = categories.find((category) => category.id === nextCategoryId)
+    const nextIsSyllogismCategory = isSyllogismCategory(nextCategory)
+    if (nextIsSyllogismCategory) {
+      const ok = applyStemTypeSwitch(form, 'syllogism', sections, categories)
+      if (!ok) return
+      onQuestionIndexChange(0)
+      return
+    }
+    if (isSyllogism) {
+      const ok = applyStemTypeSwitch(form, 'multiple_choice', sections, categories)
+      if (!ok) return
+    }
+    form.setValue('categoryId', nextCategoryId, {
+      shouldDirty: true,
+    })
+  }
 
   const handleDeleteQuestion = (questionIndex: number) => {
     const questions = form.getValues('questions') ?? []
@@ -231,12 +401,137 @@ export function UcatStemEditorPropertiesPanel({
   const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {
     const input = toolCall.input
     const text = typeof input.text === 'string' ? input.text : ''
-    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : null
+    const questionIndex = typeof input.questionIndex === 'number' ? input.questionIndex : safeQuestionIndex
     const optionIndex = typeof input.optionIndex === 'number' ? input.optionIndex : null
     const current = form.getValues()
     const target = typeof input.target === 'string' ? input.target : 'stem'
 
     switch (toolCall.name) {
+      case 'bulkParaphraseStem': {
+        const stemText = typeof input.stemText === 'string' ? input.stemText : ''
+        if (!stemText.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No rewritten stem text provided.' }
+
+        const questionInputs = Array.isArray(input.questions) ? input.questions : []
+        if (questionInputs.length !== current.questions.length) {
+          return {
+            toolCallId: toolCall.id,
+            ok: false,
+            message: `Expected rewritten content for ${current.questions.length} questions.`,
+          }
+        }
+
+        const patches: Array<{
+          questionIndex: number
+          questionText: string
+          answerExplanation?: string
+          options: Array<{
+            optionIndex: number
+            answerText: string
+            answerExplanation?: string
+          }>
+        }> = []
+
+        for (const questionInput of questionInputs) {
+          const questionRecord =
+            questionInput && typeof questionInput === 'object' && !Array.isArray(questionInput)
+              ? questionInput as Record<string, Json | undefined>
+              : null
+          const qIndex = typeof questionRecord?.questionIndex === 'number' ? questionRecord.questionIndex : null
+          const questionText = typeof questionRecord?.questionText === 'string' ? questionRecord.questionText : ''
+          if (qIndex == null || !current.questions[qIndex] || !questionText.trim()) {
+            return { toolCallId: toolCall.id, ok: false, message: 'Invalid rewritten question payload.' }
+          }
+          const existingQuestionExplanation = trimTextParagraphs(
+            proseMirrorToPlainText((current.questions[qIndex].answerExplanation as Json | null) ?? null) ?? '',
+          )
+          if (
+            existingQuestionExplanation &&
+            (typeof questionRecord?.answerExplanation !== 'string' || !questionRecord.answerExplanation.trim())
+          ) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: `Expected rewritten explanation for question ${qIndex + 1}.`,
+            }
+          }
+
+          const optionInputs = Array.isArray(questionRecord?.options) ? questionRecord.options : []
+          if (optionInputs.length !== current.questions[qIndex].options.length) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: `Expected rewritten content for ${current.questions[qIndex].options.length} options in question ${qIndex + 1}.`,
+            }
+          }
+
+          const optionPatches: Array<{ optionIndex: number; answerText: string; answerExplanation?: string }> = []
+          for (const optionInput of optionInputs) {
+            const optionRecord =
+              optionInput && typeof optionInput === 'object' && !Array.isArray(optionInput)
+                ? optionInput as Record<string, Json | undefined>
+                : null
+            const oIndex = typeof optionRecord?.optionIndex === 'number' ? optionRecord.optionIndex : null
+            const answerText = typeof optionRecord?.answerText === 'string' ? optionRecord.answerText : ''
+            if (oIndex == null || !current.questions[qIndex].options[oIndex] || !answerText.trim()) {
+              return { toolCallId: toolCall.id, ok: false, message: `Invalid rewritten option payload for question ${qIndex + 1}.` }
+            }
+            const existingOptionExplanation = trimTextParagraphs(
+              proseMirrorToPlainText((current.questions[qIndex].options[oIndex].answerExplanation as Json | null) ?? null) ?? '',
+            )
+            if (
+              existingOptionExplanation &&
+              (typeof optionRecord?.answerExplanation !== 'string' || !optionRecord.answerExplanation.trim())
+            ) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Expected rewritten explanation for question ${qIndex + 1}, option ${oIndex + 1}.`,
+              }
+            }
+            optionPatches.push({
+              optionIndex: oIndex,
+              answerText,
+              answerExplanation: typeof optionRecord?.answerExplanation === 'string' ? optionRecord.answerExplanation : undefined,
+            })
+          }
+
+          patches.push({
+            questionIndex: qIndex,
+            questionText,
+            answerExplanation: typeof questionRecord?.answerExplanation === 'string' ? questionRecord.answerExplanation : undefined,
+            options: optionPatches,
+          })
+        }
+
+        form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(stemText), { shouldDirty: true })
+        for (const patch of patches) {
+          form.setValue(`questions.${patch.questionIndex}.questionText`, plainTextToProseMirrorWithLineBreaks(patch.questionText), { shouldDirty: true })
+          if (patch.answerExplanation !== undefined) {
+            form.setValue(`questions.${patch.questionIndex}.answerExplanation`, aiTextToProseMirror(patch.answerExplanation), { shouldDirty: true })
+          }
+          for (const optionPatch of patch.options) {
+            form.setValue(
+              `questions.${patch.questionIndex}.options.${optionPatch.optionIndex}.answerText`,
+              plainTextToProseMirror(optionPatch.answerText),
+              { shouldDirty: true },
+            )
+            if (optionPatch.answerExplanation !== undefined) {
+              form.setValue(
+                `questions.${patch.questionIndex}.options.${optionPatch.optionIndex}.answerExplanation`,
+                aiTextToProseMirror(optionPatch.answerExplanation),
+                { shouldDirty: true },
+              )
+            }
+          }
+        }
+
+        return {
+          toolCallId: toolCall.id,
+          ok: true,
+          message: `Paraphrased the full draft stem package across ${patches.length} questions.`,
+        }
+      }
+
       case 'updateStemText':
         if (!text.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No stem text provided.' }
         form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(text), { shouldDirty: true })
@@ -501,9 +796,9 @@ export function UcatStemEditorPropertiesPanel({
   }
 
   return (
-    <aside className="flex min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l bg-background p-4">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'properties' | 'ai')} className="flex h-full min-h-0 flex-1 flex-col">
-        <TabsList className="grid w-full grid-cols-2">
+    <aside className={cn('flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-80 lg:border-l lg:p-4', className)}>
+      <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex h-full min-h-0 flex-1 flex-col">
+        <TabsList className="hidden w-full grid-cols-2 lg:grid">
           <TabsTrigger value="properties">Properties</TabsTrigger>
           <TabsTrigger value="ai">AI Tools</TabsTrigger>
         </TabsList>
@@ -611,7 +906,13 @@ export function UcatStemEditorPropertiesPanel({
           </PropertiesCard>
 
           <PropertiesCard value="stem" title="Stem properties">
-            <PropertyRow label="Section">
+            <PropertyRow
+              label={
+                <PropertyLabel warning={sectionWarning} onAcceptSuggestion={sectionWarning ? acceptSectionSuggestion : null}>
+                  Section
+                </PropertyLabel>
+              }
+            >
               <SearchableSelect<{ id: string | null; name: string | null }>
                 items={sections}
                 value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
@@ -628,7 +929,13 @@ export function UcatStemEditorPropertiesPanel({
                 placeholder="Select section"
               />
             </PropertyRow>
-            <PropertyRow label="Category">
+            <PropertyRow
+              label={
+                <PropertyLabel warning={categoryWarning} onAcceptSuggestion={categoryWarning ? acceptCategorySuggestion : null}>
+                  Category
+                </PropertyLabel>
+              }
+            >
               <div className={cn(focusTarget === 'category' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                 <SearchableSelect<{ id: string; name: string; label: string }>
                   items={[
@@ -652,13 +959,8 @@ export function UcatStemEditorPropertiesPanel({
                     return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
                   })()}
                   onValueChange={(item) => {
-                    if (isSyllogism) {
-                      toast({ description: 'Category is locked for syllogism stems.', variant: 'destructive' })
-                      return
-                    }
-                    form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, {
-                      shouldDirty: true,
-                    })
+                    const nextCategoryId = item?.id === 'none' ? null : item?.id ?? null
+                    handleCategoryChange(nextCategoryId)
                   }}
                   getItemLabel={(c) => taxonomyDisplayLabel(c)}
                   getItemId={(c) => c.id}
@@ -737,7 +1039,13 @@ export function UcatStemEditorPropertiesPanel({
 
           {fields.length > 0 ? (
             <PropertiesCard value="question" title="Question properties">
-              <PropertyRow label="Tags">
+              <PropertyRow
+                label={
+                  <PropertyLabel warning={tagWarning} onAcceptSuggestion={tagWarning ? acceptTagSuggestion : null}>
+                    Tags
+                  </PropertyLabel>
+                }
+              >
                 <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
@@ -832,6 +1140,17 @@ export function UcatStemEditorPropertiesPanel({
             </div>
           </PropertiesCard>
         </Accordion>
+        {onDeleteStem ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-destructive/30 text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+            onClick={onDeleteStem}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete question stem
+          </Button>
+        ) : null}
       </div>
         </TabsContent>
         <TabsContent
@@ -843,7 +1162,27 @@ export function UcatStemEditorPropertiesPanel({
             contextType="question_stem"
             scope="current_stem"
             scopeLabel={`Question ${safeQuestionIndex + 1}`}
-            snapshot={form.getValues() as unknown as Json}
+            conversationKey={stemId ? `question-stem:${stemId}` : null}
+            snapshot={{
+              currentQuestionIndex: safeQuestionIndex,
+              currentQuestionNumber: safeQuestionIndex + 1,
+              stem: form.getValues(),
+              availableTags: tags.map((tag) => ({
+                id: tag.id,
+                name: tag.name,
+                label: tag.label ?? tag.name,
+              })),
+              availableCategories: categories.map((category) => ({
+                id: category.id,
+                name: category.name,
+                label: category.label ?? category.name,
+                sectionId: category.ucat_section_id,
+              })),
+              availableSections: sections.map((section) => ({
+                id: section.id,
+                name: section.name,
+              })),
+            } as Json}
             placeholder="Ask AI to edit this question stem..."
             onExecuteTool={executeStemAgentTool}
           />

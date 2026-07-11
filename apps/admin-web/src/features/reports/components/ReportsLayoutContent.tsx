@@ -8,8 +8,8 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-  Input,
   SegmentedControl,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useReportsContext } from '../context/ReportsContext';
@@ -80,21 +80,17 @@ function ReportsFilters() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2">
-        <Input
-          id="reports-start-date"
-          type="date"
+        <SmartDatePickerField
           value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          max={TODAY}
+          onChange={(value) => setStartDate(value ?? '')}
+          maxDate={TODAY}
           className="h-9 w-[140px]"
         />
         <span className="text-muted-foreground text-sm">to</span>
-        <Input
-          id="reports-end-date"
-          type="date"
+        <SmartDatePickerField
           value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          max={TODAY}
+          onChange={(value) => setEndDate(value ?? '')}
+          maxDate={TODAY}
           className="h-9 w-[140px]"
         />
       </div>

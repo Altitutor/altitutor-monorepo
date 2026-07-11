@@ -95,7 +95,7 @@ const welcomeTour: Tour = {
     },
     {
       icon: <>🧠</>,
-      title: "Practice",
+      title: "Practice questions",
       content: (
         <p>
           Drill individual questions — timed or untimed — and build the stamina
@@ -293,7 +293,7 @@ export const UCAT_TOUR_REPLAY_OPTIONS = [
   },
   {
     tourId: UCAT_PRACTICE_TOUR,
-    label: "Practice",
+    label: "Practice questions",
     href: "/practice",
   },
   {

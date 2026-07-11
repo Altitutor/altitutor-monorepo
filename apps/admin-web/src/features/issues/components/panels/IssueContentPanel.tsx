@@ -1,41 +1,26 @@
 'use client';
 
 import { useMemo, memo, useState } from 'react';
-import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton, SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
+import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Skeleton, SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { StaffCard } from '@/shared/components/StaffCard';
-import { ClassCard } from '@/shared/components/ClassCard';
-import { SessionCard } from '@/shared/components/SessionCard';
-import { InvoiceCard } from '@/shared/components/InvoiceCard';
-import { useStudent } from '@/features/students/hooks/useStudentsQuery';
-import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
-import { useSessionData } from '@/features/sessions/hooks/useSessionData';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { ParentCard } from '@/shared/components/ParentCard';
-import type { IssueWithTags, IssueTag } from '../../types';
-import type { Tables } from '@altitutor/shared';
-import { User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
-import { cn, getSubjectColorStyle } from '@/shared/utils';
-import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
-
-const handleEntityClick = (type: string, id: string) => {
-  window.dispatchEvent(new CustomEvent('mentionClick', { 
-    detail: { id, type } 
-  }));
-};
+import type { IssueTag, IssueFormData } from '../../types';
+import { MessageCircle } from 'lucide-react';
+import { UseFormReturn } from 'react-hook-form';
+import { IssueStatusField } from '../fields/IssueStatusField';
+import { IssueDueDateField } from '../fields/IssueDueDateField';
 
 interface IssueContentPanelProps {
-  issue?: IssueWithTags;
   tags?: IssueTag[];
   isOpen: boolean;
+  form: UseFormReturn<IssueFormData>;
 }
 
-export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: propTags, isOpen }: IssueContentPanelProps) {
-  const [activeTab, setActiveTab] = useState<'chat' | 'entities'>('chat');
-  const activeTags = useMemo(() => issue?.tags || propTags || [], [issue?.tags, propTags]);
+export const IssueContentPanel = memo(function IssueContentPanel({ tags: propTags, isOpen, form }: IssueContentPanelProps) {
+  const [activeTab, setActiveTab] = useState<'properties' | 'chat'>('properties');
+  const activeTags = useMemo(() => propTags || [], [propTags]);
   
   // Get all unique entity IDs from tags
   const studentIds = useMemo(() => Array.from(new Set(activeTags.filter(t => t.student_id).map(t => t.student_id!))), [activeTags]);
@@ -104,14 +89,6 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
     enabled: isOpen && (studentIds.length > 0 || staffIds.length > 0 || parentIds.length > 0)
   });
 
-  if (!issue && activeTags.length === 0) {
-    return (
-      <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0 items-center justify-center p-8 text-center text-muted-foreground">
-        Tag entities after creating the issue to see chat and related data.
-      </div>
-    );
-  }
-
   return (
     <div className="hidden h-full min-h-0 w-80 flex-shrink-0 flex-col overflow-hidden border-l min-w-0 md:flex">
       <div className="h-full flex-1 flex flex-col min-h-0">
@@ -119,15 +96,24 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
           <SegmentedControl
             fullWidth
             value={activeTab}
-            onValueChange={(v) => setActiveTab(v as 'chat' | 'entities')}
+            onValueChange={(v) => setActiveTab(v as 'properties' | 'chat')}
             options={[
+              { value: 'properties', label: 'Properties' },
               { value: 'chat', label: 'Chat' },
-              { value: 'entities', label: 'Tagged' },
             ]}
           />
         </div>
 
         <div className="flex-1 min-h-0 overflow-hidden">
+          <SegmentedTabPanelContent when="properties" activeTab={activeTab} className="h-full overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-6 space-y-6">
+                <IssueStatusField form={form} />
+                <IssueDueDateField form={form} />
+              </div>
+            </ScrollArea>
+          </SegmentedTabPanelContent>
+
           <SegmentedTabPanelContent when="chat" activeTab={activeTab} className="h-full min-h-0 flex flex-col overflow-hidden">
             {isLoadingContacts ? (
               <div className="p-4 space-y-4">
@@ -173,293 +159,12 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center gap-3">
                 <MessageCircle className="h-12 w-12 text-muted/50" />
-                <p className="text-sm">No students, staff, or parents tagged. Tag someone to start a chat.</p>
+                <p className="text-sm">Mention a student, staff member, or parent to show their chat here.</p>
               </div>
             )}
-          </SegmentedTabPanelContent>
-          
-          <SegmentedTabPanelContent when="entities" activeTab={activeTab} className="h-full overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-6 space-y-6">
-                <IssueEntitiesList tags={activeTags} />
-              </div>
-            </ScrollArea>
           </SegmentedTabPanelContent>
         </div>
       </div>
     </div>
   );
 });
-
-const IssueEntitiesList = memo(function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
-  const studentTags = useMemo(() => tags.filter(t => t.student_id), [tags]);
-  const staffTags = useMemo(() => tags.filter(t => t.staff_id), [tags]);
-  const parentTags = useMemo(() => tags.filter(t => t.parent_id), [tags]);
-  const classTags = useMemo(() => tags.filter(t => t.class_id), [tags]);
-  const subjectTags = useMemo(() => tags.filter(t => t.subject_id), [tags]);
-  const sessionTags = useMemo(() => tags.filter(t => t.session_id), [tags]);
-  const invoiceTags = useMemo(() => tags.filter(t => t.invoice_id), [tags]);
-
-  return (
-    <div className="space-y-6">
-      {studentTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <GraduationCap className="h-4 w-4" />
-            <span>Students</span>
-          </div>
-          <div className="grid gap-3">
-            {studentTags.map(tag => (
-              <StudentCardWrapper key={tag.id} studentId={tag.student_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {parentTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span>Parents</span>
-          </div>
-          <div className="grid gap-3">
-            {parentTags.map(tag => (
-              <ParentCardWrapper key={tag.id} parentId={tag.parent_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {staffTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <User className="h-4 w-4" />
-            <span>Staff</span>
-          </div>
-          <div className="grid gap-3">
-            {staffTags.map(tag => (
-              <StaffCardWrapper key={tag.id} staffId={tag.staff_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {classTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>Classes</span>
-          </div>
-          <div className="grid gap-3">
-            {classTags.map(tag => (
-              <ClassCardWrapper key={tag.id} classId={tag.class_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {subjectTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <BookOpen className="h-4 w-4" />
-            <span>Subjects</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {subjectTags.map(tag => (
-              <SubjectPillWrapper key={tag.id} subjectId={tag.subject_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {sessionTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>Sessions</span>
-          </div>
-          <div className="grid gap-3">
-            {sessionTags.map(tag => (
-              <SessionCardWrapper key={tag.id} sessionId={tag.session_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {invoiceTags.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <FileText className="h-4 w-4" />
-            <span>Invoices</span>
-          </div>
-          <div className="grid gap-3">
-            {invoiceTags.map(tag => (
-              <InvoiceCardWrapper key={tag.id} invoiceId={tag.invoice_id!} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {tags.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-          No entities tagged to this issue yet.
-        </div>
-      )}
-    </div>
-  );
-});
-
-function StudentCardWrapper({ studentId }: { studentId: string }) {
-  const { data: student, isLoading } = useStudent(studentId);
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!student) return null;
-  return <StudentCard student={student} onClick={() => handleEntityClick('student', studentId)} />;
-}
-
-function ParentCardWrapper({ parentId }: { parentId: string }) {
-  const supabase = getSupabaseClient();
-  const { data: parent, isLoading } = useQuery({
-    queryKey: ['parents', parentId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('parents').select('*').eq('id', parentId).single();
-      if (error) throw error;
-      return data;
-    }
-  });
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!parent) return null;
-  return <ParentCard parent={parent as Tables<'parents'>} onClick={() => handleEntityClick('parent', parentId)} />;
-}
-
-function StaffCardWrapper({ staffId }: { staffId: string }) {
-  const { data: staff, isLoading } = useStaffById(staffId);
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!staff) return null;
-  return <StaffCard staff={staff} onClick={() => handleEntityClick('staff', staffId)} />;
-}
-
-function ClassCardWrapper({ classId }: { classId: string }) {
-  // We need a useClass hook or fetch it manually
-  const supabase = getSupabaseClient();
-  const { data: classData, isLoading } = useQuery({
-    queryKey: ['classes', classId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('*, subject:subjects(*), assigned_staff:classes_staff(staff:staff!class_assignments_staff_id_fkey(*))')
-        .eq('id', classId)
-        .single();
-      
-      if (error) {
-        throw error;
-      }
-      return data;
-    }
-  });
-
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!classData) {
-    return null;
-  }
-  
-  type ClassWithAssignedStaff = Tables<'classes'> & { assigned_staff?: Array<{ staff: Tables<'staff'> | null }>; subject?: Tables<'subjects'> | null };
-  const classWithStaff = classData as ClassWithAssignedStaff;
-  const staff = classWithStaff.assigned_staff?.map((s) => s.staff).filter((s): s is Tables<'staff'> => s != null) ?? [];
-  
-  return (
-    <ClassCard 
-      class={classWithStaff} 
-      subject={classWithStaff.subject ?? undefined}
-      staff={staff} 
-      onClick={() => handleEntityClick('class', classId)}
-    />
-  );
-}
-
-function SubjectPillWrapper({ subjectId }: { subjectId: string }) {
-  const supabase = getSupabaseClient();
-  const { data: subject, isLoading } = useQuery({
-    queryKey: ['subjects', subjectId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('subjects').select('*').eq('id', subjectId).single();
-      if (error) {
-        throw error;
-      }
-      return data;
-    }
-  });
-
-  if (isLoading) return <div className="h-6 w-16 bg-muted animate-pulse rounded-full" />;
-  if (!subject) {
-    return null;
-  }
-  
-  const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
-  const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
-  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-
-  return (
-    <Badge
-      className={cn(
-        "cursor-pointer hover:opacity-80 transition-opacity",
-        defaultClass || textColorClass
-      )}
-      style={style.backgroundColor ? style : undefined}
-      onClick={() => handleEntityClick('subject', subjectId)}
-    >
-      {shortName}
-    </Badge>
-  );
-}
-
-function SessionCardWrapper({ sessionId }: { sessionId: string }) {
-  const { data, isLoading } = useSessionData({ sessionId });
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!data?.session) return null;
-
-  type SessionStudentRow = { student?: Tables<'students'> | null; planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null; id?: string };
-  type SessionStaffRow = { staff?: Tables<'staff'> | null; planned_absence?: boolean; is_swapped_in?: boolean };
-  const students = (data.sessionsStudents || [])
-    .map((row: SessionStudentRow) => ({
-      ...(row.student ?? {}),
-      planned_absence: row.planned_absence,
-      is_extra: row.is_extra,
-      sessions_students_id: row.sessions_students_id ?? row.id ?? null,
-    }))
-    .filter((student): student is NonNullable<typeof student> => !!student?.id)
-    .filter((student, index, arr) => arr.findIndex((c) => c?.id === student?.id) === index);
-
-  const staff = (data.sessionsStaff || [])
-    .map((row: SessionStaffRow) => ({
-      ...(row.staff ?? {}),
-      planned_absence: row.planned_absence,
-      is_swapped_in: row.is_swapped_in,
-    }))
-    .filter((member): member is NonNullable<typeof member> => !!member?.id)
-    .filter((member, index, arr) => arr.findIndex((c) => c?.id === member?.id) === index);
-
-  return (
-    <SessionCard
-      session={data.session as Tables<'sessions'>}
-      title={getSessionTitle(data.session as Parameters<typeof getSessionTitle>[0])}
-      students={students}
-      staff={staff}
-      onClick={() => handleEntityClick('session', sessionId)}
-    />
-  );
-}
-
-function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {
-  const supabase = getSupabaseClient();
-  const { data: invoice, isLoading } = useQuery({
-    queryKey: ['invoices', invoiceId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).single();
-      if (error) throw error;
-      return data;
-    }
-  });
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!invoice) return null;
-  return <InvoiceCard invoice={invoice as Tables<'invoices'>} onClick={() => handleEntityClick('invoice', invoiceId)} />;
-}

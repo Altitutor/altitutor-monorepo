@@ -10,6 +10,10 @@ import { QuestionAttemptsCard } from './question-attempts-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/shared/utils'
 import {
+  sumCorrectScoreFromAttempts,
+  sumProgressPointsFromAttempts,
+} from '@altitutor/shared'
+import {
   filterByTimeFrame,
   computeSingleSectionFromFiltered,
   computeCategoryProgressFromFiltered,
@@ -261,8 +265,8 @@ export function SectionProgressPage({
 
   const score =
     progressMode.mode === 'weighted'
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore
+      ? (section.weightedAverageScaledScore ?? null)
+      : (section.averageScaledScore ?? null)
   const percentage =
     progressMode.mode === 'weighted' &&
     section.weightedAveragePercentage != null
@@ -339,13 +343,8 @@ function SectionProgressContent({
           )
         : filteredQuestionAttempts
     const unique = getBestAttemptPerQuestion(timeFiltered)
-    let completed = 0
-    let correct = 0
-    for (const a of unique) {
-      const maxPerQuestion = a.questionType === 'syllogism' ? 2 : 1
-      completed += maxPerQuestion
-      correct += a.score ?? 0
-    }
+    const completed = sumProgressPointsFromAttempts(unique)
+    const correct = sumCorrectScoreFromAttempts(unique)
     return {
       completed,
       correct,

@@ -479,7 +479,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                           <FormItem>
                             <FormControl>
                               <NoteEditor
-                                key={`${noteId}-${acceptedServerVersion}-${isEditing ? 'edit' : 'view'}`}
+                                key={`${noteId}-${acceptedServerVersion}`}
                                 ref={noteEditorRef}
                                 content={field.value}
                                 onChange={handleContentChange(field.onChange)}

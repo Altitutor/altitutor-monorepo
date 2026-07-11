@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { ucatQuestionStemSchema } from '@/features/ucat/questions/types/schema'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
-import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import type { Json } from '@altitutor/shared'
 import type {
   CategoryOption,
   TagOption,
@@ -25,7 +25,9 @@ type BulkImportReviewStemEditorProps = {
   tags: TagOption[]
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
+  onActiveTextEditorChange?: (editor: Editor | null) => void
   sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
 }
 
 export function BulkImportReviewStemEditor({
@@ -37,7 +39,9 @@ export function BulkImportReviewStemEditor({
   tags,
   onUpdateStem,
   onNewImageFileIds,
+  onActiveTextEditorChange,
   sourceChannel,
+  aiGenerationMetadata,
 }: BulkImportReviewStemEditorProps) {
   const createForm = useForm as unknown as (props: {
     resolver: unknown
@@ -70,27 +74,25 @@ export function BulkImportReviewStemEditor({
 
   const sectionMeta = sections.find((section) => section.id === values.sectionId)
   const questionCount = values.questions?.length ?? 0
-  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
   return (
-    <div className="relative flex h-full min-h-0 overflow-hidden">
-      <UcatStemEditorShell
+    <UcatStemEditorShell
       flush
       form={form}
       sections={sections}
       categories={categories}
       tags={tags}
+      stemId={stemId}
       enableImages
       sectionTitleOverride={sectionMeta?.name ?? undefined}
       displayColumnsFallback={sectionMeta?.display_columns ?? undefined}
       initialQuestionIndex={initialQuestionIndex}
       showQuestionNavigator={questionCount > 1}
       onNewImageFileIds={onNewImageFileIds}
-      onActiveTextEditorChange={setActiveTextEditor}
+      onActiveTextEditorChange={onActiveTextEditorChange}
       sourceChannel={sourceChannel ?? null}
+      aiGenerationMetadata={aiGenerationMetadata ?? null}
       className="flex h-full min-h-0 overflow-hidden"
     />
-      <UcatRichTextFloatingToolbar editor={activeTextEditor} />
-    </div>
   )
 }

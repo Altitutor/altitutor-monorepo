@@ -1,9 +1,6 @@
-import {
-  SITUATIONAL_JUDGEMENT_SECTION_NAME,
-  SJT_OPTION_COUNT,
-  SYLLOGISM_POINTS,
-} from './config'
+import { SYLLOGISM_POINTS } from './config'
 import type { Attempt, QuestionMeta, RawScoreResult } from './types'
+import { getSituationalJudgementMarkingOutcome } from './situational-judgement'
 
 /**
  * Compute raw score for a set of question attempts using UCAT marking rules:
@@ -63,23 +60,15 @@ export function computeRawScore(params: {
       continue
     }
 
-    // SJT: same polarity (A↔B or C↔D) = 0.5
-    if (
-      q.sectionName === SITUATIONAL_JUDGEMENT_SECTION_NAME &&
-      q.options.length === SJT_OPTION_COUNT
-    ) {
-      const selectedIdx = q.options.findIndex(
-        (o) => o.id === attempt.selectedOptionId
-      )
-      const correctIdx = q.options.findIndex((o) => o.id === q.correctOptionId)
-      if (selectedIdx >= 0 && correctIdx >= 0) {
-        const selectedGroup = selectedIdx < 2 ? 'AB' : 'CD'
-        const correctGroup = correctIdx < 2 ? 'AB' : 'CD'
-        if (selectedGroup === correctGroup) {
-          questionScores.set(q.id, 0.5)
-          continue
-        }
-      }
+    const sjOutcome = getSituationalJudgementMarkingOutcome({
+      sectionName: q.sectionName,
+      optionCount: q.options.length,
+      selectedIndex: q.options.findIndex((o) => o.id === attempt.selectedOptionId),
+      correctIndex: q.options.findIndex((o) => o.id === q.correctOptionId),
+    })
+    if (sjOutcome === 'partial') {
+      questionScores.set(q.id, 0.5)
+      continue
     }
 
     questionScores.set(q.id, 0)

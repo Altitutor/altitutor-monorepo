@@ -42,7 +42,7 @@ export function ProjectPriorityEntityPill({
             type="button"
             variant="outline"
             className={cn(
-              'h-8 border rounded-full bg-background group gap-1.5',
+              'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
               collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
             )}
           >

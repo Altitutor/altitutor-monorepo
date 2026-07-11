@@ -15,6 +15,7 @@ import type {
   QuestionEngineState,
 } from "@/features/question-engine/model/types";
 import type {
+  ActiveExamAttempt,
   ExamAttemptKind,
   QuestionActiveTimingContext,
 } from "@/lib/ucat/exam-attempt/types";
@@ -71,6 +72,15 @@ function resolveExamAttemptKind(
   if (exam.sourceType === "set") return "set";
   if (exam.sourceType === "mock") return "mock";
   return null;
+}
+
+function getActiveAttemptFromConflict(
+  error: unknown,
+): ActiveExamAttempt | null {
+  if (!(error instanceof Error)) return null;
+  if (error.message !== "EXAM_ATTEMPT_IN_PROGRESS") return null;
+  const active = (error as Error & { active?: ActiveExamAttempt | null }).active;
+  return active ?? null;
 }
 
 async function withTimeout<T>(
@@ -366,6 +376,14 @@ export function useExamAttemptLifecycle({
         });
         return;
       }
+      const activeConflict = getActiveAttemptFromConflict(error);
+      if (activeConflict) {
+        beginBlockedRef.current = true;
+        syncBlockedRef.current = true;
+        setLocal(activeConflict);
+        router.replace(activeConflict.resumeHref);
+        return;
+      }
       throw error;
     }
 
@@ -565,11 +583,11 @@ export function useExamAttemptLifecycle({
     ? `${latestQuestionTimingRef.current.questionId}:${latestQuestionTimingRef.current.questionSetId}:${latestQuestionTimingRef.current.wasTimed ? "timed" : "untimed"}`
     : "none";
 
-  const syncQuestionTiming = useCallback(() => {
-    if (!enabled || !exam || !kind || !attemptIdRef.current) return;
-    if (syncBlockedRef.current) return;
-    if (segmentStartPendingRef.current) return;
-    if (kind && isExamAttemptAtResults(kind, state.phase)) return;
+  const syncQuestionTiming = useCallback(async () => {
+    if (!enabled || !exam || !kind || !attemptIdRef.current) return false;
+    if (syncBlockedRef.current) return false;
+    if (segmentStartPendingRef.current) return false;
+    if (kind && isExamAttemptAtResults(kind, state.phase)) return false;
     const input = {
       kind,
       attemptId: attemptIdRef.current,
@@ -587,24 +605,26 @@ export function useExamAttemptLifecycle({
       mockAttemptId: attemptStateRef.current.mockAttemptId,
       questionActiveTiming: latestQuestionTimingRef.current,
     };
-    void syncExamAttempt(input)
-      .then(({ currentSegmentEndsAt, setAttemptIdsBySetId }) => {
-        if (setAttemptIdsBySetId) {
-          attemptStateRef.current.setAttemptIdsBySetId = new Map(
-            Object.entries(setAttemptIdsBySetId),
-          );
-        }
-        setServerSegmentEndsAt(currentSegmentEndsAt);
-        updateLocal(attemptIdRef.current!, {
-          currentSegmentEndsAt,
-          engineSnapshot: toExamEngineSnapshot(state),
-          ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
-        });
-      })
-      .then(() => refresh())
-      .catch(() => {
-        // Question timing retries on the next heartbeat or transition.
+    try {
+      const { currentSegmentEndsAt, setAttemptIdsBySetId } =
+        await syncExamAttempt(input);
+      if (setAttemptIdsBySetId) {
+        attemptStateRef.current.setAttemptIdsBySetId = new Map(
+          Object.entries(setAttemptIdsBySetId),
+        );
+      }
+      setServerSegmentEndsAt(currentSegmentEndsAt);
+      updateLocal(attemptIdRef.current!, {
+        currentSegmentEndsAt,
+        engineSnapshot: toExamEngineSnapshot(state),
+        ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
       });
+      await refresh();
+      return true;
+    } catch {
+      // Question timing retries on the next heartbeat or transition.
+      return false;
+    }
   }, [
     enabled,
     exam,
@@ -619,7 +639,7 @@ export function useExamAttemptLifecycle({
 
   useEffect(() => {
     if (!enabled || !exam || !kind || !attemptIdRef.current) return;
-    syncQuestionTiming();
+    void syncQuestionTiming();
   }, [enabled, exam, kind, activeQuestionTimingKey, syncQuestionTiming]);
 
   useEffect(() => {
@@ -627,6 +647,62 @@ export function useExamAttemptLifecycle({
     const id = setInterval(syncQuestionTiming, 15000);
     return () => clearInterval(id);
   }, [enabled, activeQuestionTimingKey, syncQuestionTiming]);
+
+  const flushQuestionTiming = useCallback(async () => {
+    if (!enabled || !exam || !kind || !attemptIdRef.current) return false;
+    if (syncBlockedRef.current) return false;
+    if (segmentStartPendingRef.current) return false;
+    if (kind && isExamAttemptAtResults(kind, state.phase)) return false;
+
+    try {
+      const { currentSegmentEndsAt, setAttemptIdsBySetId } =
+        await syncExamAttempt({
+          kind,
+          attemptId: attemptIdRef.current,
+          engineSnapshot: toExamEngineSnapshot(state),
+          currentSegmentEndsAt: serverSegmentEndsAt,
+          setAttemptIdsBySetId: Object.fromEntries(
+            attemptStateRef.current.setAttemptIdsBySetId.entries(),
+          ),
+          examMeta: {
+            sourceType: exam.sourceType,
+            sourceId: exam.sourceId,
+            practice,
+          },
+          examTiming: toStoredExamTiming(exam),
+          mockAttemptId: attemptStateRef.current.mockAttemptId,
+          questionActiveTiming: null,
+        });
+      if (setAttemptIdsBySetId) {
+        attemptStateRef.current.setAttemptIdsBySetId = new Map(
+          Object.entries(setAttemptIdsBySetId),
+        );
+      }
+      setServerSegmentEndsAt(currentSegmentEndsAt);
+      updateLocal(attemptIdRef.current, {
+        currentSegmentEndsAt,
+        engineSnapshot: {
+          ...toExamEngineSnapshot(state),
+          activeQuestionTiming: null,
+        },
+        ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+      });
+      await refresh();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [
+    enabled,
+    exam,
+    kind,
+    state,
+    serverSegmentEndsAt,
+    attemptStateRef,
+    practice,
+    updateLocal,
+    refresh,
+  ]);
 
   useEffect(() => {
     const flushLatestSnapshot = () => {
@@ -650,5 +726,6 @@ export function useExamAttemptLifecycle({
     serverSegmentEndsAt,
     attemptId: attemptIdRef.current,
     isHydrating: hydrationStatus === "hydrating",
+    flushQuestionTiming,
   };
 }

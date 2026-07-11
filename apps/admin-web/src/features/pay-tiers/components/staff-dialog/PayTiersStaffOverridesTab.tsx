@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SmartDatePickerField } from '@altitutor/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import {
   formatPayTierSessionType,
@@ -42,11 +42,9 @@ export function PayTiersStaffOverridesTab({
         <p className="text-xs text-muted-foreground">
           Controls tenure-based tier requirements.
         </p>
-        <Input
-          id="employment-start"
-          type="date"
+        <SmartDatePickerField
           value={employmentDate}
-          onChange={(e) => onEmploymentDateChange(e.target.value)}
+          onChange={(value) => onEmploymentDateChange(value ?? '')}
           className="max-w-xs"
         />
       </div>

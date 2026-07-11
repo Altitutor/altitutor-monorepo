@@ -84,10 +84,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <Toaster
+        data-toast-container
         position="top-right"
         theme="system"
         closeButton
-        className="toaster group"
+        className="toaster group pointer-events-auto z-[2147483647]"
         toastOptions={{
           classNames: {
             toast: "border-border bg-card text-card-foreground",

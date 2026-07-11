@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button, SearchableSelect } from '@altitutor/ui';
-import { User, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
+import { User, Gauge, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
   getPriorityIcon,
@@ -21,6 +21,10 @@ type LinkSelection =
   | null;
 
 type LinkItem = Exclude<LinkSelection, null>;
+
+const pillTriggerClass =
+  'inline-flex h-8 items-center gap-1.5 rounded-full border bg-background group transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white';
+const emptyPillContentClass = 'text-muted-foreground opacity-40 group-hover:opacity-100';
 
 function getMatchScore(name: string | null, rawQuery: string): number {
   const query = rawQuery.trim().toLowerCase();
@@ -77,7 +81,7 @@ export function TaskAssigneeEntityPill({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            pillTriggerClass,
             collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
@@ -95,13 +99,12 @@ export function TaskAssigneeEntityPill({
             </>
           ) : (
             <>
-              <User className={cn("h-3 w-3 text-muted-foreground", !assignee && "opacity-40 group-hover:opacity-100")} />
+              <User className={cn("h-3 w-3", emptyPillContentClass)} />
               {!collapsed && (
-                <span className="text-muted-foreground opacity-40 group-hover:opacity-100">Assign</span>
+                <span className={emptyPillContentClass}>Assign</span>
               )}
             </>
           )}
-          <ChevronDown className={cn("h-3 w-3 text-muted-foreground opacity-40 group-hover:opacity-100", !assignee && "opacity-40")} />
         </button>
       }
       allowClear
@@ -154,7 +157,7 @@ export function TaskPriorityEntityPill({
             type="button"
             variant="outline"
             className={cn(
-              'h-8 border rounded-full bg-background group gap-1.5',
+              'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
               collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
             )}
           >
@@ -213,14 +216,13 @@ export function TaskEstimateEntityPill({
           <button
             type="button"
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full border bg-background group",
+              pillTriggerClass,
               collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto",
-              "hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <Gauge className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", isEmpty && "opacity-40 group-hover:opacity-100")} />
+            <Gauge className={cn("h-3 w-3 flex-shrink-0", isEmpty ? emptyPillContentClass : "text-foreground")} />
             {!collapsed && (
-              <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label || 'Estimate'}</span>
+              <span className={cn("truncate", isEmpty && emptyPillContentClass)}>{label || 'Estimate'}</span>
             )}
           </button>
         }
@@ -258,18 +260,17 @@ export function TaskIssueEntityPill({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            pillTriggerClass,
             collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <Link2 className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", !issue && "opacity-40 group-hover:opacity-100")} />
+          <Link2 className={cn("h-3 w-3 flex-shrink-0", issue ? "text-foreground" : emptyPillContentClass)} />
           {!collapsed && (
-            <span className={cn("truncate max-w-[120px]", !issue && "text-muted-foreground opacity-40 group-hover:opacity-100")}>
+            <span className={cn("truncate max-w-[120px]", !issue && emptyPillContentClass)}>
               {issue?.name || 'Issue'}
             </span>
           )}
-          <ChevronDown className={cn("h-3 w-3 text-muted-foreground", !issue && "opacity-40 group-hover:opacity-100")} />
         </button>
       }
       allowClear
@@ -311,18 +312,17 @@ export function TaskProjectEntityPill({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            pillTriggerClass,
             collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <FolderKanban className={cn('h-3 w-3 text-muted-foreground flex-shrink-0', !project && 'opacity-40 group-hover:opacity-100')} />
+          <FolderKanban className={cn('h-3 w-3 flex-shrink-0', project ? 'text-foreground' : emptyPillContentClass)} />
           {!collapsed && (
-            <span className={cn('truncate max-w-[120px]', !project && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+            <span className={cn('truncate max-w-[120px]', !project && emptyPillContentClass)}>
               {project?.name || 'Project'}
             </span>
           )}
-          <ChevronDown className={cn('h-3 w-3 text-muted-foreground', !project && 'opacity-40 group-hover:opacity-100')} />
         </button>
       }
       allowClear
@@ -407,22 +407,21 @@ export function TaskLinkEntityPill({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            pillTriggerClass,
             collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
         >
           {activeLink?.type === 'project' ? (
-            <FolderKanban className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <FolderKanban className="h-3 w-3 text-foreground flex-shrink-0" />
           ) : (
-            <Link2 className={cn('h-3 w-3 text-muted-foreground flex-shrink-0', !activeLink && 'opacity-40 group-hover:opacity-100')} />
+            <Link2 className={cn('h-3 w-3 flex-shrink-0', activeLink ? 'text-foreground' : emptyPillContentClass)} />
           )}
           {!collapsed && (
-            <span className={cn('truncate max-w-[150px]', !activeLink && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+            <span className={cn('truncate max-w-[150px]', !activeLink && emptyPillContentClass)}>
               {activeLink?.name || 'Link'}
             </span>
           )}
-          <ChevronDown className={cn('h-3 w-3 text-muted-foreground', !activeLink && 'opacity-40 group-hover:opacity-100')} />
         </button>
       }
       allowClear

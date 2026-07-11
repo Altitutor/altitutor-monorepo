@@ -1,3 +1,8 @@
+import {
+  progressPointsForQuestion,
+  toProgressQuestionRef,
+} from "@altitutor/shared";
+
 export type CategoryBreakdownEntry = {
   name: string;
   score: number;
@@ -5,6 +10,8 @@ export type CategoryBreakdownEntry = {
 };
 
 type QuestionAttemptForCategoryBreakdown = {
+  questionId: string;
+  questionStemId?: string | null;
   questionStemCategoryId?: string | null;
   categoryName?: string | null;
   questionType: string | null;
@@ -16,21 +23,30 @@ export function computeCategoryBreakdown(
 ): CategoryBreakdownEntry[] {
   const byCategory = new Map<
     string,
-    { name: string; score: number; total: number }
+    {
+      name: string;
+      score: number;
+      total: number;
+      syllogismStems: Set<string>;
+    }
   >();
 
   for (const q of attempts) {
     const catKey = q.questionStemCategoryId ?? "__uncategorized__";
     const catName = q.categoryName ?? "Uncategorized";
-    const maxScore = q.questionType === "syllogism" ? 2 : 1;
     const score = q.score ?? 0;
-    const entry = byCategory.get(catKey);
-    if (entry) {
-      entry.score += score;
-      entry.total += maxScore;
-    } else {
-      byCategory.set(catKey, { name: catName, score, total: maxScore });
-    }
+    const entry = byCategory.get(catKey) ?? {
+      name: catName,
+      score: 0,
+      total: 0,
+      syllogismStems: new Set<string>(),
+    };
+    entry.score += score;
+    entry.total += progressPointsForQuestion(
+      toProgressQuestionRef(q),
+      entry.syllogismStems,
+    );
+    byCategory.set(catKey, entry);
   }
 
   return [...byCategory.entries()]

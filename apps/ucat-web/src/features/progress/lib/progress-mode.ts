@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 
-/** Progress view mode: all time (simple avg), weighted (EMA), or time frame (filtered) */
+/** Progress view mode: all time, weighted graph aggregation, or time frame filtering. */
 export type ProgressMode = "all_time" | "weighted" | "time_frame";
 
 /** Global filter for which attempts to show in progress graphs and tables */

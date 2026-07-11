@@ -82,6 +82,7 @@ export type UcatStemCatalogItem = {
   categoryId: string | null
   categoryName: string | null
   isPrivate: boolean
+  isAiGenerated: boolean
   questionTypes: ('multiple_choice' | 'syllogism')[]
   tagIds: string[]
   createdAt: string | null
@@ -198,6 +199,7 @@ export function useUcatStemCatalog(enabled: boolean) {
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
           isPrivate: !!row.is_private,
+          isAiGenerated: !!row.is_ai_generated,
           questionTypes,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
@@ -284,6 +286,8 @@ export function useGenerateUcatQuestionDrafts() {
       categoryId?: string | null
       modelProfileId?: string | null
       sourceMode: 'none' | 'random' | 'selected'
+      includeAiSourceStems?: boolean
+      imageGenerationMode?: 'auto' | 'deterministic' | 'ai'
       sourceStemIds?: string[]
       stemCount: number
       difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
