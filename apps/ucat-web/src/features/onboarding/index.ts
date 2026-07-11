@@ -10,9 +10,15 @@ export {
 export {
   ALL_UCAT_TOUR_IDS,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+  UCAT_LEARN_TOUR,
+  UCAT_MOCKS_TOUR,
   UCAT_ONBOARDING_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_SECTION_SETS_TOUR,
+  UCAT_SESSIONS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
   UCAT_TOUR_REPLAY_OPTIONS,
+  getFirstSelectorForTour,
   getTourForPathname,
 } from "@/features/onboarding/config/tour-steps";

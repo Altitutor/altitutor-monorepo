@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { format } from "date-fns";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSetAttemptDetail } from "../hooks/use-set-attempt-detail";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
@@ -38,19 +39,7 @@ export function SetAttemptDetailPage({
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Loading..."
-          backHref={backHref}
-          backLabel={backLabel}
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="h-32 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
-        </div>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {

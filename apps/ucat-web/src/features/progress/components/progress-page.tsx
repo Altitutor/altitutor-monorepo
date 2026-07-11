@@ -9,69 +9,20 @@ import {
   CardTitle,
 } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
-import { useProgress } from "../hooks/use-progress";
-import { useProgressMode } from "../hooks/use-progress-mode";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useProgressSummary } from "../hooks/use-progress";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { TotalScoreProjection } from "@/features/score-projection/types/score-projection";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
-import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SectionProgressCards } from "./section-progress-cards";
-import { SetAttemptsCard } from "./set-attempts-card";
-import { MockAttemptsCard } from "./mock-attempts-card";
-import { PracticeAttemptsCard } from "./practice-attempts-card";
-import { QuestionAttemptsCard } from "./question-attempts-card";
 import { ReviewHeatmapCard } from "./review-heatmap-card";
 import { AnimatedInteger } from "./progress-animated-display";
 import { ProgressGraph } from "./progress-graph";
-import {
-  filterByTimeFrame,
-  computeSectionProgressFromFiltered,
-  getSharedDateRange,
-  applyAttemptFilterToProgress,
-} from "../lib/progress-data-utils";
 
 export function ProgressPage() {
-  const { data, isLoading, error } = useProgress();
+  const { data, isLoading, error } = useProgressSummary();
   const scoreProjectionQuery = useScoreProjection();
-  const progressMode = useProgressMode();
-
-  const filteredData = useMemo(() => {
-    if (!data) return null;
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter);
-  }, [data, progressMode.attemptFilter]);
-
-  const sectionProgress = useMemo(() => {
-    if (!filteredData) return [];
-    const { mode, timeFrameDays } = progressMode;
-    if (mode !== "time_frame") return filteredData.sectionProgress;
-    const filteredQA = filterByTimeFrame(
-      filteredData.questionAttempts,
-      mode,
-      timeFrameDays,
-    );
-    const filteredSA = filterByTimeFrame(
-      filteredData.setAttempts,
-      mode,
-      timeFrameDays,
-    );
-    return computeSectionProgressFromFiltered(
-      filteredQA,
-      filteredSA,
-      filteredData.sectionProgress,
-    );
-  }, [filteredData, progressMode]);
-
-  const sharedDateRange = useMemo(() => {
-    if (!filteredData) return undefined;
-    return getSharedDateRange(
-      filteredData.questionAttempts,
-      filteredData.setAttempts,
-      filteredData.mockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [filteredData, progressMode.mode, progressMode.timeFrameDays]);
 
   const totalProjection = useMemo(() => {
     if (!scoreProjectionQuery.data) return null;
@@ -79,23 +30,7 @@ export function ProgressPage() {
   }, [scoreProjectionQuery.data]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Progress"
-          description="Loading your progress..."
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 rounded-lg bg-muted" />
-            ))}
-          </div>
-          <div className="h-64 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
-        </div>
-      </div>
-    );
+    return <AppPageSkeleton />;
   }
 
   if (error) {
@@ -110,7 +45,7 @@ export function ProgressPage() {
     );
   }
 
-  if (!data || !filteredData) {
+  if (!data) {
     return (
       <div className="space-y-6">
         <UcatPageHeader
@@ -122,11 +57,11 @@ export function ProgressPage() {
   }
 
   return (
-    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
+    <div className="space-y-6">
       <div id="tour-progress-header">
         <UcatPageHeader
           title="Progress"
-          description="Track your performance across sections, set attempts, and mock exams."
+          description="A summary of your performance across UCAT sections."
         />
       </div>
 
@@ -138,44 +73,11 @@ export function ProgressPage() {
       <ReviewHeatmapCard />
 
       <SectionProgressCards
-        sections={sectionProgress}
+        sections={data.sectionProgress}
         linkToSection
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
+        mode="all_time"
+        timeFrameDays="30"
         scoreProjections={scoreProjectionQuery.data?.sections ?? []}
-      />
-      <QuestionAttemptsCard
-        attempts={filteredData.questionAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-      <SetAttemptsCard
-        attempts={filteredData.setAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-      <PracticeAttemptsCard
-        attempts={filteredData.practiceAttempts ?? []}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-      />
-      <MockAttemptsCard
-        attempts={filteredData.mockAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-
-      <ProgressModeFloatingToolbar
-        tourAnchorId="tour-progress-mode"
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
     </div>
   );

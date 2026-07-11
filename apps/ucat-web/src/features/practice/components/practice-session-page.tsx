@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@altitutor/ui";
 import { QuestionEnginePage } from "@/features/question-engine";
 import type { PracticeEngineLiveStats } from "@/features/question-engine/components/question-engine-page";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
@@ -346,8 +347,13 @@ export function PracticeSessionPage() {
 
   if (session === "loading") {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+      <div
+        className="space-y-4 p-6"
+        aria-busy="true"
+        aria-label="Loading practice session"
+      >
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-[28rem] w-full rounded-xl" />
       </div>
     );
   }
@@ -512,8 +518,13 @@ function UnlimitedPracticeEngine({
 
   if (loading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+      <div
+        className="space-y-4 p-6"
+        aria-busy="true"
+        aria-label="Loading questions"
+      >
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     );
   }

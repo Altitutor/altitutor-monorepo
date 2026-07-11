@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { UCAT_PROFILE_QUERY_KEY } from "@/features/layout/hooks/use-ucat-profile";
 import {
   UCAT_TOUR_REPLAY_OPTIONS,
@@ -125,17 +126,7 @@ export function SettingsAppPage() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="App settings"
-          description="Timezone, theme, and tours"
-          backHref="/settings"
-          backLabel="All settings"
-        />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   return (

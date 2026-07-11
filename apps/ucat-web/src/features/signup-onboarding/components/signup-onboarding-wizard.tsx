@@ -8,9 +8,15 @@ import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
 import { patchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
-import { markSignupOnboardingTourPending, markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
+import {
+  markSignupOnboardingTourPending,
+  markSignupJustCompleted,
+} from "@/features/signup-onboarding/lib/signup-tour-flag";
 import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
-import type { SignupOnboardingInitial, SignupOnboardingStep } from "@/features/signup-onboarding/types";
+import type {
+  SignupOnboardingInitial,
+  SignupOnboardingStep,
+} from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
@@ -25,7 +31,11 @@ type SignupOnboardingWizardProps = {
   initial: SignupOnboardingInitial;
 };
 
-function stepHeading(step: SignupOnboardingStep): { kicker: string; title: string; desc: string } {
+function stepHeading(step: SignupOnboardingStep): {
+  kicker: string;
+  title: string;
+  desc: string;
+} {
   switch (step) {
     case SIGNUP_STEP.DETAILS:
       return {
@@ -50,7 +60,9 @@ function stepHeading(step: SignupOnboardingStep): { kicker: string; title: strin
   }
 }
 
-export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps) {
+export function SignupOnboardingWizard({
+  initial,
+}: SignupOnboardingWizardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -62,6 +74,11 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   const [direction, setDirection] = useState(1);
   const [checkoutConfirming, setCheckoutConfirming] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [details, setDetails] = useState({
+    firstName: initial.firstName,
+    lastName: initial.lastName,
+    phone: initial.phone,
+  });
 
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +99,9 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
   useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (checkout === "canceled") {
-      setCheckoutMessage("Checkout cancelled — pick a plan or continue on Free.");
+      setCheckoutMessage(
+        "Checkout cancelled. Pick a plan or continue on Free.",
+      );
       goToStep(SIGNUP_STEP.PLAN, -1);
       router.replace("/signup/complete");
       return;
@@ -126,7 +145,13 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
         setError(e instanceof Error ? e.message : "Failed to confirm plan");
       }
     })();
-  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, navigateAfterSignupComplete]);
+  }, [
+    checkoutConfirming,
+    access.isLoading,
+    access.onlineTier,
+    queryClient,
+    navigateAfterSignupComplete,
+  ]);
 
   const finishOnboarding = async () => {
     setError(null);
@@ -170,7 +195,10 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         <motion.div
           layout={!reduceMotion}
-          transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.3,
+            ease: [0.22, 1, 0.36, 1],
+          }}
           className={cn(
             "w-full transition-[max-width] duration-300",
             isWideStep ? "max-w-5xl" : "max-w-md",
@@ -191,7 +219,9 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
                 >
                   {heading.title}
                 </h1>
-                <p className={`mt-2 text-marketing-cream/60 ${typo.secondarySans}`}>
+                <p
+                  className={`mt-2 text-marketing-cream/60 ${typo.secondarySans}`}
+                >
                   {heading.desc}
                 </p>
               </div>
@@ -207,10 +237,13 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
               {step === SIGNUP_STEP.DETAILS ? (
                 <SignupCompleteDetailsStep
                   email={initial.email}
-                  initialFirstName={initial.firstName}
-                  initialLastName={initial.lastName}
-                  initialPhone={initial.phone}
-                  onComplete={() => goToStep(SIGNUP_STEP.PASSWORD, 1)}
+                  initialFirstName={details.firstName}
+                  initialLastName={details.lastName}
+                  initialPhone={details.phone}
+                  onComplete={(savedDetails) => {
+                    setDetails(savedDetails);
+                    goToStep(SIGNUP_STEP.PASSWORD, 1);
+                  }}
                   error={error}
                   setError={setError}
                 />

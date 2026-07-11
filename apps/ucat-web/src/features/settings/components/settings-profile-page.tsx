@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAuth } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
@@ -168,17 +169,7 @@ export function SettingsProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="My profile"
-          description="Email, name, and password"
-          backHref="/settings"
-          backLabel="All settings"
-        />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   const pendingEmail = user?.new_email?.trim();

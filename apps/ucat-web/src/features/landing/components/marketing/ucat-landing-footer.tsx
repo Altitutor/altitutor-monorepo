@@ -15,7 +15,7 @@ export function UcatLandingFooter() {
         <div className="grid grid-cols-1 gap-12 border-b border-white/10 pb-16 md:grid-cols-4 md:gap-8">
           <div className="col-span-1 md:col-span-2">
             <h2 className={`text-3xl font-bold tracking-tight ${typo.headingSans}`}>
-              Alti UCAT
+              Alti UCAT Prep
             </h2>
             <p className={`mt-4 max-w-sm text-marketing-cream/60 ${typo.secondarySans}`}>
               Precision medical entry preparation powered by adaptive baseline
@@ -32,7 +32,7 @@ export function UcatLandingFooter() {
             <ul className={`space-y-4 text-marketing-cream/80 ${typo.secondarySans}`}>
               <li>
                 <Link href="/login" className="transition-colors hover:text-white">
-                  Portal Login
+                  Login
                 </Link>
               </li>
               <li>

@@ -2,13 +2,15 @@
 
 import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
-import { useProgress } from "../hooks/use-progress";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useSectionProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
+import { PracticeAttemptsCard } from "./practice-attempts-card";
 import {
   Card,
   CardContent,
@@ -39,6 +41,7 @@ import {
 import { formatUcatPercentile } from "../lib/percentiles";
 import { ProgressGraph } from "./progress-graph";
 import type {
+  ProgressResponse,
   SectionCategoryProgress,
   QuestionAttemptRow,
   SetAttemptRow,
@@ -54,7 +57,7 @@ export function SectionProgressPage({
   sectionNumber,
   mocksOnly = false,
 }: SectionProgressPageProps) {
-  const { data, isLoading, error } = useProgress();
+  const { data, isLoading, error } = useSectionProgress(sectionNumber);
   const projectionQuery = useScoreProjection(!mocksOnly);
   const progressMode = useProgressMode();
   const backHref = mocksOnly ? "/progress/mocks" : "/progress";
@@ -151,19 +154,7 @@ export function SectionProgressPage({
   }, [filteredData, sectionId, progressMode]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Loading..."
-          backHref={backHref}
-          backLabel={backLabel}
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="h-48 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
-        </div>
-      </div>
-    );
+    return <AppPageSkeleton />;
   }
 
   if (error) {
@@ -233,6 +224,7 @@ export function SectionProgressPage({
       }
       filteredQuestionAttempts={filteredQuestionAttempts}
       filteredSetAttempts={filteredSetAttempts}
+      practiceAttempts={filteredData?.practiceAttempts ?? []}
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
@@ -254,6 +246,7 @@ function SectionProgressContent({
   totalPublicTimedSets,
   filteredQuestionAttempts,
   filteredSetAttempts,
+  practiceAttempts,
   categoryProgress,
   progressMode,
   sharedDateRange,
@@ -271,6 +264,7 @@ function SectionProgressContent({
   totalPublicTimedSets?: number;
   filteredQuestionAttempts: QuestionAttemptRow[];
   filteredSetAttempts: SetAttemptRow[];
+  practiceAttempts: NonNullable<ProgressResponse["practiceAttempts"]>;
   categoryProgress: SectionCategoryProgress[];
   progressMode: ReturnType<typeof useProgressMode>;
   sharedDateRange?: ReturnType<typeof getSharedDateRange>;
@@ -613,6 +607,13 @@ function SectionProgressContent({
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
       />
+      {!mocksOnly ? (
+        <PracticeAttemptsCard
+          attempts={practiceAttempts}
+          mode={progressMode.mode}
+          timeFrameDays={progressMode.timeFrameDays}
+        />
+      ) : null}
       <SetAttemptsCard
         attempts={filteredSetAttempts}
         mode={progressMode.mode}

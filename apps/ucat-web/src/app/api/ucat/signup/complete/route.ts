@@ -239,14 +239,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error: newsletterError } = await supabaseAdmin
-    .from("newsletter_subscribers")
-    .update({
-      student_id: studentId,
-      updated_at: new Date().toISOString(),
-    })
-    .ilike("email", email)
-    .is("student_id", null);
+  const [{ error: newsletterError }] = await Promise.all([
+    supabaseAdmin
+      .from("newsletter_subscribers")
+      .update({
+        student_id: studentId,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", email)
+      .is("student_id", null),
+    supabase.auth.updateUser({
+      data: { first_name: firstName, last_name: lastName },
+    }),
+  ]);
 
   if (newsletterError) {
     console.warn(
@@ -254,11 +259,5 @@ export async function POST(request: NextRequest) {
       newsletterError,
     );
   }
-
-  // Sync name to Supabase auth metadata
-  await supabase.auth.updateUser({
-    data: { first_name: firstName, last_name: lastName },
-  });
-
   return NextResponse.json({ success: true });
 }

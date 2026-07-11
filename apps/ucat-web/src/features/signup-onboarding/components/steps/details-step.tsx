@@ -8,6 +8,7 @@ import {
   validateOptionalPhoneE164,
 } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
+import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -25,7 +26,11 @@ type SignupCompleteDetailsStepProps = {
   initialFirstName: string;
   initialLastName: string;
   initialPhone: string;
-  onComplete: () => void;
+  onComplete: (details: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+  }) => void;
   error: string | null;
   setError: (value: string | null) => void;
 };
@@ -97,7 +102,11 @@ export function SignupCompleteDetailsStep({
         return;
       }
 
-      onComplete();
+      onComplete({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        phone: phoneResult.phone ?? "",
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -199,7 +208,11 @@ export function SignupCompleteDetailsStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+        className={cn(
+          UCAT_ACCENT_FILL_RISE,
+          "w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50",
+          typo.headingSans,
+        )}
       >
         {isSubmitting ? "Saving…" : "Next"}
       </button>

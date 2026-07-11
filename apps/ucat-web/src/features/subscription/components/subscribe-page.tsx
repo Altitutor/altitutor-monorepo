@@ -69,7 +69,7 @@ export function SubscribePage() {
           <span
             className={`text-xs font-bold uppercase tracking-[0.25em] text-marketing-primary ${typo.dataMono}`}
           >
-            Alti UCAT Online Platform
+            Alti UCAT Prep
           </span>
           <h1
             className={`mt-4 text-5xl font-bold leading-tight text-marketing-charcoal sm:text-6xl md:text-7xl ${typo.headingSans}`}

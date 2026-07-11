@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
-import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
+import { Badge, ListToolbar, Skeleton, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
 import {
@@ -64,7 +63,6 @@ export function MyGeneratedSetsList({
   initialFilters,
   scrollToSetId,
 }: MyGeneratedSetsListProps = {}) {
-  const queryClient = useQueryClient();
   const { data: sets, isLoading, error } = useSets();
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds();
   const [search, setSearch] = useState("");
@@ -81,10 +79,6 @@ export function MyGeneratedSetsList({
   );
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ["ucat", "attempted-set-ids"] });
-  }, [queryClient]);
 
   useEffect(() => {
     if (initialFilters?.sectionNumber != null || initialFilters?.attempted) {
@@ -148,8 +142,9 @@ export function MyGeneratedSetsList({
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">My generated sets</h2>
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <Skeleton className="h-7 w-44" />
+        <Skeleton className="h-11 w-full rounded-lg" />
+        <Skeleton className="h-56 w-full rounded-xl" />
       </section>
     );
   }

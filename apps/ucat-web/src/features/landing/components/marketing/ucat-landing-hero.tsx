@@ -51,15 +51,12 @@ export function UcatLandingHero() {
         <div
           className="pointer-events-none shrink-0"
           style={{
-            height:
-              "calc(6.25rem + env(safe-area-inset-top, 0px))",
+            height: "calc(6.25rem + env(safe-area-inset-top, 0px))",
           }}
           aria-hidden
         />
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
-          <div
-            className="mx-auto flex w-full max-w-7xl min-h-[calc(100dvh-6.25rem-env(safe-area-inset-top,0px))] flex-col justify-end px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] sm:px-8 sm:pb-10 md:pb-16 lg:pb-24"
-          >
+        <div className="min-h-0 flex-1 overflow-x-clip">
+          <div className="mx-auto flex w-full max-w-7xl min-h-[calc(100dvh-6.25rem-env(safe-area-inset-top,0px))] flex-col justify-end px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] sm:px-8 sm:pb-10 md:pb-16 lg:pb-24">
             <h1 className="flex flex-col gap-1 text-left sm:gap-2">
               <span
                 className={`hero-text text-lg font-bold uppercase tracking-[0.2em] text-marketing-accent sm:text-xl md:text-2xl ${typo.headingSans}`}

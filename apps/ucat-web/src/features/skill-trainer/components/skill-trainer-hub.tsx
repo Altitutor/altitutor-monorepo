@@ -38,10 +38,12 @@ export function SkillTrainerHub() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Skill trainer"
-        description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
-      />
+      <div id="tour-skill-trainer-page">
+        <UcatPageHeader
+          title="Skill trainer"
+          description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
+        />
+      </div>
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -53,6 +55,12 @@ export function SkillTrainerHub() {
 
       {error ? (
         <p className="text-sm text-destructive">Failed to load skill trainers.</p>
+      ) : null}
+
+      {!isLoading && !error && sections.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No skill trainers are currently available.
+        </p>
       ) : null}
 
       {sections.map((section) => (

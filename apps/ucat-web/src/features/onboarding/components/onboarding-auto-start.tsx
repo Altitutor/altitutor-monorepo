@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { useAuth } from "@/features/auth";
 import {
+  getFirstSelectorForTour,
   getTourForPathname,
   UCAT_ONBOARDING_TOUR,
 } from "@/features/onboarding/config/tour-steps";
@@ -57,9 +58,22 @@ export function OnboardingAutoStart() {
     if (window.matchMedia("(max-width: 767px)").matches) return;
 
     lastStartedRef.current = tourId;
-    const timer = window.setTimeout(() => {
-      startNextStep(tourId);
-    }, 600);
+    const firstSelector = getFirstSelectorForTour(tourId);
+    let attempts = 0;
+    let timer: number;
+
+    const startWhenReady = () => {
+      if (!firstSelector || document.querySelector(firstSelector)) {
+        startNextStep(tourId);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 50) {
+        timer = window.setTimeout(startWhenReady, 100);
+      }
+    };
+
+    timer = window.setTimeout(startWhenReady, 600);
 
     return () => window.clearTimeout(timer);
   }, [

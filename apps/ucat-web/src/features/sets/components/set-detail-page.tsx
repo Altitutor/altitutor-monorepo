@@ -4,6 +4,7 @@ import { useId, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
@@ -106,22 +107,7 @@ export function SetDetailPage({
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Set"
-          description="Practice question set details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Set",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">Loading set...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {

@@ -20,7 +20,9 @@ export function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sessionState, setSessionState] = useState<"loading" | "valid" | "invalid">("loading");
+  const [sessionState, setSessionState] = useState<
+    "loading" | "valid" | "invalid"
+  >("loading");
 
   useEffect(() => {
     void (async () => {
@@ -88,18 +90,21 @@ export function ResetPasswordForm() {
     return (
       <div
         className={cn(
-          "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+          "auth-feedback-entrance space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm",
           typo.secondarySans,
         )}
       >
-        <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+        <p
+          className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
           {error ??
             "Invalid or expired reset session. Please request a new password reset."}
         </p>
         <Button
           asChild
           className={cn(
-            "h-auto w-full rounded-full py-3.5 text-base font-semibold",
+            "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
             typo.headingSans,
           )}
           size="lg"
@@ -122,12 +127,15 @@ export function ResetPasswordForm() {
     <form
       onSubmit={onSubmit}
       className={cn(
-        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+        "auth-feedback-entrance space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm",
         typo.secondarySans,
       )}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="new-password" className="text-sm font-medium text-foreground/90">
+        <Label
+          htmlFor="new-password"
+          className="text-sm font-medium text-foreground/90"
+        >
           New password
         </Label>
         <Input
@@ -142,7 +150,10 @@ export function ResetPasswordForm() {
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="confirm-password" className="text-sm font-medium text-foreground/90">
+        <Label
+          htmlFor="confirm-password"
+          className="text-sm font-medium text-foreground/90"
+        >
           Confirm password
         </Label>
         <Input
@@ -157,7 +168,10 @@ export function ResetPasswordForm() {
         />
       </div>
       {error ? (
-        <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+        <p
+          className="auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -165,7 +179,7 @@ export function ResetPasswordForm() {
         type="submit"
         disabled={isSubmitting}
         className={cn(
-          "h-auto w-full rounded-full py-3.5 text-base font-semibold",
+          "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
           typo.headingSans,
         )}
         size="lg"

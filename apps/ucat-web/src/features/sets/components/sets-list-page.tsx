@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
 import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
 import { filterSets, type StudentSetRow } from "@/features/sets/api/sets-api";
 import {
@@ -16,6 +16,7 @@ import { recordToSetsFilters } from "@/features/sets/lib/filter-adapters";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
+import { isSetGeneratorEnabled } from "@/lib/feature-flags";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   UCAT_LIST_ROW_LINK,
@@ -57,7 +58,6 @@ function formatTimeLimit(seconds: number | null): string {
 export function SetsListPage({
   sectionNumber: sectionNumberProp,
 }: SetsListPageProps = {}) {
-  const queryClient = useQueryClient();
   const { data: sets, isLoading, error } = useSets();
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds();
   const [search, setSearch] = useState("");
@@ -65,9 +65,6 @@ export function SetsListPage({
     () => ({}) as Record<string, unknown[]>,
   );
 
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ["ucat", "attempted-set-ids"] });
-  }, [queryClient]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -114,11 +111,15 @@ export function SetsListPage({
     setPage(0);
   }, []);
 
+  const setGeneratorEnabled = isSetGeneratorEnabled();
+
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
     const defs: DataTableFilterDefinition[] = [
       { key: "timed", label: "Timing", options: TIMED_OPTIONS },
-      { key: "source", label: "Source", options: SOURCE_OPTIONS },
     ];
+    if (setGeneratorEnabled) {
+      defs.push({ key: "source", label: "Source", options: SOURCE_OPTIONS });
+    }
     if (sectionNumberProp == null) {
       defs.push({
         key: "sectionNumber",
@@ -133,7 +134,7 @@ export function SetsListPage({
       });
     }
     return defs;
-  }, [sectionNumberProp]);
+  }, [sectionNumberProp, setGeneratorEnabled]);
 
   const sectionTitle =
     sectionNumberProp != null
@@ -151,26 +152,19 @@ export function SetsListPage({
       : {};
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
-        <p className="text-sm text-muted-foreground">Loading sets...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="list" />;
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
+        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+          <UcatPageHeader
+            title={pageTitle}
+            description={pageDescription}
+            {...backProps}
+          />
+        </div>
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load sets"}
         </p>
@@ -181,11 +175,13 @@ export function SetsListPage({
   if (!sets || sets.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
+        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+          <UcatPageHeader
+            title={pageTitle}
+            description={pageDescription}
+            {...backProps}
+          />
+        </div>
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
     );
@@ -193,12 +189,14 @@ export function SetsListPage({
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title={pageTitle}
-        description={pageDescription}
-        backHref={sectionNumberProp != null ? "/sets" : undefined}
-        backLabel={sectionNumberProp != null ? "Back to sets" : undefined}
-      />
+      <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+        <UcatPageHeader
+          title={pageTitle}
+          description={pageDescription}
+          backHref={sectionNumberProp != null ? "/sets" : undefined}
+          backLabel={sectionNumberProp != null ? "Back to sets" : undefined}
+        />
+      </div>
       <div className="space-y-4">
         <ListToolbar
           search={search}

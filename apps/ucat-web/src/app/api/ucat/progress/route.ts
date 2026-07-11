@@ -28,7 +28,24 @@ export type {
   SectionCategoryProgress,
 } from "@altitutor/shared";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const sectionNumberParam = new URL(request.url).searchParams.get(
+    "sectionNumber",
+  );
+  const sectionNumber =
+    sectionNumberParam == null ? null : Number(sectionNumberParam);
+  if (
+    sectionNumberParam != null &&
+    (!Number.isInteger(sectionNumber) ||
+      sectionNumber! < 1 ||
+      sectionNumber! > 4)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid section number" },
+      { status: 400 },
+    );
+  }
+
   const supabase = await getSupabaseServerClient();
 
   const {
@@ -48,6 +65,17 @@ export async function GET() {
   // Wave 1: all queries here are independent and can run in parallel. They
   // collectively determine the IDs/sections needed by wave 2.
   // ---------------------------------------------------------------------------
+  const questionAttemptsQuery = supabase
+    .from("vstudent_ucat_my_question_attempts")
+    .select(
+      "id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
+    )
+    .eq("is_submitted", true);
+  const sectionsQuery = supabase
+    .from("vstudent_ucat_sections")
+    .select("id, name, section_number")
+    .order("section_number");
+
   const [
     questionAttemptsRes,
     sectionsRes,
@@ -57,27 +85,23 @@ export async function GET() {
     totalPublicMocksRes,
     publicSetsRes,
   ] = await Promise.all([
-    supabase
-      .from("vstudent_ucat_my_question_attempts")
-      .select(
-        "id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
-      )
-      .eq("is_submitted", true),
-    supabase
-      .from("vstudent_ucat_sections")
-      .select("id, name, section_number")
-      .order("section_number"),
+    sectionNumber == null
+      ? questionAttemptsQuery
+      : questionAttemptsQuery.eq("section_number", sectionNumber),
+    sectionNumber == null
+      ? sectionsQuery
+      : sectionsQuery.eq("section_number", sectionNumber),
     supabase
       .from("vstudent_ucat_my_set_attempts")
-      .select("*")
+      .select(
+        "id, attempted_at, completed_at, question_set_id, student_ucat_mock_attempt_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, student_set_speed, student_exam_speed, was_timed",
+      )
       .not("completed_at", "is", null),
     supabase
       .from("vstudent_ucat_my_mock_attempts")
       .select("id, attempted_at, completed_at, ucat_mock_id")
       .not("completed_at", "is", null),
-    (
-      supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
-    )
+    (supabase as { from: (t: string) => ReturnType<typeof supabase.from> })
       .from("vstudent_ucat_my_practice_sessions")
       .select(
         "id, started_at, completed_at, ucat_section_id, section_name, score_points, total_points, question_count, unlimited",
@@ -85,7 +109,7 @@ export async function GET() {
       .not("completed_at", "is", null),
     supabase
       .from("vstudent_ucat_mocks")
-      .select("*", { count: "exact", head: true }),
+      .select("id", { count: "exact", head: true }),
     supabase
       .from("vstudent_ucat_question_sets")
       .select("id, sections, is_student_generated, time_limit_seconds")
@@ -98,6 +122,8 @@ export async function GET() {
   }
 
   const { data: sections } = sectionsRes;
+  const scopedSectionId =
+    sectionNumber == null ? null : (sections?.[0]?.id ?? null);
 
   const { data: setAttemptsRaw, error: setError } = setAttemptsRes;
   if (setError) {
@@ -302,16 +328,14 @@ export async function GET() {
     ]);
 
   const { data: setDetails } = setDetailsRes as {
-    data:
-      | Array<{
-          id: string;
-          name: unknown;
-          time_limit_seconds: number | null;
-          time_limit_at_exam_speed_seconds: number | null;
-          sections: unknown;
-          is_student_generated: boolean | null;
-        }>
-      | null;
+    data: Array<{
+      id: string;
+      name: unknown;
+      time_limit_seconds: number | null;
+      time_limit_at_exam_speed_seconds: number | null;
+      sections: unknown;
+      is_student_generated: boolean | null;
+    }> | null;
   };
 
   const timeLimitBySetId = new Map(
@@ -451,13 +475,11 @@ export async function GET() {
   }
   // categoriesData fetched in wave 2
   const { data: categoriesData } = categoriesRes as {
-    data:
-      | Array<{
-          id: string | null;
-          name: string | null;
-          ucat_section_id: string | null;
-        }>
-      | null;
+    data: Array<{
+      id: string | null;
+      name: string | null;
+      ucat_section_id: string | null;
+    }> | null;
   };
 
   const categoriesBySection = new Map<string, { id: string; name: string }[]>();
@@ -706,11 +728,37 @@ export async function GET() {
     }
   }
 
+  const responseSetAttempts =
+    sectionNumber == null
+      ? setAttempts
+      : scopedSectionId == null
+        ? []
+        : setAttempts.filter(
+            (attempt) => attempt.sectionId === scopedSectionId,
+          );
+  const responsePracticeAttempts =
+    sectionNumber == null
+      ? practiceAttempts
+      : scopedSectionId == null
+        ? []
+        : practiceAttempts.filter(
+            (attempt) => attempt.ucatSectionId === scopedSectionId,
+          );
+  const scopedMockAttemptIds = new Set(
+    responseSetAttempts
+      .map((attempt) => attempt.studentUcatMockAttemptId)
+      .filter((id): id is string => id != null),
+  );
+  const responseMockAttempts =
+    sectionNumber == null
+      ? mockAttempts
+      : mockAttempts.filter((attempt) => scopedMockAttemptIds.has(attempt.id));
+
   return NextResponse.json({
     sectionProgress,
-    setAttempts,
-    mockAttempts,
-    practiceAttempts,
+    setAttempts: responseSetAttempts,
+    mockAttempts: responseMockAttempts,
+    practiceAttempts: responsePracticeAttempts,
     questionAttempts,
     sectionCategoryProgress,
     totalPublicMocks: totalPublicMocks ?? 0,

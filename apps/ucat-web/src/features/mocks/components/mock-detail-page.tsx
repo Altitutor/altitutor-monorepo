@@ -4,6 +4,7 @@ import { useId, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import type {
   MockAttemptSectionScore,
   MockAttemptWithBreakdown,
@@ -75,22 +76,7 @@ export function MockDetailPage({
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Mock"
-          description="Full-length UCAT mock exam details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildMockBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Mock",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">Loading mock...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {

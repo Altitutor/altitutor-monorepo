@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  *   width (~14rem) so it stays on-screen. Detected via selector since some
  *   other steps also use the fixed viewport (e.g. the progress toolbar) but
  *   have a wide anchor and don't need narrowing.
- * - No max-height / internal scroll — vertical placement is handled in
+ * - No max-height / internal scroll. Vertical placement is handled in
  *   `tour-steps.tsx` (`top` / `bottom` vs `right` for sidebar steps).
  */
 const SIDEBAR_NAV_SELECTOR_PATTERN = /^(#ucat-onboarding-welcome|\[data-tour='nav-)/;
@@ -55,7 +55,10 @@ export function OnboardingCard({
 
       <div className="flex items-start gap-3">
         {step.icon ? (
-          <span className="text-2xl leading-none" aria-hidden>
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            aria-hidden
+          >
             {step.icon}
           </span>
         ) : null}

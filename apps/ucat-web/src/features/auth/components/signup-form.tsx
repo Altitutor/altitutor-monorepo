@@ -8,6 +8,7 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
 import { authFormFieldClass } from "@/features/auth/lib/auth-form-field-class";
+import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -40,14 +41,21 @@ async function subscribeToNewsletter(email: string): Promise<void> {
       body: JSON.stringify({ email, source: "ucat_signup" }),
     });
     if (!response.ok) {
-      console.warn("[signup] Failed to save newsletter preference:", response.status);
+      console.warn(
+        "[signup] Failed to save newsletter preference:",
+        response.status,
+      );
     }
   } catch (error) {
     console.warn("[signup] Failed to save newsletter preference:", error);
   }
 }
 
-export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string }) {
+export function SignupForm({
+  redirectTo = "/subscribe",
+}: {
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
@@ -223,7 +231,10 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         {formState === "submitted" ? (
-          <div key="submitted" className="auth-entrance w-full max-w-md text-center">
+          <div
+            key="submitted"
+            className="auth-entrance w-full max-w-md text-center"
+          >
             <div className="mb-6 flex items-center justify-center">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15">
                 <svg
@@ -242,18 +253,24 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               </span>
             </div>
             <h2
-              className={cn("mb-3 text-3xl font-bold text-foreground", typo.headingSans)}
+              className={cn(
+                "mb-3 text-3xl font-bold text-foreground",
+                typo.headingSans,
+              )}
             >
               Check your inbox
             </h2>
             <p className={cn("text-muted-foreground", typo.secondarySans)}>
               We&apos;ve sent a confirmation email to{" "}
-              <span className="font-medium text-foreground">{submittedEmail}</span>.
+              <span className="font-medium text-foreground">
+                {submittedEmail}
+              </span>
+              .
             </p>
             <form
               onSubmit={onVerifyOtp}
               className={cn(
-                "mt-10 space-y-4 rounded-2xl border border-border bg-card p-6 text-left text-card-foreground",
+                "mt-10 space-y-4 rounded-2xl border border-border bg-card p-6 text-left text-card-foreground shadow-sm",
                 typo.secondarySans,
               )}
             >
@@ -268,7 +285,9 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                   autoComplete="one-time-code"
                   maxLength={12}
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="000000"
                   disabled={otpSubmitting}
                   className={`text-center font-mono text-lg tracking-[0.4em] ${authFormFieldClass}`}
@@ -283,14 +302,20 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 type="submit"
                 disabled={otpSubmitting || otpCode.length !== 6}
                 className={cn(
-                  "w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40",
+                  UCAT_ACCENT_FILL_RISE,
+                  "auth-submit w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40",
                   typo.secondarySans,
                 )}
               >
                 {otpSubmitting ? "Verifying…" : "Continue with code"}
               </button>
             </form>
-            <p className={cn("mt-4 text-sm text-muted-foreground", typo.secondarySans)}>
+            <p
+              className={cn(
+                "mt-4 text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
+            >
               Didn&apos;t receive it? Check your spam folder
               {resendCooldown > 0 ? (
                 <>
@@ -332,7 +357,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                   typo.dataMono,
                 )}
               >
-                Alti UCAT
+                Alti UCAT Prep
               </span>
               <h1
                 className={cn(
@@ -341,21 +366,23 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 )}
               >
                 Start with{" "}
-                <span className={`italic text-muted-foreground ${typo.dramaSerif}`}>
+                <span
+                  className={`italic text-muted-foreground ${typo.dramaSerif}`}
+                >
                   UCAT Free
                 </span>
               </h1>
-              <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>
-                Create your account, then choose UCAT Free or try UCAT Unlimited
-                free
-                for 7 days.
+              <p
+                className={cn("mt-3 text-muted-foreground", typo.secondarySans)}
+              >
+                Create your account for free by entering your email below.
               </p>
             </div>
 
             <form
               onSubmit={onSubmit}
               className={cn(
-                "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+                "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm",
                 typo.secondarySans,
               )}
             >
@@ -410,7 +437,9 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               </label>
 
               {errorMessage ? (
-                <p className={`rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive ${typo.secondarySans}`}>
+                <p
+                  className={`auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive ${typo.secondarySans}`}
+                >
                   {errorMessage}
                 </p>
               ) : null}
@@ -419,7 +448,8 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 type="submit"
                 disabled={isSubmitting || !email.trim()}
                 className={cn(
-                  "w-full rounded-full bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
+                  UCAT_ACCENT_FILL_RISE,
+                  "auth-submit w-full rounded-full bg-primary py-3.5 text-base font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50",
                   typo.headingSans,
                 )}
               >
@@ -428,7 +458,10 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
             </form>
 
             <p
-              className={cn("mt-6 text-center text-sm text-muted-foreground", typo.secondarySans)}
+              className={cn(
+                "mt-6 text-center text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
             >
               Already have an account?{" "}
               <Link

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import {
   useAttemptedMockIds,
   useMocks,
@@ -86,24 +87,18 @@ export function MocksListPage() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Mocks"
-          description="Full-length UCAT mock exams."
-        />
-        <p className="text-sm text-muted-foreground">Loading mocks...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="list" />;
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title="Mocks"
-          description="Full-length UCAT mock exams."
-        />
+        <div id="tour-mocks-page">
+          <UcatPageHeader
+            title="Mocks"
+            description="Full-length UCAT mock exams."
+          />
+        </div>
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load mocks"}
         </p>
@@ -114,10 +109,12 @@ export function MocksListPage() {
   if (!mocks || mocks.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title="Mocks"
-          description="Full-length UCAT mock exams."
-        />
+        <div id="tour-mocks-page">
+          <UcatPageHeader
+            title="Mocks"
+            description="Full-length UCAT mock exams."
+          />
+        </div>
         <p className="text-sm text-muted-foreground">No mocks available.</p>
       </div>
     );
@@ -125,10 +122,12 @@ export function MocksListPage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Mocks"
-        description="Choose a mock to start the exam (first set)."
-      />
+      <div id="tour-mocks-page">
+        <UcatPageHeader
+          title="Mocks"
+          description="Choose a mock to start the exam (first set)."
+        />
+      </div>
       <div className="space-y-4">
         <ListToolbar
           search={search}

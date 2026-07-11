@@ -1,223 +1,138 @@
 import type { Tour } from "nextstepjs";
+import {
+  BookOpen,
+  BrainCircuit,
+  CalendarDays,
+  LayoutDashboard,
+  ListChecks,
+  NotebookText,
+  Settings,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 
-/**
- * Fixed full-viewport mount for nextstepjs when highlighting `position: fixed`
- * sidebar items. Without this, the default body portal scrolls with the page
- * while the sidebar stays pinned, so the spotlight drifts.
- *
- * @see https://nextstepjs.com/docs/nextjs/tour-steps — `viewportID`
- */
 export const UCAT_NEXTSTEP_FIXED_VIEWPORT_ID = "ucat-nextstep-fixed-viewport";
 
-/** Tour identifiers — keep stable; bump versions in `storage.ts` to re-show. */
 export const UCAT_ONBOARDING_TOUR = "ucat-welcome";
-export const UCAT_PRACTICE_TOUR = "ucat-practice-intro";
 export const UCAT_PROGRESS_TOUR = "ucat-progress-intro";
+export const UCAT_LEARN_TOUR = "ucat-learn-intro";
+export const UCAT_SESSIONS_TOUR = "ucat-sessions-intro";
+export const UCAT_SKILL_TRAINER_TOUR = "ucat-skill-trainer-intro";
+export const UCAT_PRACTICE_TOUR = "ucat-practice-intro";
+export const UCAT_SECTION_SETS_TOUR = "ucat-section-sets-intro";
+export const UCAT_MOCKS_TOUR = "ucat-mocks-intro";
+
+const iconClassName = "h-5 w-5";
+const fixedViewport = { viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID } as const;
+const standardStep = {
+  showControls: true,
+  showSkip: true,
+  pointerPadding: 8,
+  pointerRadius: 12,
+} as const;
 
 const welcomeTour: Tour = {
   tour: UCAT_ONBOARDING_TOUR,
   steps: [
     {
-      icon: <>👋</>,
-      title: "Welcome to UCAT prep",
+      icon: <LayoutDashboard className={iconClassName} />,
+      title: "Start from the dashboard",
       content: (
         <p>
-          Let&apos;s take a quick tour so you know where everything lives. You
-          can replay it any time from Settings.
-        </p>
-      ),
-      selector: "#ucat-onboarding-welcome",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      // Logo is flush to the top of the sidebar: plain `right` vertically
-      // centres the card and clips above the viewport. Do **not** use
-      // `right-top` / `right-bottom` here — nextstepjs `checkSideCutOff` treats
-      // any side string containing "top" or "bottom" as a vertical hint and
-      // can replace `right-top` with `right-bottom` when y < 256px, which
-      // inverts arrow placement (arrow ends up on the wrong edge of the
-      // card). `bottom` places the card *below* the logo with the arrow on the
-      // top edge of the card pointing up — stable and matches the docs.
-      side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 14,
-    },
-    {
-      icon: <>🏠</>,
-      title: "Dashboard",
-      content: (
-        <p>
-          Your home base — quick stats, your next session, and shortcuts to
-          every tool.
+          The dashboard brings together your next class, recent work, and the
+          areas you can continue. Use the sidebar whenever you want to switch
+          tasks.
         </p>
       ),
       selector: "[data-tour='nav-dashboard']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>📈</>,
-      title: "Progress",
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Review completed work",
       content: (
         <p>
-          Section-by-section accuracy, every question attempt, and every mock —
-          all in one place.
+          Progress shows your results across practice questions, sets, and
+          mocks. Return here to decide what needs more work.
         </p>
       ),
       selector: "[data-tour='nav-progress']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>📚</>,
-      title: "Learn",
+      icon: <BookOpen className={iconClassName} />,
+      title: "Learn before you practise",
       content: (
         <p>
-          Study notes and worked examples covering the theory behind each UCAT
-          section.
+          Learn contains the course material. Sessions, directly below it,
+          holds resources linked to your classes.
         </p>
       ),
       selector: "[data-tour='nav-learn']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>🧠</>,
-      title: "Practice questions",
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Choose how to practise",
       content: (
         <p>
-          Drill individual questions — timed or untimed — and build the stamina
-          UCAT day demands.
+          Skill trainer focuses on one skill at a time. Practice questions lets
+          you build a filtered question session with your own timing.
         </p>
       ),
       selector: "[data-tour='nav-practice']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>🗂️</>,
-      title: "Sets",
+      icon: <ListChecks className={iconClassName} />,
+      title: "Work through sets",
       content: (
         <p>
-          Curated question sets by section, plus a generator if you want a
-          custom mix.
+          Sets group questions into section-based practice. Open Sets, choose a
+          UCAT section, then select the set you want to attempt.
         </p>
       ),
       selector: "[data-tour='nav-sets']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>📝</>,
-      title: "Mocks",
+      icon: <NotebookText className={iconClassName} />,
+      title: "Use mocks for exam practice",
       content: (
         <p>
-          Full-length, exam-style mocks. Recommended once you&apos;re
-          comfortable in Practice.
+          Mocks combine multiple sets into an exam-style attempt. Open one when
+          you want to practise the full sequence.
         </p>
       ),
       selector: "[data-tour='nav-mocks']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      // Near the bottom of the viewport: `right-bottom` is flipped to
-      // `right-top` by nextstepjs when the target sits low, which misplaces the
-      // arrow. `top` keeps the card above the row with the arrow on the bottom
-      // edge of the card pointing down.
+      ...fixedViewport,
       side: "top",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>⚙️</>,
-      title: "Settings",
+      icon: <Settings className={iconClassName} />,
+      title: "Replay a guide",
       content: (
         <p>
-          Manage your timezone and preferences. You can replay any tour from
-          here at any time.
+          Settings includes App tours. Use it if you want to see this guide or
+          a page guide again.
         </p>
       ),
       selector: "[data-tour='nav-settings']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      ...fixedViewport,
       side: "top",
-      showControls: true,
+      ...standardStep,
       showSkip: false,
-      pointerPadding: 4,
-      pointerRadius: 10,
-    },
-  ],
-};
-
-const practiceTour: Tour = {
-  tour: UCAT_PRACTICE_TOUR,
-  steps: [
-    {
-      icon: <>🧠</>,
-      title: "Practice your way",
-      content: (
-        <p>
-          Practice lets you drill questions stem-by-stem with instant feedback.
-          A quick tour of the controls 👇
-        </p>
-      ),
-      selector: "#tour-practice-header",
-      side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
-    },
-    {
-      icon: <>🎯</>,
-      title: "Pick your filters",
-      content: (
-        <p>
-          Choose a UCAT section, narrow by topic, and set your time controls.
-          You can also filter by past performance to retry weak spots.
-        </p>
-      ),
-      selector: "#tour-practice-filters",
-      side: "top",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
-    },
-    {
-      icon: <>🚀</>,
-      title: "Hit start",
-      content: (
-        <p>
-          When the preview looks right, start a session. Your attempts are
-          saved automatically and show up in Progress.
-        </p>
-      ),
-      selector: "[data-tour='practice-start']",
-      side: "top",
-      showControls: true,
-      showSkip: false,
-      pointerPadding: 8,
-      pointerRadius: 12,
     },
   ],
 };
@@ -226,70 +141,200 @@ const progressTour: Tour = {
   tour: UCAT_PROGRESS_TOUR,
   steps: [
     {
-      icon: <>📊</>,
-      title: "Your Progress hub",
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Review your progress",
       content: (
         <p>
-          Everything you&apos;ve attempted is summarised here — by section, by
-          attempt, and over time.
+          This page summarises the work you have completed and how your results
+          change over time.
         </p>
       ),
       selector: "#tour-progress-header",
       side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
+      ...standardStep,
     },
     {
-      icon: <>🔭</>,
-      title: "Switch the lens",
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Change the view",
       content: (
         <p>
-          Use the mode selector to filter by time frame or by attempt type
-          (practice / set / mock). The cards below react to your choice.
+          Use these controls to change the time period or attempt type. The
+          results on the page update to match your selection.
         </p>
       ),
       selector: "#tour-progress-mode",
-      /**
-       * The mode toolbar is `position: fixed` at the bottom of the viewport.
-       * Without `viewportID`, the overlay portals into the document body —
-       * its origin then shifts with page scroll, so the spotlight drifts away
-       * from the fixed toolbar. Anchoring to the fixed overlay container keeps
-       * the spotlight pinned to the toolbar exactly (same trick we use for the
-       * sidebar steps).
-       */
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      /** Toolbar is fixed at the bottom — place the card above it (not below the fold). */
+      ...fixedViewport,
       side: "top",
-      showControls: true,
+      ...standardStep,
       showSkip: false,
-      pointerPadding: 8,
-      pointerRadius: 12,
     },
   ],
 };
 
-/** Flat list passed to `<NextStep>`. */
+const learnTour: Tour = {
+  tour: UCAT_LEARN_TOUR,
+  steps: [
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Choose a learning module",
+      content: (
+        <p>
+          Modules are grouped by UCAT section. Open a topic to work through its
+          lessons and examples, then return here to continue.
+        </p>
+      ),
+      selector: "#tour-learn-page",
+      side: "bottom",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const sessionsTour: Tour = {
+  tour: UCAT_SESSIONS_TOUR,
+  steps: [
+    {
+      icon: <CalendarDays className={iconClassName} />,
+      title: "Find your class resources",
+      content: (
+        <p>
+          Sessions are ordered by date. After a class has run, open it to find
+          the sets, mocks, and other resources linked by your tutor.
+        </p>
+      ),
+      selector: "#tour-sessions-page",
+      side: "bottom",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const skillTrainerTour: Tour = {
+  tour: UCAT_SKILL_TRAINER_TOUR,
+  steps: [
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Practise one skill at a time",
+      content: (
+        <p>
+          Trainers are grouped by UCAT section. Choose the specific skill you
+          want to improve, then start its short timed drill.
+        </p>
+      ),
+      selector: "#tour-skill-trainer-page",
+      side: "bottom",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const practiceTour: Tour = {
+  tour: UCAT_PRACTICE_TOUR,
+  steps: [
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Build a practice session",
+      content: (
+        <p>
+          Choose the section, topics, number of questions, and timing that fit
+          what you want to practise today.
+        </p>
+      ),
+      selector: "#tour-practice-filters",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Start when the setup is ready",
+      content: (
+        <p>
+          Start practice opens the session using your selected filters. Each
+          attempt is saved to Progress automatically.
+        </p>
+      ),
+      selector: "[data-tour='practice-start']",
+      side: "top",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const sectionSetsTour: Tour = {
+  tour: UCAT_SECTION_SETS_TOUR,
+  steps: [
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Choose a section set",
+      content: (
+        <p>
+          This list contains sets for the section you selected. Search or
+          filter the list, then open a set to review its timing before starting.
+        </p>
+      ),
+      selector: "#tour-section-sets-page",
+      side: "bottom",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const mocksTour: Tour = {
+  tour: UCAT_MOCKS_TOUR,
+  steps: [
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Choose a mock exam",
+      content: (
+        <p>
+          Open a mock to review its sections and timing before you begin. Your
+          completed attempt will be available in Progress.
+        </p>
+      ),
+      selector: "#tour-mocks-page",
+      side: "bottom",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
 export const ucatOnboardingTours: Tour[] = [
   welcomeTour,
-  practiceTour,
   progressTour,
+  learnTour,
+  sessionsTour,
+  skillTrainerTour,
+  practiceTour,
+  sectionSetsTour,
+  mocksTour,
 ];
 
-/** All known tour IDs (for bulk reset / iteration). */
 export const ALL_UCAT_TOUR_IDS = [
   UCAT_ONBOARDING_TOUR,
-  UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_SESSIONS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+  UCAT_PRACTICE_TOUR,
+  UCAT_SECTION_SETS_TOUR,
+  UCAT_MOCKS_TOUR,
 ] as const;
 
-/** Manual replay from Settings: reset this tour, go to `href`, then start the tour. */
 export const UCAT_TOUR_REPLAY_OPTIONS = [
+  { tourId: UCAT_ONBOARDING_TOUR, label: "App tour", href: "/dashboard" },
+  { tourId: UCAT_PROGRESS_TOUR, label: "Progress", href: "/progress" },
+  { tourId: UCAT_LEARN_TOUR, label: "Learn", href: "/learn" },
+  { tourId: UCAT_SESSIONS_TOUR, label: "Sessions", href: "/sessions" },
   {
-    tourId: UCAT_ONBOARDING_TOUR,
-    label: "App tour",
-    href: "/dashboard",
+    tourId: UCAT_SKILL_TRAINER_TOUR,
+    label: "Skill trainer",
+    href: "/skill-trainer",
   },
   {
     tourId: UCAT_PRACTICE_TOUR,
@@ -297,22 +342,33 @@ export const UCAT_TOUR_REPLAY_OPTIONS = [
     href: "/practice",
   },
   {
-    tourId: UCAT_PROGRESS_TOUR,
-    label: "Progress",
-    href: "/progress",
+    tourId: UCAT_SECTION_SETS_TOUR,
+    label: "Section sets",
+    href: "/sets/sections/1",
   },
+  { tourId: UCAT_MOCKS_TOUR, label: "Mocks", href: "/mocks" },
 ] as const;
 
-/**
- * Pathname → tour mapping for auto-start on first visit.
- * Add an entry here when introducing a new feature tour.
- */
 const PATHNAME_TO_TOUR: Record<string, string> = {
   "/dashboard": UCAT_ONBOARDING_TOUR,
-  "/practice": UCAT_PRACTICE_TOUR,
   "/progress": UCAT_PROGRESS_TOUR,
+  "/learn": UCAT_LEARN_TOUR,
+  "/sessions": UCAT_SESSIONS_TOUR,
+  "/skill-trainer": UCAT_SKILL_TRAINER_TOUR,
+  "/practice": UCAT_PRACTICE_TOUR,
+  "/mocks": UCAT_MOCKS_TOUR,
 };
 
+const SECTION_SETS_PATH_PATTERN = /^\/sets\/sections\/[1-4]\/?$/;
+
 export function getTourForPathname(pathname: string): string | null {
+  if (SECTION_SETS_PATH_PATTERN.test(pathname)) return UCAT_SECTION_SETS_TOUR;
   return PATHNAME_TO_TOUR[pathname] ?? null;
+}
+
+export function getFirstSelectorForTour(tourId: string): string | null {
+  return (
+    ucatOnboardingTours.find((tour) => tour.tour === tourId)?.steps[0]
+      ?.selector ?? null
+  );
 }

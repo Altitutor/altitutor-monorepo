@@ -4,7 +4,7 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useEffect, useState } from "react";
 
 const SECTION_ITEMS = [
-  { id: "alti-ucat", label: "Alti UCAT" },
+  { id: "alti-ucat", label: "Alti UCAT Prep" },
   { id: "overview", label: "Overview" },
   { id: "methodology", label: "Methodology" },
   { id: "how-it-works", label: "How it works" },
