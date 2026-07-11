@@ -132,13 +132,22 @@ export async function GET(
   const stems = Array.isArray(stemsSnapshot) ? stemsSnapshot : [];
   const orderedQuestions = getOrderedQuestionIds(stems as StemWithQuestions[]);
 
-  const { data: questionAttemptsRaw, error: qaError } = await supabase
-    .from("vstudent_ucat_my_question_attempts")
-    .select(
-      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
-    )
-    .eq("student_practice_session_id", sessionId)
-    .eq("is_submitted", true);
+  const stemIds = orderedQuestions.map((q) => q.stemId);
+  const questionIds = orderedQuestions.map((q) => q.questionId);
+  const [questionAttemptsResult, syllogismOptionsByQuestionId, questionMetadata] =
+    await Promise.all([
+      supabase
+        .from("vstudent_ucat_my_question_attempts")
+        .select(
+          "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
+        )
+        .eq("student_practice_session_id", sessionId)
+        .eq("is_submitted", true),
+      fetchSyllogismOptionsByQuestionId(supabase, stemIds),
+      fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+    ]);
+
+  const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
 
   if (qaError) {
     return NextResponse.json({ error: qaError.message }, { status: 500 });
@@ -164,15 +173,6 @@ export async function GET(
     ]),
   );
 
-  const stemIds = orderedQuestions.map((q) => q.stemId);
-  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
-    supabase,
-    stemIds,
-  );
-  const questionMetadata = await fetchAttemptReviewQuestionMetadata(
-    supabase,
-    orderedQuestions.map((q) => q.questionId),
-  );
   const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
     supabase,
     (questionAttemptsRaw ?? [])

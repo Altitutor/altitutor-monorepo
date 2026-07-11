@@ -7,6 +7,7 @@ import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllo
 import {
   fetchAttemptReviewCategoryDescriptions,
   fetchAttemptReviewQuestionMetadata,
+  fetchAttemptReviewStemCategories,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
 
@@ -26,6 +27,11 @@ export type MockAttemptDetailResponse = {
   scaledScore: number | null;
   /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
   scaledScoreMax: number | null;
+  timeTakenSeconds: number | null;
+  mockTimeLimitSeconds: number | null;
+  examTimeLimitSeconds: number | null;
+  studentMockSpeed: number | null;
+  studentExamSpeed: number | null;
   attemptedAt: string;
   completedAt: string | null;
   sets: MockSetInfo[];
@@ -85,51 +91,6 @@ function parseAnswerSnapshot(
   return result;
 }
 
-async function buildStemCategoryMap(
-  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
-  stemIds: string[],
-) {
-  const stemCategoryMap = new Map<
-    string,
-    { categoryId: string; categoryName: string }
-  >();
-  if (stemIds.length === 0) return stemCategoryMap;
-
-  const { data: stemCategories } = await supabase
-    .from("vstudent_ucat_question_stems")
-    .select("id, question_stem_category_id")
-    .in("id", stemIds);
-
-  const categoryIds = [
-    ...new Set(
-      (stemCategories ?? [])
-        .map((s) => s.question_stem_category_id)
-        .filter((id): id is string => !!id),
-    ),
-  ];
-
-  if (categoryIds.length > 0) {
-    const { data: categories } = await supabase
-      .from("vstudent_ucat_question_stem_categories")
-      .select("id, name")
-      .in("id", categoryIds);
-    const categoryByName = new Map(
-      (categories ?? []).map((c) => [c.id, c.name ?? "Unknown"]),
-    );
-    for (const s of stemCategories ?? []) {
-      const catId = s.question_stem_category_id;
-      if (catId && s.id) {
-        stemCategoryMap.set(s.id, {
-          categoryId: catId,
-          categoryName: categoryByName.get(catId) ?? "Unknown",
-        });
-      }
-    }
-  }
-
-  return stemCategoryMap;
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
@@ -152,7 +113,9 @@ export async function GET(
 
   const { data: mockAttempt, error: mockError } = await supabase
     .from("vstudent_ucat_my_mock_attempts")
-    .select("id, ucat_mock_id, attempted_at, completed_at")
+    .select(
+      "id, ucat_mock_id, attempted_at, completed_at, time_taken, mock_time_limit_seconds, mock_time_limit_at_exam_speed_seconds, student_mock_speed",
+    )
     .eq("id", mockAttemptId)
     .maybeSingle();
 
@@ -191,13 +154,27 @@ export async function GET(
   const mockSets = (mockDetail?.sets ?? []) as MockSetFromDetail[];
   const mockSetIds = mockSets.map((s) => s.id);
 
-  const { data: setDetailsForSections } =
-    mockSetIds.length > 0
-      ? await supabase
-          .from("vstudent_ucat_question_sets")
-          .select("id, sections")
-          .in("id", mockSetIds)
-      : { data: [] };
+  const [setSectionsResult, setAttemptsResult, setDetailsResult] =
+    await Promise.all([
+      mockSetIds.length > 0
+        ? supabase
+            .from("vstudent_ucat_question_sets")
+            .select("id, sections")
+            .in("id", mockSetIds)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("vstudent_ucat_my_set_attempts")
+        .select("id, question_set_id, score_points, total_points, scaled_score")
+        .eq("student_ucat_mock_attempt_id", mockAttemptId),
+      mockSetIds.length > 0
+        ? supabase
+            .from("vstudent_ucat_question_set_detail")
+            .select("id, stems")
+            .in("id", mockSetIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+  const { data: setDetailsForSections } = setSectionsResult;
 
   const sectionNumberBySetId = new Map<string, number>();
   for (const s of setDetailsForSections ?? []) {
@@ -211,10 +188,7 @@ export async function GET(
 
   const SITUATIONAL_JUDGEMENT_SECTION = 4;
 
-  const { data: setAttemptsRaw, error: setAttemptsError } = await supabase
-    .from("vstudent_ucat_my_set_attempts")
-    .select("id, question_set_id, score_points, total_points, scaled_score")
-    .eq("student_ucat_mock_attempt_id", mockAttemptId);
+  const { data: setAttemptsRaw, error: setAttemptsError } = setAttemptsResult;
 
   if (setAttemptsError) {
     return NextResponse.json(
@@ -225,6 +199,10 @@ export async function GET(
 
   const setAttemptsBySetId = new Map(
     (setAttemptsRaw ?? []).map((a) => [a.question_set_id, a]),
+  );
+
+  const setDetailsById = new Map(
+    (setDetailsResult.data ?? []).map((detail) => [detail.id, detail]),
   );
 
   const { data: allQuestionAttempts, error: qaError } = await supabase
@@ -277,32 +255,33 @@ export async function GET(
   let globalQuestionNumber = 0;
 
   const allStemIds: string[] = [];
-  if (mockSetIds.length > 0) {
-    const { data: allSetDetails } = await supabase
-      .from("vstudent_ucat_question_set_detail")
-      .select("stems")
-      .in("id", mockSetIds);
-    for (const setDetail of allSetDetails ?? []) {
-      const stems = (setDetail.stems ?? []) as StemWithQuestions[];
-      allStemIds.push(...stems.map((s) => s.stem_id).filter(Boolean));
-    }
+  for (const setDetail of setDetailsResult.data ?? []) {
+    const stems = (setDetail.stems ?? []) as StemWithQuestions[];
+    allStemIds.push(...stems.map((s) => s.stem_id).filter(Boolean));
   }
-  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
-    supabase,
-    allStemIds,
-  );
-  const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, [
+  const allQuestionIds = [
     ...new Set(
       (allQuestionAttempts ?? [])
         .map((qa) => qa.question_id)
         .filter((id): id is string => !!id),
     ),
-  ]);
+  ];
+  const [syllogismOptionsByQuestionId, questionMetadata, stemCategoryMap] =
+    await Promise.all([
+      fetchSyllogismOptionsByQuestionId(supabase, allStemIds),
+      fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds),
+      fetchAttemptReviewStemCategories(supabase, allStemIds),
+    ]);
   const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
     supabase,
-    (allQuestionAttempts ?? [])
-      .map((qa) => qa.question_stem_category_id)
-      .filter((id): id is string => !!id),
+    [
+      ...(allQuestionAttempts ?? [])
+        .map((qa) => qa.question_stem_category_id)
+        .filter((id): id is string => !!id),
+      ...Array.from(stemCategoryMap.values()).map(
+        (category) => category.categoryId,
+      ),
+    ],
   );
 
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
@@ -325,22 +304,8 @@ export async function GET(
       scaledScore: setAttempt?.scaled_score ?? null,
     });
 
-    const { data: setDetail } = await supabase
-      .from("vstudent_ucat_question_set_detail")
-      .select("id, stems")
-      .eq("id", questionSetId)
-      .maybeSingle();
-
+    const setDetail = setDetailsById.get(questionSetId);
     const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
-    const stemIds = stems.map((s) => s.stem_id).filter(Boolean);
-    const stemCategoryMap = await buildStemCategoryMap(supabase, stemIds);
-    const stemCategoryDescriptions =
-      await fetchAttemptReviewCategoryDescriptions(
-        supabase,
-        Array.from(stemCategoryMap.values()).map(
-          (category) => category.categoryId,
-        ),
-      );
     let currentStemId: string | null = null;
     let stemIndex = 0;
 
@@ -379,9 +344,7 @@ export async function GET(
           stemCategory?.categoryId ??
           null;
         const categoryDescription = questionStemCategoryId
-          ? (categoryDescriptions.get(questionStemCategoryId) ??
-            stemCategoryDescriptions.get(questionStemCategoryId) ??
-            null)
+          ? (categoryDescriptions.get(questionStemCategoryId) ?? null)
           : null;
 
         questionAttempts.push({
@@ -438,12 +401,37 @@ export async function GET(
 
   const scaledScoreMax = scoredSetCount > 0 ? scoredSetCount * 900 : null;
 
+  const timeTakenSeconds = mockAttempt.time_taken ?? null;
+  const mockTimeLimitSeconds = mockAttempt.mock_time_limit_seconds ?? null;
+  const examTimeLimitSeconds =
+    mockAttempt.mock_time_limit_at_exam_speed_seconds ?? null;
+
+  let studentMockSpeed = mockAttempt.student_mock_speed ?? null;
+  let studentExamSpeed: number | null = null;
+  if (timeTakenSeconds != null && timeTakenSeconds > 0) {
+    if (
+      studentMockSpeed == null &&
+      mockTimeLimitSeconds != null &&
+      mockTimeLimitSeconds > 0
+    ) {
+      studentMockSpeed = mockTimeLimitSeconds / timeTakenSeconds;
+    }
+    if (examTimeLimitSeconds != null && examTimeLimitSeconds > 0) {
+      studentExamSpeed = examTimeLimitSeconds / timeTakenSeconds;
+    }
+  }
+
   const response: MockAttemptDetailResponse = {
     id: mockAttempt.id ?? "",
     ucatMockId,
     mockName,
     scaledScore,
     scaledScoreMax,
+    timeTakenSeconds,
+    mockTimeLimitSeconds,
+    examTimeLimitSeconds,
+    studentMockSpeed,
+    studentExamSpeed,
     attemptedAt: mockAttempt.attempted_at ?? "",
     completedAt: mockAttempt.completed_at,
     sets,

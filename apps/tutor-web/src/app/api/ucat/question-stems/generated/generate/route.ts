@@ -456,6 +456,30 @@ function promptExampleCategory(example: Record<string, unknown>): string | null 
   return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
 }
 
+function generatedExampleContainsImage(value: unknown): boolean {
+  if (typeof value === 'string') return /(?:^|\s)image\s+https?:\/\//iu.test(value)
+  if (Array.isArray(value)) return value.some(generatedExampleContainsImage)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  if (record.type === 'image' || record.type === 'visual') return true
+  return Object.values(record).some(generatedExampleContainsImage)
+}
+
+function vennDiagramLocationForExample(example: Record<string, unknown>): 'stem' | 'answer_options' {
+  const questions = Array.isArray(example.questions) ? example.questions : []
+  const hasOptionImage = questions.some((rawQuestion) => {
+    if (!rawQuestion || typeof rawQuestion !== 'object') return false
+    const options = Array.isArray((rawQuestion as Record<string, unknown>).options)
+      ? (rawQuestion as Record<string, unknown>).options as unknown[]
+      : []
+    return options.some((rawOption) => {
+      if (!rawOption || typeof rawOption !== 'object') return false
+      return generatedExampleContainsImage((rawOption as Record<string, unknown>).answerText)
+    })
+  })
+  return hasOptionImage ? 'answer_options' : 'stem'
+}
+
 function rotatingExamples(
   examples: Array<Record<string, unknown>>,
   index: number,
@@ -513,6 +537,7 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
   const planCategoryName = plannedCategoryName(plan)
   const categoryName = brief.categoryName ?? planCategoryName
   const isQrDefault = brief.sectionName === 'Quantitative Reasoning' && !brief.categoryName
+  const isDmVenn = normalizeLabel(brief.sectionName) === 'decision making' && normalizeLabel(categoryName) === 'venn diagrams'
   const maxExamples = brief.sectionName === 'Quantitative Reasoning' ? 6 : 4
   const referenceExample = isQrDefault ? rotatingExamples(brief.examples, index, 1)[0] ?? null : null
   const matchingExamples = brief.examples.filter((example) => {
@@ -523,7 +548,10 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
     return !/(?:probability|chance|likelihood|\d+%)/u.test(text)
   })
   const examplePool = matchingExamples.length > 0 ? matchingExamples : brief.examples
-  const examples = isQrDefault && referenceExample
+  const vennStructureReference = isDmVenn && examplePool.length > 0
+    ? examplePool[index % examplePool.length] ?? null
+    : null
+  const selectedExamples = isQrDefault && referenceExample
     ? [
         referenceExample,
         ...categoryBalancedExamples(brief.examples, index, maxExamples)
@@ -539,6 +567,12 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
         ),
       ].slice(0, maxExamples)
     : categoryBalancedExamples(examplePool, index, maxExamples)
+  const examples = vennStructureReference
+    ? [
+        vennStructureReference,
+        ...selectedExamples.filter((example) => example !== vennStructureReference),
+      ].slice(0, maxExamples)
+    : selectedExamples
   const exampleIds = new Set(examples.map((example) => typeof example.id === 'string' ? example.id : null).filter(Boolean))
   return {
     ...brief,
@@ -551,6 +585,14 @@ function briefForSingleStem(brief: AiGenerationBrief, index: number, plan: unkno
           id: typeof referenceExample.id === 'string' ? referenceExample.id : null,
           categoryName: promptExampleCategory(referenceExample),
           stemText: referenceExample.stemText ?? null,
+        }
+      : null,
+    vennStructureReference: vennStructureReference
+      ? {
+          id: typeof vennStructureReference.id === 'string' ? vennStructureReference.id : null,
+          stemText: vennStructureReference.stemText ?? null,
+          questions: vennStructureReference.questions ?? null,
+          diagramLocation: vennDiagramLocationForExample(vennStructureReference),
         }
       : null,
     sourceImagesForCalibration: (brief.sourceImagesForCalibration ?? []).filter((image) => {
@@ -1202,8 +1244,27 @@ async function executeGeneration(
       tags: targetTags,
     })
     const examples = sourceSamples.map(compactStemForPrompt)
-    const sourceImages = await resolveSourceWriterImages(collectSourceImageRefs(sourceSamples))
-    const sourceImageSummary = sourceImagePromptSummary(sourceImages)
+    const sourceSamplesById = new Map(sourceSamples.map((sample) => [sample.id, sample]))
+    const sourceImagePromises = new Map<string, Promise<SourceWriterImage[]>>()
+    const usedSourceImages = new Map<string, SourceWriterImage>()
+    const imagesForExampleIds = async (ids: Set<string>): Promise<SourceWriterImage[]> => {
+      const groups = await Promise.all(Array.from(ids).map(async (id) => {
+        const source = sourceSamplesById.get(id)
+        if (!source) return []
+        let pending = sourceImagePromises.get(id)
+        if (!pending) {
+          pending = resolveSourceWriterImages(collectSourceImageRefs([source]))
+          sourceImagePromises.set(id, pending)
+        }
+        return pending
+      }))
+      const images = groups.flat().slice(0, MAX_SOURCE_IMAGES_FOR_WRITER)
+      for (const image of images) {
+        usedSourceImages.set(`${image.sourceStemId}:${image.field}:${image.imageIndex}`, image)
+      }
+      return images
+    }
+    let sourceImageSummary: Array<Record<string, unknown>> = []
     const brief: AiGenerationBrief = {
       sectionName: sectionRow.name ?? 'UCAT',
       categoryName,
@@ -1214,7 +1275,7 @@ async function executeGeneration(
       targetTags,
       runInstructions: body.runInstructions ?? null,
       examples,
-      sourceImagesForCalibration: sourceImageSummary,
+      sourceImagesForCalibration: [],
       promptLayers,
     }
     debug = {
@@ -1223,8 +1284,8 @@ async function executeGeneration(
       sectionName: sectionRow.name ?? null,
       selectedCategoryName: categoryName,
       sourceSampleIds: sourceSamples.map((sample) => sample.id),
-      sourceImageCount: sourceImages.length,
-      sourceImagesForWriter: sourceImageSummary,
+      sourceImageCount: 0,
+      sourceImagesForWriter: [],
       promptLayerCount: promptLayers.length,
       calls: [],
       gateIssues: [],
@@ -1247,12 +1308,16 @@ async function executeGeneration(
         const planCategoryName = plannedCategoryName(plan)
         const singleBrief = briefForSingleStem(brief, stemIndex, plan)
         const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
-        const userPrompt = buildWriterPrompt({ ...singleBrief, plan })
         const singleExampleIds = new Set(singleBrief.examples
           .map((example) => typeof example.id === 'string' ? example.id : null)
           .filter((id): id is string => !!id)
         )
-        const writerSourceImages = sourceImages.filter((image) => singleExampleIds.has(image.sourceStemId))
+        const writerSourceImages = await imagesForExampleIds(singleExampleIds)
+        const writerBrief = {
+          ...singleBrief,
+          sourceImagesForCalibration: sourceImagePromptSummary(writerSourceImages),
+        }
+        const userPrompt = buildWriterPrompt({ ...writerBrief, plan })
         const writerContentParts = buildWriterUserContentParts({ userPrompt, images: writerSourceImages })
         const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
           ? 10_000
@@ -1391,6 +1456,9 @@ async function executeGeneration(
       }),
       body.stemCount
     )
+    sourceImageSummary = sourceImagePromptSummary(Array.from(usedSourceImages.values()))
+    activeDebug.sourceImageCount = sourceImageSummary.length
+    activeDebug.sourceImagesForWriter = sourceImageSummary
     const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
     const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length
 
@@ -1502,7 +1570,7 @@ async function executeGeneration(
           imageGenerationMode: body.imageGenerationMode,
           sourceImageCalibration: {
             count: sourceImageSummary.length,
-            images: sourceImageSummary,
+            images: sourceImageSummary.slice(0, MAX_SOURCE_IMAGES_FOR_WRITER),
           },
           generatedImages: item.imageResolution.generatedImages.map((image) => ({
             fileId: image.fileId,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,31 @@ import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
 import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
+import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 
 export function QuotaLimitModal() {
   const router = useRouter();
   const { open, payload, dismissAction, closeQuotaLimit } =
     useQuotaLimitModal();
+  const trackedOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (!open || !payload || trackedOpenRef.current) return;
+    trackedOpenRef.current = true;
+    trackSubscriptionJourneyEvent({
+      eventType: "quota_upsell_shown",
+      journeyContext: "quota_paywall",
+      metadata: {
+        area: payload.area,
+        limit: payload.limit,
+        used: payload.used,
+      },
+    });
+  }, [open, payload]);
+
+  useEffect(() => {
+    if (!open) trackedOpenRef.current = false;
+  }, [open]);
 
   if (!payload) return null;
 
@@ -73,7 +94,14 @@ export function QuotaLimitModal() {
       <PlanPicker
         variant="dialog"
         surfaceTheme="app"
-        onCheckoutStart={closeQuotaLimit}
+        onCheckoutStart={() => {
+          trackSubscriptionJourneyEvent({
+            eventType: "quota_upsell_converted",
+            journeyContext: "quota_paywall",
+            metadata: { area: payload.area },
+          });
+          closeQuotaLimit();
+        }}
       />
     </PlanPickerDialogShell>
   );

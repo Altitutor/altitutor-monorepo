@@ -146,7 +146,9 @@ export function LearningLessonContentsSidebar({
         </CardContent>
       </Card>
 
-      <LearningLessonPager prev={prevLesson} next={nextLesson} />
+      <div id="tour-learning-navigation">
+        <LearningLessonPager prev={prevLesson} next={nextLesson} />
+      </div>
     </aside>
   );
 }

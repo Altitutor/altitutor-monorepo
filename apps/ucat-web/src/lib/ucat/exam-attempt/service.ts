@@ -330,7 +330,7 @@ async function buildResultsHref(
         : `/progress/set-attempts/${attemptId}`;
     }
     case "mock":
-      return `/progress/mock-attempts/${attemptId}`;
+      return `/progress/mocks/mock-attempts/${attemptId}`;
     case "practice":
       return `/progress/practice-sessions/${attemptId}`;
     default: {

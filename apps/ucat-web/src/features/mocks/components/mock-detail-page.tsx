@@ -11,6 +11,10 @@ import type {
 } from "@/features/mocks/api/mocks-api";
 import { useMockAttemptsWithBreakdown, useMocks } from "@/features/mocks";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
@@ -55,6 +59,10 @@ export function MockDetailPage({
   const { openQuotaLimit } = useQuotaLimitModal();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
   const attemptsHeadingId = useId();
@@ -160,6 +168,12 @@ export function MockDetailPage({
       : [];
 
   const handleLaunchMock = () => {
+    if (questionEngineTourLoading) return;
+    const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}`;
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref(examHref));
+      return;
+    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "mock" &&
       activeExamAttempt.resourceId === mockId;
@@ -175,7 +189,7 @@ export function MockDetailPage({
       });
       return;
     }
-    router.push(`/exam/mocks?id=${encodeURIComponent(mockId)}`);
+    router.push(examHref);
   };
 
   return (

@@ -1,73 +1,82 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 
 const SHORTCUTS = [
   { keys: ["A", "B", "C", "D"], label: "Choose an answer" },
-  { keys: ["Alt", "C"], label: "Open or close the calculator" },
-  { keys: ["Alt", "F"], label: "Flag the current question" },
-  { keys: ["Alt", "P"], label: "Go to the previous question" },
-  { keys: ["Alt", "V"], label: "Open the navigator" },
-  { keys: ["Alt", "N"], label: "Go to the next question" },
-  { keys: ["Alt", "S"], label: "Open or return to the review screen" },
+  { keys: ["Alt", "C"], label: "Calculator" },
+  { keys: ["Alt", "F"], label: "Flag for review" },
+  { keys: ["Alt", "P"], label: "Previous question" },
+  { keys: ["Alt", "V"], label: "Navigator" },
+  { keys: ["Alt", "N"], label: "Next question" },
 ] as const;
 
 export function QuestionEngineShortcutTourContent() {
-  const [index, setIndex] = useState(0);
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setIndex((current) => (current + 1) % SHORTCUTS.length);
-    }, 1800);
-    return () => window.clearInterval(interval);
-  }, []);
+    let clearTimer: number | undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key =
+        event.altKey && event.code.startsWith("Key")
+          ? event.code.slice(3).toUpperCase()
+          : event.key.toUpperCase();
+      const shortcut = event.altKey
+        ? SHORTCUTS.find(
+            (item) => item.keys.length === 2 && item.keys[1] === key,
+          )
+        : ["A", "B", "C", "D"].includes(key)
+          ? SHORTCUTS[0]
+          : undefined;
+      if (!shortcut) return;
 
-  const shortcut = SHORTCUTS[index];
+      setActiveLabel(shortcut.label);
+      if (clearTimer) window.clearTimeout(clearTimer);
+      clearTimer = window.setTimeout(() => setActiveLabel(null), 900);
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      if (clearTimer) window.clearTimeout(clearTimer);
+    };
+  }, []);
 
   return (
     <div className="space-y-3">
       <p>
-        Underlined letters show the available keyboard command. On a Mac, use
-        Option wherever the interface says Alt.
+        The shortcut letter is underlined on each question-engine button. Try
+        any shortcut below to control the example. On a Mac, use Option in
+        place of Alt.
       </p>
-      <div className="min-h-20 rounded-lg bg-muted p-3">
-        <AnimatePresence mode="wait">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {SHORTCUTS.map((shortcut, index) => (
           <motion.div
             key={shortcut.label}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-2"
+            transition={{ duration: 0.2, delay: index * 0.06 }}
+            className={`rounded-lg p-2.5 transition-colors ${
+              activeLabel === shortcut.label
+                ? "bg-primary/15 ring-2 ring-primary"
+                : "bg-muted"
+            }`}
           >
             <div className="flex flex-wrap gap-1.5">
               {shortcut.keys.map((key) => (
-                <motion.kbd
+                <kbd
                   key={key}
-                  initial={{ scale: 0.85 }}
-                  animate={{ scale: [0.85, 1.08, 1] }}
-                  transition={{ duration: 0.35 }}
-                  className="min-w-8 rounded-md border bg-background px-2 py-1 text-center font-mono text-xs font-semibold shadow-sm"
+                  className="min-w-7 rounded-md border bg-background px-1.5 py-0.5 text-center font-mono text-[11px] font-semibold shadow-sm"
                 >
                   {key}
-                </motion.kbd>
+                </kbd>
               ))}
             </div>
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="mt-1.5 text-xs font-medium text-muted-foreground">
               {shortcut.label}
             </p>
           </motion.div>
-        </AnimatePresence>
-      </div>
-      <div className="flex gap-1" aria-hidden>
-        {SHORTCUTS.map((item, itemIndex) => (
-          <span
-            key={item.label}
-            className={`h-1 flex-1 rounded-full ${
-              itemIndex === index ? "bg-primary" : "bg-muted"
-            }`}
-          />
         ))}
       </div>
     </div>

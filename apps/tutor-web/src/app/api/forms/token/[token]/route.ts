@@ -2,16 +2,30 @@ import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { normalizeFormAnswers, validateFormAnswers } from '@altitutor/shared';
+import {
+  normalizeFormAnswers,
+  validateFormAnswers,
+  type FormAnswerPayload,
+  type FormBlock,
+  type Json,
+} from '@altitutor/shared';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
 }
 
+function asFormBlocks(value: unknown): FormBlock[] {
+  return Array.isArray(value) ? (value as FormBlock[]) : [];
+}
+
+function asFormAnswers(value: unknown): FormAnswerPayload {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as FormAnswerPayload;
+}
+
 async function resolveToken(token: string) {
-  const admin = supabaseAdmin as any;
-  if (!admin) return null;
-  const { data, error } = await admin
+  if (!supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin
     .from('form_tokens')
     .select(`
       *,
@@ -30,7 +44,7 @@ async function getStaffIdentity() {
   const userClient = createUserClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user || !supabaseAdmin) return { user: null, staff: null };
-  const { data: staff } = await (supabaseAdmin as any)
+  const { data: staff } = await supabaseAdmin
     .from('staff')
     .select('id')
     .eq('user_id', user.id)
@@ -44,6 +58,9 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   if (tokenRow.access_type === 'authenticated') {
     const { staff } = await getStaffIdentity();
     if (!staff) return NextResponse.json({ error: 'Sign in to answer this form' }, { status: 401 });
+  }
+  if (!tokenRow.forms || !tokenRow.form_versions) {
+    return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   }
   return NextResponse.json({
     form: {
@@ -61,21 +78,23 @@ export async function GET(_request: Request, { params }: { params: { token: stri
 export async function POST(request: Request, { params }: { params: { token: string } }) {
   const tokenRow = await resolveToken(params.token);
   if (!tokenRow || !supabaseAdmin) return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
+  if (!tokenRow.form_versions) {
+    return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
+  }
 
   const { user, staff } = await getStaffIdentity();
   if (tokenRow.access_type === 'authenticated' && !staff) {
     return NextResponse.json({ error: 'Sign in to answer this form' }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => ({}));
-  const answers = body.answers ?? {};
-  const blocks = tokenRow.form_versions.blocks ?? [];
+  const body = await request.json().catch(() => ({})) as { answers?: unknown };
+  const answers = asFormAnswers(body.answers);
+  const blocks = asFormBlocks(tokenRow.form_versions.blocks);
   const errors = validateFormAnswers(blocks, answers);
   if (errors.length) return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
 
-  const admin = supabaseAdmin as any;
   if (tokenRow.submission_limit === 'one_per_token') {
-    const { count } = await admin
+    const { count } = await supabaseAdmin
       .from('form_responses')
       .select('id', { count: 'exact', head: true })
       .eq('form_token_id', tokenRow.id)
@@ -83,7 +102,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
     if ((count ?? 0) > 0) return NextResponse.json({ error: 'This form link has already been used.' }, { status: 409 });
   }
   if (tokenRow.submission_limit === 'one_per_authenticated_respondent' && staff) {
-    const { count } = await admin
+    const { count } = await supabaseAdmin
       .from('form_responses')
       .select('id', { count: 'exact', head: true })
       .eq('form_version_id', tokenRow.form_version_id)
@@ -92,7 +111,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
     if ((count ?? 0) > 0) return NextResponse.json({ error: 'You have already submitted this form.' }, { status: 409 });
   }
 
-  const { data: response, error: responseError } = await admin
+  const { data: response, error: responseError } = await supabaseAdmin
     .from('form_responses')
     .insert({
       form_id: tokenRow.form_id,
@@ -103,7 +122,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
       subject_type: staff ? 'staff' : 'none',
       subject_staff_id: staff?.id ?? null,
       submitted_by_user_id: user?.id ?? null,
-      response_json: { answers },
+      response_json: { answers } as Json,
     })
     .select('*')
     .single();
@@ -119,12 +138,12 @@ export async function POST(request: Request, { params }: { params: { token: stri
     question_type: answer.questionType,
     choice_value: answer.choiceValue ?? null,
     choice_label_snapshot: answer.choiceLabelSnapshot ?? null,
-    choice_values: answer.choiceValues ?? null,
+    choice_values: (answer.choiceValues ?? null) as Json,
     text_value: answer.textValue ?? null,
     number_value: answer.numberValue ?? null,
   }));
   if (normalized.length) {
-    const { error: answersError } = await admin.from('form_response_answers').insert(normalized);
+    const { error: answersError } = await supabaseAdmin.from('form_response_answers').insert(normalized);
     if (answersError) return NextResponse.json({ error: answersError.message }, { status: 500 });
   }
 

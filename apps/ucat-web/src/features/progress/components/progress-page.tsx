@@ -14,7 +14,8 @@ import { useProgressSummary } from "../hooks/use-progress";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { TotalScoreProjection } from "@/features/score-projection/types/score-projection";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_CARD_CONTENT_AFTER_HEADER } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewHeatmapCard } from "./review-heatmap-card";
 import { AnimatedInteger } from "./progress-animated-display";
@@ -72,13 +73,15 @@ export function ProgressPage() {
 
       <ReviewHeatmapCard />
 
-      <SectionProgressCards
-        sections={data.sectionProgress}
-        linkToSection
-        mode="all_time"
-        timeFrameDays="30"
-        scoreProjections={scoreProjectionQuery.data?.sections ?? []}
-      />
+      <div id="tour-progress-sections">
+        <SectionProgressCards
+          sections={data.sectionProgress}
+          linkToSection
+          mode="all_time"
+          timeFrameDays="30"
+          scoreProjections={scoreProjectionQuery.data?.sections ?? []}
+        />
+      </div>
     </div>
   );
 }
@@ -192,7 +195,7 @@ function TotalScoreProjectionCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className={cn("space-y-5", UCAT_CARD_CONTENT_AFTER_HEADER)}>
         <ProgressGraph
           data={graphData}
           type="line"

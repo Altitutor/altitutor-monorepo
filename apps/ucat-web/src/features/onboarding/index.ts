@@ -8,6 +8,11 @@ export {
   useResetOnboardingTour,
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 export {
+  buildQuestionEngineTutorialHref,
+  isQuestionEnginePath,
+} from "@/features/onboarding/lib/question-engine-tutorial-gate";
+export { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+export {
   ALL_UCAT_TOUR_IDS,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
   UCAT_LEARN_TOUR,
@@ -15,6 +20,7 @@ export {
   UCAT_ONBOARDING_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
   UCAT_SECTION_SETS_TOUR,
   UCAT_SESSIONS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,

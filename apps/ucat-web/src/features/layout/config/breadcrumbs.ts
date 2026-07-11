@@ -40,8 +40,8 @@ function isDynamicSegment(segment: string): boolean {
 }
 
 /**
- * Paths that have actual pages. Intermediate segments (e.g. /progress/mocks,
- * /progress/mock-attempts/[id]/sets) are not valid - linking to them would 404.
+ * Paths that have actual pages. Intermediate segments (e.g. /progress/mocks/mock-attempts,
+ * /progress/sections/[n]/set-attempts) are not valid - linking to them would 404.
  */
 function isValidPagePath(path: string): boolean {
   if (!path || path === "/") return false;
@@ -113,21 +113,16 @@ function isValidPagePath(path: string): boolean {
           isDynamicSegment(segments[3])) ||
         (segments[0] === "progress" &&
           segments[1] === "mocks" &&
-          segments[2] === "sections" &&
-          /^[1-4]$/.test(segments[3]))
+          segments[2] === "mock-attempts" &&
+          isDynamicSegment(segments[3]))
       );
     case 5:
       return (
-        (segments[0] === "progress" &&
-          segments[1] === "mock-attempts" &&
-          isDynamicSegment(segments[2]) &&
-          segments[3] === "sets" &&
-          isDynamicSegment(segments[4])) ||
-        (segments[0] === "progress" &&
-          segments[1] === "sections" &&
-          /^[1-4]$/.test(segments[2]) &&
-          segments[3] === "set-attempts" &&
-          isDynamicSegment(segments[4]))
+        segments[0] === "progress" &&
+        segments[1] === "sections" &&
+        /^[1-4]$/.test(segments[2]) &&
+        segments[3] === "set-attempts" &&
+        isDynamicSegment(segments[4])
       );
     default:
       return false;
@@ -187,17 +182,6 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
 
     // For /sets/sections/[1-4] or /progress/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
     if (segments[1] === "sections" && i === 2 && /^[1-4]$/.test(segment)) {
-      label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
-    }
-
-    // For /progress/mocks/sections/[1-4], show section name on the section number segment
-    if (
-      segments[0] === "progress" &&
-      segments[1] === "mocks" &&
-      segments[2] === "sections" &&
-      i === 3 &&
-      /^[1-4]$/.test(segment)
-    ) {
       label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
     }
 

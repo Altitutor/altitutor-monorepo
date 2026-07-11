@@ -13,8 +13,15 @@ import {
   YAxis,
 } from "recharts";
 import { format } from "date-fns";
+import { SearchableSelect } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
 import { formatTimeSeconds } from "../lib/format-time";
+import type { GraphXAxisMode } from "../lib/progress-data-utils";
+import {
+  GRAPH_DATE_RANGE_OPTIONS,
+  type GraphDateRange,
+} from "../lib/progress-mode";
+import { ProgressOutlineSelectTrigger } from "./progress-outline-select-trigger";
 
 function formatXAxisDate(dateStr: string): string {
   try {
@@ -24,7 +31,7 @@ function formatXAxisDate(dateStr: string): string {
   }
 }
 
-function getXAxisLabel(
+function getXAxisTickLabel(
   data: { date: string; label?: string }[],
   index: number,
 ): string {
@@ -41,8 +48,33 @@ export type GraphDataType =
   | "question_speed"
   | "attempt_count";
 
+export type ProgressGraphMetricOption = {
+  value: GraphDataType;
+  label: string;
+};
+
+export type ProgressGraphXAxisOption = {
+  value: GraphXAxisMode;
+  label: string;
+};
+
+export type ProgressGraphDateRangeOption = {
+  value: GraphDateRange;
+  label: string;
+};
+
+export const GRAPH_X_AXIS_OPTIONS: ProgressGraphXAxisOption[] = [
+  { value: "date", label: "Date" },
+  { value: "attempt", label: "Attempt" },
+];
+
 export type ProgressGraphProps = {
-  data: { date: string; value: number | null; label?: string }[];
+  data: {
+    date: string;
+    value: number | null;
+    label?: string;
+    tooltipLabel?: string;
+  }[];
   type: "line" | "bar";
   dataType: GraphDataType;
   dateRangeLabel?: string;
@@ -53,6 +85,16 @@ export type ProgressGraphProps = {
   yAxisMax?: number;
   yAxisDomain?: [number, number];
   yAxisLabel?: string;
+  /** When set with onDataTypeChange, the Y-axis label opens a metric picker. */
+  metricOptions?: ProgressGraphMetricOption[];
+  onDataTypeChange?: (value: GraphDataType) => void;
+  xAxisMode?: GraphXAxisMode;
+  xAxisOptions?: ProgressGraphXAxisOption[];
+  onXAxisModeChange?: (value: GraphXAxisMode) => void;
+  /** Selectable date-range filter (replaces static dateRangeLabel when provided). */
+  dateRange?: GraphDateRange;
+  dateRangeOptions?: ProgressGraphDateRangeOption[];
+  onDateRangeChange?: (value: GraphDateRange) => void;
   projection?: {
     pessimistic: { date: string; value: number }[];
     realistic: { date: string; value: number }[];
@@ -80,6 +122,41 @@ function getYAxisDomain(
   return undefined;
 }
 
+function AxisLabelSelect<T extends { value: string; label: string }>({
+  items,
+  value,
+  onValueChange,
+  ariaLabel,
+  align = "start",
+}: {
+  items: T[];
+  value: T | null;
+  onValueChange: (value: T["value"]) => void;
+  ariaLabel: string;
+  align?: "start" | "center" | "end";
+}) {
+  const label = value?.label ?? "Select";
+  return (
+    <SearchableSelect<T>
+      items={items}
+      value={value}
+      onValueChange={(item) => {
+        if (item) onValueChange(item.value);
+      }}
+      getItemLabel={(item) => item.label}
+      getItemId={(item) => item.value}
+      searchPlaceholder="Search..."
+      emptyMessage="No options found."
+      align={align}
+      contentWidth="180px"
+      showChevron={false}
+      trigger={
+        <ProgressOutlineSelectTrigger label={label} ariaLabel={ariaLabel} />
+      }
+    />
+  );
+}
+
 export function ProgressGraph({
   data,
   type,
@@ -90,25 +167,57 @@ export function ProgressGraph({
   yAxisMax,
   yAxisDomain,
   yAxisLabel,
+  metricOptions,
+  onDataTypeChange,
+  xAxisMode = "date",
+  xAxisOptions,
+  onXAxisModeChange,
+  dateRange,
+  dateRangeOptions,
+  onDateRangeChange,
   projection,
 }: ProgressGraphProps) {
   type GraphLinePoint = {
     date: string;
     value: number | null;
     label?: string;
+    tooltipLabel?: string;
     projectionPessimistic?: number;
     projectionRealistic?: number;
     projectionOptimistic?: number;
   };
 
-  const hasAggregatedLabels = data.some((d) => d.label);
-  const label = yAxisLabel ?? dataTypeLabels[dataType];
+  const hasCustomTickLabels = data.some((d) => d.label);
+  const selectedMetricOption =
+    metricOptions?.find((option) => option.value === dataType) ?? null;
+  const label =
+    yAxisLabel ?? selectedMetricOption?.label ?? dataTypeLabels[dataType];
+  const canSelectMetric =
+    metricOptions != null &&
+    metricOptions.length > 0 &&
+    onDataTypeChange != null;
+  const resolvedXAxisOptions = xAxisOptions ?? GRAPH_X_AXIS_OPTIONS;
+  const selectedXAxisOption =
+    resolvedXAxisOptions.find((option) => option.value === xAxisMode) ?? null;
+  const canSelectXAxis =
+    onXAxisModeChange != null && resolvedXAxisOptions.length > 0;
+  const resolvedDateRangeOptions = dateRangeOptions ?? GRAPH_DATE_RANGE_OPTIONS;
+  const selectedDateRangeOption =
+    dateRange != null
+      ? (resolvedDateRangeOptions.find((option) => option.value === dateRange) ??
+        null)
+      : null;
+  const canSelectDateRange =
+    dateRange != null &&
+    onDateRangeChange != null &&
+    resolvedDateRangeOptions.length > 0;
   const domain =
     yAxisDomain ?? getYAxisDomain(dataType, isMockContext, yAxisMax);
   const showProjection =
     type === "line" &&
     dataType === "scaled_score" &&
-    !hasAggregatedLabels &&
+    xAxisMode === "date" &&
+    !hasCustomTickLabels &&
     projection != null;
 
   const mergedLineData: GraphLinePoint[] = showProjection
@@ -158,30 +267,65 @@ export function ProgressGraph({
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return "—";
     if (dataType === "time_taken") return formatTimeSeconds(value); // value is in seconds
+    if (
+      dataType === "percentage" ||
+      dataType === "exam_speed" ||
+      dataType === "question_speed"
+    ) {
+      return String(Math.round(value));
+    }
+    if (dataType === "scaled_score") return String(Math.round(value));
     return String(value);
   };
+
+  const formatTooltipLabel = (
+    rawLabel: string,
+    payload:
+      | {
+          date: string;
+          label?: string;
+          tooltipLabel?: string;
+        }
+      | undefined,
+  ): string => {
+    if (payload?.tooltipLabel) return payload.tooltipLabel;
+    const displayLabel = payload?.label ?? formatXAxisDate(rawLabel);
+    if (xAxisMode === "attempt") return `Attempt: ${displayLabel}`;
+    if (payload?.label) return `Period: ${displayLabel}`;
+    return `Date: ${displayLabel}`;
+  };
+
+  const needsAngledTicks =
+    (hasCustomTickLabels && xAxisMode === "date") || data.length > 14;
+  const xTickInterval =
+    data.length > 24 ? Math.max(0, Math.ceil(data.length / 12) - 1) : 0;
+  // Keep only enough room for tick labels; the X-axis mode label sits outside the chart.
+  const chartBottomMargin = needsAngledTicks ? 42 : 4;
+  const chartTopMargin = 16;
 
   const chartContent =
     type === "line" ? (
       <LineChart
         data={mergedLineData}
         margin={{
-          top: 5,
+          top: chartTopMargin,
           right: 5,
           left: 5,
-          bottom: hasAggregatedLabels || data.length > 14 ? 60 : 5,
+          bottom: chartBottomMargin,
         }}
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          angle={hasAggregatedLabels ? -45 : 0}
+          angle={needsAngledTicks ? -45 : 0}
           tick={{
             fontSize: data.length > 14 ? 10 : 12,
-            textAnchor: hasAggregatedLabels ? "end" : "middle",
+            textAnchor: needsAngledTicks ? "end" : "middle",
           }}
-          tickFormatter={(value, index) => getXAxisLabel(mergedLineData, index)}
-          interval={0}
+          tickFormatter={(_value, index) =>
+            getXAxisTickLabel(mergedLineData, index)
+          }
+          interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
         />
@@ -206,12 +350,9 @@ export function ProgressGraph({
           ]}
           labelFormatter={(l, payload) => {
             const raw = payload?.[0]?.payload as
-              | { date: string; label?: string }
+              | { date: string; label?: string; tooltipLabel?: string }
               | undefined;
-            const displayLabel = raw?.label ?? formatXAxisDate(l);
-            return raw?.label
-              ? `Period: ${displayLabel}`
-              : `Date: ${displayLabel}`;
+            return formatTooltipLabel(l, raw);
           }}
         />
         {showProjection ? (
@@ -268,22 +409,22 @@ export function ProgressGraph({
       <BarChart
         data={data}
         margin={{
-          top: 5,
+          top: chartTopMargin,
           right: 5,
           left: 5,
-          bottom: hasAggregatedLabels || data.length > 14 ? 60 : 5,
+          bottom: chartBottomMargin,
         }}
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          angle={hasAggregatedLabels ? -45 : 0}
+          angle={needsAngledTicks ? -45 : 0}
           tick={{
             fontSize: data.length > 14 ? 10 : 12,
-            textAnchor: hasAggregatedLabels ? "end" : "middle",
+            textAnchor: needsAngledTicks ? "end" : "middle",
           }}
-          tickFormatter={(value, index) => getXAxisLabel(data, index)}
-          interval={0}
+          tickFormatter={(_value, index) => getXAxisTickLabel(data, index)}
+          interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
         />
@@ -308,12 +449,9 @@ export function ProgressGraph({
           ]}
           labelFormatter={(l, payload) => {
             const raw = payload?.[0]?.payload as
-              | { date: string; label?: string }
+              | { date: string; label?: string; tooltipLabel?: string }
               | undefined;
-            const displayLabel = raw?.label ?? formatXAxisDate(l);
-            return raw?.label
-              ? `Period: ${displayLabel}`
-              : `Date: ${displayLabel}`;
+            return formatTooltipLabel(l, raw);
           }}
         />
         <Bar
@@ -327,12 +465,45 @@ export function ProgressGraph({
       </BarChart>
     );
 
+  const yAxisLabelNode = canSelectMetric ? (
+    <AxisLabelSelect
+      items={metricOptions}
+      value={selectedMetricOption}
+      onValueChange={onDataTypeChange}
+      ariaLabel={`Y-axis metric: ${label}. Click to change.`}
+    />
+  ) : (
+    <span>{label}</span>
+  );
+
+  const xAxisLabelNode = canSelectXAxis ? (
+    <AxisLabelSelect
+      items={resolvedXAxisOptions}
+      value={selectedXAxisOption}
+      onValueChange={onXAxisModeChange}
+      ariaLabel={`X-axis: ${selectedXAxisOption?.label ?? "Date"}. Click to change.`}
+      align="center"
+    />
+  ) : null;
+
+  const dateRangeNode = canSelectDateRange ? (
+    <AxisLabelSelect
+      items={resolvedDateRangeOptions}
+      value={selectedDateRangeOption}
+      onValueChange={onDateRangeChange}
+      ariaLabel={`Date range: ${selectedDateRangeOption?.label ?? "All time"}. Click to change.`}
+      align="end"
+    />
+  ) : dateRangeLabel ? (
+    <span className="shrink-0">{dateRangeLabel}</span>
+  ) : null;
+
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      {dateRangeLabel ? (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{label}</span>
-          <span>{dateRangeLabel}</span>
+    <div className={cn("flex flex-col", className)}>
+      {canSelectMetric || dateRangeNode ? (
+        <div className="mb-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          {canSelectMetric || yAxisLabel ? yAxisLabelNode : <span />}
+          {dateRangeNode}
         </div>
       ) : null}
       <div className="h-[280px] w-full">
@@ -340,6 +511,11 @@ export function ProgressGraph({
           {chartContent}
         </ResponsiveContainer>
       </div>
+      {xAxisLabelNode ? (
+        <div className="-mt-1 flex justify-center text-sm text-muted-foreground">
+          {xAxisLabelNode}
+        </div>
+      ) : null}
     </div>
   );
 }

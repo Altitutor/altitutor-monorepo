@@ -1,15 +1,24 @@
 import type { Tour } from "nextstepjs";
 import {
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   BrainCircuit,
   CalendarDays,
+  Calculator,
+  Flag,
+  Keyboard,
   LayoutDashboard,
   ListChecks,
   NotebookText,
+  Navigation,
   Settings,
   Target,
   TrendingUp,
 } from "lucide-react";
+import { QuestionEngineShortcutTourContent } from "@/features/question-engine/components/question-engine-shortcut-tour-content";
+import { UCAT_SKILL_TRAINER_KEYS } from "@altitutor/shared";
+import { getSkillTrainerTutorialId } from "@/features/onboarding/lib/skill-trainer-tutorial";
 
 export const UCAT_NEXTSTEP_FIXED_VIEWPORT_ID = "ucat-nextstep-fixed-viewport";
 
@@ -21,6 +30,10 @@ export const UCAT_SKILL_TRAINER_TOUR = "ucat-skill-trainer-intro";
 export const UCAT_PRACTICE_TOUR = "ucat-practice-intro";
 export const UCAT_SECTION_SETS_TOUR = "ucat-section-sets-intro";
 export const UCAT_MOCKS_TOUR = "ucat-mocks-intro";
+export const UCAT_QUESTION_ENGINE_TOUR = "ucat-question-engine-intro";
+export const UCAT_SECTION_PROGRESS_TOUR = "ucat-section-progress-intro";
+export const UCAT_ATTEMPT_REVIEW_TOUR = "ucat-attempt-review-intro";
+export const UCAT_LEARNING_MODULE_TOUR = "ucat-learning-module-intro";
 
 const iconClassName = "h-5 w-5";
 const fixedViewport = { viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID } as const;
@@ -50,27 +63,10 @@ const welcomeTour: Tour = {
       ...standardStep,
     },
     {
-      icon: <TrendingUp className={iconClassName} />,
-      title: "Review completed work",
-      content: (
-        <p>
-          Progress shows your results across practice questions, sets, and
-          mocks. Return here to decide what needs more work.
-        </p>
-      ),
-      selector: "[data-tour='nav-progress']",
-      ...fixedViewport,
-      side: "right",
-      ...standardStep,
-    },
-    {
       icon: <BookOpen className={iconClassName} />,
-      title: "Learn before you practise",
+      title: "Learn",
       content: (
-        <p>
-          Learn contains the course material. Sessions, directly below it,
-          holds resources linked to your classes.
-        </p>
+        <p>Open learning modules for UCAT theory and worked examples.</p>
       ),
       selector: "[data-tour='nav-learn']",
       ...fixedViewport,
@@ -78,14 +74,29 @@ const welcomeTour: Tour = {
       ...standardStep,
     },
     {
-      icon: <BrainCircuit className={iconClassName} />,
-      title: "Choose how to practise",
+      icon: <CalendarDays className={iconClassName} />,
+      title: "Sessions",
       content: (
-        <p>
-          Skill trainer focuses on one skill at a time. Practice questions lets
-          you build a filtered question session with your own timing.
-        </p>
+        <p>Find class resources linked by your tutor after each session.</p>
       ),
+      selector: "[data-tour='nav-sessions']",
+      ...fixedViewport,
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Skill trainer",
+      content: <p>Use short drills to practise one UCAT skill at a time.</p>,
+      selector: "[data-tour='nav-skill-trainer']",
+      ...fixedViewport,
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Practice questions",
+      content: <p>Build a filtered question session with your own timing.</p>,
       selector: "[data-tour='nav-practice']",
       ...fixedViewport,
       side: "right",
@@ -116,7 +127,18 @@ const welcomeTour: Tour = {
       ),
       selector: "[data-tour='nav-mocks']",
       ...fixedViewport,
-      side: "top",
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Progress",
+      content: (
+        <p>Review results across practice questions, sets, and mocks.</p>
+      ),
+      selector: "[data-tour='nav-progress']",
+      ...fixedViewport,
+      side: "right",
       ...standardStep,
     },
     {
@@ -124,13 +146,13 @@ const welcomeTour: Tour = {
       title: "Replay a guide",
       content: (
         <p>
-          Settings includes App tours. Use it if you want to see this guide or
-          a page guide again.
+          Settings includes App tours. Use it if you want to see this guide or a
+          page guide again.
         </p>
       ),
       selector: "[data-tour='nav-settings']",
       ...fixedViewport,
-      side: "top",
+      side: "right",
       ...standardStep,
       showSkip: false,
     },
@@ -155,36 +177,12 @@ const progressTour: Tour = {
     },
     {
       icon: <TrendingUp className={iconClassName} />,
-      title: "Change the view",
+      title: "Open a section",
       content: (
-        <p>
-          Use these controls to change the time period or attempt type. The
-          results on the page update to match your selection.
-        </p>
+        <p>Click a section card to view progress for that UCAT section.</p>
       ),
-      selector: "#tour-progress-mode",
-      ...fixedViewport,
+      selector: "#tour-progress-sections",
       side: "top",
-      ...standardStep,
-      showSkip: false,
-    },
-  ],
-};
-
-const learnTour: Tour = {
-  tour: UCAT_LEARN_TOUR,
-  steps: [
-    {
-      icon: <BookOpen className={iconClassName} />,
-      title: "Choose a learning module",
-      content: (
-        <p>
-          Modules are grouped by UCAT section. Open a topic to work through its
-          lessons and examples, then return here to continue.
-        </p>
-      ),
-      selector: "#tour-learn-page",
-      side: "bottom",
       ...standardStep,
       showSkip: false,
     },
@@ -272,8 +270,8 @@ const sectionSetsTour: Tour = {
       title: "Choose a section set",
       content: (
         <p>
-          This list contains sets for the section you selected. Search or
-          filter the list, then open a set to review its timing before starting.
+          This list contains sets for the section you selected. Search or filter
+          the list, then open a set to review its timing before starting.
         </p>
       ),
       selector: "#tour-section-sets-page",
@@ -304,26 +302,458 @@ const mocksTour: Tour = {
   ],
 };
 
+const questionEngineTour: Tour = {
+  tour: UCAT_QUESTION_ENGINE_TOUR,
+  steps: [
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "The exam menu",
+      content: (
+        <p>
+          Open this menu to leave the engine, contact Altitutor, or report a
+          problem. Your progress is saved if you leave a live attempt.
+        </p>
+      ),
+      selector: "[data-tour='question-engine-menu']",
+      ...fixedViewport,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Settings className={iconClassName} />,
+      title: "Question engine settings",
+      content: (
+        <p>
+          Settings includes Lag mode, which lets you practise with the short
+          delays that can occur in the official exam interface.
+        </p>
+      ),
+      selector: "[data-tour='question-engine-settings']",
+      ...fixedViewport,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Calculator className={iconClassName} />,
+      title: "Open the calculator",
+      content: (
+        <div className="space-y-2">
+          <p>Open the calculator from the toolbar or press Alt+C.</p>
+          <p className="font-medium">Select Calculator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-calculator']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Calculator className={iconClassName} />,
+      title: "Try the calculator",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Use the calculator buttons or keyboard. It stays fixed in place
+            during this tutorial.
+          </p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md bg-muted p-2 text-xs">
+            <span>
+              <kbd className="font-mono font-semibold">0–9</kbd> → 0–9
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">.</kbd> → decimal
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">+</kbd> → +
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">-</kbd> → −
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">* / X</kbd> → ×
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">/</kbd> → ÷
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">%</kbd> → %
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">Enter / =</kbd> → =
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">C</kbd> → MRC
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">P</kbd> → M+
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">M</kbd> → M−
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use the on-screen buttons for √, +/−, and ON/C.
+          </p>
+          <p className="font-medium">Close the calculator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-calculator-panel']",
+      side: "left",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Flag questions to revisit",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Flag a question when you want to return to it from the navigator or
+            review screen. Press Alt+F to toggle the flag.
+          </p>
+          <p className="font-medium">Select Flag for Review to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-flag']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Read the question stem",
+      content: (
+        <p>
+          In Verbal Reasoning, the passage stays in the left column while you
+          move through the questions linked to it.
+        </p>
+      ),
+      selector: "[data-tour='question-engine-stem']",
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Answer the question",
+      content: (
+        <div className="space-y-2">
+          <p>
+            The active question and its answer options appear in the right
+            column. Select an option with the mouse or its letter key.
+          </p>
+          <p className="font-medium">Select any answer to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-question']",
+      side: "left",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ArrowRight className={iconClassName} />,
+      title: "Go to the next question",
+      content: (
+        <div className="space-y-2">
+          <p>Use Next or press Alt+N to move forward one question.</p>
+          <p className="font-medium">Select Next to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-next']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ArrowLeft className={iconClassName} />,
+      title: "Go to the previous question",
+      content: (
+        <div className="space-y-2">
+          <p>Use Previous or press Alt+P to move back one question.</p>
+          <p className="font-medium">Select Previous to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-previous']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Open the navigator",
+      content: (
+        <div className="space-y-2">
+          <p>The navigator shows which questions are incomplete or flagged.</p>
+          <p className="font-medium">Select Navigator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-navigator']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Use the navigator",
+      content: (
+        <div className="space-y-2">
+          <p>Double-click a question to go directly to that question.</p>
+          <p className="font-medium">
+            Double-click a question or select Close to continue.
+          </p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-navigator-panel']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Keyboard className={iconClassName} />,
+      title: "Keyboard shortcuts",
+      content: <QuestionEngineShortcutTourContent />,
+      ...standardStep,
+      showSkip: false,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Open the review screen",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Review appears when you reach the last question. Select it to check
+            incomplete and flagged questions before finishing an exam.
+          </p>
+          <p className="font-medium">Select Review to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-next']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Finish the tutorial",
+      content: (
+        <div className="space-y-2">
+          <p>
+            In a real attempt, this control finishes the practice session or
+            exam.
+          </p>
+          <p className="font-medium">
+            Select Finish tutorial to complete the tutorial.
+          </p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-finish-tutorial']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+      showSkip: false,
+    },
+  ],
+};
+
+const sectionProgressTour: Tour = {
+  tour: UCAT_SECTION_PROGRESS_TOUR,
+  steps: [
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Predicted section score",
+      content: (
+        <p>
+          Your current estimated UCAT score for this section, based on weighted
+          attempt evidence.
+        </p>
+      ),
+      selector: "#tour-section-predicted-score",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Score projection",
+      content: (
+        <p>
+          See how your estimate has changed and the range projected from your
+          current evidence.
+        </p>
+      ),
+      selector: "#tour-section-score-projection",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Practice sessions",
+      content: (
+        <p>
+          Review your practice history. Use the graph control to change its
+          y-axis metric, which also changes the selected table column.
+        </p>
+      ),
+      selector: "#tour-section-practice-attempts",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Set attempts",
+      content: (
+        <p>
+          Review completed sets and change the graph y-axis or corresponding
+          table metric to compare different results.
+        </p>
+      ),
+      selector: "#tour-section-set-attempts",
+      side: "top",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const attemptReviewTour: Tour = {
+  tour: UCAT_ATTEMPT_REVIEW_TOUR,
+  steps: [
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Score",
+      content: (
+        <p>
+          This card summarises the result, including scaled score or points
+          where available.
+        </p>
+      ),
+      selector: "#tour-attempt-score",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Timing",
+      content: (
+        <p>
+          Compare time taken and pace with the available set, mock, or practice
+          timing.
+        </p>
+      ),
+      selector: "#tour-attempt-timing",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Question navigator",
+      content: (
+        <p>
+          Select a question or graph bar to move directly to that question in
+          the reviewer.
+        </p>
+      ),
+      selector: "#tour-attempt-navigator",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Question reviewer",
+      content: (
+        <p>
+          Review the original question, your answer, and the correct answer.
+        </p>
+      ),
+      selector: "#tour-attempt-reviewer",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Answer explanation",
+      content: (
+        <p>
+          Read the explanation for the selected question. Use Report a bug here
+          if the question or explanation needs attention.
+        </p>
+      ),
+      selector: "#tour-attempt-explanation",
+      side: "top",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
+const learningModuleTour: Tour = {
+  tour: UCAT_LEARNING_MODULE_TOUR,
+  steps: [
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Lesson content",
+      content: (
+        <p>
+          Work through the lesson blocks in order. Your progress is saved as you
+          complete them.
+        </p>
+      ),
+      selector: "#tour-learning-content",
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Lesson progress",
+      content: (
+        <p>
+          Use the contents panel to see completion and move directly to an
+          available block.
+        </p>
+      ),
+      selector: "#tour-learning-progress",
+      side: "left",
+      ...standardStep,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Lesson navigation",
+      content: (
+        <p>Move to the previous or next lesson from the navigation controls.</p>
+      ),
+      selector: "#tour-learning-navigation",
+      side: "left",
+      ...standardStep,
+      showSkip: false,
+    },
+  ],
+};
+
 export const ucatOnboardingTours: Tour[] = [
   welcomeTour,
   progressTour,
-  learnTour,
   sessionsTour,
   skillTrainerTour,
   practiceTour,
   sectionSetsTour,
   mocksTour,
+  questionEngineTour,
+  sectionProgressTour,
+  attemptReviewTour,
+  learningModuleTour,
 ];
 
 export const ALL_UCAT_TOUR_IDS = [
   UCAT_ONBOARDING_TOUR,
   UCAT_PROGRESS_TOUR,
-  UCAT_LEARN_TOUR,
   UCAT_SESSIONS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_SECTION_SETS_TOUR,
   UCAT_MOCKS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+  UCAT_SECTION_PROGRESS_TOUR,
+  UCAT_ATTEMPT_REVIEW_TOUR,
+  UCAT_LEARNING_MODULE_TOUR,
+  ...UCAT_SKILL_TRAINER_KEYS.map(getSkillTrainerTutorialId),
 ] as const;
 
 export const UCAT_TOUR_REPLAY_OPTIONS = [
@@ -347,6 +777,11 @@ export const UCAT_TOUR_REPLAY_OPTIONS = [
     href: "/sets/sections/1",
   },
   { tourId: UCAT_MOCKS_TOUR, label: "Mocks", href: "/mocks" },
+  {
+    tourId: UCAT_QUESTION_ENGINE_TOUR,
+    label: "Question engine",
+    href: "/exam/tutorial?replay=1&returnTo=%2Fsettings%2Fapp",
+  },
 ] as const;
 
 const PATHNAME_TO_TOUR: Record<string, string> = {
@@ -357,12 +792,26 @@ const PATHNAME_TO_TOUR: Record<string, string> = {
   "/skill-trainer": UCAT_SKILL_TRAINER_TOUR,
   "/practice": UCAT_PRACTICE_TOUR,
   "/mocks": UCAT_MOCKS_TOUR,
+  "/exam/tutorial": UCAT_QUESTION_ENGINE_TOUR,
 };
 
 const SECTION_SETS_PATH_PATTERN = /^\/sets\/sections\/[1-4]\/?$/;
-
+const SECTION_PROGRESS_PATH_PATTERN = /^\/progress\/sections\/[1-4]\/?$/;
+const LEARNING_MODULE_PATH_PATTERN = /^\/learn\/[^/]+\/?$/;
+const ATTEMPT_REVIEW_PATH_PATTERNS = [
+  /^\/progress\/practice-sessions\/[^/]+\/?$/,
+  /^\/progress\/(?:sections\/\d+\/)?set-attempts\/[^/]+\/?$/,
+  /^\/progress\/mock-attempts\/[^/]+\/?$/,
+  /^\/progress\/mock-attempts\/[^/]+\/sets\/[^/]+\/?$/,
+];
 export function getTourForPathname(pathname: string): string | null {
   if (SECTION_SETS_PATH_PATTERN.test(pathname)) return UCAT_SECTION_SETS_TOUR;
+  if (SECTION_PROGRESS_PATH_PATTERN.test(pathname))
+    return UCAT_SECTION_PROGRESS_TOUR;
+  if (LEARNING_MODULE_PATH_PATTERN.test(pathname))
+    return UCAT_LEARNING_MODULE_TOUR;
+  if (ATTEMPT_REVIEW_PATH_PATTERNS.some((pattern) => pattern.test(pathname)))
+    return UCAT_ATTEMPT_REVIEW_TOUR;
   return PATHNAME_TO_TOUR[pathname] ?? null;
 }
 

@@ -275,7 +275,7 @@ export function SignupForm({
               )}
             >
               <p className="text-sm text-muted-foreground">
-                Alternatively, enter the 6-digit code from your email.
+                Click the link in your inbox, or enter the 6-digit code below.
               </p>
               <div className="space-y-1.5">
                 <input

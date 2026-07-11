@@ -4,15 +4,8 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useProgress } from "../hooks/use-progress";
-import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
-import { SectionProgressCards } from "./section-progress-cards";
 import { MockAttemptsCard } from "./mock-attempts-card";
-import {
-  filterByTimeFrame,
-  getSharedDateRange,
-  computeSectionProgressFromMockAttempts,
-} from "../lib/progress-data-utils";
+import { filterByTimeFrame } from "../lib/progress-data-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -21,37 +14,11 @@ import { formatUcatPercentile } from "../lib/percentiles";
 
 export function MocksProgressPage() {
   const { data, isLoading, error } = useProgress();
-  const progressMode = useProgressMode();
 
   const filteredMockAttempts = useMemo(() => {
     if (!data?.mockAttempts) return [];
-    return filterByTimeFrame(
-      data.mockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [data, progressMode.mode, progressMode.timeFrameDays]);
-
-  const sectionProgress = useMemo(() => {
-    if (!data) return [];
-    return computeSectionProgressFromMockAttempts(
-      data.mockAttempts,
-      data.setAttempts,
-      data.sectionProgress,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [data, progressMode.mode, progressMode.timeFrameDays]);
-
-  const sharedDateRange = useMemo(() => {
-    return getSharedDateRange(
-      [],
-      [],
-      filteredMockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [filteredMockAttempts, progressMode.mode, progressMode.timeFrameDays]);
+    return filterByTimeFrame(data.mockAttempts, "all_time", "30");
+  }, [data]);
 
   const averageMockScore = useMemo(() => {
     const withScore = filteredMockAttempts.filter(
@@ -62,6 +29,48 @@ export function MocksProgressPage() {
     return Math.round(sum / withScore.length);
   }, [filteredMockAttempts]);
   const averageMockPercentile = formatUcatPercentile(averageMockScore, "mock");
+  const sectionBreakdown = useMemo(() => {
+    if (!data) return [];
+
+    const mockIds = new Set(filteredMockAttempts.map((attempt) => attempt.id));
+    const scoreByMockAndSection = new Map<string, number>();
+
+    for (const attempt of data.setAttempts) {
+      if (
+        attempt.studentUcatMockAttemptId == null ||
+        !mockIds.has(attempt.studentUcatMockAttemptId) ||
+        attempt.sectionId == null ||
+        attempt.scaledScore == null
+      ) {
+        continue;
+      }
+
+      const key = `${attempt.studentUcatMockAttemptId}:${attempt.sectionId}`;
+      scoreByMockAndSection.set(
+        key,
+        (scoreByMockAndSection.get(key) ?? 0) + attempt.scaledScore,
+      );
+    }
+
+    return data.sectionProgress.map((section) => {
+      const scores = filteredMockAttempts
+        .map((mock) =>
+          scoreByMockAndSection.get(`${mock.id}:${section.sectionId}`),
+        )
+        .filter((score): score is number => score != null);
+      const averageScore =
+        scores.length > 0
+          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+          : null;
+
+      return {
+        sectionId: section.sectionId,
+        sectionName: section.sectionName,
+        averageScore,
+        percentile: formatUcatPercentile(averageScore, "section"),
+      };
+    });
+  }, [data, filteredMockAttempts]);
 
   if (isLoading) {
     return <AppPageSkeleton />;
@@ -91,20 +100,20 @@ export function MocksProgressPage() {
   }
 
   return (
-    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
+    <div className="space-y-6">
       <UcatPageHeader
         title="Mock progress"
         description="Track your performance across mock exams."
       />
 
       <div className="flex justify-center">
-        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
+        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-2xl")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium text-center">
               Average mock score
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
             <div
               className={cn(
                 "text-4xl font-bold tabular-nums text-center",
@@ -122,32 +131,43 @@ export function MocksProgressPage() {
                 {averageMockPercentile}
               </div>
             ) : null}
+
+            <div className="border-t border-border pt-4">
+              <div className="mb-3 text-xs font-medium text-muted-foreground">
+                Section breakdown
+              </div>
+              <div className="space-y-3">
+                {sectionBreakdown.map((section) => (
+                  <div
+                    key={section.sectionId}
+                    className="flex items-center justify-between gap-4"
+                  >
+                    <span className="min-w-0 truncate text-sm font-medium">
+                      {section.sectionName}
+                    </span>
+                    <div className="shrink-0 text-right">
+                      <div
+                        className={cn(
+                          "font-semibold tabular-nums",
+                          section.averageScore == null &&
+                            "text-muted-foreground",
+                        )}
+                      >
+                        {section.averageScore ?? "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {section.percentile ?? "No completed mock score"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <SectionProgressCards
-        sections={sectionProgress}
-        linkToSection
-        sectionHrefPrefix="/progress/mocks/sections"
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-      />
-
-      <MockAttemptsCard
-        attempts={data.mockAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-
-      <ProgressModeFloatingToolbar
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        showAttemptFilter={false}
-      />
+      <MockAttemptsCard attempts={data.mockAttempts} />
     </div>
   );
 }

@@ -25,7 +25,8 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * destructive reset.
  */
 const TOUR_VERSIONS: Record<string, number> = {
-  // "ucat-welcome": 2, // bump to re-show welcome to existing users
+  "ucat-welcome": 2,
+  "ucat-progress-intro": 2,
 };
 
 function currentVersion(tourId: string): number {

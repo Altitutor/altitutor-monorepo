@@ -6,15 +6,18 @@ import {
 } from "@/features/subscription/types/public-subscription-config";
 import type { UcatFreeQuotaConfig } from "@/lib/ucat/quota/config";
 import { DEFAULT_FREE_QUOTA_CONFIG } from "@/lib/ucat/quota/config";
-import {
-  isUcatBillingInterval,
-  isUcatPaidPlanTier,
-} from "@altitutor/shared";
+import { isUcatBillingInterval, isUcatPaidPlanTier } from "@altitutor/shared";
 
 function isFreeQuotas(value: unknown): value is UcatFreeQuotaConfig {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
-  const areas = ["practice", "sets", "mocks", "learn", "skill_trainer"] as const;
+  const areas = [
+    "practice",
+    "sets",
+    "mocks",
+    "learn",
+    "skill_trainer",
+  ] as const;
   return areas.every((area) => {
     const entry = v[area];
     if (!entry || typeof entry !== "object") return false;
@@ -43,7 +46,8 @@ function parsePlanPrices(value: unknown): PublicUcatPlanPrice[] {
         tier: r.tier,
         interval: r.interval,
         basePriceCents: r.basePriceCents,
-        available: r.available === true,
+        checkoutEnabled: r.checkoutEnabled === true,
+        configured: r.configured === true,
       },
     ];
   });

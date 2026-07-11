@@ -19,13 +19,13 @@ export type SetGeneratorInput = {
    * Time mode for the generated set:
    * - 'off'   → no time limit
    * - 'exam'  → UCAT exam timing based on section time_per_question
-   * - 'speed' → exam timing scaled by timeSpeedMultiplier (0.1–1); 1 = exam, 0.5 = 2× time, 0.1 = 10× time
+   * - 'speed' → exam speed scaled by timeSpeedMultiplier (0.25–2); 1 = exam, 2 = double speed / half time
    * - 'custom' → user-specified time limit
    */
   timeMode: TimeMode;
   /**
-   * Speed multiplier when timeMode === 'speed'. Range 0.1–1.
-   * 1 = exam timing, 0.5 = double exam time, 0.1 = 10× exam time.
+   * Speed multiplier when timeMode === 'speed'. Range 0.25–2.
+   * 1 = exam timing, 0.5 = half speed / double time, 2 = double speed / half time.
    */
   timeSpeedMultiplier: number;
   /**

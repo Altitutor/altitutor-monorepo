@@ -11,6 +11,10 @@ import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
@@ -63,6 +67,10 @@ export function SetDetailPage({
   const { openQuotaLimit } = useQuotaLimitModal();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
   const attemptsHeadingId = useId();
@@ -91,6 +99,12 @@ export function SetDetailPage({
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
   const handleLaunchSet = () => {
+    if (questionEngineTourLoading) return;
+    const examHref = `/exam/sets?id=${encodeURIComponent(setId)}`;
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref(examHref));
+      return;
+    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "set" &&
       activeExamAttempt.resourceId === setId;
@@ -103,7 +117,7 @@ export function SetDetailPage({
       });
       return;
     }
-    router.push(`/exam/sets?id=${encodeURIComponent(setId)}`);
+    router.push(examHref);
   };
 
   if (isLoading) {

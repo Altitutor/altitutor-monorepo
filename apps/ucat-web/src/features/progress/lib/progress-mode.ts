@@ -43,12 +43,45 @@ export const TIME_FRAME_OPTIONS = [
 
 export type TimeFrameDays = (typeof TIME_FRAME_OPTIONS)[number]["value"];
 
+/** Graph/table date-range filter including all-time. */
+export type GraphDateRange = "all" | TimeFrameDays;
+
+export const GRAPH_DATE_RANGE_OPTIONS: {
+  value: GraphDateRange;
+  label: string;
+}[] = [
+  { value: "7", label: "Past 7 days" },
+  { value: "14", label: "Past 14 days" },
+  { value: "30", label: "Past month" },
+  { value: "90", label: "Past 3 months" },
+  { value: "all", label: "All time" },
+];
+
+export function resolveGraphDateRange(dateRange: GraphDateRange): {
+  mode: ProgressMode;
+  timeFrameDays: TimeFrameDays;
+} {
+  if (dateRange === "all") {
+    return { mode: "all_time", timeFrameDays: "30" };
+  }
+  return { mode: "time_frame", timeFrameDays: dateRange };
+}
+
 /** Bucket size for graph aggregation: daily for ≤45 days, weekly for 90 days */
 export function getGraphBucketDays(days: number): "day" | "week" {
   return days <= 45 ? "day" : "week";
 }
 
-/** Format a week bucket key (Monday yyyy-MM-dd) as a day range for x-axis display */
+/** Format a week bucket key (Monday yyyy-MM-dd) as the week start for x-axis ticks */
+export function formatWeekStartLabel(bucketKey: string): string {
+  try {
+    return format(new Date(bucketKey + "T12:00:00"), "MMM d");
+  } catch {
+    return bucketKey;
+  }
+}
+
+/** Format a week bucket key as a full day range for tooltips */
 export function formatWeekRangeLabel(bucketKey: string): string {
   try {
     const start = new Date(bucketKey + "T12:00:00");

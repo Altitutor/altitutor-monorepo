@@ -1,33 +1,65 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-steps";
-import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import {
+  buildQuestionEngineTutorialHref,
+  isQuestionEnginePath,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import {
+  clearPracticeSession,
+  getPracticeSession,
+} from "@/features/practice/lib/session-storage";
 
-function isQuestionEnginePath(pathname: string): boolean {
-  return (
-    pathname === "/exam/sets" ||
-    pathname === "/exam/mocks" ||
-    pathname === "/practice/session" ||
-    pathname.startsWith("/practice/stem/") ||
-    /^\/sessions\/[^/]+\/(sets|mocks)\/[^/]+$/.test(pathname)
-  );
-}
-
+/**
+ * Real engine routes redirect here until the question-engine tutorial is done.
+ * Practice sessions used to be created before this redirect, which left an
+ * "in progress" banner whose Resume link bounced back to the tutorial.
+ */
 export function QuestionEngineTutorialRedirect() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isLoading, isCompleted } = useOnboardingProgress();
+  const { isLoading, isBlocked } = useQuestionEngineTutorialGate();
+  const { active, isLoading: activeLoading } = useActiveExamAttempt();
+  const abandonedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !isQuestionEnginePath(pathname)) return;
-    if (isCompleted(UCAT_QUESTION_ENGINE_TOUR)) return;
+    if (isLoading || !isQuestionEnginePath(pathname) || !isBlocked) return;
+
     const query = searchParams.toString();
     const returnTo = `${pathname}${query ? `?${query}` : ""}`;
-    router.replace(`/exam/tutorial?returnTo=${encodeURIComponent(returnTo)}`);
-  }, [isLoading, isCompleted, pathname, router, searchParams]);
+
+    // Never-begun practice rows (no engine_snapshot → not "active") are orphans
+    // from Start → redirect. Drop local session state; the DB row is harmless
+    // to the banner (active attempts require an engine_snapshot).
+    if (
+      pathname === "/practice/session" &&
+      !activeLoading &&
+      active == null
+    ) {
+      const local = getPracticeSession();
+      if (
+        local?.sessionId &&
+        abandonedSessionRef.current !== local.sessionId
+      ) {
+        abandonedSessionRef.current = local.sessionId;
+        clearPracticeSession();
+      }
+    }
+
+    router.replace(buildQuestionEngineTutorialHref(returnTo));
+  }, [
+    active,
+    activeLoading,
+    isBlocked,
+    isLoading,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   return null;
 }

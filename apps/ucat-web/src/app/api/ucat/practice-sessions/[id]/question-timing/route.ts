@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { PracticeActiveQuestionTiming } from "@/features/question-engine/lib/practice-question-timing";
 
-type ActiveQuestionTiming = {
-  questionId: string;
-  startedAt: string;
-  segmentEndsAt: string | null;
-};
-
-function getActiveQuestionTiming(value: unknown): ActiveQuestionTiming | null {
+function getActiveQuestionTiming(
+  value: unknown,
+): PracticeActiveQuestionTiming | null {
   if (!value || typeof value !== "object") return null;
   const stored = value as {
     state?: {
-      activeQuestionTiming?: Partial<ActiveQuestionTiming> | null;
+      activeQuestionTiming?: Partial<PracticeActiveQuestionTiming> | null;
     };
   };
   const active = stored.state?.activeQuestionTiming;
@@ -30,20 +27,6 @@ function getActiveQuestionTiming(value: unknown): ActiveQuestionTiming | null {
     segmentEndsAt:
       typeof active.segmentEndsAt === "string" ? active.segmentEndsAt : null,
   };
-}
-
-function getOpenIntervalSeconds(active: ActiveQuestionTiming): number {
-  const startedMs = new Date(active.startedAt).getTime();
-  if (!Number.isFinite(startedMs)) return 0;
-  const nowMs = Date.now();
-  const segmentEndMs = active.segmentEndsAt
-    ? new Date(active.segmentEndsAt).getTime()
-    : null;
-  const requestedEndMs =
-    segmentEndMs != null && Number.isFinite(segmentEndMs)
-      ? Math.min(nowMs, segmentEndMs)
-      : nowMs;
-  return Math.max(0, Math.floor((requestedEndMs - startedMs) / 1000));
 }
 
 export async function GET(
@@ -115,12 +98,12 @@ export async function GET(
     return NextResponse.json({ error: attemptsError.message }, { status: 500 });
   }
 
-  const secondsByQuestionId: Record<string, number> = {};
+  const persistedSecondsByQuestionId: Record<string, number> = {};
   const submittedQuestionIds: string[] = [];
   for (const attempt of attempts ?? []) {
     if (!attempt.question_id) continue;
-    secondsByQuestionId[attempt.question_id] =
-      (secondsByQuestionId[attempt.question_id] ?? 0) +
+    persistedSecondsByQuestionId[attempt.question_id] =
+      (persistedSecondsByQuestionId[attempt.question_id] ?? 0) +
       Math.max(0, attempt.time_spent_seconds ?? 0);
     if (
       attempt.is_submitted ||
@@ -131,21 +114,11 @@ export async function GET(
     }
   }
 
-  const active = getActiveQuestionTiming(session.engine_snapshot);
-  if (active) {
-    secondsByQuestionId[active.questionId] =
-      (secondsByQuestionId[active.questionId] ?? 0) +
-      getOpenIntervalSeconds(active);
-  }
-
-  const totalSeconds = Object.values(secondsByQuestionId).reduce(
-    (sum, seconds) => sum + seconds,
-    0,
-  );
+  const activeQuestionTiming = getActiveQuestionTiming(session.engine_snapshot);
 
   return NextResponse.json({
-    secondsByQuestionId,
+    persistedSecondsByQuestionId,
+    activeQuestionTiming,
     submittedQuestionIds: Array.from(new Set(submittedQuestionIds)),
-    totalSeconds,
   });
 }

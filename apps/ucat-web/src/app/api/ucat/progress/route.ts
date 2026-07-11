@@ -638,17 +638,30 @@ export async function GET(request: Request) {
   };
   const practiceAttempts: PracticeAttemptRow[] = (
     (practiceAttemptsRaw ?? []) as PracticeRaw[]
-  ).map((row) => ({
-    id: row.id ?? "",
-    attemptedAt: row.started_at ?? "",
-    completedAt: row.completed_at ?? null,
-    ucatSectionId: row.ucat_section_id ?? "",
-    sectionName: row.section_name ?? "Unknown",
-    scorePoints: row.score_points ?? null,
-    totalPoints: row.total_points ?? null,
-    questionCount: row.question_count ?? null,
-    unlimited: row.unlimited ?? false,
-  }));
+  ).map((row) => {
+    const attemptedAt = row.started_at ?? "";
+    const completedAt = row.completed_at ?? null;
+    let timeTakenSeconds: number | null = null;
+    if (attemptedAt && completedAt) {
+      const elapsedMs =
+        new Date(completedAt).getTime() - new Date(attemptedAt).getTime();
+      if (Number.isFinite(elapsedMs) && elapsedMs > 0) {
+        timeTakenSeconds = Math.round(elapsedMs / 1000);
+      }
+    }
+    return {
+      id: row.id ?? "",
+      attemptedAt,
+      completedAt,
+      ucatSectionId: row.ucat_section_id ?? "",
+      sectionName: row.section_name ?? "Unknown",
+      scorePoints: row.score_points ?? null,
+      totalPoints: row.total_points ?? null,
+      questionCount: row.question_count ?? null,
+      timeTakenSeconds,
+      unlimited: row.unlimited ?? false,
+    };
+  });
 
   type QuestionAttemptRaw = {
     id: string | null;

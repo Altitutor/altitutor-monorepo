@@ -20,6 +20,7 @@ import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/c
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -128,6 +129,7 @@ function AppShellInner({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
+        <QuestionEngineTutorialRedirect />
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"

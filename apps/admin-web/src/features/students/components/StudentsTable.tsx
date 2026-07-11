@@ -44,7 +44,6 @@ import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
-import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -128,7 +127,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
@@ -223,56 +221,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handleStudentClick = (id: string) => {
     setSelectedStudentId(id);
     setIsViewModalOpen(true);
-  };
-
-  const handleDiscontinueStudent = async (): Promise<boolean> => {
-    if (!currentStaff || !studentToDiscontinue) return false;
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(studentToDiscontinue.id, currentStaff.id);
-
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return false;
-      }
-
-      refetch();
-      setStudentToDiscontinue(null);
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsDiscontinuing(false);
-    }
   };
 
   const handleStudentUpdated = () => {

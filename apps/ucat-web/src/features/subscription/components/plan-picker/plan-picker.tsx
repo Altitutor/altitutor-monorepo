@@ -145,6 +145,7 @@ export function PlanPicker({
     loadingPlan,
     billingInterval,
     setBillingInterval,
+    availableBillingIntervals,
     showBillingIntervalSelector,
     isPricingLoading,
     freeIsCurrentPlan,
@@ -241,6 +242,7 @@ export function PlanPicker({
         <BillingIntervalSelector
           value={billingInterval}
           onChange={setBillingInterval}
+          intervals={availableBillingIntervals}
           theme={resolvedSelectorTheme}
           className={intervalSelectorClass}
         />

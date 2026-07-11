@@ -5,16 +5,20 @@ import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton"
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
 import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempts-card";
-import { MockAttemptScaledScoreCard } from "./mock-attempt-scaled-score-card";
+import { MockAttemptScoreTimingRow } from "./mock-attempt-score-timing-row";
 import { MockAttemptSetCards } from "./mock-attempt-set-cards";
 import { SetAnswersCard } from "./set-answers-card";
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;
+  backHref?: string;
+  backLabel?: string;
 };
 
 export function MockAttemptDetailPage({
   mockAttemptId,
+  backHref = "/progress/mocks",
+  backLabel = "Back to mocks",
 }: MockAttemptDetailPageProps) {
   const { data, isLoading, error } = useMockAttemptDetail(mockAttemptId);
   const questionCount = data?.questionAttempts.length ?? 0;
@@ -31,8 +35,8 @@ export function MockAttemptDetailPage({
         <UcatPageHeader
           title="Mock attempt"
           description="Could not load mock attempt."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
@@ -45,8 +49,8 @@ export function MockAttemptDetailPage({
         <UcatPageHeader
           title="Mock attempt"
           description="No data available."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -63,23 +67,43 @@ export function MockAttemptDetailPage({
     questionType: q.questionType,
   }));
 
+  const handleSelectSet = (setIndex: number) => {
+    const firstQuestionIndex = data.questionAttempts.findIndex(
+      (q) => q.setIndex === setIndex,
+    );
+    if (firstQuestionIndex < 0) return;
+    setSelectedQuestionIndex(firstQuestionIndex);
+    document
+      .getElementById("attempt-review-questions")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="min-w-0 max-w-full space-y-6">
       <UcatPageHeader
         title={data.mockName ?? "Mock attempt"}
         description={`Attempted ${attemptedDate}`}
-        backHref="/progress"
-        backLabel="Back to progress"
-        breadcrumbOverrides={{ 1: data.mockName ?? "Mock" }}
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
       />
 
       <div className="flex flex-col gap-4">
-        <MockAttemptScaledScoreCard scaledScore={data.scaledScore} />
+        <MockAttemptScoreTimingRow
+          scaledScore={data.scaledScore}
+          timing={{
+            timeTakenSeconds: data.timeTakenSeconds,
+            setTimeLimitSeconds: data.mockTimeLimitSeconds,
+            examTimeLimitSeconds: data.examTimeLimitSeconds,
+            studentSetSpeed: data.studentMockSpeed,
+            studentExamSpeed: data.studentExamSpeed,
+          }}
+        />
 
         <MockAttemptSetCards
           sets={data.sets}
-          mockAttemptId={mockAttemptId}
           questionAttempts={data.questionAttempts}
+          onSelectSet={handleSelectSet}
         />
       </div>
 
@@ -93,13 +117,15 @@ export function MockAttemptDetailPage({
         onBarClick={setSelectedQuestionIndex}
       />
 
-      <SetAnswersCard
-        mockId={data.ucatMockId}
-        questionAttempts={data.questionAttempts}
-        initialQuestionIndex={selectedQuestionIndex}
-        onQuestionIndexChange={setSelectedQuestionIndex}
-        attemptReview
-      />
+      <div id="attempt-review-questions">
+        <SetAnswersCard
+          mockId={data.ucatMockId}
+          questionAttempts={data.questionAttempts}
+          initialQuestionIndex={selectedQuestionIndex}
+          onQuestionIndexChange={setSelectedQuestionIndex}
+          attemptReview
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
+import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
 
 export type UcatSkillTrainerItemRow = {
   id: string
@@ -25,6 +26,7 @@ export const ucatSkillTrainerItemsApi = {
       .select('*')
       .is('deleted_at', null)
       .order('updated_at', { ascending: false })
+      .order('id')
 
     if (options?.trainerKey) {
       query = query.eq('trainer_key', options.trainerKey)
@@ -33,9 +35,8 @@ export const ucatSkillTrainerItemsApi = {
       query = query.eq('approval_status', options.approvalStatus)
     }
 
-    const { data, error } = await query
-    if (error) throw error
-    return (data ?? []) as UcatSkillTrainerItemRow[]
+    const data = await fetchAllSupabaseRows((from, to) => query.range(from, to))
+    return data as UcatSkillTrainerItemRow[]
   },
 
   async get(itemId: string): Promise<UcatSkillTrainerItemRow | null> {

@@ -10,7 +10,8 @@ export type PublicUcatPlanPrice = {
   tier: UcatPaidPlanTier;
   interval: UcatBillingInterval;
   basePriceCents: number;
-  available: boolean;
+  checkoutEnabled: boolean;
+  configured: boolean;
 };
 
 export type PublicUcatPracticeDayDiscount = UcatPracticeDayDiscountRule;
@@ -54,7 +55,9 @@ export function getPublicPlanPrice(
   tier: UcatPaidPlanTier,
   interval: UcatBillingInterval,
 ): PublicUcatPlanPrice | undefined {
-  return config.planPrices.find((p) => p.tier === tier && p.interval === interval);
+  return config.planPrices.find(
+    (p) => p.tier === tier && p.interval === interval,
+  );
 }
 
 export function isPlanCheckoutAvailable(
@@ -63,7 +66,7 @@ export function isPlanCheckoutAvailable(
   interval: UcatBillingInterval,
 ): boolean {
   const row = getPublicPlanPrice(config, tier, interval);
-  if (!row?.available) return false;
+  if (!row?.checkoutEnabled || !row.configured) return false;
   if (tier === "unlimited") return config.unlimitedProductConfigured;
   return config.proProductConfigured;
 }
@@ -74,4 +77,15 @@ export function isTierOffered(
 ): boolean {
   if (tier === "unlimited") return config.unlimitedProductConfigured;
   return config.proProductConfigured;
+}
+
+export function getAvailableBillingIntervals(
+  config: PublicUcatSubscriptionConfig,
+): UcatBillingInterval[] {
+  const intervals: UcatBillingInterval[] = ["week", "month", "year"];
+  return intervals.filter((interval) =>
+    (["unlimited", "pro"] as const).some((tier) =>
+      isPlanCheckoutAvailable(config, tier, interval),
+    ),
+  );
 }

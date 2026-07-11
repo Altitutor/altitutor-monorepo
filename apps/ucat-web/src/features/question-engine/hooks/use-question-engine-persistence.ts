@@ -442,7 +442,7 @@ export function useQuestionEnginePersistence({
             : `/progress/set-attempts/${setAttemptId}`;
       }
     } else if (mode === "mock" && attemptStateRef.current.mockAttemptId) {
-      redirectHref = `/progress/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
+      redirectHref = `/progress/mocks/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
     } else if (
       practiceSessionId &&
       examAttemptManaged &&

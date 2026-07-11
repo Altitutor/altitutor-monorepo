@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   DataTableToolbar,
@@ -103,7 +103,7 @@ export function FormReportsPage() {
       .catch((err) => setError(err.message));
   }, []);
 
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
     if (!formId) return;
     setError(null);
     const res = await fetch(`/api/forms/reports?formId=${formId}${versionId ? `&versionId=${versionId}` : ''}`);
@@ -117,11 +117,11 @@ export function FormReportsPage() {
     setResponseCount(json.report?.responseCount ?? 0);
     setSelectedQuestion(null);
     setSelectedResponse(null);
-  };
+  }, [formId, versionId]);
 
   useEffect(() => {
     void loadReport();
-  }, [formId, versionId]);
+  }, [loadReport]);
 
   useEffect(() => {
     if (!formId) return;

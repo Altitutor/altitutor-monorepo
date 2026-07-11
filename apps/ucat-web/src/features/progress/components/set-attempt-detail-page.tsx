@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSetAttemptDetail } from "../hooks/use-set-attempt-detail";
-import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
 import { SetAnswersCard } from "./set-answers-card";
 import { AttemptReviewSummaryGrid } from "./attempt-review-summary-grid";
@@ -16,19 +15,15 @@ type SetAttemptDetailPageProps = {
   attemptId: string;
   backHref?: string;
   backLabel?: string;
-  /** When in nested route /progress/mock-attempts/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
-  mockAttemptId?: string;
 };
 
 export function SetAttemptDetailPage({
   attemptId,
   backHref = "/progress",
   backLabel = "Back to progress",
-  mockAttemptId,
 }: SetAttemptDetailPageProps) {
   const pathname = usePathname();
   const { data, isLoading, error } = useSetAttemptDetail(attemptId);
-  const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null);
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
@@ -76,10 +71,7 @@ export function SetAttemptDetailPage({
   const lastSegmentLabel = `${data.questionSetName ?? "Set"} (${attemptDate})`;
 
   const breadcrumbOverrides: Record<number, string> = {};
-  if (mockAttemptId) {
-    breadcrumbOverrides[1] = mockData?.mockName ?? "Mock";
-    breadcrumbOverrides[2] = lastSegmentLabel;
-  } else if (pathname.includes("/sections/")) {
+  if (pathname.includes("/sections/")) {
     breadcrumbOverrides[2] = lastSegmentLabel;
   } else {
     breadcrumbOverrides[1] = lastSegmentLabel;
@@ -107,6 +99,13 @@ export function SetAttemptDetailPage({
         chartData={data.questionAttempts}
         selectedQuestionIndex={selectedQuestionIndex}
         onBarClick={setSelectedQuestionIndex}
+        timing={{
+          timeTakenSeconds: data.timeTakenSeconds,
+          setTimeLimitSeconds: data.setTimeLimitSeconds,
+          examTimeLimitSeconds: data.examTimeLimitSeconds,
+          studentSetSpeed: data.studentSetSpeed,
+          studentExamSpeed: data.studentExamSpeed,
+        }}
       />
 
       <SetAnswersCard

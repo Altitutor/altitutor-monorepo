@@ -11,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { UcatPageHeader } from "@/features/layout";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
@@ -32,6 +31,10 @@ import {
   QuotaExceededError,
 } from "@/lib/ucat/quota/parse-quota-error";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 
 export function PracticePage() {
   const router = useRouter();
@@ -40,6 +43,10 @@ export function PracticePage() {
     isLoading: activeAttemptLoading,
     refresh: refreshActiveAttempt,
   } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitModal();
   const filters = useStemFilters({
@@ -59,6 +66,11 @@ export function PracticePage() {
     requestedCount: number;
     remainingCount: number;
   } | null>(null);
+  const practiceQuota = quota?.areas.find((area) => area.area === "practice");
+  const freeQuestionLimit =
+    quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota
+      ? Math.max(0, practiceQuota.limit - practiceQuota.used)
+      : null;
 
   const startMutation = useMutation({
     mutationFn: async ({
@@ -227,6 +239,13 @@ export function PracticePage() {
   function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
+    if (questionEngineTourLoading) return;
+    // Create the DB session only after the engine tutorial — otherwise Resume
+    // points at /practice/session which immediately redirects back to tutorial.
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref("/practice"));
+      return;
+    }
 
     const unlimited = filters.questionCountMode === "unlimited";
     const payload = {
@@ -271,11 +290,14 @@ export function PracticePage() {
       disabled={
         startMutation.isPending ||
         activeAttemptLoading ||
+        questionEngineTourLoading ||
         !filters.selectedSection?.id
       }
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
-      {startMutation.isPending || activeAttemptLoading
+      {startMutation.isPending ||
+      activeAttemptLoading ||
+      questionEngineTourLoading
         ? "Loading…"
         : "Start practice"}
     </Button>
@@ -283,12 +305,6 @@ export function PracticePage() {
 
   return (
     <div className="space-y-6">
-      <div id="tour-practice-header">
-        <UcatPageHeader
-          title="Practice questions"
-          description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
-        />
-      </div>
       <div id="tour-practice-filters">
         <StemFiltersPanel
           input={filters.input}
@@ -314,6 +330,7 @@ export function PracticePage() {
           showUnlimitedOption={filters.showUnlimitedOption}
           questionCountMode={filters.questionCountMode}
           onQuestionCountModeChange={filters.handleQuestionCountModeChange}
+          fixedQuestionCountLimit={freeQuestionLimit}
           actionButton={actionButton}
         />
       </div>

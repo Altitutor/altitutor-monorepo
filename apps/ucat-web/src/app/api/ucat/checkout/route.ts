@@ -12,7 +12,8 @@ import {
 /**
  * POST /api/ucat/checkout
  * Creates a Stripe Checkout Session for UCAT subscription.
- * Requires authenticated student. Redirects to Stripe hosted checkout.
+ * Requires authenticated student. Returns a client secret for Stripe's custom
+ * Checkout UI; payment details never touch Altitutor servers.
  */
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
   const priceId = planPrice?.stripe_price_id?.trim() ?? null;
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey || !priceId) {
+  if (!stripeSecretKey || !priceId || !planPrice?.checkout_enabled) {
     return NextResponse.json(
       { error: "This plan is not available yet. Please try another option." },
       { status: 503 },
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest) {
         student_id: student.id,
         ucat_plan_tier: selection.tier,
         ucat_billing_interval: selection.interval,
+        ucat_checkout_context: returnContext,
       },
     };
 
@@ -151,7 +153,9 @@ export async function POST(request: NextRequest) {
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
+    ui_mode: "custom",
     payment_method_types: ["card"],
+    wallet_options: { link: { display: "never" } },
     line_items: [
       {
         price: priceId,
@@ -165,19 +169,12 @@ export async function POST(request: NextRequest) {
       student_id: student.id,
       ucat_plan_tier: selection.tier,
       ucat_billing_interval: selection.interval,
+      ucat_checkout_context: returnContext,
     },
-    success_url:
-      returnContext === "signup_onboarding"
+    return_url:
+      returnContext === "subscribe"
         ? `${checkoutReturnBase}?checkout=success`
-        : returnContext === "practice_session"
-          ? `${checkoutReturnBase}?checkout=success`
-          : checkoutReturnBase,
-    cancel_url:
-      returnContext === "signup_onboarding"
-        ? `${origin}/signup/complete?checkout=canceled`
-        : returnContext === "practice_session"
-          ? `${origin}/practice/session?checkout=canceled`
-          : `${origin}/subscribe?canceled=1`,
+        : `${checkoutReturnBase}?checkout=success`,
     allow_promotion_codes: true,
   };
 
@@ -195,14 +192,29 @@ export async function POST(request: NextRequest) {
   try {
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    if (!session.url) {
+    if (!session.client_secret) {
       return NextResponse.json(
-        { error: "Failed to create checkout session" },
+        { error: "Failed to initialize checkout" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ url: session.url });
+    await supabaseAdmin.from("ucat_subscription_journey_events").insert({
+      student_id: student.id,
+      event_type: "checkout_loaded",
+      journey_context: returnContext,
+      plan_tier: selection.tier,
+      billing_interval: selection.interval,
+      trial_eligible: trialEligible,
+      stripe_checkout_session_id: session.id,
+    });
+
+    return NextResponse.json({
+      clientSecret: session.client_secret,
+      checkoutSessionId: session.id,
+      trialEligible,
+      trialDays: trialEligible ? trialDays : 0,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ucat checkout] Stripe error:", msg);

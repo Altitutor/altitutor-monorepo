@@ -241,6 +241,7 @@ export function NavigatorPanel({
   return (
     <div
       ref={panelRef}
+      data-tour="question-engine-navigator-panel"
       className="pointer-events-auto relative"
       style={{
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
@@ -298,6 +299,7 @@ export function NavigatorPanel({
                   return (
                     <tr
                       key={row.question.id}
+                      data-tour="question-engine-navigator-question"
                       className={`group border-b ${
                         isRowHovered ? "border-[#1b4c7d]" : "border-transparent"
                       }`}
@@ -345,7 +347,11 @@ export function NavigatorPanel({
               {unseenOrIncompleteCount} Unseen/Incomplete
             </div>
             <div className="flex justify-end">
-              <UcatExamActionButton borders="all" onClick={onClose}>
+              <UcatExamActionButton
+                data-tour="question-engine-navigator-close"
+                borders="all"
+                onClick={onClose}
+              >
                 <span>
                   <span className="underline">C</span>lose
                 </span>

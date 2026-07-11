@@ -70,7 +70,18 @@ import {
   mapQuestionStemsToItems,
   mapQuestionsToItems,
 } from "@/features/question-engine/model/types";
-import { getStemBoundaries } from "@/features/question-engine/lib/practice";
+import {
+  computeClientStemQuestionTimes,
+  computeStemQuestionTimes,
+  getStemBoundaries,
+} from "@/features/question-engine/lib/practice";
+import {
+  EMPTY_CLIENT_PRACTICE_QUESTION_TIMING,
+  flushActiveClientPracticeQuestionTiming,
+  switchClientPracticeQuestionTiming,
+  type ClientPracticeQuestionTiming,
+  type PracticeQuestionTimingData,
+} from "@/features/question-engine/lib/practice-question-timing";
 import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
 import { useExamAttemptLifecycle } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -85,13 +96,34 @@ import { PlanPickerDialogShell } from "@/features/subscription/components/plan-p
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
+import { useNextStep } from "nextstepjs";
+import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-steps";
 
-/** App shell: main `pt-16` + vertical `p-6` — cap embedded practice so the engine scrolls inside the viewport. */
+/**
+ * Standalone practice (e.g. `/practice/stem/[id]`): fill the padded app-shell
+ * viewport (`pt-28` + bottom `p-6` = 8.5rem).
+ */
 export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
-  "mx-auto h-[calc(100dvh-7rem)] max-h-[calc(100dvh-7rem)] w-full min-h-0 overflow-hidden";
+  "mx-auto h-[calc(100dvh-8.5rem)] max-h-[calc(100dvh-8.5rem)] w-full min-h-0 overflow-hidden";
+
+/** Parent supplies a definite height (practice session layout). */
+export const PRACTICE_FILL_PARENT_CLASS =
+  "mx-auto h-full min-h-0 w-full overflow-hidden";
 
 export const LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS =
   "mx-auto h-[min(760px,calc(100dvh-8rem))] min-h-[520px] w-full overflow-hidden";
+
+function practiceEngineShellClassName({
+  embeddedInLesson,
+  fillAvailableHeight,
+}: {
+  embeddedInLesson: boolean;
+  fillAvailableHeight: boolean;
+}): string {
+  if (embeddedInLesson) return LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS;
+  if (fillAvailableHeight) return PRACTICE_FILL_PARENT_CLASS;
+  return PRACTICE_EMBEDDED_VIEWPORT_CLASS;
+}
 
 function QuestionEngineLoadingContentSkeleton() {
   return (
@@ -152,18 +184,21 @@ function QuestionEngineLoadingSkeleton({
   label,
   isPracticeMode,
   embeddedInLesson,
+  fillAvailableHeight,
 }: {
   label: string;
   isPracticeMode: boolean;
   embeddedInLesson: boolean;
+  fillAvailableHeight: boolean;
 }) {
   return (
     <div
       className={cn(
         isPracticeMode
-          ? embeddedInLesson
-            ? LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS
-            : PRACTICE_EMBEDDED_VIEWPORT_CLASS
+          ? practiceEngineShellClassName({
+              embeddedInLesson,
+              fillAvailableHeight,
+            })
           : "h-full min-h-0 w-full overflow-hidden",
       )}
       aria-busy="true"
@@ -244,13 +279,16 @@ export type PracticeEngineLiveStats = {
   totalAnsweredTimeSeconds: number;
   currentQuestionNumber: number;
   totalQuestionLabel: string;
+  timingPhase: "question" | "practiceAnswer";
+  stemTimeSeconds: number;
+  stemQuestionTimes: Array<{
+    questionId: string;
+    label: string;
+    seconds: number;
+  }>;
 };
 
-type PracticeQuestionTimingResponse = {
-  secondsByQuestionId: Record<string, number>;
-  submittedQuestionIds: string[];
-  totalSeconds: number;
-};
+type PracticeQuestionTimingResponse = PracticeQuestionTimingData;
 
 async function fetchPracticeQuestionTiming(
   practiceSessionId: string,
@@ -282,6 +320,7 @@ export function QuestionEnginePage({
   onLearnProgress,
   disableQuestionAttemptLogging = false,
   embeddedInLesson = false,
+  fillAvailableHeight = false,
   onRegisterFinishPracticeDialog,
   tutorialMode = false,
 }: {
@@ -317,11 +356,17 @@ export function QuestionEnginePage({
   disableQuestionAttemptLogging?: boolean;
   /** Shorter viewport when practice engine is embedded inside a lesson block card. */
   embeddedInLesson?: boolean;
+  /**
+   * When true, fill the parent height instead of using a viewport calc.
+   * Used by practice session where the parent owns the remaining-height layout.
+   */
+  fillAvailableHeight?: boolean;
   /** Parent can call the registered opener to show the finish-practice confirmation dialog. */
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
   /** Runs the real engine with local tutorial data and no persistence or leave warning. */
   tutorialMode?: boolean;
 }) {
+  const { currentTour, currentStep } = useNextStep();
   const invalidLearningMode =
     learningModuleBlockId && mode !== "questions" && mode !== "questionStem";
 
@@ -330,11 +375,6 @@ export function QuestionEnginePage({
     () => ["ucat", "practice-question-timing", practiceSessionId] as const,
     [practiceSessionId],
   );
-  const practiceTimingQuery = useQuery({
-    queryKey: practiceTimingQueryKey,
-    queryFn: () => fetchPracticeQuestionTiming(practiceSessionId!),
-    enabled: practice && practiceSessionId != null && !embeddedInLesson,
-  });
   const query = useQuestionEngineData({
     mode,
     setId: mode === "set" ? sourceId : undefined,
@@ -411,10 +451,80 @@ export function QuestionEnginePage({
     setSyllogismSnapshot,
   } = useQuestionEngineState(exam, { practice, onNeedMoreStems });
 
+  const practiceTimingQuery = useQuery({
+    queryKey: practiceTimingQueryKey,
+    queryFn: () => fetchPracticeQuestionTiming(practiceSessionId!),
+    enabled:
+      practice &&
+      practiceSessionId != null &&
+      !embeddedInLesson &&
+      state.phase === "practiceAnswer",
+  });
+
+  const [stemTimingTick, setStemTimingTick] = useState(0);
+  const clientPracticeTimingRef = useRef<ClientPracticeQuestionTiming>(
+    EMPTY_CLIENT_PRACTICE_QUESTION_TIMING,
+  );
+
+  const refreshPracticeStemTimingFromServer = useCallback(async () => {
+    if (!practiceSessionId) return;
+    await queryClient.fetchQuery({
+      queryKey: practiceTimingQueryKey,
+      queryFn: () => fetchPracticeQuestionTiming(practiceSessionId),
+    });
+  }, [practiceSessionId, queryClient, practiceTimingQueryKey]);
+
+  const prevPracticeSessionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sessionKey = `${exam?.sourceId ?? "none"}:${practiceSessionId ?? "none"}`;
+    if (prevPracticeSessionKeyRef.current === sessionKey) return;
+    prevPracticeSessionKeyRef.current = sessionKey;
+    clientPracticeTimingRef.current = EMPTY_CLIENT_PRACTICE_QUESTION_TIMING;
+  }, [exam?.sourceId, practiceSessionId]);
+
+  useEffect(() => {
+    if (state.phase !== "question") return;
+    const question = questions[effectiveCurrentIndex];
+    if (!question) return;
+    clientPracticeTimingRef.current = switchClientPracticeQuestionTiming(
+      clientPracticeTimingRef.current,
+      question.id,
+    );
+  }, [state.phase, effectiveCurrentIndex, questions]);
+
+  useEffect(() => {
+    if (state.phase !== "question" || !practiceSessionId) return;
+    const id = setInterval(() => {
+      setStemTimingTick((tick) => tick + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state.phase, practiceSessionId]);
+
   useEffect(() => {
     if (!tutorialMode || !exam || state.phase !== "intro") return;
-    setState((current) => ({ ...current, phase: "question" }));
+    setState((current) => ({
+      ...current,
+      phase: "question",
+      currentIndex: 0,
+    }));
   }, [tutorialMode, exam, state.phase, setState]);
+
+  useEffect(() => {
+    if (
+      !tutorialMode ||
+      currentTour !== UCAT_QUESTION_ENGINE_TOUR ||
+      currentStep !== 12 ||
+      !exam
+    )
+      return;
+    setState((current) => ({
+      ...current,
+      phase: "question",
+      currentIndex: exam.questions.length - 1,
+      showNavigator: false,
+      showCalculator: false,
+    }));
+  }, [tutorialMode, currentTour, currentStep, exam, setState]);
   const router = useRouter();
   const { toast } = useToast();
   const {
@@ -563,7 +673,7 @@ export function QuestionEnginePage({
     if (exam.sourceType === "mock") {
       const viewAttemptHref =
         attemptIds.mockAttemptId != null
-          ? `/progress/mock-attempts/${attemptIds.mockAttemptId}`
+          ? `/progress/mocks/mock-attempts/${attemptIds.mockAttemptId}`
           : undefined;
       return { viewAttemptHref };
     }
@@ -730,7 +840,7 @@ export function QuestionEnginePage({
       if (nextUrl.href === window.location.href) return;
 
       const confirmLeave = window.confirm(
-        "Are you sure you want to leave this UCAT exam? Your current progress may be lost.",
+        "Are you sure you want to leave this UCAT exam? Your progress is saved, and you can resume later.",
       );
       if (!confirmLeave) {
         event.preventDefault();
@@ -867,7 +977,7 @@ export function QuestionEnginePage({
         exam.sourceType === "mock" &&
         attemptStateRef.current.mockAttemptId
       ) {
-        href = `/progress/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
+        href = `/progress/mocks/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
       }
       if (href) {
         skipBeforeUnloadRef.current = true;
@@ -1076,10 +1186,12 @@ export function QuestionEnginePage({
     if (learningModuleBlockId && disableQuestionAttemptLogging) {
       onLearnProgress?.();
     }
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
-      queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
-    ]);
+    clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
+      clientPracticeTimingRef.current,
+    );
+    await flushQuestionTiming();
+    await refreshPracticeStemTimingFromServer();
+    await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
     setSubmittedPracticeQuestionIds((current) => {
       const next = new Set(current);
       for (let index = startIndex; index <= endIndex; index++) {
@@ -1099,7 +1211,8 @@ export function QuestionEnginePage({
     disableQuestionAttemptLogging,
     onLearnProgress,
     queryClient,
-    practiceTimingQueryKey,
+    flushQuestionTiming,
+    refreshPracticeStemTimingFromServer,
     handlePracticeSubmit,
   ]);
 
@@ -1498,12 +1611,47 @@ export function QuestionEnginePage({
       Math.max(progressIndex + 1, 1),
       Math.max(questions.length, 1),
     );
+    const persistedSecondsByQuestionId =
+      practiceTimingQuery.data?.persistedSecondsByQuestionId ?? {};
     const totalAnsweredTimeSeconds = Array.from(submittedIds).reduce(
       (total, questionId) =>
-        total +
-        (practiceTimingQuery.data?.secondsByQuestionId[questionId] ?? 0),
+        total + Math.max(0, persistedSecondsByQuestionId[questionId] ?? 0),
       0,
     );
+
+    const timingPhase =
+      state.phase === "practiceAnswer" ? "practiceAnswer" : "question";
+    const stemBounds =
+      timingPhase === "practiceAnswer" &&
+      state.practiceAnswerUnitStartIndex != null &&
+      state.practiceAnswerUnitEndIndex != null
+        ? {
+            startIndex: state.practiceAnswerUnitStartIndex,
+            endIndex: state.practiceAnswerUnitEndIndex,
+          }
+        : getStemBoundaries(
+            questions,
+            effectiveCurrentIndex,
+            mode as "questions" | "questionStem",
+          );
+
+    const nowMs = Date.now();
+    const { stemTimeSeconds, stemQuestionTimes } =
+      timingPhase === "practiceAnswer"
+        ? computeStemQuestionTimes(
+            questions,
+            stemBounds.startIndex,
+            stemBounds.endIndex,
+            persistedSecondsByQuestionId,
+            { nowMs },
+          )
+        : computeClientStemQuestionTimes(
+            questions,
+            stemBounds.startIndex,
+            stemBounds.endIndex,
+            clientPracticeTimingRef.current,
+            nowMs,
+          );
 
     onPracticeStatsChange({
       answeredCount,
@@ -1514,6 +1662,9 @@ export function QuestionEnginePage({
       totalQuestionLabel: onNeedMoreStems
         ? "Unlimited"
         : String(questions.length),
+      timingPhase,
+      stemTimeSeconds,
+      stemQuestionTimes,
     });
   }, [
     onPracticeStatsChange,
@@ -1526,10 +1677,14 @@ export function QuestionEnginePage({
     state.syllogismSnapshots,
     state.phase,
     state.viewingQuestionIndex,
+    state.practiceAnswerUnitStartIndex,
+    state.practiceAnswerUnitEndIndex,
     effectiveCurrentIndex,
+    mode,
     onNeedMoreStems,
     practiceTimingQuery.data,
     submittedPracticeQuestionIds,
+    stemTimingTick,
   ]);
 
   if (invalidLearningMode) {
@@ -1546,6 +1701,7 @@ export function QuestionEnginePage({
         label="Checking for in-progress attempts"
         isPracticeMode={isPracticeMode}
         embeddedInLesson={embeddedInLesson}
+        fillAvailableHeight={fillAvailableHeight}
       />
     );
   }
@@ -1571,6 +1727,7 @@ export function QuestionEnginePage({
         label="Loading exam"
         isPracticeMode={isPracticeMode}
         embeddedInLesson={embeddedInLesson}
+        fillAvailableHeight={fillAvailableHeight}
       />
     );
   }
@@ -1581,6 +1738,7 @@ export function QuestionEnginePage({
         label="Resuming attempt"
         isPracticeMode={isPracticeMode}
         embeddedInLesson={embeddedInLesson}
+        fillAvailableHeight={fillAvailableHeight}
       />
     );
   }
@@ -1591,6 +1749,7 @@ export function QuestionEnginePage({
         label="Loading questions"
         isPracticeMode={isPracticeMode}
         embeddedInLesson={embeddedInLesson}
+        fillAvailableHeight={fillAvailableHeight}
       />
     );
   }
@@ -1743,10 +1902,12 @@ export function QuestionEnginePage({
         if (learningModuleBlockId && disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
-        void Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
-          queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
-        ]);
+        clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
+          clientPracticeTimingRef.current,
+        );
+        await flushQuestionTiming();
+        await refreshPracticeStemTimingFromServer();
+        await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
         setSubmittedPracticeQuestionIds((current) => {
           const next = new Set(current);
           for (let index = startIndex; index <= endIndex; index++) {
@@ -2118,9 +2279,10 @@ export function QuestionEnginePage({
         data-tour="question-engine-shell"
         className={cn(
           isPracticeMode
-            ? embeddedInLesson
-              ? LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS
-              : PRACTICE_EMBEDDED_VIEWPORT_CLASS
+            ? practiceEngineShellClassName({
+                embeddedInLesson,
+                fillAvailableHeight,
+              })
             : "contents",
         )}
       >
@@ -2264,7 +2426,15 @@ export function QuestionEnginePage({
                   <span className="underline">F</span>inish practice
                 </span>
               </UcatExamActionButton>
-            ) : isResultsPhase ? null : isReviewScreen ? (
+            ) : isResultsPhase ? null : isReviewScreen && tutorialMode ? (
+              <UcatExamActionButton
+                data-tour="question-engine-finish-tutorial"
+                onClick={() => {}}
+                icon={<LogOut className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">Finish tutorial</span>
+              </UcatExamActionButton>
+            ) : isReviewScreen ? (
               <UcatExamActionButton
                 onClick={() =>
                   void runWithLag(() => {
@@ -2303,7 +2473,6 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) >
                 (state.practiceAnswerUnitStartIndex ?? 0) ? (
                   <UcatExamActionButton
-                    data-tour="question-engine-navigator"
                     onClick={() => void runWithLag(() => goPrevious())}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >
@@ -2414,6 +2583,7 @@ export function QuestionEnginePage({
               ) : exam?.sourceType === "set" ||
                 exam?.sourceType === "mock" ? null : (
                 <UcatExamActionButton
+                  data-tour="question-engine-next"
                   onClick={() =>
                     void runWithLag(() =>
                       setState((current) => ({
@@ -2512,6 +2682,7 @@ export function QuestionEnginePage({
               <>
                 {hasPreviousQuestion ? (
                   <UcatExamActionButton
+                    data-tour="question-engine-previous"
                     onClick={() =>
                       void runWithLag(() => {
                         goPrevious();
@@ -2526,6 +2697,7 @@ export function QuestionEnginePage({
                 ) : null}
                 {!isPracticeMode ? (
                   <UcatExamActionButton
+                    data-tour="question-engine-navigator"
                     onClick={() =>
                       void runWithLag(() =>
                         setState((current) => ({
@@ -2542,6 +2714,7 @@ export function QuestionEnginePage({
                   </UcatExamActionButton>
                 ) : null}
                 <UcatExamActionButton
+                  data-tour="question-engine-next"
                   onClick={() =>
                     void runWithLag(() => {
                       if (isPracticeMode && isLastQuestionOfCurrentUnit) {
@@ -2737,6 +2910,7 @@ export function QuestionEnginePage({
         <CalculatorPanel
           display={calculatorDisplay}
           onKey={calculatorOnKey}
+          tutorialMode={tutorialMode}
           onClose={() =>
             void runWithLag(() =>
               setState((current) => ({ ...current, showCalculator: false })),

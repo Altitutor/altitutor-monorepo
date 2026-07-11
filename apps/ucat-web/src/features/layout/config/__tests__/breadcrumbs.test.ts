@@ -39,17 +39,17 @@ describe("getBreadcrumbItems", () => {
     ]);
   });
 
-  it("omits structural segments on progress mock-attempt nested set route", () => {
-    expect(
-      labels(`/progress/mock-attempts/${MOCK_ID}/sets/${SET_ID}`),
-    ).toEqual(["Progress", "Mock attempt", "Set"]);
+  it("omits structural segments on progress mock-attempt route", () => {
+    expect(labels(`/progress/mocks/mock-attempts/${MOCK_ID}`)).toEqual([
+      "Progress",
+      "Mocks",
+      "Mock attempt",
+    ]);
 
-    expect(
-      hrefs(`/progress/mock-attempts/${MOCK_ID}/sets/${SET_ID}`),
-    ).toEqual([
+    expect(hrefs(`/progress/mocks/mock-attempts/${MOCK_ID}`)).toEqual([
       "/progress",
-      `/progress/mock-attempts/${MOCK_ID}`,
-      `/progress/mock-attempts/${MOCK_ID}/sets/${SET_ID}`,
+      "/progress/mocks",
+      `/progress/mocks/mock-attempts/${MOCK_ID}`,
     ]);
   });
 
@@ -84,20 +84,6 @@ describe("getBreadcrumbItems", () => {
       "Sessions",
       "Session",
       "Mock",
-    ]);
-  });
-
-  it("keeps valid intermediate pages on progress mocks section route", () => {
-    expect(labels("/progress/mocks/sections/3")).toEqual([
-      "Progress",
-      "Mocks",
-      "Quantitative Reasoning",
-    ]);
-
-    expect(hrefs("/progress/mocks/sections/3")).toEqual([
-      "/progress",
-      "/progress/mocks",
-      "/progress/mocks/sections/3",
     ]);
   });
 

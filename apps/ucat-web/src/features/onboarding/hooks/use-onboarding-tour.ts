@@ -3,7 +3,10 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useNextStep } from "nextstepjs";
-import { UCAT_ONBOARDING_TOUR } from "@/features/onboarding/config/tour-steps";
+import {
+  getFirstSelectorForTour,
+  UCAT_ONBOARDING_TOUR,
+} from "@/features/onboarding/config/tour-steps";
 import { useResetOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { suppressNextOnboardingAutoStart } from "@/features/onboarding/lib/suppress-next-auto-tour";
 
@@ -38,9 +41,17 @@ export function useOnboardingTour() {
       }
       suppressNextOnboardingAutoStart(tourId);
       router.push(href);
-      window.setTimeout(() => {
-        startNextStep(tourId);
-      }, REPLAY_START_MS);
+      const firstSelector = getFirstSelectorForTour(tourId);
+      let attempts = 0;
+      const startWhenReady = () => {
+        if (!firstSelector || document.querySelector(firstSelector)) {
+          startNextStep(tourId);
+          return;
+        }
+        attempts += 1;
+        if (attempts < 50) window.setTimeout(startWhenReady, 100);
+      };
+      window.setTimeout(startWhenReady, REPLAY_START_MS);
     },
     [resetTour, router, startNextStep],
   );

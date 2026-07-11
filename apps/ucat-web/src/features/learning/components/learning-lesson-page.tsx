@@ -443,7 +443,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
       animate="show"
     >
       <div className="flex flex-col gap-6 lg:flex-row">
-        <motion.div className="min-w-0 flex-1 space-y-6" variants={itemVariants}>
+        <motion.div id="tour-learning-content" className="min-w-0 flex-1 space-y-6" variants={itemVariants}>
           <UcatPageHeader
             title={lesson.title ?? "Lesson"}
             description={lesson.description ?? undefined}
@@ -472,7 +472,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
 
         </motion.div>
 
-        <motion.div variants={itemVariants}>
+        <motion.div id="tour-learning-progress" variants={itemVariants}>
           <LearningLessonContentsSidebar
             blocks={blocks}
             activeIndex={activeIndex}

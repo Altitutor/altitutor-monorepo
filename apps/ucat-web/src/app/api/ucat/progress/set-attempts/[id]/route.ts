@@ -7,6 +7,7 @@ import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllo
 import {
   fetchAttemptReviewCategoryDescriptions,
   fetchAttemptReviewQuestionMetadata,
+  fetchAttemptReviewStemCategories,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
 
@@ -17,6 +18,11 @@ export type SetAttemptDetailResponse = {
   scorePoints: number | null;
   totalPoints: number | null;
   scaledScore: number | null;
+  timeTakenSeconds: number | null;
+  setTimeLimitSeconds: number | null;
+  examTimeLimitSeconds: number | null;
+  studentSetSpeed: number | null;
+  studentExamSpeed: number | null;
   attemptedAt: string;
   completedAt: string | null;
   questionAttempts: {
@@ -91,7 +97,7 @@ export async function GET(
   const { data: attempt, error: attemptError } = await supabase
     .from("vstudent_ucat_my_set_attempts")
     .select(
-      "id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score",
+      "id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, student_set_speed, student_exam_speed",
     )
     .eq("id", attemptId)
     .maybeSingle();
@@ -125,6 +131,12 @@ export async function GET(
     return NextResponse.json({ error: setError.message }, { status: 500 });
   }
 
+  const { data: setTiming } = await supabase
+    .from("vstudent_ucat_question_sets")
+    .select("time_limit_seconds, time_limit_at_exam_speed_seconds")
+    .eq("id", questionSetId)
+    .maybeSingle();
+
   const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
   const stemIds = stems.map((s) => s.stem_id).filter(Boolean);
   const orderedQuestions: { questionId: string; stemId: string }[] = [];
@@ -135,49 +147,26 @@ export async function GET(
     }
   }
 
-  const stemCategoryMap = new Map<
-    string,
-    { categoryId: string; categoryName: string }
-  >();
-  if (stemIds.length > 0) {
-    const { data: stemCategories } = await supabase
-      .from("vstudent_ucat_question_stems")
-      .select("id, question_stem_category_id")
-      .in("id", stemIds);
-    const categoryIds = [
-      ...new Set(
-        (stemCategories ?? [])
-          .map((s) => s.question_stem_category_id)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-    if (categoryIds.length > 0) {
-      const { data: categories } = await supabase
-        .from("vstudent_ucat_question_stem_categories")
-        .select("id, name")
-        .in("id", categoryIds);
-      const categoryByName = new Map(
-        (categories ?? []).map((c) => [c.id, c.name ?? "Unknown"]),
-      );
-      for (const s of stemCategories ?? []) {
-        const catId = s.question_stem_category_id;
-        if (catId) {
-          stemCategoryMap.set(s.id ?? "", {
-            categoryId: catId,
-            categoryName: categoryByName.get(catId) ?? "Unknown",
-          });
-        }
-      }
-    }
-  }
+  const questionIds = orderedQuestions.map((q) => q.questionId);
+  const [
+    questionAttemptsResult,
+    stemCategoryMap,
+    questionMetadata,
+    syllogismOptionsByQuestionId,
+  ] = await Promise.all([
+      supabase
+        .from("vstudent_ucat_my_question_attempts")
+        .select(
+          "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
+        )
+        .eq("student_question_set_attempt_id", attemptId)
+        .eq("is_submitted", true),
+      fetchAttemptReviewStemCategories(supabase, stemIds),
+      fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+      fetchSyllogismOptionsByQuestionId(supabase, stemIds),
+    ]);
 
-  const { data: questionAttemptsRaw, error: qaError } = await supabase
-    .from("vstudent_ucat_my_question_attempts")
-    .select(
-      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged",
-    )
-    .eq("student_question_set_attempt_id", attemptId)
-    .eq("is_submitted", true);
+  const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
 
   if (qaError) {
     return NextResponse.json({ error: qaError.message }, { status: 500 });
@@ -203,10 +192,6 @@ export async function GET(
     ]),
   );
 
-  const questionMetadata = await fetchAttemptReviewQuestionMetadata(
-    supabase,
-    orderedQuestions.map((q) => q.questionId),
-  );
   const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
     supabase,
     [
@@ -217,11 +202,6 @@ export async function GET(
         .map((qa) => qa.question_stem_category_id)
         .filter((id): id is string => !!id),
     ],
-  );
-
-  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
-    supabase,
-    stemIds,
   );
 
   let currentStemId: string | null = null;
@@ -286,6 +266,38 @@ export async function GET(
       ? extractTextFromRichJson(setDetail.name as JsonLike) || null
       : null;
 
+  const timeTakenSeconds = attempt.time_taken_seconds ?? null;
+  let setTimeLimitSeconds = attempt.set_time_limit_seconds ?? null;
+  let timeLimitExamSeconds =
+    attempt.set_time_limit_at_exam_speed_seconds ?? null;
+
+  if (setTimeLimitSeconds == null) {
+    setTimeLimitSeconds = setTiming?.time_limit_seconds ?? null;
+  }
+  if (timeLimitExamSeconds == null) {
+    timeLimitExamSeconds =
+      setTiming?.time_limit_at_exam_speed_seconds ?? null;
+  }
+
+  let studentSetSpeed = attempt.student_set_speed ?? null;
+  let studentExamSpeed = attempt.student_exam_speed ?? null;
+  if (timeTakenSeconds != null && timeTakenSeconds > 0) {
+    if (
+      studentSetSpeed == null &&
+      setTimeLimitSeconds != null &&
+      setTimeLimitSeconds > 0
+    ) {
+      studentSetSpeed = setTimeLimitSeconds / timeTakenSeconds;
+    }
+    if (
+      studentExamSpeed == null &&
+      timeLimitExamSeconds != null &&
+      timeLimitExamSeconds > 0
+    ) {
+      studentExamSpeed = timeLimitExamSeconds / timeTakenSeconds;
+    }
+  }
+
   const response: SetAttemptDetailResponse = {
     id: attempt.id ?? "",
     questionSetId,
@@ -293,6 +305,11 @@ export async function GET(
     scorePoints: attempt.score_points,
     totalPoints: attempt.total_points,
     scaledScore: attempt.scaled_score,
+    timeTakenSeconds,
+    setTimeLimitSeconds,
+    examTimeLimitSeconds: timeLimitExamSeconds,
+    studentSetSpeed,
+    studentExamSpeed,
     attemptedAt: attempt.attempted_at ?? "",
     completedAt: attempt.completed_at,
     questionAttempts,

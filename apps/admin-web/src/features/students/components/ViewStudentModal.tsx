@@ -41,7 +41,6 @@ import { Badge, useToast } from '@altitutor/ui';
 import { AddParentModal } from '@/features/parents/components/AddParentModal';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
-import { studentsApi } from '../api/students';
 import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
@@ -56,7 +55,6 @@ import {
   useStudentActions,
 } from '../hooks';
 import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
-import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
@@ -124,7 +122,6 @@ export function ViewStudentModal({
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -170,58 +167,6 @@ export function ViewStudentModal({
       onClose();
     } catch (error) {
       // Error handling is done in the hook
-    }
-  };
-
-  // Handle discontinue student. Returns true on success, false otherwise.
-  const handleDiscontinue = async (): Promise<boolean> => {
-    if (!student || !currentStaff) return false;
-
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return false;
-      }
-
-      await invalidateStudentDetail(queryClient, student.id);
-      onStudentUpdated();
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsDiscontinuing(false);
     }
   };
 

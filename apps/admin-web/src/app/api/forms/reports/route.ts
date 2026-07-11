@@ -1,5 +1,23 @@
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
+import type { Json } from '@altitutor/shared';
+
+type ReportAnswer = {
+  id: string;
+  question_id: string;
+  question_label_snapshot: string;
+  question_type: string;
+  choice_value: string | null;
+  choice_label_snapshot: string | null;
+  choice_values: Json;
+  text_value: string | null;
+  number_value: number | null;
+  created_at: string;
+};
+
+type ReportResponse = {
+  form_response_answers?: ReportAnswer[] | null;
+};
 
 export async function GET(request: Request) {
   const auth = await requireAdminStaff();
@@ -12,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'formId is required' }, { status: 400 });
   }
 
-  const admin = auth.admin as any;
+  const admin = auth.admin;
   const { data: form, error: formError } = await admin
     .from('forms')
     .select('id, name, latest_published_version_id')
@@ -55,14 +73,16 @@ export async function GET(request: Request) {
       .is('deleted_at', null),
   ]);
 
+  const responseRows = (responses ?? []) as unknown as ReportResponse[];
+
   return NextResponse.json({
     report: {
       form,
       version,
       responseCount: count ?? 0,
       responses: responses ?? [],
-      answers: (responses ?? []).flatMap((response: any) =>
-        (response.form_response_answers ?? []).map((answer: any) => ({
+      answers: responseRows.flatMap((response) =>
+        (response.form_response_answers ?? []).map((answer) => ({
           ...answer,
           response,
         }))

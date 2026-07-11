@@ -812,14 +812,16 @@ export function SkillTrainerPlayPage({
         onPointerDownCapture={rememberInteractionPoint}
         onDropCapture={rememberInteractionPoint}
       >
-        <SkillTrainerScoreBar
-          remaining={remaining}
-          score={score}
-          streak={streak}
-          streakEnabled={state.attempt.config_snapshot.streak_enabled}
-          scoreDelta={scoreDelta}
-          onExit={embedded ? undefined : handleExit}
-        />
+        <div id="tour-skill-trainer-score">
+          <SkillTrainerScoreBar
+            remaining={remaining}
+            score={score}
+            streak={streak}
+            streakEnabled={state.attempt.config_snapshot.streak_enabled}
+            scoreDelta={scoreDelta}
+            onExit={embedded ? undefined : handleExit}
+          />
+        </div>
 
         {actionError ? (
           <p className="text-sm text-destructive">{actionError}</p>
@@ -832,8 +834,9 @@ export function SkillTrainerPlayPage({
           </div>
         ) : null}
 
-        {trainerKey === "find_word" && findWordContent ? (
-          <FindWordTrainer
+        <div id="tour-skill-trainer-workspace">
+          {trainerKey === "find_word" && findWordContent ? (
+            <FindWordTrainer
             content={findWordContent}
             shuffleKey={currentItemId ?? undefined}
             placedIds={
@@ -853,8 +856,8 @@ export function SkillTrainerPlayPage({
                 character_index: characterIndex,
               })
             }
-          />
-        ) : null}
+            />
+          ) : null}
 
         {trainerKey === "find_concept" && findConceptContent ? (
           <FindConceptTrainer
@@ -939,6 +942,7 @@ export function SkillTrainerPlayPage({
             RichContent={RichContentBlock}
           />
         ) : null}
+        </div>
       </div>
     </>
   );

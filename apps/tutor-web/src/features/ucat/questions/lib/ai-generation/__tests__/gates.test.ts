@@ -1,5 +1,5 @@
 import { validateGeneratedStemCandidate } from '../gates'
-import type { GeneratedStem } from '../schema'
+import type { GeneratedContentBlock, GeneratedStem } from '../schema'
 
 function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {}): GeneratedStem['questions'][number] {
   return {
@@ -198,6 +198,44 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_region_label_boundary_overlap')).toBe(false)
   })
 
+  it('accepts qualitative Venn answer-option diagrams without invented numeric regions', () => {
+    const diagramOption = (offset: number, isAnswer: boolean) => ({
+      answerText: [{
+        type: 'visual' as const,
+        visualType: 'set_diagram' as const,
+        title: null,
+        altText: 'Set relationship answer option.',
+        spec: {
+          shapes: [
+            { shape: 'circle' as const, label: 'A', cx: 230 + offset, cy: 180, r: 85 },
+            { shape: 'circle' as const, label: 'B', cx: 330 - offset, cy: 180, r: 85 },
+          ],
+          regionLabels: [],
+        },
+      }],
+      isAnswer,
+      answerExplanation: null,
+    })
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        questions: [mcQuestion({
+          options: [
+            diagramOption(0, true),
+            diagramOption(15, false),
+            diagramOption(30, false),
+            diagramOption(45, false),
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_numeric_regions_required')).toBe(false)
+    expect(issues.some((issue) => issue.severity === 'blocking')).toBe(false)
+  })
+
   it('blocks Venn diagrams without numeric region labels', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -261,6 +299,38 @@ describe('validateGeneratedStemCandidate', () => {
         sectionName: 'Decision Making',
         categoryName: 'Venn Diagrams',
       }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(true)
+  })
+
+  it('blocks partially labelled Venn diagrams', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          altText: 'Five shapes but only three identified sets.',
+          spec: {
+            shapes: [
+              { id: 'A', type: 'circle', label: 'Food Growing', cx: 180, cy: 180, r: 95 },
+              { id: 'B', type: 'triangle', label: 'First Aid', x: 180, y: 70, width: 180, height: 210 },
+              { id: 'C', type: 'pentagon', label: 'Bike Repair', cx: 360, cy: 190, r: 95 },
+              { id: 'D', type: 'diamond', cx: 430, cy: 210, width: 150, height: 150 },
+              { id: 'E', type: 'rect', x: 90, y: 90, width: 180, height: 160 },
+            ],
+            regionLabels: [
+              { text: 9, include: ['A'], exclude: ['B', 'C', 'D', 'E'] },
+              { text: 7, include: ['B'], exclude: ['A', 'C', 'D', 'E'] },
+              { text: 5, include: ['C'], exclude: ['A', 'B', 'D', 'E'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
     )
 
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(true)
@@ -334,6 +404,78 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_region_expression')).toBe(true)
+  })
+
+  it('blocks repeated geometry across diagram answer options', () => {
+    const optionVisual = (title: string): GeneratedContentBlock[] => [{
+      type: 'visual' as const,
+      visualType: 'set_diagram' as const,
+      title,
+      altText: `${title} set diagram.`,
+      spec: {
+        shapes: [
+          { id: 'A', type: 'ellipse', label: 'Artists', x: 40, y: 40, width: 120, height: 100 },
+          { id: 'B', type: 'ellipse', label: 'Bakers', x: 120, y: 40, width: 120, height: 100 },
+          { id: 'C', type: 'ellipse', label: 'Cyclists', x: 200, y: 40, width: 120, height: 100 },
+        ],
+        regionLabels: [],
+      },
+    }]
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: 'Some artists are bakers and no bakers are cyclists.',
+        questions: [mcQuestion({
+          questionText: 'Which diagram **COULD** represent this?',
+          options: [
+            { answerText: optionVisual('A'), isAnswer: true, answerExplanation: null },
+            { answerText: optionVisual('B'), isAnswer: false, answerExplanation: null },
+            { answerText: optionVisual('C'), isAnswer: false, answerExplanation: null },
+            { answerText: optionVisual('D'), isAnswer: false, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_option_diagrams')).toBe(true)
+  })
+
+  it('blocks placeholder set labels when answer options use descriptive names', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          altText: 'Outreach services diagram.',
+          spec: {
+            shapes: [
+              { id: 'A', type: 'circle', label: 'A', cx: 210, cy: 190, r: 120 },
+              { id: 'B', type: 'circle', label: 'B', cx: 320, cy: 190, r: 120 },
+              { id: 'C', type: 'circle', label: 'C', cx: 265, cy: 285, r: 120 },
+            ],
+            regionLabels: [
+              { text: 8, include: ['A'], exclude: ['B', 'C'] },
+              { text: 7, include: ['B'], exclude: ['A', 'C'] },
+              { text: 5, include: ['A', 'B', 'C'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion({ options: [
+          { answerText: 'Health checks', isAnswer: true, answerExplanation: null },
+          { answerText: 'Nutrition advice', isAnswer: false, answerExplanation: null },
+          { answerText: 'Housing advice', isAnswer: false, answerExplanation: null },
+          { answerText: 'Job support', isAnswer: false, answerExplanation: null },
+        ] })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_placeholder_set_labels')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_venn_sparse_numeric_diagram' && issue.severity === 'warning')).toBe(true)
   })
 
   it('blocks coordinate-positioned Venn numeric labels without semantic region expressions', () => {
