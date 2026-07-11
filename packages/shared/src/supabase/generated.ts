@@ -12970,6 +12970,7 @@ export type Database = {
         Row: {
           base_price_cents: number
           billing_interval: string
+          checkout_enabled: boolean
           created_at: string
           id: string
           plan_tier: string
@@ -12979,6 +12980,7 @@ export type Database = {
         Insert: {
           base_price_cents: number
           billing_interval: string
+          checkout_enabled?: boolean
           created_at?: string
           id?: string
           plan_tier: string
@@ -12988,6 +12990,7 @@ export type Database = {
         Update: {
           base_price_cents?: number
           billing_interval?: string
+          checkout_enabled?: boolean
           created_at?: string
           id?: string
           plan_tier?: string
@@ -14369,6 +14372,84 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ucat_subscription_journey_events: {
+        Row: {
+          billing_interval: string | null
+          created_at: string
+          event_type: string
+          id: string
+          journey_context: string
+          journey_variant: string
+          metadata: Json
+          plan_tier: string | null
+          stripe_checkout_session_id: string | null
+          student_id: string
+          trial_eligible: boolean | null
+        }
+        Insert: {
+          billing_interval?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          journey_context: string
+          journey_variant?: string
+          metadata?: Json
+          plan_tier?: string | null
+          stripe_checkout_session_id?: string | null
+          student_id: string
+          trial_eligible?: boolean | null
+        }
+        Update: {
+          billing_interval?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          journey_context?: string
+          journey_variant?: string
+          metadata?: Json
+          plan_tier?: string | null
+          stripe_checkout_session_id?: string | null
+          student_id?: string
+          trial_eligible?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -24833,3 +24914,4 @@ export const Constants = {
     },
   },
 } as const
+
