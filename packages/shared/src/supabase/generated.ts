@@ -18153,16 +18153,19 @@ export type Database = {
       }
       vstudent_ucat_question_stem_categories: {
         Row: {
+          description: Json | null
           id: string | null
           name: string | null
           ucat_section_id: string | null
         }
         Insert: {
+          description?: Json | null
           id?: string | null
           name?: string | null
           ucat_section_id?: string | null
         }
         Update: {
+          description?: Json | null
           id?: string | null
           name?: string | null
           ucat_section_id?: string | null
