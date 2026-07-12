@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
-import { UCAT_CARD_CHROME, UCAT_CARD_CONTENT_AFTER_HEADER, UCAT_CARD_HEADER_ROW } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_CONTENT_AFTER_HEADER,
+  UCAT_CARD_HEADER_ROW,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   SetAttemptAnalysisChart,
   type QuestionAttemptForChart,
 } from "./set-attempt-analysis-chart";
 import { AttemptReviewScoreCard } from "./attempt-review-score-card";
+import { PercentileCard } from "./percentile-card";
 import {
   AttemptReviewTimingCard,
   type AttemptReviewExamTimingMetrics,
@@ -67,9 +67,14 @@ function QuestionAttemptsCard({
   }, []);
 
   return (
-    <Card id="tour-attempt-navigator" className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}>
+    <Card
+      id="tour-attempt-navigator"
+      className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}
+    >
       <CardHeader className={UCAT_CARD_HEADER_ROW}>
-        <CardTitle className="text-base font-medium">Question attempts</CardTitle>
+        <CardTitle className="text-base font-medium">
+          Question attempts
+        </CardTitle>
         <SegmentedControl
           value={navigatorView}
           onValueChange={setNavigatorView}
@@ -79,7 +84,12 @@ function QuestionAttemptsCard({
           ]}
         />
       </CardHeader>
-      <CardContent className={cn("min-w-0 overflow-hidden", UCAT_CARD_CONTENT_AFTER_HEADER)}>
+      <CardContent
+        className={cn(
+          "min-w-0 overflow-hidden",
+          UCAT_CARD_CONTENT_AFTER_HEADER,
+        )}
+      >
         {navigatorView === "timing" ? (
           <SetAttemptAnalysisChart
             data={chartData}
@@ -174,12 +184,16 @@ export function AttemptReviewSummaryGrid({
       onBarClick={onBarClick}
     />
   );
+  const percentileCard = (
+    <PercentileCard scaledScore={scaledScore} scope="section" />
+  );
 
   if (timing != null || practiceTiming != null) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           {scoreCard}
+          {percentileCard}
           {practiceTiming != null ? (
             <AttemptReviewTimingCard
               scopeLabel="practice"
@@ -195,9 +209,12 @@ export function AttemptReviewSummaryGrid({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 lg:grid-cols-2">
       {questionAttemptsCard}
-      {scoreCard}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {scoreCard}
+        {percentileCard}
+      </div>
     </div>
   );
 }

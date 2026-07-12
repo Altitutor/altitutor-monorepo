@@ -19,12 +19,15 @@ export function PlanPickerDialog() {
       }}
       title={planPickerContext?.title ?? "Choose your plan"}
       description={planPickerContext?.description}
+      fullScreen
     >
       <PlanPicker
         variant="dialog"
         surfaceTheme="app"
         onContinueFree={closePlanPicker}
-        onCheckoutStart={closePlanPicker}
+        onCheckoutStart={() => {
+          // Keep #pricing in browser history so Back from checkout restores it.
+        }}
         onDowngradeNavigate={closePlanPicker}
       />
     </PlanPickerDialogShell>

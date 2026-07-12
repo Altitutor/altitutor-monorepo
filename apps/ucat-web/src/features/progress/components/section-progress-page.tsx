@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSectionProgress } from "../hooks/use-progress";
@@ -15,12 +16,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@altitutor/ui";
-import { UCAT_CARD_CHROME, UCAT_CARD_CONTENT_AFTER_HEADER, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_CONTENT_AFTER_HEADER,
+  UCAT_DIVIDER_TOP,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   sumCorrectScoreFromAttempts,
   sumProgressPointsFromAttempts,
 } from "@altitutor/shared";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import {
   getBestAttemptPerQuestion,
   getSectionProgressPercentage,
@@ -30,7 +36,7 @@ import {
   AnimatedInteger,
   ProgressCircular,
 } from "./progress-animated-display";
-import { formatUcatPercentile } from "../lib/percentiles";
+import { PercentileCard } from "./percentile-card";
 import { ProgressGraph } from "./progress-graph";
 import type {
   ProgressResponse,
@@ -43,7 +49,9 @@ type SectionProgressPageProps = {
   sectionNumber: number;
 };
 
-export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps) {
+export function SectionProgressPage({
+  sectionNumber,
+}: SectionProgressPageProps) {
   const { data, isLoading, error } = useSectionProgress(sectionNumber);
   const projectionQuery = useScoreProjection();
   const backHref = "/progress";
@@ -237,46 +245,52 @@ function SectionProgressContent({
       timedCompleted: timedCompleted.size,
     };
   }, [filteredSetAttempts]);
-  const percentile = formatUcatPercentile(score, "section");
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={section.sectionName}
-        description={`Progress for ${section.sectionName}`}
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={{ 1: section.sectionName }}
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={section.sectionName}
+          description={`Progress for ${section.sectionName}`}
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={{ 1: section.sectionName }}
+        />
+      </motion.div>
 
-      <div className="flex flex-col gap-4">
-        <div id="tour-section-predicted-score" className="flex justify-center">
-            <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium text-center">
-                  Predicted section score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className={cn(
-                    "text-4xl font-bold tabular-nums text-center",
-                    score == null && "text-muted-foreground",
-                  )}
-                >
-                  {score != null ? (
-                    <AnimatedInteger value={Math.round(score)} />
-                  ) : (
-                    "—"
-                  )}
-                </div>
-                {percentile ? (
-                  <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
-                    {percentile}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+      <motion.div className="flex flex-col gap-4" variants={itemVariants}>
+        <div
+          id="tour-section-predicted-score"
+          className="grid gap-4 lg:grid-cols-2"
+        >
+          <Card className={UCAT_CARD_CHROME}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium text-center">
+                Predicted section score
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={cn(
+                  "text-4xl font-bold tabular-nums text-center",
+                  score == null && "text-muted-foreground",
+                )}
+              >
+                {score != null ? (
+                  <AnimatedInteger value={Math.round(score)} />
+                ) : (
+                  "—"
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <PercentileCard scaledScore={score} scope="section" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -497,22 +511,22 @@ function SectionProgressContent({
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
 
-      <div id="tour-section-score-projection">
+      <motion.div id="tour-section-score-projection" variants={itemVariants}>
         <ScoreProjectionCard projection={scoreProjection} />
-      </div>
+      </motion.div>
 
-      <div id="tour-section-practice-attempts">
+      <motion.div id="tour-section-practice-attempts" variants={itemVariants}>
         <PracticeAttemptsCard attempts={practiceAttempts} />
-      </div>
-      <div id="tour-section-set-attempts">
+      </motion.div>
+      <motion.div id="tour-section-set-attempts" variants={itemVariants}>
         <SetAttemptsCard
           attempts={filteredSetAttempts}
           sectionNumber={section.sectionNumber}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -600,7 +614,8 @@ function ScoreProjectionCard({
           <div>
             <CardTitle>Score projection</CardTitle>
             <CardDescription>
-              Estimate of your current and projected improvement, based on your historical performance and practice consistency.
+              Estimate of your current and projected improvement, based on your
+              historical performance and practice consistency.
             </CardDescription>
           </div>
           <div className="text-left sm:text-right">

@@ -7,7 +7,10 @@ import {
 } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getUcatPlanPrice } from "@/lib/ucat/plan-price-lookup";
+import {
+  getUcatPlanPrice,
+  stripePriceMatchesUcatPlan,
+} from "@/lib/ucat/plan-price-lookup";
 import {
   getStudentIdForUser,
   getUcatSubscriptionForStudent,
@@ -67,7 +70,10 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as ChangeTierBody;
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   const targetTier = parseTargetTier(body.tier);
@@ -128,7 +134,7 @@ export async function POST(request: NextRequest) {
     billingInterval,
   );
   const priceId = planPrice?.stripe_price_id?.trim() ?? null;
-  if (!priceId) {
+  if (!priceId || !planPrice) {
     return NextResponse.json(
       { error: "This plan is not available yet. Please contact support." },
       { status: 503 },
@@ -140,6 +146,17 @@ export async function POST(request: NextRequest) {
   });
 
   try {
+    if (!(await stripePriceMatchesUcatPlan(stripe, planPrice))) {
+      console.error(
+        "[ucat change-tier] Stripe price does not match configured plan amount",
+        { targetTier, billingInterval },
+      );
+      return NextResponse.json(
+        { error: "This plan is being updated. Please try again shortly." },
+        { status: 503 },
+      );
+    }
+
     const stripeSub = await stripe.subscriptions.retrieve(
       subscription.stripe_subscription_id,
       { expand: ["items.data"] },

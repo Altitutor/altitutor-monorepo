@@ -254,6 +254,11 @@ function articleTitles(): string[] {
   return fromArg?.length ? fromArg : DEFAULT_ARTICLES;
 }
 
+const WIKIPEDIA_USER_AGENT =
+  "AltitutorSkillTrainerSeed/1.0 (https://altitutor.com)";
+const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
+const RANDOM_PAGE_BATCH = 20;
+
 async function fetchWikipediaPages(titles: string[]): Promise<WikipediaPage[]> {
   const pages: WikipediaPage[] = [];
   for (let index = 0; index < titles.length; index += 20) {
@@ -262,6 +267,29 @@ async function fetchWikipediaPages(titles: string[]): Promise<WikipediaPage[]> {
     );
   }
   return pages;
+}
+
+async function wikipediaQuery(
+  params: URLSearchParams,
+): Promise<{ pages?: WikipediaPage[] }> {
+  const response = await fetch(`${WIKIPEDIA_API}?${params}`, {
+    headers: {
+      "User-Agent": WIKIPEDIA_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!response.ok)
+    throw new Error(`Wikipedia request failed: ${response.status}`);
+  const body = (await response.json()) as {
+    error?: { code?: string; info?: string };
+    query?: { pages?: WikipediaPage[] };
+  };
+  if (body.error) {
+    throw new Error(
+      `Wikipedia API error ${body.error.code ?? ""}: ${body.error.info ?? "unknown error"}`,
+    );
+  }
+  return body.query ?? {};
 }
 
 async function fetchWikipediaPageChunk(
@@ -279,26 +307,38 @@ async function fetchWikipediaPageChunk(
     formatversion: "2",
     titles: titles.join("|"),
   });
-  const response = await fetch(`https://en.wikipedia.org/w/api.php?${params}`, {
-    headers: {
-      "User-Agent": "AltitutorSkillTrainerSeed/1.0 (https://altitutor.com)",
-      Accept: "application/json",
-    },
-  });
-  if (!response.ok)
-    throw new Error(`Wikipedia request failed: ${response.status}`);
-  const body = (await response.json()) as {
-    error?: { code?: string; info?: string };
-    query?: { pages?: WikipediaPage[] };
-  };
-  if (body.error) {
-    throw new Error(
-      `Wikipedia API error ${body.error.code ?? ""}: ${body.error.info ?? "unknown error"}`,
+  const query = await wikipediaQuery(params);
+  return (query.pages ?? []).filter((page) => !page.missing && page.extract);
+}
+
+async function fetchRandomWikipediaPages(
+  count: number,
+): Promise<WikipediaPage[]> {
+  const pages: WikipediaPage[] = [];
+  while (pages.length < count) {
+    const remaining = Math.min(RANDOM_PAGE_BATCH, count - pages.length);
+    const params = new URLSearchParams({
+      action: "query",
+      generator: "random",
+      grnnamespace: "0",
+      grnlimit: String(remaining),
+      prop: "extracts|info|revisions",
+      exintro: "1",
+      explaintext: "1",
+      redirects: "1",
+      inprop: "url",
+      rvprop: "ids",
+      format: "json",
+      formatversion: "2",
+    });
+    const query = await wikipediaQuery(params);
+    const batch = (query.pages ?? []).filter(
+      (page) => !page.missing && page.extract,
     );
+    if (!batch.length) break;
+    pages.push(...batch);
   }
-  return (body.query?.pages ?? []).filter(
-    (page) => !page.missing && page.extract,
-  );
+  return pages;
 }
 
 function chooseParagraphs(extract: string): string[] {
@@ -623,6 +663,49 @@ ORDER BY t.sort_order;
 `;
 }
 
+async function tryBuildItem(
+  rng: Rng,
+  page: WikipediaPage,
+  id: string,
+  retrievedAt: string,
+): Promise<FindWordSeedItem | null> {
+  const paragraphs = chooseParagraphs(page.extract ?? "");
+  if (!paragraphs.length) return null;
+  let keywords: Array<{ id: string; text: string }>;
+  try {
+    keywords = selectKeywords(rng, page.title, paragraphs);
+  } catch {
+    return null;
+  }
+  const item: FindWordSeedItem = {
+    id,
+    title: page.title,
+    content: {
+      passage: plainTextToDoc(paragraphs),
+      keywords,
+      difficulty: difficultyForKeywordCount(keywords.length),
+      source: {
+        provider: "wikipedia",
+        title: page.title,
+        pageid: page.pageid,
+        revision_id: page.lastrevid,
+        url:
+          page.fullurl ??
+          page.canonicalurl ??
+          `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+        license: "CC BY-SA 4.0",
+        retrieved_at: retrievedAt,
+      },
+    },
+  };
+  try {
+    validateItem(item);
+  } catch {
+    return null;
+  }
+  return item;
+}
+
 async function main(): Promise<void> {
   const seed = argNumber("seed", 20260702);
   const batch = argNumber("batch", 1);
@@ -631,45 +714,65 @@ async function main(): Promise<void> {
   const out = resolve(process.cwd(), argString("out", DEFAULT_OUT));
   const rng = new Rng(seed);
   const retrievedAt = new Date().toISOString();
-  const pages = await fetchWikipediaPages(articleTitles());
+  const preferredTitles = articleTitles();
 
   const items: FindWordSeedItem[] = [];
-  for (const page of pages) {
-    if (items.length >= limit) break;
-    const paragraphs = chooseParagraphs(page.extract ?? "");
-    if (!paragraphs.length) continue;
-    const keywords = selectKeywords(rng, page.title, paragraphs);
-    const item: FindWordSeedItem = {
-      id: stableUuid(items.length + 1, batch),
-      title: page.title,
-      content: {
-        passage: plainTextToDoc(paragraphs),
-        keywords,
-        difficulty: difficultyForKeywordCount(keywords.length),
-        source: {
-          provider: "wikipedia",
-          title: page.title,
-          pageid: page.pageid,
-          revision_id: page.lastrevid,
-          url:
-            page.fullurl ??
-            page.canonicalurl ??
-            `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
-          license: "CC BY-SA 4.0",
-          retrieved_at: retrievedAt,
-        },
-      },
-    };
-    validateItem(item);
-    items.push(item);
+  const seenPageIds = new Set<number>();
+  let preferredLoaded = 0;
+  let randomLoaded = 0;
+  let skipped = 0;
+
+  const consumePages = async (pages: WikipediaPage[]) => {
+    for (const page of pages) {
+      if (items.length >= limit) break;
+      if (seenPageIds.has(page.pageid)) continue;
+      seenPageIds.add(page.pageid);
+      const item = await tryBuildItem(
+        rng,
+        page,
+        stableUuid(items.length + 1, batch),
+        retrievedAt,
+      );
+      if (!item) {
+        skipped += 1;
+        continue;
+      }
+      items.push(item);
+    }
+  };
+
+  const preferredPages = await fetchWikipediaPages(preferredTitles);
+  preferredLoaded = preferredPages.length;
+  await consumePages(preferredPages);
+
+  let emptyBatches = 0;
+  while (items.length < limit && emptyBatches < 8) {
+    const needed = Math.max(
+      RANDOM_PAGE_BATCH,
+      Math.ceil((limit - items.length) * 1.5),
+    );
+    const batchPages = await fetchRandomWikipediaPages(
+      Math.min(needed, RANDOM_PAGE_BATCH * 5),
+    );
+    const before = items.length;
+    const unseen = batchPages.filter((page) => !seenPageIds.has(page.pageid));
+    randomLoaded += unseen.length;
+    await consumePages(unseen);
+    if (items.length === before) emptyBatches += 1;
+    else emptyBatches = 0;
   }
 
-  if (!items.length) throw new Error("No Find the Word items were generated");
+  if (items.length < limit) {
+    throw new Error(
+      `Only generated ${items.length}/${limit} Find the Word items (preferred=${preferredLoaded} random=${randomLoaded} skipped=${skipped})`,
+    );
+  }
+
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, renderSql(items, { seed, batch, mode }));
   console.log(`Wrote ${items.length} Wikipedia Find the Word items to ${out}`);
   console.log(
-    `articles_requested=${articleTitles().length} pages_loaded=${pages.length} batch=${batch} mode=${mode}`,
+    `articles_requested=${preferredTitles.length} preferred_loaded=${preferredLoaded} random_loaded=${randomLoaded} skipped=${skipped} batch=${batch} mode=${mode}`,
   );
 }
 

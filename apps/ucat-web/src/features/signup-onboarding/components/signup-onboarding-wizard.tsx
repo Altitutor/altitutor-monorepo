@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -24,6 +24,11 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
+import {
+  CheckoutSuccessTransition,
+  type CheckoutSuccessTransitionPhase,
+} from "@/features/signup-onboarding/components/checkout-success-transition";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -69,11 +74,30 @@ export function SignupOnboardingWizard({
   const access = useUcatAccess();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const planIntent = useMemo(
+    () => parseSignupPlanIntent(searchParams.get("redirect")),
+    [searchParams],
+  );
+  const checkoutStatus = searchParams.get("checkout");
+  const checkoutReturnedSuccessfully = checkoutStatus === "success";
 
   const [step, setStep] = useState<SignupOnboardingStep>(initial.step);
   const [direction, setDirection] = useState(1);
-  const [checkoutConfirming, setCheckoutConfirming] = useState(false);
+  const [checkoutTransitionPhase, setCheckoutTransitionPhase] =
+    useState<CheckoutSuccessTransitionPhase | null>(() =>
+      checkoutReturnedSuccessfully ? "confirming" : null,
+    );
+  const [checkoutTakingLonger, setCheckoutTakingLonger] = useState(false);
+  const [checkoutConfirmationError, setCheckoutConfirmationError] = useState<
+    string | null
+  >(null);
+  const [checkoutConfirmationAttempt, setCheckoutConfirmationAttempt] =
+    useState(0);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const checkoutTransitionStartedAt = useRef(
+    checkoutReturnedSuccessfully ? Date.now() : 0,
+  );
+  const checkoutConfirmationStarted = useRef(false);
   const [details, setDetails] = useState({
     firstName: initial.firstName,
     lastName: initial.lastName,
@@ -95,10 +119,12 @@ export function SignupOnboardingWizard({
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
     router.replace("/dashboard");
   }, [queryClient, router]);
+  const completeCheckoutTransition = useCallback(() => {
+    void navigateAfterSignupComplete();
+  }, [navigateAfterSignupComplete]);
 
   useEffect(() => {
-    const checkout = searchParams.get("checkout");
-    if (checkout === "canceled") {
+    if (checkoutStatus === "canceled") {
       setCheckoutMessage(
         "Checkout cancelled. Pick a plan or continue on Free.",
       );
@@ -106,51 +132,81 @@ export function SignupOnboardingWizard({
       router.replace("/signup/complete");
       return;
     }
-    if (checkout !== "success") return;
+    if (
+      !checkoutReturnedSuccessfully ||
+      checkoutTransitionPhase !== "confirming"
+    ) {
+      return;
+    }
 
-    setCheckoutConfirming(true);
+    router.prefetch("/dashboard");
+    setCheckoutTransitionPhase((current) => current ?? "confirming");
+    if (checkoutTransitionStartedAt.current === 0) {
+      checkoutTransitionStartedAt.current = Date.now();
+    }
+
     let attempts = 0;
+    void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     const timer = window.setInterval(() => {
       attempts += 1;
       void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
-      if (attempts >= 15) {
-        window.clearInterval(timer);
-        setCheckoutConfirming(false);
-        setCheckoutMessage(
-          "We are still confirming your subscription. Please wait a moment and refresh.",
-        );
+      if (attempts >= 12) {
+        setCheckoutTakingLonger(true);
       }
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [searchParams, queryClient, router]);
+  }, [
+    checkoutReturnedSuccessfully,
+    checkoutStatus,
+    checkoutTransitionPhase,
+    queryClient,
+    router,
+  ]);
 
   useEffect(() => {
-    if (!checkoutConfirming || access.isLoading) return;
+    if (
+      checkoutTransitionPhase !== "confirming" ||
+      access.isLoading ||
+      checkoutConfirmationStarted.current
+    ) {
+      return;
+    }
     const isPaid =
       access.onlineTier === "unlimited" ||
       access.onlineTier === "unlimited_trial" ||
       access.onlineTier === "pro";
     if (!isPaid) return;
 
+    checkoutConfirmationStarted.current = true;
     void (async () => {
       try {
         await patchSignupProgress({ planComplete: true });
-        await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
-        setCheckoutConfirming(false);
         await patchSignupProgress({ complete: true });
-        await navigateAfterSignupComplete();
+
+        const minimumAnimationMs = reduceMotion ? 350 : 2_800;
+        const elapsed = Date.now() - checkoutTransitionStartedAt.current;
+        if (elapsed < minimumAnimationMs) {
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, minimumAnimationMs - elapsed),
+          );
+        }
+
+        setCheckoutConfirmationError(null);
+        setCheckoutTransitionPhase("welcome");
       } catch (e) {
-        setCheckoutConfirming(false);
-        setError(e instanceof Error ? e.message : "Failed to confirm plan");
+        checkoutConfirmationStarted.current = false;
+        setCheckoutConfirmationError(
+          e instanceof Error ? e.message : "Please try again.",
+        );
       }
     })();
   }, [
-    checkoutConfirming,
+    checkoutTransitionPhase,
+    checkoutConfirmationAttempt,
     access.isLoading,
     access.onlineTier,
-    queryClient,
-    navigateAfterSignupComplete,
+    reduceMotion,
   ]);
 
   const finishOnboarding = async () => {
@@ -165,6 +221,10 @@ export function SignupOnboardingWizard({
 
   const handlePasswordComplete = async () => {
     await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
+    if (planIntent) {
+      router.push(planIntent.checkoutPath);
+      return;
+    }
     goToStep(SIGNUP_STEP.PLAN, 1);
   };
 
@@ -175,16 +235,21 @@ export function SignupOnboardingWizard({
   const heading = stepHeading(step);
   const isWideStep = step === SIGNUP_STEP.PLAN;
 
-  if (checkoutConfirming) {
+  if (checkoutTransitionPhase) {
     return (
-      <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
-        <NoiseOverlay />
-        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-          <p className={`text-marketing-cream/70 ${typo.secondarySans}`}>
-            Confirming your plan…
-          </p>
-        </main>
-      </div>
+      <CheckoutSuccessTransition
+        phase={checkoutTransitionPhase}
+        isTakingLonger={checkoutTakingLonger}
+        error={checkoutConfirmationError}
+        onRetry={() => {
+          checkoutConfirmationStarted.current = false;
+          setCheckoutConfirmationError(null);
+          setCheckoutTakingLonger(false);
+          setCheckoutConfirmationAttempt((current) => current + 1);
+          void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
+        }}
+        onComplete={completeCheckoutTransition}
+      />
     );
   }
 

@@ -30,14 +30,14 @@ export type PublicUcatSubscriptionConfig = {
 /** Fallback when the public API is unavailable */
 export const defaultPublicSubscriptionConfig: PublicUcatSubscriptionConfig = {
   trialDays: 7,
-  minQuestionsPerDay: 20,
+  minQuestionsPerDay: 10,
   currency: "aud",
   freeQuotas: DEFAULT_FREE_QUOTA_CONFIG,
   planPrices: [],
   practiceDayDiscounts: [
-    { interval: "week", discountPerDayCents: 1000, maxDiscountsPerPeriod: 7 },
-    { interval: "month", discountPerDayCents: 1000, maxDiscountsPerPeriod: 30 },
-    { interval: "year", discountPerDayCents: 1000, maxDiscountsPerPeriod: 365 },
+    { interval: "week", discountPerDayCents: 100, maxDiscountsPerPeriod: 5 },
+    { interval: "month", discountPerDayCents: 100, maxDiscountsPerPeriod: 22 },
+    { interval: "year", discountPerDayCents: 0, maxDiscountsPerPeriod: 1 },
   ],
   unlimitedProductConfigured: false,
   proProductConfigured: false,

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -32,22 +33,52 @@ export function UpsellDialogProvider({ children }: { children: ReactNode }) {
     useState<PlanPickerDialogContext | null>(null);
   const [inPersonUpsellOpen, setInPersonUpsellOpen] = useState(false);
 
+  useEffect(() => {
+    const syncUpsellHash = () => {
+      const hash = window.location.hash;
+      const pricingOpen = hash === "#pricing";
+      setPlanPickerOpen(pricingOpen);
+      setInPersonUpsellOpen(hash === "#in-person");
+      if (!pricingOpen) setPlanPickerContext(null);
+    };
+
+    syncUpsellHash();
+    window.addEventListener("hashchange", syncUpsellHash);
+    window.addEventListener("popstate", syncUpsellHash);
+    return () => {
+      window.removeEventListener("hashchange", syncUpsellHash);
+      window.removeEventListener("popstate", syncUpsellHash);
+    };
+  }, []);
+
   const openPlanPicker = useCallback((context?: PlanPickerDialogContext) => {
     setPlanPickerContext(context ?? null);
     setPlanPickerOpen(true);
+    if (window.location.hash !== "#pricing") {
+      window.history.pushState(null, "", "#pricing");
+    }
   }, []);
 
   const closePlanPicker = useCallback(() => {
     setPlanPickerOpen(false);
     setPlanPickerContext(null);
+    if (window.location.hash === "#pricing") {
+      window.history.back();
+    }
   }, []);
 
   const openInPersonUpsell = useCallback(() => {
     setInPersonUpsellOpen(true);
+    if (window.location.hash !== "#in-person") {
+      window.history.pushState(null, "", "#in-person");
+    }
   }, []);
 
   const closeInPersonUpsell = useCallback(() => {
     setInPersonUpsellOpen(false);
+    if (window.location.hash === "#in-person") {
+      window.history.back();
+    }
   }, []);
 
   const value = useMemo(

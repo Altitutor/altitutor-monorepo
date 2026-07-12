@@ -16,13 +16,9 @@ import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { AnimatedFraction, AnimatedInteger } from "./progress-animated-display";
 import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
-import { formatUcatPercentile } from "../lib/percentiles";
 
 const SCALED_SCORE_TOOLTIP =
   "Scaled score (300–900) normalised to the UCAT exam scale for this section.";
-
-const PERCENTILE_TOOLTIP =
-  "Percentile compares this scaled score with the relevant UCAT score distribution. For example, the 80th percentile means the score is higher than about 80% of comparison scores.";
 
 export type AttemptReviewScoreCardProps = {
   title?: string;
@@ -48,10 +44,12 @@ export function AttemptReviewScoreCard({
   headerClassName,
 }: AttemptReviewScoreCardProps) {
   const showScaledScore = scaledScore !== undefined;
-  const percentile = formatUcatPercentile(scaledScore, "section");
 
   return (
-    <Card id="tour-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full", className)}>
+    <Card
+      id="tour-attempt-score"
+      className={cn(UCAT_CARD_CHROME, "h-full", className)}
+    >
       <CardHeader className={cn("pb-2", headerClassName)}>
         <CardTitle className="text-base font-medium">{title}</CardTitle>
         {headerAccessory}
@@ -89,30 +87,12 @@ export function AttemptReviewScoreCard({
                 "—"
               )}
             </div>
-            {percentile ? (
-              <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <span>{percentile}</span>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex cursor-help text-muted-foreground/80">
-                        <Info
-                          className="h-3.5 w-3.5"
-                          aria-label="Percentile explanation"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[280px]">
-                      {PERCENTILE_TOOLTIP}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            ) : null}
           </div>
         ) : null}
         <div>
-          <div className="text-xs font-medium text-muted-foreground">Points</div>
+          <div className="text-xs font-medium text-muted-foreground">
+            Points
+          </div>
           <div className="text-xl font-semibold tabular-nums">
             {total > 0 ? (
               <AnimatedFraction numerator={points} denominator={total} />

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { usePracticeAttemptDetail } from "../hooks/use-practice-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
 import { SetAnswersCard } from "./set-answers-card";
@@ -65,6 +67,7 @@ export function PracticeAttemptDetailPage({
   backLabel = "Back to progress",
 }: PracticeAttemptDetailPageProps) {
   const { data, isLoading, error } = usePracticeAttemptDetail(attemptId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
@@ -132,31 +135,42 @@ export function PracticeAttemptDetailPage({
   const points = data.scorePoints ?? 0;
 
   return (
-    <div className="min-w-0 max-w-full space-y-6">
-      <UcatPageHeader
-        title={data.sectionName ?? "Practice session"}
-        description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
-        backHref={backHref}
-        backLabel={backLabel}
-      />
+    <motion.div
+      className="min-w-0 max-w-full space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={data.sectionName ?? "Practice session"}
+          description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
+          backHref={backHref}
+          backLabel={backLabel}
+        />
+      </motion.div>
 
-      <AttemptReviewSummaryGrid
-        points={points}
-        total={total}
-        categoryBreakdown={categoryBreakdown}
-        chartData={data.questionAttempts}
-        selectedQuestionIndex={selectedQuestionIndex}
-        onBarClick={setSelectedQuestionIndex}
-        practiceTiming={practiceTiming ?? undefined}
-      />
+      <motion.div variants={itemVariants}>
+        <AttemptReviewSummaryGrid
+          points={points}
+          total={total}
+          categoryBreakdown={categoryBreakdown}
+          chartData={data.questionAttempts}
+          selectedQuestionIndex={selectedQuestionIndex}
+          onBarClick={setSelectedQuestionIndex}
+          practiceTiming={practiceTiming ?? undefined}
+        />
+      </motion.div>
 
-      <SetAnswersCard
-        questionAttempts={data.questionAttempts}
-        exam={examFromStems}
-        initialQuestionIndex={selectedQuestionIndex}
-        onQuestionIndexChange={setSelectedQuestionIndex}
-        attemptReview
-      />
-    </div>
+      <motion.div variants={itemVariants}>
+        <SetAnswersCard
+          questionAttempts={data.questionAttempts}
+          exam={examFromStems}
+          initialQuestionIndex={selectedQuestionIndex}
+          onQuestionIndexChange={setSelectedQuestionIndex}
+          attemptReview
+        />
+      </motion.div>
+    </motion.div>
   );
 }

@@ -12,6 +12,10 @@ import type {
   SetGeneratorInput,
   TimeMode,
 } from "@/features/set-generator/model/types";
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from "@/features/question-engine/model/rich-text";
 
 const DEFAULT_QUESTION_COUNT = 20;
 
@@ -26,7 +30,18 @@ export type CategoryRow = {
   id: string;
   name: string;
   ucat_section_id: string;
+  description: string | null;
 };
+
+function categoryDescriptionToText(description: unknown): string | null {
+  if (description == null) return null;
+  if (typeof description === "string") {
+    const trimmed = description.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  const extracted = extractTextFromRichJson(description as JsonLike).trim();
+  return extracted.length > 0 ? extracted : null;
+}
 
 async function fetchSections(): Promise<SectionRow[]> {
   const supabase = getSupabaseBrowserClient();
@@ -42,10 +57,15 @@ async function fetchCategories(): Promise<CategoryRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_question_stem_categories")
-    .select("id,name,ucat_section_id")
+    .select("id,name,ucat_section_id,description")
     .order("name");
   if (error) throw new Error(error.message);
-  return (data ?? []) as CategoryRow[];
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    ucat_section_id: row.ucat_section_id as string,
+    description: categoryDescriptionToText(row.description),
+  }));
 }
 
 function estimateExamTimeSeconds(

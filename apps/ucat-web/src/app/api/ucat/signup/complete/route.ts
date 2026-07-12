@@ -4,6 +4,10 @@ import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isSupportedIanaTimeZone } from "@/lib/supported-timezones";
+import {
+  captureUcatReferral,
+  pendingReferralCodeFromUser,
+} from "@/lib/ucat/referrals/capture-referral";
 
 type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
@@ -259,5 +263,6 @@ export async function POST(request: NextRequest) {
       newsletterError,
     );
   }
+  await captureUcatReferral(studentId, pendingReferralCodeFromUser(user));
   return NextResponse.json({ success: true });
 }

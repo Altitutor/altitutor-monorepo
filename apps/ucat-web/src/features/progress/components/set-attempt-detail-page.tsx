@@ -2,9 +2,11 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
 import { format } from "date-fns";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { useSetAttemptDetail } from "../hooks/use-set-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
 import { SetAnswersCard } from "./set-answers-card";
@@ -24,6 +26,7 @@ export function SetAttemptDetailPage({
 }: SetAttemptDetailPageProps) {
   const pathname = usePathname();
   const { data, isLoading, error } = useSetAttemptDetail(attemptId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
@@ -78,43 +81,54 @@ export function SetAttemptDetailPage({
   }
 
   return (
-    <div className="min-w-0 max-w-full space-y-6">
-      <UcatPageHeader
-        title={data.questionSetName ?? "Set attempt"}
-        description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={
-          Object.keys(breadcrumbOverrides).length > 0
-            ? breadcrumbOverrides
-            : undefined
-        }
-      />
+    <motion.div
+      className="min-w-0 max-w-full space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={data.questionSetName ?? "Set attempt"}
+          description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={
+            Object.keys(breadcrumbOverrides).length > 0
+              ? breadcrumbOverrides
+              : undefined
+          }
+        />
+      </motion.div>
 
-      <AttemptReviewSummaryGrid
-        points={points}
-        total={total}
-        scaledScore={data.scaledScore}
-        categoryBreakdown={categoryBreakdown}
-        chartData={data.questionAttempts}
-        selectedQuestionIndex={selectedQuestionIndex}
-        onBarClick={setSelectedQuestionIndex}
-        timing={{
-          timeTakenSeconds: data.timeTakenSeconds,
-          setTimeLimitSeconds: data.setTimeLimitSeconds,
-          examTimeLimitSeconds: data.examTimeLimitSeconds,
-          studentSetSpeed: data.studentSetSpeed,
-          studentExamSpeed: data.studentExamSpeed,
-        }}
-      />
+      <motion.div variants={itemVariants}>
+        <AttemptReviewSummaryGrid
+          points={points}
+          total={total}
+          scaledScore={data.scaledScore}
+          categoryBreakdown={categoryBreakdown}
+          chartData={data.questionAttempts}
+          selectedQuestionIndex={selectedQuestionIndex}
+          onBarClick={setSelectedQuestionIndex}
+          timing={{
+            timeTakenSeconds: data.timeTakenSeconds,
+            setTimeLimitSeconds: data.setTimeLimitSeconds,
+            examTimeLimitSeconds: data.examTimeLimitSeconds,
+            studentSetSpeed: data.studentSetSpeed,
+            studentExamSpeed: data.studentExamSpeed,
+          }}
+        />
+      </motion.div>
 
-      <SetAnswersCard
-        questionSetId={data.questionSetId}
-        questionAttempts={data.questionAttempts}
-        initialQuestionIndex={selectedQuestionIndex}
-        onQuestionIndexChange={setSelectedQuestionIndex}
-        attemptReview
-      />
-    </div>
+      <motion.div variants={itemVariants}>
+        <SetAnswersCard
+          questionSetId={data.questionSetId}
+          questionAttempts={data.questionAttempts}
+          initialQuestionIndex={selectedQuestionIndex}
+          onQuestionIndexChange={setSelectedQuestionIndex}
+          attemptReview
+        />
+      </motion.div>
+    </motion.div>
   );
 }

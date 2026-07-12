@@ -13,10 +13,13 @@ import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motio
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
 import { UCAT_PROFILE_QUERY_KEY } from "@/features/layout/hooks/use-ucat-profile";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { motion } from "motion/react";
 
 export function SettingsProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { user } = useAuth();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
@@ -175,21 +178,29 @@ export function SettingsProfilePage() {
   const pendingEmail = user?.new_email?.trim();
 
   return (
-    <div
+    <motion.div
       className={cn(
         "space-y-6",
         namesDirty &&
           "pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]",
       )}
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
     >
-      <UcatPageHeader
-        title="My profile"
-        description="Email, name, and password"
-        backHref="/settings"
-        backLabel="All settings"
-      />
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title="My profile"
+          description="Email, name, and password"
+          backHref="/settings"
+          backLabel="All settings"
+        />
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+      >
         <SettingsRow
           title="Email"
           description="Sign-in address. Changing it sends a confirmation link to the new inbox; your current email stays active until you confirm."
@@ -237,9 +248,12 @@ export function SettingsProfilePage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+      >
         <SettingsRow
           title="Name"
           description="Shown on receipts and inside the app where we greet you."
@@ -270,9 +284,12 @@ export function SettingsProfilePage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+      >
         <SettingsRow
           title="Password"
           description="Pick a strong password you have not used elsewhere."
@@ -313,7 +330,7 @@ export function SettingsProfilePage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
       {namesDirty ? (
         <AppShellBottomFloatingDock visible>
@@ -337,6 +354,6 @@ export function SettingsProfilePage() {
           </div>
         </AppShellBottomFloatingDock>
       ) : null}
-    </div>
+    </motion.div>
   );
 }

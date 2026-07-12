@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import { useScoreProjection } from "@/features/score-projection/hooks/use-score-
 import type { TotalScoreProjection } from "@/features/score-projection/types/score-projection";
 import { UCAT_CARD_CHROME, UCAT_CARD_CONTENT_AFTER_HEADER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewHeatmapCard } from "./review-heatmap-card";
 import { AnimatedInteger } from "./progress-animated-display";
@@ -24,6 +26,7 @@ import { ProgressGraph } from "./progress-graph";
 export function ProgressPage() {
   const { data, isLoading, error } = useProgressSummary();
   const scoreProjectionQuery = useScoreProjection();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   const totalProjection = useMemo(() => {
     if (!scoreProjectionQuery.data) return null;
@@ -58,22 +61,31 @@ export function ProgressPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div id="tour-progress-header">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div id="tour-progress-header" variants={itemVariants}>
         <UcatPageHeader
           title="Progress"
           description="A summary of your performance across UCAT sections."
         />
-      </div>
+      </motion.div>
 
-      <TotalScoreProjectionCard
-        projection={totalProjection}
-        isLoading={scoreProjectionQuery.isLoading}
-      />
+      <motion.div variants={itemVariants}>
+        <TotalScoreProjectionCard
+          projection={totalProjection}
+          isLoading={scoreProjectionQuery.isLoading}
+        />
+      </motion.div>
 
-      <ReviewHeatmapCard />
+      <motion.div variants={itemVariants}>
+        <ReviewHeatmapCard />
+      </motion.div>
 
-      <div id="tour-progress-sections">
+      <motion.div id="tour-progress-sections" variants={itemVariants}>
         <SectionProgressCards
           sections={data.sectionProgress}
           linkToSection
@@ -81,8 +93,8 @@ export function ProgressPage() {
           timeFrameDays="30"
           scoreProjections={scoreProjectionQuery.data?.sections ?? []}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

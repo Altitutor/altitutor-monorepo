@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { AnimatedInteger } from "./progress-animated-display";
 import { AttemptReviewTimingCard } from "./attempt-review-timing-card";
 import type { AttemptReviewTimingMetrics } from "./attempt-review-timing-card";
-import { formatUcatPercentile } from "../lib/percentiles";
+import { PercentileCard } from "./percentile-card";
 
 type MockAttemptScoreTimingRowProps = {
   scaledScore: number | null;
@@ -27,10 +27,8 @@ export function MockAttemptScoreTimingRow({
   scaledScore,
   timing,
 }: MockAttemptScoreTimingRowProps) {
-  const percentile = formatUcatPercentile(scaledScore, "mock");
-
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-3">
       <Card id="tour-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
@@ -69,30 +67,10 @@ export function MockAttemptScoreTimingRow({
               "—"
             )}
           </div>
-          {percentile ? (
-            <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <span>{percentile}</span>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex cursor-help text-muted-foreground/80">
-                      <Info
-                        className="h-3.5 w-3.5"
-                        aria-label="Percentile explanation"
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[280px]">
-                    Percentile compares this scaled score with the relevant UCAT
-                    score distribution. For example, the 80th percentile means
-                    the score is higher than about 80% of comparison scores.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+
+      <PercentileCard scaledScore={scaledScore} scope="mock" />
 
       <AttemptReviewTimingCard timing={timing} scopeLabel="mock" />
     </div>

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 import type { Database } from "@altitutor/shared";
 import {
   isUcatBillingInterval,
@@ -46,6 +47,23 @@ export async function getUcatPlanPrice(
     stripe_price_id: data.stripe_price_id,
     checkout_enabled: data.checkout_enabled ?? true,
   };
+}
+
+export async function stripePriceMatchesUcatPlan(
+  stripe: Stripe,
+  planPrice: UcatPlanPriceRow,
+): Promise<boolean> {
+  const priceId = planPrice.stripe_price_id?.trim();
+  if (!priceId) return false;
+
+  const price = await stripe.prices.retrieve(priceId);
+  return (
+    price.active &&
+    price.currency.toLowerCase() === "aud" &&
+    price.unit_amount === planPrice.base_price_cents &&
+    price.recurring?.interval === planPrice.billing_interval &&
+    (price.recurring.interval_count ?? 1) === 1
+  );
 }
 
 export async function resolveUcatPlanFromStripePriceId(

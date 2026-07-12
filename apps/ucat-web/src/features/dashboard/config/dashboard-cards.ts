@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ListChecks,
   NotebookText,
+  Gift,
   Target,
 } from "lucide-react";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
@@ -46,6 +47,12 @@ const cards: DashboardCard[] = [
     label: "Sets",
     description: "Question sets by section and custom generators",
     icon: ListChecks,
+  },
+  {
+    href: "/settings/plan/referrals",
+    label: "Refer friends",
+    description: "Invite friends and earn free subscription bills together",
+    icon: Gift,
   },
   {
     href: "/mocks",

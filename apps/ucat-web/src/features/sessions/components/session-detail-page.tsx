@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { BookOpen, BrainCircuit, ListChecks, NotebookText } from "lucide-react";
 import { Card, CardContent } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
@@ -23,7 +24,9 @@ import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-ca
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { useLearningModules } from "@/features/learning/hooks/use-learning";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const sessionResourceLinkClassName = cn(
   "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
@@ -35,22 +38,18 @@ type SessionDetailPageProps = {
   sessionId: string;
 };
 
-function formatPracticeTiming(seconds: number | null): string {
-  if (seconds == null || seconds <= 0) return "Untimed";
-  return `${Math.round(seconds / 60)} min`;
-}
-
 function setResourceSubtitle(set: StudentSetRow): string {
   const sections = formatSetSections(set.sections);
-  const timing = formatPracticeTiming(set.time_limit_seconds);
+  const timing = formatExamDurationSeconds(set.time_limit_seconds);
   return [sections, timing].filter(Boolean).join(" · ");
 }
 
 function mockResourceSubtitle(mock: StudentMockRow): string {
-  return mock.has_timed_sets === true ? "Timed" : "Untimed";
+  return formatExamDurationSeconds(mock.totalTimeLimitSeconds);
 }
 
 export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: sessions } = useStudentUcatSessions();
   const sessionBreadcrumbLabel = useMemo(() => {
     const s = sessions?.find((x) => x.session_id === sessionId);
@@ -225,13 +224,22 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
         breadcrumbOverrides={sessionBreadcrumbOverrides}
       />
 
-      <ul className="flex flex-col gap-4">
+      <motion.ul
+        className="flex flex-col gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+      >
         {visibleResources.map((resource) => {
           if (resource.type === "lesson") {
             const lesson = lessonsById.get(resource.ucat_learning_module_id);
             const href = `/learn/${encodeURIComponent(resource.ucat_learning_module_id)}`;
             return (
-              <li key={resource.id} className="min-w-0">
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
                 <Link href={href} className={sessionResourceLinkClassName}>
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
@@ -252,14 +260,18 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                     </CardContent>
                   </Card>
                 </Link>
-              </li>
+              </motion.li>
             );
           }
 
           if (resource.type === "stem") {
             const href = `/practice/stem/${encodeURIComponent(resource.question_stem_id)}`;
             return (
-              <li key={resource.id} className="min-w-0">
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
                 <Link href={href} className={sessionResourceLinkClassName}>
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
@@ -282,7 +294,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                     </CardContent>
                   </Card>
                 </Link>
-              </li>
+              </motion.li>
             );
           }
 
@@ -296,7 +308,11 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
             const href = `/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(resource.question_set_id)}`;
 
             return (
-              <li key={resource.id} className="min-w-0">
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
                 <Link href={href} className={sessionResourceLinkClassName}>
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
@@ -319,7 +335,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                     </CardContent>
                   </Card>
                 </Link>
-              </li>
+              </motion.li>
             );
           }
 
@@ -329,7 +345,11 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
           const href = `/sessions/${encodeURIComponent(sessionId)}/mocks/${encodeURIComponent(resource.ucat_mock_id)}`;
 
           return (
-            <li key={resource.id} className="min-w-0">
+            <motion.li
+              key={resource.id}
+              className="min-w-0"
+              variants={itemVariants}
+            >
               <Link href={href} className={sessionResourceLinkClassName}>
                 <Card className={sessionResourceCardClassName}>
                   <CardContent className="p-6">
@@ -352,10 +372,10 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                   </CardContent>
                 </Card>
               </Link>
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
+      </motion.ul>
     </div>
   );
 }

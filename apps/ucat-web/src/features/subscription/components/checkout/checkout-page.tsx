@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Mail, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  LockKeyhole,
+  Mail,
+  Sparkles,
+} from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
@@ -53,6 +60,27 @@ function isJourneyContext(value: string | null): value is JourneyContext {
 
 function intervalNoun(interval: UcatBillingInterval) {
   return interval === "week" ? "week" : interval === "month" ? "month" : "year";
+}
+
+function CheckoutFieldsSkeleton() {
+  return (
+    <div
+      className="animate-pulse space-y-5"
+      aria-label="Loading payment fields"
+    >
+      <div className="h-4 w-20 rounded bg-muted" />
+      <div className="space-y-2">
+        <div className="h-3 w-24 rounded bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="h-12 rounded-xl bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+      </div>
+      <div className="h-12 rounded-xl bg-muted" />
+      <div className="h-10 w-4/5 rounded bg-muted/70" />
+    </div>
+  );
 }
 
 export function CheckoutPage() {
@@ -129,6 +157,8 @@ export function CheckoutPage() {
   const trialDays = sessionTrial.days;
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + trialDays);
+  const reminderDate = new Date();
+  reminderDate.setDate(reminderDate.getDate() + Math.max(1, trialDays - 3));
   const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
 
   return (
@@ -144,8 +174,13 @@ export function CheckoutPage() {
               billingInterval: interval,
               checkoutSessionId: checkoutSessionId ?? undefined,
             });
-            if (window.history.length > 1) router.back();
-            else router.push("/subscribe");
+            if (context === "signup_onboarding") {
+              router.push("/signup/complete");
+            } else if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/subscribe");
+            }
           }}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         >
@@ -190,13 +225,15 @@ export function CheckoutPage() {
                           colorTextSecondary:
                             resolvedTheme === "light" ? "#36516f" : "#b3b3b3",
                           borderRadius: "16px",
-                          fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+                          fontFamily:
+                            "Inter, ui-sans-serif, system-ui, sans-serif",
                         },
                         rules: {
                           ".AccordionItem": {
                             backgroundColor: "transparent",
                             border: "1px solid transparent",
                             boxShadow: "none",
+                            padding: "0",
                           },
                           ".Input": {
                             backgroundColor:
@@ -225,7 +262,7 @@ export function CheckoutPage() {
                   />
                 </CheckoutProvider>
               ) : (
-                <div className="h-64 animate-pulse rounded-2xl bg-white/5" />
+                <CheckoutFieldsSkeleton />
               )}
             </div>
           </section>
@@ -267,6 +304,39 @@ export function CheckoutPage() {
                   </span>
                 </div>
                 <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    Maximum practice discount
+                  </span>
+                  <span className="font-semibold text-primary">
+                    −
+                    {formatMoneyFromMinorUnits(
+                      pricing.standardPeriodCents - pricing.idealPeriodCents,
+                      config.currency,
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Answer {config.minQuestionsPerDay}+ questions in a day and
+                  earn{" "}
+                  {formatMoneyFromMinorUnits(
+                    discount?.discountPerDayCents ?? 0,
+                    config.currency,
+                  )}{" "}
+                  off, up to {discount?.maxDiscountsPerPeriod ?? 0} times per{" "}
+                  {intervalNoun(interval)}.
+                </p>
+                <div className="flex justify-between gap-4 border-t border-border pt-3">
+                  <span className="font-medium">
+                    Discounted {intervalNoun(interval)}ly price
+                  </span>
+                  <span className="font-semibold">
+                    {formatMoneyFromMinorUnits(
+                      pricing.idealPeriodCents,
+                      config.currency,
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Due today</span>
                   <span className="font-semibold">
                     {trialEligible
@@ -282,20 +352,31 @@ export function CheckoutPage() {
 
             {trialEligible ? (
               <div className="mt-6">
-                <p className="font-semibold">
-                  Your {trialDays}-day trial
-                </p>
+                <p className="font-semibold">Your {trialDays}-day trial</p>
                 <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                   <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Today
+                    </span>
                     <p className="mt-1 font-medium">Access unlocked</p>
                   </li>
                   <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Mail className="h-3 w-3" /> Day {Math.max(1, trialDays - 3)}</span>
+                    <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Mail className="h-3 w-3" />{" "}
+                      {reminderDate.toLocaleDateString("en-AU", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
                     <p className="mt-1 font-medium">Reminder emailed</p>
                   </li>
                   <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{trialEnd.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {trialEnd.toLocaleDateString("en-AU", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
                     <p className="mt-1 font-medium">Paid plan begins</p>
                   </li>
                 </ol>
@@ -305,30 +386,6 @@ export function CheckoutPage() {
                     with the paid subscription.
                   </p>
                 ) : null}
-              </div>
-            ) : null}
-
-            {discount && pricing ? (
-              <div className="mt-5 rounded-2xl border border-border p-4">
-                <p className="font-semibold">Accountability Pricing</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Complete {config.minQuestionsPerDay}+ questions in a day and
-                  earn{" "}
-                  {formatMoneyFromMinorUnits(
-                    discount.discountPerDayCents,
-                    config.currency,
-                  )}{" "}
-                  off your upcoming bill, up to {discount.maxDiscountsPerPeriod}{" "}
-                  times per {intervalNoun(interval)}.
-                </p>
-                <p className="mt-3 text-sm font-semibold text-primary">
-                  Earn up to{" "}
-                  {formatMoneyFromMinorUnits(
-                    pricing.standardPeriodCents - pricing.idealPeriodCents,
-                    config.currency,
-                  )}{" "}
-                  off.
-                </p>
               </div>
             ) : null}
 
@@ -355,8 +412,9 @@ export function CheckoutPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}
             </Button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              Cancel anytime. Payment details are securely processed by Stripe.
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+              <LockKeyhole className="h-3.5 w-3.5 shrink-0" /> Cancel anytime.
+              Payment details are securely processed by Stripe.
             </p>
           </aside>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useProgress } from "../hooks/use-progress";
@@ -9,11 +10,13 @@ import { filterByTimeFrame } from "../lib/progress-data-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { AnimatedInteger } from "./progress-animated-display";
 import { formatUcatPercentile } from "../lib/percentiles";
 
 export function MocksProgressPage() {
   const { data, isLoading, error } = useProgress();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   const filteredMockAttempts = useMemo(() => {
     if (!data?.mockAttempts) return [];
@@ -100,13 +103,20 @@ export function MocksProgressPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title="Mock progress"
-        description="Track your performance across mock exams."
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title="Mock progress"
+          description="Track your performance across mock exams."
+        />
+      </motion.div>
 
-      <div className="flex justify-center">
+      <motion.div className="flex justify-center" variants={itemVariants}>
         <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-2xl")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium text-center">
@@ -165,9 +175,11 @@ export function MocksProgressPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <MockAttemptsCard attempts={data.mockAttempts} />
-    </div>
+      <motion.div variants={itemVariants}>
+        <MockAttemptsCard attempts={data.mockAttempts} />
+      </motion.div>
+    </motion.div>
   );
 }

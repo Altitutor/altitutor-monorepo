@@ -1,7 +1,9 @@
 "use client";
 
+import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
 import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempts-card";
@@ -21,6 +23,7 @@ export function MockAttemptDetailPage({
   backLabel = "Back to mocks",
 }: MockAttemptDetailPageProps) {
   const { data, isLoading, error } = useMockAttemptDetail(mockAttemptId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
@@ -79,16 +82,23 @@ export function MockAttemptDetailPage({
   };
 
   return (
-    <div className="min-w-0 max-w-full space-y-6">
-      <UcatPageHeader
-        title={data.mockName ?? "Mock attempt"}
-        description={`Attempted ${attemptedDate}`}
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
-      />
+    <motion.div
+      className="min-w-0 max-w-full space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={data.mockName ?? "Mock attempt"}
+          description={`Attempted ${attemptedDate}`}
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
+        />
+      </motion.div>
 
-      <div className="flex flex-col gap-4">
+      <motion.div className="flex flex-col gap-4" variants={itemVariants}>
         <MockAttemptScoreTimingRow
           scaledScore={data.scaledScore}
           timing={{
@@ -105,19 +115,21 @@ export function MockAttemptDetailPage({
           questionAttempts={data.questionAttempts}
           onSelectSet={handleSelectSet}
         />
-      </div>
+      </motion.div>
 
-      <MockAttemptQuestionAttemptsCard
-        chartData={chartData}
-        setBoundaryIndices={data.setBoundaryIndices}
-        sets={data.sets.map((s) => ({
-          questionSetName: s.questionSetName,
-        }))}
-        selectedQuestionIndex={selectedQuestionIndex}
-        onBarClick={setSelectedQuestionIndex}
-      />
+      <motion.div variants={itemVariants}>
+        <MockAttemptQuestionAttemptsCard
+          chartData={chartData}
+          setBoundaryIndices={data.setBoundaryIndices}
+          sets={data.sets.map((s) => ({
+            questionSetName: s.questionSetName,
+          }))}
+          selectedQuestionIndex={selectedQuestionIndex}
+          onBarClick={setSelectedQuestionIndex}
+        />
+      </motion.div>
 
-      <div id="attempt-review-questions">
+      <motion.div id="attempt-review-questions" variants={itemVariants}>
         <SetAnswersCard
           mockId={data.ucatMockId}
           questionAttempts={data.questionAttempts}
@@ -125,7 +137,7 @@ export function MockAttemptDetailPage({
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

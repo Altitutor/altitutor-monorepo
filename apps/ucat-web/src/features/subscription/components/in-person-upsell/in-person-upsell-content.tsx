@@ -22,48 +22,32 @@ type InPersonUpsellContentProps = {
 export function InPersonUpsellContent({ className }: InPersonUpsellContentProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-[2.5rem] bg-marketing-charcoal p-8 shadow-lg md:p-10 ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-[2.5rem] border border-border bg-card p-8 text-card-foreground shadow-lg md:p-10 ${className ?? ""}`}
     >
-      <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-marketing-accent/10 blur-2xl" />
+      <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-primary/10 blur-2xl" />
       <div>
         <span
-          className={`text-xs font-bold uppercase tracking-widest text-marketing-accent ${typo.dataMono}`}
+          className={`text-xs font-bold uppercase tracking-widest text-primary ${typo.dataMono}`}
         >
           Premium
         </span>
         <h3
-          className={`mt-3 text-2xl font-bold text-marketing-cream ${typo.headingSans}`}
+          className={`mt-3 text-2xl font-bold text-foreground ${typo.headingSans}`}
         >
           In person
         </h3>
         <p
-          className={`mt-3 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
+          className={`mt-3 text-sm text-muted-foreground ${typo.secondarySans}`}
         >
           Weekly in-person classes with expert tutors. Includes full unrestricted
           online access at no extra cost.
         </p>
 
-        <div className="mt-6 space-y-1">
-          <div className="flex items-end gap-2">
-            <span
-              className={`text-4xl font-bold text-marketing-cream ${typo.headingSans}`}
-            >
-              $50
-            </span>
-            <span className={`mb-1 text-marketing-cream/50 ${typo.secondarySans}`}>
-              /wk
-            </span>
-          </div>
-          <p className={`text-xs text-marketing-cream/40 ${typo.dataMono}`}>
-            Limited seats available
-          </p>
-        </div>
-
         <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
           {IN_PERSON_FEATURES.map((f) => (
-            <li key={f} className="flex items-start gap-2 text-marketing-accent">
+            <li key={f} className="flex items-start gap-2 text-primary">
               <PlanPickerCheckIcon />
-              <span className="text-marketing-cream/70">{f}</span>
+              <span className="text-muted-foreground">{f}</span>
             </li>
           ))}
         </ul>
@@ -76,7 +60,7 @@ export function InPersonUpsellContent({ className }: InPersonUpsellContentProps)
         className="mt-10 block"
       >
         <MagneticButton
-          className={`w-full bg-marketing-accent py-4 text-base font-semibold text-marketing-charcoal shadow-lg shadow-marketing-accent/20 ${typo.headingSans}`}
+          className={`w-full bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 ${typo.headingSans}`}
         >
           Book trial session
         </MagneticButton>

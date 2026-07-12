@@ -443,16 +443,18 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
       animate="show"
     >
       <div className="flex flex-col gap-6 lg:flex-row">
-        <motion.div id="tour-learning-content" className="min-w-0 flex-1 space-y-6" variants={itemVariants}>
-          <UcatPageHeader
-            title={lesson.title ?? "Lesson"}
-            description={lesson.description ?? undefined}
-            backHref="/learn"
-            backLabel="All modules"
-            breadcrumbItems={breadcrumbItems}
-          />
+        <div className="min-w-0 flex-1 space-y-6">
+          <motion.div id="tour-learning-content" variants={itemVariants}>
+            <UcatPageHeader
+              title={lesson.title ?? "Lesson"}
+              description={lesson.description ?? undefined}
+              backHref="/learn"
+              backLabel="All modules"
+              breadcrumbItems={breadcrumbItems}
+            />
+          </motion.div>
 
-          <div className="space-y-10">
+          <motion.div className="space-y-10" variants={itemVariants}>
             {blocks.map((block) =>
               block.id ? (
                 <div
@@ -468,9 +470,8 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
                 </div>
               ) : null,
             )}
-          </div>
-
-        </motion.div>
+          </motion.div>
+        </div>
 
         <motion.div id="tour-learning-progress" variants={itemVariants}>
           <LearningLessonContentsSidebar

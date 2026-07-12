@@ -17,8 +17,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { QuestionEngineShortcutTourContent } from "@/features/question-engine/components/question-engine-shortcut-tour-content";
-import { UCAT_SKILL_TRAINER_KEYS } from "@altitutor/shared";
-import { getSkillTrainerTutorialId } from "@/features/onboarding/lib/skill-trainer-tutorial";
 
 export const UCAT_NEXTSTEP_FIXED_VIEWPORT_ID = "ucat-nextstep-fixed-viewport";
 
@@ -87,7 +85,7 @@ const welcomeTour: Tour = {
     {
       icon: <Target className={iconClassName} />,
       title: "Skill trainer",
-      content: <p>Use short drills to practise one UCAT skill at a time.</p>,
+      content: <p>Use short drills to practice one UCAT skill at a time.</p>,
       selector: "[data-tour='nav-skill-trainer']",
       ...fixedViewport,
       side: "right",
@@ -122,7 +120,7 @@ const welcomeTour: Tour = {
       content: (
         <p>
           Mocks combine multiple sets into an exam-style attempt. Open one when
-          you want to practise the full sequence.
+          you want to practice the full sequence.
         </p>
       ),
       selector: "[data-tour='nav-mocks']",
@@ -214,7 +212,7 @@ const skillTrainerTour: Tour = {
   steps: [
     {
       icon: <Target className={iconClassName} />,
-      title: "Practise one skill at a time",
+      title: "Practice one skill at a time",
       content: (
         <p>
           Trainers are grouped by UCAT section. Choose the specific skill you
@@ -238,7 +236,7 @@ const practiceTour: Tour = {
       content: (
         <p>
           Choose the section, topics, number of questions, and timing that fit
-          what you want to practise today.
+          what you want to practice today.
         </p>
       ),
       selector: "#tour-practice-filters",
@@ -324,7 +322,7 @@ const questionEngineTour: Tour = {
       title: "Question engine settings",
       content: (
         <p>
-          Settings includes Lag mode, which lets you practise with the short
+          Settings includes Lag mode, which lets you practice with the short
           delays that can occur in the official exam interface.
         </p>
       ),
@@ -701,23 +699,13 @@ const learningModuleTour: Tour = {
       ...standardStep,
     },
     {
-      icon: <TrendingUp className={iconClassName} />,
-      title: "Lesson progress",
-      content: (
-        <p>
-          Use the contents panel to see completion and move directly to an
-          available block.
-        </p>
-      ),
-      selector: "#tour-learning-progress",
-      side: "left",
-      ...standardStep,
-    },
-    {
       icon: <Navigation className={iconClassName} />,
       title: "Lesson navigation",
       content: (
-        <p>Move to the previous or next lesson from the navigation controls.</p>
+        <p>
+          Use the contents panel to see completion and jump to an available
+          block. Move between lessons with the previous and next controls.
+        </p>
       ),
       selector: "#tour-learning-navigation",
       side: "left",
@@ -753,7 +741,6 @@ export const ALL_UCAT_TOUR_IDS = [
   UCAT_SECTION_PROGRESS_TOUR,
   UCAT_ATTEMPT_REVIEW_TOUR,
   UCAT_LEARNING_MODULE_TOUR,
-  ...UCAT_SKILL_TRAINER_KEYS.map(getSkillTrainerTutorialId),
 ] as const;
 
 export const UCAT_TOUR_REPLAY_OPTIONS = [

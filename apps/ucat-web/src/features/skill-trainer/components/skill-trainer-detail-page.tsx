@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,21 +20,15 @@ import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/a
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
+import { SkillTrainerDemoCard } from "@/features/skill-trainer/components/skill-trainer-demo-card";
 import { useSkillTrainers } from "@/features/skill-trainer/hooks/use-skill-trainers";
 import {
   isSkillTrainerAttemptConflictError,
   skillTrainerApi,
 } from "@/features/skill-trainer/api/skill-trainer-api";
-import { SKILL_TRAINER_INSTRUCTIONS } from "@/features/skill-trainer/lib/instructions";
-import { useOnboardingProgress } from "@/features/onboarding";
-import { getSkillTrainerTutorialId } from "@/features/onboarding/lib/skill-trainer-tutorial";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
-import {
-  UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
-} from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function SkillTrainerDetailPage({
   trainerKey,
@@ -42,6 +37,7 @@ export function SkillTrainerDetailPage({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: trainers } = useSkillTrainers();
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
@@ -51,12 +47,9 @@ export function SkillTrainerDetailPage({
   const [submittingConflict, setSubmittingConflict] = useState(false);
   const { openQuotaLimit } = useQuotaLimitModal();
   const { active, setLocal } = useActiveSkillTrainerAttempt();
-  const { isLoading: isTutorialLoading, isCompleted: isTutorialCompleted } =
-    useOnboardingProgress();
   const refreshedCompletedAttemptRef = useRef<string | null>(null);
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
-  const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
 
   const skillTrainerQuota = quota?.areas.find(
     (a) => a.area === "skill_trainer",
@@ -116,11 +109,6 @@ export function SkillTrainerDetailPage({
         },
         quotaDialogOptions,
       );
-      return;
-    }
-
-    if (!isTutorialCompleted(getSkillTrainerTutorialId(trainerKey))) {
-      router.push(`/skill-trainer/${trainerKeyToSlug(trainerKey)}/tutorial`);
       return;
     }
 
@@ -184,34 +172,34 @@ export function SkillTrainerDetailPage({
   }
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={trainer?.name ?? "Skill trainer"}
-        description={
-          trainer?.description ??
-          "Review how this trainer works before starting."
-        }
-        backHref="/skill-trainer"
-        backLabel="Back to skill trainer"
-        breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={trainer?.name ?? "Skill trainer"}
+          description={
+            trainer?.description ??
+            "Review how this trainer works before starting."
+          }
+          backHref="/skill-trainer"
+          backLabel="Back to skill trainer"
+          breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
+        />
+      </motion.div>
 
-      <section
-        className={cn(
-          "space-y-3 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+      <motion.div variants={itemVariants}>
+        <SkillTrainerDemoCard trainerKey={trainerKey} />
+      </motion.div>
+
+      <motion.section
+        aria-labelledby="leaderboard-heading"
+        className="space-y-4"
+        variants={itemVariants}
       >
-        <h2 className="text-lg font-semibold">How to play</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-          {instructions.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
-
-      <section aria-labelledby="leaderboard-heading" className="space-y-4">
         <h2
           id="leaderboard-heading"
           className="text-2xl font-semibold tracking-tight"
@@ -219,20 +207,24 @@ export function SkillTrainerDetailPage({
           Leaderboard
         </h2>
         <SkillTrainerLeaderboard trainerKey={trainerKey} />
-      </section>
+      </motion.section>
 
-      <div className="flex justify-end">
+      <motion.div className="flex justify-end" variants={itemVariants}>
         <Button
           type="button"
           className={UCAT_PRIMARY_ACTION_BUTTON}
-          disabled={starting || isTutorialLoading}
+          disabled={starting}
           onClick={() => void handleStart()}
         >
-          {starting ? "Starting…" : isTutorialLoading ? "Loading…" : "Start"}
+          {starting ? "Starting…" : "Start"}
         </Button>
-      </div>
+      </motion.div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <motion.p variants={itemVariants} className="text-sm text-destructive">
+          {error}
+        </motion.p>
+      ) : null}
 
       <AlertDialog
         open={conflictAttempt != null}
@@ -287,6 +279,6 @@ export function SkillTrainerDetailPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

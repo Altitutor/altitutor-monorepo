@@ -49,7 +49,10 @@ function weekdayShort(dateStr: string, timezone: string): string {
 }
 
 /** Last N calendar days ending today in the student's timezone. */
-export function localDatesEndingToday(timezone: string, count: number): string[] {
+export function localDatesEndingToday(
+  timezone: string,
+  count: number,
+): string[] {
   const dates: string[] = [];
   const now = Date.now();
   for (let i = count - 1; i >= 0; i--) {
@@ -76,10 +79,7 @@ function buildPracticeProgress(
   tz: string,
   attemptRows: { attempted_at: string | null }[] | null,
   earnedCreditDates: Set<string>,
-): Pick<
-  PracticeDiscountDashboardStatus,
-  "today" | "lastSevenDays"
-> {
+): Pick<PracticeDiscountDashboardStatus, "today" | "lastSevenDays"> {
   const todayStr = todayLocalDateString(tz);
   const lastSevenDates = localDatesEndingToday(tz, 7);
   const fromDate = lastSevenDates[0] ?? todayStr;
@@ -199,6 +199,7 @@ export async function getPracticeDiscountDashboardStatus(
       .select("attempted_at")
       .eq("student_id", studentId)
       .eq("is_submitted", true)
+      .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
       .gte("attempted_at", lookbackStart)
       .not("attempted_at", "is", null),
     supabase

@@ -2,14 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Switch } from "@altitutor/ui";
-import { ArrowLeft, Clock3, Gauge, Infinity as InfinityIcon, ListChecks, TimerOff } from "lucide-react";
+import { Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@altitutor/ui";
+import { ChevronLeft, Clock3, Gauge, Infinity as InfinityIcon, ListChecks, TimerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import type { CategoryRow, PerformanceFilter } from "@/features/set-generator/hooks/use-stem-filters";
 import type { SectionKey, SetGeneratorInput, TimeMode } from "@/features/set-generator/model/types";
-import { UCAT_PRIMARY_ACTION_BUTTON, ucatClickableCardClassName } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_HEADER_ICON_BUTTON,
+  UCAT_PRIMARY_ACTION_BUTTON,
+  ucatClickableCardClassName,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+
+export type StemFiltersWizardStep = {
+  step: number;
+  title: string;
+  subtitle: string;
+  canGoBack: boolean;
+  goBack: () => void;
+  isTransitioning: boolean;
+};
 
 export type StemFiltersPanelProps = {
   input: SetGeneratorInput;
@@ -37,6 +50,10 @@ export type StemFiltersPanelProps = {
   questionCountMode?: "set" | "unlimited";
   onQuestionCountModeChange?: (mode: "set" | "unlimited") => void;
   fixedQuestionCountLimit?: number | null;
+  /** Hide the in-panel step title/back — parent owns the page header. */
+  hideStepHeader?: boolean;
+  /** Notifies the parent when the wizard step (and back handler) change. */
+  onWizardStepChange?: (state: StemFiltersWizardStep) => void;
 };
 
 const sectionDescriptions: Record<SectionKey, string> = {
@@ -53,6 +70,55 @@ const performanceOptions: Array<{ value: PerformanceFilter; label: string }> = [
 ];
 
 const pacingSteps = [25, 50, 75, 100, 125, 150, 175, 200] as const;
+
+export const STEM_FILTERS_STEP_COPY = [
+  {
+    title: "Choose a section",
+    subtitle: "Select a section, then switch off any categories you do not want.",
+  },
+  {
+    title: "Choose your pace",
+    subtitle: "Practice against the clock or work without a time limit.",
+  },
+  {
+    title: "Shape your practice",
+    subtitle: "Choose the session size and the questions to include.",
+  },
+  {
+    title: "Review your setup",
+    subtitle: "Check your choices before you begin.",
+  },
+] as const;
+
+/** Slide distance for wizard card transitions (px). */
+const STEP_SLIDE_PX = 64;
+
+/**
+ * Direction-aware card variants. `custom` must be passed so exit uses the
+ * *new* navigation direction (inline exit objects keep the previous step's
+ * direction and reverse the wrong way after back/forward mixes).
+ */
+const stepSlideVariants = {
+  enter: (direction: number) => ({
+    opacity: 0,
+    x: direction * STEP_SLIDE_PX,
+  }),
+  center: {
+    opacity: 1,
+    x: 0,
+  },
+  exit: (direction: number) => ({
+    opacity: 0,
+    x: direction * -STEP_SLIDE_PX,
+  }),
+};
+
+/** Subtle title/subtitle crossfade — opacity only, no slide. */
+const stepCopyFade = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+};
 
 function selectedCardClassName(selected: boolean) {
   return cn(
@@ -84,6 +150,8 @@ export function StemFiltersPanel({
   questionCountMode = "set",
   onQuestionCountModeChange,
   fixedQuestionCountLimit = null,
+  hideStepHeader = false,
+  onWizardStepChange,
 }: StemFiltersPanelProps) {
   const [{ step, direction }, setWizard] = useState({ step: 0, direction: 1 });
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -119,6 +187,22 @@ export function StemFiltersPanel({
     setIsTransitioning(true);
     setWizard({ step: nextStep, direction: nextStep > step ? 1 : -1 });
   }
+
+  const copy = STEM_FILTERS_STEP_COPY[step] ?? STEM_FILTERS_STEP_COPY[0];
+
+  useEffect(() => {
+    if (!onWizardStepChange) return;
+    onWizardStepChange({
+      step,
+      title: copy.title,
+      subtitle: copy.subtitle,
+      canGoBack: step > 0,
+      goBack: () => goToStep(step - 1),
+      isTransitioning,
+    });
+    // goToStep is recreated each render; intentionally sync on step/transition only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- notify parent of wizard step chrome
+  }, [step, copy.title, copy.subtitle, isTransitioning, onWizardStepChange]);
 
   function selectTiming(timed: boolean) {
     if (timeControlType === "perQuestion") {
@@ -165,39 +249,76 @@ export function StemFiltersPanel({
     </div>
   );
 
+  const copyTransition = {
+    duration: reduceMotion ? 0 : 0.2,
+    ease: [0.22, 1, 0.36, 1] as const,
+  };
+  const slideTransition = {
+    duration: reduceMotion ? 0 : 0.24,
+    ease: [0.22, 1, 0.36, 1] as const,
+  };
+
   return (
     <div className="min-h-[430px]">
-      <AnimatePresence
-        mode="wait"
-        custom={direction}
-        onExitComplete={() => setIsTransitioning(false)}
-      >
-        <motion.div
-          key={step}
-          custom={direction}
-          initial={reduceMotion ? false : { opacity: 0, x: direction * 64 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={
-            reduceMotion
-              ? { opacity: 1, x: 0 }
-              : { opacity: 0, x: direction * -64 }
-          }
-          transition={{
-            duration: reduceMotion ? 0 : 0.24,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        >
-        {step === 0 ? (
-          <div className="space-y-7">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Choose a section
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Select a section, then switch off any categories you do not want.
-              </p>
-            </div>
+      {hideStepHeader ? null : (
+        <div className="flex items-start gap-3">
+          {step > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => goToStep(step - 1)}
+              disabled={isTransitioning}
+              aria-label="Go back"
+              className={cn(
+                UCAT_HEADER_ICON_BUTTON,
+                "group shrink-0 [&_svg]:size-5",
+              )}
+            >
+              <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+            </Button>
+          ) : null}
+          <div className="relative min-h-[3.75rem] min-w-0 flex-1">
+            <AnimatePresence mode="sync" initial={false}>
+              <motion.div
+                key={step}
+                className="absolute inset-x-0 top-0"
+                initial={stepCopyFade.initial}
+                animate={stepCopyFade.animate}
+                exit={stepCopyFade.exit}
+                transition={copyTransition}
+              >
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {copy.title}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {copy.subtitle}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
+      <div className={cn("relative", hideStepHeader ? undefined : "mt-7")}>
+        <div className="-mx-3 -my-3 overflow-hidden bg-background px-3 py-3">
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            custom={direction}
+            onExitComplete={() => setIsTransitioning(false)}
+          >
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={stepSlideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+              className="bg-background"
+            >
+          {step === 0 ? (
             <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(Object.keys(sectionLabels) as SectionKey[]).map((section) => {
                 const selected = input.section === section;
@@ -260,30 +381,65 @@ export function StemFiltersPanel({
                                   Loading…
                                 </p>
                               ) : (
-                                <div className="space-y-3">
-                                  {sectionCategories.map((category) => {
-                                    const checked = selectedCategories.some(
-                                      (item) => item.id === category.id,
-                                    );
-                                    return (
-                                      <label
-                                        key={category.id}
-                                        className="flex items-center justify-between gap-3 text-xs"
-                                      >
-                                        <span>{category.name}</span>
-                                        <Switch
-                                          checked={checked}
-                                          disabled={
-                                            checked && selectedCategories.length === 1
+                                <TooltipProvider delayDuration={200}>
+                                  <div className="space-y-3">
+                                    {sectionCategories.map((category) => {
+                                      const checked = selectedCategories.some(
+                                        (item) => item.id === category.id,
+                                      );
+                                      const name = (
+                                        <span
+                                          className={
+                                            category.description
+                                              ? "cursor-help underline decoration-muted-foreground/40 decoration-dotted underline-offset-2"
+                                              : undefined
                                           }
-                                          onCheckedChange={(nextChecked) =>
-                                            toggleCategory(category, nextChecked)
-                                          }
-                                        />
-                                      </label>
-                                    );
-                                  })}
-                                </div>
+                                        >
+                                          {category.name}
+                                        </span>
+                                      );
+                                      return (
+                                        <label
+                                          key={category.id}
+                                          className="flex items-center justify-between gap-3 text-xs"
+                                        >
+                                          {category.description ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="min-w-0 flex-1">
+                                                  {name}
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="top"
+                                                className="max-w-[280px] text-left"
+                                              >
+                                                {category.description}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          ) : (
+                                            <span className="min-w-0 flex-1">
+                                              {name}
+                                            </span>
+                                          )}
+                                          <Switch
+                                            checked={checked}
+                                            disabled={
+                                              checked &&
+                                              selectedCategories.length === 1
+                                            }
+                                            onCheckedChange={(nextChecked) =>
+                                              toggleCategory(
+                                                category,
+                                                nextChecked,
+                                              )
+                                            }
+                                          />
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </TooltipProvider>
                               )}
                             </div>
                           </motion.div>
@@ -294,19 +450,9 @@ export function StemFiltersPanel({
                 );
               })}
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {step === 1 ? (
-          <div className="space-y-7">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Choose your pace
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Practise against the clock or work without a time limit.
-              </p>
-            </div>
+          {step === 1 ? (
             <div className="grid items-stretch gap-4 sm:grid-cols-2">
               <div
                 onClick={(event) => {
@@ -410,19 +556,9 @@ export function StemFiltersPanel({
                 </AnimatePresence>
               </motion.div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {step === 2 ? (
-          <div className="space-y-7">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Shape your practice
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose the session size and the questions to include.
-              </p>
-            </div>
+          {step === 2 ? (
             <div
               className={cn(
                 "grid items-stretch gap-4",
@@ -532,19 +668,9 @@ export function StemFiltersPanel({
                 </AnimatePresence>
               </motion.div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {step === 3 ? (
-          <div className="space-y-7">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Review your setup
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Check your choices before you begin.
-              </p>
-            </div>
+          {step === 3 ? (
             <div
               className={ucatClickableCardClassName({
                 interactive: false,
@@ -582,23 +708,13 @@ export function StemFiltersPanel({
                 </div>
               ))}
             </div>
-          </div>
-        ) : null}
-        </motion.div>
-      </AnimatePresence>
+          ) : null}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      </div>
 
-      <div className="mt-10 flex min-h-10 items-center justify-between">
-        {step > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => goToStep(step - 1)}
-            disabled={isTransitioning}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-        ) : null}
+      <div className="mt-10 flex min-h-10 items-center justify-end">
         {step < 3 ? (
           <Button
             type="button"
@@ -608,14 +724,12 @@ export function StemFiltersPanel({
               (step === 0 &&
                 (!selectedSection || selectedCategories.length === 0))
             }
-            className={cn(UCAT_PRIMARY_ACTION_BUTTON, "ml-auto")}
+            className={UCAT_PRIMARY_ACTION_BUTTON}
           >
             Next
           </Button>
         ) : null}
-        {step === 3 ? (
-          <div className="ml-auto">{actionButton}</div>
-        ) : null}
+        {step === 3 ? actionButton : null}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "motion/react";
 import { Skeleton } from "@altitutor/ui";
 import { trainerKeyToSlug, type UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
@@ -10,6 +11,7 @@ import {
   UcatClickableCardIcon,
   UcatClickableCardLink,
 } from "@/shared/components/ucat-clickable-card";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const SECTION_ORDER = [1, 2, 3];
 
@@ -34,37 +36,59 @@ function groupBySection(trainers: SkillTrainerCatalogRow[]) {
 
 export function SkillTrainerHub() {
   const { data: trainers, isLoading, error } = useSkillTrainers();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const sections = groupBySection(trainers ?? []);
 
-  return (
-    <div className="space-y-6">
-      <div id="tour-skill-trainer-page">
-        <UcatPageHeader
-          title="Skill trainer"
-          description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
-        />
-      </div>
-
-      {isLoading ? (
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div id="tour-skill-trainer-page">
+          <UcatPageHeader
+            title="Skill trainer"
+            description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-36 w-full rounded-ucatShell" />
           ))}
         </div>
-      ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div id="tour-skill-trainer-page" variants={itemVariants}>
+        <UcatPageHeader
+          title="Skill trainer"
+          description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
+        />
+      </motion.div>
 
       {error ? (
-        <p className="text-sm text-destructive">Failed to load skill trainers.</p>
+        <motion.p variants={itemVariants} className="text-sm text-destructive">
+          Failed to load skill trainers.
+        </motion.p>
       ) : null}
 
-      {!isLoading && !error && sections.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+      {!error && sections.length === 0 ? (
+        <motion.p variants={itemVariants} className="text-sm text-muted-foreground">
           No skill trainers are currently available.
-        </p>
+        </motion.p>
       ) : null}
 
       {sections.map((section) => (
-        <section key={section.sectionNumber} className="space-y-3">
+        <motion.section
+          key={section.sectionNumber}
+          className="space-y-3"
+          variants={itemVariants}
+        >
           <h2 className="text-lg font-semibold">{section.sectionName}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {section.trainers
@@ -83,8 +107,8 @@ export function SkillTrainerHub() {
                 />
               ))}
           </div>
-        </section>
+        </motion.section>
       ))}
-    </div>
+    </motion.div>
   );
 }

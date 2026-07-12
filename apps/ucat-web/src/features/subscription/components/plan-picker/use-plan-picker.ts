@@ -42,6 +42,7 @@ import {
   canDowngradeToTier,
   type PlanPickerTier,
 } from "@/features/subscription/lib/plan-tier-rank";
+import { buildSignupCheckoutPath } from "@/features/auth/lib/signup-plan-intent";
 
 const SUBSCRIPTION_SETTINGS_PATH = "/settings/plan/subscription";
 
@@ -303,7 +304,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
 
   const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
     if (options.audience === "marketing") {
-      router.push("/signup");
+      const checkoutPath = buildSignupCheckoutPath(tier, billingInterval);
+      router.push(`/signup?redirect=${encodeURIComponent(checkoutPath)}`);
       return;
     }
 

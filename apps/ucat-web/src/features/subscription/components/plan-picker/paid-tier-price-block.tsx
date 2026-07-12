@@ -91,9 +91,9 @@ export function PaidTierPriceBlock({
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs text-sm">
                 Earn {formatMoney(discountPerDayCents)} off your next bill when
-                you do at least {minQuestionsPerDay} questions per day, up to a
-                maximum of {formatMoney(maxDiscountCents)} per {intervalLabel}{" "}
-                billing period.
+                you answer at least {minQuestionsPerDay} questions per day, up
+                to a maximum of {formatMoney(maxDiscountCents)} per{" "}
+                {intervalLabel} billing period.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

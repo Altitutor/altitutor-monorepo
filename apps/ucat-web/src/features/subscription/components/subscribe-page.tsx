@@ -139,10 +139,10 @@ export function SubscribePage() {
               {[
                 {
                   icon: "✦",
-                  title: "Earn as you practise",
+                  title: "Earn as you practice",
                   desc: monthlyPracticeDiscount
-                    ? `Complete ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(monthlyPracticeDiscount.discountPerDayCents, cfg.currency)} off your bill (up to ${monthlyPracticeDiscount.maxDiscountsPerPeriod} days per billing period on monthly).`
-                    : `Complete ${cfg.minQuestionsPerDay}+ questions in a day to earn discounts off your bill.`,
+                    ? `Answer ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(monthlyPracticeDiscount.discountPerDayCents, cfg.currency)} off your bill (up to ${monthlyPracticeDiscount.maxDiscountsPerPeriod} days per billing period on monthly).`
+                    : `Answer ${cfg.minQuestionsPerDay}+ questions in a day to earn discounts off your bill.`,
                   accent: true,
                 },
                 {

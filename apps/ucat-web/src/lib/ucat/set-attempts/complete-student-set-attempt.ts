@@ -7,6 +7,7 @@ import {
 } from "@altitutor/ucat-marking";
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { maybeQualifyFreeUcatReferral } from "@/lib/ucat/referrals/maybe-qualify-free-referral";
 
 type AdminClient = SupabaseClient;
 
@@ -407,6 +408,7 @@ export async function completeStudentSetAttempt(
   }
 
   const discount = await maybeGrantPracticeDayDiscount(admin, studentId);
+  await maybeQualifyFreeUcatReferral(admin, studentId);
   return {
     earnedDiscount: discount.earnedDiscount,
     discountCents: discount.discountCents,

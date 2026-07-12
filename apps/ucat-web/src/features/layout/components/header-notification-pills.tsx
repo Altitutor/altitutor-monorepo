@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "motion/react";
 import { ExamAttemptHeaderPill } from "@/features/exam-attempts/components/exam-attempt-header-pill";
 import { SkillTrainerAttemptHeaderPill } from "@/features/skill-trainer/components/skill-trainer-attempt-header-pill";
 import { QuotaHeaderPill } from "@/features/ucat-access/components/quota-header-pill";
@@ -9,7 +10,12 @@ export function HeaderNotificationPills() {
     <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
       <ExamAttemptHeaderPill />
       <SkillTrainerAttemptHeaderPill />
-      <QuotaHeaderPill />
+      <motion.div
+        layout
+        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+      >
+        <QuotaHeaderPill />
+      </motion.div>
     </div>
   );
 }

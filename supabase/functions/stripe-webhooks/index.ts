@@ -16,6 +16,13 @@ import {
 } from "./shared/subscription-invoice-sync.ts";
 import { forfeitPracticeDayCreditsForStudent } from "./shared/forfeit-practice-day-credits.ts";
 import { sendUcatTrialReminder } from "./shared/ucat-trial-reminder.ts";
+import {
+  applyQueuedReferralRewardToInvoice,
+  markReferralRewardRedeemed,
+  maybeQualifyPaidUcatReferral,
+  requeueReferralReward,
+  resolveCustomerCardFingerprint,
+} from "./shared/ucat-referral-rewards.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -317,6 +324,7 @@ Deno.serve(async (req: Request) => {
                       exp_month?: number;
                       exp_year?: number;
                       country?: string;
+                      fingerprint?: string;
                     };
                   }
                 ).card
@@ -350,6 +358,7 @@ Deno.serve(async (req: Request) => {
               card_exp_month: card.exp_month || 1,
               card_exp_year: card.exp_year || new Date().getFullYear() + 5,
               card_country: card.country || null,
+              card_fingerprint: card.fingerprint || null,
             });
 
           if (insertErr) {
@@ -357,6 +366,23 @@ Deno.serve(async (req: Request) => {
               "[webhook] Failed to save payment method:",
               insertErr,
             );
+          }
+
+          const { data: trialSubscription } = await supabase
+            .from("student_subscriptions")
+            .select("stripe_subscription_id")
+            .eq("student_id", studentId)
+            .eq("status", "trialing")
+            .maybeSingle();
+          if (trialSubscription?.stripe_subscription_id) {
+            await maybeQualifyPaidUcatReferral({
+              supabase,
+              stripe,
+              referredStudentId: studentId,
+              subscriptionId: trialSubscription.stripe_subscription_id,
+              customerId,
+              currentFingerprint: card.fingerprint || null,
+            });
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -545,13 +571,18 @@ Deno.serve(async (req: Request) => {
       }
 
       case "invoice.created": {
-        // Log invoice creation (optional, for tracking)
-        const invoice = event.data.object as { id: string; customer?: string };
+        const invoice = event.data.object as Stripe.Invoice;
+        const referralRewardApplied = await applyQueuedReferralRewardToInvoice({
+          supabase,
+          stripe,
+          invoice,
+        });
         console.log(
           "[webhook] Invoice created:",
           invoice.id,
           "for customer:",
           invoice.customer,
+          referralRewardApplied ? "with referral reward" : "",
         );
 
         await supabase
@@ -771,6 +802,8 @@ Deno.serve(async (req: Request) => {
 
         if (payErr) console.error("[webhook] invoices update error", payErr);
 
+        await markReferralRewardRedeemed(supabase, invoice.id);
+
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -936,6 +969,8 @@ Deno.serve(async (req: Request) => {
       case "invoice.voided": {
         const invoice = event.data.object as { id: string };
 
+        await requeueReferralReward(supabase, invoice.id);
+
         await supabase
           .from("invoices")
           .update({ status: "void" })
@@ -951,6 +986,8 @@ Deno.serve(async (req: Request) => {
 
       case "invoice.marked_uncollectible": {
         const invoice = event.data.object as { id: string };
+
+        await requeueReferralReward(supabase, invoice.id);
 
         await supabase
           .from("invoices")
@@ -1011,7 +1048,7 @@ Deno.serve(async (req: Request) => {
             const subscription = await stripe.subscriptions.retrieve(
               session.subscription,
               {
-                expand: ["items.data.price"],
+                expand: ["items.data.price", "default_payment_method"],
               },
             );
             const price = subscription.items?.data?.[0]?.price;
@@ -1070,6 +1107,34 @@ Deno.serve(async (req: Request) => {
               },
               { onConflict: "student_id,subject_id" },
             );
+
+            if (subscription.status === "trialing" && customerId) {
+              const defaultPaymentMethod = subscription.default_payment_method;
+              const paymentMethodId =
+                typeof defaultPaymentMethod === "string"
+                  ? defaultPaymentMethod
+                  : (defaultPaymentMethod?.id ?? null);
+              const fingerprint = await resolveCustomerCardFingerprint(
+                stripe,
+                customerId,
+                paymentMethodId,
+              );
+              const referralResult = await maybeQualifyPaidUcatReferral({
+                supabase,
+                stripe,
+                referredStudentId: studentId,
+                checkoutSessionId: session.id,
+                subscriptionId: subscription.id,
+                customerId,
+                currentFingerprint: fingerprint,
+              });
+              console.log(
+                "[webhook] UCAT paid referral result",
+                referralResult,
+                "for student",
+                studentId,
+              );
+            }
             console.log(
               "[webhook] UCAT subscription provisioned for student",
               studentId,

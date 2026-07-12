@@ -3,7 +3,10 @@ import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
-import { getUcatPlanPrice } from "@/lib/ucat/plan-price-lookup";
+import {
+  getUcatPlanPrice,
+  stripePriceMatchesUcatPlan,
+} from "@/lib/ucat/plan-price-lookup";
 import {
   parseUcatCheckoutRequest,
   type UcatCheckoutSelection,
@@ -119,6 +122,28 @@ export async function POST(request: NextRequest) {
     apiVersion: "2025-12-15.clover",
   });
 
+  try {
+    if (!(await stripePriceMatchesUcatPlan(stripe, planPrice))) {
+      console.error(
+        "[ucat checkout] Stripe price does not match configured plan amount",
+        selection,
+      );
+      return NextResponse.json(
+        { error: "This plan is being updated. Please try again shortly." },
+        { status: 503 },
+      );
+    }
+  } catch (err: unknown) {
+    console.error(
+      "[ucat checkout] Failed to validate Stripe price:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return NextResponse.json(
+      { error: "This plan is being updated. Please try again shortly." },
+      { status: 503 },
+    );
+  }
+
   const { data: config } = await supabaseAdmin
     .from("ucat_subscription_config")
     .select("trial_days")
@@ -175,7 +200,6 @@ export async function POST(request: NextRequest) {
       returnContext === "subscribe"
         ? `${checkoutReturnBase}?checkout=success`
         : `${checkoutReturnBase}?checkout=success`,
-    allow_promotion_codes: true,
   };
 
   const { data: billing } = await supabaseAdmin

@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -11,9 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
+import { UcatPageHeader } from "@/features/layout";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
-import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
+import {
+  STEM_FILTERS_STEP_COPY,
+  StemFiltersPanel,
+  type StemFiltersWizardStep,
+} from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
   clearPracticeSession,
@@ -35,9 +41,11 @@ import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
 } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function PracticePage() {
   const router = useRouter();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const {
     active: activeExamAttempt,
     isLoading: activeAttemptLoading,
@@ -66,6 +74,37 @@ export function PracticePage() {
     requestedCount: number;
     remainingCount: number;
   } | null>(null);
+  const [wizardHeader, setWizardHeader] = useState<{
+    title: string;
+    subtitle: string;
+    canGoBack: boolean;
+    isTransitioning: boolean;
+  }>({
+    title: STEM_FILTERS_STEP_COPY[0].title,
+    subtitle: STEM_FILTERS_STEP_COPY[0].subtitle,
+    canGoBack: false,
+    isTransitioning: false,
+  });
+  const wizardGoBackRef = useRef<(() => void) | null>(null);
+  const handleWizardStepChange = useCallback((state: StemFiltersWizardStep) => {
+    wizardGoBackRef.current = state.goBack;
+    setWizardHeader((prev) => {
+      if (
+        prev.title === state.title &&
+        prev.subtitle === state.subtitle &&
+        prev.canGoBack === state.canGoBack &&
+        prev.isTransitioning === state.isTransitioning
+      ) {
+        return prev;
+      }
+      return {
+        title: state.title,
+        subtitle: state.subtitle,
+        canGoBack: state.canGoBack,
+        isTransitioning: state.isTransitioning,
+      };
+    });
+  }, []);
   const practiceQuota = quota?.areas.find((area) => area.area === "practice");
   const freeQuestionLimit =
     quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota
@@ -304,8 +343,27 @@ export function PracticePage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div id="tour-practice-filters">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={wizardHeader.title}
+          description={wizardHeader.subtitle}
+          onBack={
+            wizardHeader.canGoBack
+              ? () => {
+                  wizardGoBackRef.current?.();
+                }
+              : undefined
+          }
+          backDisabled={wizardHeader.isTransitioning}
+        />
+      </motion.div>
+      <motion.div id="tour-practice-filters" variants={itemVariants}>
         <StemFiltersPanel
           input={filters.input}
           selectedSection={filters.selectedSection}
@@ -332,8 +390,10 @@ export function PracticePage() {
           onQuestionCountModeChange={filters.handleQuestionCountModeChange}
           fixedQuestionCountLimit={freeQuestionLimit}
           actionButton={actionButton}
+          hideStepHeader
+          onWizardStepChange={handleWizardStepChange}
         />
-      </div>
+      </motion.div>
       <ExamAttemptConflictDialog
         open={conflictActive != null}
         active={conflictActive}
@@ -387,6 +447,6 @@ export function PracticePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

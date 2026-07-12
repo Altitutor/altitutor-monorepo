@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
+import { motion } from "motion/react";
+import { Badge, ListToolbar } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
@@ -17,11 +18,11 @@ import {
 import { recordToMocksFilters } from "@/features/mocks/lib/filter-adapters";
 import { NotebookText } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import {
   UCAT_LIST_ROW_LINK,
 } from "@/lib/ucat-surface-motion";
-
-const DEFAULT_PAGE_SIZE = 10;
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const TIMED_OPTIONS: DataTableFilterDefinition["options"] = [
   { value: "timed", label: "Timed" },
@@ -41,12 +42,11 @@ const FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
 export function MocksListPage() {
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attemptedMockIds = new Set<string>() } = useAttemptedMockIds();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [search, setSearch] = useState("");
   const [filtersRecord, setFiltersRecord] = useState<Record<string, unknown[]>>(
     {},
   );
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const effectiveFilters = useMemo(
     () => recordToMocksFilters(filtersRecord),
@@ -55,35 +55,26 @@ export function MocksListPage() {
 
   const filteredMocks = useMemo(() => {
     if (!mocks) return [];
-    return filterMocks(mocks, {
+    const filtered = filterMocks(mocks, {
       ...effectiveFilters,
       search: search.trim() || undefined,
     });
+    return [...filtered].sort((a, b) =>
+      (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+        sensitivity: "base",
+      }),
+    );
   }, [mocks, effectiveFilters, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredMocks.length / pageSize));
-  const currentPage = Math.min(page, totalPages - 1);
-  const paginatedMocks = useMemo(() => {
-    const start = currentPage * pageSize;
-    return filteredMocks.slice(start, start + pageSize);
-  }, [filteredMocks, currentPage, pageSize]);
 
   const handleFiltersChange = useCallback(
     (filters: Record<string, unknown[]>) => {
       setFiltersRecord(filters);
-      setPage(0);
     },
     [],
   );
 
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setPage(0);
-  }, []);
-
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
-    setPage(0);
   }, []);
 
   if (isLoading) {
@@ -138,26 +129,26 @@ export function MocksListPage() {
           onFiltersChange={handleFiltersChange}
         />
 
-        <ul className="space-y-3">
-          {paginatedMocks.map((mock) => (
-            <MockCard
-              key={mock.id}
-              mock={mock}
-              attemptedMockIds={attemptedMockIds}
-            />
-          ))}
-        </ul>
-
-        {filteredMocks.length > 0 && (
-          <div className="border-t border-border pt-4 ucat-pagination">
-            <TablePagination
-              page={currentPage + 1}
-              pageSize={pageSize}
-              total={filteredMocks.length}
-              onPageChange={(p) => setPage(p - 1)}
-              onPageSizeChange={handlePageSizeChange}
-            />
-          </div>
+        {filteredMocks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No mocks match your search or filters.
+          </p>
+        ) : (
+          <motion.ul
+            className="space-y-3"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
+            {filteredMocks.map((mock) => (
+              <motion.li key={mock.id} variants={itemVariants}>
+                <MockCard
+                  mock={mock}
+                  attemptedMockIds={attemptedMockIds}
+                />
+              </motion.li>
+            ))}
+          </motion.ul>
         )}
       </div>
     </div>
@@ -171,32 +162,30 @@ function MockCard({
   mock: StudentMockRow;
   attemptedMockIds: Set<string>;
 }) {
-  const timeLabel = mock.has_timed_sets ? "Timed" : "Untimed";
+  const totalTimeLabel = formatExamDurationSeconds(mock.totalTimeLimitSeconds);
   const attempted = attemptedMockIds.has(mock.id);
 
   return (
-    <li>
-      <Link
-        href={`/mocks/${encodeURIComponent(mock.id)}`}
-        className={UCAT_LIST_ROW_LINK}
-      >
-        <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
-          <NotebookText className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">{mock.name ?? "Mock exam"}</p>
-          {mock.set_count != null ? (
-            <p className="text-xs text-muted-foreground">
-              {mock.set_count} set{mock.set_count !== 1 ? "s" : ""}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">
-          {attempted ? <Badge variant="secondary">Attempted</Badge> : null}
-          {timeLabel}
-        </div>
-        <UcatHoverChevron />
-      </Link>
-    </li>
+    <Link
+      href={`/mocks/${encodeURIComponent(mock.id)}`}
+      className={UCAT_LIST_ROW_LINK}
+    >
+      <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+        <NotebookText className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium truncate">{mock.name ?? "Mock exam"}</p>
+        {mock.set_count != null ? (
+          <p className="text-xs text-muted-foreground">
+            {mock.set_count} set{mock.set_count !== 1 ? "s" : ""}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">
+        {attempted ? <Badge variant="secondary">Attempted</Badge> : null}
+        <span className="font-medium text-foreground/80">{totalTimeLabel}</span>
+      </div>
+      <UcatHoverChevron />
+    </Link>
   );
 }

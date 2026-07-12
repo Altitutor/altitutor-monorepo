@@ -20,6 +20,8 @@ import {
 import { formatTimeZoneWithGmtOffset } from "@/lib/supported-timezones";
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { motion } from "motion/react";
 
 const THEME_OPTIONS = [
   { id: "light" as const, label: "Light" },
@@ -38,6 +40,7 @@ const SELECT_CONTENT_WIDTH = "min(100vw - 2rem, 22rem)";
 
 export function SettingsAppPage() {
   const queryClient = useQueryClient();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [timezone, setTimezone] = useState<string>("Australia/Adelaide");
   const [savedTimezone, setSavedTimezone] = useState<string | null>(null);
   const [options, setOptions] = useState<string[]>([]);
@@ -130,21 +133,27 @@ export function SettingsAppPage() {
   }
 
   return (
-    <div
+    <motion.div
       className={cn(
         "space-y-6",
         isDirty &&
           "pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]",
       )}
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
     >
-      <UcatPageHeader
-        title="App settings"
-        description="Timezone, theme, and tours"
-        backHref="/settings"
-        backLabel="All settings"
-      />
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title="App settings"
+          description="Timezone, theme, and tours"
+          backHref="/settings"
+          backLabel="All settings"
+        />
+      </motion.div>
 
-      <div
+      <motion.div
+        variants={itemVariants}
         className={cn(
           "rounded-ucatShell p-6 sm:p-8",
           UCAT_SURFACE_CARD,
@@ -154,7 +163,7 @@ export function SettingsAppPage() {
       >
         <SettingsRow
           title="Timezone"
-          description="Used for practice day discounts (e.g. 20 questions per day)."
+          description="Used for practice day discounts (e.g. 10 questions per day)."
           control={
             <div className="w-full space-y-2 sm:w-auto sm:min-w-[14rem] sm:max-w-md">
               <SearchableSelect<string>
@@ -179,9 +188,10 @@ export function SettingsAppPage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      <div
+      <motion.div
+        variants={itemVariants}
         className={cn(
           "rounded-ucatShell p-6 sm:p-8",
           UCAT_SURFACE_CARD,
@@ -215,9 +225,10 @@ export function SettingsAppPage() {
             )
           }
         />
-      </div>
+      </motion.div>
 
-      <div
+      <motion.div
+        variants={itemVariants}
         className={cn(
           "rounded-ucatShell p-6 sm:p-8",
           UCAT_SURFACE_CARD,
@@ -255,7 +266,7 @@ export function SettingsAppPage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
       <AppShellBottomFloatingDock visible={isDirty}>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -272,6 +283,6 @@ export function SettingsAppPage() {
           </Button>
         </div>
       </AppShellBottomFloatingDock>
-    </div>
+    </motion.div>
   );
 }
