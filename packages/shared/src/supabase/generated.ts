@@ -18425,6 +18425,7 @@ export type Database = {
           created_at: string | null
           description: Json | null
           id: string | null
+          is_available_in_sets_library: boolean | null
           is_student_generated: boolean | null
           name: Json | null
           sections: Json | null
@@ -18572,6 +18573,7 @@ export type Database = {
           created_at: string | null
           display_columns: number | null
           id: string | null
+          is_available_for_practice: boolean | null
           question_stem_category_id: string | null
           section_id: string | null
           section_name: string | null
@@ -24456,10 +24458,6 @@ export type Database = {
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
-      }
-      maybe_qualify_ucat_free_referral: {
-        Args: { p_referred_student_id: string }
-        Returns: boolean
       }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       precreate_admin_shift_sessions: {
