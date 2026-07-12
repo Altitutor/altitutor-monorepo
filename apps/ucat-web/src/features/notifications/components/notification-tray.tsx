@@ -22,6 +22,19 @@ function relativeTime(value: string | null): string {
   return formatDistanceToNow(new Date(value), { addSuffix: true });
 }
 
+function notificationActionLabel(notification: UcatNotification): string {
+  const metadata = notification.metadata;
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    typeof metadata.action_label === "string"
+  ) {
+    return metadata.action_label;
+  }
+  return "View";
+}
+
 export function NotificationTray() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -147,49 +160,67 @@ export function NotificationTray() {
               {notifications.map((notification) => {
                 const unread = !notification.read_at;
                 return (
-                  <button
+                  <div
                     key={notification.id}
-                    type="button"
                     className={cn(
-                      "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50",
+                      "flex w-full items-center transition-colors hover:bg-muted/50",
                       unread && "bg-primary/[0.045]",
                     )}
-                    onClick={() => void openNotification(notification)}
                   >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
-                        notification.priority === "critical" &&
-                          "bg-destructive/10 text-destructive",
-                      )}
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left"
+                      onClick={() => void openNotification(notification)}
                     >
-                      {notification.priority === "critical" ? (
-                        <AlertCircle className="h-4 w-4" />
-                      ) : (
-                        <Bell className="h-4 w-4" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-start gap-2">
-                        <span
-                          className={cn("text-sm", unread && "font-semibold")}
-                        >
-                          {notification.title}
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
+                          notification.priority === "critical" &&
+                            "bg-destructive/10 text-destructive",
+                        )}
+                      >
+                        {notification.priority === "critical" ? (
+                          <AlertCircle className="h-4 w-4" />
+                        ) : (
+                          <Bell className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start gap-2">
+                          <span
+                            className={cn(
+                              "text-sm",
+                              unread && "font-semibold",
+                            )}
+                          >
+                            {notification.title}
+                          </span>
+                          {unread ? (
+                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                          ) : null}
                         </span>
-                        {unread ? (
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        {notification.body ? (
+                          <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                            {notification.body}
+                          </span>
                         ) : null}
-                      </span>
-                      {notification.body ? (
-                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                          {notification.body}
+                        <span className="mt-1.5 block text-[11px] text-muted-foreground/80">
+                          {relativeTime(notification.created_at)}
                         </span>
-                      ) : null}
-                      <span className="mt-1.5 block text-[11px] text-muted-foreground/80">
-                        {relativeTime(notification.created_at)}
                       </span>
-                    </span>
-                  </button>
+                    </button>
+                    {notification.action_url ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mr-3 shrink-0"
+                        onClick={() => void openNotification(notification)}
+                      >
+                        {notificationActionLabel(notification)}
+                      </Button>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

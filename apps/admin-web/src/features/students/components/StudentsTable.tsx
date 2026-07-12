@@ -127,7 +127,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
-  const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
+  const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
@@ -846,6 +846,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           }}
           studentId={studentToDiscontinue.id}
           studentName={[studentToDiscontinue.first_name, studentToDiscontinue.last_name].filter(Boolean).join(' ') || 'this student'}
+          studentPhone={studentToDiscontinue.phone}
           workflowKey="student_discontinuation"
           onCreated={refetch}
         />

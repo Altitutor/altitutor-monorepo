@@ -1,19 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
-import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
 import {
   STEM_FILTERS_STEP_COPY,
@@ -22,10 +13,13 @@ import {
 } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
-  clearPendingPracticeStart,
+  createAndPersistPracticeSession,
+  type PracticeSessionStartInput,
+} from "@/features/practice/api/create-practice-session";
+import { PracticeReducedStartDialog } from "@/features/practice/components/practice-reduced-start-dialog";
+import { evaluatePracticeQuotaPreflight } from "@/features/practice/lib/practice-quota-preflight";
+import {
   clearPracticeSession,
-  getPendingPracticeStart,
-  setPracticeSession,
   setPendingPracticeStart,
   type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
@@ -36,10 +30,7 @@ import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-ex
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { Button } from "@/components/ui/button";
-import {
-  assertOkOrQuotaExceeded,
-  QuotaExceededError,
-} from "@/lib/ucat/quota/parse-quota-error";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 import {
   buildQuestionEngineTutorialHref,
@@ -49,7 +40,6 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function PracticePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const {
     active: activeExamAttempt,
@@ -71,20 +61,9 @@ export function PracticePage() {
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
   const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
-  const pendingStartRef = useRef<{
-    payload: SetGeneratorInput & {
-      unlimited?: boolean;
-      reviewTiming: PracticeReviewTiming;
-    };
-    ucatSectionId: string;
-  } | null>(null);
-  const consumedTutorialStartRef = useRef(false);
+  const pendingStartRef = useRef<PracticeSessionStartInput | null>(null);
   const [reducedStart, setReducedStart] = useState<{
-    payload: SetGeneratorInput & {
-      unlimited?: boolean;
-      reviewTiming: PracticeReviewTiming;
-    };
-    ucatSectionId: string;
+    input: PracticeSessionStartInput;
     requestedCount: number;
     remainingCount: number;
   } | null>(null);
@@ -125,118 +104,35 @@ export function PracticePage() {
       ? Math.max(0, practiceQuota.limit - practiceQuota.used)
       : null;
 
-  const startMutation = useMutation({
-    mutationFn: async ({
-      payload,
-      ucatSectionId,
-    }: {
+  const buildStartInput = useCallback(
+    (
       payload: SetGeneratorInput & {
         unlimited?: boolean;
         reviewTiming: PracticeReviewTiming;
-      };
-      ucatSectionId: string;
-    }) => {
-      const { unlimited, reviewTiming, ...input } = payload;
-      const sectionKey = input.section;
+      },
+      ucatSectionId: string,
+    ): PracticeSessionStartInput => ({
+      payload,
+      ucatSectionId,
+      filterMeta: {
+        sectionLabel: filters.selectedSectionLabel,
+        categoryLabels:
+          payload.categoryIds.length > 0
+            ? filters.selectedCategories.map((c) => c.name)
+            : [],
+        examTimePerQuestionSeconds: filters.sectionTimePerQuestionSeconds,
+      },
+    }),
+    [
+      filters.sectionTimePerQuestionSeconds,
+      filters.selectedCategories,
+      filters.selectedSectionLabel,
+    ],
+  );
 
-      if (unlimited) {
-        const createSessionRes = await fetch("/api/ucat/practice-sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sectionKey,
-            ucatSectionId,
-            filtersSnapshot: { ...input, reviewTiming },
-            unlimited: true,
-          }),
-        });
-
-        if (!createSessionRes.ok) {
-          await assertOkOrQuotaExceeded(createSessionRes);
-          const body = await createSessionRes.json().catch(() => ({}));
-          throw new Error(body.error ?? "Failed to create practice session");
-        }
-
-        const { id: sessionId } = (await createSessionRes.json()) as {
-          id: string;
-        };
-        return { unlimited: true as const, stems: [], sessionId };
-      }
-
-      const createSessionRes = await fetch("/api/ucat/practice-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sectionKey,
-          ucatSectionId,
-          filtersSnapshot: { ...input, reviewTiming },
-          unlimited: false,
-        }),
-      });
-
-      if (!createSessionRes.ok) {
-        await assertOkOrQuotaExceeded(createSessionRes);
-        const body = await createSessionRes.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to create practice session");
-      }
-
-      const sessionData = (await createSessionRes.json()) as {
-        id: string;
-        stems: QuestionStemWithQuestions[];
-        questionCount: number;
-        totalMatchingQuestions: number;
-      };
-
-      return {
-        stems: sessionData.stems,
-        questionCount: sessionData.questionCount,
-        totalMatchingQuestions: sessionData.totalMatchingQuestions,
-        sessionId: sessionData.id,
-      };
-    },
-    onSuccess: (data, variables) => {
-      const timePerQuestionSeconds =
-        variables.payload.timePerQuestionSeconds != null &&
-        variables.payload.timePerQuestionSeconds > 0
-          ? variables.payload.timePerQuestionSeconds
-          : null;
-
-      if ("unlimited" in data && data.unlimited) {
-        setPracticeSession({
-          mode: "unlimited",
-          sessionId: data.sessionId,
-          filters: variables.payload,
-          filterMeta: {
-            sectionLabel: filters.selectedSectionLabel,
-            categoryLabels:
-              variables.payload.categoryIds.length > 0
-                ? filters.selectedCategories.map((c) => c.name)
-                : [],
-            examTimePerQuestionSeconds: filters.sectionTimePerQuestionSeconds,
-          },
-          timePerQuestionSeconds,
-          startedAtMs: Date.now(),
-          reviewTiming: variables.payload.reviewTiming,
-        });
-      } else {
-        setPracticeSession({
-          mode: "set",
-          sessionId: data.sessionId,
-          stems: data.stems,
-          filters: variables.payload,
-          filterMeta: {
-            sectionLabel: filters.selectedSectionLabel,
-            categoryLabels:
-              variables.payload.categoryIds.length > 0
-                ? filters.selectedCategories.map((c) => c.name)
-                : [],
-            examTimePerQuestionSeconds: filters.sectionTimePerQuestionSeconds,
-          },
-          timePerQuestionSeconds,
-          startedAtMs: Date.now(),
-          reviewTiming: variables.payload.reviewTiming,
-        });
-      }
+  const startMutation = useMutation({
+    mutationFn: createAndPersistPracticeSession,
+    onSuccess: () => {
       router.push("/practice/session");
     },
     onError: (error) => {
@@ -248,54 +144,43 @@ export function PracticePage() {
     },
   });
 
-  const startWithQuotaPreflight = useCallback(({
-    payload,
-    ucatSectionId,
-  }: {
-    payload: SetGeneratorInput & {
-      unlimited?: boolean;
-      reviewTiming: PracticeReviewTiming;
-    };
-    ucatSectionId: string;
-  }) => {
-    const practiceQuota = quota?.areas.find((area) => area.area === "practice");
-    const enforceFreeQuota =
-      quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota;
+  const startWithQuotaPreflight = useCallback(
+    (input: PracticeSessionStartInput) => {
+      const preflight = evaluatePracticeQuotaPreflight(quota, input);
 
-    if (enforceFreeQuota) {
-      const remainingCount = Math.max(
-        0,
-        practiceQuota.limit - practiceQuota.used,
-      );
-      if (practiceQuota.limit === 0 || remainingCount === 0) {
-        openQuotaLimit(
-          {
-            code: "QUOTA_EXCEEDED",
-            area: "practice",
-            used: practiceQuota.used,
-            limit: practiceQuota.limit,
-            period: practiceQuota.period,
-          },
-          {
-            dismissAction: { label: "Dismiss", variant: "dismiss" },
-          },
-        );
-        return;
+      switch (preflight.status) {
+        case "ok":
+          startMutation.mutate(input);
+          return;
+        case "atLimit":
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "practice",
+              used: preflight.used,
+              limit: preflight.limit,
+              period: preflight.period,
+            },
+            {
+              dismissAction: { label: "Dismiss", variant: "dismiss" },
+            },
+          );
+          return;
+        case "reduce":
+          setReducedStart({
+            input: { ...input, payload: preflight.payload },
+            requestedCount: preflight.requestedCount,
+            remainingCount: preflight.remainingCount,
+          });
+          return;
+        default: {
+          const _exhaustive: never = preflight;
+          return _exhaustive;
+        }
       }
-
-      if (!payload.unlimited && payload.questionCount > remainingCount) {
-        setReducedStart({
-          payload: { ...payload, questionCount: remainingCount },
-          ucatSectionId,
-          requestedCount: payload.questionCount,
-          remainingCount,
-        });
-        return;
-      }
-    }
-
-    startMutation.mutate({ payload, ucatSectionId });
-  }, [openQuotaLimit, quota, startMutation]);
+    },
+    [openQuotaLimit, quota, startMutation],
+  );
 
   function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
@@ -307,61 +192,23 @@ export function PracticePage() {
       unlimited: unlimited || undefined,
       reviewTiming,
     };
+    const startInput = buildStartInput(payload, ucatSectionId);
     // Create the DB session only after the engine tutorial — otherwise Resume
     // points at /practice/session which immediately redirects back to tutorial.
     if (questionEngineTourBlocked) {
-      const pendingStart = { payload, ucatSectionId };
-      setPendingPracticeStart(pendingStart);
-      router.push(
-        buildQuestionEngineTutorialHref("/practice?startTutorialAttempt=1"),
-      );
+      setPendingPracticeStart(startInput);
+      router.push(buildQuestionEngineTutorialHref("/practice/session"));
       return;
     }
 
     if (activeExamAttempt) {
-      pendingStartRef.current = { payload, ucatSectionId };
+      pendingStartRef.current = startInput;
       setConflictActive(activeExamAttempt);
       return;
     }
 
-    startWithQuotaPreflight({ payload, ucatSectionId });
+    startWithQuotaPreflight(startInput);
   }
-
-  useEffect(() => {
-    if (
-      searchParams.get("startTutorialAttempt") !== "1" ||
-      questionEngineTourLoading ||
-      questionEngineTourBlocked ||
-      activeAttemptLoading ||
-      startMutation.isPending ||
-      consumedTutorialStartRef.current
-    ) {
-      return;
-    }
-
-    const pendingStart = getPendingPracticeStart();
-    consumedTutorialStartRef.current = true;
-    clearPendingPracticeStart();
-    router.replace("/practice");
-    if (!pendingStart) return;
-
-    if (activeExamAttempt) {
-      pendingStartRef.current = pendingStart;
-      setConflictActive(activeExamAttempt);
-      return;
-    }
-
-    startWithQuotaPreflight(pendingStart);
-  }, [
-    activeAttemptLoading,
-    activeExamAttempt,
-    questionEngineTourBlocked,
-    questionEngineTourLoading,
-    router,
-    searchParams,
-    startWithQuotaPreflight,
-    startMutation.isPending,
-  ]);
 
   async function handleFinalizeConflictAndStart() {
     if (!conflictActive || !pendingStartRef.current) return;
@@ -468,48 +315,18 @@ export function PracticePage() {
           pendingStartRef.current = null;
         }}
       />
-      <AlertDialog
+      <PracticeReducedStartDialog
         open={reducedStart != null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setReducedStart(null);
+        requestedCount={reducedStart?.requestedCount ?? 0}
+        remainingCount={reducedStart?.remainingCount ?? 0}
+        isPending={startMutation.isPending}
+        onCancel={() => setReducedStart(null)}
+        onConfirm={() => {
+          if (!reducedStart) return;
+          startMutation.mutate(reducedStart.input);
+          setReducedStart(null);
         }}
-      >
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Start a smaller practice set?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You asked for {reducedStart?.requestedCount ?? 0} questions, but
-              you have {reducedStart?.remainingCount ?? 0} new practice
-              questions left in your UCAT Free allowance. Start with{" "}
-              {reducedStart?.remainingCount ?? 0} questions using the same
-              filters?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setReducedStart(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (!reducedStart) return;
-                startMutation.mutate({
-                  payload: reducedStart.payload,
-                  ucatSectionId: reducedStart.ucatSectionId,
-                });
-                setReducedStart(null);
-              }}
-              disabled={startMutation.isPending}
-            >
-              {startMutation.isPending ? "Loading…" : "Start smaller set"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
     </motion.div>
   );
 }

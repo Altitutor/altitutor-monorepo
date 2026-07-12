@@ -85,6 +85,9 @@ type UcatStemEditorPropertiesPanelProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  approvedByFirstName?: string | null
+  approvedByLastName?: string | null
+  approvedAt?: string | null
   metadataRecommendation?: ManualStemMetadataRecommendation | null
   activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
   onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
@@ -216,6 +219,9 @@ export function UcatStemEditorPropertiesPanel({
   aiGenerationMetadata,
   createdByFirstName,
   createdByLastName,
+  approvedByFirstName,
+  approvedByLastName,
+  approvedAt,
   metadataRecommendation = null,
   activeTab: controlledActiveTab,
   onActiveTabChange,
@@ -245,6 +251,8 @@ export function UcatStemEditorPropertiesPanel({
     formatStaffDisplayName(createdByFirstName, createdByLastName) ??
     metadataString(aiGenerationMetadata, 'generatedByName') ??
     metadataString(aiGenerationMetadata, 'generatedByEmail')
+  const approvedByName = formatStaffDisplayName(approvedByFirstName, approvedByLastName)
+  const approvedAtLabel = formatGeneratedTimestamp(approvedAt)
 
   const watchedApprovalStatus = form.watch('approvalStatus')
 
@@ -1093,7 +1101,17 @@ export function UcatStemEditorPropertiesPanel({
                   <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
                 </PropertyRow>
               </>
-            ) : null}
+            ) : (
+              <PropertyRow label="Created by">
+                <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
+              </PropertyRow>
+            )}
+            <PropertyRow label="Approved by">
+              <ReadOnlyValue>{approvedByName ?? '—'}</ReadOnlyValue>
+            </PropertyRow>
+            <PropertyRow label="Approved at">
+              <ReadOnlyValue>{approvedAtLabel ?? '—'}</ReadOnlyValue>
+            </PropertyRow>
             {fields.length > 0 ? (
               <>
                 <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />

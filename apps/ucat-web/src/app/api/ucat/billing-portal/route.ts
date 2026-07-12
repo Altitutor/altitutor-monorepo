@@ -4,9 +4,21 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStudentIdForUser } from "@/lib/ucat/ucat-subscription";
 
+const PORTAL_ACTIONS = [
+  "payment_method_update",
+  "subscription_cancel",
+  "subscription_update",
+] as const;
+
+type PortalAction = (typeof PORTAL_ACTIONS)[number];
+
+function isPortalAction(value: unknown): value is PortalAction {
+  return PORTAL_ACTIONS.includes(value as PortalAction);
+}
+
 /**
  * POST /api/ucat/billing-portal
- * Creates a Stripe Customer Portal session for subscription management.
+ * Creates a focused Stripe Customer Portal flow for one billing action.
  */
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -30,6 +42,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let body: { action?: unknown } = {};
+  try {
+    body = (await request.json()) as { action?: unknown };
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+
+  if (!isPortalAction(body.action)) {
+    return NextResponse.json(
+      { error: "Invalid billing action" },
+      { status: 400 },
+    );
+  }
+
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) {
     return NextResponse.json(
@@ -46,11 +75,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: billing, error: billingError } = await supabaseAdmin
-    .from("students_billing")
-    .select("stripe_customer_id")
-    .eq("student_id", studentId)
-    .maybeSingle();
+  const [{ data: billing, error: billingError }, { data: subscription }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("students_billing")
+        .select("stripe_customer_id")
+        .eq("student_id", studentId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("student_subscriptions")
+        .select("stripe_subscription_id")
+        .eq("student_id", studentId)
+        .in("status", ["active", "trialing", "past_due"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
   if (billingError) {
     return NextResponse.json(
@@ -66,16 +106,59 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (
+    body.action !== "payment_method_update" &&
+    !subscription?.stripe_subscription_id
+  ) {
+    return NextResponse.json(
+      { error: "No manageable subscription found" },
+      { status: 404 },
+    );
+  }
+
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2025-12-15.clover",
   });
 
-  const origin = request.headers.get("origin") ?? request.nextUrl.origin;
+  const origin = request.nextUrl.origin;
 
   try {
+    const returnUrl = `${origin}/settings/plan/subscription`;
+    const flowData: Stripe.BillingPortal.SessionCreateParams.FlowData =
+      body.action === "payment_method_update"
+        ? {
+            type: "payment_method_update",
+            after_completion: {
+              type: "redirect",
+              redirect: { return_url: returnUrl },
+            },
+          }
+        : body.action === "subscription_cancel"
+          ? {
+              type: "subscription_cancel",
+              subscription_cancel: {
+                subscription: subscription!.stripe_subscription_id,
+              },
+              after_completion: {
+                type: "redirect",
+                redirect: { return_url: returnUrl },
+              },
+            }
+          : {
+              type: "subscription_update",
+              subscription_update: {
+                subscription: subscription!.stripe_subscription_id,
+              },
+              after_completion: {
+                type: "redirect",
+                redirect: { return_url: returnUrl },
+              },
+            };
+
     const session = await stripe.billingPortal.sessions.create({
       customer: billing.stripe_customer_id,
-      return_url: `${origin}/settings/plan`,
+      return_url: returnUrl,
+      flow_data: flowData,
     });
 
     if (!session.url) {

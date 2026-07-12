@@ -6,7 +6,7 @@ describe("PercentileCard", () => {
   it("shows the student's percentile and resets after hover exploration", () => {
     render(<PercentileCard scaledScore={700} scope="section" />);
 
-    expect(screen.getByText("80th percentile")).toBeInTheDocument();
+    expect(screen.getByText("80th")).toBeInTheDocument();
     expect(screen.getByText("Score 700 · 80th percentile")).toBeInTheDocument();
 
     const curve = screen.getByRole("img");

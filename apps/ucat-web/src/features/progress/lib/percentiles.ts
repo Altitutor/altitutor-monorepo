@@ -72,19 +72,33 @@ function ordinal(value: number): string {
   }
 }
 
-export function formatExactUcatPercentile(percentile: number): string {
-  return `${ordinal(Math.round(percentile))} percentile`;
+export function formatExactUcatPercentileOrdinal(percentile: number): string {
+  return ordinal(Math.round(percentile));
 }
 
-export function formatUcatPercentile(
+export function formatExactUcatPercentile(percentile: number): string {
+  return `${formatExactUcatPercentileOrdinal(percentile)} percentile`;
+}
+
+/** Ordinal only (e.g. "52nd" / "<20th") for compact hero displays. */
+export function formatUcatPercentileOrdinal(
   scaledScore: number | null | undefined,
   scope: UcatPercentileScope,
 ): string | null {
   const percentile = getUcatPercentile(scaledScore, scope);
   if (percentile == null) return null;
   return percentile < 20
-    ? "<20th percentile"
-    : formatExactUcatPercentile(percentile);
+    ? "<20th"
+    : formatExactUcatPercentileOrdinal(percentile);
+}
+
+export function formatUcatPercentile(
+  scaledScore: number | null | undefined,
+  scope: UcatPercentileScope,
+): string | null {
+  const ordinalLabel = formatUcatPercentileOrdinal(scaledScore, scope);
+  if (ordinalLabel == null) return null;
+  return `${ordinalLabel} percentile`;
 }
 
 export function getUcatPercentile(

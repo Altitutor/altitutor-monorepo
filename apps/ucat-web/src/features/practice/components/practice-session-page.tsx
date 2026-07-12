@@ -9,13 +9,25 @@ import type { QuestionStemWithQuestions } from "@/features/question-engine/model
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-expandable-panel";
 import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
+import type { PracticeSessionStartInput } from "@/features/practice/api/create-practice-session";
+import { PracticeReducedStartDialog } from "@/features/practice/components/practice-reduced-start-dialog";
 import {
+  claimAndCreatePracticeSessionFromPending,
+  getInFlightPendingPracticeCreate,
+} from "@/features/practice/lib/claim-pending-practice-start";
+import { evaluatePracticeQuotaPreflight } from "@/features/practice/lib/practice-quota-preflight";
+import {
+  clearPendingPracticeStart,
   clearPracticeSession,
+  getPendingPracticeStart,
   getPracticeSession,
   setPracticeSession,
   type PracticeSessionData,
   type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
@@ -351,8 +363,11 @@ export function PracticeSessionPage() {
   const router = useRouter();
   const { mainContentHasSidebarInset } = useAppShellLayout();
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
-  const { active: activeExamAttempt, isLoading: activeAttemptLoading } =
-    useActiveExamAttempt();
+  const {
+    active: activeExamAttempt,
+    isLoading: activeAttemptLoading,
+    refresh: refreshActiveAttempt,
+  } = useActiveExamAttempt();
   const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const [session, setSession] = useState<
@@ -363,6 +378,18 @@ export function PracticeSessionPage() {
   );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const openFinishPracticeDialogRef = useRef<(() => void) | null>(null);
+  const pendingGateHandledRef = useRef(false);
+  const [conflictActive, setConflictActive] =
+    useState<ActiveExamAttempt | null>(null);
+  const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
+  const [pendingConflictStart, setPendingConflictStart] =
+    useState<PracticeSessionStartInput | null>(null);
+  const [reducedStart, setReducedStart] = useState<{
+    input: PracticeSessionStartInput;
+    requestedCount: number;
+    remainingCount: number;
+  } | null>(null);
+  const [isCreatingFromPending, setIsCreatingFromPending] = useState(false);
   const sessionLayoutClass = practiceSessionLayoutClass(
     mainContentHasSidebarInset,
   );
@@ -381,6 +408,48 @@ export function PracticeSessionPage() {
     openFinishPracticeDialogRef.current?.();
   }, []);
 
+  const abandonPendingStart = useCallback(() => {
+    clearPendingPracticeStart();
+    pendingGateHandledRef.current = true;
+    setConflictActive(null);
+    setPendingConflictStart(null);
+    setReducedStart(null);
+    setSession(null);
+    router.replace("/practice");
+  }, [router]);
+
+  const createFromPending = useCallback(
+    async (input?: PracticeSessionStartInput) => {
+      setIsCreatingFromPending(true);
+      setReducedStart(null);
+      setConflictActive(null);
+      setPendingConflictStart(null);
+      try {
+        const promise =
+          claimAndCreatePracticeSessionFromPending(input) ??
+          getInFlightPendingPracticeCreate();
+        if (!promise) {
+          router.replace("/practice");
+          return;
+        }
+        const data = await promise;
+        setSession(data);
+      } catch (error) {
+        clearPendingPracticeStart();
+        if (error instanceof QuotaExceededError) {
+          openQuotaLimit(error.payload, {
+            dismissAction: quotaRouteFallback("practice"),
+          });
+        }
+        setSession(null);
+        router.replace("/practice");
+      } finally {
+        setIsCreatingFromPending(false);
+      }
+    },
+    [openQuotaLimit, router],
+  );
+
   useEffect(() => {
     // Wait for the tutorial gate so we never begin a practice attempt that
     // will immediately be redirected away.
@@ -394,7 +463,78 @@ export function PracticeSessionPage() {
         cancelled = true;
       };
     }
+
+    const inFlight = getInFlightPendingPracticeCreate();
+    if (inFlight) {
+      void inFlight
+        .then((data) => {
+          if (!cancelled) setSession(data);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSession(null);
+            router.replace("/practice");
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (activeAttemptLoading) return;
+
+    const pending = getPendingPracticeStart();
+    if (pending) {
+      if (pendingGateHandledRef.current) return;
+
+      if (activeExamAttempt) {
+        pendingGateHandledRef.current = true;
+        setPendingConflictStart(pending);
+        setConflictActive(activeExamAttempt);
+        return;
+      }
+
+      if (quotaLoading) return;
+
+      const preflight = evaluatePracticeQuotaPreflight(quota, pending);
+      switch (preflight.status) {
+        case "atLimit":
+          pendingGateHandledRef.current = true;
+          clearPendingPracticeStart();
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "practice",
+              used: preflight.used,
+              limit: preflight.limit,
+              period: preflight.period,
+            },
+            { dismissAction: quotaRouteFallback("practice") },
+          );
+          setSession(null);
+          router.replace("/practice");
+          return;
+        case "reduce":
+          pendingGateHandledRef.current = true;
+          setReducedStart({
+            input: {
+              ...pending,
+              payload: preflight.payload,
+            },
+            requestedCount: preflight.requestedCount,
+            remainingCount: preflight.remainingCount,
+          });
+          return;
+        case "ok":
+          pendingGateHandledRef.current = true;
+          void createFromPending(pending);
+          return;
+        default: {
+          const _exhaustive: never = preflight;
+          return _exhaustive;
+        }
+      }
+    }
 
     void (async () => {
       let data: PracticeSessionData | null = null;
@@ -482,12 +622,69 @@ export function PracticeSessionPage() {
   }, [
     activeAttemptLoading,
     activeExamAttempt,
+    createFromPending,
     openQuotaLimit,
     questionEngineTourReady,
     quota,
     quotaLoading,
     router,
   ]);
+
+  async function handleFinalizeConflictAndStart() {
+    if (!conflictActive || !pendingConflictStart) return;
+    setIsFinalizingConflict(true);
+    try {
+      await finalizeExamAttempt({
+        kind: conflictActive.kind,
+        attemptId: conflictActive.attemptId,
+      });
+      if (conflictActive.kind === "practice") {
+        clearPracticeSession();
+      }
+      await refreshActiveAttempt();
+      const startInput = pendingConflictStart;
+      setConflictActive(null);
+      setPendingConflictStart(null);
+
+      const preflight = evaluatePracticeQuotaPreflight(quota, startInput);
+      switch (preflight.status) {
+        case "atLimit":
+          clearPendingPracticeStart();
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "practice",
+              used: preflight.used,
+              limit: preflight.limit,
+              period: preflight.period,
+            },
+            { dismissAction: quotaRouteFallback("practice") },
+          );
+          setSession(null);
+          router.replace("/practice");
+          return;
+        case "reduce":
+          setReducedStart({
+            input: {
+              ...startInput,
+              payload: preflight.payload,
+            },
+            requestedCount: preflight.requestedCount,
+            remainingCount: preflight.remainingCount,
+          });
+          return;
+        case "ok":
+          await createFromPending(startInput);
+          return;
+        default: {
+          const _exhaustive: never = preflight;
+          return _exhaustive;
+        }
+      }
+    } finally {
+      setIsFinalizingConflict(false);
+    }
+  }
 
   const handleDone = useCallback(() => {
     clearPracticeSession();
@@ -508,16 +705,37 @@ export function PracticeSessionPage() {
     return () => clearInterval(id);
   }, [session]);
 
-  if (session === "loading") {
+  if (session === "loading" || conflictActive != null || reducedStart != null) {
     return (
-      <div
-        className="space-y-4 p-6"
-        aria-busy="true"
-        aria-label="Loading practice session"
-      >
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-[28rem] w-full rounded-xl" />
-      </div>
+      <>
+        <div
+          className="space-y-4 p-6"
+          aria-busy="true"
+          aria-label="Loading practice session"
+        >
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-[28rem] w-full rounded-xl" />
+        </div>
+        <ExamAttemptConflictDialog
+          open={conflictActive != null}
+          active={conflictActive}
+          pendingLabel="new practice session"
+          isFinalizing={isFinalizingConflict}
+          onFinalizeAndContinue={() => void handleFinalizeConflictAndStart()}
+          onCancel={abandonPendingStart}
+        />
+        <PracticeReducedStartDialog
+          open={reducedStart != null}
+          requestedCount={reducedStart?.requestedCount ?? 0}
+          remainingCount={reducedStart?.remainingCount ?? 0}
+          isPending={isCreatingFromPending}
+          onCancel={abandonPendingStart}
+          onConfirm={() => {
+            if (!reducedStart) return;
+            void createFromPending(reducedStart.input);
+          }}
+        />
+      </>
     );
   }
 

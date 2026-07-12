@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
@@ -31,6 +31,7 @@ interface ClassCardProps {
   enrollment?: ClassEnrollmentWithAudit;
   onChangeClass?: () => void;
   onUnenroll?: () => void;
+  onSendUnenrollmentLink?: () => void;
   
   // Visual states
   isSelecting?: boolean;
@@ -52,6 +53,7 @@ export function ClassCard({
   enrollment,
   onChangeClass,
   onUnenroll,
+  onSendUnenrollmentLink,
   isSelecting = false,
   isSelected = false,
   compact: forceCompact = false,
@@ -99,7 +101,7 @@ export function ClassCard({
   const day = getDayOfWeek(classData.day_of_week);
   const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll);
+  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onSendUnenrollmentLink);
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);
@@ -213,13 +215,14 @@ export function ClassCard({
                       Change Class
                     </DropdownMenuItem>
                   )}
-                  {onUnenroll && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onUnenroll();
-                    }}>
-                      Unenroll Student
-                    </DropdownMenuItem>
+                  {(onUnenroll || onSendUnenrollmentLink) && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger onClick={(event) => event.stopPropagation()}>Unenroll Student</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {onUnenroll ? <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onUnenroll(); }}>Unenroll manually</DropdownMenuItem> : null}
+                        {onSendUnenrollmentLink ? <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onSendUnenrollmentLink(); }}>Send student unenrolment link</DropdownMenuItem> : null}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

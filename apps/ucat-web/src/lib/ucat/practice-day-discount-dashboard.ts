@@ -13,10 +13,12 @@ export type PracticeDiscountDayStatus = "earned" | "in_progress" | "missed";
 export type PracticeDiscountDayEntry = {
   date: string;
   weekdayLabel: string;
+  dayOfMonthLabel: string;
   questionsDone: number;
   minQuestions: number;
   earnedCredit: boolean;
   isToday: boolean;
+  isBillingDate: boolean;
   status: PracticeDiscountDayStatus;
 };
 
@@ -36,8 +38,17 @@ export type PracticeDiscountDashboardStatus = {
     remainingQuestions: number;
     earnedCredit: boolean;
   };
-  lastSevenDays: PracticeDiscountDayEntry[];
+  /** Rolling window of practice days ending today (7 for weekly, 30 otherwise). */
+  recentDays: PracticeDiscountDayEntry[];
+  recentDaysWindowDays: number;
 };
+
+/** Days to show on the practice-discount streak strip. */
+export function practiceDiscountRecentWindowDays(
+  billingInterval: UcatBillingInterval | null,
+): number {
+  return billingInterval === "week" ? 7 : 30;
+}
 
 function weekdayShort(dateStr: string, timezone: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -46,6 +57,11 @@ function weekdayShort(dateStr: string, timezone: string): string {
     weekday: "short",
     timeZone: timezone,
   }).format(instant);
+}
+
+function dayOfMonthLabel(dateStr: string): string {
+  const day = Number(dateStr.split("-")[2]);
+  return Number.isFinite(day) ? String(day) : dateStr;
 }
 
 /** Last N calendar days ending today in the student's timezone. */
@@ -62,6 +78,54 @@ export function localDatesEndingToday(
   return dates;
 }
 
+/**
+ * Prefer the upcoming invoice date when it falls in the window; otherwise the
+ * period start (last charge). If neither exact date is present, match by
+ * weekday (weekly) or day-of-month (monthly/yearly).
+ */
+export function resolveBillingDateInWindow(
+  dates: string[],
+  periodStartIso: string | null,
+  periodEndIso: string | null,
+  timezone: string,
+  billingInterval: UcatBillingInterval | null,
+): string | null {
+  if (dates.length === 0) return null;
+
+  const endDate = periodEndIso
+    ? localDateStringInTimezone(new Date(periodEndIso), timezone)
+    : null;
+  const startDate = periodStartIso
+    ? localDateStringInTimezone(new Date(periodStartIso), timezone)
+    : null;
+
+  if (endDate && dates.includes(endDate)) return endDate;
+  if (startDate && dates.includes(startDate)) return startDate;
+
+  const anchor = endDate ?? startDate;
+  if (!anchor) return null;
+
+  if (billingInterval === "week") {
+    const targetWeekday = weekdayShort(anchor, timezone);
+    for (let i = dates.length - 1; i >= 0; i -= 1) {
+      const date = dates[i];
+      if (date && weekdayShort(date, timezone) === targetWeekday) {
+        return date;
+      }
+    }
+    return null;
+  }
+
+  const targetDay = dayOfMonthLabel(anchor);
+  for (let i = dates.length - 1; i >= 0; i -= 1) {
+    const date = dates[i];
+    if (date && dayOfMonthLabel(date) === targetDay) {
+      return date;
+    }
+  }
+  return null;
+}
+
 function deriveDayStatus(
   earnedCredit: boolean,
   isToday: boolean,
@@ -74,16 +138,21 @@ function deriveDayStatus(
   return "missed";
 }
 
-function buildPracticeProgress(
+export function buildPracticeProgress(
   minQuestions: number,
   tz: string,
   attemptRows: { attempted_at: string | null }[] | null,
   earnedCreditDates: Set<string>,
-): Pick<PracticeDiscountDashboardStatus, "today" | "lastSevenDays"> {
+  windowDays: number,
+  billingDate: string | null,
+): Pick<
+  PracticeDiscountDashboardStatus,
+  "today" | "recentDays" | "recentDaysWindowDays"
+> {
   const todayStr = todayLocalDateString(tz);
-  const lastSevenDates = localDatesEndingToday(tz, 7);
-  const fromDate = lastSevenDates[0] ?? todayStr;
-  const toDate = lastSevenDates[lastSevenDates.length - 1] ?? todayStr;
+  const recentDates = localDatesEndingToday(tz, windowDays);
+  const fromDate = recentDates[0] ?? todayStr;
+  const toDate = recentDates[recentDates.length - 1] ?? todayStr;
 
   const attemptsByDate = new Map<string, number>();
   for (const row of attemptRows ?? []) {
@@ -99,27 +168,27 @@ function buildPracticeProgress(
     ? 0
     : Math.max(0, minQuestions - todayQuestions);
 
-  const lastSevenDays: PracticeDiscountDayEntry[] = lastSevenDates.map(
-    (date) => {
-      const questionsDone = attemptsByDate.get(date) ?? 0;
-      const earnedCredit = earnedCreditDates.has(date);
-      const isToday = date === todayStr;
-      return {
-        date,
-        weekdayLabel: weekdayShort(date, tz),
-        questionsDone,
-        minQuestions,
+  const recentDays: PracticeDiscountDayEntry[] = recentDates.map((date) => {
+    const questionsDone = attemptsByDate.get(date) ?? 0;
+    const earnedCredit = earnedCreditDates.has(date);
+    const isToday = date === todayStr;
+    return {
+      date,
+      weekdayLabel: weekdayShort(date, tz),
+      dayOfMonthLabel: dayOfMonthLabel(date),
+      questionsDone,
+      minQuestions,
+      earnedCredit,
+      isToday,
+      isBillingDate: billingDate === date,
+      status: deriveDayStatus(
         earnedCredit,
         isToday,
-        status: deriveDayStatus(
-          earnedCredit,
-          isToday,
-          questionsDone,
-          minQuestions,
-        ),
-      };
-    },
-  );
+        questionsDone,
+        minQuestions,
+      ),
+    };
+  });
 
   return {
     today: {
@@ -128,7 +197,8 @@ function buildPracticeProgress(
       remainingQuestions: todayRemaining,
       earnedCredit: todayEarned,
     },
-    lastSevenDays,
+    recentDays,
+    recentDaysWindowDays: windowDays,
   };
 }
 
@@ -152,7 +222,8 @@ export async function getPracticeDiscountDashboardStatus(
       remainingQuestions: 0,
       earnedCredit: false,
     },
-    lastSevenDays: [],
+    recentDays: [],
+    recentDaysWindowDays: 7,
   };
 
   const ucatSubjectId = await getUcatSubjectId(supabase);
@@ -187,11 +258,26 @@ export async function getPracticeDiscountDashboardStatus(
   const minQuestions = config?.min_questions_per_day ?? 20;
   const currency = (config?.currency ?? "aud").toLowerCase();
 
+  const billingInterval =
+    subscription?.billing_interval &&
+    isUcatBillingInterval(subscription.billing_interval)
+      ? subscription.billing_interval
+      : null;
+
+  const windowDays = practiceDiscountRecentWindowDays(billingInterval);
+
   if (!subscription) {
-    return { ...empty, minQuestionsPerDay: minQuestions, currency };
+    return {
+      ...empty,
+      minQuestionsPerDay: minQuestions,
+      currency,
+      recentDaysWindowDays: windowDays,
+    };
   }
 
-  const lookbackStart = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const lookbackStart = new Date(
+    Date.now() - windowDays * 86_400_000,
+  ).toISOString();
 
   const [{ data: attemptRows }, { data: creditRows }] = await Promise.all([
     supabase
@@ -214,18 +300,23 @@ export async function getPracticeDiscountDashboardStatus(
     earnedCreditDates.add(credit.credit_date);
   }
 
+  const recentDates = localDatesEndingToday(tz, windowDays);
+  const billingDate = resolveBillingDateInWindow(
+    recentDates,
+    subscription.current_period_start,
+    subscription.current_period_end,
+    tz,
+    billingInterval,
+  );
+
   const progress = buildPracticeProgress(
     minQuestions,
     tz,
     attemptRows,
     earnedCreditDates,
+    windowDays,
+    billingDate,
   );
-
-  const billingInterval =
-    subscription.billing_interval &&
-    isUcatBillingInterval(subscription.billing_interval)
-      ? subscription.billing_interval
-      : null;
 
   if (!billingInterval) {
     return {

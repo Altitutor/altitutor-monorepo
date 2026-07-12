@@ -17,6 +17,7 @@ import { useStudentClasses, type StudentClass } from '@/features/students/hooks/
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import {
   invalidateStudentClassSurfaces,
   invalidateStudentDetail,
@@ -81,6 +82,7 @@ export function ClassesTab({
   const [isEnrollModalSubjectId, setIsEnrollModalSubjectId] = useState<string | null>(null);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
+  const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
   // Prepare data for timetable view
@@ -160,6 +162,14 @@ export function ClassesTab({
     if (cls) {
       setSelectedClass(cls);
       setIsUnenrollModalOpen(true);
+    }
+  };
+
+  const openUnenrollmentLink = (classId: string) => {
+    const cls = classes.find((candidate) => candidate.class.id === classId);
+    if (cls) {
+      setSelectedClass(cls);
+      setIsUnenrollmentLinkOpen(true);
     }
   };
 
@@ -428,6 +438,7 @@ export function ClassesTab({
                             onClick={() => handleClassClick(classData.class.id)}
                             onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
                             onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                            onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
                             hideActions={!isEditMode}
                             compact={useCompactCards}
                           />
@@ -481,6 +492,7 @@ export function ClassesTab({
                               onClick={() => handleClassClick(classData.class.id)}
                               onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
                               onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                              onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
                               hideActions={!isEditMode}
                               compact={useCompactCards}
                             />
@@ -644,6 +656,22 @@ export function ClassesTab({
           classStaff={selectedClass.staff}
           onUnenroll={handleUnenroll}
           currentStaffId={currentStaff.id}
+        />
+      )}
+
+      {selectedClass && (
+        <StudentExitRequestDialog
+          open={isUnenrollmentLinkOpen}
+          onOpenChange={(next) => {
+            setIsUnenrollmentLinkOpen(next);
+            if (!next) setSelectedClass(null);
+          }}
+          studentId={student.id}
+          studentName={[student.first_name, student.last_name].filter(Boolean).join(' ')}
+          studentPhone={student.phone}
+          workflowKey="student_unenrolment"
+          classId={selectedClass.class.id}
+          onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
         />
       )}
     </>

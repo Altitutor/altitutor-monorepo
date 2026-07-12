@@ -1,7 +1,16 @@
-export async function createBillingPortalSession(): Promise<{ url: string }> {
+export type BillingPortalAction =
+  | "payment_method_update"
+  | "subscription_cancel"
+  | "subscription_update";
+
+export async function createBillingPortalSession(
+  action: BillingPortalAction,
+): Promise<{ url: string }> {
   const res = await fetch("/api/ucat/billing-portal", {
     method: "POST",
     credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
   });
 
   if (!res.ok) {

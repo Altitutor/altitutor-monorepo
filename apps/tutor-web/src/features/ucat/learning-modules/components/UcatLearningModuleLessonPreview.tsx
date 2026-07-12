@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { ArrowLeft, Check, RotateCcw } from 'lucide-react'
 import { Button } from '@altitutor/ui'
+import type { Json } from '@altitutor/shared'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import type { UcatEnginePreviewQuestion } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
@@ -89,7 +90,7 @@ function TextBlock({ block }: { block: DraftBlock }) {
     <div className="max-h-[60vh] overflow-auto pr-2">
       <UcatRichContentBlock
         json={richBody}
-        plainText=""
+        plainText={proseMirrorToPlainText((richBody as Json | null) ?? null)}
         className={LEARNING_TEXT_CONTENT_CLASSNAME}
         textTone="theme"
         paragraphSpacing

@@ -309,19 +309,16 @@ export function ProgressGraph({
   };
 
   const pointCount = showProjection ? mergedLineData.length : data.length;
-  const needsAngledTicks =
-    !compact &&
-    ((hasCustomTickLabels && xAxisMode === "date") || pointCount > 14);
-  // Compact projection charts stay sparse; full charts cap around a dozen labels.
-  const maxXTicks = compact ? 5 : pointCount > 14 ? 8 : pointCount;
+  // Keep labels horizontal and sparse — never tilt ticks.
+  const maxXTicks = compact ? 5 : 6;
   const xTickInterval =
     pointCount > maxXTicks
       ? Math.max(0, Math.ceil(pointCount / maxXTicks) - 1)
       : 0;
   // Room for tick labels; the X-axis mode label sits outside the chart.
-  const chartBottomMargin = needsAngledTicks ? 48 : compact ? 12 : 20;
+  const chartBottomMargin = compact ? 12 : 20;
   const chartTopMargin = compact ? 8 : 16;
-  const tickFontSize = compact || pointCount > 14 ? 10 : 12;
+  const tickFontSize = compact || pointCount > maxXTicks ? 10 : 12;
 
   const tooltipContent = ({
     active,
@@ -426,10 +423,9 @@ export function ProgressGraph({
         )}
         <XAxis
           dataKey="date"
-          angle={needsAngledTicks ? -45 : 0}
           tick={{
             fontSize: tickFontSize,
-            textAnchor: needsAngledTicks ? "end" : "middle",
+            textAnchor: "middle",
           }}
           tickFormatter={(_value, index) =>
             getXAxisTickLabel(mergedLineData, index)
@@ -437,7 +433,7 @@ export function ProgressGraph({
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
-          minTickGap={compact ? 48 : 24}
+          minTickGap={compact ? 48 : 40}
         />
         <YAxis
           domain={domain}
@@ -528,15 +524,15 @@ export function ProgressGraph({
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          angle={needsAngledTicks ? -45 : 0}
           tick={{
             fontSize: tickFontSize,
-            textAnchor: needsAngledTicks ? "end" : "middle",
+            textAnchor: "middle",
           }}
           tickFormatter={(_value, index) => getXAxisTickLabel(data, index)}
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
+          minTickGap={40}
         />
         <YAxis
           domain={domain}

@@ -3,8 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge, Skeleton } from "@altitutor/ui";
-import { AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
-import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
+import {
+  AlertTriangle,
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
+import {
+  createBillingPortalSession,
+  type BillingPortalAction,
+} from "@/features/subscription/api/create-billing-portal-session";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { SubscriptionInvoicesTable } from "@/features/subscription/components/subscription-invoices-table";
@@ -73,51 +83,44 @@ function PastSubscriptionsSection({
 }: {
   subscriptions: UcatSubscriptionDetails[];
 }) {
+  if (subscriptions.length === 0) {
+    return null;
+  }
+
   return (
     <section className="space-y-4">
       <h2 className="text-2xl font-semibold tracking-tight">
         Past subscriptions
       </h2>
       <div className="space-y-3">
-        {subscriptions.length === 0 ? (
+        {subscriptions.map((subscription) => (
           <div
+            key={subscription.id}
             className={cn(
-              "rounded-ucatShell p-4 text-sm text-muted-foreground",
+              "rounded-ucatShell flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between",
               UCAT_SURFACE_CARD,
             )}
           >
-            No past subscriptions yet.
-          </div>
-        ) : (
-          subscriptions.map((subscription) => (
-            <div
-              key={subscription.id}
-              className={cn(
-                "rounded-ucatShell flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between",
-                UCAT_SURFACE_CARD,
-              )}
-            >
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">
-                    {formatSubscriptionPlan(subscription)}
-                  </p>
-                  <Badge variant="secondary">
-                    {formatSubscriptionStatus(subscription.status)}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatSubscriptionPeriod(subscription)}
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-medium">
+                  {formatSubscriptionPlan(subscription)}
                 </p>
+                <Badge variant="secondary">
+                  {formatSubscriptionStatus(subscription.status)}
+                </Badge>
               </div>
-              {subscription.billing_interval ? (
-                <p className="text-sm text-muted-foreground">
-                  {subscription.billing_interval}
-                </p>
-              ) : null}
+              <p className="text-sm text-muted-foreground">
+                {formatSubscriptionPeriod(subscription)}
+              </p>
             </div>
-          ))
-        )}
+            {subscription.billing_interval ? (
+              <p className="text-sm text-muted-foreground">
+                {subscription.billing_interval}
+              </p>
+            ) : null}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -126,7 +129,8 @@ function PastSubscriptionsSection({
 export function SubscriptionBillingSection() {
   const { data, isLoading, error } = useUcatSubscriptionBilling();
   const { openPlanPicker } = useUpsellDialog();
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalAction, setPortalAction] =
+    useState<BillingPortalAction | null>(null);
   const [portalError, setPortalError] = useState<string | null>(null);
   const { data: pricingConfig = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
@@ -189,18 +193,17 @@ export function SubscriptionBillingSection() {
     return computePracticeDiscountPricing(pricingConfig, subscription);
   }, [pricingConfig, subscription]);
 
-  const handleManageOnStripe = async () => {
-    setPortalLoading(true);
+  const handlePortalAction = async (action: BillingPortalAction) => {
+    setPortalAction(action);
     setPortalError(null);
     try {
-      const { url } = await createBillingPortalSession();
-      window.open(url, "_blank", "noopener,noreferrer");
-      setPortalLoading(false);
+      const { url } = await createBillingPortalSession(action);
+      window.location.assign(url);
     } catch (e) {
       setPortalError(
         e instanceof Error ? e.message : "Failed to open billing portal",
       );
-      setPortalLoading(false);
+      setPortalAction(null);
     }
   };
 
@@ -213,7 +216,19 @@ export function SubscriptionBillingSection() {
       );
       return;
     }
-    await handleManageOnStripe();
+    await handlePortalAction("payment_method_update");
+  };
+
+  const handleChangePlan = async () => {
+    if (subscription?.plan_tier === "pro") {
+      await handlePortalAction("subscription_update");
+      return;
+    }
+
+    openPlanPicker({
+      title: "Change your plan",
+      description: "Compare your current plan with UCAT Pro.",
+    });
   };
 
   if (isLoading) {
@@ -306,10 +321,10 @@ export function SubscriptionBillingSection() {
             <Button
               type="button"
               className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
-              disabled={portalLoading}
+              disabled={portalAction !== null}
               onClick={() => void handleFixPayment()}
             >
-              {portalLoading ? (
+              {portalAction === "payment_method_update" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <ExternalLink className="mr-2 h-4 w-4" />
@@ -337,10 +352,10 @@ export function SubscriptionBillingSection() {
           <Button
             type="button"
             className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
-            disabled={portalLoading}
-            onClick={() => void handleManageOnStripe()}
+            disabled={portalAction !== null}
+            onClick={() => void handlePortalAction("payment_method_update")}
           >
-            {portalLoading ? (
+            {portalAction === "payment_method_update" ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <ExternalLink className="mr-2 h-4 w-4" />
@@ -356,8 +371,7 @@ export function SubscriptionBillingSection() {
           <span className="font-semibold">
             {formatInvoiceDate(cancelEndDate)}
           </span>
-          . You&apos;ll keep access until then. You can undo this in Stripe via
-          Manage.
+          . You&apos;ll keep access until then.
         </div>
       ) : null}
 
@@ -445,29 +459,64 @@ export function SubscriptionBillingSection() {
             ) : null}
           </div>
 
-          <Button
-            type="button"
-            className={UCAT_PRIMARY_ACTION_BUTTON}
-            disabled={portalLoading}
-            onClick={() =>
-              void (isPaymentRecovery
-                ? handleFixPayment()
-                : handleManageOnStripe())
-            }
-          >
-            {portalLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ExternalLink className="mr-2 h-4 w-4" />
-            )}
-            {isPaymentRecovery
-              ? subscription.billing_recovery_requires_action
-                ? "Confirm payment"
-                : "Update payment"
-              : isTerminalBillingState
-                ? "Review billing"
-                : "Manage"}
-          </Button>
+          <div className="flex flex-wrap gap-2 sm:max-w-sm sm:justify-end">
+            {!isPaymentRecovery && !isTerminalBillingState ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={portalAction !== null || isCancelScheduled}
+                onClick={() => void handleChangePlan()}
+              >
+                {portalAction === "subscription_update" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Change plan
+              </Button>
+            ) : null}
+
+            <Button
+              type="button"
+              className={UCAT_PRIMARY_ACTION_BUTTON}
+              disabled={portalAction !== null}
+              onClick={() =>
+                void (isPaymentRecovery
+                  ? handleFixPayment()
+                  : handlePortalAction("payment_method_update"))
+              }
+            >
+              {portalAction === "payment_method_update" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="mr-2 h-4 w-4" />
+              )}
+              {isPaymentRecovery
+                ? subscription.billing_recovery_requires_action
+                  ? "Confirm payment"
+                  : "Update payment"
+                : "Update payment method"}
+            </Button>
+
+            {!isPaymentRecovery && !isTerminalBillingState ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={portalAction !== null}
+                onClick={() =>
+                  void handlePortalAction("subscription_cancel")
+                }
+              >
+                {portalAction === "subscription_cancel" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="mr-2 h-4 w-4" />
+                )}
+                {isCancelScheduled ? "Review cancellation" : "Cancel plan"}
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {portalError ? (

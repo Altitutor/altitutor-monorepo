@@ -40,6 +40,9 @@ export type StemSourceDisplay = {
   generatedAt: string | null
   generatedAtLabel: string | null
   generatedByName: string | null
+  approvedByName: string | null
+  approvedAt: string | null
+  approvedAtLabel: string | null
   tutorSourceNote: string | null
 }
 
@@ -49,9 +52,13 @@ export function buildStemSourceDisplay(input: {
   tutorSourceNote?: string | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  approvedByFirstName?: string | null
+  approvedByLastName?: string | null
+  approvedAt?: string | null
 }): StemSourceDisplay {
   const sourceChannel = input.sourceChannel ?? 'individual'
   const generatedAt = metadataString(input.aiGenerationMetadata ?? null, 'generatedAt')
+  const approvedAt = input.approvedAt?.trim() ? input.approvedAt.trim() : null
   return {
     sourceChannel,
     channelLabel: formatSourceChannel(sourceChannel),
@@ -59,6 +66,9 @@ export function buildStemSourceDisplay(input: {
     generatedAt,
     generatedAtLabel: formatGeneratedTimestamp(generatedAt),
     generatedByName: formatStaffDisplayName(input.createdByFirstName, input.createdByLastName),
+    approvedByName: formatStaffDisplayName(input.approvedByFirstName, input.approvedByLastName),
+    approvedAt,
+    approvedAtLabel: formatGeneratedTimestamp(approvedAt),
     tutorSourceNote:
       typeof input.tutorSourceNote === 'string' && input.tutorSourceNote.trim()
         ? input.tutorSourceNote.trim()
@@ -74,6 +84,12 @@ export function stemSourceTooltip(source: StemSourceDisplay): string {
   if (source.sourceChannel === 'ai_generation') {
     lines.push(`Model: ${source.aiModel ?? 'Unknown'}`)
     lines.push(`Generated: ${source.generatedAtLabel ?? source.generatedAt ?? 'Unknown'}`)
+  }
+  if (source.approvedByName) {
+    lines.push(`Approved by: ${source.approvedByName}`)
+  }
+  if (source.approvedAtLabel) {
+    lines.push(`Approved at: ${source.approvedAtLabel}`)
   }
   if (source.tutorSourceNote) {
     lines.push(`Note: ${source.tutorSourceNote}`)

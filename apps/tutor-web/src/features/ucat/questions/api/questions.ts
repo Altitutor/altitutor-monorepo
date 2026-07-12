@@ -117,6 +117,8 @@ export type UcatQuestionStemRow = UcatQuestionStem & {
   approval_status?: UcatApprovalStatus | null
   approved_by?: string | null
   approved_at?: string | null
+  approved_by_first_name?: string | null
+  approved_by_last_name?: string | null
 }
 
 export type UcatQuestionSourceChannel = 'individual' | 'bulk_import' | 'ai_generation'
@@ -159,6 +161,8 @@ export type StemDetailRow = {
   approval_status?: UcatApprovalStatus | null
   approved_by?: string | null
   approved_at?: string | null
+  approved_by_first_name?: string | null
+  approved_by_last_name?: string | null
   created_by?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
@@ -229,7 +233,9 @@ export const ucatQuestionsApi = {
       supabase.from('vtutor_ucat_question_stem_detail').select('*').eq('id', stemId).maybeSingle(),
       supabase
         .from('vtutor_ucat_question_stems')
-        .select('created_by, created_by_first_name, created_by_last_name, created_at')
+        .select(
+          'created_by, created_by_first_name, created_by_last_name, created_at, approved_by, approved_at, approved_by_first_name, approved_by_last_name',
+        )
         .eq('id', stemId)
         .maybeSingle(),
     ])
@@ -243,6 +249,10 @@ export const ucatQuestionsApi = {
       created_by_first_name?: string | null
       created_by_last_name?: string | null
       created_at?: string | null
+      approved_by?: string | null
+      approved_at?: string | null
+      approved_by_first_name?: string | null
+      approved_by_last_name?: string | null
     } | null
 
     return {
@@ -251,6 +261,10 @@ export const ucatQuestionsApi = {
       created_by_first_name: meta?.created_by_first_name ?? null,
       created_by_last_name: meta?.created_by_last_name ?? null,
       created_at: meta?.created_at ?? null,
+      approved_by: meta?.approved_by ?? null,
+      approved_at: meta?.approved_at ?? null,
+      approved_by_first_name: meta?.approved_by_first_name ?? null,
+      approved_by_last_name: meta?.approved_by_last_name ?? null,
     } as StemDetailRow
   },
 

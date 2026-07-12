@@ -8102,24 +8102,24 @@ export type Database = {
       student_exit_request_enrolments: {
         Row: {
           classes_students_id: string
-          final_session_at: string
+          final_session_at: string | null
           id: string
           student_exit_request_id: string
-          unenrolled_at: string
+          unenrolled_at: string | null
         }
         Insert: {
           classes_students_id: string
-          final_session_at: string
+          final_session_at?: string | null
           id?: string
           student_exit_request_id: string
-          unenrolled_at: string
+          unenrolled_at?: string | null
         }
         Update: {
           classes_students_id?: string
-          final_session_at?: string
+          final_session_at?: string | null
           id?: string
           student_exit_request_id?: string
-          unenrolled_at?: string
+          unenrolled_at?: string | null
         }
         Relationships: [
           {
@@ -24887,6 +24887,7 @@ export type Database = {
       complete_student_exit_request: {
         Args: {
           p_answers: Json
+          p_exit_selections?: Json
           p_form_token_id: string
           p_response_json: Json
           p_student_id: string

@@ -12,6 +12,7 @@ import { useToast } from "@altitutor/ui";
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
@@ -47,6 +48,7 @@ export function ClassStudentsTab({
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
+  const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
 
   // Modal handlers
@@ -72,6 +74,14 @@ export function ClassStudentsTab({
     if (student) {
       setSelectedStudent(student);
       setIsUnenrollModalOpen(true);
+    }
+  };
+
+  const openUnenrollmentLink = (studentId: string) => {
+    const student = classStudents.find((candidate) => candidate.id === studentId);
+    if (student) {
+      setSelectedStudent(student);
+      setIsUnenrollmentLinkOpen(true);
     }
   };
 
@@ -307,6 +317,7 @@ export function ClassStudentsTab({
                     onClick={() => handleViewStudent(student.id)}
                     onChangeClass={() => openChangeClassModal(student.id)}
                     onUnenroll={() => openUnenrollModal(student.id)}
+                    onSendUnenrollmentLink={() => openUnenrollmentLink(student.id)}
                     onMessage={() => handleMessageStudent(student.id)}
                   />
                 ))}
@@ -359,6 +370,22 @@ export function ClassStudentsTab({
           classStaff={classStaff}
           onUnenroll={handleUnenroll}
           currentStaffId={currentStaff.id}
+        />
+      )}
+
+      {selectedStudent && (
+        <StudentExitRequestDialog
+          open={isUnenrollmentLinkOpen}
+          onOpenChange={(next) => {
+            setIsUnenrollmentLinkOpen(next);
+            if (!next) setSelectedStudent(null);
+          }}
+          studentId={selectedStudent.id}
+          studentName={[selectedStudent.first_name, selectedStudent.last_name].filter(Boolean).join(' ')}
+          studentPhone={selectedStudent.phone}
+          workflowKey="student_unenrolment"
+          classId={classData.id}
+          onCreated={onStudentsUpdated}
         />
       )}
       

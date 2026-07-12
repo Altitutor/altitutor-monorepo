@@ -65,6 +65,9 @@ type QuestionListRowInput = {
   tutor_source_note?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
+  approved_at?: string | null
+  approved_by_first_name?: string | null
+  approved_by_last_name?: string | null
 }
 
 function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
@@ -142,6 +145,9 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
             tutorSourceNote: row.tutor_source_note,
             createdByFirstName: row.created_by_first_name,
             createdByLastName: row.created_by_last_name,
+            approvedByFirstName: row.approved_by_first_name,
+            approvedByLastName: row.approved_by_last_name,
+            approvedAt: row.approved_at,
           }),
         }
       }),

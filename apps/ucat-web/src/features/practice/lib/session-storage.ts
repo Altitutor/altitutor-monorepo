@@ -12,6 +12,7 @@ export type PendingPracticeStart = {
     reviewTiming: PracticeReviewTiming;
   };
   ucatSectionId: string;
+  filterMeta?: PracticeSessionFilterMeta;
 };
 
 export type PracticeSessionFilterMeta = {

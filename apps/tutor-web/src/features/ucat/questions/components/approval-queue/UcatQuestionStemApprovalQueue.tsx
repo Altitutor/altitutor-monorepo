@@ -398,6 +398,9 @@ function UcatQuestionStemApprovalQueue({
             aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
             createdByFirstName={detailQuery.data?.created_by_first_name ?? null}
             createdByLastName={detailQuery.data?.created_by_last_name ?? null}
+            approvedByFirstName={detailQuery.data?.approved_by_first_name ?? null}
+            approvedByLastName={detailQuery.data?.approved_by_last_name ?? null}
+            approvedAt={detailQuery.data?.approved_at ?? null}
           />
         )}
       </div>

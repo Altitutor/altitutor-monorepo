@@ -68,7 +68,7 @@ export function OnboardingCard({
     }, 280);
 
     return () => window.clearTimeout(timer);
-  }, [currentStep, safeStep?.selector, safeStep?.side]);
+  }, [currentStep, safeStep]);
 
   if (!safeStep) return null;
 

@@ -165,6 +165,9 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}
           createdByLastName={initial?.created_by_last_name ?? null}
+          approvedByFirstName={initial?.approved_by_first_name ?? null}
+          approvedByLastName={initial?.approved_by_last_name ?? null}
+          approvedAt={initial?.approved_at ?? null}
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>

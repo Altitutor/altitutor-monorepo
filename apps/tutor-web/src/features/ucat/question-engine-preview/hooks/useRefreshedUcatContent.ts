@@ -60,36 +60,36 @@ export function useRefreshedUcatContent(json: Record<string, unknown> | null | u
   const hasImageRefs = imagePathsKey !== ''
   const prevImagePathsKeyRef = useRef(imagePathsKey)
 
-  // Keep displayed doc structure in sync with live edits (text changes, deletions, reorders).
-  // Apply cached signed URLs when available so editable editors never mount with expired JWTs.
+  // Keep displayed doc in sync when text changes (imagePathsKey alone is insufficient).
+  // Apply cached signed URLs when available so editors never mount with expired JWTs.
+  // Text-only docs (no image refs) must still set content — otherwise RichContentBlock
+  // falls back to empty plainText and learning-module text previews render blank.
   useEffect(() => {
     const currentJson = jsonRef.current
     if (!hasContent(currentJson)) {
       setContent(null)
       return
     }
-    if (imagePathsKey === '') {
-      setContent(null)
-      return
-    }
     const doc = normalizeDoc(currentJson as Record<string, unknown>)
-    const refs = collectUcatImageRefsFromDoc(doc)
-    const pathToUrl = new Map<string, string>()
-    for (const path of refs.paths) {
-      const cached = getCachedSignedUrlForPath(path)
-      if (cached) pathToUrl.set(path, cached)
-    }
-    const fileIdToUrl = new Map<string, string>()
-    for (const fileId of refs.fileIds) {
-      const cached = getCachedSignedUrlForFileId(fileId)
-      if (cached) fileIdToUrl.set(fileId, cached)
-    }
-    const allCached =
-      refs.paths.every((path) => pathToUrl.has(path)) &&
-      refs.fileIds.every((fileId) => fileIdToUrl.has(fileId))
-    if (allCached) {
-      setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl))
-      return
+    if (imagePathsKey !== '') {
+      const refs = collectUcatImageRefsFromDoc(doc)
+      const pathToUrl = new Map<string, string>()
+      for (const path of refs.paths) {
+        const cached = getCachedSignedUrlForPath(path)
+        if (cached) pathToUrl.set(path, cached)
+      }
+      const fileIdToUrl = new Map<string, string>()
+      for (const fileId of refs.fileIds) {
+        const cached = getCachedSignedUrlForFileId(fileId)
+        if (cached) fileIdToUrl.set(fileId, cached)
+      }
+      const allCached =
+        refs.paths.every((path) => pathToUrl.has(path)) &&
+        refs.fileIds.every((fileId) => fileIdToUrl.has(fileId))
+      if (allCached) {
+        setContent(applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl))
+        return
+      }
     }
     setContent(doc)
   }, [docStructureKey, imagePathsKey])

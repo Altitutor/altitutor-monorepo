@@ -14,7 +14,7 @@ import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   formatExactUcatPercentile,
-  formatUcatPercentile,
+  formatUcatPercentileOrdinal,
   getUcatPercentile,
   getUcatScoreRange,
   type UcatPercentileScope,
@@ -45,7 +45,7 @@ export function PercentileCard({
   const rawId = useId();
   const clipId = `percentile-${rawId.replace(/:/g, "")}`;
   const percentile = getUcatPercentile(scaledScore, scope);
-  const formattedPercentile = formatUcatPercentile(scaledScore, scope);
+  const formattedPercentile = formatUcatPercentileOrdinal(scaledScore, scope);
   const range = getUcatScoreRange(scope);
   const score = scaledScore == null ? null : Math.round(scaledScore);
   const [exploredScore, setExploredScore] = useState<number | null>(null);
@@ -113,7 +113,7 @@ export function PercentileCard({
           <div>
             <div className="flex items-baseline justify-between gap-3 text-xs">
               <span className="font-medium text-muted-foreground">
-                {exploredScore == null ? "Your position" : "Exploring"}
+                {exploredScore == null ? "Your score" : "Exploring"}
               </span>
               <span className="font-semibold tabular-nums">
                 Score {displayScore} ·{" "}
