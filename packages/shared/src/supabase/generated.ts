@@ -9118,6 +9118,11 @@ export type Database = {
       student_subscriptions: {
         Row: {
           billing_interval: string | null
+          billing_recovery_failure_code: string | null
+          billing_recovery_invoice_id: string | null
+          billing_recovery_next_attempt_at: string | null
+          billing_recovery_requires_action: boolean
+          billing_recovery_started_at: string | null
           cancel_at: string | null
           cancel_at_period_end: boolean
           created_at: string
@@ -9135,6 +9140,11 @@ export type Database = {
         }
         Insert: {
           billing_interval?: string | null
+          billing_recovery_failure_code?: string | null
+          billing_recovery_invoice_id?: string | null
+          billing_recovery_next_attempt_at?: string | null
+          billing_recovery_requires_action?: boolean
+          billing_recovery_started_at?: string | null
           cancel_at?: string | null
           cancel_at_period_end?: boolean
           created_at?: string
@@ -9152,6 +9162,11 @@ export type Database = {
         }
         Update: {
           billing_interval?: string | null
+          billing_recovery_failure_code?: string | null
+          billing_recovery_invoice_id?: string | null
+          billing_recovery_next_attempt_at?: string | null
+          billing_recovery_requires_action?: boolean
+          billing_recovery_started_at?: string | null
           cancel_at?: string | null
           cancel_at_period_end?: boolean
           created_at?: string
@@ -16824,6 +16839,10 @@ export type Database = {
       vstudent_subscriptions: {
         Row: {
           billing_interval: string | null
+          billing_recovery_invoice_id: string | null
+          billing_recovery_next_attempt_at: string | null
+          billing_recovery_requires_action: boolean | null
+          billing_recovery_started_at: string | null
           cancel_at: string | null
           cancel_at_period_end: boolean | null
           created_at: string | null
@@ -16841,6 +16860,10 @@ export type Database = {
         }
         Insert: {
           billing_interval?: string | null
+          billing_recovery_invoice_id?: string | null
+          billing_recovery_next_attempt_at?: string | null
+          billing_recovery_requires_action?: boolean | null
+          billing_recovery_started_at?: string | null
           cancel_at?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
@@ -16858,6 +16881,10 @@ export type Database = {
         }
         Update: {
           billing_interval?: string | null
+          billing_recovery_invoice_id?: string | null
+          billing_recovery_next_attempt_at?: string | null
+          billing_recovery_requires_action?: boolean | null
+          billing_recovery_started_at?: string | null
           cancel_at?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
@@ -18513,6 +18540,24 @@ export type Database = {
           },
         ]
       }
+      vstudent_ucat_progress_series_daily: {
+        Row: {
+          activity_date: string | null
+          attempt_count: number | null
+          exam_speed_count: number | null
+          exam_speed_percent_sum: number | null
+          scaled_score_count: number | null
+          scaled_score_sum: number | null
+          score_points_sum: number | null
+          section_id: string | null
+          source: string | null
+          time_limit_seconds_sum: number | null
+          time_taken_count: number | null
+          time_taken_seconds_sum: number | null
+          total_points_sum: number | null
+        }
+        Relationships: []
+      }
       vstudent_ucat_public_question_counts: {
         Row: {
           question_stem_category_id: string | null
@@ -18838,6 +18883,19 @@ export type Database = {
             referencedColumns: ["ucat_section_id"]
           },
         ]
+      }
+      vstudent_ucat_score_projection_evidence: {
+        Row: {
+          completed_at: string | null
+          scaled_score: number | null
+          score_points: number | null
+          section_id: string | null
+          source: string | null
+          student_exam_speed: number | null
+          total_points: number | null
+          was_timed: boolean | null
+        }
+        Relationships: []
       }
       vstudent_ucat_sections: {
         Row: {
