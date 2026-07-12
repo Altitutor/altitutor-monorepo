@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { UcatBillingInterval, UcatPaidPlanTier } from "@altitutor/shared";
@@ -9,7 +9,7 @@ import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onbo
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { changeUcatSubscriptionTier } from "@/features/subscription/api/change-subscription-tier";
-import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
+import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import {
   fetchUcatUpgradePreview,
   type UcatUpgradePreview,
@@ -21,6 +21,7 @@ import {
   defaultPublicSubscriptionConfig,
   getPublicPlanPrice,
   getPublicPracticeDayDiscount,
+  getAvailableBillingIntervals,
   isPlanCheckoutAvailable,
   isTierOffered,
 } from "@/features/subscription/types/public-subscription-config";
@@ -34,7 +35,6 @@ import {
 } from "@/features/subscription/lib/marketing-plan-pricing";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
-import type { UcatCheckoutSelection } from "@/lib/ucat/subscription-plan";
 import { useToast } from "@altitutor/ui";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { parseBillingInterval } from "@/features/subscription/lib/pricing";
@@ -42,6 +42,7 @@ import {
   canDowngradeToTier,
   type PlanPickerTier,
 } from "@/features/subscription/lib/plan-tier-rank";
+import { buildSignupCheckoutPath } from "@/features/auth/lib/signup-plan-intent";
 
 const SUBSCRIPTION_SETTINGS_PATH = "/settings/plan/subscription";
 
@@ -115,6 +116,16 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     null,
   );
   const [upgradeConfirming, setUpgradeConfirming] = useState(false);
+  const trackedViewRef = useRef(false);
+
+  useEffect(() => {
+    if (trackedViewRef.current || access.isLoading) return;
+    trackedViewRef.current = true;
+    trackSubscriptionJourneyEvent({
+      eventType: "plan_selection_viewed",
+      journeyContext: options.checkoutReturnContext ?? "subscribe",
+    });
+  }, [access.isLoading, options.checkoutReturnContext]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,12 +178,31 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   );
   const lockBillingInterval = options.audience === "app" && isOnPaid;
   const showBillingIntervalSelector = !lockBillingInterval;
+  const availableBillingIntervals = useMemo(
+    () => getAvailableBillingIntervals(cfg),
+    [cfg],
+  );
 
   useEffect(() => {
     if (lockBillingInterval && subscriptionBillingInterval) {
       setBillingInterval(subscriptionBillingInterval);
     }
   }, [lockBillingInterval, subscriptionBillingInterval]);
+
+  useEffect(() => {
+    if (configLoading || lockBillingInterval) return;
+    if (availableBillingIntervals.includes(billingInterval)) return;
+    setBillingInterval(
+      availableBillingIntervals.includes("month")
+        ? "month"
+        : (availableBillingIntervals[0] ?? "month"),
+    );
+  }, [
+    availableBillingIntervals,
+    billingInterval,
+    configLoading,
+    lockBillingInterval,
+  ]);
 
   const billingIntervalLoading =
     lockBillingInterval &&
@@ -274,7 +304,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
 
   const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
     if (options.audience === "marketing") {
-      router.push("/signup");
+      const checkoutPath = buildSignupCheckoutPath(tier, billingInterval);
+      router.push(`/signup?redirect=${encodeURIComponent(checkoutPath)}`);
       return;
     }
 
@@ -297,27 +328,30 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       return;
     }
 
-    const selection: UcatCheckoutSelection = {
+    const returnContext = options.checkoutReturnContext ?? "subscribe";
+    options.onCheckoutStart?.();
+    trackSubscriptionJourneyEvent({
+      eventType: "plan_selected",
+      journeyContext: returnContext,
+      planTier: tier,
+      billingInterval,
+    });
+    const params = new URLSearchParams({
       tier,
       interval: billingInterval,
-    };
-    options.onCheckoutStart?.();
-    try {
-      const { url } = await createUcatCheckoutSession({
-        ...selection,
-        returnContext: options.checkoutReturnContext ?? "subscribe",
-      });
-      window.location.href = url;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start checkout");
-      setLoadingPlan(null);
-    }
+      context: returnContext,
+    });
+    router.push(`/checkout?${params.toString()}`);
   };
 
   const handleContinueFree = async () => {
     setLoadingPlan("free");
     setError(null);
     try {
+      trackSubscriptionJourneyEvent({
+        eventType: "continued_free",
+        journeyContext: options.checkoutReturnContext ?? "subscribe",
+      });
       await completeUcatOnboarding("free");
       await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
       options.onContinueFree?.();
@@ -370,6 +404,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     loadingPlan,
     billingInterval,
     setBillingInterval,
+    availableBillingIntervals,
     showBillingIntervalSelector,
     isPricingLoading,
     freeIsCurrentPlan,

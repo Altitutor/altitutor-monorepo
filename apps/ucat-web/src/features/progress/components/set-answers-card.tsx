@@ -450,7 +450,7 @@ export function SetAnswersCard({
       onCut={(e: ClipboardEvent) => e.preventDefault()}
       onPaste={(e: ClipboardEvent) => e.preventDefault()}
     >
-      <div className="min-w-0">
+      <div id="tour-attempt-reviewer" className="min-w-0">
         <Card className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}>
           <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
             <div className="min-w-0 space-y-1">
@@ -540,7 +540,7 @@ export function SetAnswersCard({
         </Card>
       </div>
 
-      <div className="min-w-0 space-y-4">
+      <div id="tour-attempt-explanation" className="min-w-0 space-y-4">
         <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-3">
             <CardTitle className="text-base font-medium">
@@ -577,7 +577,7 @@ export function SetAnswersCard({
             />
             {currentAttempt?.averageTimeSeconds != null ? (
               <MeterRow
-                label={`Average time (${currentAttempt.averageTimeSampleSize ?? 0})`}
+                label={`Average time`}
                 value={currentAttempt.averageTimeSeconds}
                 max={timingMax}
                 tone="muted"

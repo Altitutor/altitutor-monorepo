@@ -4,6 +4,10 @@ import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isSupportedIanaTimeZone } from "@/lib/supported-timezones";
+import {
+  captureUcatReferral,
+  pendingReferralCodeFromUser,
+} from "@/lib/ucat/referrals/capture-referral";
 
 type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
@@ -239,14 +243,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error: newsletterError } = await supabaseAdmin
-    .from("newsletter_subscribers")
-    .update({
-      student_id: studentId,
-      updated_at: new Date().toISOString(),
-    })
-    .ilike("email", email)
-    .is("student_id", null);
+  const [{ error: newsletterError }] = await Promise.all([
+    supabaseAdmin
+      .from("newsletter_subscribers")
+      .update({
+        student_id: studentId,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", email)
+      .is("student_id", null),
+    supabase.auth.updateUser({
+      data: { first_name: firstName, last_name: lastName },
+    }),
+  ]);
 
   if (newsletterError) {
     console.warn(
@@ -254,11 +263,6 @@ export async function POST(request: NextRequest) {
       newsletterError,
     );
   }
-
-  // Sync name to Supabase auth metadata
-  await supabase.auth.updateUser({
-    data: { first_name: firstName, last_name: lastName },
-  });
-
+  await captureUcatReferral(studentId, pendingReferralCodeFromUser(user));
   return NextResponse.json({ success: true });
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
-import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
+import { motion } from "motion/react";
+import { Badge, ListToolbar } from "@altitutor/ui";
 import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
 import { filterSets, type StudentSetRow } from "@/features/sets/api/sets-api";
 import {
@@ -16,12 +17,13 @@ import { recordToSetsFilters } from "@/features/sets/lib/filter-adapters";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
+import { isSetGeneratorEnabled } from "@/lib/feature-flags";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import {
   UCAT_LIST_ROW_LINK,
 } from "@/lib/ucat-surface-motion";
-
-const DEFAULT_PAGE_SIZE = 10;
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const TIMED_OPTIONS: DataTableFilterDefinition["options"] = [
   { value: "timed", label: "Timed" },
@@ -41,6 +43,7 @@ const SECTION_OPTIONS: DataTableFilterDefinition["options"] = [
 ];
 
 const ATTEMPTED_OPTIONS: DataTableFilterDefinition["options"] = [
+  { value: "attempted", label: "Attempted" },
   { value: "unattempted", label: "Unattempted" },
 ];
 
@@ -49,27 +52,24 @@ export type SetsListPageProps = {
   sectionNumber?: number;
 };
 
-function formatTimeLimit(seconds: number | null): string {
-  if (seconds == null || seconds <= 0) return "Untimed";
-  return `${Math.round(seconds / 60)} min`;
+function setDisplayName(set: StudentSetRow): string {
+  return (
+    extractTextFromRichJson(set.name as JsonLike) ||
+    extractTextFromRichJson(set.description as JsonLike) ||
+    ""
+  );
 }
 
 export function SetsListPage({
   sectionNumber: sectionNumberProp,
 }: SetsListPageProps = {}) {
-  const queryClient = useQueryClient();
   const { data: sets, isLoading, error } = useSets();
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [search, setSearch] = useState("");
   const [filtersRecord, setFiltersRecord] = useState<Record<string, unknown[]>>(
     () => ({}) as Record<string, unknown[]>,
   );
-
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ["ucat", "attempted-set-ids"] });
-  }, [queryClient]);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const effectiveFilters = useMemo(() => {
     const fromRecord = recordToSetsFilters(filtersRecord);
@@ -81,44 +81,39 @@ export function SetsListPage({
 
   const filteredSets = useMemo(() => {
     if (!sets) return [];
-    return filterSets(
+    const filtered = filterSets(
       sets,
       { ...effectiveFilters, search: search.trim() || undefined },
       attemptedSetIds,
       (v) => extractTextFromRichJson(v as JsonLike),
     );
+    return [...filtered].sort((a, b) =>
+      setDisplayName(a).localeCompare(setDisplayName(b), undefined, {
+        sensitivity: "base",
+      }),
+    );
   }, [sets, effectiveFilters, search, attemptedSetIds]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredSets.length / pageSize));
-  const currentPage = Math.min(page, totalPages - 1);
-  const paginatedSets = useMemo(() => {
-    const start = currentPage * pageSize;
-    return filteredSets.slice(start, start + pageSize);
-  }, [filteredSets, currentPage, pageSize]);
 
   const handleFiltersChange = useCallback(
     (filters: Record<string, unknown[]>) => {
       setFiltersRecord(filters);
-      setPage(0);
     },
     [],
   );
 
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setPage(0);
-  }, []);
-
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
-    setPage(0);
   }, []);
+
+  const setGeneratorEnabled = isSetGeneratorEnabled();
 
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
     const defs: DataTableFilterDefinition[] = [
       { key: "timed", label: "Timing", options: TIMED_OPTIONS },
-      { key: "source", label: "Source", options: SOURCE_OPTIONS },
     ];
+    if (setGeneratorEnabled) {
+      defs.push({ key: "source", label: "Source", options: SOURCE_OPTIONS });
+    }
     if (sectionNumberProp == null) {
       defs.push({
         key: "sectionNumber",
@@ -133,7 +128,7 @@ export function SetsListPage({
       });
     }
     return defs;
-  }, [sectionNumberProp]);
+  }, [sectionNumberProp, setGeneratorEnabled]);
 
   const sectionTitle =
     sectionNumberProp != null
@@ -151,26 +146,19 @@ export function SetsListPage({
       : {};
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
-        <p className="text-sm text-muted-foreground">Loading sets...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="list" />;
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
+        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+          <UcatPageHeader
+            title={pageTitle}
+            description={pageDescription}
+            {...backProps}
+          />
+        </div>
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load sets"}
         </p>
@@ -181,11 +169,13 @@ export function SetsListPage({
   if (!sets || sets.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title={pageTitle}
-          description={pageDescription}
-          {...backProps}
-        />
+        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+          <UcatPageHeader
+            title={pageTitle}
+            description={pageDescription}
+            {...backProps}
+          />
+        </div>
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
     );
@@ -193,12 +183,14 @@ export function SetsListPage({
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title={pageTitle}
-        description={pageDescription}
-        backHref={sectionNumberProp != null ? "/sets" : undefined}
-        backLabel={sectionNumberProp != null ? "Back to sets" : undefined}
-      />
+      <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+        <UcatPageHeader
+          title={pageTitle}
+          description={pageDescription}
+          backHref={sectionNumberProp != null ? "/sets" : undefined}
+          backLabel={sectionNumberProp != null ? "Back to sets" : undefined}
+        />
+      </div>
       <div className="space-y-4">
         <ListToolbar
           search={search}
@@ -209,27 +201,27 @@ export function SetsListPage({
           onFiltersChange={handleFiltersChange}
         />
 
-        <ul className="space-y-3">
-          {paginatedSets.map((set) => (
-            <SetCard
-              key={set.id}
-              set={set}
-              attemptedSetIds={attemptedSetIds}
-              sectionNumber={sectionNumberProp}
-            />
-          ))}
-        </ul>
-
-        {filteredSets.length > 0 && (
-          <div className="border-t border-border pt-4 ucat-pagination">
-            <TablePagination
-              page={currentPage + 1}
-              pageSize={pageSize}
-              total={filteredSets.length}
-              onPageChange={(p) => setPage(p - 1)}
-              onPageSizeChange={handlePageSizeChange}
-            />
-          </div>
+        {filteredSets.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No sets match your search or filters.
+          </p>
+        ) : (
+          <motion.ul
+            className="space-y-3"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
+            {filteredSets.map((set) => (
+              <motion.li key={set.id} variants={itemVariants}>
+                <SetCard
+                  set={set}
+                  attemptedSetIds={attemptedSetIds}
+                  sectionNumber={sectionNumberProp}
+                />
+              </motion.li>
+            ))}
+          </motion.ul>
         )}
       </div>
     </div>
@@ -245,11 +237,8 @@ function SetCard({
   attemptedSetIds: Set<string>;
   sectionNumber?: number;
 }) {
-  const title =
-    extractTextFromRichJson(set.name as JsonLike) ||
-    extractTextFromRichJson(set.description as JsonLike) ||
-    "Question set";
-  const timeLabel = formatTimeLimit(set.time_limit_seconds);
+  const title = setDisplayName(set) || "Question set";
+  const timeLabel = formatExamDurationSeconds(set.time_limit_seconds);
   const sectionsText = formatSetSections(set.sections);
   const attempted = attemptedSetIds.has(set.id);
   const setHref =
@@ -258,28 +247,26 @@ function SetCard({
       : `/sets/${encodeURIComponent(set.id)}`;
 
   return (
-    <li>
-      <Link
-        href={setHref}
-        className={UCAT_LIST_ROW_LINK}
-      >
-        <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
-          <ListChecks className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">{title}</p>
-          {sectionsText ? (
-            <p className="text-xs text-muted-foreground truncate">
-              {sectionsText}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">
-          {attempted ? <Badge variant="secondary">Attempted</Badge> : null}
-          {timeLabel}
-        </div>
-        <UcatHoverChevron />
-      </Link>
-    </li>
+    <Link
+      href={setHref}
+      className={UCAT_LIST_ROW_LINK}
+    >
+      <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+        <ListChecks className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium truncate">{title}</p>
+        {sectionsText ? (
+          <p className="text-xs text-muted-foreground truncate">
+            {sectionsText}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">
+        {attempted ? <Badge variant="secondary">Attempted</Badge> : null}
+        {timeLabel}
+      </div>
+      <UcatHoverChevron />
+    </Link>
   );
 }

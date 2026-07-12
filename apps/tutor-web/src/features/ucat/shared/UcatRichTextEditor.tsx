@@ -486,7 +486,11 @@ export function UcatRichTextEditor({
 
   const jsonRecord =
     value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-  const { content: refreshedContent, hasImageRefs } = useRefreshedUcatContent(jsonRecord)
+  const {
+    content: refreshedContent,
+    isLoading: isRefreshingImages,
+    hasImageRefs,
+  } = useRefreshedUcatContent(jsonRecord)
 
   const liveEditorContent = useMemo(
     () => normalizeBlockImagesInDocument(toJsonContent(value)),
@@ -507,25 +511,24 @@ export function UcatRichTextEditor({
     return extractImageUrlsFromDoc(refreshedContent).join('\0')
   }, [hasImageRefs, refreshedContent])
 
-  // Signed URL refresh produces a second, asynchronously updated document. That is
-  // safe for read-only output, but replacing a live TipTap document during an edit
-  // can discard image nodes from legacy content. Editable fields retain their live
-  // document; newly uploaded images are cached above and existing URLs are renewed
-  // when rendered in read-only previews.
+  // Do not mount TipTap with an expired persisted URL. This applies to editable
+  // editors too: otherwise the editor keeps the broken image src for its lifetime.
+  // The structure check below still prevents an async refresh from replacing a
+  // document that changed while the URL request was in flight.
   const waitingForImageRefresh =
-    !editable && hasImageRefs && refreshedContent == null
+    hasImageRefs && (isRefreshingImages || refreshedContent == null)
   const editorContent = waitingForImageRefresh
     ? null
-    : !editable && refreshedContent != null && refreshedStructureKey === liveStructureKey
+    : refreshedContent != null && refreshedStructureKey === liveStructureKey
       ? (refreshedContent as JSONContent)
       : liveEditorContent
 
   const editorMountKey = useMemo(
     () =>
-      !editable && hasImageRefs
+      hasImageRefs
         ? refreshedImageUrlsKey
         : 'ucat-rte-stable',
-    [editable, hasImageRefs, refreshedImageUrlsKey]
+    [hasImageRefs, refreshedImageUrlsKey]
   )
 
   const omitTypography =

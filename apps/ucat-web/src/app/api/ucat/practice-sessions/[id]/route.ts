@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { maybeQualifyFreeUcatReferral } from "@/lib/ucat/referrals/maybe-qualify-free-referral";
 
 export async function GET(
   _request: NextRequest,
@@ -46,9 +47,7 @@ export async function GET(
 
   const { data: session, error } = await supabaseAdmin
     .from("student_practice_sessions")
-    .select(
-      "id, stems_snapshot, filters_snapshot, unlimited, completed_at",
-    )
+    .select("id, stems_snapshot, filters_snapshot, unlimited, completed_at")
     .eq("id", params.id)
     .eq("student_id", student.id)
     .maybeSingle();
@@ -218,6 +217,7 @@ export async function PATCH(
     supabaseAdmin,
     student.id,
   );
+  await maybeQualifyFreeUcatReferral(supabaseAdmin, student.id);
   return NextResponse.json({
     success: true,
     earnedDiscount: discount.earnedDiscount,

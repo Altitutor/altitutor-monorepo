@@ -1,7 +1,7 @@
 import { SignupForm } from "@/features/auth";
 
 type PageProps = {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; ref?: string }>;
 };
 
 export default async function SignupPage({ searchParams }: PageProps) {
@@ -10,5 +10,10 @@ export default async function SignupPage({ searchParams }: PageProps) {
     params.redirect && params.redirect.startsWith("/")
       ? params.redirect
       : "/subscribe";
-  return <SignupForm redirectTo={redirectTo} />;
+  const requestedReferralCode =
+    typeof params.ref === "string" ? params.ref.trim().toUpperCase() : "";
+  const referralCode = /^[A-Z0-9]{8,16}$/.test(requestedReferralCode)
+    ? requestedReferralCode
+    : null;
+  return <SignupForm redirectTo={redirectTo} referralCode={referralCode} />;
 }

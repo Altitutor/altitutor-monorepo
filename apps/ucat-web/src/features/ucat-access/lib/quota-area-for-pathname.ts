@@ -44,7 +44,6 @@ function matchesSetsBrowsingRoutes(path: string): boolean {
   if (path === "/sets" || path.startsWith("/sets/")) return true;
   if (path.startsWith("/progress/set-attempts/")) return true;
   if (/^\/progress\/sections\/\d+\/set-attempts\//.test(path)) return true;
-  if (/^\/progress\/mock-attempts\/[^/]+\/sets\//.test(path)) return true;
   if (/^\/sessions\/[^/]+\/sets\//.test(path)) return true;
   return false;
 }

@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -14,33 +13,42 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
+import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
-import { formatTimeSeconds } from "../lib/format-time";
+import {
+  formatAttemptTableMetricValue,
+  getAttemptTableMetricColumn,
+  resolveAttemptTableMetric,
+} from "../lib/attempt-table-metric";
 import {
   aggregateForGraph,
+  buildAttemptAxisGraphData,
   filterByTimeFrame,
-  type SharedDateRange,
+  filterItemsByGraphDateRange,
+  type GraphXAxisMode,
 } from "../lib/progress-data-utils";
 import type { MockAttemptRow } from "@/app/api/ucat/progress/route";
 import {
   UCAT_CARD_CHROME,
+  UCAT_CARD_CONTENT_AFTER_HEADER,
+  UCAT_CARD_HEADER_ROW,
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
-import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
+import {
+  resolveGraphDateRange,
+  type GraphDateRange,
+} from "../lib/progress-mode";
+import { ProgressClearFilterButton } from "./progress-clear-filter-button";
 
 type MockAttemptsCardProps = {
   attempts: MockAttemptRow[];
-  mode: ProgressMode;
-  timeFrameDays: TimeFrameDays;
-  sharedDateRange?: SharedDateRange;
 };
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -52,25 +60,32 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-function getDateRangeLabel(
-  mode: ProgressMode,
-  timeFrameDays: TimeFrameDays,
-): string {
-  if (mode === "time_frame") return `Last ${timeFrameDays} days`;
-  return mode === "weighted" ? "Weighted average (all time)" : "All time";
+function getMockAttemptMetricValue(
+  attempt: MockAttemptRow,
+  graphDataType: GraphDataType,
+): number {
+  if (graphDataType === "scaled_score") return attempt.scaledScore ?? 0;
+  if (graphDataType === "percentage") {
+    const total = attempt.totalPoints ?? 0;
+    return total > 0 ? ((attempt.scorePoints ?? 0) / total) * 100 : 0;
+  }
+  if (graphDataType === "time_taken")
+    return Math.round(attempt.timeTakenSeconds ?? 0);
+  return (attempt.studentExamSpeed ?? 0) * 100;
 }
 
 export function MockAttemptsCard({
   attempts,
-  mode,
-  timeFrameDays,
-  sharedDateRange,
 }: MockAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
+  const [xAxisMode, setXAxisMode] = useState<GraphXAxisMode>("date");
+  const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const { mode, timeFrameDays } = resolveGraphDateRange(dateRange);
 
   const filteredAttempts = useMemo(() => {
     return filterByTimeFrame(attempts, mode, timeFrameDays);
@@ -84,30 +99,51 @@ export function MockAttemptsCard({
     return max;
   }, [filteredAttempts]);
 
-  const { graphData, dateRangeLabel } = useMemo(() => {
-    const graphData = aggregateForGraph(
+  const handleDateRangeChange = (nextRange: GraphDateRange) => {
+    setDateRange(nextRange);
+    setPage(1);
+  };
+
+  const graphData = useMemo(() => {
+    const getValue = (a: MockAttemptRow) =>
+      getMockAttemptMetricValue(a, graphDataType);
+
+    if (xAxisMode === "attempt") {
+      return buildAttemptAxisGraphData(
+        filterItemsByGraphDateRange(
+          filteredAttempts,
+          (a) => a.completedAt ?? a.attemptedAt,
+          mode,
+          timeFrameDays,
+        ),
+        (a) => a.completedAt ?? a.attemptedAt,
+        getValue,
+        (a) => a.id,
+        (_a, index) => String(index + 1),
+        (a, index) => {
+          const name = a.mockName?.trim();
+          return name
+            ? `Attempt #${index + 1} · ${name}`
+            : `Attempt #${index + 1}`;
+        },
+      );
+    }
+
+    return aggregateForGraph(
       filteredAttempts,
       (a) => a.completedAt ?? a.attemptedAt,
-      (a) => {
-        if (graphDataType === "scaled_score") return a.scaledScore ?? 0;
-        if (graphDataType === "percentage") {
-          const total = a.totalPoints ?? 0;
-          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0;
-        }
-        if (graphDataType === "time_taken")
-          return Math.round(a.timeTakenSeconds ?? 0);
-        return (a.studentExamSpeed ?? 0) * 100;
-      },
+      getValue,
       mode,
       timeFrameDays,
       false,
-      sharedDateRange,
     );
-    return {
-      graphData,
-      dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
-    };
-  }, [filteredAttempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
+  }, [
+    filteredAttempts,
+    graphDataType,
+    mode,
+    timeFrameDays,
+    xAxisMode,
+  ]);
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -115,37 +151,31 @@ export function MockAttemptsCard({
   }, [filteredAttempts, page, pageSize]);
 
   const attemptsTableTitleId = useId();
+  const tableMetric = resolveAttemptTableMetric(graphDataType);
+  const metricColumn = getAttemptTableMetricColumn(tableMetric, "mock");
 
   return (
     <>
       <Card className={UCAT_CARD_CHROME}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className={UCAT_CARD_HEADER_ROW}>
           <CardTitle>Mock attempts</CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
-              items={GRAPH_DATA_TYPES}
-              value={
-                GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
-              }
-              onValueChange={(item) => item && setGraphDataType(item.value)}
-              getItemLabel={(r) => r.label}
-              getItemId={(r) => r.value}
-              placeholder="Y-axis"
-              triggerClassName="w-[140px]"
-            />
-            <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
-          </div>
+          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </CardHeader>
-        <CardContent>
+        <CardContent className={UCAT_CARD_CONTENT_AFTER_HEADER}>
           <ProgressGraph
             data={graphData}
             type={graphType}
             dataType={graphDataType}
-            dateRangeLabel={dateRangeLabel}
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeChange}
             isMockContext
             yAxisMax={
               graphDataType === "scaled_score" ? mockYAxisMax : undefined
             }
+            metricOptions={GRAPH_DATA_TYPES}
+            onDataTypeChange={setGraphDataType}
+            xAxisMode={xAxisMode}
+            onXAxisModeChange={setXAxisMode}
           />
         </CardContent>
       </Card>
@@ -165,32 +195,30 @@ export function MockAttemptsCard({
                 <TableRow className={UCAT_TABLE_HEADER_ROW}>
                   <TableHead>Date</TableHead>
                   <TableHead>Mock</TableHead>
-                  <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points across all sets in this mock.">
-                    Points
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Total UCAT mock score. Section 4 Situational Judgement excluded.">
-                    Scaled score
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Total time taken vs total time limit for all sets in this mock.">
-                    Time
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Average set speed across all sets. >100% means you finished sets faster than their limits.">
-                    Set speed
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Average exam speed across all sets. >100% means you finished faster than exam pace.">
-                    Exam speed
-                  </TableHeaderWithTooltip>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <AttemptMetricColumnHeader
+                    options={GRAPH_DATA_TYPES}
+                    value={graphDataType}
+                    onValueChange={setGraphDataType}
+                    label={metricColumn.label}
+                    tooltip={metricColumn.tooltip}
+                  />
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAttempts.length === 0 ? (
                   <TableRow className={UCAT_TABLE_BODY_ROW}>
-                    <TableCell
-                      colSpan={8}
-                      className="text-center text-muted-foreground"
-                    >
-                      No submitted mock attempts yet
+                    <TableCell colSpan={4} className="py-8 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <p className="text-muted-foreground">
+                          No submitted mock attempts yet
+                        </p>
+                        {dateRange !== "all" ? (
+                          <ProgressClearFilterButton
+                            onClick={() => handleDateRangeChange("all")}
+                          />
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -198,43 +226,29 @@ export function MockAttemptsCard({
                     const dateStr = a.completedAt
                       ? format(new Date(a.completedAt), "dd MMM yyyy")
                       : format(new Date(a.attemptedAt), "dd MMM yyyy");
-                    const total = a.totalPoints ?? 0;
-                    const points = a.scorePoints ?? 0;
-                    const timeLimit = a.setTimeLimitSeconds ?? 0;
-                    const timeTaken = a.timeTakenSeconds ?? 0;
-                    const setSpeed =
-                      a.studentSetSpeed != null
-                        ? `${(a.studentSetSpeed * 100).toFixed(1)}%`
-                        : "—";
-                    const examSpeed =
-                      a.studentExamSpeed != null
-                        ? `${(a.studentExamSpeed * 100).toFixed(1)}%`
-                        : "—";
 
                     return (
                       <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.mockName ?? "—"}</TableCell>
                         <TableCell>
-                          {total > 0 ? `${points} / ${total}` : "—"}
+                          {formatAttemptTableMetricValue(
+                            tableMetric,
+                            {
+                              scaledScore: a.scaledScore,
+                              scaledScoreMax: a.scaledScoreMax,
+                              scorePoints: a.scorePoints,
+                              totalPoints: a.totalPoints,
+                              timeTakenSeconds: a.timeTakenSeconds,
+                              setTimeLimitSeconds: a.setTimeLimitSeconds,
+                              studentExamSpeed: a.studentExamSpeed,
+                            },
+                            "mock",
+                          )}
                         </TableCell>
                         <TableCell>
-                          {a.scaledScore != null && a.scaledScoreMax != null
-                            ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
-                            : a.scaledScore != null
-                              ? String(Math.round(a.scaledScore))
-                              : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {timeLimit > 0 && timeTaken != null
-                            ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell>{setSpeed}</TableCell>
-                        <TableCell>{examSpeed}</TableCell>
-                        <TableCell className="text-right">
                           <UcatTableRowActionLink
-                            href={`/progress/mock-attempts/${a.id}`}
+                            href={`/progress/mocks/mock-attempts/${a.id}`}
                             label="View attempt"
                           />
                         </TableCell>

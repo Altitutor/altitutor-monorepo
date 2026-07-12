@@ -25,7 +25,7 @@ export function LoginPageLayout({
       <AuthPageHeader />
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
+        <div className="auth-entrance w-full max-w-md">
           <div className="mb-10">
             <span
               className={cn(
@@ -33,7 +33,7 @@ export function LoginPageLayout({
                 typo.dataMono,
               )}
             >
-              Alti UCAT
+              Alti UCAT Prep
             </span>
             <h1
               className={cn(
@@ -43,25 +43,29 @@ export function LoginPageLayout({
             >
               {title}
             </h1>
-            <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>{subtitle}</p>
+            <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>
+              {subtitle}
+            </p>
           </div>
           {children}
-          {footer === null ? null : footer ?? (
-            <p
-              className={cn(
-                "mt-6 text-center text-sm text-muted-foreground",
-                typo.secondarySans,
-              )}
-            >
-              Don&apos;t have an account?{" "}
-              <Link
-                href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
-                className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
-              >
-                Sign up
-              </Link>
-            </p>
-          )}
+          {footer === null
+            ? null
+            : (footer ?? (
+                <p
+                  className={cn(
+                    "mt-6 text-center text-sm text-muted-foreground",
+                    typo.secondarySans,
+                  )}
+                >
+                  Don&apos;t have an account?{" "}
+                  <Link
+                    href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
+                    className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
+                  >
+                    Sign up
+                  </Link>
+                </p>
+              ))}
         </div>
       </main>
     </div>

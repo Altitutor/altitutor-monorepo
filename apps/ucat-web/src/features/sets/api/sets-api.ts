@@ -22,7 +22,7 @@ export type SetsFilters = {
   timed?: "timed" | "untimed" | "all";
   source?: "my" | "public" | "all";
   sectionNumber?: number | null;
-  attempted?: "all" | "unattempted";
+  attempted?: "all" | "attempted" | "unattempted";
 };
 
 export async function getStudentSets(): Promise<StudentSetRow[]> {
@@ -34,6 +34,30 @@ export async function getStudentSets(): Promise<StudentSetRow[]> {
     );
   if (error) throw new Error(error.message ?? "Failed to load sets");
   return (data ?? []) as StudentSetRow[];
+}
+
+type SetDetailStemMeta = {
+  questions_meta?: Array<unknown> | null;
+};
+
+function countQuestionsFromStems(stems: unknown): number {
+  if (!Array.isArray(stems)) return 0;
+  return stems.reduce<number>((sum, stem) => {
+    const meta = (stem as SetDetailStemMeta).questions_meta;
+    return sum + (Array.isArray(meta) ? meta.length : 0);
+  }, 0);
+}
+
+/** Question count for a set from accessible stem/question metadata. */
+export async function getSetQuestionCount(setId: string): Promise<number> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("vstudent_ucat_question_set_detail")
+    .select("stems")
+    .eq("id", setId)
+    .maybeSingle();
+  if (error) throw new Error(error.message ?? "Failed to load set question count");
+  return countQuestionsFromStems(data?.stems);
 }
 
 export type SetAttemptRow = {
@@ -123,6 +147,9 @@ export function filterSets(
       if (!hasSection) return false;
     }
     if (filters.attempted === "unattempted" && attemptedSetIds?.has(set.id)) {
+      return false;
+    }
+    if (filters.attempted === "attempted" && !attemptedSetIds?.has(set.id)) {
       return false;
     }
     return true;

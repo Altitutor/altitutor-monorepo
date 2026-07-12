@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { useToast } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
@@ -14,6 +15,7 @@ import type { StudentSetRow } from "@/features/sets/api/sets-api";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
 import { Button } from "@/components/ui/button";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 function getSectionNumberFromSet(set: {
   sections?: Array<{ section_number?: number }> | null;
@@ -31,6 +33,7 @@ export function SetGeneratorPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const filters = useStemFilters();
   const { data: sets } = useSets();
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds();
@@ -148,42 +151,53 @@ export function SetGeneratorPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title="Set Generator"
-        description="Build a targeted practice set from section, timing, and performance filters."
-      />
-      <StemFiltersPanel
-        input={filters.input}
-        selectedSection={filters.selectedSection}
-        sectionCategories={filters.sectionCategories}
-        selectedCategories={filters.selectedCategories}
-        matchingCount={filters.matchingCount}
-        maxQuestionsInSection={filters.maxQuestionsInSection}
-        selectedSectionLabel={filters.selectedSectionLabel}
-        performanceFilter={filters.performanceFilter}
-        previewTimeLabel={filters.previewTimeLabel}
-        sectionLabels={filters.sectionLabels}
-        onSectionChange={filters.handleSectionChange}
-        onCategoryChange={filters.handleCategoryChange}
-        onPerformanceFilterChange={filters.handlePerformanceFilterChange}
-        onTimeModeChange={filters.handleTimeModeChange}
-        onTimeSpeedChange={filters.handleTimeSpeedChange}
-        onQuestionCountChange={filters.handleQuestionCountChange}
-        onCustomTimeMinutesChange={filters.handleCustomTimeMinutesChange}
-        actionButton={actionButton}
-      />
-      <MyGeneratedSetsList
-        initialFilters={
-          blockedState
-            ? {
-                sectionNumber: blockedState.sectionNumber,
-                attempted: "unattempted",
-              }
-            : undefined
-        }
-        scrollToSetId={blockedState?.setId ?? null}
-      />
-    </div>
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title="Set Generator"
+          description="Build a targeted practice set from section, timing, and performance filters."
+        />
+      </motion.div>
+      <motion.div variants={itemVariants}>
+        <StemFiltersPanel
+          input={filters.input}
+          selectedSection={filters.selectedSection}
+          sectionCategories={filters.sectionCategories}
+          selectedCategories={filters.selectedCategories}
+          matchingCount={filters.matchingCount}
+          maxQuestionsInSection={filters.maxQuestionsInSection}
+          selectedSectionLabel={filters.selectedSectionLabel}
+          performanceFilter={filters.performanceFilter}
+          previewTimeLabel={filters.previewTimeLabel}
+          sectionLabels={filters.sectionLabels}
+          onSectionChange={filters.handleSectionChange}
+          onCategoryChange={filters.handleCategoryChange}
+          onPerformanceFilterChange={filters.handlePerformanceFilterChange}
+          onTimeModeChange={filters.handleTimeModeChange}
+          onTimeSpeedChange={filters.handleTimeSpeedChange}
+          onQuestionCountChange={filters.handleQuestionCountChange}
+          onCustomTimeMinutesChange={filters.handleCustomTimeMinutesChange}
+          actionButton={actionButton}
+        />
+      </motion.div>
+      <motion.div variants={itemVariants}>
+        <MyGeneratedSetsList
+          initialFilters={
+            blockedState
+              ? {
+                  sectionNumber: blockedState.sectionNumber,
+                  attempted: "unattempted",
+                }
+              : undefined
+          }
+          scrollToSetId={blockedState?.setId ?? null}
+        />
+      </motion.div>
+    </motion.div>
   );
 }

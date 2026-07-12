@@ -7,6 +7,7 @@ import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, useToast } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { cn } from "@/lib/utils";
 import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-card-icon-chip";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
@@ -188,24 +189,15 @@ export function SessionsListPage() {
   }, [sessions, showPreviousSessions]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Sessions"
-          description={headerDescription}
-        />
-        <p className="text-sm text-muted-foreground">Loading sessions...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="list" />;
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title="Sessions"
-          description={headerDescription}
-        />
+        <div id="tour-sessions-page">
+          <UcatPageHeader title="Sessions" description={headerDescription} />
+        </div>
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load sessions"}
         </p>
@@ -216,10 +208,9 @@ export function SessionsListPage() {
   if (!sessions || sessions.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader
-          title="Sessions"
-          description={headerDescription}
-        />
+        <div id="tour-sessions-page">
+          <UcatPageHeader title="Sessions" description={headerDescription} />
+        </div>
         <p className="text-sm text-muted-foreground">
           You don&apos;t have any UCAT sessions yet.
         </p>
@@ -229,7 +220,9 @@ export function SessionsListPage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader title="Sessions" description={headerDescription} />
+      <div id="tour-sessions-page">
+        <UcatPageHeader title="Sessions" description={headerDescription} />
+      </div>
       {hasPastSessions ? (
         <div className="flex justify-end">
           <Button

@@ -83,7 +83,7 @@ function computeTimeLimitSeconds(
   if (mode === "speed") {
     const multiplier =
       timeSpeedMultiplier > 0 && Number.isFinite(timeSpeedMultiplier)
-        ? 1 / Math.min(1, Math.max(0.1, timeSpeedMultiplier))
+        ? 1 / Math.min(2, Math.max(0.25, timeSpeedMultiplier))
         : 1;
     return Math.round(totalSeconds * multiplier);
   }

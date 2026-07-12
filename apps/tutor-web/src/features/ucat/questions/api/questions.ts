@@ -3,6 +3,7 @@ import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatQuestionStem, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
 
 export type UcatQuestionListMode = 'default' | 'generated' | 'all'
 export type UcatApprovalStatus = 'approved' | 'pending' | 'rejected'
@@ -179,6 +180,7 @@ export const ucatQuestionsApi = {
       .from('vtutor_ucat_question_stems')
       .select('*')
       .order('updated_at', { ascending: false })
+      .order('id')
 
     if (mode === 'default') {
       query = query.filter('approval_status', 'eq', 'approved')
@@ -196,10 +198,8 @@ export const ucatQuestionsApi = {
       query = query.filter('approval_status', 'eq', options.approvalStatus)
     }
 
-    const { data, error } = await query
-
-    if (error) throw error
-    return (data ?? []) as unknown as UcatQuestionStemRow[]
+    const data = await fetchAllSupabaseRows((from, to) => query.range(from, to))
+    return data as unknown as UcatQuestionStemRow[]
   },
 
   async getSections() {
@@ -256,11 +256,13 @@ export const ucatQuestionsApi = {
 
   async getStemTypes() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_stem_detail')
-      .select('id,questions')
-
-    if (error) throw error
+    const data = await fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('vtutor_ucat_question_stem_detail')
+        .select('id,questions')
+        .order('id')
+        .range(from, to)
+    )
 
     type QuestionWithType = { question_type?: string | null }
     const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
@@ -283,11 +285,13 @@ export const ucatQuestionsApi = {
 
   async getStemTagIds() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_stem_detail')
-      .select('id,questions')
-
-    if (error) throw error
+    const data = await fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('vtutor_ucat_question_stem_detail')
+        .select('id,questions')
+        .order('id')
+        .range(from, to)
+    )
 
     type QuestionWithTags = {
       deleted_at?: string | null
@@ -315,11 +319,13 @@ export const ucatQuestionsApi = {
 
   async getQuestionSearchTexts() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_stem_detail')
-      .select('id,questions')
-
-    if (error) throw error
+    const data = await fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('vtutor_ucat_question_stem_detail')
+        .select('id,questions')
+        .order('id')
+        .range(from, to)
+    )
 
     type QuestionWithSearchContent = {
       deleted_at?: string | null
@@ -362,24 +368,29 @@ export const ucatQuestionsApi = {
 
   async getStemCatalog() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const [detailResult, approvedResult] = await Promise.all([
-      supabase
-        .from('vtutor_ucat_question_stem_detail')
-        .select(
-          'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,is_ai_generated,created_at,deleted_at'
-        )
-        .is('deleted_at', null)
-        .filter('approval_status', 'eq', 'approved'),
-      supabase
-        .from('vtutor_ucat_question_stems_approved')
-        .select('id,set_names,set_ids'),
+    const [detailData, approvedData] = await Promise.all([
+      fetchAllSupabaseRows((from, to) =>
+        supabase
+          .from('vtutor_ucat_question_stem_detail')
+          .select(
+            'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,is_ai_generated,created_at,deleted_at'
+          )
+          .is('deleted_at', null)
+          .filter('approval_status', 'eq', 'approved')
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAllSupabaseRows((from, to) =>
+        supabase
+          .from('vtutor_ucat_question_stems_approved')
+          .select('id,set_names,set_ids')
+          .order('id')
+          .range(from, to)
+      ),
     ])
 
-    if (detailResult.error) throw detailResult.error
-    if (approvedResult.error) throw approvedResult.error
-
     const setInfoById = new Map(
-      (approvedResult.data ?? []).map((row) => [
+      approvedData.map((row) => [
         row.id ?? '',
         {
           setNames: row.set_names,
@@ -388,7 +399,7 @@ export const ucatQuestionsApi = {
       ])
     )
 
-    return ((detailResult.data ?? []) as Array<{
+    return (detailData as Array<{
       id: string | null
       stem_text: Json | null
       questions: unknown

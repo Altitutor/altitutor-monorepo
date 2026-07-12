@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, Input, Label, Switch } from "@altitutor/ui";
 import {
-  Button,
-  Input,
-  Label,
-} from '@altitutor/ui';
-import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
+  AdminDialogShell,
+  SettingsDataTable,
+  type SettingsDataTableColumn,
+} from "@/shared/components";
 import {
   ucatPlanPricesApi,
   type UcatPlanPriceRow,
-} from '../api/ucat-plan-prices';
+} from "../api/ucat-plan-prices";
 
 const TIER_LABELS: Record<string, string> = {
-  unlimited: 'UCAT Unlimited',
-  pro: 'UCAT Pro',
+  unlimited: "UCAT Unlimited",
+  pro: "UCAT Pro",
 };
 
 const INTERVAL_LABELS: Record<string, string> = {
-  week: 'Weekly',
-  month: 'Monthly',
-  year: 'Yearly',
+  week: "Weekly",
+  month: "Monthly",
+  year: "Yearly",
 };
 
 type EditablePriceRow = UcatPlanPriceRow & {
@@ -34,17 +34,19 @@ function toEditable(row: UcatPlanPriceRow): EditablePriceRow {
   return {
     ...row,
     tierLabel: TIER_LABELS[row.plan_tier] ?? row.plan_tier,
-    intervalLabel: INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval,
+    intervalLabel:
+      INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval,
     basePriceInput: String(row.base_price_cents),
-    stripePriceInput: row.stripe_price_id ?? '',
+    stripePriceInput: row.stripe_price_id ?? "",
   };
 }
 
 export function UcatPlanPricesForm() {
   const [rows, setRows] = useState<EditablePriceRow[]>([]);
   const [editingRow, setEditingRow] = useState<EditablePriceRow | null>(null);
-  const [basePriceInput, setBasePriceInput] = useState('');
-  const [stripePriceInput, setStripePriceInput] = useState('');
+  const [basePriceInput, setBasePriceInput] = useState("");
+  const [stripePriceInput, setStripePriceInput] = useState("");
+  const [checkoutEnabled, setCheckoutEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function UcatPlanPricesForm() {
       const data = await ucatPlanPricesApi.list();
       setRows(data.map(toEditable));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load plan prices');
+      setError(e instanceof Error ? e.message : "Failed to load plan prices");
     } finally {
       setLoading(false);
     }
@@ -71,36 +73,62 @@ export function UcatPlanPricesForm() {
     if (!editingRow) return;
     setBasePriceInput(editingRow.basePriceInput);
     setStripePriceInput(editingRow.stripePriceInput);
+    setCheckoutEnabled(editingRow.checkout_enabled);
     setError(null);
   }, [editingRow]);
 
   const columns = useMemo<SettingsDataTableColumn<EditablePriceRow>[]>(
     () => [
       {
-        key: 'plan_tier',
-        label: 'Tier',
+        key: "plan_tier",
+        label: "Tier",
         render: (row) => <span className="font-medium">{row.tierLabel}</span>,
         sortValue: (row) => row.tierLabel,
-        searchValue: (row) => `${row.tierLabel} ${row.intervalLabel} ${row.stripe_price_id ?? ''}`,
+        searchValue: (row) =>
+          `${row.tierLabel} ${row.intervalLabel} ${row.stripe_price_id ?? ""}`,
       },
       {
-        key: 'billing_interval',
-        label: 'Interval',
+        key: "billing_interval",
+        label: "Interval",
         render: (row) => row.intervalLabel,
         sortValue: (row) => row.intervalLabel,
       },
       {
-        key: 'base_price_cents',
-        label: 'Base price',
-        render: (row) => <span className="font-mono tabular-nums">{row.base_price_cents}c</span>,
+        key: "checkout_enabled",
+        label: "Checkout",
+        render: (row) => (
+          <span
+            className={
+              row.checkout_enabled
+                ? "text-emerald-600"
+                : "text-muted-foreground"
+            }
+          >
+            {row.checkout_enabled ? "Available" : "Off"}
+          </span>
+        ),
+        sortValue: (row) => (row.checkout_enabled ? 1 : 0),
+      },
+      {
+        key: "base_price_cents",
+        label: "Base price",
+        render: (row) => (
+          <span className="font-mono tabular-nums">
+            {row.base_price_cents}c
+          </span>
+        ),
         sortValue: (row) => row.base_price_cents,
       },
       {
-        key: 'stripe_price_id',
-        label: 'Stripe price ID',
-        render: (row) => <span className="font-mono text-xs text-muted-foreground">{row.stripe_price_id ?? 'Not set'}</span>,
-        sortValue: (row) => row.stripe_price_id ?? '',
-        searchValue: (row) => row.stripe_price_id ?? '',
+        key: "stripe_price_id",
+        label: "Stripe price ID",
+        render: (row) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.stripe_price_id ?? "Not set"}
+          </span>
+        ),
+        sortValue: (row) => row.stripe_price_id ?? "",
+        searchValue: (row) => row.stripe_price_id ?? "",
       },
     ],
     [],
@@ -110,7 +138,7 @@ export function UcatPlanPricesForm() {
     if (!editingRow) return;
     const base = parseInt(basePriceInput, 10);
     if (!Number.isFinite(base) || base < 0) {
-      setError('Base price must be 0 or greater');
+      setError("Base price must be 0 or greater");
       return;
     }
 
@@ -120,11 +148,12 @@ export function UcatPlanPricesForm() {
       await ucatPlanPricesApi.update(editingRow.id, {
         base_price_cents: base,
         stripe_price_id: stripePriceInput.trim() || null,
+        checkout_enabled: checkoutEnabled,
       });
       await load();
       setEditingRow(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save plan price');
+      setError(e instanceof Error ? e.message : "Failed to save plan price");
     } finally {
       setSaving(false);
     }
@@ -132,7 +161,7 @@ export function UcatPlanPricesForm() {
 
   async function handleSyncFromStripe(row: EditablePriceRow) {
     if (!row.stripe_price_id?.trim()) {
-      setError('Enter a Stripe price ID before syncing');
+      setError("Enter a Stripe price ID before syncing");
       setEditingRow(row);
       return;
     }
@@ -143,7 +172,7 @@ export function UcatPlanPricesForm() {
       await ucatPlanPricesApi.syncBasePriceFromStripe(row.id);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to sync from Stripe');
+      setError(e instanceof Error ? e.message : "Failed to sync from Stripe");
     } finally {
       setSyncingId(null);
     }
@@ -151,24 +180,26 @@ export function UcatPlanPricesForm() {
 
   return (
     <>
-      {error && !editingRow ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error && !editingRow ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : null}
       <SettingsDataTable
         data={rows}
         columns={columns}
         getRowId={(row) => row.id}
         filterKeys={[]}
         searchPlaceholder="Search plan prices..."
-        defaultSort={{ field: 'plan_tier', direction: 'asc' }}
+        defaultSort={{ field: "plan_tier", direction: "asc" }}
         isLoading={loading}
         getActions={(row) => [
           {
-            id: 'edit',
-            label: 'Edit',
+            id: "edit",
+            label: "Edit",
             onSelect: () => setEditingRow(row),
           },
           {
-            id: 'sync',
-            label: syncingId === row.id ? 'Syncing...' : 'Sync from Stripe',
+            id: "sync",
+            label: syncingId === row.id ? "Syncing..." : "Sync from Stripe",
             disabled: syncingId === row.id,
             onSelect: () => void handleSyncFromStripe(row),
           },
@@ -178,15 +209,24 @@ export function UcatPlanPricesForm() {
       <AdminDialogShell
         open={!!editingRow}
         onClose={() => setEditingRow(null)}
-        title={editingRow ? `Edit ${editingRow.tierLabel} ${editingRow.intervalLabel}` : 'Edit plan price'}
+        title={
+          editingRow
+            ? `Edit ${editingRow.tierLabel} ${editingRow.intervalLabel}`
+            : "Edit plan price"
+        }
         subtitle="Configure the list price and Stripe price ID for this UCAT billing interval."
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setEditingRow(null)} disabled={saving}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditingRow(null)}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button type="button" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save price'}
+              {saving ? "Saving..." : "Save price"}
             </Button>
           </>
         }
@@ -212,7 +252,23 @@ export function UcatPlanPricesForm() {
             />
           </div>
         </div>
-        {error && editingRow ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        <div className="mt-5 flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div>
+            <Label htmlFor="checkout-enabled">Available for new checkout</Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Turn this off to stop offering this tier and billing interval
+              without removing its pricing configuration.
+            </p>
+          </div>
+          <Switch
+            id="checkout-enabled"
+            checked={checkoutEnabled}
+            onCheckedChange={setCheckoutEnabled}
+          />
+        </div>
+        {error && editingRow ? (
+          <p className="mt-4 text-sm text-destructive">{error}</p>
+        ) : null}
       </AdminDialogShell>
     </>
   );

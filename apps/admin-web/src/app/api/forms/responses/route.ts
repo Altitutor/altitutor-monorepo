@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const formId = searchParams.get('formId');
-  const admin = auth.admin as any;
+  const admin = auth.admin;
 
   let query = admin
     .from('form_responses')

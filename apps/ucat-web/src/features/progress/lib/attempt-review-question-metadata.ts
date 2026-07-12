@@ -20,6 +20,11 @@ export type AttemptReviewQuestionMetadata = {
   questionTags: AttemptReviewQuestionTag[];
 };
 
+export type AttemptReviewStemCategory = {
+  categoryId: string;
+  categoryName: string;
+};
+
 const EMPTY_METADATA: AttemptReviewQuestionMetadata = {
   difficulty: null,
   timeBurdenSeconds: null,
@@ -50,22 +55,12 @@ export async function fetchAttemptReviewQuestionMetadata(
   for (const id of ids) result.set(id, { ...EMPTY_METADATA });
   if (ids.length === 0) return result;
 
-  const { data: questionRows } = await supabase
+  const questionRowsPromise = supabase
     .from("ucat_questions")
     .select("id, difficulty, time_burden_seconds")
     .in("id", ids);
 
-  for (const row of questionRows ?? []) {
-    if (!row.id) continue;
-    const current = result.get(row.id) ?? { ...EMPTY_METADATA };
-    result.set(row.id, {
-      ...current,
-      difficulty: row.difficulty ?? null,
-      timeBurdenSeconds: row.time_burden_seconds ?? null,
-    });
-  }
-
-  const { data: tagRows } = await (
+  const tagRowsPromise = (
     supabase as unknown as {
       from: (table: string) => {
         select: (columns: string) => {
@@ -89,6 +84,35 @@ export async function fetchAttemptReviewQuestionMetadata(
     .select("question_id, question_tags(name, description)")
     .in("question_id", ids);
 
+  const timingRowsPromise = supabaseAdmin
+    ? supabaseAdmin
+        .from("student_question_attempts")
+        .select("question_id, time_spent_seconds")
+        .in("question_id", ids)
+        .eq("is_submitted", true)
+        .not("time_spent_seconds", "is", null)
+    : Promise.resolve({ data: [] });
+
+  const [questionResult, tagResult, timingResult] = await Promise.all([
+    questionRowsPromise,
+    tagRowsPromise,
+    timingRowsPromise,
+  ]);
+
+  const questionRows = questionResult.data;
+
+  for (const row of questionRows ?? []) {
+    if (!row.id) continue;
+    const current = result.get(row.id) ?? { ...EMPTY_METADATA };
+    result.set(row.id, {
+      ...current,
+      difficulty: row.difficulty ?? null,
+      timeBurdenSeconds: row.time_burden_seconds ?? null,
+    });
+  }
+
+  const tagRows = tagResult.data;
+
   for (const row of tagRows ?? []) {
     if (!row.question_id || !row.question_tags?.name) continue;
     const current = result.get(row.question_id) ?? { ...EMPTY_METADATA };
@@ -104,14 +128,7 @@ export async function fetchAttemptReviewQuestionMetadata(
     });
   }
 
-  if (!supabaseAdmin) return result;
-
-  const { data: timingRows } = await supabaseAdmin
-    .from("student_question_attempts")
-    .select("question_id, time_spent_seconds")
-    .in("question_id", ids)
-    .eq("is_submitted", true)
-    .not("time_spent_seconds", "is", null);
+  const timingRows = timingResult.data;
 
   const timingByQuestion = new Map<string, { sum: number; count: number }>();
   for (const row of timingRows ?? []) {
@@ -134,6 +151,48 @@ export async function fetchAttemptReviewQuestionMetadata(
           ? timing.sum / timing.count
           : null,
       averageTimeSampleSize: timing.count,
+    });
+  }
+
+  return result;
+}
+
+export async function fetchAttemptReviewStemCategories(
+  supabase: SupabaseServerClient,
+  stemIds: string[],
+): Promise<Map<string, AttemptReviewStemCategory>> {
+  const ids = [...new Set(stemIds.filter(Boolean))];
+  const result = new Map<string, AttemptReviewStemCategory>();
+  if (ids.length === 0) return result;
+
+  const { data: stemRows } = await supabase
+    .from("vstudent_ucat_question_stems")
+    .select("id, question_stem_category_id")
+    .in("id", ids);
+
+  const categoryIds = [
+    ...new Set(
+      (stemRows ?? [])
+        .map((row) => row.question_stem_category_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (categoryIds.length === 0) return result;
+
+  const { data: categoryRows } = await supabase
+    .from("vstudent_ucat_question_stem_categories")
+    .select("id, name")
+    .in("id", categoryIds);
+  const categoryNames = new Map(
+    (categoryRows ?? []).map((row) => [row.id, row.name ?? "Unknown"]),
+  );
+
+  for (const row of stemRows ?? []) {
+    if (!row.id || !row.question_stem_category_id) continue;
+    result.set(row.id, {
+      categoryId: row.question_stem_category_id,
+      categoryName:
+        categoryNames.get(row.question_stem_category_id) ?? "Unknown",
     });
   }
 

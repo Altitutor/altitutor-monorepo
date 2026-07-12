@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -14,34 +13,42 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
+import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
-import { formatTimeSeconds } from "../lib/format-time";
+import {
+  formatAttemptTableMetricValue,
+  getAttemptTableMetricColumn,
+  resolveAttemptTableMetric,
+} from "../lib/attempt-table-metric";
 import {
   aggregateForGraph,
+  buildAttemptAxisGraphData,
   filterByTimeFrame,
-  type SharedDateRange,
+  filterItemsByGraphDateRange,
+  type GraphXAxisMode,
 } from "../lib/progress-data-utils";
-import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
 import {
   UCAT_CARD_CHROME,
+  UCAT_CARD_CONTENT_AFTER_HEADER,
+  UCAT_CARD_HEADER_ROW,
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
-import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
+import {
+  resolveGraphDateRange,
+  type GraphDateRange,
+} from "../lib/progress-mode";
+import { ProgressClearFilterButton } from "./progress-clear-filter-button";
 
 type SetAttemptsCardProps = {
   attempts: SetAttemptRow[];
-  mode: ProgressMode;
-  timeFrameDays: TimeFrameDays;
-  sharedDateRange?: SharedDateRange;
   /** When set, links go to /progress/sections/{sectionNumber}/set-attempts/{id} so back returns to section. */
   sectionNumber?: number;
 };
@@ -56,59 +63,102 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-function getDateRangeLabel(
-  mode: ProgressMode,
-  timeFrameDays: TimeFrameDays,
-): string {
-  if (mode === "time_frame") return `Last ${timeFrameDays} days`;
-  return mode === "weighted" ? "Weighted average (all time)" : "All time";
+function getSetAttemptMetricValue(
+  attempt: SetAttemptRow,
+  graphDataType: GraphDataType,
+): number {
+  if (graphDataType === "scaled_score") return attempt.scaledScore ?? 0;
+  if (graphDataType === "percentage") {
+    const total = attempt.totalPoints ?? 0;
+    return total > 0 ? ((attempt.scorePoints ?? 0) / total) * 100 : 0;
+  }
+  if (graphDataType === "time_taken")
+    return Math.round(attempt.timeTakenSeconds ?? 0);
+  if (graphDataType === "attempt_count") return 1;
+  return (attempt.studentExamSpeed ?? 0) * 100;
 }
 
 export function SetAttemptsCard({
   attempts,
-  mode,
-  timeFrameDays,
-  sharedDateRange,
   sectionNumber,
 }: SetAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
+  const [xAxisMode, setXAxisMode] = useState<GraphXAxisMode>("date");
+  const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const projectionQuery = useScoreProjection(sectionNumber != null);
+
+  const { mode, timeFrameDays } = resolveGraphDateRange(dateRange);
 
   const standaloneAttempts = useMemo(() => {
     const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
     return filterByTimeFrame(result, mode, timeFrameDays);
   }, [attempts, mode, timeFrameDays]);
 
-  const { graphData, dateRangeLabel } = useMemo(() => {
+  const metricOptions = useMemo(() => {
+    if (xAxisMode === "attempt") {
+      return GRAPH_DATA_TYPES.filter(
+        (option) => option.value !== "attempt_count",
+      );
+    }
+    return GRAPH_DATA_TYPES;
+  }, [xAxisMode]);
+
+  const handleXAxisModeChange = (nextMode: GraphXAxisMode) => {
+    setXAxisMode(nextMode);
+    if (nextMode === "attempt" && graphDataType === "attempt_count") {
+      setGraphDataType("scaled_score");
+    }
+  };
+
+  const handleDateRangeChange = (nextRange: GraphDateRange) => {
+    setDateRange(nextRange);
+    setPage(1);
+  };
+
+  const graphData = useMemo(() => {
     const isCountMetric = graphDataType === "attempt_count";
-    const graphData = aggregateForGraph(
+    const getValue = (a: SetAttemptRow) =>
+      getSetAttemptMetricValue(a, graphDataType);
+
+    if (xAxisMode === "attempt") {
+      return buildAttemptAxisGraphData(
+        filterItemsByGraphDateRange(
+          standaloneAttempts,
+          (a) => a.completedAt ?? a.attemptedAt,
+          mode,
+          timeFrameDays,
+        ),
+        (a) => a.completedAt ?? a.attemptedAt,
+        getValue,
+        (a) => a.id,
+        (_a, index) => String(index + 1),
+        (a, index) => {
+          const name = a.questionSetName?.trim();
+          return name
+            ? `Attempt #${index + 1} · ${name}`
+            : `Attempt #${index + 1}`;
+        },
+      );
+    }
+
+    return aggregateForGraph(
       standaloneAttempts,
       (a) => a.completedAt ?? a.attemptedAt,
-      (a) => {
-        if (graphDataType === "scaled_score") return a.scaledScore ?? 0;
-        if (graphDataType === "percentage") {
-          const total = a.totalPoints ?? 0;
-          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0;
-        }
-        if (graphDataType === "time_taken")
-          return Math.round(a.timeTakenSeconds ?? 0);
-        if (graphDataType === "attempt_count") return 1;
-        return (a.studentExamSpeed ?? 0) * 100;
-      },
+      getValue,
       mode,
       timeFrameDays,
       isCountMetric,
-      sharedDateRange,
     );
-    return {
-      graphData,
-      dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
-    };
-  }, [standaloneAttempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
+  }, [
+    standaloneAttempts,
+    graphDataType,
+    mode,
+    timeFrameDays,
+    xAxisMode,
+  ]);
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -121,71 +171,31 @@ export function SetAttemptsCard({
       : `/progress/set-attempts/${attemptId}`;
 
   const attemptsTableTitleId = useId();
-
-  const sectionProjection = useMemo(() => {
-    if (!projectionQuery.data || sectionNumber == null) return null;
-    return (
-      projectionQuery.data.sections.find((s) => s.sectionNumber === sectionNumber) ??
-      null
-    );
-  }, [projectionQuery.data, sectionNumber]);
-
-  const graphProjection = useMemo(() => {
-    if (!sectionProjection) return undefined;
-    return {
-      pessimistic: sectionProjection.projection.map((p) => ({
-        date: p.date,
-        value: p.pessimistic,
-      })),
-      realistic: sectionProjection.projection.map((p) => ({
-        date: p.date,
-        value: p.realistic,
-      })),
-      optimistic: sectionProjection.projection.map((p) => ({
-        date: p.date,
-        value: p.optimistic,
-      })),
-    };
-  }, [sectionProjection]);
+  const tableMetric = resolveAttemptTableMetric(graphDataType);
+  const metricColumn = getAttemptTableMetricColumn(tableMetric, "set");
 
   return (
     <>
       <Card className={UCAT_CARD_CHROME}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className={UCAT_CARD_HEADER_ROW}>
           <CardTitle>Set attempts</CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
-              items={GRAPH_DATA_TYPES}
-              value={
-                GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
-              }
-              onValueChange={(item) => item && setGraphDataType(item.value)}
-              getItemLabel={(r) => r.label}
-              getItemId={(r) => r.value}
-              placeholder="Y-axis"
-              triggerClassName="w-[160px]"
-            />
-            <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
-          </div>
+          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </CardHeader>
-        <CardContent>
+        <CardContent className={UCAT_CARD_CONTENT_AFTER_HEADER}>
           <ProgressGraph
             data={graphData}
             type={graphType}
             dataType={graphDataType}
-            dateRangeLabel={dateRangeLabel}
-            projection={
-              graphDataType === "scaled_score" && graphType === "line"
-                ? graphProjection
-                : undefined
-            }
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeChange}
+            metricOptions={metricOptions}
+            onDataTypeChange={setGraphDataType}
+            xAxisMode={xAxisMode}
+            onXAxisModeChange={handleXAxisModeChange}
           />
         </CardContent>
       </Card>
-      <section
-        aria-labelledby={attemptsTableTitleId}
-        className="space-y-4"
-      >
+      <section aria-labelledby={attemptsTableTitleId} className="space-y-4">
         <h2
           id={attemptsTableTitleId}
           className="text-2xl font-semibold tracking-tight"
@@ -193,98 +203,87 @@ export function SetAttemptsCard({
           All set attempts
         </h2>
         <div className={UCAT_TABLE_SHELL}>
-            <Table>
-              <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
-                <TableRow className={UCAT_TABLE_HEADER_ROW}>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Set</TableHead>
-                  <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points for this set.">
-                    Points
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section.">
-                    Scaled score
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00).">
-                    Time
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs its time limit. >100% means you finished early.">
-                    Set speed
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace.">
-                    Exam speed
-                  </TableHeaderWithTooltip>
-                  <TableHead className="text-right">Actions</TableHead>
+          <Table>
+            <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
+              <TableRow className={UCAT_TABLE_HEADER_ROW}>
+                <TableHead>Date</TableHead>
+                <TableHead>Set</TableHead>
+                <AttemptMetricColumnHeader
+                  options={metricOptions}
+                  value={graphDataType}
+                  onValueChange={setGraphDataType}
+                  label={metricColumn.label}
+                  tooltip={metricColumn.tooltip}
+                />
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {standaloneAttempts.length === 0 ? (
+                <TableRow className={UCAT_TABLE_BODY_ROW}>
+                  <TableCell colSpan={4} className="py-8 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <p className="text-muted-foreground">
+                        No submitted set attempts yet
+                      </p>
+                      {dateRange !== "all" ? (
+                        <ProgressClearFilterButton
+                          onClick={() => handleDateRangeChange("all")}
+                        />
+                      ) : null}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {standaloneAttempts.length === 0 ? (
-                  <TableRow className={UCAT_TABLE_BODY_ROW}>
-                    <TableCell
-                      colSpan={8}
-                      className="text-center text-muted-foreground"
-                    >
-                      No submitted set attempts yet
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedAttempts.map((a) => {
-                    const dateStr = a.completedAt
-                      ? format(new Date(a.completedAt), "dd MMM yyyy")
-                      : format(new Date(a.attemptedAt), "dd MMM yyyy");
-                    const total = a.totalPoints ?? 0;
-                    const points = a.scorePoints ?? 0;
-                    const timeLimit = a.setTimeLimitSeconds ?? 0;
-                    const timeTaken = a.timeTakenSeconds ?? 0;
-                    const setSpeed =
-                      a.studentSetSpeed != null
-                        ? `${(a.studentSetSpeed * 100).toFixed(1)}%`
-                        : "—";
-                    const examSpeed =
-                      a.studentExamSpeed != null
-                        ? `${(a.studentExamSpeed * 100).toFixed(1)}%`
-                        : "—";
+              ) : (
+                paginatedAttempts.map((a) => {
+                  const dateStr = a.completedAt
+                    ? format(new Date(a.completedAt), "dd MMM yyyy")
+                    : format(new Date(a.attemptedAt), "dd MMM yyyy");
 
-                    return (
-                      <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
-                        <TableCell>{dateStr}</TableCell>
-                        <TableCell>{a.questionSetName ?? "—"}</TableCell>
-                        <TableCell>
-                          {total > 0 ? `${points} / ${total}` : "—"}
-                        </TableCell>
-                        <TableCell>{a.scaledScore ?? "—"}</TableCell>
-                        <TableCell>
-                          {timeLimit > 0 && timeTaken != null
-                            ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell>{setSpeed}</TableCell>
-                        <TableCell>{examSpeed}</TableCell>
-                        <TableCell className="text-right">
-                          <UcatTableRowActionLink
-                            href={setAttemptHref(a.id)}
-                            label="View attempt"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        {standaloneAttempts.length > 0 ? (
-          <ProgressTablePagination
-            page={page}
-            pageSize={pageSize}
-            total={standaloneAttempts.length}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        ) : null}
+                  return (
+                    <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
+                      <TableCell>{dateStr}</TableCell>
+                      <TableCell className="font-medium">
+                        {a.questionSetName ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        {formatAttemptTableMetricValue(
+                          tableMetric,
+                          {
+                            scaledScore: a.scaledScore,
+                            scorePoints: a.scorePoints,
+                            totalPoints: a.totalPoints,
+                            timeTakenSeconds: a.timeTakenSeconds,
+                            setTimeLimitSeconds: a.setTimeLimitSeconds,
+                            studentExamSpeed: a.studentExamSpeed,
+                          },
+                          "set",
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <UcatTableRowActionLink
+                          href={setAttemptHref(a.id)}
+                          label="View attempt"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <ProgressTablePagination
+          total={standaloneAttempts.length}
+          page={page}
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
       </section>
     </>
   );

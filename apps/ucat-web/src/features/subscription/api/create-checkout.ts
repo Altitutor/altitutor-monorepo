@@ -2,11 +2,16 @@ import type { UcatCheckoutRequest } from "@/lib/ucat/subscription-plan";
 
 /**
  * Creates a Stripe Checkout Session for UCAT subscription.
- * Returns the redirect URL to Stripe hosted checkout.
+ * Returns the client secret for Stripe's custom Checkout UI.
  */
 export async function createUcatCheckoutSession(
   selection: UcatCheckoutRequest,
-): Promise<{ url: string }> {
+): Promise<{
+  clientSecret: string;
+  checkoutSessionId: string;
+  trialEligible: boolean;
+  trialDays: number;
+}> {
   const res = await fetch("/api/ucat/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,10 +24,20 @@ export async function createUcatCheckoutSession(
     throw new Error(message);
   }
 
-  const data = (await res.json()) as { url?: string };
-  if (!data.url) {
-    throw new Error("No checkout URL returned");
+  const data = (await res.json()) as {
+    clientSecret?: string;
+    checkoutSessionId?: string;
+    trialEligible?: boolean;
+    trialDays?: number;
+  };
+  if (!data.clientSecret || !data.checkoutSessionId) {
+    throw new Error("Checkout could not be initialized");
   }
 
-  return { url: data.url };
+  return {
+    clientSecret: data.clientSecret,
+    checkoutSessionId: data.checkoutSessionId,
+    trialEligible: data.trialEligible === true,
+    trialDays: data.trialDays ?? 0,
+  };
 }

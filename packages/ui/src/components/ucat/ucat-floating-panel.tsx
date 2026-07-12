@@ -9,6 +9,7 @@ export function UcatFloatingPanel({
   children,
   className,
   contentClassName,
+  closeButtonProps,
 }: {
   title: string
   titleIcon?: ReactNode
@@ -18,6 +19,7 @@ export function UcatFloatingPanel({
   className?: string
   /** Applied to the content wrapper so it can participate in flex layout (e.g. flex-1 min-h-0). */
   contentClassName?: string
+  closeButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>
 }) {
   return (
     <section
@@ -35,6 +37,7 @@ export function UcatFloatingPanel({
         {onClose ? (
           <button
             type="button"
+            {...closeButtonProps}
             onClick={onClose}
             className="inline-flex items-center justify-center rounded-sm border border-white px-1 py-0 text-white/90 hover:border-[#fffd6f] hover:text-[#fffd6f]"
             aria-label="Close panel"

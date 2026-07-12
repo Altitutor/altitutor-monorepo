@@ -1,10 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@altitutor/shared";
-import {
-  isSetGeneratorEnabled,
-  isSetGeneratorPath,
-} from "@/lib/feature-flags";
+import { isSetGeneratorEnabled, isSetGeneratorPath } from "@/lib/feature-flags";
 
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
@@ -84,6 +81,15 @@ export async function middleware(request: NextRequest) {
     const signupUrl = new URL("/signup", origin);
     signupUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(signupUrl);
+  }
+
+  if (!user && pathname === "/checkout") {
+    const loginUrl = new URL("/login", origin);
+    loginUrl.searchParams.set(
+      "redirect",
+      `${pathname}${request.nextUrl.search}`,
+    );
+    return NextResponse.redirect(loginUrl);
   }
 
   if (!user && !isPublicPath) {

@@ -153,34 +153,12 @@ function renderSetShape(shape: Record<string, unknown>, index: number): string {
   if (type === 'circle') {
     return `<circle cx="${Number(shape.cx ?? 180 + index * 90)}" cy="${Number(shape.cy ?? 190)}" r="${Number(shape.r ?? 95)}" ${common}/>`
   }
-  if (type === 'rect') {
+  if (type === 'rect' && finiteNumber(shape.rotation, 0) === 0) {
     return `<rect x="${Number(shape.x ?? 120 + index * 70)}" y="${Number(shape.y ?? 115)}" width="${Number(shape.width ?? 170)}" height="${Number(shape.height ?? 160)}" ${common}/>`
   }
-  if (type === 'triangle') {
-    const x = Number(shape.x ?? 160 + index * 80)
-    const y = Number(shape.y ?? 80)
-    const w = Number(shape.width ?? 210)
-    const h = Number(shape.height ?? 220)
-    return `<polygon points="${x + w / 2},${y} ${x},${y + h} ${x + w},${y + h}" ${common}/>`
-  }
-  if (type === 'diamond') {
-    const cx = Number(shape.cx ?? 260 + index * 60)
-    const cy = Number(shape.cy ?? 190)
-    const w = Number(shape.width ?? 170)
-    const h = Number(shape.height ?? 170)
-    return `<polygon points="${cx},${cy - h / 2} ${cx + w / 2},${cy} ${cx},${cy + h / 2} ${cx - w / 2},${cy}" ${common}/>`
-  }
-  if (type === 'pentagon' || type === 'hexagon') {
-    const cx = Number(shape.cx ?? 250 + index * 70)
-    const cy = Number(shape.cy ?? 190)
-    const radius = Number(shape.r ?? shape.radius ?? 95)
-    const sides = type === 'pentagon' ? 5 : 6
-    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
-    const points = Array.from({ length: sides }, (_, pointIndex) => {
-      const angle = rotation + (pointIndex / sides) * Math.PI * 2
-      return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`
-    }).join(' ')
-    return `<polygon points="${points}" ${common}/>`
+  if (type !== 'ellipse') {
+    const points = polygonPoints(shape, index).map((point) => `${point.x},${point.y}`).join(' ')
+    if (points) return `<polygon points="${points}" ${common}/>`
   }
   return `<ellipse cx="${Number(shape.cx ?? 210 + index * 95)}" cy="${Number(shape.cy ?? 190)}" rx="${Number(shape.rx ?? 120)}" ry="${Number(shape.ry ?? 82)}" ${common}/>`
 }
@@ -194,9 +172,45 @@ function finiteNumber(value: unknown, fallback: number): number {
   return Number.isFinite(number) ? number : fallback
 }
 
+function canonicalSetShapeGeometry(shape: Record<string, unknown>): Record<string, unknown> {
+  const type = setShapeType(shape)
+  const hasBox = [shape.x, shape.y, shape.width, shape.height].every((value) => Number.isFinite(Number(value)))
+  if (!hasBox || (type !== 'ellipse' && type !== 'circle')) return shape
+
+  const x = finiteNumber(shape.x, 0)
+  const y = finiteNumber(shape.y, 0)
+  const width = finiteNumber(shape.width, 0)
+  const height = finiteNumber(shape.height, 0)
+  if (width <= 0 || height <= 0) return shape
+
+  if (type === 'ellipse') {
+    return {
+      ...shape,
+      cx: shape.cx ?? x + width / 2,
+      cy: shape.cy ?? y + height / 2,
+      rx: shape.rx ?? width / 2,
+      ry: shape.ry ?? height / 2,
+    }
+  }
+
+  return {
+    ...shape,
+    cx: shape.cx ?? x + width / 2,
+    cy: shape.cy ?? y + height / 2,
+    r: shape.r ?? Math.min(width, height) / 2,
+  }
+}
+
 function setShapeType(shape: Record<string, unknown>): string {
-  const type = String(shape.shape ?? shape.type ?? 'ellipse')
-  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(type)
+  const rawType = String(shape.shape ?? shape.type ?? 'ellipse')
+  const type = rawType === 'rectangle' || rawType === 'rounded_rectangle'
+    ? 'rect'
+    : rawType === 'oval'
+      ? 'ellipse'
+      : rawType === 'plus' || rawType === 'cruciform'
+        ? 'cross'
+        : rawType
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'].includes(type)
     ? type
     : 'ellipse'
 }
@@ -205,55 +219,108 @@ function setShapeId(shape: Record<string, unknown>, index: number): string {
   return String(shape.id ?? shape.label ?? `set${index + 1}`).trim()
 }
 
+function rotatePolygonPoints(points: SvgPoint[], degrees: number): SvgPoint[] {
+  if (points.length === 0 || !Number.isFinite(degrees) || degrees === 0) return points
+  const bounds = boundsFromPoints(points)
+  if (!bounds) return points
+  const center = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+  const radians = degrees * Math.PI / 180
+  return points.map((point) => {
+    const dx = point.x - center.x
+    const dy = point.y - center.y
+    return {
+      x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians),
+      y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians),
+    }
+  })
+}
+
+function explicitPolygonPoints(value: unknown): SvgPoint[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((raw) => {
+    if (Array.isArray(raw) && raw.length >= 2) {
+      const x = Number(raw[0])
+      const y = Number(raw[1])
+      return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y }] : []
+    }
+    if (raw && typeof raw === 'object') {
+      const point = raw as Record<string, unknown>
+      const x = Number(point.x)
+      const y = Number(point.y)
+      return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y }] : []
+    }
+    return []
+  })
+}
+
 function polygonPoints(shape: Record<string, unknown>, index: number): SvgPoint[] {
   const type = setShapeType(shape)
-  if (type === 'triangle') {
+  let points = explicitPolygonPoints(shape.points)
+  if (points.length === 0 && type === 'triangle') {
     const x = finiteNumber(shape.x, 160 + index * 80)
     const y = finiteNumber(shape.y, 80)
     const width = finiteNumber(shape.width, 210)
     const height = finiteNumber(shape.height, 220)
-    return [
+    points = [
       { x: x + width / 2, y },
       { x, y: y + height },
       { x: x + width, y: y + height },
     ]
   }
-  if (type === 'rect') {
+  if (points.length === 0 && type === 'rect') {
     const x = finiteNumber(shape.x, 120 + index * 70)
     const y = finiteNumber(shape.y, 115)
     const width = finiteNumber(shape.width, 170)
     const height = finiteNumber(shape.height, 160)
-    return [
+    points = [
       { x, y },
       { x: x + width, y },
       { x: x + width, y: y + height },
       { x, y: y + height },
     ]
   }
-  if (type === 'diamond') {
+  if (points.length === 0 && type === 'diamond') {
     const cx = finiteNumber(shape.cx, 260 + index * 60)
     const cy = finiteNumber(shape.cy, 190)
     const width = finiteNumber(shape.width, 170)
     const height = finiteNumber(shape.height, 170)
-    return [
+    points = [
       { x: cx, y: cy - height / 2 },
       { x: cx + width / 2, y: cy },
       { x: cx, y: cy + height / 2 },
       { x: cx - width / 2, y: cy },
     ]
   }
-  if (type === 'pentagon' || type === 'hexagon') {
+  if (points.length === 0 && (type === 'pentagon' || type === 'hexagon')) {
     const cx = finiteNumber(shape.cx, 250 + index * 70)
     const cy = finiteNumber(shape.cy, 190)
     const radius = finiteNumber(shape.r ?? shape.radius, 95)
     const sides = type === 'pentagon' ? 5 : 6
-    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
-    return Array.from({ length: sides }, (_, pointIndex) => {
-      const angle = rotation + (pointIndex / sides) * Math.PI * 2
+    const baseRotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
+    points = Array.from({ length: sides }, (_, pointIndex) => {
+      const angle = baseRotation + (pointIndex / sides) * Math.PI * 2
       return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius }
     })
   }
-  return []
+  if (points.length === 0 && type === 'cross') {
+    const x = finiteNumber(shape.x, 140 + index * 55)
+    const y = finiteNumber(shape.y, 90 + index * 25)
+    const width = finiteNumber(shape.width, 220)
+    const height = finiteNumber(shape.height, 220)
+    const armWidth = Math.min(width, Math.max(20, finiteNumber(shape.armWidth, width * 0.36)))
+    const armHeight = Math.min(height, Math.max(20, finiteNumber(shape.armHeight, height * 0.36)))
+    const leftArm = x + (width - armWidth) / 2
+    const rightArm = leftArm + armWidth
+    const topArm = y + (height - armHeight) / 2
+    const bottomArm = topArm + armHeight
+    points = [
+      { x: leftArm, y }, { x: rightArm, y }, { x: rightArm, y: topArm },
+      { x: x + width, y: topArm }, { x: x + width, y: bottomArm }, { x: rightArm, y: bottomArm },
+      { x: rightArm, y: y + height }, { x: leftArm, y: y + height }, { x: leftArm, y: bottomArm },
+      { x, y: bottomArm }, { x, y: topArm }, { x: leftArm, y: topArm },
+    ]
+  }
+  return rotatePolygonPoints(points, finiteNumber(shape.rotation, 0))
 }
 
 function boundsFromPoints(points: SvgPoint[]): SvgBounds | null {
@@ -300,50 +367,6 @@ function setShapeBounds(shape: Record<string, unknown>, index: number): SvgBound
   return boundsFromPoints(polygonPoints(shape, index))
 }
 
-function normalizeShapeMinimumSize(shape: Record<string, unknown>, index: number): Record<string, unknown> {
-  const type = setShapeType(shape)
-  const bounds = setShapeBounds(shape, index)
-  if (!bounds) return shape
-  const width = bounds.maxX - bounds.minX
-  const height = bounds.maxY - bounds.minY
-  const minWidth = type === 'circle' || type === 'ellipse' ? 140 : 165
-  const minHeight = type === 'circle' || type === 'ellipse' ? 110 : 145
-
-  if (type === 'circle') {
-    const current = finiteNumber(shape.r, 95)
-    return { ...shape, r: Math.max(current, Math.max(minWidth, minHeight) / 2) }
-  }
-  if (type === 'ellipse') {
-    return {
-      ...shape,
-      rx: Math.max(finiteNumber(shape.rx, 120), minWidth / 2),
-      ry: Math.max(finiteNumber(shape.ry, 82), minHeight / 2),
-    }
-  }
-  if (type === 'rect' || type === 'triangle') {
-    const nextWidth = Math.max(finiteNumber(shape.width, type === 'rect' ? 170 : 210), minWidth)
-    const nextHeight = Math.max(finiteNumber(shape.height, type === 'rect' ? 160 : 220), minHeight)
-    return {
-      ...shape,
-      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : 160 + index * 80) - (nextWidth - width) / 2,
-      y: finiteNumber(shape.y, type === 'rect' ? 115 : 80) - (nextHeight - height) / 2,
-      width: nextWidth,
-      height: nextHeight,
-    }
-  }
-  if (type === 'diamond') {
-    return {
-      ...shape,
-      width: Math.max(finiteNumber(shape.width, 170), minWidth),
-      height: Math.max(finiteNumber(shape.height, 170), minHeight),
-    }
-  }
-  return {
-    ...shape,
-    r: Math.max(finiteNumber(shape.r ?? shape.radius, 95), Math.max(minWidth, minHeight) / 2),
-  }
-}
-
 function transformNumericRecordCoordinates(record: Record<string, unknown>, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
   const next = { ...record }
   if (Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))) {
@@ -357,6 +380,7 @@ function transformNumericRecordCoordinates(record: Record<string, unknown>, tran
 function transformSetShape(shape: Record<string, unknown>, index: number, scale: number, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
   const next = { ...shape }
   const type = setShapeType(shape)
+  const suppliedPoints = explicitPolygonPoints(shape.points)
   if (type === 'circle' || type === 'ellipse' || type === 'diamond' || type === 'pentagon' || type === 'hexagon') {
     const defaultCenter = type === 'ellipse'
       ? { x: 210 + index * 95, y: 190 }
@@ -370,13 +394,16 @@ function transformSetShape(shape: Record<string, unknown>, index: number, scale:
     next.cx = point.x
     next.cy = point.y
   }
-  if (type === 'rect' || type === 'triangle') {
+  if (type === 'rect' || type === 'triangle' || type === 'cross') {
     const point = transform({
-      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : 160 + index * 80),
-      y: finiteNumber(shape.y, type === 'rect' ? 115 : 80),
+      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : type === 'cross' ? 140 + index * 55 : 160 + index * 80),
+      y: finiteNumber(shape.y, type === 'rect' ? 115 : type === 'cross' ? 90 + index * 25 : 80),
     })
     next.x = point.x
     next.y = point.y
+  }
+  if (suppliedPoints.length >= 3) {
+    next.points = suppliedPoints.map((point) => transform(point))
   }
   if (Number.isFinite(Number(shape.labelX)) && Number.isFinite(Number(shape.labelY))) {
     const point = transform({ x: finiteNumber(shape.labelX, 320), y: finiteNumber(shape.labelY, 80) })
@@ -388,12 +415,16 @@ function transformSetShape(shape: Record<string, unknown>, index: number, scale:
     next.rx = finiteNumber(shape.rx, 120) * scale
     next.ry = finiteNumber(shape.ry, 82) * scale
   }
-  if (type === 'rect' || type === 'triangle' || type === 'diamond') {
-    next.width = finiteNumber(shape.width, type === 'triangle' ? 210 : 170) * scale
-    next.height = finiteNumber(shape.height, type === 'triangle' ? 220 : type === 'rect' ? 160 : 170) * scale
+  if (type === 'rect' || type === 'triangle' || type === 'diamond' || type === 'cross') {
+    next.width = finiteNumber(shape.width, type === 'triangle' || type === 'cross' ? 220 : 170) * scale
+    next.height = finiteNumber(shape.height, type === 'triangle' || type === 'cross' ? 220 : type === 'rect' ? 160 : 170) * scale
+    if (type === 'cross') {
+      if (shape.armWidth != null) next.armWidth = finiteNumber(shape.armWidth, 80) * scale
+      if (shape.armHeight != null) next.armHeight = finiteNumber(shape.armHeight, 80) * scale
+    }
   }
   if (type === 'pentagon' || type === 'hexagon') next.r = finiteNumber(shape.r ?? shape.radius, 95) * scale
-  return normalizeShapeMinimumSize(next, index)
+  return next
 }
 
 function normalizeSetDiagramGeometry(
@@ -759,6 +790,10 @@ function shapeCenter(shape: Record<string, unknown>, index: number): SvgPoint {
       y: finiteNumber(shape.y, 80) + finiteNumber(shape.height, 220) * 0.62,
     }
   }
+  if (type === 'cross' || type === 'polygon') {
+    const bounds = boundsFromPoints(polygonPoints(shape, index))
+    if (bounds) return { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+  }
   return {
     x: finiteNumber(shape.cx, 250 + index * 70),
     y: finiteNumber(shape.cy, 190),
@@ -832,6 +867,10 @@ function defaultShapeLabelOrigin(shape: Record<string, unknown>, index: number):
     const height = finiteNumber(shape.height, 170)
     return { x: cx, y: cy - height / 2 - 12 }
   }
+  if (type === 'cross' || type === 'polygon') {
+    const bounds = boundsFromPoints(polygonPoints(shape, index))
+    if (bounds) return { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY - 12 }
+  }
   const cx = finiteNumber(shape.cx, 250 + index * 70)
   const cy = finiteNumber(shape.cy, 190)
   const radius = finiteNumber(shape.r ?? shape.radius, 95)
@@ -865,6 +904,8 @@ function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: nu
   if (type === 'rect') return `<rect x="${x + 3}" y="${y - 16}" width="24" height="20" ${common}/>`
   if (type === 'triangle') return `<polygon points="${x + 15},${y - 18} ${x + 2},${y + 5} ${x + 28},${y + 5}" ${common}/>`
   if (type === 'diamond') return `<polygon points="${x + 15},${y - 19} ${x + 30},${y - 5} ${x + 15},${y + 9} ${x},${y - 5}" ${common}/>`
+  if (type === 'cross') return `<path d="M${x + 10} ${y - 18}h10v8h8v10h-8v8h-10v-8h-8v-10h8z" ${common}/>`
+  if (type === 'polygon') return `<polygon points="${x + 3},${y + 4} ${x + 7},${y - 16} ${x + 25},${y - 19} ${x + 30},${y - 2} ${x + 18},${y + 9}" ${common}/>`
   const sides = type === 'pentagon' ? 5 : 6
   const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
   const points = Array.from({ length: sides }, (_, pointIndex) => {
@@ -886,14 +927,15 @@ function legendShapeType(value: string): string | null {
   const normalized = value.trim().toLowerCase()
   if (normalized === 'rectangle') return 'rect'
   if (normalized === 'oval') return 'ellipse'
-  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(normalized)
+  if (normalized === 'plus' || normalized === 'cruciform') return 'cross'
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'].includes(normalized)
     ? normalized
     : null
 }
 
 function parseRegionLegendText(value: unknown): { shape: string; label: string } | null {
   const text = String(value ?? '').trim()
-  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon)\s*=\s*(.+)$/iu)
+  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon|cross|plus|cruciform|polygon)\s*=\s*(.+)$/iu)
   if (!match?.[1] || !match[2]) return null
   const shape = legendShapeType(match[1])
   const label = match[2].trim()
@@ -909,7 +951,7 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
   values: unknown[]
 } {
   const normalizedShapes = shapes
-    .map((raw) => raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : null)
+    .map((raw) => raw && typeof raw === 'object' ? canonicalSetShapeGeometry({ ...(raw as Record<string, unknown>) }) : null)
     .filter((shape): shape is Record<string, unknown> => Boolean(shape))
   const numericValues: unknown[] = []
   const legendEntries: Array<{ shape: string; label: string }> = []
@@ -987,7 +1029,8 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
           }
         )
     placedLabels.push(box)
-    const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
+    const numericHalo = /\d/u.test(text) ? ' paint-order="stroke" stroke="white" stroke-width="4" stroke-linejoin="round"' : ''
+    const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}"${numericHalo}>${escapeXml(text)}</text>`
     return label
   }).join('')
   const height = 430

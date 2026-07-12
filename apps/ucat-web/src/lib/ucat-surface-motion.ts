@@ -66,6 +66,17 @@ export const UCAT_CARD_CHROME = cn(
 );
 
 /**
+ * Card header row with title + actions.
+ * Keeps default CardHeader padding (including bottom) so content is not cramped.
+ */
+export const UCAT_CARD_HEADER_ROW =
+  "flex flex-row items-center justify-between gap-3 space-y-0";
+
+/** Extra top spacing on CardContent when the header needs more air above charts. */
+export const UCAT_CARD_CONTENT_AFTER_HEADER = "pt-3";
+
+
+/**
  * Table wrapper — matches tutor-web dashboard tables (`tutorTableShell`):
  * card surface, soft shadow, subtle ring (not a nested "tray" border).
  */

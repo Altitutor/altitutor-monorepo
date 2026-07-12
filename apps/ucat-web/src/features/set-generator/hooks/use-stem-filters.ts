@@ -12,6 +12,10 @@ import type {
   SetGeneratorInput,
   TimeMode,
 } from "@/features/set-generator/model/types";
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from "@/features/question-engine/model/rich-text";
 
 const DEFAULT_QUESTION_COUNT = 20;
 
@@ -26,30 +30,42 @@ export type CategoryRow = {
   id: string;
   name: string;
   ucat_section_id: string;
+  description: string | null;
 };
 
-async function fetchSection(sectionNumber: number): Promise<SectionRow | null> {
+function categoryDescriptionToText(description: unknown): string | null {
+  if (description == null) return null;
+  if (typeof description === "string") {
+    const trimmed = description.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  const extracted = extractTextFromRichJson(description as JsonLike).trim();
+  return extracted.length > 0 ? extracted : null;
+}
+
+async function fetchSections(): Promise<SectionRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_sections")
     .select("id,section_number,time_per_question,number_of_questions")
-    .eq("section_number", sectionNumber)
-    .maybeSingle();
+    .order("section_number");
   if (error) throw new Error(error.message);
-  return (data ?? null) as SectionRow | null;
+  return (data ?? []) as SectionRow[];
 }
 
-async function fetchCategoriesBySection(
-  sectionId: string,
-): Promise<CategoryRow[]> {
+async function fetchCategories(): Promise<CategoryRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_question_stem_categories")
-    .select("id,name,ucat_section_id")
-    .eq("ucat_section_id", sectionId)
+    .select("id,name,ucat_section_id,description")
     .order("name");
   if (error) throw new Error(error.message);
-  return (data ?? []) as CategoryRow[];
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    ucat_section_id: row.ucat_section_id as string,
+    description: categoryDescriptionToText(row.description),
+  }));
 }
 
 function estimateExamTimeSeconds(
@@ -101,20 +117,35 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
   );
   const [questionCountMode, setQuestionCountMode] = useState<
     "set" | "unlimited"
-  >("set");
+  >(showUnlimitedOption ? "unlimited" : "set");
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section];
 
-  const { data: selectedSection = null } = useQuery({
-    queryKey: ["ucat", "sections", sectionNumber],
-    queryFn: () => fetchSection(sectionNumber),
-    enabled: Number.isFinite(sectionNumber),
+  const { data: sections = [] } = useQuery({
+    queryKey: ["ucat", "sections", "all"],
+    queryFn: fetchSections,
   });
 
-  const { data: sectionCategories = [] } = useQuery({
-    queryKey: ["ucat", "categories", selectedSection?.id],
-    queryFn: () => fetchCategoriesBySection(selectedSection!.id),
-    enabled: Boolean(selectedSection?.id),
+  const { data: categories = [] } = useQuery({
+    queryKey: ["ucat", "categories", "all"],
+    queryFn: fetchCategories,
   });
+
+  const selectedSection = useMemo(
+    () =>
+      sections.find((section) => section.section_number === sectionNumber) ??
+      null,
+    [sectionNumber, sections],
+  );
+
+  const sectionCategories = useMemo(
+    () =>
+      selectedSection
+        ? categories.filter(
+            (category) => category.ucat_section_id === selectedSection.id,
+          )
+        : [],
+    [categories, selectedSection],
+  );
 
   const { data: matchingCount } = useQuery({
     queryKey: ["ucat", "stem-filters-preview", input],
@@ -242,7 +273,7 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
           timeMode: mode,
           timeSpeedMultiplier:
             mode === "speed"
-              ? Math.min(1, Math.max(0.1, current.timeSpeedMultiplier ?? 1))
+              ? Math.min(2, Math.max(0.25, current.timeSpeedMultiplier ?? 1))
               : (current.timeSpeedMultiplier ?? 1),
           customTimeMinutes:
             mode === "custom"
@@ -257,7 +288,7 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
   const handleTimeSpeedChange = useCallback((value: number) => {
     setInput((current) => ({
       ...current,
-      timeSpeedMultiplier: Math.min(1, Math.max(0.1, value)),
+      timeSpeedMultiplier: Math.min(2, Math.max(0.25, value)),
     }));
   }, []);
 
@@ -306,7 +337,7 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
             : "—"
           : input.timeMode === "speed"
             ? speedTimeMinutes != null
-              ? `${speedTimeMinutes} min (${(1 / input.timeSpeedMultiplier).toFixed(1)}×)`
+              ? `${speedTimeMinutes} min (${Math.round(input.timeSpeedMultiplier * 100)}% exam speed)`
               : "—"
             : input.customTimeMinutes != null
               ? `${input.customTimeMinutes} min (custom)`

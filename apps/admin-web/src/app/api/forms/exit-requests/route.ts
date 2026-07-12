@@ -9,19 +9,23 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('base64url');
 }
 
+function isWorkflowKey(value: unknown): value is WorkflowKey {
+  return typeof value === 'string' && (WORKFLOW_KEYS as readonly string[]).includes(value);
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const studentId = new URL(request.url).searchParams.get('studentId');
   if (!studentId) return NextResponse.json({ error: 'studentId is required' }, { status: 400 });
-  const admin = auth.admin as any;
+  const admin = auth.admin;
   const { data: enrolments, error } = await admin
     .from('classes_students')
     .select('id, class_id, classes(id, short_name, long_name)')
     .eq('student_id', studentId)
-    .is('unenrolled_at', null);
+    .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const classIds = (enrolments ?? []).map((row: any) => row.class_id);
+  const classIds = (enrolments ?? []).map((row) => row.class_id);
   const { data: sessions } = classIds.length
     ? await admin.from('sessions').select('id, class_id, start_at, short_name, long_name').in('class_id', classIds).gte('start_at', new Date().toISOString()).order('start_at')
     : { data: [] };
@@ -36,14 +40,14 @@ export async function POST(request: Request) {
     workflowKey?: WorkflowKey;
     enrolments?: Array<{ classesStudentsId?: string; finalSessionAt?: string; unenrolledAt?: string }>;
   };
-  if (!body?.studentId || !WORKFLOW_KEYS.includes(body.workflowKey as WorkflowKey) || !body.enrolments?.length) {
+  if (!body?.studentId || !isWorkflowKey(body.workflowKey) || !body.enrolments?.length) {
     return NextResponse.json({ error: 'Student, workflow and final session dates are required.' }, { status: 400 });
   }
   if (body.enrolments.some((row) => !row.classesStudentsId || !row.finalSessionAt || !row.unenrolledAt)) {
     return NextResponse.json({ error: 'Each class needs a final session date.' }, { status: 400 });
   }
 
-  const admin = auth.admin as any;
+  const admin = auth.admin;
   const { data: form } = await admin
     .from('forms')
     .select('id, latest_published_version_id, workflow_request_expiry_days')
@@ -99,9 +103,9 @@ export async function POST(request: Request) {
   const { error: enrolmentError } = await admin.from('student_exit_request_enrolments').insert(
     body.enrolments.map((row) => ({
       student_exit_request_id: exitRequest.id,
-      classes_students_id: row.classesStudentsId,
-      final_session_at: row.finalSessionAt,
-      unenrolled_at: row.unenrolledAt,
+      classes_students_id: row.classesStudentsId!,
+      final_session_at: row.finalSessionAt!,
+      unenrolled_at: row.unenrolledAt!,
     })),
   );
   if (enrolmentError) return NextResponse.json({ error: enrolmentError.message }, { status: 500 });

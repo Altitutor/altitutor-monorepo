@@ -53,13 +53,13 @@ export function LoginForm({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm",
         typo.secondarySans,
       )}
     >
       {accountExists ? (
         <p
-          className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"
+          className="auth-feedback-entrance rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"
           role="status"
         >
           An account with this email already exists. Sign in below.
@@ -67,14 +67,18 @@ export function LoginForm({
       ) : null}
       {resetSuccess ? (
         <p
-          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="auth-feedback-entrance rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
           role="status"
         >
-          Your password has been reset. You can now sign in with your new password.
+          Your password has been reset. You can now sign in with your new
+          password.
         </p>
       ) : null}
       <div className="space-y-1.5">
-        <Label htmlFor="email" className="text-sm font-medium text-foreground/90">
+        <Label
+          htmlFor="email"
+          className="text-sm font-medium text-foreground/90"
+        >
           Email address
         </Label>
         <Input
@@ -91,7 +95,10 @@ export function LoginForm({
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
+          <Label
+            htmlFor="password"
+            className="text-sm font-medium text-foreground/90"
+          >
             Password
           </Label>
           <Link
@@ -113,7 +120,10 @@ export function LoginForm({
         />
       </div>
       {error ? (
-        <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+        <p
+          className="auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -121,7 +131,7 @@ export function LoginForm({
         type="submit"
         disabled={isSubmitting}
         className={cn(
-          "h-auto w-full rounded-full py-3.5 text-base font-semibold",
+          "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
           typo.headingSans,
         )}
         size="lg"

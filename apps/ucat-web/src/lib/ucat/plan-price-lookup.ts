@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 import type { Database } from "@altitutor/shared";
 import {
   isUcatBillingInterval,
@@ -14,6 +15,7 @@ export type UcatPlanPriceRow = {
   billing_interval: UcatBillingInterval;
   base_price_cents: number;
   stripe_price_id: string | null;
+  checkout_enabled: boolean;
 };
 
 export async function getUcatPlanPrice(
@@ -23,7 +25,9 @@ export async function getUcatPlanPrice(
 ): Promise<UcatPlanPriceRow | null> {
   const { data, error } = await supabase
     .from("ucat_plan_prices")
-    .select("plan_tier, billing_interval, base_price_cents, stripe_price_id")
+    .select(
+      "plan_tier, billing_interval, base_price_cents, stripe_price_id, checkout_enabled",
+    )
     .eq("plan_tier", tier)
     .eq("billing_interval", interval)
     .maybeSingle();
@@ -41,7 +45,25 @@ export async function getUcatPlanPrice(
     billing_interval: data.billing_interval,
     base_price_cents: data.base_price_cents,
     stripe_price_id: data.stripe_price_id,
+    checkout_enabled: data.checkout_enabled ?? true,
   };
+}
+
+export async function stripePriceMatchesUcatPlan(
+  stripe: Stripe,
+  planPrice: UcatPlanPriceRow,
+): Promise<boolean> {
+  const priceId = planPrice.stripe_price_id?.trim();
+  if (!priceId) return false;
+
+  const price = await stripe.prices.retrieve(priceId);
+  return (
+    price.active &&
+    price.currency.toLowerCase() === "aud" &&
+    price.unit_amount === planPrice.base_price_cents &&
+    price.recurring?.interval === planPrice.billing_interval &&
+    (price.recurring.interval_count ?? 1) === 1
+  );
 }
 
 export async function resolveUcatPlanFromStripePriceId(

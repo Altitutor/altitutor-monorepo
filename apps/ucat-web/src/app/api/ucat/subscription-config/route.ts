@@ -5,10 +5,7 @@ import type {
   PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import { mapQuotaConfigRow } from "@/lib/ucat/quota/config";
-import {
-  isUcatBillingInterval,
-  isUcatPaidPlanTier,
-} from "@altitutor/shared";
+import { isUcatBillingInterval, isUcatPaidPlanTier } from "@altitutor/shared";
 
 /**
  * GET /api/ucat/subscription-config
@@ -33,7 +30,9 @@ export async function GET() {
       .maybeSingle(),
     supabaseAdmin
       .from("ucat_plan_prices")
-      .select("plan_tier, billing_interval, base_price_cents, stripe_price_id")
+      .select(
+        "plan_tier, billing_interval, base_price_cents, stripe_price_id, checkout_enabled",
+      )
       .order("plan_tier")
       .order("billing_interval"),
     supabaseAdmin
@@ -89,7 +88,8 @@ export async function GET() {
           tier: row.plan_tier,
           interval: row.billing_interval,
           basePriceCents: row.base_price_cents ?? 0,
-          available: Boolean(row.stripe_price_id?.trim()),
+          checkoutEnabled: row.checkout_enabled ?? true,
+          configured: Boolean(row.stripe_price_id?.trim()),
         },
       ];
     },

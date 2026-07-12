@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getUcatPlanPrice } from "@/lib/ucat/plan-price-lookup";
+import {
+  getUcatPlanPrice,
+  stripePriceMatchesUcatPlan,
+} from "@/lib/ucat/plan-price-lookup";
 import {
   getStudentIdForUser,
   getUcatSubscriptionForStudent,
@@ -109,6 +112,19 @@ export async function GET() {
   });
 
   try {
+    if (!(await stripePriceMatchesUcatPlan(stripe, proPrice))) {
+      console.error(
+        "[ucat upgrade-preview] Stripe price does not match configured plan amount",
+        { billingInterval },
+      );
+      return NextResponse.json(
+        {
+          error: "UCAT Pro pricing is being updated. Please try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
+
     const stripeSub = await stripe.subscriptions.retrieve(
       subscription.stripe_subscription_id,
       { expand: ["items.data"] },

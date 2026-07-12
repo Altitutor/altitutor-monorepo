@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@altitutor/ui";
 import { QuestionEnginePage } from "@/features/question-engine";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
@@ -34,8 +35,13 @@ export function PracticeStemPage({ stemId }: PracticeStemPageProps) {
 
   if (stem === "loading") {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+      <div
+        className="space-y-4 p-6"
+        aria-busy="true"
+        aria-label="Loading question stem"
+      >
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-[28rem] w-full rounded-xl" />
       </div>
     );
   }

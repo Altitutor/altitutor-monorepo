@@ -1,7 +1,11 @@
 import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
-import { validateFormDefinition } from '@altitutor/shared';
+import { validateFormDefinition, type FormBlock } from '@altitutor/shared';
+
+function asFormBlocks(value: unknown): FormBlock[] {
+  return Array.isArray(value) ? (value as FormBlock[]) : [];
+}
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
@@ -11,7 +15,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 
-  const admin = auth.admin as any;
+  const admin = auth.admin;
   const { data: form, error: formError } = await admin
     .from('forms')
     .select('*')
@@ -23,7 +27,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   }
 
   const errors = validateFormDefinition({
-    blocks: form.draft_blocks ?? [],
+    blocks: asFormBlocks(form.draft_blocks),
     thankYouMessage: form.draft_thank_you_message,
   });
   if (errors.length) {

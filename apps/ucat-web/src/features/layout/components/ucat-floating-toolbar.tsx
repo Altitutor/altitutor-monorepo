@@ -3,7 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bug, Home, LifeBuoy, Menu, Settings } from "lucide-react";
-import { FeedbackDialog, type FeedbackKind } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  FeedbackDialog,
+  type FeedbackKind,
+} from "@altitutor/ui";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
 import { cn } from "@/lib/utils";
 
@@ -11,18 +22,17 @@ export function UcatFloatingToolbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
   const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag();
 
-  const handleGoHome = () => {
-    const confirmLeave = window.confirm(
-      "Are you sure you want to leave this UCAT exam? Your current progress may be lost.",
-    );
-    if (!confirmLeave) {
-      return;
-    }
-
+  const handleGoHomeClick = () => {
     setMenuOpen(false);
+    setLeaveConfirmOpen(true);
+  };
+
+  const handleConfirmLeave = () => {
+    setLeaveConfirmOpen(false);
     router.push("/");
   };
 
@@ -50,11 +60,17 @@ export function UcatFloatingToolbar() {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-2 z-[60] flex justify-center">
+      <div
+        className={cn(
+          "pointer-events-none fixed inset-x-0 top-2 z-[60] flex justify-center",
+          leaveConfirmOpen && "invisible",
+        )}
+      >
         <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-1 text-sm shadow-md transition-shadow duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-lg">
           <div className="relative flex items-center gap-1">
             <button
               type="button"
+              data-tour="question-engine-menu"
               title="Open menu"
               aria-label="Open menu"
               onClick={handleMenuClick}
@@ -64,6 +80,7 @@ export function UcatFloatingToolbar() {
             </button>
             <button
               type="button"
+              data-tour="question-engine-settings"
               title="Open settings"
               aria-label="Open settings"
               onClick={handleSettingsClick}
@@ -81,7 +98,7 @@ export function UcatFloatingToolbar() {
               <button
                 type="button"
                 className="flex h-8 w-full items-center rounded-md px-2 text-left transition-colors duration-150 ease-out hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={handleGoHome}
+                onClick={handleGoHomeClick}
               >
                 <Home className="mr-2 h-4 w-4" />
                 Go home
@@ -132,6 +149,22 @@ export function UcatFloatingToolbar() {
           </div>
         </div>
       </div>
+      <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this UCAT exam?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your progress is saved, and you can resume later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmLeave}>
+              Go home
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {feedbackKind ? (
         <FeedbackDialog
           open

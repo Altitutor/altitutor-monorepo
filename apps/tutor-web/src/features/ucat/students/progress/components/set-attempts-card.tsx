@@ -144,7 +144,7 @@ export function SetAttemptsCard({
                     Points
                   </TableHeaderWithTooltip>
                   <TableHeaderWithTooltip
-                    tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section."
+                    tooltip="Scaled score (300–900) normalised to UCAT exam scale for this section."
                   >
                     Scaled score
                   </TableHeaderWithTooltip>

@@ -2,30 +2,36 @@
 
 import { useId, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
-import { useSetAttempts, useSets } from "@/features/sets";
+import { useSetAttempts, useSetQuestionCount, useSets } from "@/features/sets";
 import {
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
   UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
+  ucatClickableCardClassName,
 } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type SetDetailPageProps = {
   setId: string;
@@ -62,8 +68,14 @@ export function SetDetailPage({
   const { openQuotaLimit } = useQuotaLimitModal();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
+  const { data: questionCount } = useSetQuestionCount(setId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
 
   const set = useMemo(
@@ -90,6 +102,12 @@ export function SetDetailPage({
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
   const handleLaunchSet = () => {
+    if (questionEngineTourLoading) return;
+    const examHref = `/exam/sets?id=${encodeURIComponent(setId)}`;
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref(examHref));
+      return;
+    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "set" &&
       activeExamAttempt.resourceId === setId;
@@ -102,26 +120,11 @@ export function SetDetailPage({
       });
       return;
     }
-    router.push(`/exam/sets?id=${encodeURIComponent(setId)}`);
+    router.push(examHref);
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Set"
-          description="Practice question set details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Set",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">Loading set...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {
@@ -190,26 +193,13 @@ export function SetDetailPage({
 
   const description = extractTextFromRichJson(set.description as JsonLike);
 
-  const timeLabel =
-    set.time_limit_seconds != null
-      ? set.time_limit_seconds === 0
-        ? "Untimed"
-        : `${Math.round(set.time_limit_seconds / 60)} minute${set.time_limit_seconds / 60 === 1 ? "" : "s"}`
-      : null;
-
-  const createdAt =
-    set.created_at != null
-      ? new Date(set.created_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
-
-  const updatedAt =
-    set.updated_at != null
-      ? new Date(set.updated_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
+  const infoRows: Array<[string, string]> = [
+    ["Time limit", formatExamDurationSeconds(set.time_limit_seconds)],
+    [
+      "Questions",
+      questionCount != null ? String(questionCount) : "—",
+    ],
+  ];
 
   const setAttemptHref = (attemptId: string) =>
     sectionNumber != null
@@ -217,58 +207,50 @@ export function SetDetailPage({
       : `/progress/set-attempts/${attemptId}`;
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={title}
-        description={description ?? "Review this practice set before starting."}
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-          sessionEntryContext,
-          breadcrumbLeafSegmentIndex,
-          title,
-        )}
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={title}
+          description={description ?? "Review this practice set before starting."}
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            title,
+          )}
+        />
+      </motion.div>
 
-      <section
-        className={cn(
-          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+      <motion.section
+        variants={itemVariants}
+        className={ucatClickableCardClassName({
+          interactive: false,
+          className: "gap-0",
+        })}
       >
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="font-medium text-muted-foreground">Time limit</dt>
-            <dd>{timeLabel ?? "No time limit specified"}</dd>
+        {infoRows.map(([label, value]) => (
+          <div
+            key={label}
+            className="flex w-full items-center justify-between gap-6 py-3 first:pt-0 last:pb-0"
+          >
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="text-right text-sm font-medium">{value}</span>
           </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Type</dt>
-            <dd>
-              {set.is_student_generated
-                ? "Generated from your performance"
-                : "Standard UCAT practice set"}
-            </dd>
-          </div>
-          {createdAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">Created</dt>
-              <dd>{createdAt}</dd>
-            </div>
-          ) : null}
-          {updatedAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">
-                Last updated
-              </dt>
-              <dd>{updatedAt}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </section>
+        ))}
+      </motion.section>
 
       {attempts.length > 0 ? (
-        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
+        <motion.section
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
+          variants={itemVariants}
+        >
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -323,17 +305,17 @@ export function SetDetailPage({
               </table>
             </div>
           </div>
-        </section>
+        </motion.section>
       ) : null}
 
-      <div className="flex justify-end">
+      <motion.div className="flex justify-end" variants={itemVariants}>
         <Button
           className={UCAT_PRIMARY_ACTION_BUTTON}
           onClick={handleLaunchSet}
         >
           Launch set
         </Button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

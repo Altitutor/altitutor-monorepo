@@ -21,6 +21,20 @@ const MOCK_ANCHORS: PercentileAnchor[] = SECTION_ANCHORS.map((anchor) => ({
   percentile: anchor.percentile,
 }));
 
+export type UcatPercentileScope = "section" | "mock";
+
+export function getUcatScoreRange(scope: UcatPercentileScope) {
+  return scope === "mock"
+    ? {
+        min: MOCK_ANCHORS[0].score,
+        max: MOCK_ANCHORS[MOCK_ANCHORS.length - 1].score,
+      }
+    : {
+        min: SECTION_ANCHORS[0].score,
+        max: SECTION_ANCHORS[SECTION_ANCHORS.length - 1].score,
+      };
+}
+
 function interpolatePercentile(
   score: number,
   anchors: PercentileAnchor[],
@@ -34,7 +48,9 @@ function interpolatePercentile(
     const lower = anchors[i - 1];
     if (score <= upper.score) {
       const progress = (score - lower.score) / (upper.score - lower.score);
-      return lower.percentile + progress * (upper.percentile - lower.percentile);
+      return (
+        lower.percentile + progress * (upper.percentile - lower.percentile)
+      );
     }
   }
 
@@ -58,8 +74,19 @@ function ordinal(value: number): string {
 
 export function formatUcatPercentile(
   scaledScore: number | null | undefined,
-  scope: "section" | "mock",
+  scope: UcatPercentileScope,
 ): string | null {
+  const percentile = getUcatPercentile(scaledScore, scope);
+  if (percentile == null) return null;
+  return percentile < 20
+    ? "<20th percentile"
+    : `${ordinal(percentile)} percentile`;
+}
+
+export function getUcatPercentile(
+  scaledScore: number | null | undefined,
+  scope: UcatPercentileScope,
+): number | null {
   if (scaledScore == null || !Number.isFinite(scaledScore)) return null;
   const percentile = Math.min(
     99,
@@ -70,5 +97,5 @@ export function formatUcatPercentile(
       ),
     ),
   );
-  return percentile < 20 ? "<20th percentile" : `${ordinal(percentile)} percentile`;
+  return percentile;
 }

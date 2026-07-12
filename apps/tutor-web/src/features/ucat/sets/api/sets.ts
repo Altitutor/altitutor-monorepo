@@ -3,17 +3,20 @@ import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
 
 export const ucatSetsApi = {
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_sets')
-      .select('*')
-      .eq('is_student_generated', false)
-      .order('updated_at', { ascending: false })
-    if (error) throw error
-    return data ?? []
+    return fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('vtutor_ucat_question_sets')
+        .select('*')
+        .eq('is_student_generated', false)
+        .order('updated_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+    )
   },
 
   async detail(setId: string) {

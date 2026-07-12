@@ -68,10 +68,16 @@ const SetShapeTypeSchema = z.preprocess(
   (value) => {
     if (value === 'rectangle' || value === 'rounded_rectangle') return 'rect'
     if (value === 'oval') return 'ellipse'
+    if (value === 'plus' || value === 'cruciform') return 'cross'
     return value
   },
-  z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'])
+  z.enum(['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'])
 )
+
+const SetPointSchema = z.union([
+  z.tuple([z.coerce.number(), z.coerce.number()]),
+  z.object({ x: z.coerce.number(), y: z.coerce.number() }),
+])
 
 const ShapeSpecSchema = z.object({
   id: z.string().trim().min(1).max(24).optional(),
@@ -88,6 +94,8 @@ const ShapeSpecSchema = z.object({
   y: z.coerce.number().optional(),
   width: z.coerce.number().optional(),
   height: z.coerce.number().optional(),
+  points: z.array(SetPointSchema).min(3).max(24).optional(),
+  rotation: z.coerce.number().min(-360).max(360).optional(),
   labelX: z.coerce.number().optional(),
   labelY: z.coerce.number().optional(),
   fill: z.string().trim().optional(),
@@ -120,7 +128,7 @@ const SetRegionLabelSchema = z.preprocess((value) => {
 
 const SetDiagramSpecSchema = z.object({
   shapes: z.array(ShapeSpecSchema).min(2).max(8),
-  regionLabels: z.array(SetRegionLabelSchema).min(1).max(24).optional(),
+  regionLabels: z.array(SetRegionLabelSchema).max(24).optional(),
   labels: z.array(SetRegionLabelSchema).max(24).optional(),
   regions: z.array(SetRegionLabelSchema).max(24).optional(),
 }).passthrough()
@@ -190,7 +198,12 @@ export const GeneratedQuestionSchema = z.object({
   timeBurdenTarget: TimeBurdenTargetSchema.optional(),
   estimatedDifficulty: z.number().min(0).max(1).nullable().optional(),
   estimatedTimeBurdenSeconds: z.number().int().positive().nullable().optional(),
-  tagIds: z.array(z.string().uuid()).default([]),
+  tagIds: z.preprocess(
+    (value) => Array.isArray(value)
+      ? value.filter((item) => typeof item === 'string' && z.string().uuid().safeParse(item).success)
+      : [],
+    z.array(z.string().uuid())
+  ).default([]),
   options: z.array(GeneratedOptionSchema).min(1),
 })
 

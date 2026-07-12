@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ type PlanPickerDialogShellProps = {
   dismissible?: boolean;
   hideCloseButton?: boolean;
   footer?: ReactNode;
+  fullScreen?: boolean;
 };
 
 export function PlanPickerDialogShell({
@@ -33,6 +35,7 @@ export function PlanPickerDialogShell({
   dismissible = true,
   hideCloseButton = false,
   footer,
+  fullScreen = false,
 }: PlanPickerDialogShellProps) {
   const reduceMotion = useReducedMotion();
 
@@ -44,8 +47,30 @@ export function PlanPickerDialogShell({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className={planPickerDialogChrome()}
-        hideCloseButton={hideCloseButton}
+        className={planPickerDialogChrome(
+          fullScreen
+            ? "!inset-0 !left-0 !top-0 !h-dvh !max-h-dvh !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none sm:!inset-0 sm:!left-0 sm:!top-0 sm:!h-dvh sm:!max-h-dvh sm:!w-screen sm:!max-w-none sm:!translate-x-0 sm:!translate-y-0 sm:!rounded-none"
+            : undefined,
+        )}
+        hideCloseButton={hideCloseButton || fullScreen}
+        style={
+          fullScreen
+            ? {
+                inset: 0,
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: "100%",
+                minWidth: "100vw",
+                height: "100dvh",
+                maxWidth: "none",
+                maxHeight: "none",
+                transform: "none",
+                borderRadius: 0,
+              }
+            : undefined
+        }
         {...(dismissible
           ? {}
           : {
@@ -68,6 +93,15 @@ export function PlanPickerDialogShell({
             ease: [0.32, 0.72, 0, 1],
           }}
         >
+          {fullScreen ? (
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+          ) : null}
           <DialogHeader className="text-left">
             <DialogTitle>{title}</DialogTitle>
             {description ? (

@@ -4,7 +4,10 @@ import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import type { Database } from "@altitutor/shared";
+import { ChevronLeft } from "lucide-react";
 import { PROFILE_SETUP_COMPLETE_KEY } from "@/features/auth/lib/signup-profile";
+import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -60,7 +63,10 @@ export function SignupCompletePasswordStep({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm"
+    >
       <div className="space-y-1.5">
         <label
           htmlFor="complete-password"
@@ -104,7 +110,9 @@ export function SignupCompletePasswordStep({
       </div>
 
       {error ? (
-        <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
+        <p
+          className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}
+        >
           {error}
         </p>
       ) : null}
@@ -112,7 +120,11 @@ export function SignupCompletePasswordStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+        className={cn(
+          UCAT_ACCENT_FILL_RISE,
+          "w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50",
+          typo.headingSans,
+        )}
       >
         {isSubmitting ? "Setting up…" : "Next"}
       </button>
@@ -120,9 +132,10 @@ export function SignupCompletePasswordStep({
       <button
         type="button"
         onClick={onBack}
-        className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
+        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
       >
-        ← Back
+        <ChevronLeft className="h-4 w-4" aria-hidden />
+        Back
       </button>
     </form>
   );

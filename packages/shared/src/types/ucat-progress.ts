@@ -67,6 +67,8 @@ export type PracticeAttemptRow = {
   scorePoints: number | null
   totalPoints: number | null
   questionCount: number | null
+  /** Session duration in seconds when start/end are known. */
+  timeTakenSeconds: number | null
   unlimited: boolean
 }
 

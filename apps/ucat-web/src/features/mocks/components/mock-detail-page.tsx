@@ -2,14 +2,20 @@
 
 import { useId, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import type {
   MockAttemptSectionScore,
   MockAttemptWithBreakdown,
 } from "@/features/mocks/api/mocks-api";
-import { useMockAttemptsWithBreakdown, useMocks } from "@/features/mocks";
+import { useMockAttemptsWithBreakdown, useMockQuestionCount, useMocks } from "@/features/mocks";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
@@ -17,13 +23,13 @@ import {
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
   UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
+  ucatClickableCardClassName,
 } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type MockDetailPageProps = {
   mockId: string;
@@ -54,8 +60,14 @@ export function MockDetailPage({
   const { openQuotaLimit } = useQuotaLimitModal();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
+  const { data: questionCount } = useMockQuestionCount(mockId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
 
@@ -75,22 +87,7 @@ export function MockDetailPage({
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Mock"
-          description="Full-length UCAT mock exam details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildMockBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Mock",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">Loading mock...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {
@@ -154,26 +151,18 @@ export function MockDetailPage({
     );
   }
 
-  const createdAt =
-    mock.created_at != null
-      ? new Date(mock.created_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
-
-  const updatedAt =
-    mock.updated_at != null
-      ? new Date(mock.updated_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
-
   const sectionColumns =
     attempts.length > 0 && attempts[0].sectionScores.length > 0
       ? attempts[0].sectionScores
       : [];
 
   const handleLaunchMock = () => {
+    if (questionEngineTourLoading) return;
+    const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}`;
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref(examHref));
+      return;
+    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "mock" &&
       activeExamAttempt.resourceId === mockId;
@@ -189,50 +178,88 @@ export function MockDetailPage({
       });
       return;
     }
-    router.push(`/exam/mocks?id=${encodeURIComponent(mockId)}`);
+    router.push(examHref);
   };
 
-  return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={mock.name ?? "Mock exam"}
-        description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={buildMockBreadcrumbOverrides(
-          sessionEntryContext,
-          breadcrumbLeafSegmentIndex,
-          mock.name ?? "Mock",
-        )}
-      />
+  const infoRows: Array<[string, string]> = [
+    [
+      "Sections",
+      mock.set_count != null
+        ? `${mock.set_count} set${mock.set_count === 1 ? "" : "s"}`
+        : "—",
+    ],
+    [
+      "Total time",
+      formatExamDurationSeconds(mock.totalTimeLimitSeconds),
+    ],
+    [
+      "Questions",
+      questionCount != null ? String(questionCount) : "—",
+    ],
+  ];
 
-      <section
-        className={cn(
-          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+  return (
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={mock.name ?? "Mock exam"}
+          description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            mock.name ?? "Mock",
+          )}
+        />
+      </motion.div>
+
+      <motion.section
+        variants={itemVariants}
+        className={ucatClickableCardClassName({
+          interactive: false,
+          className: "gap-0",
+        })}
       >
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          {createdAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">Created</dt>
-              <dd>{createdAt}</dd>
+        {infoRows.map(([label, value], index) => (
+          <div
+            key={`${label}-${index}`}
+            className="py-3 first:pt-0 last:pb-0"
+          >
+            <div className="flex w-full items-center justify-between gap-6">
+              <span className="text-sm text-muted-foreground">{label}</span>
+              <span className="text-right text-sm font-medium">{value}</span>
             </div>
-          ) : null}
-          {updatedAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">
-                Last updated
-              </dt>
-              <dd>{updatedAt}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </section>
+            {label === "Total time" && mock.setTimings.length > 0
+              ? mock.setTimings.map((set) => (
+                  <div
+                    key={set.id}
+                    className="mt-2 flex w-full items-center justify-between gap-6 pl-4"
+                  >
+                    <span className="text-sm text-muted-foreground">
+                      {set.name}
+                    </span>
+                    <span className="text-right text-sm font-medium tabular-nums">
+                      {formatExamDurationSeconds(set.timeLimitSeconds)}
+                    </span>
+                  </div>
+                ))
+              : null}
+          </div>
+        ))}
+      </motion.section>
 
       {attempts.length > 0 ? (
-        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
+        <motion.section
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
+          variants={itemVariants}
+        >
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -300,17 +327,17 @@ export function MockDetailPage({
               </table>
             </div>
           </div>
-        </section>
+        </motion.section>
       ) : null}
 
-      <div className="flex justify-end">
+      <motion.div className="flex justify-end" variants={itemVariants}>
         <Button
           className={UCAT_PRIMARY_ACTION_BUTTON}
           onClick={handleLaunchMock}
         >
           Launch mock
         </Button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

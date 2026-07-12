@@ -1,4 +1,10 @@
 import type { QuestionItem } from "@/features/question-engine/model/types";
+import {
+  getClientPracticeQuestionDisplaySeconds,
+  getQuestionDisplaySeconds,
+  type ClientPracticeQuestionTiming,
+  type PracticeActiveQuestionTiming,
+} from "@/features/question-engine/lib/practice-question-timing";
 
 /**
  * Returns the start and end indices (inclusive) of the stem containing the question at the given index.
@@ -43,4 +49,75 @@ export function isLastQuestionOfUnit(
 ): boolean {
   const { endIndex } = getStemBoundaries(questions, questionIndex, mode);
   return questionIndex >= endIndex;
+}
+
+export type StemQuestionTime = {
+  questionId: string;
+  label: string;
+  seconds: number;
+};
+
+export function computeStemQuestionTimes(
+  questions: QuestionItem[],
+  startIndex: number,
+  endIndex: number,
+  persistedSecondsByQuestionId: Record<string, number>,
+  options?: {
+    activeQuestionTiming?: PracticeActiveQuestionTiming | null;
+    nowMs?: number;
+  },
+): { stemTimeSeconds: number; stemQuestionTimes: StemQuestionTime[] } {
+  const nowMs = options?.nowMs ?? Date.now();
+  return computeStemQuestionTimesFromDisplay(
+    questions,
+    startIndex,
+    endIndex,
+    (questionId) =>
+      getQuestionDisplaySeconds(
+        questionId,
+        persistedSecondsByQuestionId,
+        options?.activeQuestionTiming,
+        nowMs,
+      ),
+  );
+}
+
+export function computeClientStemQuestionTimes(
+  questions: QuestionItem[],
+  startIndex: number,
+  endIndex: number,
+  clientTiming: ClientPracticeQuestionTiming,
+  nowMs: number = Date.now(),
+): { stemTimeSeconds: number; stemQuestionTimes: StemQuestionTime[] } {
+  return computeStemQuestionTimesFromDisplay(
+    questions,
+    startIndex,
+    endIndex,
+    (questionId) =>
+      getClientPracticeQuestionDisplaySeconds(questionId, clientTiming, nowMs),
+  );
+}
+
+function computeStemQuestionTimesFromDisplay(
+  questions: QuestionItem[],
+  startIndex: number,
+  endIndex: number,
+  getQuestionSeconds: (questionId: string) => number,
+): { stemTimeSeconds: number; stemQuestionTimes: StemQuestionTime[] } {
+  const stemQuestionTimes: StemQuestionTime[] = [];
+  let stemTimeSeconds = 0;
+
+  for (let index = startIndex; index <= endIndex; index++) {
+    const question = questions[index];
+    if (!question) continue;
+    const seconds = getQuestionSeconds(question.id);
+    stemTimeSeconds += seconds;
+    stemQuestionTimes.push({
+      questionId: question.id,
+      label: `Q${index - startIndex + 1}`,
+      seconds,
+    });
+  }
+
+  return { stemTimeSeconds, stemQuestionTimes };
 }

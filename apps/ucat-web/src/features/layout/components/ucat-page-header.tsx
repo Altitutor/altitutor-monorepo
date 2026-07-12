@@ -17,7 +17,10 @@ type UcatPageHeaderProps = {
   title: string;
   description?: string;
   backHref?: string;
+  /** Button back action (e.g. wizard step). Ignored when `backHref` is set. */
+  onBack?: () => void;
   backLabel?: string;
+  backDisabled?: boolean;
   /** Override labels by filtered breadcrumb index (structural URL segments are omitted). */
   breadcrumbOverrides?: Record<number, string>;
   /** When set, replaces pathname-derived breadcrumbs. */
@@ -28,7 +31,9 @@ export function UcatPageHeader({
   title,
   description,
   backHref,
+  onBack,
   backLabel,
+  backDisabled = false,
   breadcrumbOverrides,
   breadcrumbItems: customBreadcrumbItems,
 }: UcatPageHeaderProps) {
@@ -46,6 +51,15 @@ export function UcatPageHeader({
           return override != null ? { ...item, label: override } : item;
         })
       : pathnameBreadcrumbs);
+
+  const showBack = Boolean(backHref || onBack);
+  const backButtonClassName = cn(
+    UCAT_HEADER_ICON_BUTTON,
+    "group shrink-0 [&_svg]:size-5",
+  );
+  const backChevron = (
+    <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+  );
 
   return (
     <div className="space-y-4">
@@ -80,20 +94,31 @@ export function UcatPageHeader({
         </nav>
       ) : null}
       <div className="flex items-start gap-3">
-        {backHref ? (
-          <Button
-            variant="outline"
-            size="icon"
-            asChild
-            className={cn(
-              UCAT_HEADER_ICON_BUTTON,
-              "group shrink-0 [&_svg]:size-5",
-            )}
-          >
-            <Link href={backHref} aria-label={backLabel ?? "Go back"}>
-              <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
-            </Link>
-          </Button>
+        {showBack ? (
+          backHref ? (
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+              className={backButtonClassName}
+            >
+              <Link href={backHref} aria-label={backLabel ?? "Go back"}>
+                {backChevron}
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onBack}
+              disabled={backDisabled}
+              aria-label={backLabel ?? "Go back"}
+              className={backButtonClassName}
+            >
+              {backChevron}
+            </Button>
+          )
         ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

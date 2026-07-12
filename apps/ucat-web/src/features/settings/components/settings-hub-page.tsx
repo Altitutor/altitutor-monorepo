@@ -22,7 +22,7 @@ const LINKS = [
   {
     href: "/settings/plan",
     label: "Plan",
-    description: "Your plan, benefits, billing, and upgrade options.",
+    description: "Your plan, billing, referrals, and upgrade options.",
     icon: CreditCard,
   },
 ] as const;

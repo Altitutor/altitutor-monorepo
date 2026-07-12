@@ -10,6 +10,7 @@ import {
   getBucketKey,
   getBucketKeysBetween,
   formatWeekRangeLabel,
+  formatWeekStartLabel,
 } from "./progress-mode";
 import type {
   SectionProgress,
@@ -513,9 +514,70 @@ export function aggregateForGraph<T>(
     } else {
       value = values.reduce((s, v) => s + v, 0) / values.length;
     }
-    const label = bucket === "week" ? formatWeekRangeLabel(date) : undefined;
-    return { date, value, label };
+    const label = bucket === "week" ? formatWeekStartLabel(date) : undefined;
+    const tooltipLabel =
+      bucket === "week" ? `Period: ${formatWeekRangeLabel(date)}` : undefined;
+    return { date, value, label, tooltipLabel };
   });
 
   return result;
+}
+
+export type GraphXAxisMode = "date" | "attempt";
+
+export type ProgressGraphPoint = {
+  date: string;
+  value: number | null;
+  label?: string;
+  tooltipLabel?: string;
+};
+
+function toGraphDate(value: Date | string): Date {
+  return typeof value === "string" ? new Date(value) : value;
+}
+
+/** Filter items to the same date window used by `aggregateForGraph`. */
+export function filterItemsByGraphDateRange<T>(
+  items: T[],
+  getDate: (item: T) => Date | string,
+  mode: ProgressMode,
+  timeFrameDays: TimeFrameDays,
+  sharedDateRange?: SharedDateRange,
+): T[] {
+  const range =
+    sharedDateRange ??
+    (mode === "time_frame"
+      ? getTimeFrameRange(parseInt(timeFrameDays, 10) || 30)
+      : null);
+  if (range == null) return items;
+  return items.filter((item) => {
+    const date = toGraphDate(getDate(item));
+    return date >= range.start && date <= range.end;
+  });
+}
+
+/** One chronological point per item (for X-axis = Attempt). */
+export function buildAttemptAxisGraphData<T>(
+  items: T[],
+  getDate: (item: T) => Date | string,
+  getValue: (item: T) => number,
+  getId: (item: T) => string,
+  getLabel?: (item: T, index: number) => string,
+  getTooltipLabel?: (item: T, index: number) => string,
+): ProgressGraphPoint[] {
+  const sorted = [...items].sort(
+    (a, b) =>
+      toGraphDate(getDate(a)).getTime() - toGraphDate(getDate(b)).getTime(),
+  );
+
+  return sorted.map((item, index) => {
+    const attemptNumber = index + 1;
+    return {
+      date: getId(item),
+      value: getValue(item),
+      label: getLabel?.(item, index) ?? String(attemptNumber),
+      tooltipLabel:
+        getTooltipLabel?.(item, index) ?? `Attempt #${attemptNumber}`,
+    };
+  });
 }

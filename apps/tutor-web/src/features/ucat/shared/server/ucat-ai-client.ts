@@ -166,6 +166,10 @@ function parseHeaders(value: unknown): Record<string, string> {
 }
 
 function repairCommonGeneratedJson(value: string): string | null {
+  const normalizedValue = value.replace(
+    /\}\]\s*,\s*"\}\s*,\s*\{\s*"type"/gu,
+    ']},{"type"'
+  )
   const stack: Array<{ opening: '{' | '['; propertyName: string | null }> = []
   let repaired = ''
   let inString = false
@@ -173,16 +177,16 @@ function repairCommonGeneratedJson(value: string): string | null {
   let propertyName: string | null = null
   let stringStart = -1
 
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index]
+  for (let index = 0; index < normalizedValue.length; index += 1) {
+    const character = normalizedValue[index]
     if (inString) {
       repaired += character
       if (escaped) escaped = false
       else if (character === '\\') escaped = true
       else if (character === '"') {
         inString = false
-        const next = value.slice(index + 1).match(/^\s*:/u)
-        if (next) propertyName = value.slice(stringStart + 1, index)
+        const next = normalizedValue.slice(index + 1).match(/^\s*:/u)
+        if (next) propertyName = normalizedValue.slice(stringStart + 1, index)
       }
       continue
     }
@@ -213,7 +217,7 @@ function repairCommonGeneratedJson(value: string): string | null {
           character === '}'
           && top?.opening === '['
           && ['stemText', 'answerText', 'answerExplanation'].includes(top.propertyName ?? '')
-          && /^\s*,\s*\{\s*"type"\s*:/u.test(value.slice(index + 1))
+          && /^\s*,\s*\{\s*"type"\s*:/u.test(normalizedValue.slice(index + 1))
         ) {
           continue
         }
@@ -239,7 +243,7 @@ function repairCommonGeneratedJson(value: string): string | null {
   if (stack.length === 0) return repaired
   if (stack[0]?.opening !== '{') return null
   if (stack.length === 2 && (stack[1]?.opening !== '[' || stack[1]?.propertyName !== 'stems')) return null
-  if (stack.length === 1 && !/^\s*\{\s*"stems"\s*:/u.test(value)) return null
+  if (stack.length === 1 && !/^\s*\{\s*"stems"\s*:/u.test(normalizedValue)) return null
 
   for (let index = stack.length - 1; index >= 0; index -= 1) {
     repaired += stack[index].opening === '{' ? '}' : ']'

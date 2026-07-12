@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
   checkPracticeStartQuota,
   getPracticeQuotaStatusForStudent,
   quotaExceededResponse,
 } from "@/lib/ucat/quota/quota-service";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
+import {
+  preparePracticeStems,
+  PracticeStemSelectionError,
+} from "@/features/practice/server/prepare-practice-stems";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -66,6 +72,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let prepared: Awaited<ReturnType<typeof preparePracticeStems>> | undefined;
+  if (!body.unlimited && !Array.isArray(body.stemsSnapshot)) {
+    if (!body.filtersSnapshot || typeof body.filtersSnapshot !== "object") {
+      return NextResponse.json(
+        { error: "Missing practice filters" },
+        { status: 400 },
+      );
+    }
+    try {
+      prepared = await preparePracticeStems({
+        reader: supabase,
+        admin: supabaseAdmin,
+        studentId: student.id,
+        input: body.filtersSnapshot as SetGeneratorInput,
+      });
+      body.stemsSnapshot = prepared.stems;
+    } catch (error) {
+      if (error instanceof QuotaExceededError) {
+        return quotaExceededResponse(error.payload);
+      }
+      if (error instanceof PracticeStemSelectionError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to prepare practice session",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   if (body.unlimited) {
     const status = await getPracticeQuotaStatusForStudent(
       supabaseAdmin,
@@ -84,7 +125,7 @@ export async function POST(request: NextRequest) {
         period: status.period,
       });
     }
-  } else {
+  } else if (!prepared) {
     const stems = Array.isArray(body.stemsSnapshot)
       ? (body.stemsSnapshot as QuestionStemWithQuestions[])
       : [];
@@ -132,5 +173,8 @@ export async function POST(request: NextRequest) {
   }
 
   const insertedData = inserted as { id?: string };
-  return NextResponse.json({ id: insertedData.id ?? "" });
+  return NextResponse.json({
+    id: insertedData.id ?? "",
+    ...(prepared ?? {}),
+  });
 }

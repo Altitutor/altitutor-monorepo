@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,16 +15,17 @@ import {
 import { UcatPageHeader } from "@/features/layout";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
-import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
+import {
+  STEM_FILTERS_STEP_COPY,
+  StemFiltersPanel,
+  type StemFiltersWizardStep,
+} from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
   clearPracticeSession,
   setPracticeSession,
 } from "@/features/practice/lib/session-storage";
-import {
-  fetchActiveExamAttempt,
-  finalizeExamAttempt,
-} from "@/features/exam-attempts/api/exam-attempts-api";
+import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -35,10 +37,24 @@ import {
   QuotaExceededError,
 } from "@/lib/ucat/quota/parse-quota-error";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function PracticePage() {
   const router = useRouter();
-  const { refresh: refreshActiveAttempt } = useActiveExamAttempt();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const {
+    active: activeExamAttempt,
+    isLoading: activeAttemptLoading,
+    refresh: refreshActiveAttempt,
+  } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+  } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitModal();
   const filters = useStemFilters({
@@ -58,6 +74,42 @@ export function PracticePage() {
     requestedCount: number;
     remainingCount: number;
   } | null>(null);
+  const [wizardHeader, setWizardHeader] = useState<{
+    title: string;
+    subtitle: string;
+    canGoBack: boolean;
+    isTransitioning: boolean;
+  }>({
+    title: STEM_FILTERS_STEP_COPY[0].title,
+    subtitle: STEM_FILTERS_STEP_COPY[0].subtitle,
+    canGoBack: false,
+    isTransitioning: false,
+  });
+  const wizardGoBackRef = useRef<(() => void) | null>(null);
+  const handleWizardStepChange = useCallback((state: StemFiltersWizardStep) => {
+    wizardGoBackRef.current = state.goBack;
+    setWizardHeader((prev) => {
+      if (
+        prev.title === state.title &&
+        prev.subtitle === state.subtitle &&
+        prev.canGoBack === state.canGoBack &&
+        prev.isTransitioning === state.isTransitioning
+      ) {
+        return prev;
+      }
+      return {
+        title: state.title,
+        subtitle: state.subtitle,
+        canGoBack: state.canGoBack,
+        isTransitioning: state.isTransitioning,
+      };
+    });
+  }, []);
+  const practiceQuota = quota?.areas.find((area) => area.area === "practice");
+  const freeQuestionLimit =
+    quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota
+      ? Math.max(0, practiceQuota.limit - practiceQuota.used)
+      : null;
 
   const startMutation = useMutation({
     mutationFn: async ({
@@ -94,24 +146,6 @@ export function PracticePage() {
         return { unlimited: true as const, stems: [], sessionId };
       }
 
-      const stemsRes = await fetch("/api/ucat/practice-stems", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: payload }),
-      });
-
-      if (!stemsRes.ok) {
-        await assertOkOrQuotaExceeded(stemsRes);
-        const body = await stemsRes.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to load practice stems");
-      }
-
-      const stemsData = (await stemsRes.json()) as {
-        stems: QuestionStemWithQuestions[];
-        questionCount: number;
-        totalMatchingQuestions: number;
-      };
-
       const createSessionRes = await fetch("/api/ucat/practice-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,7 +153,6 @@ export function PracticePage() {
           sectionKey,
           ucatSectionId,
           filtersSnapshot: input,
-          stemsSnapshot: stemsData.stems,
           unlimited: false,
         }),
       });
@@ -130,15 +163,18 @@ export function PracticePage() {
         throw new Error(body.error ?? "Failed to create practice session");
       }
 
-      const { id: sessionId } = (await createSessionRes.json()) as {
+      const sessionData = (await createSessionRes.json()) as {
         id: string;
+        stems: QuestionStemWithQuestions[];
+        questionCount: number;
+        totalMatchingQuestions: number;
       };
 
       return {
-        stems: stemsData.stems,
-        questionCount: stemsData.questionCount,
-        totalMatchingQuestions: stemsData.totalMatchingQuestions,
-        sessionId,
+        stems: sessionData.stems,
+        questionCount: sessionData.questionCount,
+        totalMatchingQuestions: sessionData.totalMatchingQuestions,
+        sessionId: sessionData.id,
       };
     },
     onSuccess: (data, variables) => {
@@ -239,9 +275,16 @@ export function PracticePage() {
     startMutation.mutate({ payload, ucatSectionId });
   }
 
-  async function handleStart() {
+  function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
+    if (questionEngineTourLoading) return;
+    // Create the DB session only after the engine tutorial — otherwise Resume
+    // points at /practice/session which immediately redirects back to tutorial.
+    if (questionEngineTourBlocked) {
+      router.push(buildQuestionEngineTutorialHref("/practice"));
+      return;
+    }
 
     const unlimited = filters.questionCountMode === "unlimited";
     const payload = {
@@ -249,10 +292,9 @@ export function PracticePage() {
       unlimited: unlimited || undefined,
     };
 
-    const active = await fetchActiveExamAttempt();
-    if (active) {
+    if (activeExamAttempt) {
       pendingStartRef.current = { payload, ucatSectionId };
-      setConflictActive(active);
+      setConflictActive(activeExamAttempt);
       return;
     }
 
@@ -284,22 +326,44 @@ export function PracticePage() {
       type="button"
       data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
-      disabled={startMutation.isPending || !filters.selectedSection?.id}
+      disabled={
+        startMutation.isPending ||
+        activeAttemptLoading ||
+        questionEngineTourLoading ||
+        !filters.selectedSection?.id
+      }
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
-      {startMutation.isPending ? "Loading…" : "Start practice"}
+      {startMutation.isPending ||
+      activeAttemptLoading ||
+      questionEngineTourLoading
+        ? "Loading…"
+        : "Start practice"}
     </Button>
   );
 
   return (
-    <div className="space-y-6">
-      <div id="tour-practice-header">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
         <UcatPageHeader
-          title="Practice questions"
-          description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
+          title={wizardHeader.title}
+          description={wizardHeader.subtitle}
+          onBack={
+            wizardHeader.canGoBack
+              ? () => {
+                  wizardGoBackRef.current?.();
+                }
+              : undefined
+          }
+          backDisabled={wizardHeader.isTransitioning}
         />
-      </div>
-      <div id="tour-practice-filters">
+      </motion.div>
+      <motion.div id="tour-practice-filters" variants={itemVariants}>
         <StemFiltersPanel
           input={filters.input}
           selectedSection={filters.selectedSection}
@@ -324,9 +388,12 @@ export function PracticePage() {
           showUnlimitedOption={filters.showUnlimitedOption}
           questionCountMode={filters.questionCountMode}
           onQuestionCountModeChange={filters.handleQuestionCountModeChange}
+          fixedQuestionCountLimit={freeQuestionLimit}
           actionButton={actionButton}
+          hideStepHeader
+          onWizardStepChange={handleWizardStepChange}
         />
-      </div>
+      </motion.div>
       <ExamAttemptConflictDialog
         open={conflictActive != null}
         active={conflictActive}
@@ -380,6 +447,6 @@ export function PracticePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

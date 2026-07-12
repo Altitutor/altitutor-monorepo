@@ -8,6 +8,10 @@ import {
   attemptBannerStatusLabel,
   isAttemptAtResults,
 } from "@/features/exam-attempts/lib/banner-copy";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { getRemainingSecondsFromEndsAt } from "@/lib/ucat/exam-attempt/timing";
 import { formatTimeRemaining } from "@/features/question-engine/lib/timing";
 import { isPracticeEngineRoute } from "@/features/ucat-access/lib/quota-area-for-pathname";
@@ -40,6 +44,8 @@ function persistDismissedAttemptId(attemptId: string) {
 export function ExamAttemptHeaderPill() {
   const pathname = usePathname();
   const { active, refresh } = useActiveExamAttempt();
+  const { isBlocked: questionEngineTourBlocked } =
+    useQuestionEngineTutorialGate();
   const [tick, setTick] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const catchUpRequestedRef = useRef(false);
@@ -96,7 +102,11 @@ export function ExamAttemptHeaderPill() {
     !atResults && active.currentSegmentEndsAt
       ? getRemainingSecondsFromEndsAt(active.currentSegmentEndsAt)
       : null;
-  const actionHref = atResults ? active.resultsHref : active.resumeHref;
+  const resumeHref =
+    !atResults && questionEngineTourBlocked
+      ? buildQuestionEngineTutorialHref(active.resumeHref)
+      : active.resumeHref;
+  const actionHref = atResults ? active.resultsHref : resumeHref;
   const actionLabel = atResults ? "View attempt" : "Resume";
 
   return (

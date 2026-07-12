@@ -1,12 +1,25 @@
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
-import { validateFormDefinition } from '@altitutor/shared';
+import {
+  validateFormDefinition,
+  type FormBlock,
+  type Json,
+  type TablesUpdate,
+} from '@altitutor/shared';
+
+function asFormBlocks(value: unknown): FormBlock[] {
+  return Array.isArray(value) ? (value as FormBlock[]) : [];
+}
+
+function asJson(value: unknown): Json {
+  return value as Json;
+}
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 
-  const admin = auth.admin as any;
+  const admin = auth.admin;
   const [{ data: form, error }, { data: versions }, { data: tokens }] = await Promise.all([
     admin.from('forms').select('*').eq('id', params.id).single(),
     admin.from('form_versions').select('*').eq('form_id', params.id).order('version_number', { ascending: false }),
@@ -24,8 +37,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 
-  const body = await request.json().catch(() => ({}));
-  const patch: Record<string, unknown> = {
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const patch: TablesUpdate<'forms'> = {
     updated_by: auth.staffId,
     updated_at: new Date().toISOString(),
   };
@@ -39,8 +52,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
   if (body.workflowRequestExpiryDays === null) {
     patch.workflow_request_expiry_days = null;
-  } else if (Number.isInteger(body.workflowRequestExpiryDays) && body.workflowRequestExpiryDays > 0) {
-    patch.workflow_request_expiry_days = body.workflowRequestExpiryDays;
+  } else if (Number.isInteger(body.workflowRequestExpiryDays) && Number(body.workflowRequestExpiryDays) > 0) {
+    patch.workflow_request_expiry_days = Number(body.workflowRequestExpiryDays);
   }
   if (body.accessType === 'public_link' || body.accessType === 'authenticated') patch.access_type = body.accessType;
   if (
@@ -51,18 +64,19 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     patch.submission_limit = body.submissionLimit;
   }
   if (Array.isArray(body.blocks)) {
+    const blocks = asFormBlocks(body.blocks);
     const errors = validateFormDefinition({
-      blocks: body.blocks,
+      blocks,
       thankYouMessage: typeof body.thankYouMessage === 'string' ? body.thankYouMessage : 'Thanks for your response.',
     });
     if (errors.some((message) => message.includes('button link'))) {
       return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
     }
-    patch.draft_blocks = body.blocks;
+    patch.draft_blocks = asJson(blocks);
   }
   if (typeof body.thankYouMessage === 'string') patch.draft_thank_you_message = body.thankYouMessage;
 
-  const { data, error } = await (auth.admin as any)
+  const { data, error } = await auth.admin
     .from('forms')
     .update(patch)
     .eq('id', params.id)
@@ -74,4 +88,42 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   return NextResponse.json({ form: data });
+}
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const auth = await requireAdminStaff();
+  if (!auth.ok) return auth.response;
+
+  const now = new Date().toISOString();
+  const [{ data: form, error }, { error: revokeError }] = await Promise.all([
+    auth.admin
+      .from('forms')
+      .update({
+        status: 'archived',
+        archived_at: now,
+        updated_by: auth.staffId,
+        updated_at: now,
+      })
+      .eq('id', params.id)
+      .is('archived_at', null)
+      .select('*')
+      .maybeSingle(),
+    auth.admin
+      .from('form_tokens')
+      .update({ revoked_at: now })
+      .eq('form_id', params.id)
+      .is('revoked_at', null),
+  ]);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (revokeError) {
+    return NextResponse.json({ error: revokeError.message }, { status: 500 });
+  }
+  if (!form) {
+    return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ form });
 }

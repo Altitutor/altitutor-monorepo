@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,23 +20,24 @@ import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/a
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
+import { SkillTrainerDemoCard } from "@/features/skill-trainer/components/skill-trainer-demo-card";
 import { useSkillTrainers } from "@/features/skill-trainer/hooks/use-skill-trainers";
 import {
   isSkillTrainerAttemptConflictError,
   skillTrainerApi,
 } from "@/features/skill-trainer/api/skill-trainer-api";
-import { SKILL_TRAINER_INSTRUCTIONS } from "@/features/skill-trainer/lib/instructions";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
-import {
-  UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
-} from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
-export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTrainerKey }) {
+export function SkillTrainerDetailPage({
+  trainerKey,
+}: {
+  trainerKey: UcatSkillTrainerKey;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: trainers } = useSkillTrainers();
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
@@ -48,9 +50,10 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
   const refreshedCompletedAttemptRef = useRef<string | null>(null);
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
-  const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
 
-  const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  const skillTrainerQuota = quota?.areas.find(
+    (a) => a.area === "skill_trainer",
+  );
   const quotaDialogOptions = {
     dismissAction: { label: "Dismiss", variant: "dismiss" as const },
   };
@@ -60,7 +63,8 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
     conflictAttempt?.attempt.config_snapshot.trainer_key ??
     conflictAttempt?.attempt.trainer_key;
   const conflictTrainer = trainers?.find((t) => t.key === conflictTrainerKey);
-  const conflictTrainerLabel = conflictTrainer?.name ?? "your current skill trainer";
+  const conflictTrainerLabel =
+    conflictTrainer?.name ?? "your current skill trainer";
   const conflictResumeHref =
     conflictTrainerKey != null && isUcatSkillTrainerKey(conflictTrainerKey)
       ? `/skill-trainer/${trainerKeyToSlug(conflictTrainerKey)}/play?attemptId=${conflictAttempt?.attempt.id}`
@@ -82,8 +86,12 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
   async function startAttempt() {
     const state = await skillTrainerApi.startAttempt(trainerKey);
     setLocal(state);
-    const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
-    router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
+    const activeSlug = trainerKeyToSlug(
+      state.attempt.config_snapshot.trainer_key,
+    );
+    router.push(
+      `/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`,
+    );
   }
 
   async function handleStart() {
@@ -91,13 +99,16 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
       skillTrainerQuota &&
       (skillTrainerQuota.atLimit || skillTrainerQuota.disabled)
     ) {
-      openQuotaLimit({
-        code: "QUOTA_EXCEEDED",
-        area: "skill_trainer",
-        used: skillTrainerQuota.used,
-        limit: skillTrainerQuota.limit,
-        period: skillTrainerQuota.period,
-      }, quotaDialogOptions);
+      openQuotaLimit(
+        {
+          code: "QUOTA_EXCEEDED",
+          area: "skill_trainer",
+          used: skillTrainerQuota.used,
+          limit: skillTrainerQuota.limit,
+          period: skillTrainerQuota.period,
+        },
+        quotaDialogOptions,
+      );
       return;
     }
 
@@ -114,13 +125,16 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {
         if (skillTrainerQuota) {
-          openQuotaLimit({
-            code: "QUOTA_EXCEEDED",
-            area: "skill_trainer",
-            used: skillTrainerQuota.used,
-            limit: skillTrainerQuota.limit,
-            period: skillTrainerQuota.period,
-          }, quotaDialogOptions);
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "skill_trainer",
+              used: skillTrainerQuota.used,
+              limit: skillTrainerQuota.limit,
+              period: skillTrainerQuota.period,
+            },
+            quotaDialogOptions,
+          );
         }
       } else {
         setError(message);
@@ -135,7 +149,9 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
     setSubmittingConflict(true);
     setError(null);
     try {
-      const completed = await skillTrainerApi.completeAttempt(conflictAttempt.attempt.id);
+      const completed = await skillTrainerApi.completeAttempt(
+        conflictAttempt.attempt.id,
+      );
       setLocal(completed);
       setConflictAttempt(null);
       await queryClient.invalidateQueries({
@@ -156,38 +172,44 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
   }
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={trainer?.name ?? "Skill trainer"}
-        description={trainer?.description ?? "Review how this trainer works before starting."}
-        backHref="/skill-trainer"
-        backLabel="Back to skill trainer"
-        breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={trainer?.name ?? "Skill trainer"}
+          description={
+            trainer?.description ??
+            "Review how this trainer works before starting."
+          }
+          backHref="/skill-trainer"
+          backLabel="Back to skill trainer"
+          breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
+        />
+      </motion.div>
 
-      <section
-        className={cn(
-          "space-y-3 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+      <motion.div variants={itemVariants}>
+        <SkillTrainerDemoCard trainerKey={trainerKey} />
+      </motion.div>
+
+      <motion.section
+        aria-labelledby="leaderboard-heading"
+        className="space-y-4"
+        variants={itemVariants}
       >
-        <h2 className="text-lg font-semibold">How to play</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-          {instructions.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
-
-      <section aria-labelledby="leaderboard-heading" className="space-y-4">
-        <h2 id="leaderboard-heading" className="text-2xl font-semibold tracking-tight">
+        <h2
+          id="leaderboard-heading"
+          className="text-2xl font-semibold tracking-tight"
+        >
           Leaderboard
         </h2>
         <SkillTrainerLeaderboard trainerKey={trainerKey} />
-      </section>
+      </motion.section>
 
-      <div className="flex justify-end">
+      <motion.div className="flex justify-end" variants={itemVariants}>
         <Button
           type="button"
           className={UCAT_PRIMARY_ACTION_BUTTON}
@@ -196,9 +218,13 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
         >
           {starting ? "Starting…" : "Start"}
         </Button>
-      </div>
+      </motion.div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <motion.p variants={itemVariants} className="text-sm text-destructive">
+          {error}
+        </motion.p>
+      ) : null}
 
       <AlertDialog
         open={conflictAttempt != null}
@@ -208,11 +234,14 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
       >
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Skill trainer already in progress</AlertDialogTitle>
+            <AlertDialogTitle>
+              Skill trainer already in progress
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <p>
-                You have an unfinished attempt: <strong>{conflictTrainerLabel}</strong>.
-                Resume it, or submit your current score and start{" "}
+                You have an unfinished attempt:{" "}
+                <strong>{conflictTrainerLabel}</strong>. Resume it, or submit
+                your current score and start{" "}
                 <strong>{pendingTrainerLabel}</strong>.
               </p>
             </AlertDialogDescription>
@@ -250,6 +279,6 @@ export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTr
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

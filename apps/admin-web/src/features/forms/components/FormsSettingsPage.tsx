@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -41,6 +49,28 @@ import {
   type SettingsDataTableColumn,
 } from '@/shared/components';
 import type { AdminFormRow, AdminFormTokenRow, AdminFormVersionRow } from '../types';
+
+const NEW_FORM_ID = '__new__';
+
+function createBlankForm(): AdminFormRow {
+  const now = new Date().toISOString();
+  return {
+    id: NEW_FORM_ID,
+    name: 'Untitled form',
+    purpose: 'other',
+    workflow_key: null,
+    workflow_request_expiry_days: null,
+    status: 'draft',
+    access_type: 'public_link',
+    submission_limit: 'unlimited',
+    draft_blocks: [createDefaultContentBlock()],
+    draft_thank_you_message: 'Thanks for your response.',
+    latest_published_version_id: null,
+    created_at: now,
+    updated_at: now,
+    response_count: 0,
+  };
+}
 
 const BLOCK_TYPES = [
   { value: 'content', label: 'Text block' },
@@ -87,10 +117,6 @@ function purposeLabel(value: string) {
 
 function accessLabel(value: FormAccessType) {
   return ACCESS_OPTIONS.find((item) => item.value === value)?.label ?? value;
-}
-
-function submissionLimitLabel(value: FormSubmissionLimit) {
-  return SUBMISSION_LIMIT_OPTIONS.find((item) => item.value === value)?.label ?? value;
 }
 
 function formatDate(value: string) {
@@ -151,9 +177,12 @@ export function FormsSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishedToken, setPublishedToken] = useState<string | null>(null);
   const [formLinks, setFormLinks] = useState<Record<string, string>>({});
+  const isCreating = editingId === NEW_FORM_ID;
 
   const loadForms = async () => {
     const data = await fetchJson<{ forms: AdminFormRow[] }>('/api/forms');
@@ -192,17 +221,18 @@ export function FormsSettingsPage() {
     setVersions([]);
     setTokens([]);
     setPublishedToken(null);
+    setDeleteConfirmOpen(false);
     setActiveTab('properties');
   };
 
-  const createForm = async () => {
+  const openNewForm = () => {
     setError(null);
-    const data = await fetchJson<{ form: AdminFormRow }>('/api/forms', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'Untitled form' }),
-    });
-    await loadForms();
-    await openForm(data.form.id);
+    setPublishedToken(null);
+    setActiveTab('properties');
+    setVersions([]);
+    setTokens([]);
+    setEditingId(NEW_FORM_ID);
+    setSelected(createBlankForm());
   };
 
   const updateSelected = (patch: Partial<AdminFormRow>) => {
@@ -216,23 +246,46 @@ export function FormsSettingsPage() {
     updateSelected({ draft_blocks: next });
   };
 
-  const save = async () => {
+  const formPayload = (form: AdminFormRow) => ({
+    name: form.name,
+    purpose: form.purpose,
+    workflowKey: form.workflow_key,
+    workflowRequestExpiryDays: form.workflow_request_expiry_days,
+    accessType: form.access_type,
+    submissionLimit: form.submission_limit,
+    blocks: form.draft_blocks,
+    thankYouMessage: form.draft_thank_you_message,
+  });
+
+  const createForm = async () => {
     if (!selected) return null;
+    setSaving(true);
+    setError(null);
+    try {
+      const data = await fetchJson<{ form: AdminFormRow }>('/api/forms', {
+        method: 'POST',
+        body: JSON.stringify(formPayload(selected)),
+      });
+      setSelected(data.form);
+      setEditingId(data.form.id);
+      await loadForms();
+      return data.form;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Create failed');
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const save = async () => {
+    if (!selected || isCreating) return null;
     setSaving(true);
     setError(null);
     try {
       const data = await fetchJson<{ form: AdminFormRow }>(`/api/forms/${selected.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          name: selected.name,
-          purpose: selected.purpose,
-          workflowKey: selected.workflow_key,
-          workflowRequestExpiryDays: selected.workflow_request_expiry_days,
-          accessType: selected.access_type,
-          submissionLimit: selected.submission_limit,
-          blocks: selected.draft_blocks,
-          thankYouMessage: selected.draft_thank_you_message,
-        }),
+        body: JSON.stringify(formPayload(selected)),
       });
       setSelected(data.form);
       await loadForms();
@@ -245,8 +298,24 @@ export function FormsSettingsPage() {
     }
   };
 
+  const deleteForm = async () => {
+    if (!selected || isCreating) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await fetchJson<{ form: AdminFormRow }>(`/api/forms/${selected.id}`, { method: 'DELETE' });
+      setDeleteConfirmOpen(false);
+      closeDialog();
+      await loadForms();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const publish = async () => {
-    if (!selected) return;
+    if (!selected || isCreating) return;
     setPublishing(true);
     setError(null);
     setPublishedToken(null);
@@ -331,7 +400,7 @@ export function FormsSettingsPage() {
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
             label="New form"
-            onClick={() => void createForm()}
+            onClick={openNewForm}
           />
         }
       />
@@ -392,16 +461,36 @@ export function FormsSettingsPage() {
       <AdminDialogShell
         open={!!editingId}
         onClose={closeDialog}
-        title={selected?.name ?? 'Edit form'}
-        subtitle="Edit the draft form, then preview and publish answer links."
+        title={isCreating ? 'New form' : (selected?.name ?? 'Edit form')}
+        subtitle={
+          isCreating
+            ? 'Configure the form, then create it when you are ready.'
+            : 'Edit the draft form, then preview and publish answer links.'
+        }
         defaultExpanded
         contentClassName="md:max-w-6xl"
         footer={
           <>
+            {!isCreating && selected ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="mr-auto"
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={deleting || saving || publishing}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
             <Button type="button" variant="outline" onClick={closeDialog}>
-              Close
+              {isCreating ? 'Cancel' : 'Close'}
             </Button>
-            {activeTab !== 'preview' ? (
+            {isCreating ? (
+              <Button type="button" onClick={() => void createForm()} disabled={!selected || saving}>
+                {saving ? 'Creating...' : 'Create'}
+              </Button>
+            ) : activeTab !== 'preview' ? (
               <>
                 <Button type="button" variant="outline" onClick={() => void save()} disabled={!selected || saving}>
                   {saving ? 'Saving...' : 'Save draft'}
@@ -463,6 +552,36 @@ export function FormsSettingsPage() {
           <div className="py-12 text-center text-muted-foreground">Loading form...</div>
         )}
       </AdminDialogShell>
+
+      <AlertDialog
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteConfirmOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive <span className="font-medium text-foreground">{selected?.name ?? 'this form'}</span> and
+              revoke any published links. Existing responses are kept. This action cannot be undone from this screen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteForm();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete form'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

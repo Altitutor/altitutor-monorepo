@@ -19,6 +19,8 @@ import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layo
 import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -100,7 +102,11 @@ function AppShellInner({ children }: AppShellProps) {
   };
 
   if (isLoading || !user) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
+    return (
+      <main className="mx-auto w-full max-w-[1400px] p-6 pt-28">
+        <AppPageSkeleton />
+      </main>
+    );
   }
 
   if (isSubscribeRoute) {
@@ -123,6 +129,7 @@ function AppShellInner({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
+        <QuestionEngineTutorialRedirect />
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"

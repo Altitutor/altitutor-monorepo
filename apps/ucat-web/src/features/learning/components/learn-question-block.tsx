@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
+import { Skeleton } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { QuestionEnginePage } from "@/features/question-engine/components/question-engine-page";
 import type {
@@ -24,7 +25,10 @@ type LoadState =
   | { status: "stem"; stem: QuestionStemWithQuestions }
   | { status: "question"; question: QuestionEngineQuestion };
 
-export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlockProps) {
+export function LearnQuestionBlock({
+  block,
+  onProgressChange,
+}: LearnQuestionBlockProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [resetVersion, setResetVersion] = useState(0);
 
@@ -34,12 +38,17 @@ export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlo
     async function load() {
       try {
         if (block.block_type === "question_stem" && block.question_stem_id) {
-          const stem = await fetchStemForPracticeSession(block.question_stem_id);
+          const stem = await fetchStemForPracticeSession(
+            block.question_stem_id,
+          );
           if (!cancelled) setLoadState({ status: "stem", stem });
           return;
         }
         if (block.block_type === "question" && block.question_id && block.id) {
-          const question = await fetchQuestionForLearn(block.question_id, block.id);
+          const question = await fetchQuestionForLearn(
+            block.question_id,
+            block.id,
+          );
           if (!cancelled) setLoadState({ status: "question", question });
           return;
         }
@@ -56,11 +65,24 @@ export function LearnQuestionBlock({ block, onProgressChange }: LearnQuestionBlo
   }, [block.block_type, block.question_stem_id, block.question_id, block.id]);
 
   if (loadState.status === "loading") {
-    return <p className="text-sm text-muted-foreground">Loading questions…</p>;
+    return (
+      <div
+        className="space-y-3"
+        aria-busy="true"
+        aria-label="Loading questions"
+      >
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
   }
 
   if (loadState.status === "error") {
-    return <p className="text-sm text-destructive">Could not load questions for this block.</p>;
+    return (
+      <p className="text-sm text-destructive">
+        Could not load questions for this block.
+      </p>
+    );
   }
 
   return (

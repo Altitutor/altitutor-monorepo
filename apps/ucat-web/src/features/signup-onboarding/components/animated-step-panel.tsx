@@ -10,7 +10,7 @@ type AnimatedStepPanelProps = {
   className?: string;
 };
 
-/** GPU-friendly step transition — opacity + translateX only. */
+/** GPU-friendly step transition using opacity and translateX only. */
 export function AnimatedStepPanel({
   stepKey,
   direction,

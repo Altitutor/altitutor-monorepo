@@ -33,7 +33,7 @@ export function LearningCatalogPage() {
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={itemVariants}>
+      <motion.div id="tour-learn-page" variants={itemVariants}>
         <UcatPageHeader
           title="Learn"
           description="Browse learning modules and track your progress."

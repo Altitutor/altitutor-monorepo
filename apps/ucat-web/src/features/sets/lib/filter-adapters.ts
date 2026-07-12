@@ -12,7 +12,10 @@ export function recordToSetsFilters(
   const sectionNum = record.sectionNumber?.[0];
   if (typeof sectionNum === "number" && Number.isFinite(sectionNum))
     f.sectionNumber = sectionNum;
-  if (record.attempted?.[0] === "unattempted") f.attempted = "unattempted";
+  const attempted = record.attempted?.[0];
+  if (attempted === "attempted" || attempted === "unattempted") {
+    f.attempted = attempted;
+  }
   return f;
 }
 
@@ -22,6 +25,8 @@ export function setsFiltersToRecord(f: SetsFilters): Record<string, unknown[]> {
   if (f.timed === "timed" || f.timed === "untimed") record.timed = [f.timed];
   if (f.source === "my" || f.source === "public") record.source = [f.source];
   if (f.sectionNumber != null) record.sectionNumber = [f.sectionNumber];
-  if (f.attempted === "unattempted") record.attempted = ["unattempted"];
+  if (f.attempted === "attempted" || f.attempted === "unattempted") {
+    record.attempted = [f.attempted];
+  }
   return record;
 }

@@ -443,7 +443,7 @@
 - **Quota usage card** — A reusable student-facing component showing UCAT Free quota usage per area (e.g. "12 / 20 questions today") and an upsell action to UCAT Unlimited. Shown on each online product area's entry point and on the subscription settings page.
   _Avoid_: Usage widget, limit banner
 
-- **Subscribe page** — The authenticated pricing page at `/subscribe` where students compare UCAT Free, UCAT Unlimited, and UCAT Pro. A billing-interval selector (weekly / monthly / yearly) above the cards sets the cadence for both paid tiers. Unauthenticated visitors are redirected to signup first. UCAT Free is the implicit default tier — the Free card is informational (lists quotas) and shows "Current plan" for Free students; it is not a separate signup action.
+- **Subscribe page** — The authenticated pricing page at `/subscribe` where students compare UCAT Free, UCAT Unlimited, and UCAT Pro. A selector shows only billing intervals currently available for checkout and sets the cadence for both paid tiers; yearly is unavailable at launch. Unauthenticated visitors are redirected to signup first. UCAT Free is the implicit default tier — the Free card is informational (lists quotas) and shows "Current plan" for Free students; it is not a separate signup action.
   _Avoid_: Pricing page, plans page
 
 - **Per-week marketing price** — The headline price on paid plan cards, always shown per week (e.g. `$20/wk`), with a secondary line for the actual bill amount for the selected interval (e.g. `Billed at $1,040/yr`). Converted from the configured period price using day-accurate ratios — not shortcuts such as "four weeks per month". Weekly: as configured; monthly: period price × 7÷30; yearly: period price × 7÷365. Penalty (undiscounted) and practice-day ideal prices use the same conversion; ideal uses the practice-day ideal price for the selected interval. Currency displays as `$` for students in an Australian timezone and `A$` otherwise.
@@ -470,7 +470,10 @@
 - **Plan availability** — A paid tier or billing interval is offered on the subscribe page only when admin has configured the corresponding Stripe product and plan price. Unconfigured tiers show a student-facing "Coming soon" state instead of checkout. UCAT Free is always available.
   _Avoid_: Plan disabled, tier locked
 
-- **Practice-day discount** — A paid-tier billing perk: complete the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the base (penalty) bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. Applies to UCAT Unlimited and UCAT Pro subscribers, including during Unlimited trial (`trialing`); credits earned during trial reduce the first paid invoice when the trial converts. UCAT Free practice does not contribute.
+- **Accountability Pricing** — The customer-facing proposition in which consistent UCAT practice earns reductions from the standard subscription price through practice-day discounts.
+  _Avoid_: Penalty pricing, penalty fee
+
+- **Practice-day discount** — A paid-tier billing perk: answer the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the standard bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. Applies to UCAT Unlimited and UCAT Pro subscribers, including during Unlimited trial (`trialing`); credits earned during trial reduce the first paid invoice when the trial converts. UCAT Free practice does not contribute.
   _Avoid_: Daily discount, practice credit
 
 - **Practice-day discount cap** — The maximum number of practice-day discounts a student can earn in one Stripe billing period (`current_period_start` through `current_period_end`) for their current billing interval. Configured per billing interval; admin may set any value from 1 up to that interval's canonical period day count (7 for weekly, 30 for monthly, 365 for yearly). Once the cap is reached, further qualifying practice days in that period earn no additional discount until the next period. A student may earn at most one practice-day discount per calendar day (student timezone), regardless of how many qualifying sessions they complete that day.
@@ -479,7 +482,7 @@
 - **Practice-day ideal price** — The lowest marketing price shown for a paid plan at a given billing interval, assuming the student earns the practice-day discount on every day allowed by the cap: `base plan price − (discount per qualifying day × practice-day discount cap)`. Displayed per week on plan cards using the same day-accurate conversion as other marketing prices.
   _Avoid_: Best price, floor price
 
-- **Practice-day qualification threshold** — The minimum number of submitted question attempts in one calendar day (student timezone) required to earn a practice-day discount. One global setting for all billing intervals and paid tiers. UCAT Free attempts do not count.
+- **Practice-day qualification threshold** — The minimum number of questions with an answer actually submitted in one calendar day (student timezone) required to earn a practice-day discount. Unanswered, merely viewed, and timed-out questions do not count; one global setting applies to all billing intervals and paid tiers, and UCAT Free answers do not count.
   _Avoid_: Daily minimum, questions per day
 
 - **Practice-day discount grant** — The moment a qualifying day is recorded: a fixed discount amount (from the config at grant time) is written as a credit and applied as a pending Stripe invoice item on the student's subscription. Grants are immutable — admin config changes affect only future grants, not credits already earned in the current or prior periods.
@@ -491,8 +494,23 @@
 - **Practice-day discount forfeiture** — When a paid UCAT subscription ends (cancel completes, trial lapses without payment, or payment failure terminates access), any unused practice-day discount credits that have not yet been applied to an invoice are voided. A student who later resubscribes — on any interval — starts with no banked credits from the prior subscription. While a subscription remains active — including during a cancel-at-period-end window — the student may still earn practice-day discounts and those credits apply to that subscription's remaining invoices; forfeiture applies only to what is still pending when access actually ends.
   _Avoid_: Credit expiry, lose discounts
 
+- **UCAT referral** — Immutable attribution of one new UCAT student to one existing student through the existing student's referral link. A referred student may have only one referrer; using the same Stripe customer or card fingerprint rejects the paid reward as a self-referral.
+  _Avoid_: Affiliate, ambassador sale
+
+- **Free referral qualification** — The referred UCAT Free student answers at least ten questions on two separate days within 14 days of joining. Both students then receive one explicit-use UCAT Free quota reset entitlement that expires after 30 days.
+  _Avoid_: Free signup reward, instant reset
+
+- **Paid referral qualification** — The referred student starts their one-time eligible Unlimited trial on either UCAT Unlimited or UCAT Pro after supplying a distinct Stripe payment method. Both students immediately earn one referral free-bill reward; the trial itself does not activate Pro human-support entitlements.
+  _Avoid_: Referral commission, paid conversion
+
+- **Referral free-bill reward** — One queued entitlement to make the student's next weekly or monthly subscription invoice free, including UCAT Pro's fixed premium when the student is on Pro. One reward is consumed per billing cycle, multiple referrals queue as multiple future free bills, and a reward earned while on UCAT Free waits until the student subscribes.
+  _Avoid_: Referral cash, referral credit, free-access extension
+
 - **Billing interval lock** — A student's billing interval (weekly / monthly / yearly) is chosen at first paid checkout (or Unlimited trial start) and cannot be changed afterward. Interval is not a plan-change dimension — only tier (UCAT Unlimited ↔ UCAT Pro) may change on an existing subscription. Prevents practice-day discount credits earned under one interval's economics from being applied after switching to a shorter interval.
   _Avoid_: Billing cadence change, switch to monthly
+
+- **Checkout availability** — Whether a specific paid tier and billing interval combination is intentionally offered for new checkout (for example, UCAT Unlimited monthly). Independent of its base price and Stripe Price configuration; an interval is offered when at least one tier at that interval has checkout availability and complete payment configuration.
+  _Avoid_: Feature flag, enabled price, configured plan
 
 - **UCAT subscription plan change** — A change to a paid student's tier between UCAT Unlimited and UCAT Pro on the **same billing interval**. A student may have at most one active UCAT subscription at a time. The stored plan always reflects what the student has actually paid for. Billing interval changes are not permitted — see billing interval lock. Moving between UCAT Free and a paid tier is subscribe or cancel, not an in-place plan change.
   _Avoid_: Plan switch, change plan

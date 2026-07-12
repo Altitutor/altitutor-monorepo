@@ -155,6 +155,12 @@ export type AiGenerationBrief = {
     categoryName: string | null
     stemText: unknown
   } | null
+  vennStructureReference?: {
+    id: string | null
+    stemText: unknown
+    questions: unknown
+    diagramLocation: 'stem' | 'answer_options'
+  } | null
   sourceImagesForCalibration?: Array<Record<string, unknown>>
   promptLayers: AiGenerationPromptLayer[]
 }
@@ -245,10 +251,13 @@ function contentBlockContract(sectionName: string): string[] {
     return [
       ...base,
       'DM Venn/set visuals use visualType venn_diagram or set_diagram only. Use shape-based specs with labelled shapes and clearly placed region values.',
+      'Supported set shapes are circle, ellipse, rect, triangle, diamond, pentagon, hexagon, cross, and polygon. Polygon shapes use points as [x,y] pairs or {x,y} objects. Shapes may use rotation in degrees.',
       'Use shapes[].label only for set names and regionLabels only for examinable values. For simple circle Venns, numeric regionLabels may use semantic region expressions or include/exclude arrays matching a shape id or label.',
       'For every examinable Venn/set numeric label, provide semantic membership metadata using region or include/exclude arrays. Place values inside their exact region, not on a boundary.',
       'Do not put two numeric values in the same semantic set region unless an answer option is intentionally invalid. Do not leave a required region unlabeled.',
       'For mixed-shape diagrams, keep coordinate values on one coherent scale and use labels or a legend to identify each set. Do not repeat the legend in stem prose unless it adds examinable information.',
+      'Set names must use the scenario terminology, not placeholder letters such as A-E. If every set has a different shape type, use a legend with one unique shape per set. If any shape type repeats, label each shape directly and position each label so its shape is unambiguous.',
+      'Identify every represented set. Never label only some of the shapes. Make every examinable overlap region broad enough to hold its value clearly; avoid slivers, tangencies, and nearly coincident borders.',
       'Keep Venn/set diagrams monochrome or lightly filled. Do not use the legacy coloured three-overlapping-circle template.',
     ]
   }
@@ -275,6 +284,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       layeredInstructions: layeredInstructions(input),
       sourceExamplesForCalibrationOnly: input.examples,
       presentationReferenceForSourceFormat: input.presentationReference ?? null,
+      vennReferenceForQuestionStructure: input.vennStructureReference ?? null,
       sourceImagesForCalibrationOnly: input.sourceImagesForCalibration ?? [],
       contentBlockContract: contentBlockContract(input.sectionName),
       requirements: [
@@ -331,10 +341,25 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           : []),
         ...(input.categoryName === 'Venn Diagrams'
           ? [
-              'Include one or more examinable shape-based set_diagrams or venn_diagrams. Choose the diagram complexity that makes the reasoning realistic: this may use three or more sets, nested sets, mixed overlapping circles, ellipses, rectangles, triangles, diamonds, pentagons, or hexagons. Do not default to the legacy coloured three-circle template.',
-              'Diagram answer options are allowed when the task genuinely asks which diagram represents the stated set relationships. In that case, return each diagram as a visual content block in answerText, with one unambiguously correct option.',
-              'Keep each visual spec focused on examinable geometry, set names, and region values. Every numeric regionLabel must identify its exact semantic set region using region or include/exclude arrays; include coordinate hints only where necessary to render an unambiguous mixed-shape diagram.',
-              'Include enough labelled regions for the task to require genuine diagram interpretation. Keep the scenario, set names, values, relationships, and reasoning new.',
+              ...(input.vennStructureReference
+                ? [
+                    `The designated Venn reference is a real UCAT source and its attached images are the structural target for this call. requiredVennDiagramLocation=${input.vennStructureReference.diagramLocation}. This is a hard output constraint, not a suggestion.`,
+                    input.vennStructureReference.diagramLocation === 'answer_options'
+                      ? 'Return no Venn/set visual in stemText. Put one set_diagram or venn_diagram visual in every answerText option. Use exactly four diagram options unless the designated source clearly has five. Region labels may be empty when the diagrams test qualitative set relationships rather than numeric values.'
+                      : 'Put the examinable Venn/set visual in stemText. Use ordinary text or numeric answer options unless the designated source itself uses diagram answer options.',
+                    'Match the number of represented sets and the broad shape family visible in the designated reference. A surrounding universe box does not count as a set. Do not reduce a four-set or five-set reference to three sets, and do not replace a mixed or nested reference with the conventional triangular three-circle layout.',
+                    'Calibrate from the reference image family, including nesting, diagram density, and whether a legend is used. Invent a new scenario, set meanings, geometry, region values, logical relationships, question and answer reasoning. Do not trace or clone the exact composition.',
+                  ]
+                : []),
+              'Include one or more examinable shape-based set_diagrams or venn_diagrams. Choose the diagram complexity that makes the reasoning realistic: this may use three or more sets, nested sets, mixed overlapping circles, ellipses, rectangles, triangles, diamonds, pentagons, hexagons, crosses, or explicit polygon shapes. Do not default to the conventional triangular three-circle layout unless the designated real source uses that broad form.',
+              'Use the real scenario set names on the shapes. Do not substitute A, B, C, D or E when the sets have descriptive names. Use a legend only when each set has a visually distinct shape type; otherwise label the repeated shapes directly.',
+              'For diagram answer options, vary the actual containment, overlap, exclusion or nesting geometry between options. Each option has its own independent visual spec. Do not reuse the same shape coordinates and merely change the option title or explanation.',
+              'In qualitative diagram options, make intended overlap and separation visually decisive. Separated sets need a visible gap; overlapping sets need a substantial visible intersection. Do not use tangent or near-tangent boundaries to express a logical relationship.',
+              'Diagram answer options are fully supported. When the designated source uses diagram answer options, each option answerText must be an array containing its own visual block, with consistent set identities and one unambiguously correct diagram.',
+              'Keep each visual spec focused on examinable geometry, set names, and region values. Every numeric regionLabel must identify its exact semantic set region using region or include/exclude arrays and provide an x/y point visibly inside that cell.',
+              'For mixed or nested shapes, construct the geometry first and verify that every declared include/exclude membership cell has non-zero visible area. Do not mechanically emit all seven three-set regions when the chosen shapes do not create them. Omit unused nonexistent cells rather than attaching values to impossible regions.',
+              'Include enough labelled regions for the task to require genuine diagram interpretation when the task is numeric. Qualitative diagram-answer options do not require invented numeric labels. Keep the scenario, set names, values, relationships, and reasoning new.',
+              'A numeric diagram should normally contain several meaningfully populated regions. Avoid a token three-number diagram unless those three regions still support a realistic multi-step set inference.',
             ]
           : []),
         ...(input.categoryName === 'Recognising Assumptions'

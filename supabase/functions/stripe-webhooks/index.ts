@@ -1,38 +1,72 @@
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import Stripe from 'npm:stripe@16.6.0';
-import { validateStripeEnv, validateSignatureHeader } from './shared/validation.ts';
-import { shouldSkipEvent, getEventId, getEventType } from './shared/idempotency.ts';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import Stripe from "npm:stripe@16.6.0";
+import {
+  validateStripeEnv,
+  validateSignatureHeader,
+} from "./shared/validation.ts";
+import {
+  shouldSkipEvent,
+  getEventId,
+  getEventType,
+} from "./shared/idempotency.ts";
 import {
   syncSubscriptionInvoiceFromStripe,
   retrieveInvoiceWithLines,
-} from './shared/subscription-invoice-sync.ts';
-import { forfeitPracticeDayCreditsForStudent } from './shared/forfeit-practice-day-credits.ts';
+} from "./shared/subscription-invoice-sync.ts";
+import { forfeitPracticeDayCreditsForStudent } from "./shared/forfeit-practice-day-credits.ts";
+import { sendUcatTrialReminder } from "./shared/ucat-trial-reminder.ts";
+import {
+  applyQueuedReferralRewardToInvoice,
+  markReferralRewardRedeemed,
+  maybeQualifyPaidUcatReferral,
+  requeueReferralReward,
+  resolveCustomerCardFingerprint,
+} from "./shared/ucat-referral-rewards.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
 }
 
-async function getUcatSubjectId(supabase: SupabaseClient): Promise<string | null> {
-  const { data } = await supabase.from('subjects').select('id').eq('name', 'UCAT').maybeSingle();
+async function getUcatSubjectId(
+  supabase: SupabaseClient,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("subjects")
+    .select("id")
+    .eq("name", "UCAT")
+    .maybeSingle();
   return data?.id ?? null;
 }
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+]);
 
 function subscriptionPeriodFields(subscription: {
   current_period_start?: number;
   current_period_end?: number;
-  items?: { data?: Array<{ current_period_start?: number; current_period_end?: number }> };
+  items?: {
+    data?: Array<{
+      current_period_start?: number;
+      current_period_end?: number;
+    }>;
+  };
 }): { current_period_start: string | null; current_period_end: string | null } {
   const item = subscription.items?.data?.[0];
-  const start = subscription.current_period_start ?? item?.current_period_start ?? null;
-  const end = subscription.current_period_end ?? item?.current_period_end ?? null;
+  const start =
+    subscription.current_period_start ?? item?.current_period_start ?? null;
+  const end =
+    subscription.current_period_end ?? item?.current_period_end ?? null;
   return {
-    current_period_start: start != null ? new Date(start * 1000).toISOString() : null,
+    current_period_start:
+      start != null ? new Date(start * 1000).toISOString() : null,
     current_period_end: end != null ? new Date(end * 1000).toISOString() : null,
   };
 }
@@ -45,7 +79,7 @@ function subscriptionCancelFields(subscription: {
   items?: { data?: Array<{ current_period_end?: number }> };
 }): { cancel_at_period_end: boolean; cancel_at: string | null } {
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
-  const status = subscription.status ?? 'active';
+  const status = subscription.status ?? "active";
   const stillActive = ACTIVE_SUBSCRIPTION_STATUSES.has(status);
 
   if (subscription.cancel_at) {
@@ -59,7 +93,8 @@ function subscriptionCancelFields(subscription: {
 
   if (cancelAtPeriodEnd) {
     const periodEnd =
-      subscription.current_period_end ?? subscription.items?.data?.[0]?.current_period_end;
+      subscription.current_period_end ??
+      subscription.items?.data?.[0]?.current_period_end;
     if (periodEnd) {
       return {
         cancel_at_period_end: true,
@@ -72,8 +107,8 @@ function subscriptionCancelFields(subscription: {
 }
 
 type UcatPlanFields = {
-  plan_tier: 'unlimited' | 'pro' | null;
-  billing_interval: 'week' | 'month' | 'year' | null;
+  plan_tier: "unlimited" | "pro" | null;
+  billing_interval: "week" | "month" | "year" | null;
 };
 
 async function resolveUcatPlanFields(
@@ -85,21 +120,23 @@ async function resolveUcatPlanFields(
   const metaTier = metadata?.ucat_plan_tier;
   const metaInterval = metadata?.ucat_billing_interval;
   if (
-    (metaTier === 'unlimited' || metaTier === 'pro') &&
-    (metaInterval === 'week' || metaInterval === 'month' || metaInterval === 'year')
+    (metaTier === "unlimited" || metaTier === "pro") &&
+    (metaInterval === "week" ||
+      metaInterval === "month" ||
+      metaInterval === "year")
   ) {
     return { plan_tier: metaTier, billing_interval: metaInterval };
   }
 
   if (priceId) {
     const { data } = await supabase
-      .from('ucat_plan_prices')
-      .select('plan_tier, billing_interval')
-      .eq('stripe_price_id', priceId)
+      .from("ucat_plan_prices")
+      .select("plan_tier, billing_interval")
+      .eq("stripe_price_id", priceId)
       .maybeSingle();
-    if (data?.plan_tier === 'unlimited' || data?.plan_tier === 'pro') {
+    if (data?.plan_tier === "unlimited" || data?.plan_tier === "pro") {
       const interval = data.billing_interval;
-      if (interval === 'week' || interval === 'month' || interval === 'year') {
+      if (interval === "week" || interval === "month" || interval === "year") {
         return { plan_tier: data.plan_tier, billing_interval: interval };
       }
       return { plan_tier: data.plan_tier, billing_interval: null };
@@ -108,15 +145,15 @@ async function resolveUcatPlanFields(
 
   if (productId) {
     const { data: config } = await supabase
-      .from('ucat_subscription_config')
-      .select('unlimited_stripe_product_id, pro_stripe_product_id')
+      .from("ucat_subscription_config")
+      .select("unlimited_stripe_product_id, pro_stripe_product_id")
       .limit(1)
       .maybeSingle();
     if (config?.pro_stripe_product_id === productId) {
-      return { plan_tier: 'pro', billing_interval: null };
+      return { plan_tier: "pro", billing_interval: null };
     }
     if (config?.unlimited_stripe_product_id === productId) {
-      return { plan_tier: 'unlimited', billing_interval: null };
+      return { plan_tier: "unlimited", billing_interval: null };
     }
   }
 
@@ -125,68 +162,99 @@ async function resolveUcatPlanFields(
 
 Deno.serve(async (req: Request) => {
   // Health check endpoint
-  if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
-    return json({ 
-      status: 'ok', 
+  if (
+    req.method === "GET" ||
+    (req.method === "POST" && req.url.includes("health"))
+  ) {
+    return json({
+      status: "ok",
       timestamp: new Date().toISOString(),
-      function: 'stripe-webhooks',
+      function: "stripe-webhooks",
     });
   }
 
-  const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
-  const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')?.trim();
-  
-  const envValidation = validateStripeEnv(STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET);
+  const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim();
+
+  const envValidation = validateStripeEnv(
+    STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET,
+  );
   if (!envValidation.valid) {
-    console.error('[webhook] Stripe environment validation failed', {
+    console.error("[webhook] Stripe environment validation failed", {
       error: envValidation.error,
       hasSecretKey: !!STRIPE_SECRET_KEY,
       hasWebhookSecret: !!STRIPE_WEBHOOK_SECRET,
     });
-    return json({ 
-      error: envValidation.error === 'Invalid webhook secret format - must start with whsec_' 
-        ? 'Invalid webhook secret format' 
-        : 'Stripe env not configured',
-      details: envValidation.error === 'Invalid webhook secret format - must start with whsec_'
-        ? 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.'
-        : undefined
-    }, 500);
+    return json(
+      {
+        error:
+          envValidation.error ===
+          "Invalid webhook secret format - must start with whsec_"
+            ? "Invalid webhook secret format"
+            : "Stripe env not configured",
+        details:
+          envValidation.error ===
+          "Invalid webhook secret format - must start with whsec_"
+            ? "Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly."
+            : undefined,
+      },
+      500,
+    );
   }
-  
-  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
-  const sig = req.headers.get('stripe-signature');
+  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
+
+  const sig = req.headers.get("stripe-signature");
   const sigValidation = validateSignatureHeader(sig);
   if (!sigValidation.valid || !sig) {
-    console.error('[webhook] Signature header validation failed:', sigValidation.error);
-    return json({ error: sigValidation.error || 'Missing stripe-signature header' }, 400);
+    console.error(
+      "[webhook] Signature header validation failed:",
+      sigValidation.error,
+    );
+    return json(
+      { error: sigValidation.error || "Missing stripe-signature header" },
+      400,
+    );
   }
 
   // Read raw body as text - Stripe's constructEvent accepts string
   // Important: Don't parse as JSON before signature verification
   const rawBody = await req.text();
-  
+
   let event: Stripe.Event;
   try {
     // Use constructEventAsync for Deno/Supabase Edge Functions
     // constructEvent() uses synchronous crypto which isn't allowed in Deno
-    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET!);
+    event = await stripe.webhooks.constructEventAsync(
+      rawBody,
+      sig,
+      STRIPE_WEBHOOK_SECRET!,
+    );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[webhook] Signature verification failed:', msg);
-    return json({ error: 'invalid signature', details: err instanceof Error ? err.message : 'Unknown error' }, 400);
+    console.error("[webhook] Signature verification failed:", msg);
+    return json(
+      {
+        error: "invalid signature",
+        details: err instanceof Error ? err.message : "Unknown error",
+      },
+      400,
+    );
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
 
   try {
     // Check for duplicate event (idempotency)
     const { data: existingEvent } = await supabase
-      .from('stripe_webhook_events')
-      .select('id, processed')
-      .eq('stripe_event_id', getEventId(event))
+      .from("stripe_webhook_events")
+      .select("id, processed")
+      .eq("stripe_event_id", getEventId(event))
       .maybeSingle();
 
     if (shouldSkipEvent(existingEvent)) {
@@ -194,88 +262,141 @@ Deno.serve(async (req: Request) => {
     }
 
     // Log the webhook event
-    const { error: logErr } = await supabase.from('stripe_webhook_events').insert({
-      stripe_event_id: event.id,
-      event_type: event.type,
-      event_data: event,
-      processed: false
-    });
+    const { error: logErr } = await supabase
+      .from("stripe_webhook_events")
+      .insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        event_data: event,
+        processed: false,
+      });
 
     if (logErr) {
-      console.error('[webhook] Failed to log event:', logErr);
+      console.error("[webhook] Failed to log event:", logErr);
       // Continue processing even if logging fails
     }
 
     switch (event.type) {
-      case 'setup_intent.succeeded': {
-        const si = event.data.object as { payment_method?: string; customer?: string; metadata?: { student_id?: string } };
+      case "setup_intent.succeeded": {
+        const si = event.data.object as {
+          payment_method?: string;
+          customer?: string;
+          metadata?: { student_id?: string };
+        };
         const paymentMethodId = si.payment_method as string;
         const customerId = si.customer as string;
         const studentId = si.metadata?.student_id;
 
         if (!paymentMethodId || !customerId) {
           await supabase
-            .from('stripe_webhook_events')
-            .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing payment_method or customer' })
-            .eq('stripe_event_id', event.id);
+            .from("stripe_webhook_events")
+            .update({
+              processed: true,
+              processed_at: new Date().toISOString(),
+              error_message: "Missing payment_method or customer",
+            })
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
 
         if (!studentId) {
           await supabase
-            .from('stripe_webhook_events')
-            .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing student_id in metadata' })
-            .eq('stripe_event_id', event.id);
+            .from("stripe_webhook_events")
+            .update({
+              processed: true,
+              processed_at: new Date().toISOString(),
+              error_message: "Missing student_id in metadata",
+            })
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
 
         try {
           // Retrieve payment method details from Stripe
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-          const card = (pm && typeof pm === 'object' && 'card' in pm ? (pm as { card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number; country?: string } }).card : null) || {};
+          const card =
+            (pm && typeof pm === "object" && "card" in pm
+              ? (
+                  pm as {
+                    card?: {
+                      brand?: string;
+                      last4?: string;
+                      exp_month?: number;
+                      exp_year?: number;
+                      country?: string;
+                      fingerprint?: string;
+                    };
+                  }
+                ).card
+              : null) || {};
 
           // Check if student already has payment methods
           const { data: existingMethods, error: queryErr } = await supabase
-            .from('student_payment_methods')
-            .select('id')
-            .eq('student_id', studentId);
+            .from("student_payment_methods")
+            .select("id")
+            .eq("student_id", studentId);
 
           if (queryErr) {
-            console.error('[webhook] Error querying existing payment methods:', queryErr);
+            console.error(
+              "[webhook] Error querying existing payment methods:",
+              queryErr,
+            );
           }
 
-          const isFirstPaymentMethod = !existingMethods || existingMethods.length === 0;
+          const isFirstPaymentMethod =
+            !existingMethods || existingMethods.length === 0;
 
           // Insert the new payment method
           const { error: insertErr } = await supabase
-            .from('student_payment_methods')
+            .from("student_payment_methods")
             .insert({
               student_id: studentId,
               stripe_payment_method_id: paymentMethodId,
               is_default: isFirstPaymentMethod, // Set as default if it's the first one
-              card_brand: card.brand || 'unknown',
-              card_last4: card.last4 || '0000',
+              card_brand: card.brand || "unknown",
+              card_last4: card.last4 || "0000",
               card_exp_month: card.exp_month || 1,
               card_exp_year: card.exp_year || new Date().getFullYear() + 5,
               card_country: card.country || null,
+              card_fingerprint: card.fingerprint || null,
             });
 
           if (insertErr) {
-            console.error('[webhook] Failed to save payment method:', insertErr);
+            console.error(
+              "[webhook] Failed to save payment method:",
+              insertErr,
+            );
+          }
+
+          const { data: trialSubscription } = await supabase
+            .from("student_subscriptions")
+            .select("stripe_subscription_id")
+            .eq("student_id", studentId)
+            .eq("status", "trialing")
+            .maybeSingle();
+          if (trialSubscription?.stripe_subscription_id) {
+            await maybeQualifyPaidUcatReferral({
+              supabase,
+              stripe,
+              referredStudentId: studentId,
+              subscriptionId: trialSubscription.stripe_subscription_id,
+              customerId,
+              currentFingerprint: card.fingerprint || null,
+            });
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] setup_intent handler error:', msg);
+          console.error("[webhook] setup_intent handler error:", msg);
         }
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'payment_method.detached': {
+      case "payment_method.detached": {
         const pm = event.data.object as { id?: string };
         const paymentMethodId = pm.id as string;
 
@@ -286,119 +407,142 @@ Deno.serve(async (req: Request) => {
         try {
           // Get the payment method to check if it was default
           const { data: paymentMethod } = await supabase
-            .from('student_payment_methods')
-            .select('student_id, is_default')
-            .eq('stripe_payment_method_id', paymentMethodId)
+            .from("student_payment_methods")
+            .select("student_id, is_default")
+            .eq("stripe_payment_method_id", paymentMethodId)
             .maybeSingle();
 
           // Delete the payment method
           const { error: deleteErr } = await supabase
-            .from('student_payment_methods')
+            .from("student_payment_methods")
             .delete()
-            .eq('stripe_payment_method_id', paymentMethodId);
+            .eq("stripe_payment_method_id", paymentMethodId);
 
           if (deleteErr) {
-            console.error('[webhook] Failed to delete payment method:', deleteErr);
+            console.error(
+              "[webhook] Failed to delete payment method:",
+              deleteErr,
+            );
             return json({ received: true });
           }
 
           // If this was the default, promote another payment method to default
           if (paymentMethod?.is_default && paymentMethod?.student_id) {
             const { data: otherMethods } = await supabase
-              .from('student_payment_methods')
-              .select('id')
-              .eq('student_id', paymentMethod.student_id)
+              .from("student_payment_methods")
+              .select("id")
+              .eq("student_id", paymentMethod.student_id)
               .limit(1);
 
             if (otherMethods && otherMethods.length > 0) {
               await supabase
-                .from('student_payment_methods')
+                .from("student_payment_methods")
                 .update({ is_default: true })
-                .eq('id', otherMethods[0].id);
+                .eq("id", otherMethods[0].id);
             }
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] payment_method.detached handler error:', msg);
+          console.error(
+            "[webhook] payment_method.detached handler error:",
+            msg,
+          );
         }
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'customer.updated': {
-        const customer = event.data.object as { id: string; invoice_settings?: { default_payment_method?: string } };
+      case "customer.updated": {
+        const customer = event.data.object as {
+          id: string;
+          invoice_settings?: { default_payment_method?: string };
+        };
         const customerId = customer.id;
-        const defaultPmId = customer.invoice_settings?.default_payment_method as string | undefined;
-        
+        const defaultPmId = customer.invoice_settings
+          ?.default_payment_method as string | undefined;
+
         // Find student by stripe_customer_id
         const { data: billing } = await supabase
-          .from('students_billing')
-          .select('student_id')
-          .eq('stripe_customer_id', customerId)
+          .from("students_billing")
+          .select("student_id")
+          .eq("stripe_customer_id", customerId)
           .maybeSingle();
-        
+
         if (!billing?.student_id) {
           await supabase
-            .from('stripe_webhook_events')
+            .from("stripe_webhook_events")
             .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
-        
+
         try {
           // Note: Customer balance is now fetched on-demand from Stripe, not cached in DB
-          
+
           // Update default payment method if provided
           if (defaultPmId) {
             // Unset all defaults for this student
             await supabase
-              .from('student_payment_methods')
+              .from("student_payment_methods")
               .update({ is_default: false })
-              .eq('student_id', billing.student_id);
-            
+              .eq("student_id", billing.student_id);
+
             // Set the Stripe default as default in DB
             const { error: updateError } = await supabase
-              .from('student_payment_methods')
+              .from("student_payment_methods")
               .update({ is_default: true })
-              .eq('student_id', billing.student_id)
-              .eq('stripe_payment_method_id', defaultPmId);
-            
+              .eq("student_id", billing.student_id)
+              .eq("stripe_payment_method_id", defaultPmId);
+
             if (updateError) {
-              console.error('[webhook] Failed to sync default payment method:', updateError);
+              console.error(
+                "[webhook] Failed to sync default payment method:",
+                updateError,
+              );
             }
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] customer.updated handler error:', msg);
+          console.error("[webhook] customer.updated handler error:", msg);
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'payment_method.updated': {
-        const pm = event.data.object as { id?: string; type?: string; card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number; country?: string } };
+      case "payment_method.updated": {
+        const pm = event.data.object as {
+          id?: string;
+          type?: string;
+          card?: {
+            brand?: string;
+            last4?: string;
+            exp_month?: number;
+            exp_year?: number;
+            country?: string;
+          };
+        };
         const paymentMethodId = pm.id as string;
-        
-        if (!paymentMethodId || pm.type !== 'card' || !pm.card) {
+
+        if (!paymentMethodId || pm.type !== "card" || !pm.card) {
           await supabase
-            .from('stripe_webhook_events')
+            .from("stripe_webhook_events")
             .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
-        
+
         try {
           const card = pm.card || {};
           const { error: updateErr } = await supabase
-            .from('student_payment_methods')
+            .from("student_payment_methods")
             .update({
               card_brand: card.brand || null,
               card_last4: card.last4 || null,
@@ -406,81 +550,107 @@ Deno.serve(async (req: Request) => {
               card_exp_year: card.exp_year || null,
               card_country: card.country || null,
             })
-            .eq('stripe_payment_method_id', paymentMethodId);
-          
+            .eq("stripe_payment_method_id", paymentMethodId);
+
           if (updateErr) {
-            console.error('[webhook] Failed to update payment method:', updateErr);
+            console.error(
+              "[webhook] Failed to update payment method:",
+              updateErr,
+            );
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] payment_method.updated handler error:', msg);
+          console.error("[webhook] payment_method.updated handler error:", msg);
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.created': {
-        // Log invoice creation (optional, for tracking)
-        const invoice = event.data.object as { id: string; customer?: string };
-        console.log('[webhook] Invoice created:', invoice.id, 'for customer:', invoice.customer);
-        
+      case "invoice.created": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const referralRewardApplied = await applyQueuedReferralRewardToInvoice({
+          supabase,
+          stripe,
+          invoice,
+        });
+        console.log(
+          "[webhook] Invoice created:",
+          invoice.id,
+          "for customer:",
+          invoice.customer,
+          referralRewardApplied ? "with referral reward" : "",
+        );
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.finalized': {
+      case "invoice.finalized": {
         // Invoice finalized, ready to charge (optional, for tracking)
-        const invoice = event.data.object as { id: string; status?: string; status_transitions?: { finalized_at?: number } };
-        console.log('[webhook] Invoice finalized:', invoice.id);
+        const invoice = event.data.object as {
+          id: string;
+          status?: string;
+          status_transitions?: { finalized_at?: number };
+        };
+        console.log("[webhook] Invoice finalized:", invoice.id);
 
-        const subSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, invoice.id);
-        if (!subSync.ok && !('skipped' in subSync && subSync.skipped)) {
-          console.error('[webhook] subscription invoice sync (finalized):', subSync);
+        const subSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          invoice.id,
+        );
+        if (!subSync.ok && !("skipped" in subSync && subSync.skipped)) {
+          console.error(
+            "[webhook] subscription invoice sync (finalized):",
+            subSync,
+          );
         }
-        
+
         // Check current invoice status before updating
         // Don't overwrite 'paid' status if invoice was already paid
         const { data: currentInvoice } = await supabase
-          .from('invoices')
-          .select('status')
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("status")
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         // Only update finalized_at timestamp, don't overwrite status if already paid
         const updateData: Record<string, unknown> = {
-          finalized_at: invoice.status_transitions?.finalized_at 
-            ? new Date(invoice.status_transitions.finalized_at * 1000).toISOString()
+          finalized_at: invoice.status_transitions?.finalized_at
+            ? new Date(
+                invoice.status_transitions.finalized_at * 1000,
+              ).toISOString()
             : new Date().toISOString(),
         };
-        
+
         // Only update status if invoice is not already paid
         // This prevents invoice.finalized from overwriting 'paid' status set by invoice.paid
-        if (currentInvoice?.status !== 'paid') {
+        if (currentInvoice?.status !== "paid") {
           updateData.status = invoice.status;
         }
-        
+
         await supabase
-          .from('invoices')
+          .from("invoices")
           .update(updateData)
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.paid': {
+      case "invoice.paid": {
         // CRITICAL: Invoice payment succeeded
         const invoice = event.data.object as {
           id: string;
@@ -495,8 +665,16 @@ Deno.serve(async (req: Request) => {
         };
 
         // Extract charge/payment_intent from payload first (Stripe sends these on invoice.paid)
-        const idFrom = (v: string | { id: string } | null | undefined): string | null =>
-          v == null ? null : typeof v === 'string' ? v : 'id' in v ? (v as { id: string }).id : null;
+        const idFrom = (
+          v: string | { id: string } | null | undefined,
+        ): string | null =>
+          v == null
+            ? null
+            : typeof v === "string"
+              ? v
+              : "id" in v
+                ? (v as { id: string }).id
+                : null;
 
         let chargeId: string | null = idFrom(invoice.charge);
         let payment_intent_id: string | null = idFrom(invoice.payment_intent);
@@ -509,29 +687,51 @@ Deno.serve(async (req: Request) => {
         let fullInvoice: Stripe.Invoice | null = null;
         try {
           fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id, [
-            'latest_charge',
-            'payment_intent',
+            "latest_charge",
+            "payment_intent",
           ]);
 
-          const paidSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, fullInvoice);
-          if (!paidSync.ok && !('skipped' in paidSync && paidSync.skipped)) {
-            console.error('[webhook] subscription invoice sync (paid):', paidSync);
+          const paidSync = await syncSubscriptionInvoiceFromStripe(
+            supabase,
+            stripe,
+            fullInvoice,
+          );
+          if (!paidSync.ok && !("skipped" in paidSync && paidSync.skipped)) {
+            console.error(
+              "[webhook] subscription invoice sync (paid):",
+              paidSync,
+            );
           }
 
           if (!chargeId && fullInvoice.latest_charge) {
             const lc = fullInvoice.latest_charge;
-            chargeId = typeof lc === 'string' ? lc : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
+            chargeId =
+              typeof lc === "string"
+                ? lc
+                : lc && typeof lc === "object" && "id" in lc
+                  ? (lc as { id: string }).id
+                  : null;
           }
-          if (!chargeId && (fullInvoice as { charge?: string | { id: string } }).charge) {
-            chargeId = idFrom((fullInvoice as { charge?: string | { id: string } }).charge);
+          if (
+            !chargeId &&
+            (fullInvoice as { charge?: string | { id: string } }).charge
+          ) {
+            chargeId = idFrom(
+              (fullInvoice as { charge?: string | { id: string } }).charge,
+            );
           }
           if (!payment_intent_id && fullInvoice.payment_intent) {
             const pi = fullInvoice.payment_intent;
-            payment_intent_id = typeof pi === 'string' ? pi : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
+            payment_intent_id =
+              typeof pi === "string"
+                ? pi
+                : pi && typeof pi === "object" && "id" in pi
+                  ? (pi as { id: string }).id
+                  : null;
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] Error fetching invoice from Stripe:', msg);
+          console.error("[webhook] Error fetching invoice from Stripe:", msg);
           // We may already have chargeId/payment_intent_id from payload
         }
 
@@ -539,24 +739,32 @@ Deno.serve(async (req: Request) => {
         if (chargeId) {
           try {
             const charge = await stripe.charges.retrieve(chargeId, {
-              expand: ['balance_transaction', 'payment_intent']
+              expand: ["balance_transaction", "payment_intent"],
             });
-            const bt = charge.balance_transaction as { fee?: number; net?: number } | null;
+            const bt = charge.balance_transaction as {
+              fee?: number;
+              net?: number;
+            } | null;
             if (bt) {
-              fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
-              net_cents = typeof bt.net === 'number' ? bt.net : null;
+              fee_cents = typeof bt.fee === "number" ? bt.fee : null;
+              net_cents = typeof bt.net === "number" ? bt.net : null;
             }
             receipt_url = charge.receipt_url || null;
             if (!payment_intent_id && charge.payment_intent) {
               const cpi = charge.payment_intent;
-              payment_intent_id = typeof cpi === 'string' ? cpi : (cpi && typeof cpi === 'object' && 'id' in cpi ? (cpi as { id: string }).id : null);
+              payment_intent_id =
+                typeof cpi === "string"
+                  ? cpi
+                  : cpi && typeof cpi === "object" && "id" in cpi
+                    ? (cpi as { id: string }).id
+                    : null;
             }
           } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e);
-            console.error('[webhook] Error retrieving charge details:', msg);
+            console.error("[webhook] Error retrieving charge details:", msg);
           }
         }
-        
+
         // Calculate amount paid from customer balance
         // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
         // When customer balance is applied: total > 0 but amount_due = 0
@@ -564,18 +772,22 @@ Deno.serve(async (req: Request) => {
         const subtotalCents = invoiceForAmounts.subtotal ?? null;
         const totalCents = invoiceForAmounts.total ?? null;
         const amountDueCents = invoiceForAmounts.amount_due ?? 0;
-        const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
+        const amountPaidFromBalanceCents =
+          totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
         // Update invoice status to 'paid'
         const { error: payErr } = await supabase
-          .from('invoices')
+          .from("invoices")
           .update({
-            status: 'paid',
+            status: "paid",
             stripe_charge_id: chargeId, // CRITICAL: For disputes
             stripe_payment_intent_id: payment_intent_id,
             subtotal_cents: subtotalCents,
             total_cents: totalCents,
-            amount_paid_cents: invoiceForAmounts.amount_paid ?? invoiceForAmounts.amount_due ?? 0,
+            amount_paid_cents:
+              invoiceForAmounts.amount_paid ??
+              invoiceForAmounts.amount_due ??
+              0,
             amount_due_cents: amountDueCents,
             amount_paid_from_balance_cents: amountPaidFromBalanceCents,
             fee_cents,
@@ -585,43 +797,52 @@ Deno.serve(async (req: Request) => {
             invoice_pdf: invoice.invoice_pdf || null,
             paid_at: new Date().toISOString(),
           })
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
-        if (payErr) console.error('[webhook] invoices update error', payErr);
-        
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
+        if (payErr) console.error("[webhook] invoices update error", payErr);
+
+        await markReferralRewardRedeemed(supabase, invoice.id);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.payment_failed': {
+      case "invoice.payment_failed": {
         // CRITICAL: Invoice payment failed
         // For UCAT subscriptions: customer.subscription.updated will sync past_due status.
         // Configure Stripe Smart Retries + Customer emails in Dashboard for payment failure notifications.
         const invoice = event.data.object as Stripe.Invoice;
 
-        const failSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, invoice.id);
-        if (!failSync.ok && !('skipped' in failSync && failSync.skipped)) {
-          console.error('[webhook] subscription invoice sync (payment_failed):', failSync);
+        const failSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          invoice.id,
+        );
+        if (!failSync.ok && !("skipped" in failSync && failSync.skipped)) {
+          console.error(
+            "[webhook] subscription invoice sync (payment_failed):",
+            failSync,
+          );
         }
 
         const lastError = invoice.last_payment_error;
-        const failure_code = lastError?.code || 'unknown_error';
-        const failure_message = lastError?.message || 'payment_failed';
+        const failure_code = lastError?.code || "unknown_error";
+        const failure_message = lastError?.message || "payment_failed";
 
         const { data: prevInv } = await supabase
-          .from('invoices')
-          .select('metadata')
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("metadata")
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null)
           .maybeSingle();
 
         const prevMeta =
           prevInv?.metadata &&
-          typeof prevInv.metadata === 'object' &&
+          typeof prevInv.metadata === "object" &&
           !Array.isArray(prevInv.metadata)
             ? (prevInv.metadata as Record<string, unknown>)
             : {};
@@ -629,7 +850,7 @@ Deno.serve(async (req: Request) => {
         // Update invoice status (remains 'open' for retries)
         // Store failure details in metadata (merge so we do not wipe other keys)
         const { error: updErr } = await supabase
-          .from('invoices')
+          .from("invoices")
           .update({
             // Status remains 'open' for Stripe's automatic retries
             metadata: {
@@ -637,58 +858,75 @@ Deno.serve(async (req: Request) => {
               last_payment_error: {
                 code: failure_code,
                 message: failure_message,
-                type: lastError?.type || 'card_error',
+                type: lastError?.type || "card_error",
               },
               last_failure_at: new Date().toISOString(),
             },
           })
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
-        if (updErr) console.error('[webhook] invoices fail update error', updErr);
-        
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
+        if (updErr)
+          console.error("[webhook] invoices fail update error", updErr);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.updated': {
+      case "invoice.updated": {
         // MEDIUM: Handle status changes, updates to amounts, etc.
-        const invoice = event.data.object as { id: string; status?: string; hosted_invoice_url?: string; invoice_pdf?: string };
-        
+        const invoice = event.data.object as {
+          id: string;
+          status?: string;
+          hosted_invoice_url?: string;
+          invoice_pdf?: string;
+        };
+
         // Check current invoice status before updating
         // Don't downgrade status from 'paid' to lower statuses (e.g., 'open')
         const { data: currentInvoice } = await supabase
-          .from('invoices')
-          .select('status')
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("status")
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         // Fetch full invoice from Stripe API to get reliable subtotal/total values
         // Webhook payloads may not include these fields or may have them as null
         let fullInvoice: Stripe.Invoice | null = null;
         try {
           fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id);
-          const updSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, fullInvoice);
-          if (!updSync.ok && !('skipped' in updSync && updSync.skipped)) {
-            console.error('[webhook] subscription invoice sync (updated):', updSync);
+          const updSync = await syncSubscriptionInvoiceFromStripe(
+            supabase,
+            stripe,
+            fullInvoice,
+          );
+          if (!updSync.ok && !("skipped" in updSync && updSync.skipped)) {
+            console.error(
+              "[webhook] subscription invoice sync (updated):",
+              updSync,
+            );
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] Error fetching invoice from Stripe for invoice.updated:', msg);
+          console.error(
+            "[webhook] Error fetching invoice from Stripe for invoice.updated:",
+            msg,
+          );
           // Continue with webhook payload if fetch fails
         }
-        
+
         // Calculate amount paid from customer balance
         // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
         const invoiceForAmounts = fullInvoice || invoice;
         const subtotalCents = invoiceForAmounts.subtotal ?? null;
         const totalCents = invoiceForAmounts.total ?? null;
         const amountDueCents = invoiceForAmounts.amount_due ?? 0;
-        const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
+        const amountPaidFromBalanceCents =
+          totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
         const updateData: Record<string, unknown> = {
           subtotal_cents: subtotalCents,
@@ -699,63 +937,72 @@ Deno.serve(async (req: Request) => {
           hosted_invoice_url: invoice.hosted_invoice_url || null,
           invoice_pdf: invoice.invoice_pdf || null,
         };
-        
+
         // Only update status if it's not a downgrade from 'paid'
         // Valid transitions: draft -> open -> paid, but not paid -> open
-        if (currentInvoice?.status === 'paid' && invoice.status !== 'paid') {
+        if (currentInvoice?.status === "paid" && invoice.status !== "paid") {
           // Don't overwrite 'paid' status with lower status
-          console.log('[webhook] Skipping status update from paid to', invoice.status, 'for invoice:', invoice.id);
+          console.log(
+            "[webhook] Skipping status update from paid to",
+            invoice.status,
+            "for invoice:",
+            invoice.id,
+          );
         } else {
           // Safe to update status
           updateData.status = invoice.status;
         }
-        
+
         await supabase
-          .from('invoices')
+          .from("invoices")
           .update(updateData)
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.voided': {
+      case "invoice.voided": {
         const invoice = event.data.object as { id: string };
-        
+
+        await requeueReferralReward(supabase, invoice.id);
+
         await supabase
-          .from('invoices')
-          .update({ status: 'void' })
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
+          .from("invoices")
+          .update({ status: "void" })
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'invoice.marked_uncollectible': {
+      case "invoice.marked_uncollectible": {
         const invoice = event.data.object as { id: string };
-        
+
+        await requeueReferralReward(supabase, invoice.id);
+
         await supabase
-          .from('invoices')
-          .update({ status: 'uncollectible' })
-          .eq('stripe_invoice_id', invoice.id)
-          .is('deleted_at', null);
-        
+          .from("invoices")
+          .update({ status: "uncollectible" })
+          .eq("stripe_invoice_id", invoice.id)
+          .is("deleted_at", null);
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'checkout.session.completed': {
+      case "checkout.session.completed": {
         // UCAT subscription: provision access when checkout completes
         const session = event.data.object as {
           id: string;
@@ -767,54 +1014,70 @@ Deno.serve(async (req: Request) => {
             student_id?: string;
             ucat_plan_tier?: string;
             ucat_billing_interval?: string;
+            ucat_checkout_context?: string;
           };
         };
 
-        if (session.mode !== 'subscription' || !session.subscription) {
+        if (session.mode !== "subscription" || !session.subscription) {
           await supabase
-            .from('stripe_webhook_events')
+            .from("stripe_webhook_events")
             .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
 
         const studentId = session.metadata?.student_id;
         if (!studentId) {
-          console.warn('[webhook] checkout.session.completed: missing student_id in metadata');
+          console.warn(
+            "[webhook] checkout.session.completed: missing student_id in metadata",
+          );
           await supabase
-            .from('stripe_webhook_events')
+            .from("stripe_webhook_events")
             .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
 
         try {
           const ucatSubjectId = await getUcatSubjectId(supabase);
           if (!ucatSubjectId) {
-            console.warn('[webhook] checkout.session.completed: UCAT subject not found');
+            console.warn(
+              "[webhook] checkout.session.completed: UCAT subject not found",
+            );
           } else {
-            const subscription = await stripe.subscriptions.retrieve(session.subscription, {
-              expand: ['items.data.price'],
-            });
+            const subscription = await stripe.subscriptions.retrieve(
+              session.subscription,
+              {
+                expand: ["items.data.price", "default_payment_method"],
+              },
+            );
             const price = subscription.items?.data?.[0]?.price;
-            const priceId = price && typeof price === 'object' && 'id' in price ? price.id : null;
-            const productRaw = price && typeof price === 'object' && 'product' in price ? price.product : null;
+            const priceId =
+              price && typeof price === "object" && "id" in price
+                ? price.id
+                : null;
+            const productRaw =
+              price && typeof price === "object" && "product" in price
+                ? price.product
+                : null;
             const productId =
-              typeof productRaw === 'string'
+              typeof productRaw === "string"
                 ? productRaw
-                : productRaw && typeof productRaw === 'object' && 'id' in productRaw
+                : productRaw &&
+                    typeof productRaw === "object" &&
+                    "id" in productRaw
                   ? (productRaw as { id: string }).id
                   : null;
 
             // Ensure students_billing exists (Checkout may have created new customer)
             const customerId = session.customer as string;
             if (customerId) {
-              await supabase.from('students_billing').upsert(
+              await supabase.from("students_billing").upsert(
                 {
                   student_id: studentId,
                   stripe_customer_id: customerId,
                 },
-                { onConflict: 'student_id' }
+                { onConflict: "student_id" },
               );
             }
 
@@ -828,7 +1091,7 @@ Deno.serve(async (req: Request) => {
               },
             );
 
-            await supabase.from('student_subscriptions').upsert(
+            await supabase.from("student_subscriptions").upsert(
               {
                 student_id: studentId,
                 subject_id: ucatSubjectId,
@@ -842,23 +1105,93 @@ Deno.serve(async (req: Request) => {
                 ...subscriptionCancelFields(subscription),
                 updated_at: new Date().toISOString(),
               },
-              { onConflict: 'student_id,subject_id' }
+              { onConflict: "student_id,subject_id" },
             );
-            console.log('[webhook] UCAT subscription provisioned for student', studentId);
+
+            if (subscription.status === "trialing" && customerId) {
+              const defaultPaymentMethod = subscription.default_payment_method;
+              const paymentMethodId =
+                typeof defaultPaymentMethod === "string"
+                  ? defaultPaymentMethod
+                  : (defaultPaymentMethod?.id ?? null);
+              const fingerprint = await resolveCustomerCardFingerprint(
+                stripe,
+                customerId,
+                paymentMethodId,
+              );
+              const referralResult = await maybeQualifyPaidUcatReferral({
+                supabase,
+                stripe,
+                referredStudentId: studentId,
+                checkoutSessionId: session.id,
+                subscriptionId: subscription.id,
+                customerId,
+                currentFingerprint: fingerprint,
+              });
+              console.log(
+                "[webhook] UCAT paid referral result",
+                referralResult,
+                "for student",
+                studentId,
+              );
+            }
+            console.log(
+              "[webhook] UCAT subscription provisioned for student",
+              studentId,
+            );
+            const rawContext = session.metadata?.ucat_checkout_context;
+            const journeyContext =
+              rawContext === "signup_onboarding" ||
+              rawContext === "practice_session" ||
+              rawContext === "subscribe"
+                ? rawContext
+                : "subscribe";
+            await supabase.from("ucat_subscription_journey_events").insert({
+              student_id: studentId,
+              event_type: "checkout_completed",
+              journey_context: journeyContext,
+              plan_tier: planFields.plan_tier,
+              billing_interval: planFields.billing_interval,
+              trial_eligible: subscription.status === "trialing",
+              stripe_checkout_session_id: session.id,
+            });
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] checkout.session.completed UCAT handler error:', msg);
+          console.error(
+            "[webhook] checkout.session.completed UCAT handler error:",
+            msg,
+          );
         }
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'customer.subscription.updated': {
+      case "customer.subscription.trial_will_end": {
+        const subscription = event.data.object as {
+          id: string;
+          trial_end?: number | null;
+        };
+        try {
+          await sendUcatTrialReminder(supabase, subscription);
+        } catch (error: unknown) {
+          console.error(
+            "[webhook] UCAT trial reminder failed:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+        await supabase
+          .from("stripe_webhook_events")
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq("stripe_event_id", event.id);
+        return json({ received: true });
+      }
+
+      case "customer.subscription.updated": {
         const subscription = event.data.object as {
           id: string;
           status: string;
@@ -876,26 +1209,30 @@ Deno.serve(async (req: Request) => {
         };
 
         const { data: existing } = await supabase
-          .from('student_subscriptions')
-          .select('id')
-          .eq('stripe_subscription_id', subscription.id)
+          .from("student_subscriptions")
+          .select("id")
+          .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
 
         if (!existing) {
           await supabase
-            .from('stripe_webhook_events')
+            .from("stripe_webhook_events")
             .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
+            .eq("stripe_event_id", event.id);
           return json({ received: true });
         }
 
         const price = subscription.items?.data?.[0]?.price;
-        const priceId = price && typeof price === 'object' && 'id' in price ? price.id : null;
-        const productRaw = price && typeof price === 'object' && 'product' in price ? price.product : null;
+        const priceId =
+          price && typeof price === "object" && "id" in price ? price.id : null;
+        const productRaw =
+          price && typeof price === "object" && "product" in price
+            ? price.product
+            : null;
         const productId =
-          typeof productRaw === 'string'
+          typeof productRaw === "string"
             ? productRaw
-            : productRaw && typeof productRaw === 'object' && 'id' in productRaw
+            : productRaw && typeof productRaw === "object" && "id" in productRaw
               ? (productRaw as { id: string }).id
               : null;
 
@@ -903,11 +1240,12 @@ Deno.serve(async (req: Request) => {
           supabase,
           priceId,
           productId,
-          (subscription as { metadata?: Record<string, string> }).metadata ?? null,
+          (subscription as { metadata?: Record<string, string> }).metadata ??
+            null,
         );
 
         await supabase
-          .from('student_subscriptions')
+          .from("student_subscriptions")
           .update({
             status: subscription.status,
             stripe_price_id: priceId,
@@ -918,22 +1256,22 @@ Deno.serve(async (req: Request) => {
             ...subscriptionCancelFields(subscription),
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq("stripe_subscription_id", subscription.id);
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'customer.subscription.deleted': {
+      case "customer.subscription.deleted": {
         const subscription = event.data.object as { id: string };
 
         const { data: endedSub } = await supabase
-          .from('student_subscriptions')
-          .select('student_id, subject_id')
-          .eq('stripe_subscription_id', subscription.id)
+          .from("student_subscriptions")
+          .select("student_id, subject_id")
+          .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
 
         if (endedSub?.student_id) {
@@ -948,172 +1286,227 @@ Deno.serve(async (req: Request) => {
         }
 
         await supabase
-          .from('student_subscriptions')
+          .from("student_subscriptions")
           .update({
-            status: 'canceled',
+            status: "canceled",
             cancel_at_period_end: false,
             cancel_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq("stripe_subscription_id", subscription.id);
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'charge.dispute.created': {
+      case "charge.dispute.created": {
         // CRITICAL: Update invoice dispute fields
-        const dispute = event.data.object as { id: string; charge: string; status?: string; reason?: string; amount?: number; currency?: string; created?: number };
+        const dispute = event.data.object as {
+          id: string;
+          charge: string;
+          status?: string;
+          reason?: string;
+          amount?: number;
+          currency?: string;
+          created?: number;
+        };
         const chargeId = dispute.charge as string;
-        
+
         // Find invoice by stripe_charge_id
         const { data: invoice, error: findErr } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_charge_id', chargeId)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("id")
+          .eq("stripe_charge_id", chargeId)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         if (findErr) {
-          console.error('[webhook] Error finding invoice for dispute:', findErr);
+          console.error(
+            "[webhook] Error finding invoice for dispute:",
+            findErr,
+          );
         } else if (invoice) {
           // Update invoice with dispute information
           const { error: updateErr } = await supabase
-            .from('invoices')
+            .from("invoices")
             .update({
-              status: 'disputed',
+              status: "disputed",
               dispute_id: dispute.id,
               dispute_status: dispute.status,
               dispute_reason: dispute.reason,
               dispute_amount_cents: dispute.amount,
               dispute_currency: dispute.currency,
-              dispute_created_at: new Date(dispute.created * 1000).toISOString(),
+              dispute_created_at: new Date(
+                dispute.created * 1000,
+              ).toISOString(),
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id)
-            .is('deleted_at', null);
-          
+            .eq("id", invoice.id)
+            .is("deleted_at", null);
+
           if (updateErr) {
-            console.error('[webhook] Error updating invoice with dispute:', updateErr);
+            console.error(
+              "[webhook] Error updating invoice with dispute:",
+              updateErr,
+            );
           } else {
-            console.log('[webhook] Dispute created for invoice:', invoice.id, 'dispute:', dispute.id);
+            console.log(
+              "[webhook] Dispute created for invoice:",
+              invoice.id,
+              "dispute:",
+              dispute.id,
+            );
           }
         } else {
-          console.warn('[webhook] No invoice found for dispute charge:', chargeId);
+          console.warn(
+            "[webhook] No invoice found for dispute charge:",
+            chargeId,
+          );
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'charge.dispute.updated': {
+      case "charge.dispute.updated": {
         // CRITICAL: Update invoice dispute status
-        const dispute = event.data.object as { charge: string; status?: string; reason?: string; amount?: number };
+        const dispute = event.data.object as {
+          charge: string;
+          status?: string;
+          reason?: string;
+          amount?: number;
+        };
         const chargeId = dispute.charge as string;
-        
+
         // Find invoice by stripe_charge_id
         const { data: invoice, error: findErr } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_charge_id', chargeId)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("id")
+          .eq("stripe_charge_id", chargeId)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         if (findErr) {
-          console.error('[webhook] Error finding invoice for dispute update:', findErr);
+          console.error(
+            "[webhook] Error finding invoice for dispute update:",
+            findErr,
+          );
         } else if (invoice) {
           // Update dispute details
           const { error: updateErr } = await supabase
-            .from('invoices')
+            .from("invoices")
             .update({
               dispute_status: dispute.status,
               dispute_reason: dispute.reason,
               dispute_amount_cents: dispute.amount,
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id)
-            .is('deleted_at', null);
-          
+            .eq("id", invoice.id)
+            .is("deleted_at", null);
+
           if (updateErr) {
-            console.error('[webhook] Error updating dispute:', updateErr);
+            console.error("[webhook] Error updating dispute:", updateErr);
           } else {
-            console.log('[webhook] Dispute updated for invoice:', invoice.id);
+            console.log("[webhook] Dispute updated for invoice:", invoice.id);
           }
         } else {
-          console.warn('[webhook] No invoice found for dispute update charge:', chargeId);
+          console.warn(
+            "[webhook] No invoice found for dispute update charge:",
+            chargeId,
+          );
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'charge.dispute.closed': {
+      case "charge.dispute.closed": {
         // CRITICAL: Update invoice dispute status, set dispute_resolved_at
         const dispute = event.data.object as { charge: string; status: string };
         const chargeId = dispute.charge as string;
-        
+
         // Find invoice by stripe_charge_id
         const { data: invoice, error: findErr } = await supabase
-          .from('invoices')
-          .select('id, status')
-          .eq('stripe_charge_id', chargeId)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("id, status")
+          .eq("stripe_charge_id", chargeId)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         if (findErr) {
-          console.error('[webhook] Error finding invoice for dispute closure:', findErr);
+          console.error(
+            "[webhook] Error finding invoice for dispute closure:",
+            findErr,
+          );
         } else if (invoice) {
           const disputeStatus = dispute.status; // 'won' or 'lost'
           const resolvedAt = new Date().toISOString();
-          
+
           const updateData: Record<string, unknown> = {
             dispute_status: disputeStatus,
             dispute_resolved_at: resolvedAt,
             dispute_updated_at: resolvedAt,
           };
-          
+
           // If dispute was won, restore invoice to paid status
           // If lost, keep as disputed
-          if (disputeStatus === 'won') {
-            updateData.status = 'paid';
-            console.log('[webhook] Dispute won - restoring invoice to paid:', invoice.id);
-          } else if (disputeStatus === 'lost') {
+          if (disputeStatus === "won") {
+            updateData.status = "paid";
+            console.log(
+              "[webhook] Dispute won - restoring invoice to paid:",
+              invoice.id,
+            );
+          } else if (disputeStatus === "lost") {
             // Keep status as 'disputed' - the dispute was lost
-            console.log('[webhook] Dispute lost - keeping status as disputed:', invoice.id);
+            console.log(
+              "[webhook] Dispute lost - keeping status as disputed:",
+              invoice.id,
+            );
           }
-          
+
           const { error: updateErr } = await supabase
-            .from('invoices')
+            .from("invoices")
             .update(updateData)
-            .eq('id', invoice.id)
-            .is('deleted_at', null);
-          
+            .eq("id", invoice.id)
+            .is("deleted_at", null);
+
           if (updateErr) {
-            console.error('[webhook] Error updating dispute closure:', updateErr);
+            console.error(
+              "[webhook] Error updating dispute closure:",
+              updateErr,
+            );
           } else {
-            console.log('[webhook] Dispute closed for invoice:', invoice.id, 'result:', disputeStatus);
+            console.log(
+              "[webhook] Dispute closed for invoice:",
+              invoice.id,
+              "result:",
+              disputeStatus,
+            );
           }
         } else {
-          console.warn('[webhook] No invoice found for dispute closure charge:', chargeId);
+          console.warn(
+            "[webhook] No invoice found for dispute closure charge:",
+            chargeId,
+          );
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'credit_note.created': {
+      case "credit_note.created": {
         // HIGH: Create or update credit_notes record (upsert: API may have already inserted).
         // Stripe does NOT send payment_refund_amount/credit_amount in webhook; use refund/refunds and customer_balance_transaction.
         const creditNote = event.data.object as {
@@ -1131,70 +1524,88 @@ Deno.serve(async (req: Request) => {
         };
         const invoiceId = creditNote.invoice as string;
         const totalCents = creditNote.amount ?? 0;
-        const hasRefund = Boolean(creditNote.refund) || (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const hasRefund =
+          Boolean(creditNote.refund) ||
+          (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
         const refundCents = hasRefund
           ? (creditNote.refunds?.[0]?.amount_refunded ?? totalCents)
           : null;
-        const creditCents = creditNote.customer_balance_transaction ? totalCents : null;
-        const outOfBandCents = typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
+        const creditCents = creditNote.customer_balance_transaction
+          ? totalCents
+          : null;
+        const outOfBandCents =
+          typeof creditNote.out_of_band_amount === "number"
+            ? creditNote.out_of_band_amount
+            : null;
 
         const { data: invoice, error: findErr } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_invoice_id', invoiceId)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("id")
+          .eq("stripe_invoice_id", invoiceId)
+          .is("deleted_at", null)
           .maybeSingle();
 
         if (findErr) {
-          console.error('[webhook] Error finding invoice for credit note:', findErr);
+          console.error(
+            "[webhook] Error finding invoice for credit note:",
+            findErr,
+          );
         } else if (invoice) {
           const { error: upsertErr } = await supabase
-            .from('credit_notes')
+            .from("credit_notes")
             .upsert(
               {
                 invoice_id: invoice.id,
                 stripe_credit_note_id: creditNote.id,
                 amount_cents: totalCents,
-                currency: creditNote.currency ?? 'aud',
+                currency: creditNote.currency ?? "aud",
                 reason: creditNote.reason ?? null,
-                status: creditNote.status ?? 'issued',
+                status: creditNote.status ?? "issued",
                 metadata: creditNote.metadata ?? {},
                 refund_amount_cents: refundCents,
                 credit_amount_cents: creditCents,
                 out_of_band_amount_cents: outOfBandCents,
               },
-              { onConflict: 'stripe_credit_note_id' }
+              { onConflict: "stripe_credit_note_id" },
             );
 
           if (upsertErr) {
-            console.error('[webhook] Error upserting credit note:', upsertErr);
+            console.error("[webhook] Error upserting credit note:", upsertErr);
           } else {
-            console.log('[webhook] Credit note synced:', creditNote.id, 'for invoice:', invoice.id);
+            console.log(
+              "[webhook] Credit note synced:",
+              creditNote.id,
+              "for invoice:",
+              invoice.id,
+            );
             // Keep invoice.has_credit_notes in sync for "Paid (Refunded)" display
             const { data: nonVoid } = await supabase
-              .from('credit_notes')
-              .select('id')
-              .eq('invoice_id', invoice.id)
-              .neq('status', 'void')
+              .from("credit_notes")
+              .select("id")
+              .eq("invoice_id", invoice.id)
+              .neq("status", "void")
               .limit(1);
             await supabase
-              .from('invoices')
+              .from("invoices")
               .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-              .eq('id', invoice.id)
-              .is('deleted_at', null);
+              .eq("id", invoice.id)
+              .is("deleted_at", null);
           }
         } else {
-          console.warn('[webhook] No invoice found for credit note:', invoiceId);
+          console.warn(
+            "[webhook] No invoice found for credit note:",
+            invoiceId,
+          );
         }
 
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'credit_note.updated': {
+      case "credit_note.updated": {
         // HIGH: Update credit_notes status and settlement breakdown (same field mapping as created).
         const creditNote = event.data.object as {
           id: string;
@@ -1208,21 +1619,30 @@ Deno.serve(async (req: Request) => {
           out_of_band_amount?: number | null;
         };
         const totalCents = creditNote.amount ?? null;
-        const hasRefund = Boolean(creditNote.refund) || (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
-        const refundCents = hasRefund && totalCents != null
-          ? (creditNote.refunds?.[0]?.amount_refunded ?? totalCents)
-          : null;
-        const creditCents = creditNote.customer_balance_transaction && totalCents != null ? totalCents : null;
-        const outOfBandCents = typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
+        const hasRefund =
+          Boolean(creditNote.refund) ||
+          (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const refundCents =
+          hasRefund && totalCents != null
+            ? (creditNote.refunds?.[0]?.amount_refunded ?? totalCents)
+            : null;
+        const creditCents =
+          creditNote.customer_balance_transaction && totalCents != null
+            ? totalCents
+            : null;
+        const outOfBandCents =
+          typeof creditNote.out_of_band_amount === "number"
+            ? creditNote.out_of_band_amount
+            : null;
 
         const { data: existing } = await supabase
-          .from('credit_notes')
-          .select('invoice_id')
-          .eq('stripe_credit_note_id', creditNote.id)
+          .from("credit_notes")
+          .select("invoice_id")
+          .eq("stripe_credit_note_id", creditNote.id)
           .maybeSingle();
-        
+
         await supabase
-          .from('credit_notes')
+          .from("credit_notes")
           .update({
             status: creditNote.status,
             reason: creditNote.reason,
@@ -1231,235 +1651,273 @@ Deno.serve(async (req: Request) => {
             out_of_band_amount_cents: outOfBandCents,
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_credit_note_id', creditNote.id);
-        
+          .eq("stripe_credit_note_id", creditNote.id);
+
         if (existing?.invoice_id) {
           const { data: nonVoid } = await supabase
-            .from('credit_notes')
-            .select('id')
-            .eq('invoice_id', existing.invoice_id)
-            .neq('status', 'void')
+            .from("credit_notes")
+            .select("id")
+            .eq("invoice_id", existing.invoice_id)
+            .neq("status", "void")
             .limit(1);
           await supabase
-            .from('invoices')
+            .from("invoices")
             .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-            .eq('id', existing.invoice_id)
-            .is('deleted_at', null);
+            .eq("id", existing.invoice_id)
+            .is("deleted_at", null);
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'credit_note.voided': {
+      case "credit_note.voided": {
         // HIGH: Update credit_notes status to 'void'
         const creditNote = event.data.object as { id: string };
-        
+
         const { data: existing } = await supabase
-          .from('credit_notes')
-          .select('invoice_id')
-          .eq('stripe_credit_note_id', creditNote.id)
+          .from("credit_notes")
+          .select("invoice_id")
+          .eq("stripe_credit_note_id", creditNote.id)
           .maybeSingle();
-        
+
         await supabase
-          .from('credit_notes')
+          .from("credit_notes")
           .update({
-            status: 'void',
+            status: "void",
             voided_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_credit_note_id', creditNote.id);
-        
+          .eq("stripe_credit_note_id", creditNote.id);
+
         if (existing?.invoice_id) {
           const { data: nonVoid } = await supabase
-            .from('credit_notes')
-            .select('id')
-            .eq('invoice_id', existing.invoice_id)
-            .neq('status', 'void')
+            .from("credit_notes")
+            .select("id")
+            .eq("invoice_id", existing.invoice_id)
+            .neq("status", "void")
             .limit(1);
           await supabase
-            .from('invoices')
+            .from("invoices")
             .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-            .eq('id', existing.invoice_id)
-            .is('deleted_at', null);
+            .eq("id", existing.invoice_id)
+            .is("deleted_at", null);
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'charge.refunded': {
+      case "charge.refunded": {
         // HIGH: Track direct charge refunds (not via credit notes)
         const charge = event.data.object as { id: string };
         const chargeId = charge.id;
-        
+
         // Find invoice by stripe_charge_id
         const { data: invoice, error: findErr } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_charge_id', chargeId)
-          .is('deleted_at', null)
+          .from("invoices")
+          .select("id")
+          .eq("stripe_charge_id", chargeId)
+          .is("deleted_at", null)
           .maybeSingle();
-        
+
         if (findErr) {
-          console.error('[webhook] Error finding invoice for refunded charge:', findErr);
+          console.error(
+            "[webhook] Error finding invoice for refunded charge:",
+            findErr,
+          );
         } else if (invoice) {
           const { error: updateErr } = await supabase
-            .from('invoices')
+            .from("invoices")
             .update({
               is_refunded: true,
               refunded_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id)
-            .is('deleted_at', null);
-          
+            .eq("id", invoice.id)
+            .is("deleted_at", null);
+
           if (updateErr) {
-            console.error('[webhook] Error updating invoice refund status:', updateErr);
+            console.error(
+              "[webhook] Error updating invoice refund status:",
+              updateErr,
+            );
           } else {
-            console.log('[webhook] Charge refunded for invoice:', invoice.id, 'charge:', chargeId);
+            console.log(
+              "[webhook] Charge refunded for invoice:",
+              invoice.id,
+              "charge:",
+              chargeId,
+            );
           }
         } else {
           // Charge refunded but no invoice found - this is okay, might be a standalone charge
-          console.log('[webhook] Charge refunded but no invoice found:', chargeId);
+          console.log(
+            "[webhook] Charge refunded but no invoice found:",
+            chargeId,
+          );
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
-      case 'customer.source.expiring': {
-        const source = event.data.object as { id: string; exp_month?: number; exp_year?: number; last4?: string };
+      case "customer.source.expiring": {
+        const source = event.data.object as {
+          id: string;
+          exp_month?: number;
+          exp_year?: number;
+          last4?: string;
+        };
         const paymentMethodId = source.id;
-        
+
         try {
           // Get student info for SMS notification
           const { data: pm } = await supabase
-            .from('student_payment_methods')
-            .select('student_id, is_default')
-            .eq('stripe_payment_method_id', paymentMethodId)
+            .from("student_payment_methods")
+            .select("student_id, is_default")
+            .eq("stripe_payment_method_id", paymentMethodId)
             .maybeSingle();
-          
+
           if (!pm || !pm.is_default) {
             await supabase
-              .from('stripe_webhook_events')
-              .update({ processed: true, processed_at: new Date().toISOString() })
-              .eq('stripe_event_id', event.id);
+              .from("stripe_webhook_events")
+              .update({
+                processed: true,
+                processed_at: new Date().toISOString(),
+              })
+              .eq("stripe_event_id", event.id);
             return json({ received: true });
           }
-          
+
           // Get student's contact info
           const { data: contact } = await supabase
-            .from('contacts')
-            .select('id, phone_e164')
-            .eq('student_id', pm.student_id)
+            .from("contacts")
+            .select("id, phone_e164")
+            .eq("student_id", pm.student_id)
             .maybeSingle();
-          
+
           if (!contact?.phone_e164) {
             await supabase
-              .from('stripe_webhook_events')
-              .update({ processed: true, processed_at: new Date().toISOString() })
-              .eq('stripe_event_id', event.id);
+              .from("stripe_webhook_events")
+              .update({
+                processed: true,
+                processed_at: new Date().toISOString(),
+              })
+              .eq("stripe_event_id", event.id);
             return json({ received: true });
           }
-          
+
           // Get owned number for SMS
           const { data: ownedNum } = await supabase
-            .from('owned_numbers')
-            .select('id')
-            .eq('is_default', true)
+            .from("owned_numbers")
+            .select("id")
+            .eq("is_default", true)
             .maybeSingle();
-          
+
           if (!ownedNum) {
             await supabase
-              .from('stripe_webhook_events')
-              .update({ processed: true, processed_at: new Date().toISOString() })
-              .eq('stripe_event_id', event.id);
+              .from("stripe_webhook_events")
+              .update({
+                processed: true,
+                processed_at: new Date().toISOString(),
+              })
+              .eq("stripe_event_id", event.id);
             return json({ received: true });
           }
-          
+
           // Find or create conversation
           let convoId: string | undefined;
           const { data: existing } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('contact_id', contact.id)
-            .eq('owned_number_id', ownedNum.id)
+            .from("conversations")
+            .select("id")
+            .eq("contact_id", contact.id)
+            .eq("owned_number_id", ownedNum.id)
             .maybeSingle();
-          
+
           if (existing) {
             convoId = existing.id;
           } else {
             const { data: newConvo } = await supabase
-              .from('conversations')
-              .insert({ contact_id: contact.id, owned_number_id: ownedNum.id, status: 'OPEN' })
-              .select('id')
+              .from("conversations")
+              .insert({
+                contact_id: contact.id,
+                owned_number_id: ownedNum.id,
+                status: "OPEN",
+              })
+              .select("id")
               .single();
             convoId = newConvo?.id;
           }
-          
+
           if (!convoId) {
             await supabase
-              .from('stripe_webhook_events')
-              .update({ processed: true, processed_at: new Date().toISOString() })
-              .eq('stripe_event_id', event.id);
+              .from("stripe_webhook_events")
+              .update({
+                processed: true,
+                processed_at: new Date().toISOString(),
+              })
+              .eq("stripe_event_id", event.id);
             return json({ received: true });
           }
-          
+
           // Queue SMS
           const expMonth = source.exp_month;
           const expYear = source.exp_year;
           const body = `Your payment card ending in ${source.last4} expires ${expMonth}/${expYear}. Please update your payment method in the student portal to avoid payment issues.`;
-          
-          await supabase.from('messages').insert({
+
+          await supabase.from("messages").insert({
             conversation_id: convoId,
             body,
-            direction: 'OUTGOING',
-            status: 'QUEUED'
+            direction: "OUTGOING",
+            status: "QUEUED",
           });
-          
-          console.log('[webhook] Card expiry SMS queued for student', pm.student_id);
+
+          console.log(
+            "[webhook] Card expiry SMS queued for student",
+            pm.student_id,
+          );
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[webhook] customer.source.expiring handler error', msg);
+          console.error(
+            "[webhook] customer.source.expiring handler error",
+            msg,
+          );
         }
-        
+
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
       }
 
       default:
         // Mark event as processed for unknown/unhandled event types
         await supabase
-          .from('stripe_webhook_events')
+          .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
-          .eq('stripe_event_id', event.id);
+          .eq("stripe_event_id", event.id);
         return json({ received: true });
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error('[webhook] handler error', msg);
-    
+    console.error("[webhook] handler error", msg);
+
     // Log error to webhook events table
     await supabase
-      .from('stripe_webhook_events')
+      .from("stripe_webhook_events")
       .update({ error_message: String(msg) })
-      .eq('stripe_event_id', event.id);
-    
-    return json({ error: 'handler_error' }, 500);
+      .eq("stripe_event_id", event.id);
+
+    return json({ error: "handler_error" }, 500);
   }
 });
-
-
-

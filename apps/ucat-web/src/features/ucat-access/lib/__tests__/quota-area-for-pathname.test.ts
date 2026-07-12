@@ -29,9 +29,6 @@ describe("getQuotaAreaForPathname", () => {
     expect(
       getQuotaAreaForPathname("/progress/sections/2/set-attempts/abc"),
     ).toBe("sets");
-    expect(
-      getQuotaAreaForPathname("/progress/mock-attempts/mock-id/sets/set-id"),
-    ).toBe("sets");
     expect(getQuotaAreaForPathname("/sessions/session-id/sets/set-id")).toBe(
       "sets",
     );
@@ -47,10 +44,9 @@ describe("getQuotaAreaForPathname", () => {
     expect(getQuotaAreaForPathname("/mocks")).toBe("mocks");
     expect(getQuotaAreaForPathname("/mocks/mock-id")).toBe("mocks");
     expect(getQuotaAreaForPathname("/progress/mocks")).toBe("mocks");
-    expect(getQuotaAreaForPathname("/progress/mocks/sections/1")).toBe("mocks");
-    expect(getQuotaAreaForPathname("/progress/mock-attempts/abc")).toBe(
-      "mocks",
-    );
+    expect(
+      getQuotaAreaForPathname("/progress/mocks/mock-attempts/abc"),
+    ).toBe("mocks");
     expect(getQuotaAreaForPathname("/sessions/session-id/mocks/mock-id")).toBe(
       "mocks",
     );

@@ -52,16 +52,16 @@ export function PaidTierPriceBlock({
   );
   const isWeekly = billingInterval === "week";
 
-  const penaltyLine = isWeekly ? (
+  const standardLine = isWeekly ? (
     <>
-      <span className={body}>{formatMoney(pricing.penaltyWeeklyCents)}</span>
+      <span className={body}>{formatMoney(pricing.standardWeeklyCents)}</span>
       {" / week without daily practice discounts"}
     </>
   ) : (
     <>
-      <span className={body}>{formatMoney(pricing.penaltyWeeklyCents)}</span>
+      <span className={body}>{formatMoney(pricing.standardWeeklyCents)}</span>
       {" / week without daily practice discounts, billed at "}
-      <span className={body}>{formatMoney(pricing.penaltyPeriodCents)}</span>
+      <span className={body}>{formatMoney(pricing.standardPeriodCents)}</span>
       {" / "}
       {intervalShort}
     </>
@@ -74,7 +74,9 @@ export function PaidTierPriceBlock({
           {formatMoney(pricing.idealWeeklyCents)}
         </span>
         <span className={`mb-1 ${muted} ${typo.secondarySans}`}>/ week</span>
-        <span className={`mb-1 flex items-center gap-1 text-sm ${muted} ${typo.secondarySans}`}>
+        <span
+          className={`mb-1 flex items-center gap-1 text-sm ${muted} ${typo.secondarySans}`}
+        >
           with daily practice discounts
           <TooltipProvider delayDuration={200}>
             <Tooltip>
@@ -88,17 +90,17 @@ export function PaidTierPriceBlock({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs text-sm">
-                Earn {formatMoney(discountPerDayCents)} off your next bill when you
-                do at least {minQuestionsPerDay} questions per day, up to a maximum
-                of {formatMoney(maxDiscountCents)} per {intervalLabel} billing
-                period.
+                Earn {formatMoney(discountPerDayCents)} off your next bill when
+                you answer at least {minQuestionsPerDay} questions per day, up
+                to a maximum of {formatMoney(maxDiscountCents)} per{" "}
+                {intervalLabel} billing period.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </span>
       </div>
 
-      <p className={`text-sm ${muted} ${typo.secondarySans}`}>{penaltyLine}</p>
+      <p className={`text-sm ${muted} ${typo.secondarySans}`}>{standardLine}</p>
     </div>
   );
 }

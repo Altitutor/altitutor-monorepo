@@ -284,8 +284,7 @@ export function SubscriptionBillingSection() {
                     pricing.discountPerDayCents,
                     pricingConfig.currency,
                   )}{" "}
-                  off per day you complete {pricing.minQuestionsPerDay}+
-                  questions
+                  off per day you answer {pricing.minQuestionsPerDay}+ questions
                 </p>
                 <p>
                   <span className="font-medium text-foreground">
@@ -309,8 +308,8 @@ export function SubscriptionBillingSection() {
                     <span className="font-medium text-foreground">
                       This billing period:{" "}
                     </span>
-                    {discountProgress.earned} / {discountProgress.cap}{" "}
-                    practice discounts earned
+                    {discountProgress.earned} / {discountProgress.cap} practice
+                    discounts earned
                   </p>
                 ) : null}
               </div>

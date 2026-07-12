@@ -92,6 +92,26 @@ describe('generated content blocks', () => {
     }])
   })
 
+  it('drops invented non-UUID tag ids instead of discarding an otherwise valid question', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: 'A valid stem.',
+        questions: [{
+          questionText: 'Which is correct?',
+          questionType: 'multiple_choice',
+          answerExplanation: 'Option A follows.',
+          tagIds: ['Set interpretation', '11111111-1111-4111-8111-111111111111'],
+          options: [
+            { answerText: 'A', isAnswer: true },
+            { answerText: 'B', isAnswer: false },
+          ],
+        }],
+      }],
+    })
+
+    expect(parsed.stems[0]?.questions[0]?.tagIds).toEqual(['11111111-1111-4111-8111-111111111111'])
+  })
+
   it('normalizes object-shaped Venn region membership metadata', () => {
     const parsed = GeneratedCandidateResponseSchema.parse({
       stems: [{
@@ -457,6 +477,69 @@ describe('generated content blocks', () => {
     expect(svg).toContain('>28<')
     expect(svg).toContain('>11<')
     expect(svg).toContain('>5<')
+  })
+
+  it('honours bounding-box ellipse geometry used by diagram answer options', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      altText: 'Four ellipses with different bounding boxes.',
+      spec: {
+        shapes: [
+          { id: 'licensed', type: 'ellipse', x: 45, y: 30, width: 105, height: 120, label: 'Licensed volunteers' },
+          { id: 'drone', type: 'ellipse', x: 82, y: 65, width: 40, height: 43, label: 'Drone pilots' },
+          { id: 'riverbank', type: 'ellipse', x: 175, y: 75, width: 95, height: 105, label: 'Riverbank volunteers' },
+          { id: 'firstaid', type: 'ellipse', x: 105, y: 115, width: 135, height: 55, label: 'First-aid volunteers' },
+        ],
+        regionLabels: [],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    const ellipses = svg.match(/<ellipse[^>]+>/gu) ?? []
+    expect(ellipses).toHaveLength(4)
+    expect(new Set(ellipses).size).toBe(4)
+  })
+
+  it('renders cross and explicit polygon set shapes with rotation', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          altText: 'A cross overlaps an irregular polygon.',
+          spec: {
+            shapes: [
+              { id: 'C', shape: 'cross', label: 'Community', x: 90, y: 70, width: 220, height: 220, rotation: 12 },
+              {
+                id: 'P',
+                shape: 'polygon',
+                label: 'Priority',
+                points: [[230, 65], [410, 90], [455, 250], [310, 310], [205, 215]],
+                rotation: -8,
+              },
+            ],
+          },
+        }],
+        questions: [{
+          questionText: 'Which region is represented?',
+          questionType: 'multiple_choice',
+          answerExplanation: 'Read the two overlapping shapes.',
+          options: [
+            { answerText: 'A', isAnswer: true },
+            { answerText: 'B', isAnswer: false },
+          ],
+        }],
+      }],
+    })
+    const stemText = parsed.stems[0]?.stemText
+    expect(Array.isArray(stemText)).toBe(true)
+    const doc = generatedContentToProseMirror(stemText as GeneratedContentBlock[]) as { content?: Array<{ attrs?: { src?: string } }> }
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+
+    expect(svg.match(/<polygon/gu)?.length).toBeGreaterThanOrEqual(2)
+    expect(svg).toContain('Community')
+    expect(svg).toContain('Priority')
   })
 
   it('scales local-coordinate set diagrams into the visible drawing area', () => {

@@ -132,6 +132,16 @@ SET latest_published_version_id = seed_versions.id
 FROM seed_versions
 WHERE forms.id = seed_versions.form_id;
 
+-- A data-modifying CTE cannot reliably update its own INSERT target in the
+-- same statement snapshot. Make the seeded published version explicit.
+UPDATE public.forms forms
+SET latest_published_version_id = versions.id
+FROM public.form_versions versions
+WHERE forms.workflow_key IS NOT NULL
+  AND forms.latest_published_version_id IS NULL
+  AND versions.form_id = forms.id
+  AND versions.version_number = 1;
+
 COMMENT ON COLUMN public.forms.workflow_key IS 'Optional hard-coded workflow slot assigned to this form. Workflow behaviour remains implemented in application code.';
 COMMENT ON COLUMN public.form_responses.session_id IS 'Optional session context for a response recorded during that session.';
 COMMENT ON TABLE public.student_exit_requests IS 'One-time authenticated student request to submit a form before scheduled unenrolment or discontinuation.';

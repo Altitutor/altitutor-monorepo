@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@altitutor/ui";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { useLearnQuotaGate } from "@/features/learning/hooks/use-learn-quota-gate";
+import { learningApi } from "@/features/learning/api/learning-api";
+import { learningKeys } from "@/features/learning/hooks/use-learning";
 import type { LearningModuleTreeNode } from "@/features/learning/types";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,16 @@ function LearningModuleCatalogTreeNode({
   const hasChildren = node.children.length > 0;
   const [expanded, setExpanded] = useState(depth === 0);
   const { guardLessonClick } = useLearnQuotaGate();
+  const queryClient = useQueryClient();
+
+  const prefetchLesson = () => {
+    if (node.kind !== "lesson" || !node.id) return;
+    const lessonId = node.id;
+    void queryClient.prefetchQuery({
+      queryKey: learningKeys.lesson(lessonId),
+      queryFn: () => learningApi.getLesson(lessonId),
+    });
+  };
 
   const toggleExpanded = () => {
     if (hasChildren) setExpanded((prev) => !prev);
@@ -55,7 +68,9 @@ function LearningModuleCatalogTreeNode({
           type="button"
           onClick={toggleExpanded}
           disabled={!hasChildren}
-          aria-label={expanded ? `Collapse ${node.title}` : `Expand ${node.title}`}
+          aria-label={
+            expanded ? `Collapse ${node.title}` : `Expand ${node.title}`
+          }
           aria-expanded={hasChildren ? expanded : undefined}
           className={cn(
             "flex w-full items-center gap-1 rounded-lg py-1.5 pl-1 pr-2.5 text-left transition-colors duration-300",
@@ -90,6 +105,8 @@ function LearningModuleCatalogTreeNode({
           <Link
             href={node.id ? `/learn/${node.id}` : "#"}
             onClick={(event) => guardLessonClick(event, node)}
+            onMouseEnter={prefetchLesson}
+            onFocus={prefetchLesson}
             className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -100,7 +117,9 @@ function LearningModuleCatalogTreeNode({
             </span>
             <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
               <LessonStatusBadge node={node} />
-              <span className="text-xs tabular-nums">{progressLabel(node)}</span>
+              <span className="text-xs tabular-nums">
+                {progressLabel(node)}
+              </span>
               <ChevronRight className="size-4" />
             </span>
           </Link>
@@ -111,12 +130,17 @@ function LearningModuleCatalogTreeNode({
         <div
           className={cn(
             "grid transition-all duration-300 ease-out",
-            expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+            expanded
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0",
           )}
         >
           <div className="overflow-hidden">
             <div className="pl-3">
-              <LearningModuleCatalogTree nodes={node.children} depth={depth + 1} />
+              <LearningModuleCatalogTree
+                nodes={node.children}
+                depth={depth + 1}
+              />
             </div>
           </div>
         </div>
@@ -144,7 +168,11 @@ export function LearningModuleCatalogTree({
     <ul className={cn("space-y-0", className)}>
       {nodes.map((node) =>
         node.id ? (
-          <LearningModuleCatalogTreeNode key={node.id} node={node} depth={depth} />
+          <LearningModuleCatalogTreeNode
+            key={node.id}
+            node={node}
+            depth={depth}
+          />
         ) : null,
       )}
     </ul>

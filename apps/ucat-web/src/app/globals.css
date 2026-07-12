@@ -1,5 +1,5 @@
-@import '@altitutor/ui/styles/native-datetime-input.css';
-@import '@altitutor/ui/styles/quiet-scrollbars.css';
+@import "@altitutor/ui/styles/native-datetime-input.css";
+@import "@altitutor/ui/styles/quiet-scrollbars.css";
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
 @tailwind base;
@@ -138,8 +138,9 @@
         [role="button"],
         [role="tab"]
       ):not(:disabled):not([data-motion-static]) {
-      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke,
-        box-shadow, filter, opacity, transform;
+      transition-property:
+        color, background-color, border-color, text-decoration-color, fill,
+        stroke, box-shadow, filter, opacity, transform;
       transition-duration: var(--motion-duration-subtle);
       transition-timing-function: var(--motion-ease-standard);
     }
@@ -172,9 +173,46 @@
   }
 }
 
+@keyframes ucat-auth-header-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ucat-auth-feedback-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -3px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .auth-entrance {
-    animation: ucat-auth-enter var(--motion-duration-enter) var(--motion-ease-standard) both;
+    animation: ucat-auth-enter var(--motion-duration-enter)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-header-entrance {
+    animation: ucat-auth-header-enter var(--motion-duration-enter)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-feedback-entrance {
+    animation: ucat-auth-feedback-enter var(--motion-duration-snappy)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-submit:active:not(:disabled) {
+    transform: scale(0.985);
   }
 }
 
@@ -313,9 +351,11 @@
  * https://css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom/
  */
 @media (hover: none) and (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(
-      [type="button"]
-    ):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="hidden"]
+    ):not([type="button"]):not([type="submit"]):not([type="reset"]):not(
+      [type="image"]
+    ):not([type="file"]),
   textarea,
   select,
   [contenteditable="true"] {

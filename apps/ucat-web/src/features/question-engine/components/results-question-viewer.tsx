@@ -5,6 +5,12 @@ import {
   UCAT_COLORS,
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
 import type {
   AnswerOption,
   QuestionItem,
@@ -80,47 +86,59 @@ function StudentStatsBar({
   if (!hasStats) return null;
 
   const site = variant === "site";
-  const displayPct = `${Math.round(pct)}%`;
+  const roundedPct = Math.round(pct);
+  const displayPct = `${roundedPct}%`;
+  const tooltipLabel = `${roundedPct}% of Altitutor students selected this option`;
+
   return (
-    <div
-      className="flex w-28 shrink-0 items-center justify-end gap-2"
-      title={displayPct}
-    >
-      <div
-        className={cn(
-          "h-2.5 w-16 overflow-hidden rounded-full",
-          site ? "bg-muted" : "bg-[#e8ecf0]",
-        )}
-        aria-hidden="true"
-      >
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            site && "bg-primary",
-          )}
-          style={{
-            width: `${barWidth}%`,
-            ...(site ? {} : { backgroundColor: UCAT_COLORS.toolbarBlue }),
-          }}
-        />
-      </div>
-      <span
-        className={cn(
-          "w-8 text-right font-medium tabular-nums",
-          site ? "text-xs" : "text-[10pt]",
-          site ? "text-foreground" : undefined,
-        )}
-        style={
-          site
-            ? undefined
-            : {
-                color: "#1f2937",
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className="flex w-28 shrink-0 cursor-help items-center justify-end gap-2"
+            aria-label={tooltipLabel}
+          >
+            <div
+              className={cn(
+                "h-2.5 w-16 overflow-hidden rounded-full",
+                site ? "bg-muted" : "bg-[#e8ecf0]",
+              )}
+              aria-hidden="true"
+            >
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  site && "bg-primary",
+                )}
+                style={{
+                  width: `${barWidth}%`,
+                  ...(site ? {} : { backgroundColor: UCAT_COLORS.toolbarBlue }),
+                }}
+              />
+            </div>
+            <span
+              className={cn(
+                "w-8 text-right font-medium tabular-nums",
+                site ? "text-xs" : "text-[10pt]",
+                site ? "text-foreground" : undefined,
+              )}
+              style={
+                site
+                  ? undefined
+                  : {
+                      color: "#1f2937",
+                    }
               }
-        }
-      >
-        {displayPct}
-      </span>
-    </div>
+            >
+              {displayPct}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[240px]">
+          {tooltipLabel}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -230,6 +248,10 @@ export function ResultsQuestionViewer({
 
     const isAttemptReview = variant === "site" && typeof points === "number";
     const isReviewingSyllogism = isAttemptReview || syllogismSnapshot != null;
+    const showStudentsColumn = rows.some((row) => row.hasStats);
+    const syllogismGridCols = showStudentsColumn
+      ? "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]"
+      : "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)]";
 
     const content = (
       <div className="space-y-4 py-4 sm:py-5">
@@ -252,14 +274,17 @@ export function ResultsQuestionViewer({
           <div className="mt-3 space-y-1.5">
             <div
               className={cn(
-                "grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-0.5 pl-4 pr-3",
+                "grid gap-x-1 gap-y-0.5 pl-4 pr-3",
+                syllogismGridCols,
                 theme.gridHeader,
               )}
             >
               <div>Statement</div>
               <div className="text-center">Your answers</div>
               <div className="text-center">Correct answers</div>
-              <div className="text-center">Students</div>
+              {showStudentsColumn ? (
+                <div className="text-center">Students</div>
+              ) : null}
             </div>
             <div className="space-y-1">
               {rows.map(
@@ -291,7 +316,8 @@ export function ResultsQuestionViewer({
                     <div
                       key={option.id}
                       className={cn(
-                        "grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)] gap-x-1 gap-y-1 pl-4 pr-3 items-stretch rounded py-0.5",
+                        "grid items-stretch gap-x-1 gap-y-1 rounded py-0.5 pl-4 pr-3",
+                        syllogismGridCols,
                         rowBgClass,
                       )}
                     >
@@ -344,16 +370,23 @@ export function ResultsQuestionViewer({
                           {correctYes ? "Yes" : "No"}
                         </div>
                       </div>
-                      <div className="flex items-center justify-center">
-                        <StudentStatsBar
-                          pct={pct}
-                          barWidth={barWidth}
-                          hasStats={hasStats}
-                          variant={variant}
-                        />
-                      </div>
+                      {showStudentsColumn ? (
+                        <div className="flex items-center justify-center">
+                          <StudentStatsBar
+                            pct={pct}
+                            barWidth={barWidth}
+                            hasStats={hasStats}
+                            variant={variant}
+                          />
+                        </div>
+                      ) : null}
                       {showExplanations && hasAnswerExplanation(option) ? (
-                        <div className="col-span-4 pl-1">
+                        <div
+                          className={cn(
+                            "pl-1",
+                            showStudentsColumn ? "col-span-4" : "col-span-3",
+                          )}
+                        >
                           <AnswerExplanation
                             text={option.answerExplanation}
                             json={option.answerExplanationJson}

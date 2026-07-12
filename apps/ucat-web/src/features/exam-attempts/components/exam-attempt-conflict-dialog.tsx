@@ -10,6 +10,10 @@ import {
   Button,
 } from "@altitutor/ui";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 
 export function ExamAttemptConflictDialog({
   open,
@@ -26,7 +30,14 @@ export function ExamAttemptConflictDialog({
   onFinalizeAndContinue: () => void;
   onCancel: () => void;
 }) {
+  const { isBlocked: questionEngineTourBlocked } =
+    useQuestionEngineTutorialGate();
+
   if (!active) return null;
+
+  const resumeHref = questionEngineTourBlocked
+    ? buildQuestionEngineTutorialHref(active.resumeHref)
+    : active.resumeHref;
 
   return (
     <AlertDialog
@@ -55,7 +66,7 @@ export function ExamAttemptConflictDialog({
             variant="outline"
             className="w-full"
             onClick={() => {
-              window.location.assign(active.resumeHref);
+              window.location.assign(resumeHref);
             }}
           >
             Resume current attempt

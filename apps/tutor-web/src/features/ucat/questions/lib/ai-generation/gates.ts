@@ -152,14 +152,15 @@ function legendShapeType(value: string): string | null {
   const normalized = value.trim().toLowerCase()
   if (normalized === 'rectangle') return 'rect'
   if (normalized === 'oval') return 'ellipse'
-  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(normalized)
+  if (normalized === 'plus' || normalized === 'cruciform') return 'cross'
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'].includes(normalized)
     ? normalized
     : null
 }
 
 function parseRegionLegendText(value: unknown): { shape: string; label: string } | null {
   const text = String(value ?? '').trim()
-  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon)\s*=\s*(.+)$/iu)
+  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon|cross|plus|cruciform|polygon)\s*=\s*(.+)$/iu)
   if (!match?.[1] || !match[2]) return null
   const shape = legendShapeType(match[1])
   const label = match[2].trim()
@@ -174,7 +175,7 @@ function setVisualHasShapeMapping(block: ReturnType<typeof generatedBlocks>[numb
   if (shapes.length < 2) return false
 
   const labelledShapeCount = shapes.filter((shape) => String(shape.label ?? '').trim()).length
-  if (labelledShapeCount >= Math.min(shapes.length, 3)) return true
+  if (labelledShapeCount === shapes.length) return true
 
   const regionLabels = Array.isArray(block.spec.regionLabels)
     ? block.spec.regionLabels
@@ -186,7 +187,44 @@ function setVisualHasShapeMapping(block: ReturnType<typeof generatedBlocks>[numb
     .map((record) => parseRegionLegendText(record.text ?? record.value))
     .filter((entry): entry is { shape: string; label: string } => Boolean(entry))
   const distinctLegendShapes = new Set(legendEntries.map((entry) => entry.shape))
-  return distinctLegendShapes.size >= Math.min(shapes.length, 3)
+  return distinctLegendShapes.size === shapes.length
+}
+
+function setVisualShapeLabels(block: ReturnType<typeof generatedBlocks>[number]): string[] {
+  if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return []
+  return (block.spec.shapes as unknown[]).flatMap((raw) => {
+    const shape = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const label = String(shape.label ?? '').trim()
+    return label ? [label] : []
+  })
+}
+
+function setVisualGeometryFingerprint(block: ReturnType<typeof generatedBlocks>[number]): string | null {
+  if (block.type !== 'visual' || !Array.isArray(block.spec.shapes)) return null
+  const shapes = (block.spec.shapes as unknown[]).map((raw) => {
+    const shape = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const numeric = (key: string) => {
+      const value = Number(shape[key])
+      return Number.isFinite(value) ? Math.round(value * 10) / 10 : null
+    }
+    const points = Array.isArray(shape.points)
+      ? shape.points.map((point) => Array.isArray(point)
+        ? point.slice(0, 2).map((value) => Math.round(Number(value) * 10) / 10)
+        : point && typeof point === 'object'
+          ? ['x', 'y'].map((key) => {
+              const value = Number((point as Record<string, unknown>)[key])
+              return Number.isFinite(value) ? Math.round(value * 10) / 10 : null
+            })
+          : null)
+      : null
+    return {
+      type: norm(String(shape.type ?? shape.shape ?? 'ellipse')),
+      cx: numeric('cx'), cy: numeric('cy'), r: numeric('r'), rx: numeric('rx'), ry: numeric('ry'),
+      x: numeric('x'), y: numeric('y'), width: numeric('width'), height: numeric('height'),
+      rotation: numeric('rotation'), points,
+    }
+  })
+  return JSON.stringify(shapes)
 }
 
 function paragraphCount(text: string): number {
@@ -384,6 +422,23 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
   }
   if (category === 'venn diagrams') {
     const blocks = generatedBlocks(stem)
+    const stemBlocks = Array.isArray(stem.stemText) ? stem.stemText : []
+    const answerOptionBlocks = stem.questions.flatMap((question) => question.options.flatMap((option) =>
+      Array.isArray(option.answerText) ? option.answerText : []
+    ))
+    const answerOptionSetVisuals = stem.questions.flatMap((question) => question.options.flatMap((option) => {
+      const visual = Array.isArray(option.answerText)
+        ? option.answerText.find((block) => block.type === 'visual' && ['venn_diagram', 'set_diagram'].includes(block.visualType))
+        : null
+      return visual ? [visual] : []
+    }))
+    const stemSetVisualCount = stemBlocks.filter(
+      (block) => block.type === 'visual' && ['venn_diagram', 'set_diagram'].includes(block.visualType)
+    ).length
+    const answerOptionSetVisualCount = answerOptionBlocks.filter(
+      (block) => block.type === 'visual' && ['venn_diagram', 'set_diagram'].includes(block.visualType)
+    ).length
+    const isQualitativeAnswerOptionDiagram = stemSetVisualCount === 0 && answerOptionSetVisualCount >= 2
     const setVisuals = blocks.filter(
       (block) => block.type === 'visual' && ['venn_diagram', 'set_diagram'].includes(block.visualType)
     )
@@ -408,19 +463,75 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
         issues,
         'blocking',
         'dm_venn_shape_mapping_required',
-        'Venn Diagram visuals must label the sets using shape labels or a parseable shape legend.',
+        'Venn Diagram visuals must identify every represented set using shape labels or a complete, unambiguous shape legend.',
         stemIndex,
         0
       )
     }
+    if (answerOptionSetVisuals.length >= 2) {
+      const fingerprints = answerOptionSetVisuals
+        .map(setVisualGeometryFingerprint)
+        .filter((value): value is string => Boolean(value))
+      if (fingerprints.length >= 2 && new Set(fingerprints).size === 1) {
+        add(
+          issues,
+          'blocking',
+          'dm_venn_duplicate_option_diagrams',
+          'Diagram answer options must use meaningfully different set geometry, not repeated copies of the same diagram.',
+          stemIndex,
+          0
+        )
+      }
+    }
+    for (const visual of setVisuals) {
+      const labels = setVisualShapeLabels(visual)
+      const normalizedLabels = labels.map(norm)
+      if (normalizedLabels.length >= 2 && new Set(normalizedLabels).size !== normalizedLabels.length) {
+        add(
+          issues,
+          'blocking',
+          'dm_venn_duplicate_set_labels',
+          'Every represented set must have a distinct, unambiguous label.',
+          stemIndex,
+          0
+        )
+        break
+      }
+      const placeholderLabels = labels.filter((label) => /^[a-z]$/iu.test(label))
+      const descriptiveOptions = stem.questions[0]?.options.filter((option) => {
+        const text = optionText(option).trim()
+        return /[a-z]{3}/iu.test(text) && !Array.isArray(option.answerText)
+      }) ?? []
+      if (placeholderLabels.length >= 3 && descriptiveOptions.length >= 3) {
+        add(
+          issues,
+          'blocking',
+          'dm_venn_placeholder_set_labels',
+          'Set labels such as A-E are ambiguous when the question and answer options use descriptive set names.',
+          stemIndex,
+          0
+        )
+        break
+      }
+    }
     const regionLabels = setVisuals.flatMap(setVisualRegionLabels)
     const numericRegionLabels = regionLabels.filter((label) => /\d/u.test(label.text))
-    if (hasVenn && numericRegionLabels.length < 3) {
+    if (hasVenn && !isQualitativeAnswerOptionDiagram && numericRegionLabels.length < 3) {
       add(
         issues,
         'blocking',
         'dm_venn_numeric_regions_required',
         'Venn Diagram visuals must include numeric region labels inside the diagram, not only set names.',
+        stemIndex,
+        0
+      )
+    }
+    if (hasVenn && !isQualitativeAnswerOptionDiagram && numericRegionLabels.length === 3) {
+      add(
+        issues,
+        'warning',
+        'dm_venn_sparse_numeric_diagram',
+        'This numeric set diagram has only three populated regions; review whether it requires enough genuine diagram interpretation.',
         stemIndex,
         0
       )

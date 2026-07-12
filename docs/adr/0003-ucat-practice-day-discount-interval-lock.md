@@ -1,6 +1,6 @@
 # UCAT practice-day discount: per-interval config, billing interval lock, credit forfeiture
 
-Practice-day discounts are configured per billing interval (weekly / monthly / yearly): each interval has its own discount amount per qualifying day and a maximum number of discounts per Stripe billing period. Qualification threshold (`min_questions_per_day`) stays global.
+Practice-day discounts are configured per billing interval (weekly / monthly / yearly): each interval has its own discount amount per qualifying day and a maximum number of discounts per Stripe billing period. Qualification threshold (`min_questions_per_day`) stays global and counts answered questions only.
 
 Students may change paid **tier** (UCAT Unlimited ↔ UCAT Pro) on the same billing interval only. **Billing interval cannot change** after first checkout — interval is chosen at subscribe/trial start and is immutable for that subscription lifecycle.
 
@@ -16,6 +16,7 @@ The previous model used one global `discount_per_day_cents` and implicitly allow
 2. **Billing interval lock** — no in-product or self-serve interval changes after checkout.
 3. **Credit forfeiture on subscription end** — void pending invoice items and mark credits forfeited when Stripe reports subscription deletion (or equivalent termination).
 4. **Cap window** — count credits in the current Stripe billing period; at most one grant per calendar day (student timezone).
+5. **Answered attempts only** — submitted attempts without an answer, including viewed-only and timed-out questions, do not contribute to qualification.
 
 ## Consequences
 

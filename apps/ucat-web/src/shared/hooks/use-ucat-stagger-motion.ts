@@ -5,7 +5,7 @@ import { useReducedMotion } from "motion/react";
 
 const STAGGER_EASE = [0.32, 0.72, 0, 1] as const;
 
-/** Staggered fade-up reveal — matches dashboard, settings, and sessions list pages. */
+/** Staggered fade-up reveal for sidebar page content (dashboard, lists, hubs, etc.). */
 export function useUcatStaggerMotion() {
   const reduceMotion = useReducedMotion();
 
