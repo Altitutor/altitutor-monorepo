@@ -96,6 +96,9 @@
   _Avoid_: Session storage only, client-only state
 
 - **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done** or chooses **finalize** from the in-progress dialog. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits.
+
+- **Practice review timing** — The student's choice to see feedback after each question stem or only after the practice session is submitted. Review-at-end practice does not use the question engine's pre-submission review screen; finishing submits the entered stems and opens the completed practice-attempt page.
+  _Avoid_: Practice mode, set mode
   _Avoid_: Per-stem session, practice attempt per question
 
 - **UCAT Free quota reset entitlement** — A student-held entitlement that a student may explicitly use before its expiry date to make all UCAT Free quota areas count usage from the reset moment rather than from the normal quota-period start. The expiry date lasts until the end of that calendar day in the student's timezone. A student may hold multiple reset entitlements; when they use one, the entitlement expiring soonest is consumed first. It is visible with the student's Free quota status even before they hit a quota wall, is never used silently, and does not delete exam, practice, learn, or trainer history.
@@ -369,7 +372,7 @@
 - **UCAT Free** — The default online entitlement for a signed-up UCAT student. Grants access to online product areas within configurable, independent usage quotas per area. Does not require a Stripe subscription. A quota of zero for an area means UCAT Free students cannot start that activity.
   _Avoid_: Free trial, free plan
 
-- **UCAT Unlimited** — Unlimited online access to all UCAT product areas while an active paid Stripe subscription (or equivalent entitlement) is in place. Includes practice-day billing discounts. The middle paid tier on the subscribe page.
+- **UCAT Unlimited** — Unlimited online access to all UCAT product areas while a paid Stripe subscription is active or temporarily `past_due` during failed-billing recovery (or an equivalent entitlement is in place). Includes practice-day billing discounts. The middle paid tier on the subscribe page.
   _Avoid_: UCAT Pro (former name for this tier), online tier
 
 - **UCAT Pro** — Everything in UCAT Unlimited, plus human support entitlements: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. The top paid tier on the subscribe page; requires its own Stripe product.
@@ -435,6 +438,9 @@
   _Avoid_: Truncated practice, partial practice set
 
 - **Delivered practice stem** — A question stem that Altitutor has already presented to the student inside a practice session. In unlimited practice, the student may finish all questions on a delivered practice stem even if their UCAT Free practice allowance becomes exhausted before the stem is complete.
+
+- **Prefetched practice stem** — A one-stem lookahead fetched while the student works on the current unlimited-practice stem, but not yet presented or delivered. It does not reserve UCAT Free quota entitlement and is excluded from resume, completion, and review until the student advances into it.
+  _Avoid_: Delivered stem, queued practice set
   _Avoid_: Current stem (ambiguous without session context), loaded stem
 
 - **UCAT Free quota period** — The rolling window for a UCAT Free quota. Configured independently per area (day, week, or month) in admin settings. Boundaries use the student's timezone: calendar day, ISO week (Monday start), or calendar month.
@@ -442,6 +448,12 @@
 
 - **Quota usage card** — A reusable student-facing component showing UCAT Free quota usage per area (e.g. "12 / 20 questions today") and an upsell action to UCAT Unlimited. Shown on each online product area's entry point and on the subscription settings page.
   _Avoid_: Usage widget, limit banner
+
+- **App-scoped notification** — A durable inbox item addressed to exactly one student or staff member and owned by one Altitutor application surface. UCAT notifications appear only in the UCAT app even when the same student also uses the student portal.
+  _Avoid_: Announcement, activity event, toast
+
+- **Notification resolution** — The underlying condition represented by an actionable notification is no longer active, independently of whether the recipient read it. For example, a failed-payment notification is resolved when that invoice is paid.
+  _Avoid_: Read notification, dismissed notification
 
 - **Subscribe page** — The authenticated pricing page at `/subscribe` where students compare UCAT Free, UCAT Unlimited, and UCAT Pro. A selector shows only billing intervals currently available for checkout and sets the cadence for both paid tiers; yearly is unavailable at launch. Unauthenticated visitors are redirected to signup first. UCAT Free is the implicit default tier — the Free card is informational (lists quotas) and shows "Current plan" for Free students; it is not a separate signup action.
   _Avoid_: Pricing page, plans page
@@ -461,8 +473,14 @@
 - **Quota enforcement** — UCAT Free limits are normally applied when a student performs a quota-consuming action. Practice also has entry and continuation checkpoints: an exhausted student cannot enter an active practice session unless they have already delivered practice work to finish, fixed practice is capped before start, and unlimited practice is checked before fetching the next stem. UCAT Unlimited, UCAT Pro, Unlimited trial, and admin-granted unlimited overrides are exempt.
   _Avoid_: Route gate, middleware check
 
-- **Online access tier** — A student's current online entitlement: `free`, `unlimited_trial`, `unlimited`, or `pro`. Derived in order: admin override (if not Default), then active subscription, otherwise UCAT Free. `unlimited_trial` applies while Stripe status is `trialing`, regardless of whether checkout was for Unlimited or Pro — human-support entitlements are not included. `pro` (paid) implies all UCAT Unlimited entitlements plus UCAT Pro human-support entitlements. Independent of in-person access.
+- **Online access tier** — A student's current online entitlement: `free`, `unlimited_trial`, `unlimited`, or `pro`. Derived in order: admin override (if not Default), then a subscription in `trialing`, `active`, or failed-billing recovery (`past_due`), otherwise UCAT Free. `unlimited_trial` applies while Stripe status is `trialing`, regardless of whether checkout was for Unlimited or Pro — human-support entitlements are not included. `pro` (paid) implies all UCAT Unlimited entitlements plus UCAT Pro human-support entitlements. `unpaid`, `canceled`, and `incomplete_expired` do not grant paid access. Independent of in-person access.
   _Avoid_: Plan, subscription tier, marketing tier name
+
+- **Failed-billing recovery** — The temporary Stripe-controlled period after a recurring UCAT payment fails. The subscription is `past_due`; paid access and practice-day discount earning continue while Stripe retries, and the student receives a persistent recovery action plus app/Stripe communications. Stripe owns retry timing; Altitutor does not run a second cancellation clock. At launch, configure a maximum five-day recovery window with approximately three Smart Retries, ending in subscription cancellation.
+  _Avoid_: Immediate lockout, Altitutor grace-period job
+
+- **Failed-billing termination** — Exhaustion of Stripe's recovery attempts, represented by `canceled` (preferred Stripe configuration) or `unpaid` (defensive fallback). Paid access ends, the student moves to UCAT Free without losing their account, practice history, or results, pending practice-day discounts are forfeited, and one terminal in-app notice plus email is sent.
+  _Avoid_: Account lockout, account cancellation
 
 - **UCAT Pro human-support entitlements** — The tutor-led benefits included in paid UCAT Pro only: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. Not active during Unlimited trial, including trial checkout via the Pro card. In-product fulfillment (booking, metering) is out of scope until a later release; paid Pro is distinguished in access tier only.
   _Avoid_: Coaching add-on, premium support
@@ -497,8 +515,8 @@
 - **UCAT referral** — Immutable attribution of one new UCAT student to one existing student through the existing student's referral link. A referred student may have only one referrer; using the same Stripe customer or card fingerprint rejects the paid reward as a self-referral.
   _Avoid_: Affiliate, ambassador sale
 
-- **Free referral qualification** — The referred UCAT Free student answers at least ten questions on two separate days within 14 days of joining. Both students then receive one explicit-use UCAT Free quota reset entitlement that expires after 30 days.
-  _Avoid_: Free signup reward, instant reset
+- **Free referral reward** — As soon as a new student completes signup through a UCAT referral link, both students receive one explicit-use UCAT Free quota reset entitlement that expires after 30 days. No practice activity is required.
+  _Avoid_: Free referral qualification, automatic quota reset
 
 - **Paid referral qualification** — The referred student starts their one-time eligible Unlimited trial on either UCAT Unlimited or UCAT Pro after supplying a distinct Stripe payment method. Both students immediately earn one referral free-bill reward; the trial itself does not activate Pro human-support entitlements.
   _Avoid_: Referral commission, paid conversion

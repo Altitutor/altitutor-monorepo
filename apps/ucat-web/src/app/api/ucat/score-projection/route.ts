@@ -30,29 +30,15 @@ type ResolvedSection = {
   sectionNumber: number;
 };
 
-type SetAttemptRow = {
-  attempted_at: string | null;
+type ProjectionEvidenceRow = {
+  source: "set" | "mock" | "practice";
+  section_id: string | null;
   completed_at: string | null;
-  question_set_id: string | null;
   score_points: number | null;
   total_points: number | null;
   scaled_score: number | null;
-  student_ucat_mock_attempt_id: string | null;
   was_timed: boolean | null;
   student_exam_speed: number | null;
-};
-
-type PracticeSessionRow = {
-  completed_at: string | null;
-  started_at: string | null;
-  ucat_section_id: string | null;
-  score_points: number | null;
-  total_points: number | null;
-};
-
-type SetMetaRow = {
-  id: string;
-  sections: Array<{ section_number?: number }> | null;
 };
 
 type SettingsRow = {
@@ -205,24 +191,26 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [sectionsRes, setAttemptsRes, practiceRes, settingsRes] =
+  const [sectionsRes, evidenceRes, settingsRes] =
     await Promise.all([
       supabase
         .from("vstudent_ucat_sections")
         .select("id, name, section_number")
         .order("section_number"),
-      supabase
-        .from("vstudent_ucat_my_set_attempts")
+      (
+        supabase as unknown as {
+          from: (relation: string) => {
+            select: (columns: string) => Promise<{
+              data: ProjectionEvidenceRow[] | null;
+              error: Error | null;
+            }>;
+          };
+        }
+      )
+        .from("vstudent_ucat_score_projection_evidence")
         .select(
-          "attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, student_ucat_mock_attempt_id, was_timed, student_exam_speed",
-        )
-        .not("completed_at", "is", null),
-      supabase
-        .from("vstudent_ucat_my_practice_sessions")
-        .select(
-          "started_at, completed_at, ucat_section_id, score_points, total_points",
-        )
-        .not("completed_at", "is", null),
+          "source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed",
+        ),
       supabase.from("ucat_score_projection_settings").select("*"),
     ]);
 
@@ -232,15 +220,9 @@ export async function GET() {
       { status: 500 },
     );
   }
-  if (setAttemptsRes.error) {
+  if (evidenceRes.error) {
     return NextResponse.json(
-      { error: setAttemptsRes.error.message },
-      { status: 500 },
-    );
-  }
-  if (practiceRes.error) {
-    return NextResponse.json(
-      { error: practiceRes.error.message },
+      { error: evidenceRes.error.message },
       { status: 500 },
     );
   }
@@ -272,64 +254,9 @@ export async function GET() {
     })
     .sort((a, b) => a.sectionNumber - b.sectionNumber);
 
-  const sectionByNumber = new Map<number, string>(
-    sections.map((section) => [section.sectionNumber, section.id]),
-  );
   const evidenceBySection = new Map<string, AttemptEvidence[]>(
     sections.map((section) => [section.id, [] as AttemptEvidence[]]),
   );
-
-  const setRows = (setAttemptsRes.data ?? []) as SetAttemptRow[];
-  const setIds = [
-    ...new Set(
-      setRows
-        .map((row) => row.question_set_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const setMetaRes =
-    setIds.length > 0
-      ? await supabase
-          .from("vstudent_ucat_question_sets")
-          .select("id, sections")
-          .in("id", setIds)
-      : { data: [], error: null };
-
-  if (setMetaRes.error) {
-    return NextResponse.json(
-      { error: setMetaRes.error.message },
-      { status: 500 },
-    );
-  }
-
-  const sectionBySetId = new Map<string, string>();
-  for (const meta of (setMetaRes.data ?? []) as SetMetaRow[]) {
-    const sectionNumber = Array.isArray(meta.sections)
-      ? meta.sections[0]?.section_number
-      : null;
-    const sectionId =
-      sectionNumber != null ? sectionByNumber.get(sectionNumber) : null;
-    if (sectionId) sectionBySetId.set(meta.id, sectionId);
-  }
-
-  for (const row of setRows) {
-    if (row.scaled_score == null || row.total_points == null) continue;
-    const sectionId = row.question_set_id
-      ? sectionBySetId.get(row.question_set_id)
-      : null;
-    if (!sectionId) continue;
-    const completedAt = timestamp(row.completed_at ?? row.attempted_at);
-    if (completedAt == null) continue;
-    evidenceBySection.get(sectionId)?.push({
-      source: row.student_ucat_mock_attempt_id ? "mock" : "set",
-      score: row.scaled_score,
-      scoredPoints: row.score_points ?? 0,
-      totalPoints: row.total_points,
-      timestamp: completedAt,
-      wasTimed: row.was_timed ?? false,
-      examSpeedRatio: row.student_exam_speed,
-    });
-  }
 
   const settingsBySection = new Map(
     ((settingsRes.data ?? []) as SettingsRow[])
@@ -337,26 +264,24 @@ export async function GET() {
       .map((row) => [row.section_id!, row]),
   );
 
-  for (const row of (practiceRes.data ?? []) as PracticeSessionRow[]) {
-    if (
-      !row.ucat_section_id ||
-      row.score_points == null ||
-      row.total_points == null
-    ) {
-      continue;
-    }
-    const settings = withDefaults(settingsBySection.get(row.ucat_section_id));
-    if (row.total_points < settings.minPracticeScoredPoints) continue;
-    const completedAt = timestamp(row.completed_at ?? row.started_at);
+  for (const row of evidenceRes.data ?? []) {
+    if (!row.section_id || row.score_points == null || row.total_points == null) continue;
+    const settings = withDefaults(settingsBySection.get(row.section_id));
+    if (row.source === "practice" && row.total_points < settings.minPracticeScoredPoints) continue;
+    if (row.source !== "practice" && row.scaled_score == null) continue;
+    const completedAt = timestamp(row.completed_at);
     if (completedAt == null) continue;
-    evidenceBySection.get(row.ucat_section_id)?.push({
-      source: "practice",
-      score: scaleTo300_900(row.score_points, row.total_points),
+    evidenceBySection.get(row.section_id)?.push({
+      source: row.source,
+      score:
+        row.source === "practice"
+          ? scaleTo300_900(row.score_points, row.total_points)
+          : row.scaled_score!,
       scoredPoints: row.score_points,
       totalPoints: row.total_points,
       timestamp: completedAt,
-      wasTimed: false,
-      examSpeedRatio: null,
+      wasTimed: row.was_timed ?? false,
+      examSpeedRatio: row.student_exam_speed,
     });
   }
 

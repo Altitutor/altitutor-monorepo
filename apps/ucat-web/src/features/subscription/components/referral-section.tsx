@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Gift, Loader2, Share2, Users } from "lucide-react";
-import { Badge, Button } from "@altitutor/ui";
+import { Check, Copy, Gift, Share2, Users } from "lucide-react";
+import { Badge, Button, Skeleton } from "@altitutor/ui";
 import {
   fetchUcatReferralSummary,
   type UcatReferralSummary,
@@ -51,8 +51,18 @@ export function ReferralSection() {
 
   if (!summary && !error) {
     return (
-      <div className="flex justify-center py-10">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div
+        className="space-y-6"
+        aria-busy="true"
+        aria-label="Loading referrals"
+      >
+        <Skeleton className="h-52 w-full rounded-ucatShell" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((card) => (
+            <Skeleton key={card} className="h-28 rounded-ucatShell" />
+          ))}
+        </div>
+        <Skeleton className="h-28 w-full rounded-ucatShell" />
       </div>
     );
   }
@@ -165,9 +175,8 @@ export function ReferralSection() {
       <section className={cn("rounded-ucatShell p-6", UCAT_SURFACE_CARD)}>
         <h3 className="font-semibold">Free-tier referrals</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          If your friend remains on UCAT Free and answers at least ten questions
-          on two separate days within 14 days, both of you receive a Free quota
-          reset to use within 30 days.
+          When your friend signs up with your link, both of you receive a Free
+          quota reset to use within 30 days.
         </p>
         {summary.stats.redeemedFreeBills > 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">

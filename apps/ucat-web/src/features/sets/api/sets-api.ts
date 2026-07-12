@@ -25,15 +25,37 @@ export type SetsFilters = {
   attempted?: "all" | "attempted" | "unattempted";
 };
 
+const STUDENT_SET_COLUMNS =
+  "id,name,description,time_limit_seconds,is_student_generated,sections,created_at,updated_at";
+
+export async function getAccessibleStudentSets(): Promise<StudentSetRow[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("vstudent_ucat_question_sets")
+    .select(STUDENT_SET_COLUMNS);
+  if (error) throw new Error(error.message ?? "Failed to load sets");
+  return (data ?? []) as StudentSetRow[];
+}
+
 export async function getStudentSets(): Promise<StudentSetRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_question_sets")
-    .select(
-      "id,name,description,time_limit_seconds,is_student_generated,sections,created_at,updated_at",
-    );
+    .select(STUDENT_SET_COLUMNS)
+    .eq("is_available_in_sets_library", true);
   if (error) throw new Error(error.message ?? "Failed to load sets");
   return (data ?? []) as StudentSetRow[];
+}
+
+export async function getStudentSet(setId: string): Promise<StudentSetRow | null> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("vstudent_ucat_question_sets")
+    .select(STUDENT_SET_COLUMNS)
+    .eq("id", setId)
+    .maybeSingle();
+  if (error) throw new Error(error.message ?? "Failed to load set");
+  return data as StudentSetRow | null;
 }
 
 type SetDetailStemMeta = {

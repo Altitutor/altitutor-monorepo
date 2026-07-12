@@ -1,13 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
+import { MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES } from "@/lib/ucat/subscription-status";
 
-export const MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES = [
-  "trialing",
-  "active",
-  "past_due",
-  "unpaid",
-] as const;
+export { MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES } from "@/lib/ucat/subscription-status";
 
 export type UcatSubscriptionRow = {
   id: string;
@@ -20,6 +16,10 @@ export type UcatSubscriptionRow = {
   stripe_price_id: string | null;
   plan_tier: string | null;
   billing_interval: string | null;
+  billing_recovery_invoice_id: string | null;
+  billing_recovery_started_at: string | null;
+  billing_recovery_next_attempt_at: string | null;
+  billing_recovery_requires_action: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -46,7 +46,7 @@ export async function getUcatSubscriptionForStudent(
   const { data } = await supabase
     .from("student_subscriptions")
     .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at",
     )
     .eq("student_id", studentId)
     .eq("subject_id", ucatSubjectId)
@@ -70,6 +70,12 @@ export async function getUcatSubscriptionForStudent(
     stripe_price_id: data.stripe_price_id,
     plan_tier: data.plan_tier ?? null,
     billing_interval: data.billing_interval ?? null,
+    billing_recovery_invoice_id: data.billing_recovery_invoice_id ?? null,
+    billing_recovery_started_at: data.billing_recovery_started_at ?? null,
+    billing_recovery_next_attempt_at:
+      data.billing_recovery_next_attempt_at ?? null,
+    billing_recovery_requires_action:
+      data.billing_recovery_requires_action ?? false,
     created_at: data.created_at,
     updated_at: data.updated_at,
   };

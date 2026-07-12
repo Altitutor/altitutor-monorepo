@@ -207,6 +207,52 @@ export async function resolveUcatInvoicePaymentFailedNotification(
   }
 }
 
+export async function resolveUcatBillingRecoveryNotificationsForStudent(
+  supabase: SupabaseClient,
+  studentId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ resolved_at: now, updated_at: now })
+    .eq("student_id", studentId)
+    .eq("app_scope", "ucat_web")
+    .in("notification_type", [
+      "ucat.billing.payment_failed",
+      "ucat.billing.payment_action_required",
+      "ucat.billing.invoice_finalization_failed",
+    ])
+    .is("resolved_at", null);
+
+  if (error) {
+    console.warn(
+      "[webhook] Failed to resolve terminal UCAT billing notifications",
+      error,
+    );
+  }
+}
+
+export async function resolveUcatBillingAccessEndedNotificationsForStudent(
+  supabase: SupabaseClient,
+  studentId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ resolved_at: now, updated_at: now })
+    .eq("student_id", studentId)
+    .eq("app_scope", "ucat_web")
+    .eq("notification_type", "ucat.billing.access_ended")
+    .is("resolved_at", null);
+
+  if (error) {
+    console.warn(
+      "[webhook] Failed to resolve prior UCAT access-ended notifications",
+      error,
+    );
+  }
+}
+
 export async function notifyUcatBillingAccessEnded(
   supabase: SupabaseClient,
   input: { studentId: string; stripeSubscriptionId: string },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import type { Database } from "@altitutor/shared";
@@ -29,9 +29,12 @@ export function SignupCompletePasswordStep({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
+
     setError(null);
 
     if (password.length < 8) {
@@ -43,6 +46,7 @@ export function SignupCompletePasswordStep({
       return;
     }
 
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
     try {
       const { error: updateError } = await supabase.auth.updateUser({
@@ -51,13 +55,16 @@ export function SignupCompletePasswordStep({
       });
       if (updateError) {
         setError(updateError.message ?? "Failed to set password.");
+        submitInFlightRef.current = false;
+        setIsSubmitting(false);
         return;
       }
 
       onComplete();
+      // Leave isSubmitting true so Next stays locked during the step transition.
     } catch {
       setError("Something went wrong. Please try again.");
-    } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -132,7 +139,8 @@ export function SignupCompletePasswordStep({
       <button
         type="button"
         onClick={onBack}
-        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
+        disabled={isSubmitting}
+        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 disabled:cursor-not-allowed disabled:opacity-50 ${typo.secondarySans}`}
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
         Back

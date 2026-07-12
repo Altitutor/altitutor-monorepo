@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Badge } from '@altitutor/ui'
 import {
   applyBooleanTextFilter,
   applyRangeFilter,
@@ -34,6 +36,7 @@ type SetRow = {
   sectionDisplay: string
   /** Mocks that include this set (for filtering). */
   ucat_mock_ids: string[]
+  mocks: Array<{ id: string; name: string }>
   created_by_first_name: string | null
   created_by_last_name: string | null
   deleted_at: string | null
@@ -51,6 +54,7 @@ type UseUcatSetsTableParams<T> = {
   data: T[] | undefined
   defaultFilters: Record<string, unknown[]>
   sections?: UcatSectionForStatus[]
+  mocks?: Array<{ id?: string | null; name?: string | null }>
   /** Initial visible column keys; defaults to all base columns if not provided */
   initialVisibleColumns?: string[]
 }
@@ -74,6 +78,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
   data,
   defaultFilters,
   sections = [],
+  mocks = [],
   initialVisibleColumns,
 }: UseUcatSetsTableParams<T>) {
   const baseColumns: Array<{ key: string; label: string }> = [
@@ -82,6 +87,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
     { key: 'time_limit_seconds', label: 'Time Limit' },
     { key: 'stem_count', label: 'Question stems' },
     { key: 'question_count', label: 'Questions' },
+    { key: 'mocks', label: 'Mocks' },
     { key: 'visibility', label: 'Visibility' },
     { key: 'created_by', label: 'Created by' },
   ]
@@ -95,10 +101,14 @@ export function useUcatSetsTable<T extends SetRowInput>({
   const showDeleted = tableState.showDeleted ?? false
 
   const rows: SetRow[] = useMemo(
-    () =>
-      (data ?? []).map((row) => {
+    () => {
+      const mockNamesById = new Map(
+        mocks.flatMap((mock) => mock.id ? [[mock.id, mock.name ?? 'Untitled'] as const] : []),
+      )
+      return (data ?? []).map((row) => {
         const r = row as T & { stem_count?: number; question_count?: number; deleted_at?: string | null; sections?: unknown }
         const parsed = parseSetSections(r.sections ?? null)
+        const mockIds = parseJsonUuidArray((row as SetRowInput).ucat_mock_ids)
         return {
           id: row.id ?? '',
           name: proseMirrorToPlainText((row.name ?? null) as Json | null) || '—',
@@ -111,13 +121,15 @@ export function useUcatSetsTable<T extends SetRowInput>({
           firstSectionNumber: parsed.firstSectionNumber,
           sectionNumbers: parsed.sectionNumbers,
           sectionDisplay: formatSetSectionsDisplay(r.sections ?? null),
-          ucat_mock_ids: parseJsonUuidArray((row as SetRowInput).ucat_mock_ids),
+          ucat_mock_ids: mockIds,
+          mocks: mockIds.map((id) => ({ id, name: mockNamesById.get(id) ?? 'Untitled' })),
           created_by_first_name: row.created_by_first_name ?? null,
           created_by_last_name: row.created_by_last_name ?? null,
           deleted_at: r.deleted_at ?? null,
         }
-      }),
-    [data]
+      })
+    },
+    [data, mocks]
   )
 
   const filteredRows = useMemo(() => {
@@ -157,6 +169,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
         time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
         stem_count: (r) => r.stem_count,
         question_count: (r) => r.question_count,
+        mocks: (r) => r.mocks.map((mock) => mock.name).join(', '),
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
         created_by: (r) =>
           r.is_student_generated ? 'Student' : [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '',
@@ -248,6 +261,36 @@ export function useUcatSetsTable<T extends SetRowInput>({
       },
     },
     {
+      key: 'mocks',
+      column: {
+        accessorKey: 'mocks',
+        header: 'Mocks',
+        cell: ({ row }) =>
+          row.original.mocks.length === 0 ? (
+            <Badge variant="secondary">
+              {row.original.deleted_at ? 'Not student-visible' : 'Sets library'}
+            </Badge>
+          ) : (
+            <div className="space-y-1">
+              <div className="space-y-0.5">
+                {row.original.mocks.map((mock) => (
+                  <Link
+                    key={mock.id}
+                    href={`/ucat/mocks/${mock.id}`}
+                    className="block max-w-full truncate text-left text-sm text-brand-darkBlue underline-offset-2 hover:underline dark:text-white"
+                    title={mock.name}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {mock.name}
+                  </Link>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">Mock only · hidden from Sets</div>
+            </div>
+          ),
+      },
+    },
+    {
       key: 'visibility',
       column: {
         accessorKey: 'is_private',
@@ -271,4 +314,3 @@ export function useUcatSetsTable<T extends SetRowInput>({
 }
 
 export type { SetRow }
-

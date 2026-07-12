@@ -5,6 +5,7 @@ import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { HeaderNotificationPills } from "@/features/layout/components/header-notification-pills";
 import { ProfileDropdown } from "@/features/layout/components/profile-dropdown";
+import { NotificationTray } from "@/features/notifications";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ export function FloatingAppActions({
         <HeaderNotificationPills />
       </div>
       <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+        <NotificationTray />
         <ThemeToggle />
         <ProfileDropdown />
       </div>

@@ -7,16 +7,13 @@ import {
 } from "@/features/ucat-access/lib/quota-area-for-pathname";
 
 describe("getQuotaAreaForPathname", () => {
-  it("maps practice browsing routes", () => {
+  it("maps practice browsing and live session routes", () => {
     expect(getQuotaAreaForPathname("/practice")).toBe("practice");
     expect(getQuotaAreaForPathname("/progress/practice-sessions/abc")).toBe(
       "practice",
     );
-  });
-
-  it("excludes active practice engine routes", () => {
-    expect(getQuotaAreaForPathname("/practice/session")).toBeNull();
-    expect(getQuotaAreaForPathname("/practice/stem/abc")).toBeNull();
+    expect(getQuotaAreaForPathname("/practice/session")).toBe("practice");
+    expect(getQuotaAreaForPathname("/practice/stem/abc")).toBe("practice");
     expect(isPracticeEngineRoute("/practice/session")).toBe(true);
   });
 

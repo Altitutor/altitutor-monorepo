@@ -126,7 +126,8 @@ export async function pickStems(
   let stemsQuery = supabase
     .from("vstudent_ucat_question_stems")
     .select("id,section_id,question_stem_category_id")
-    .in("section_id", sectionIds);
+    .in("section_id", sectionIds)
+    .eq("is_available_for_practice", true);
 
   if (input.categoryIds && input.categoryIds.length > 0) {
     stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);

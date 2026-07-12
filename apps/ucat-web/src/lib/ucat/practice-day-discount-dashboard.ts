@@ -172,7 +172,7 @@ export async function getPracticeDiscountDashboardStatus(
         )
         .eq("student_id", studentId)
         .eq("subject_id", ucatSubjectId)
-        .in("status", ["trialing", "active", "past_due", "unpaid"])
+        .in("status", ["trialing", "active", "past_due"])
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle(),

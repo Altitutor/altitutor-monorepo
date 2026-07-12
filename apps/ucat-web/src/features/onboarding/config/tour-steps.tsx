@@ -235,24 +235,27 @@ const practiceTour: Tour = {
       title: "Build a practice session",
       content: (
         <p>
-          Choose the section, topics, number of questions, and timing that fit
-          what you want to practice today.
+          Work through the setup steps to choose the section, topics, number of
+          questions, and timing that fit what you want to practice today.
         </p>
       ),
-      selector: "#tour-practice-filters",
-      side: "top",
+      // Compact header target — highlighting the full filters panel (tall /
+      // often taller than the viewport) makes nextstepjs loop scrollIntoView
+      // and jitter the page via OnboardingScrollRepaint.
+      selector: "#tour-practice-header",
+      side: "bottom",
       ...standardStep,
     },
     {
       icon: <BrainCircuit className={iconClassName} />,
-      title: "Start when the setup is ready",
+      title: "Continue through the setup",
       content: (
         <p>
-          Start practice opens the session using your selected filters. Each
-          attempt is saved to Progress automatically.
+          Use Next to finish the filters, then Start practice. Each attempt is
+          saved to Progress automatically.
         </p>
       ),
-      selector: "[data-tour='practice-start']",
+      selector: "[data-tour='practice-primary-action']",
       side: "top",
       ...standardStep,
       showSkip: false,
@@ -560,25 +563,12 @@ const sectionProgressTour: Tour = {
       title: "Predicted section score",
       content: (
         <p>
-          Your current estimated UCAT score for this section, based on weighted
-          attempt evidence.
+          Your current estimated UCAT score for this section, with a simplified
+          trajectory based on weighted attempt evidence.
         </p>
       ),
       selector: "#tour-section-predicted-score",
       side: "bottom",
-      ...standardStep,
-    },
-    {
-      icon: <TrendingUp className={iconClassName} />,
-      title: "Score projection",
-      content: (
-        <p>
-          See how your estimate has changed and the range projected from your
-          current evidence.
-        </p>
-      ),
-      selector: "#tour-section-score-projection",
-      side: "top",
       ...standardStep,
     },
     {

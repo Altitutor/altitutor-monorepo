@@ -3,30 +3,38 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { PercentileCard } from "../percentile-card";
 
 describe("PercentileCard", () => {
-  it("shows the student's percentile and lets them explore then reset", () => {
+  it("shows the student's percentile and resets after hover exploration", () => {
     render(<PercentileCard scaledScore={700} scope="section" />);
 
     expect(screen.getByText("80th percentile")).toBeInTheDocument();
-    expect(screen.getByText("Score 700 · 80%")).toBeInTheDocument();
+    expect(screen.getByText("Score 700 · 80th percentile")).toBeInTheDocument();
 
-    fireEvent.change(
-      screen.getByLabelText("Explore scores on the percentile distribution"),
-      { target: { value: "600" } },
-    );
+    const curve = screen.getByRole("img");
+    jest.spyOn(curve, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      width: 100,
+      top: 0,
+      right: 100,
+      bottom: 58,
+      height: 58,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.mouseMove(curve, { clientX: 50 });
 
-    expect(screen.getByText("Score 600 · 50%")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "My score" }));
-    expect(screen.getByText("Score 700 · 80%")).toBeInTheDocument();
+    expect(screen.getByText("Score 600 · 50th percentile")).toBeInTheDocument();
+    fireEvent.mouseLeave(curve);
+    expect(screen.getByText("Score 700 · 80th percentile")).toBeInTheDocument();
   });
 
   it("shows an empty state without an interactive chart", () => {
     render(<PercentileCard scaledScore={null} scope="section" />);
 
+    expect(screen.getByText("—")).toBeInTheDocument();
     expect(
-      screen.getByText("Complete an attempt to see how your score compares."),
+      screen.getByLabelText("Percentile explanation"),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Explore scores on the percentile distribution"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });

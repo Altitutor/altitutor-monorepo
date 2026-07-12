@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import type { SectionProgress } from "@/app/api/ucat/progress/route";
+import type { SectionProgress } from "@altitutor/shared";
 import type { ProgressMode } from "../lib/progress-mode";
 import { formatUcatPercentile } from "../lib/percentiles";
 import { getSectionProgressPercentage } from "../lib/progress-data-utils";

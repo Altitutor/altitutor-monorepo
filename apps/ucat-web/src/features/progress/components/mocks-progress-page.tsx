@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
-import { useProgress } from "../hooks/use-progress";
+import { useMockProgress } from "../hooks/use-progress";
 import { MockAttemptsCard } from "./mock-attempts-card";
-import { filterByTimeFrame } from "../lib/progress-data-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -15,65 +13,16 @@ import { AnimatedInteger } from "./progress-animated-display";
 import { formatUcatPercentile } from "../lib/percentiles";
 
 export function MocksProgressPage() {
-  const { data, isLoading, error } = useProgress();
+  const { data, isLoading, error } = useMockProgress();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
-  const filteredMockAttempts = useMemo(() => {
-    if (!data?.mockAttempts) return [];
-    return filterByTimeFrame(data.mockAttempts, "all_time", "30");
-  }, [data]);
-
-  const averageMockScore = useMemo(() => {
-    const withScore = filteredMockAttempts.filter(
-      (a) => a.scaledScore != null && a.scaledScore > 0,
-    );
-    if (withScore.length === 0) return null;
-    const sum = withScore.reduce((s, a) => s + (a.scaledScore ?? 0), 0);
-    return Math.round(sum / withScore.length);
-  }, [filteredMockAttempts]);
+  const averageMockScore = data?.averageScaledScore ?? null;
   const averageMockPercentile = formatUcatPercentile(averageMockScore, "mock");
-  const sectionBreakdown = useMemo(() => {
-    if (!data) return [];
-
-    const mockIds = new Set(filteredMockAttempts.map((attempt) => attempt.id));
-    const scoreByMockAndSection = new Map<string, number>();
-
-    for (const attempt of data.setAttempts) {
-      if (
-        attempt.studentUcatMockAttemptId == null ||
-        !mockIds.has(attempt.studentUcatMockAttemptId) ||
-        attempt.sectionId == null ||
-        attempt.scaledScore == null
-      ) {
-        continue;
-      }
-
-      const key = `${attempt.studentUcatMockAttemptId}:${attempt.sectionId}`;
-      scoreByMockAndSection.set(
-        key,
-        (scoreByMockAndSection.get(key) ?? 0) + attempt.scaledScore,
-      );
-    }
-
-    return data.sectionProgress.map((section) => {
-      const scores = filteredMockAttempts
-        .map((mock) =>
-          scoreByMockAndSection.get(`${mock.id}:${section.sectionId}`),
-        )
-        .filter((score): score is number => score != null);
-      const averageScore =
-        scores.length > 0
-          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
-          : null;
-
-      return {
-        sectionId: section.sectionId,
-        sectionName: section.sectionName,
-        averageScore,
-        percentile: formatUcatPercentile(averageScore, "section"),
-      };
-    });
-  }, [data, filteredMockAttempts]);
+  const sectionBreakdown = (data?.sections ?? []).map((section) => ({
+    ...section,
+    averageScore: section.averageScaledScore,
+    percentile: formatUcatPercentile(section.averageScaledScore, "section"),
+  }));
 
   if (isLoading) {
     return <AppPageSkeleton />;
@@ -178,7 +127,7 @@ export function MocksProgressPage() {
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <MockAttemptsCard attempts={data.mockAttempts} />
+        <MockAttemptsCard />
       </motion.div>
     </motion.div>
   );

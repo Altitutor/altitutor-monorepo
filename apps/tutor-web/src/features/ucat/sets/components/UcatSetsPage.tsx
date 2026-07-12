@@ -65,6 +65,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'time_limit_seconds', label: 'Time Limit', visibleByDefault: true },
   { key: 'stem_count', label: 'Question stems', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
+  { key: 'mocks', label: 'Mocks', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'created_by', label: 'Created by', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
@@ -76,6 +77,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'time_limit_seconds', label: 'Time Limit' },
   { key: 'stem_count', label: 'Question stems' },
   { key: 'question_count', label: 'Questions' },
+  { key: 'mocks', label: 'Mocks' },
   { key: 'visibility', label: 'Visibility' },
   { key: 'created_by', label: 'Created by' },
 ]
@@ -208,6 +210,7 @@ export function UcatSetsPage() {
     data: sets.data,
     defaultFilters: {},
     sections,
+    mocks: mocksQuery.data ?? [],
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
   })
 

@@ -247,7 +247,12 @@ export function ResultsQuestionViewer({
     });
 
     const isAttemptReview = variant === "site" && typeof points === "number";
-    const isReviewingSyllogism = isAttemptReview || syllogismSnapshot != null;
+    const savedAnswersUnavailable =
+      isAttemptReview &&
+      points != null &&
+      points > 0 &&
+      syllogismSnapshot == null;
+    const isReviewingSyllogism = syllogismSnapshot != null;
     const showStudentsColumn = rows.some((row) => row.hasStats);
     const syllogismGridCols = showStudentsColumn
       ? "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]"
@@ -271,6 +276,12 @@ export function ResultsQuestionViewer({
               preloadedContent={preloadedContent?.question}
             />
           </div>
+          {savedAnswersUnavailable ? (
+            <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+              This attempt was scored, but its individual statement answers
+              were not saved. New syllogism attempts retain these answers.
+            </p>
+          ) : null}
           <div className="mt-3 space-y-1.5">
             <div
               className={cn(

@@ -20,7 +20,10 @@ export function useLearningModules() {
 export function useLearningLesson(lessonId: string | null) {
   return useQuery({
     queryKey: learningKeys.lesson(lessonId ?? ""),
-    queryFn: () => learningApi.getLesson(lessonId!),
+    queryFn: async () => {
+      await learningApi.startLesson(lessonId!);
+      return learningApi.getLesson(lessonId!);
+    },
     enabled: lessonId != null,
   });
 }

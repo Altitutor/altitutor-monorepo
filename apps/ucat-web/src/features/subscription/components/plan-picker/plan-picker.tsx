@@ -194,7 +194,12 @@ export function PlanPicker({
   const gridClass = isHorizontal
     ? "flex flex-col items-stretch gap-4 sm:flex-row"
     : variant === "dialog" || variant === "onboarding"
-      ? "grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"
+      ? cn(
+          "grid grid-cols-1 items-stretch gap-4",
+          tiersToShow.length === 2
+            ? "mx-auto w-full max-w-5xl lg:grid-cols-2"
+            : "lg:grid-cols-3",
+        )
       : "grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3";
 
   const cardPadding =

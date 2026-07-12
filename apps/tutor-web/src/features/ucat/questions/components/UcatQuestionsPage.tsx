@@ -18,6 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Badge,
   Button,
   Checkbox,
   Command,
@@ -1146,23 +1147,30 @@ export function UcatQuestionsPage() {
                     {visible('sets') && (
                       <TableCell className="max-w-[180px]">
                         {row.sets.length === 0 ? (
-                          '—'
+                          <Badge variant="secondary">
+                            {row.deleted_at || row.approval_status !== 'approved'
+                              ? 'Not student-visible'
+                              : 'Practice pool'}
+                          </Badge>
                         ) : (
-                          <div className="space-y-0.5">
-                            {row.sets.map((set) => (
-                              <button
-                                key={set.id}
-                                type="button"
-                                className="block max-w-full truncate text-left text-sm text-brand-darkBlue underline-offset-2 hover:underline dark:text-white"
-                                title={set.name}
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setEditingSetId(set.id)
-                                }}
-                              >
-                                {set.name}
-                              </button>
-                            ))}
+                          <div className="space-y-1">
+                            <div className="space-y-0.5">
+                              {row.sets.map((set) => (
+                                <button
+                                  key={set.id}
+                                  type="button"
+                                  className="block max-w-full truncate text-left text-sm text-brand-darkBlue underline-offset-2 hover:underline dark:text-white"
+                                  title={set.name}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setEditingSetId(set.id)
+                                  }}
+                                >
+                                  {set.name}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Set only · hidden from practice</div>
                           </div>
                         )}
                       </TableCell>

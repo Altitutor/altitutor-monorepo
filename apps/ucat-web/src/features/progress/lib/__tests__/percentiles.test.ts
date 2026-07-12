@@ -1,4 +1,5 @@
 import {
+  formatExactUcatPercentile,
   formatUcatPercentile,
   getUcatPercentile,
   getUcatScoreRange,
@@ -18,6 +19,11 @@ describe("UCAT percentiles", () => {
   it("keeps low percentiles intentionally broad", () => {
     expect(formatUcatPercentile(420, "section")).toBe("<20th percentile");
     expect(formatUcatPercentile(700, "section")).toBe("80th percentile");
+  });
+
+  it("formats an exact percentile for interactive comparisons", () => {
+    expect(formatExactUcatPercentile(6)).toBe("6th percentile");
+    expect(formatExactUcatPercentile(21)).toBe("21st percentile");
   });
 
   it("returns no percentile for a missing score", () => {

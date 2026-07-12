@@ -3,13 +3,14 @@ import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
+import { isManageableUcatSubscriptionStatus } from "@/lib/ucat/subscription-status";
 import {
   getUcatPlanPrice,
   stripePriceMatchesUcatPlan,
 } from "@/lib/ucat/plan-price-lookup";
 import {
   parseUcatCheckoutRequest,
-  type UcatCheckoutSelection,
+  type UcatCheckoutRequest,
 } from "@/lib/ucat/subscription-plan";
 
 /**
@@ -20,28 +21,22 @@ import {
  */
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
-
+  const [authResult, parsedSelection] = await Promise.all([
+    supabase.auth.getUser(),
+    request
+      .json()
+      .then((body: unknown) => parseUcatCheckoutRequest(body))
+      .catch(() => null),
+  ]);
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
-
-  let selection: UcatCheckoutSelection = {
+  } = authResult;
+  const selection: UcatCheckoutRequest = parsedSelection ?? {
     tier: "unlimited",
     interval: "week",
   };
-  let returnContext: "signup_onboarding" | "subscribe" | "practice_session" =
-    "subscribe";
-  try {
-    const body = (await request.clone().json()) as unknown;
-    const parsed = parseUcatCheckoutRequest(body);
-    if (parsed) {
-      selection = parsed;
-      returnContext = parsed.returnContext ?? "subscribe";
-    }
-  } catch {
-    // No body or invalid JSON — default to Unlimited weekly
-  }
+  const returnContext = selection.returnContext ?? "subscribe";
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -58,28 +53,69 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const planPrice = await getUcatPlanPrice(
-    supabaseAdmin,
-    selection.tier,
-    selection.interval,
-  );
-  const priceId = planPrice?.stripe_price_id?.trim() ?? null;
-
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey || !priceId || !planPrice?.checkout_enabled) {
+  if (!stripeSecretKey) {
     return NextResponse.json(
       { error: "This plan is not available yet. Please try another option." },
       { status: 503 },
     );
   }
 
-  const { data: student, error: studentError } = await supabaseAdmin
-    .from("students")
-    .select(
-      "id, first_name, last_name, email, ucat_unlimited_trial_consumed_at",
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const stripe = new Stripe(stripeSecretKey, {
+    apiVersion: "2025-12-15.clover",
+  });
+  const planPricePromise = getUcatPlanPrice(
+    supabaseAdmin,
+    selection.tier,
+    selection.interval,
+  );
+  const priceValidationPromise = planPricePromise.then(async (planPrice) => {
+    if (!planPrice?.checkout_enabled || !planPrice.stripe_price_id?.trim()) {
+      return { matches: false, error: null };
+    }
+    try {
+      return {
+        matches: await stripePriceMatchesUcatPlan(stripe, planPrice),
+        error: null,
+      };
+    } catch (error: unknown) {
+      return { matches: false, error };
+    }
+  });
+
+  const [
+    planPrice,
+    priceValidation,
+    studentResult,
+    ucatSubjectId,
+    configResult,
+  ] = await Promise.all([
+    planPricePromise,
+    priceValidationPromise,
+    supabaseAdmin
+      .from("students")
+      .select(
+        "id, email, ucat_unlimited_trial_consumed_at, students_billing(stripe_customer_id), student_subscriptions(id, subject_id, status)",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    getUcatSubjectId(supabaseAdmin),
+    supabaseAdmin
+      .from("ucat_subscription_config")
+      .select("trial_days")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const priceId = planPrice?.stripe_price_id?.trim() ?? null;
+  if (!priceId || !planPrice?.checkout_enabled) {
+    return NextResponse.json(
+      { error: "This plan is not available yet. Please try another option." },
+      { status: 503 },
+    );
+  }
+
+  const { data: student, error: studentError } = studentResult;
 
   if (studentError) {
     return NextResponse.json(
@@ -95,7 +131,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ucatSubjectId = await getUcatSubjectId(supabaseAdmin);
   if (!ucatSubjectId) {
     return NextResponse.json(
       { error: "UCAT subject not configured" },
@@ -103,40 +138,39 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: existingSub } = await supabaseAdmin
-    .from("student_subscriptions")
-    .select("id")
-    .eq("student_id", student.id)
-    .eq("subject_id", ucatSubjectId)
-    .in("status", ["trialing", "active"])
-    .maybeSingle();
+  const existingSub = student.student_subscriptions.some(
+    (subscription) =>
+      subscription.subject_id === ucatSubjectId &&
+      isManageableUcatSubscriptionStatus(subscription.status),
+  );
 
   if (existingSub) {
     return NextResponse.json(
-      { error: "You already have an active subscription" },
+      {
+        error:
+          "You already have a subscription. Review its billing status before starting another plan.",
+        code: "existing_subscription",
+      },
       { status: 400 },
     );
   }
 
-  const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: "2025-12-15.clover",
-  });
-
-  try {
-    if (!(await stripePriceMatchesUcatPlan(stripe, planPrice))) {
-      console.error(
-        "[ucat checkout] Stripe price does not match configured plan amount",
-        selection,
-      );
-      return NextResponse.json(
-        { error: "This plan is being updated. Please try again shortly." },
-        { status: 503 },
-      );
-    }
-  } catch (err: unknown) {
+  if (priceValidation.error) {
     console.error(
       "[ucat checkout] Failed to validate Stripe price:",
-      err instanceof Error ? err.message : String(err),
+      priceValidation.error instanceof Error
+        ? priceValidation.error.message
+        : String(priceValidation.error),
+    );
+    return NextResponse.json(
+      { error: "This plan is being updated. Please try again shortly." },
+      { status: 503 },
+    );
+  }
+  if (!priceValidation.matches) {
+    console.error(
+      "[ucat checkout] Stripe price does not match configured plan amount",
+      selection,
     );
     return NextResponse.json(
       { error: "This plan is being updated. Please try again shortly." },
@@ -144,13 +178,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: config } = await supabaseAdmin
-    .from("ucat_subscription_config")
-    .select("trial_days")
-    .limit(1)
-    .maybeSingle();
-
-  const trialDays = config?.trial_days ?? 7;
+  const trialDays = configResult.data?.trial_days ?? 7;
   const trialEligible = student.ucat_unlimited_trial_consumed_at == null;
 
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
@@ -202,11 +230,7 @@ export async function POST(request: NextRequest) {
         : `${checkoutReturnBase}?checkout=success`,
   };
 
-  const { data: billing } = await supabaseAdmin
-    .from("students_billing")
-    .select("stripe_customer_id")
-    .eq("student_id", student.id)
-    .maybeSingle();
+  const billing = student.students_billing;
 
   if (billing?.stripe_customer_id) {
     sessionParams.customer = billing.stripe_customer_id;

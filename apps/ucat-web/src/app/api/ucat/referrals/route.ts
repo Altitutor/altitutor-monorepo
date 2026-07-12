@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const studentId = await getStudentIdForUser(supabase, user.id);
+  const studentId = await getStudentIdForUser(supabaseAdmin, user.id);
   if (!studentId) {
     return NextResponse.json(
       { error: "Student profile not found" },

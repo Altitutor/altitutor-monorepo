@@ -40,10 +40,14 @@ export async function POST(request: Request) {
     workflowKey?: WorkflowKey;
     enrolments?: Array<{ classesStudentsId?: string; finalSessionAt?: string; unenrolledAt?: string }>;
   };
-  if (!body?.studentId || !isWorkflowKey(body.workflowKey) || !body.enrolments?.length) {
-    return NextResponse.json({ error: 'Student, workflow and final session dates are required.' }, { status: 400 });
+  if (!body?.studentId || !isWorkflowKey(body.workflowKey)) {
+    return NextResponse.json({ error: 'Student and workflow are required.' }, { status: 400 });
   }
-  if (body.enrolments.some((row) => !row.classesStudentsId || !row.finalSessionAt || !row.unenrolledAt)) {
+  const enrolments = body.enrolments ?? [];
+  if (body.workflowKey === 'student_unenrolment' && !enrolments.length) {
+    return NextResponse.json({ error: 'Choose the class and final session to unenrol from.' }, { status: 400 });
+  }
+  if (enrolments.some((row) => !row.classesStudentsId || !row.finalSessionAt || !row.unenrolledAt)) {
     return NextResponse.json({ error: 'Each class needs a final session date.' }, { status: 400 });
   }
 
@@ -59,13 +63,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Assign and publish a form for this workflow first.' }, { status: 409 });
   }
 
-  const ids = body.enrolments.map((row) => row.classesStudentsId!);
-  const { data: activeEnrolments } = await admin
+  const ids = enrolments.map((row) => row.classesStudentsId!);
+  const { data: activeEnrolments } = ids.length ? await admin
     .from('classes_students')
     .select('id')
     .eq('student_id', body.studentId)
     .in('id', ids)
-    .is('unenrolled_at', null);
+    .is('unenrolled_at', null) : { data: [] };
   if ((activeEnrolments ?? []).length !== ids.length) {
     return NextResponse.json({ error: 'One or more selected classes are no longer active.' }, { status: 409 });
   }
@@ -100,14 +104,14 @@ export async function POST(request: Request) {
     expires_at: expiresAt,
   }).select('id').single();
   if (requestError) return NextResponse.json({ error: requestError.message }, { status: 500 });
-  const { error: enrolmentError } = await admin.from('student_exit_request_enrolments').insert(
-    body.enrolments.map((row) => ({
+  const { error: enrolmentError } = enrolments.length ? await admin.from('student_exit_request_enrolments').insert(
+    enrolments.map((row) => ({
       student_exit_request_id: exitRequest.id,
       classes_students_id: row.classesStudentsId!,
       final_session_at: row.finalSessionAt!,
       unenrolled_at: row.unenrolledAt!,
     })),
-  );
+  ) : { error: null };
   if (enrolmentError) return NextResponse.json({ error: enrolmentError.message }, { status: 500 });
   return NextResponse.json({ request: exitRequest, token, expiresAt });
 }

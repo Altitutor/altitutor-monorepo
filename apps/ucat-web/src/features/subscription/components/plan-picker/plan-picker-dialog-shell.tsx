@@ -22,6 +22,7 @@ type PlanPickerDialogShellProps = {
   /** When false, blocks outside click, escape, and programmatic close via onOpenChange(false). */
   dismissible?: boolean;
   hideCloseButton?: boolean;
+  hideBackButton?: boolean;
   footer?: ReactNode;
   fullScreen?: boolean;
 };
@@ -34,6 +35,7 @@ export function PlanPickerDialogShell({
   children,
   dismissible = true,
   hideCloseButton = false,
+  hideBackButton = false,
   footer,
   fullScreen = false,
 }: PlanPickerDialogShellProps) {
@@ -93,7 +95,7 @@ export function PlanPickerDialogShell({
             ease: [0.32, 0.72, 0, 1],
           }}
         >
-          {fullScreen ? (
+          {fullScreen && !hideBackButton ? (
             <button
               type="button"
               onClick={() => onOpenChange(false)}

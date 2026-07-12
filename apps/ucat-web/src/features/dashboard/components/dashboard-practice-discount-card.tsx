@@ -173,7 +173,8 @@ export function DashboardPracticeDiscountCard() {
               <QuotaProgressBar
                 used={today.questionsDone}
                 limit={today.minQuestions}
-                atLimit={today.questionsDone >= today.minQuestions}
+                // Hitting the daily target is success here (not a quota limit).
+                atLimit={false}
               />
               <p className="text-xs text-muted-foreground">
                 {today.questionsDone >= today.minQuestions

@@ -16,7 +16,7 @@ import {
 } from "@/features/subscription/api/fetch-upgrade-preview";
 import { UCAT_SUBSCRIPTION_BILLING_QUERY_KEY } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { isSubscribedToPro } from "@/features/subscription/lib/resolve-subscribed-plan";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import {
   defaultPublicSubscriptionConfig,
   getPublicPlanPrice,
@@ -102,8 +102,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const { data: billingData, isLoading: billingLoading } =
     useUcatSubscriptionBilling(options.audience === "app");
   const needsOnboarding = !access.isLoading && !access.onboardingCompleted;
-  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
-  const [configLoading, setConfigLoading] = useState(true);
+  const {
+    data: cfg = defaultPublicSubscriptionConfig,
+    isPending: configLoading,
+  } = usePublicSubscriptionConfig();
   const [billingInterval, setBillingInterval] =
     useState<UcatBillingInterval>("month");
   const [loadingPlan, setLoadingPlan] = useState<LoadingKey | null>(null);
@@ -126,21 +128,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       journeyContext: options.checkoutReturnContext ?? "subscribe",
     });
   }, [access.isLoading, options.checkoutReturnContext]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const next = await fetchPublicSubscriptionConfig();
-        if (!cancelled) setCfg(next);
-      } finally {
-        if (!cancelled) setConfigLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const omitAudPrefix = isAustralianTimezone(profile?.timezone);
 

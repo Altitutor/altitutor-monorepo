@@ -1,4 +1,4 @@
-import type { SectionProgress } from "@/app/api/ucat/progress/route";
+import type { SectionProgress } from "@altitutor/shared";
 import {
   buildAttemptAxisGraphData,
   getSectionProgressPercentage,

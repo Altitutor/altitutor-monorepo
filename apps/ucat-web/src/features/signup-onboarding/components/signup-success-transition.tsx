@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
+import React, { useEffect, useState, type ComponentType } from "react";
 import {
   BarChart3,
   BookOpen,
@@ -15,11 +15,16 @@ import { NoiseOverlay } from "@/features/landing/components/marketing/noise-over
 
 const { typography: typo } = MARKETING_TOKENS;
 
-const BENEFITS: ReadonlyArray<{
+export type SignupSuccessJourney = "free" | "paid";
+export type SignupSuccessOccasion = "signup" | "upgrade";
+
+type SignupBenefit = {
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
-}> = [
+};
+
+const PAID_BENEFITS: ReadonlyArray<SignupBenefit> = [
   {
     title: "Practise without limits",
     description: "Every UCAT section, mock and skill trainer is ready for you.",
@@ -37,35 +42,60 @@ const BENEFITS: ReadonlyArray<{
   },
 ];
 
-export type CheckoutSuccessTransitionPhase = "confirming" | "welcome";
+const FREE_BENEFITS: ReadonlyArray<SignupBenefit> = [
+  {
+    title: "Start practising straight away",
+    description: "Explore UCAT questions and begin building a steady routine.",
+    icon: BrainCircuit,
+  },
+  {
+    title: "See progress clearly",
+    description: "Track your scores, timing and improvement in one place.",
+    icon: BarChart3,
+  },
+  {
+    title: "Know what to do next",
+    description: "Use your learning and practice tools to keep moving forward.",
+    icon: BookOpen,
+  },
+];
 
-type CheckoutSuccessTransitionProps = {
-  phase: CheckoutSuccessTransitionPhase;
+export type SignupSuccessTransitionPhase = "confirming" | "welcome";
+
+type SignupSuccessTransitionProps = {
+  journey: SignupSuccessJourney;
+  occasion: SignupSuccessOccasion;
+  phase: SignupSuccessTransitionPhase;
   isTakingLonger: boolean;
   error: string | null;
   onRetry: () => void;
   onComplete: () => void;
 };
 
-export function CheckoutSuccessTransition({
+export function SignupSuccessTransition({
+  journey,
+  occasion,
   phase,
   isTakingLonger,
   error,
   onRetry,
   onComplete,
-}: CheckoutSuccessTransitionProps) {
+}: SignupSuccessTransitionProps) {
   const reduceMotion = useReducedMotion();
   const [benefitIndex, setBenefitIndex] = useState(0);
+  const isPaidJourney = journey === "paid";
+  const isUpgrade = occasion === "upgrade";
+  const benefits = isPaidJourney ? PAID_BENEFITS : FREE_BENEFITS;
 
   useEffect(() => {
     if (phase !== "confirming" || reduceMotion) return;
 
     const timer = window.setInterval(() => {
-      setBenefitIndex((current) => (current + 1) % BENEFITS.length);
+      setBenefitIndex((current) => (current + 1) % benefits.length);
     }, 1_350);
 
     return () => window.clearInterval(timer);
-  }, [phase, reduceMotion]);
+  }, [benefits, phase, reduceMotion]);
 
   useEffect(() => {
     if (phase !== "welcome") return;
@@ -74,7 +104,7 @@ export function CheckoutSuccessTransition({
     return () => window.clearTimeout(timer);
   }, [onComplete, phase, reduceMotion]);
 
-  const benefit = BENEFITS[benefitIndex];
+  const benefit = benefits[benefitIndex];
   const BenefitIcon = benefit.icon;
 
   return (
@@ -141,18 +171,23 @@ export function CheckoutSuccessTransition({
             <p
               className={`text-xs font-bold uppercase tracking-[0.24em] text-marketing-accent ${typo.dataMono}`}
             >
-              Your plan is unlocking
+              {isPaidJourney
+                ? "Your plan is unlocking"
+                : "Your UCAT journey starts here"}
             </p>
             <h1
               className={`mt-3 text-3xl font-bold sm:text-4xl ${typo.headingSans}`}
             >
-              Building your UCAT workspace
+              {isPaidJourney
+                ? "Building your UCAT workspace"
+                : "Personalising your UCAT workspace"}
             </h1>
             <p
               className={`mt-3 max-w-md text-marketing-cream/60 ${typo.secondarySans}`}
             >
-              Your payment is complete. We’re preparing everything included in
-              your plan.
+              {isPaidJourney
+                ? "Your payment is complete. We’re preparing everything included in your plan."
+                : "Your Free plan is ready. We’re preparing a clear place to learn, practise and improve."}
             </p>
 
             <div
@@ -185,7 +220,7 @@ export function CheckoutSuccessTransition({
               </AnimatePresence>
 
               <div className="mt-5 grid grid-cols-3 gap-2" aria-hidden>
-                {BENEFITS.map((item, index) => (
+                {benefits.map((item, index) => (
                   <div
                     key={item.title}
                     className="h-1 overflow-hidden rounded-full bg-marketing-cream/10"
@@ -215,7 +250,7 @@ export function CheckoutSuccessTransition({
                   Try again
                 </Button>
               </div>
-            ) : isTakingLonger ? (
+            ) : isPaidJourney && isTakingLonger ? (
               <p
                 className={`mt-5 text-sm text-marketing-cream/50 ${typo.secondarySans}`}
                 role="status"
@@ -228,7 +263,9 @@ export function CheckoutSuccessTransition({
                 className={`mt-5 text-sm text-marketing-cream/40 ${typo.secondarySans}`}
                 role="status"
               >
-                Finishing the last few details…
+                {isPaidJourney
+                  ? "Finishing the last few details…"
+                  : "Preparing your dashboard…"}
               </p>
             )}
           </motion.main>
@@ -279,17 +316,21 @@ export function CheckoutSuccessTransition({
               <p
                 className={`text-xs font-bold uppercase tracking-[0.24em] text-marketing-accent ${typo.dataMono}`}
               >
-                Thank you for joining us
+                {isUpgrade ? "Upgrade complete" : "Thank you for joining us"}
               </p>
               <h1
                 className={`mt-3 text-4xl font-bold sm:text-6xl ${typo.headingSans}`}
               >
-                Welcome to Alti UCAT prep
+                {isUpgrade
+                  ? "Your new plan is ready"
+                  : "Welcome to Alti UCAT prep"}
               </h1>
               <p
                 className={`mt-4 text-marketing-cream/60 ${typo.secondarySans}`}
               >
-                Your plan is ready. Opening your dashboard…
+                {isUpgrade
+                  ? "Your upgraded UCAT access is ready. Taking you back into the app…"
+                  : "Your UCAT workspace is ready. Opening your dashboard…"}
               </p>
             </motion.div>
           </motion.main>

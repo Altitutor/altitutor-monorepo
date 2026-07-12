@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@altitutor/ui";
-import { ChevronLeft, Clock3, Gauge, Infinity as InfinityIcon, ListChecks, TimerOff } from "lucide-react";
+import { ChevronLeft, Clock3, Eye, Gauge, Infinity as InfinityIcon, ListChecks, Rows3, TimerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import type { CategoryRow, PerformanceFilter } from "@/features/set-generator/hooks/use-stem-filters";
 import type { SectionKey, SetGeneratorInput, TimeMode } from "@/features/set-generator/model/types";
@@ -49,6 +50,8 @@ export type StemFiltersPanelProps = {
   showUnlimitedOption?: boolean;
   questionCountMode?: "set" | "unlimited";
   onQuestionCountModeChange?: (mode: "set" | "unlimited") => void;
+  reviewTiming?: PracticeReviewTiming;
+  onReviewTimingChange?: (timing: PracticeReviewTiming) => void;
   fixedQuestionCountLimit?: number | null;
   /** Hide the in-panel step title/back — parent owns the page header. */
   hideStepHeader?: boolean;
@@ -83,6 +86,10 @@ export const STEM_FILTERS_STEP_COPY = [
   {
     title: "Shape your practice",
     subtitle: "Choose the session size and the questions to include.",
+  },
+  {
+    title: "Choose when to review",
+    subtitle: "See feedback as you go or review everything at the end.",
   },
   {
     title: "Review your setup",
@@ -120,12 +127,6 @@ const stepCopyFade = {
   exit: { opacity: 0 },
 };
 
-function selectedCardClassName(selected: boolean) {
-  return cn(
-    selected && "!bg-muted/40 !ring-2 !ring-primary/30 shadow-md",
-  );
-}
-
 export function StemFiltersPanel({
   input,
   selectedSection,
@@ -149,6 +150,8 @@ export function StemFiltersPanel({
   showUnlimitedOption = false,
   questionCountMode = "set",
   onQuestionCountModeChange,
+  reviewTiming,
+  onReviewTimingChange,
   fixedQuestionCountLimit = null,
   hideStepHeader = false,
   onWizardStepChange,
@@ -156,6 +159,10 @@ export function StemFiltersPanel({
   const [{ step, direction }, setWizard] = useState({ step: 0, direction: 1 });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const reduceMotion = useReducedMotion();
+  const hasReviewTimingStep =
+    reviewTiming != null && onReviewTimingChange != null;
+  const reviewStep = hasReviewTimingStep ? 3 : -1;
+  const summaryStep = hasReviewTimingStep ? 4 : 3;
   const fixedCountMax = Math.max(
     1,
     Math.min(
@@ -180,7 +187,12 @@ export function StemFiltersPanel({
     if (questionCountMode === "set" && input.questionCount > fixedCountMax) {
       onQuestionCountChange(fixedCountMax);
     }
-  }, [fixedCountMax, input.questionCount, onQuestionCountChange, questionCountMode]);
+  }, [
+    fixedCountMax,
+    input.questionCount,
+    onQuestionCountChange,
+    questionCountMode,
+  ]);
 
   function goToStep(nextStep: number) {
     if (isTransitioning || nextStep === step) return;
@@ -188,7 +200,10 @@ export function StemFiltersPanel({
     setWizard({ step: nextStep, direction: nextStep > step ? 1 : -1 });
   }
 
-  const copy = STEM_FILTERS_STEP_COPY[step] ?? STEM_FILTERS_STEP_COPY[0];
+  const copy = hasReviewTimingStep
+    ? (STEM_FILTERS_STEP_COPY[step] ?? STEM_FILTERS_STEP_COPY[0])
+    : (STEM_FILTERS_STEP_COPY[step === 3 ? 4 : step] ??
+      STEM_FILTERS_STEP_COPY[0]);
 
   useEffect(() => {
     if (!onWizardStepChange) return;
@@ -337,10 +352,7 @@ export function StemFiltersPanel({
                           onSectionChange(section);
                         }
                       }}
-                      className={cn(
-                        ucatClickableCardClassName(),
-                        selectedCardClassName(selected),
-                      )}
+                      className={ucatClickableCardClassName({ selected })}
                     >
                       <button
                         type="button"
@@ -460,10 +472,7 @@ export function StemFiltersPanel({
                     selectTiming(false);
                   }
                 }}
-                className={cn(
-                  ucatClickableCardClassName(),
-                  selectedCardClassName(!isTimed),
-                )}
+                className={ucatClickableCardClassName({ selected: !isTimed })}
               >
                 <button
                   type="button"
@@ -484,10 +493,7 @@ export function StemFiltersPanel({
                     selectTiming(true);
                   }
                 }}
-                className={cn(
-                  ucatClickableCardClassName(),
-                  selectedCardClassName(isTimed),
-                )}
+                className={ucatClickableCardClassName({ selected: isTimed })}
                 transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
               >
                 <button
@@ -572,10 +578,9 @@ export function StemFiltersPanel({
                       onQuestionCountModeChange?.("unlimited");
                     }
                   }}
-                  className={cn(
-                    ucatClickableCardClassName(),
-                    selectedCardClassName(questionCountMode === "unlimited"),
-                  )}
+                  className={ucatClickableCardClassName({
+                    selected: questionCountMode === "unlimited",
+                  })}
                 >
                   <button
                     type="button"
@@ -616,12 +621,9 @@ export function StemFiltersPanel({
                     onQuestionCountModeChange?.("set");
                   }
                 }}
-                className={cn(
-                  ucatClickableCardClassName(),
-                  selectedCardClassName(
-                    !showUnlimitedOption || questionCountMode === "set",
-                  ),
-                )}
+                className={ucatClickableCardClassName({
+                  selected: !showUnlimitedOption || questionCountMode === "set",
+                })}
               >
                 <button
                   type="button"
@@ -670,7 +672,51 @@ export function StemFiltersPanel({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {step === reviewStep ? (
+            <div className="grid items-stretch gap-4 sm:grid-cols-2">
+              {([
+                {
+                  value: "afterEachStem" as const,
+                  title: "Review after each stem",
+                  description:
+                    "Submit a stem, see the answers, then continue.",
+                  icon: Eye,
+                },
+                {
+                  value: "atEnd" as const,
+                  title: "Review all at the end",
+                  description:
+                    "Work continuously, then review when you finish.",
+                  icon: Rows3,
+                },
+              ]).map((option) => {
+                const Icon = option.icon;
+                const selected = reviewTiming === option.value;
+                return (
+                  <div
+                    key={option.value}
+                    onClick={() => onReviewTimingChange?.(option.value)}
+                    className={ucatClickableCardClassName({ selected })}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onReviewTimingChange?.(option.value)}
+                      aria-pressed={selected}
+                      className="w-full text-left"
+                    >
+                      <Icon className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="mt-4 font-semibold">{option.title}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {step === summaryStep ? (
             <div
               className={ucatClickableCardClassName({
                 interactive: false,
@@ -683,7 +729,9 @@ export function StemFiltersPanel({
                   "Categories",
                   selectedCategories.length === sectionCategories.length
                     ? "All categories"
-                    : selectedCategories.map((category) => category.name).join(", "),
+                    : selectedCategories
+                        .map((category) => category.name)
+                        .join(", "),
                 ],
                 ["Timing", previewTimeLabel],
                 [
@@ -698,13 +746,25 @@ export function StemFiltersPanel({
                     (option) => option.value === performanceFilter,
                   )?.label ?? "All questions",
                 ],
+                ...(hasReviewTimingStep
+                  ? [
+                      [
+                        "Review",
+                        reviewTiming === "atEnd"
+                          ? "All at the end"
+                          : "After each stem",
+                      ],
+                    ]
+                  : []),
               ].map(([label, value]) => (
                 <div
                   key={label}
                   className="flex w-full items-center justify-between gap-6 py-3 first:pt-0 last:pb-0"
                 >
                   <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className="text-right text-sm font-medium">{value}</span>
+                  <span className="text-right text-sm font-medium">
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
@@ -714,8 +774,11 @@ export function StemFiltersPanel({
       </div>
       </div>
 
-      <div className="mt-10 flex min-h-10 items-center justify-end">
-        {step < 3 ? (
+      <div
+        data-tour="practice-primary-action"
+        className="mt-10 flex min-h-10 items-center justify-end"
+      >
+        {step < summaryStep ? (
           <Button
             type="button"
             onClick={() => goToStep(step + 1)}
@@ -729,7 +792,7 @@ export function StemFiltersPanel({
             Next
           </Button>
         ) : null}
-        {step === 3 ? actionButton : null}
+        {step === summaryStep ? actionButton : null}
       </div>
     </div>
   );

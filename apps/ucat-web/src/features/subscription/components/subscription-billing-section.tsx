@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@altitutor/ui";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Badge, Skeleton } from "@altitutor/ui";
+import { AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { SubscriptionInvoicesTable } from "@/features/subscription/components/subscription-invoices-table";
 import {
@@ -29,13 +29,24 @@ import {
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { UcatSubscriptionDetails } from "@/features/subscription/types/ucat-subscription-billing";
+import {
+  hasPaidUcatSubscriptionAccess,
+  isUcatBillingRecoveryStatus,
+  isUcatBillingTerminalStatus,
+} from "@/lib/ucat/subscription-status";
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
-  "active",
-  "trialing",
-  "past_due",
-  "unpaid",
-]);
+function formatRetryDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toLocaleString("en-AU", {
+    timeZone: "Australia/Adelaide",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function formatSubscriptionPeriod(subscription: UcatSubscriptionDetails) {
   const start = subscription.current_period_start
@@ -117,9 +128,8 @@ export function SubscriptionBillingSection() {
   const { openPlanPicker } = useUpsellDialog();
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
-  const [pricingConfig, setPricingConfig] = useState(
-    defaultPublicSubscriptionConfig,
-  );
+  const { data: pricingConfig = defaultPublicSubscriptionConfig } =
+    usePublicSubscriptionConfig();
   const [discountProgress, setDiscountProgress] = useState<{
     earned: number;
     cap: number;
@@ -128,12 +138,8 @@ export function SubscriptionBillingSection() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [cfg, progress] = await Promise.all([
-        fetchPublicSubscriptionConfig(),
-        fetchPracticeDiscountProgress(),
-      ]);
+      const progress = await fetchPracticeDiscountProgress();
       if (!cancelled) {
-        setPricingConfig(cfg);
         if (progress && progress.cap > 0) {
           setDiscountProgress({ earned: progress.earned, cap: progress.cap });
         } else {
@@ -149,12 +155,27 @@ export function SubscriptionBillingSection() {
   const subscription = data?.subscription ?? null;
   const subscriptions = data?.subscriptions ?? [];
   const invoices = data?.invoices ?? [];
-  const isActive =
-    subscription != null &&
-    ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
+  const hasPaidAccess =
+    subscription != null && hasPaidUcatSubscriptionAccess(subscription.status);
   const pastSubscriptions = subscriptions.filter(
-    (row) => row.id !== subscription?.id || !isActive,
+    (row) => row.id !== subscription?.id,
   );
+  const isPaymentRecovery = subscription
+    ? isUcatBillingRecoveryStatus(subscription.status)
+    : false;
+  const isTerminalBillingState = subscription
+    ? isUcatBillingTerminalStatus(subscription.status)
+    : false;
+  const retryAt = formatRetryDate(
+    subscription?.billing_recovery_next_attempt_at ?? null,
+  );
+  const recoveryInvoice = subscription?.billing_recovery_invoice_id
+    ? (invoices.find(
+        (invoice) =>
+          invoice.stripe_invoice_id ===
+          subscription.billing_recovery_invoice_id,
+      ) ?? null)
+    : null;
 
   const cancelEndDate = subscription
     ? getSubscriptionEndDateIso(subscription)
@@ -183,10 +204,34 @@ export function SubscriptionBillingSection() {
     }
   };
 
+  const handleFixPayment = async () => {
+    if (recoveryInvoice?.hosted_invoice_url) {
+      window.open(
+        recoveryInvoice.hosted_invoice_url,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      return;
+    }
+    await handleManageOnStripe();
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div
+        className="space-y-6"
+        aria-busy="true"
+        aria-label="Loading subscription"
+      >
+        <Skeleton className="h-48 w-full rounded-ucatShell" />
+        <div className="space-y-4">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-24 w-full rounded-ucatShell" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-56 w-full rounded-ucatShell" />
+        </div>
       </div>
     );
   }
@@ -233,6 +278,78 @@ export function SubscriptionBillingSection() {
 
   return (
     <div className="space-y-6">
+      {isPaymentRecovery ? (
+        <div
+          role="alert"
+          className="rounded-ucatShell border border-amber-500/40 bg-amber-500/10 p-4 text-amber-950 dark:text-amber-100"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold">
+                  {subscription.billing_recovery_requires_action
+                    ? "Please confirm your payment"
+                    : "Your payment didn’t go through"}
+                </p>
+                <p className="text-sm">
+                  Your paid UCAT access continues temporarily while Stripe
+                  retries. Fix the payment to avoid moving to Free.
+                </p>
+                {retryAt ? (
+                  <p className="text-sm font-medium">
+                    Next automatic attempt: {retryAt}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <Button
+              type="button"
+              className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
+              disabled={portalLoading}
+              onClick={() => void handleFixPayment()}
+            >
+              {portalLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              )}
+              {subscription.billing_recovery_requires_action
+                ? "Confirm payment"
+                : "Update payment method"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {isTerminalBillingState ? (
+        <div
+          role="alert"
+          className="rounded-ucatShell flex flex-col gap-4 border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-semibold">Your paid UCAT access has ended</p>
+            <p className="mt-1">
+              We couldn’t recover the payment, so you’ve moved to Free. Your
+              account, practice history and results are safe.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
+            disabled={portalLoading}
+            onClick={() => void handleManageOnStripe()}
+          >
+            {portalLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ExternalLink className="mr-2 h-4 w-4" />
+            )}
+            Review billing
+          </Button>
+        </div>
+      ) : null}
+
       {isCancelScheduled && cancelEndDate ? (
         <div className="rounded-ucatShell border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
           Your subscription is scheduled to cancel on{" "}
@@ -257,7 +374,7 @@ export function SubscriptionBillingSection() {
               <h2 className="text-xl font-semibold tracking-tight">
                 My subscription
               </h2>
-              <Badge variant={isActive ? "default" : "secondary"}>
+              <Badge variant={hasPaidAccess ? "default" : "secondary"}>
                 {isCancelScheduled
                   ? "Canceling"
                   : formatSubscriptionStatus(subscription.status)}
@@ -315,9 +432,10 @@ export function SubscriptionBillingSection() {
               </div>
             ) : null}
 
-            {isActive &&
+            {hasPaidAccess &&
             subscription.current_period_end &&
-            !isCancelScheduled ? (
+            !isCancelScheduled &&
+            !isPaymentRecovery ? (
               <p className="text-sm text-muted-foreground">
                 Next billing date:{" "}
                 {formatInvoiceDate(
@@ -331,14 +449,24 @@ export function SubscriptionBillingSection() {
             type="button"
             className={UCAT_PRIMARY_ACTION_BUTTON}
             disabled={portalLoading}
-            onClick={() => void handleManageOnStripe()}
+            onClick={() =>
+              void (isPaymentRecovery
+                ? handleFixPayment()
+                : handleManageOnStripe())
+            }
           >
             {portalLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <ExternalLink className="mr-2 h-4 w-4" />
             )}
-            Manage
+            {isPaymentRecovery
+              ? subscription.billing_recovery_requires_action
+                ? "Confirm payment"
+                : "Update payment"
+              : isTerminalBillingState
+                ? "Review billing"
+                : "Manage"}
           </Button>
         </div>
 

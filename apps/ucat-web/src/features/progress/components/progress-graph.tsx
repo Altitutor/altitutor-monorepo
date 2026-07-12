@@ -79,6 +79,8 @@ export type ProgressGraphProps = {
   dataType: GraphDataType;
   dateRangeLabel?: string;
   className?: string;
+  /** Shorter chart for embedding beside summary stats. */
+  compact?: boolean;
   /** When true, scaled_score uses dynamic max from data. Pass yAxisMax for mock context. */
   isMockContext?: boolean;
   /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
@@ -157,12 +159,20 @@ function AxisLabelSelect<T extends { value: string; label: string }>({
   );
 }
 
+const PROJECTION_SERIES_LABELS: Record<string, string> = {
+  value: "Estimate",
+  projectionRealistic: "Projected",
+  projectionPessimistic: "Low",
+  projectionOptimistic: "High",
+};
+
 export function ProgressGraph({
   data,
   type,
   dataType,
   dateRangeLabel,
   className,
+  compact = false,
   isMockContext = false,
   yAxisMax,
   yAxisDomain,
@@ -185,6 +195,8 @@ export function ProgressGraph({
     projectionPessimistic?: number;
     projectionRealistic?: number;
     projectionOptimistic?: number;
+    /** Fill-only copy of optimistic; keeps Area out of the line tooltip. */
+    projectionBandHigh?: number;
   };
 
   const hasCustomTickLabels = data.some((d) => d.label);
@@ -248,6 +260,7 @@ export function ProgressGraph({
             value: null,
           };
           current.projectionOptimistic = point.value;
+          current.projectionBandHigh = point.value;
           byDate.set(point.date, current);
         }
         return [...byDate.values()].sort((a, b) =>
@@ -295,13 +308,107 @@ export function ProgressGraph({
     return `Date: ${displayLabel}`;
   };
 
+  const pointCount = showProjection ? mergedLineData.length : data.length;
   const needsAngledTicks =
-    (hasCustomTickLabels && xAxisMode === "date") || data.length > 14;
+    !compact &&
+    ((hasCustomTickLabels && xAxisMode === "date") || pointCount > 14);
+  // Compact projection charts stay sparse; full charts cap around a dozen labels.
+  const maxXTicks = compact ? 5 : pointCount > 14 ? 8 : pointCount;
   const xTickInterval =
-    data.length > 24 ? Math.max(0, Math.ceil(data.length / 12) - 1) : 0;
-  // Keep only enough room for tick labels; the X-axis mode label sits outside the chart.
-  const chartBottomMargin = needsAngledTicks ? 42 : 4;
-  const chartTopMargin = 16;
+    pointCount > maxXTicks
+      ? Math.max(0, Math.ceil(pointCount / maxXTicks) - 1)
+      : 0;
+  // Room for tick labels; the X-axis mode label sits outside the chart.
+  const chartBottomMargin = needsAngledTicks ? 48 : compact ? 12 : 20;
+  const chartTopMargin = compact ? 8 : 16;
+  const tickFontSize = compact || pointCount > 14 ? 10 : 12;
+
+  const tooltipContent = ({
+    active,
+    label: rawLabel,
+    payload,
+  }: {
+    active?: boolean;
+    label?: string | number;
+    payload?: ReadonlyArray<{
+      dataKey?: string | number;
+      name?: string;
+      value?: number | string | null;
+      color?: string;
+      payload?: {
+        date: string;
+        label?: string;
+        tooltipLabel?: string;
+        value?: number | null;
+      };
+    }>;
+  }) => {
+    if (!active || payload == null || payload.length === 0) return null;
+
+    const point = payload[0]?.payload;
+    const hasEstimate = point?.value != null;
+    const seenKeys = new Set<string>();
+    const rows = payload.filter((entry) => {
+      const key = String(entry.dataKey ?? entry.name ?? "");
+      if (key === "projectionBandHigh") return false;
+      if (
+        hasEstimate &&
+        (key === "projectionRealistic" ||
+          key === "projectionPessimistic" ||
+          key === "projectionOptimistic")
+      ) {
+        return false;
+      }
+      if (entry.value == null || entry.value === "") return false;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
+
+    if (rows.length === 0) return null;
+
+    const dateLabel =
+      typeof rawLabel === "string" || typeof rawLabel === "number"
+        ? String(rawLabel)
+        : "";
+
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-sm">
+        <p className="mb-1 font-medium text-foreground">
+          {formatTooltipLabel(dateLabel, point)}
+        </p>
+        <ul className="space-y-0.5">
+          {rows.map((entry) => {
+            const key = String(entry.dataKey ?? entry.name ?? "value");
+            const rowLabel = PROJECTION_SERIES_LABELS[key] ?? label;
+            const numericValue =
+              typeof entry.value === "number"
+                ? entry.value
+                : Number(entry.value);
+            return (
+              <li
+                key={key}
+                className="flex items-center gap-2 text-muted-foreground"
+              >
+                <span
+                  className="inline-block size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span>
+                  {rowLabel}:{" "}
+                  <span className="font-medium text-foreground">
+                    {formatTooltipValue(
+                      Number.isFinite(numericValue) ? numericValue : null,
+                    )}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
 
   const chartContent =
     type === "line" ? (
@@ -309,17 +416,19 @@ export function ProgressGraph({
         data={mergedLineData}
         margin={{
           top: chartTopMargin,
-          right: 5,
-          left: 5,
+          right: compact ? 4 : 5,
+          left: compact ? 0 : 5,
           bottom: chartBottomMargin,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        {compact ? null : (
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        )}
         <XAxis
           dataKey="date"
           angle={needsAngledTicks ? -45 : 0}
           tick={{
-            fontSize: data.length > 14 ? 10 : 12,
+            fontSize: tickFontSize,
             textAnchor: needsAngledTicks ? "end" : "middle",
           }}
           tickFormatter={(_value, index) =>
@@ -328,66 +437,66 @@ export function ProgressGraph({
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
+          minTickGap={compact ? 48 : 24}
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: tickFontSize }}
           stroke="currentColor"
           className="text-muted-foreground"
+          width={compact ? 36 : undefined}
           tickFormatter={
             dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
           }
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-          }}
-          formatter={(value: number | undefined) => [
-            formatTooltipValue(value),
-            label,
-          ]}
-          labelFormatter={(l, payload) => {
-            const raw = payload?.[0]?.payload as
-              | { date: string; label?: string; tooltipLabel?: string }
-              | undefined;
-            return formatTooltipLabel(l, raw);
-          }}
-        />
+        <Tooltip content={tooltipContent} />
         {showProjection ? (
           <>
             <Area
               type="monotone"
-              dataKey="projectionOptimistic"
+              dataKey="projectionBandHigh"
               baseLine={projectionBaseLine}
               stroke="none"
               fill="hsl(var(--accent))"
               fillOpacity={0.12}
               connectNulls
+              tooltipType="none"
+              legendType="none"
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="projectionOptimistic"
+              name="projectionOptimistic"
+              stroke="hsl(var(--muted-foreground))"
+              strokeDasharray="2 4"
+              strokeWidth={1.25}
+              strokeOpacity={0.7}
+              dot={false}
+              activeDot={false}
+              connectNulls
             />
             <Line
               type="monotone"
               dataKey="projectionPessimistic"
+              name="projectionPessimistic"
               stroke="hsl(var(--muted-foreground))"
-              strokeDasharray="6 4"
+              strokeDasharray="2 4"
+              strokeWidth={1.25}
+              strokeOpacity={0.7}
               dot={false}
+              activeDot={false}
               connectNulls
             />
             <Line
               type="monotone"
               dataKey="projectionRealistic"
-              stroke="hsl(var(--accent))"
+              name="projectionRealistic"
+              stroke="hsl(var(--muted-foreground))"
               strokeDasharray="6 4"
+              strokeWidth={1.5}
               dot={false}
-              connectNulls
-            />
-            <Line
-              type="monotone"
-              dataKey="projectionOptimistic"
-              stroke="hsl(var(--primary))"
-              strokeDasharray="6 4"
-              dot={false}
+              activeDot={false}
               connectNulls
             />
           </>
@@ -395,10 +504,11 @@ export function ProgressGraph({
         <Line
           type="monotone"
           dataKey="value"
+          name="value"
           stroke="hsl(var(--accent))"
           strokeWidth={2}
-          dot={{ fill: "hsl(var(--accent))", r: 4 }}
-          activeDot={{ r: 6 }}
+          dot={{ fill: "hsl(var(--accent))", r: compact ? 3 : 4 }}
+          activeDot={{ r: compact ? 5 : 6 }}
           connectNulls={true}
           isAnimationActive
           animationDuration={800}
@@ -420,7 +530,7 @@ export function ProgressGraph({
           dataKey="date"
           angle={needsAngledTicks ? -45 : 0}
           tick={{
-            fontSize: data.length > 14 ? 10 : 12,
+            fontSize: tickFontSize,
             textAnchor: needsAngledTicks ? "end" : "middle",
           }}
           tickFormatter={(_value, index) => getXAxisTickLabel(data, index)}
@@ -430,30 +540,14 @@ export function ProgressGraph({
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: tickFontSize }}
           stroke="currentColor"
           className="text-muted-foreground"
           tickFormatter={
             dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
           }
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-          }}
-          formatter={(value: number | undefined) => [
-            formatTooltipValue(value),
-            label,
-          ]}
-          labelFormatter={(l, payload) => {
-            const raw = payload?.[0]?.payload as
-              | { date: string; label?: string; tooltipLabel?: string }
-              | undefined;
-            return formatTooltipLabel(l, raw);
-          }}
-        />
+        <Tooltip content={tooltipContent} />
         <Bar
           dataKey="value"
           fill="hsl(var(--accent))"
@@ -506,7 +600,7 @@ export function ProgressGraph({
           {dateRangeNode}
         </div>
       ) : null}
-      <div className="h-[280px] w-full">
+      <div className={cn("w-full", compact ? "h-[168px]" : "h-[280px]")}>
         <ResponsiveContainer width="100%" height="100%">
           {chartContent}
         </ResponsiveContainer>

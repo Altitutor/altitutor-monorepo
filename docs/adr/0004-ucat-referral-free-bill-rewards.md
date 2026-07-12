@@ -7,7 +7,7 @@ UCAT referrals need to reward genuine product use, feel more valuable than the o
 ## Decision
 
 1. Every student receives one stable referral link; one new student can be attributed to only one referrer.
-2. A Free referral qualifies after the referred student answers at least ten questions on two separate days within 14 days. Both participants receive one explicit-use Free quota reset that expires after 30 days.
+2. A Free referral is rewarded immediately when the referred student completes signup through the referral link. Both participants receive one explicit-use Free quota reset that expires after 30 days; no practice activity is required.
 3. A paid referral qualifies when the referred student starts their eligible one-time Unlimited trial after supplying a Stripe payment method whose customer and card fingerprint differ from the referrer's. Both participants receive one free-bill entitlement immediately.
 4. Free-bill entitlements are queued in Altitutor, including for UCAT Free students. At each weekly or monthly renewal, the webhook applies at most one queued entitlement as a 100%-off invoice coupon, then marks it redeemed only when that invoice is paid.
 5. Multiple successful referrals produce multiple future free bills. Voided or uncollectible invoices return the associated entitlement to the queue.

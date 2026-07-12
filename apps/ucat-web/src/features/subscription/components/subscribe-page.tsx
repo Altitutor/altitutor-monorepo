@@ -2,7 +2,7 @@
 
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import {
   defaultPublicSubscriptionConfig,
   getPublicPracticeDayDiscount,
@@ -12,7 +12,6 @@ import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-
 import { PlanPickerCheckIcon } from "@/features/subscription/components/plan-picker/plan-picker-check-icon";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -26,18 +25,8 @@ const ONLINE_FEATURES = [
 
 export function SubscribePage() {
   const access = useUcatAccess();
-  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const next = await fetchPublicSubscriptionConfig();
-      if (!cancelled) setCfg(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: cfg = defaultPublicSubscriptionConfig } =
+    usePublicSubscriptionConfig();
 
   const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =

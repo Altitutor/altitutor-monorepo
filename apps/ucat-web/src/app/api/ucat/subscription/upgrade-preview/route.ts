@@ -66,6 +66,16 @@ export async function GET() {
     );
   }
 
+  if (subscription.status === "past_due" || subscription.status === "unpaid") {
+    return NextResponse.json(
+      {
+        error: "Resolve your current payment before changing plans.",
+        code: "payment_recovery_required",
+      },
+      { status: 409 },
+    );
+  }
+
   if (subscription.plan_tier === "pro") {
     return NextResponse.json(
       { error: "You are already on UCAT Pro" },

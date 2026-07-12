@@ -16,6 +16,7 @@ import {
   mapQuotaConfigRow,
   type UcatFreeQuotaConfig,
 } from "@/lib/ucat/quota/config";
+import { createUcatNotification } from "@/lib/notifications/create-ucat-notification";
 
 type AdminClient = SupabaseClient<Database>;
 
@@ -306,6 +307,46 @@ export type QuotaCheckResult =
   | { allowed: true }
   | { allowed: false; payload: QuotaExceededPayload };
 
+async function rejectQuotaAction(
+  supabase: AdminClient,
+  studentId: string,
+  payload: QuotaExceededPayload,
+): Promise<QuotaCheckResult> {
+  try {
+    const ctx = await resolveStudentQuotaContext(supabase, studentId);
+    if (ctx) {
+      const config = await loadQuotaConfig(supabase);
+      const periodStart = await getQuotaCountStart(
+        supabase,
+        ctx,
+        payload.area,
+        config,
+      );
+      const label = UCAT_QUOTA_AREA_LABELS[payload.area];
+      await createUcatNotification(supabase, {
+        studentId,
+        type: "ucat.quota.limit_reached",
+        title: `You’ve reached your ${label} limit`,
+        body: `Your UCAT Free ${label.toLowerCase()} allowance will refresh when the current ${payload.period} quota period resets, or you can upgrade for unlimited access.`,
+        actionUrl: "/settings/plan",
+        metadata: {
+          quota_area: payload.area,
+          quota_period: payload.period,
+          used: payload.used,
+          limit: payload.limit,
+          period_start: periodStart,
+        },
+        dedupeKey: `ucat:quota-limit:${studentId}:${payload.area}:${periodStart}`,
+      });
+    }
+  } catch (error) {
+    // Quota enforcement must remain available even if its informational notice fails.
+    console.warn("[ucat notifications] Quota-limit notice failed", error);
+  }
+
+  return { allowed: false, payload };
+}
+
 export type PracticeQuotaStatus = {
   isQuotaExempt: boolean;
   used: number;
@@ -355,7 +396,12 @@ export async function countNewPracticeQuestionsForStudent(
   if (uniqueQuestionIds.length === 0) return 0;
 
   const config = await loadQuotaConfig(supabase);
-  const periodStart = await getQuotaCountStart(supabase, ctx, "practice", config);
+  const periodStart = await getQuotaCountStart(
+    supabase,
+    ctx,
+    "practice",
+    config,
+  );
 
   const { data, error } = await supabase
     .from("student_question_attempts")
@@ -384,16 +430,13 @@ export async function checkPracticeStartQuota(
   if (!status || status.isQuotaExempt) return { allowed: true };
 
   if (status.limit === 0 || status.remaining === 0) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "practice",
-        used: status.used,
-        limit: status.limit,
-        period: status.period,
-      },
-    };
+    return rejectQuotaAction(supabase, studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used: status.used,
+      limit: status.limit,
+      period: status.period,
+    });
   }
 
   const newQuestionCount = await countNewPracticeQuestionsForStudent(
@@ -402,16 +445,13 @@ export async function checkPracticeStartQuota(
     questionIds,
   );
   if (newQuestionCount > (status.remaining ?? 0)) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "practice",
-        used: status.used,
-        limit: status.limit,
-        period: status.period,
-      },
-    };
+    return rejectQuotaAction(supabase, studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used: status.used,
+      limit: status.limit,
+      period: status.period,
+    });
   }
 
   return { allowed: true };
@@ -434,16 +474,13 @@ export async function checkQuotaForAction(
   const { limit, period } = getAreaConfig(config, area);
 
   if (limit === 0) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area,
-        used: 0,
-        limit: 0,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, studentId, {
+      code: "QUOTA_EXCEEDED",
+      area,
+      used: 0,
+      limit: 0,
+      period,
+    });
   }
 
   if (area === "practice" && options?.practiceQuestionId) {
@@ -467,16 +504,13 @@ export async function checkQuotaForAction(
 
   const used = await countQuotaUsage(supabase, ctx, area, config);
   if (used >= limit) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area,
-        used,
-        limit,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, studentId, {
+      code: "QUOTA_EXCEEDED",
+      area,
+      used,
+      limit,
+      period,
+    });
   }
 
   return { allowed: true };
@@ -492,16 +526,13 @@ async function checkPracticeSubmitQuota(
   const { limit, period } = getAreaConfig(config, "practice");
 
   if (limit === 0) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "practice",
-        used: 0,
-        limit: 0,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, ctx.studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used: 0,
+      limit: 0,
+      period,
+    });
   }
 
   if (!hasAnswer) return { allowed: true };
@@ -530,16 +561,13 @@ async function checkPracticeSubmitQuota(
 
   const used = await countPracticeUsage(supabase, ctx.studentId, countStart);
   if (used >= limit) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "practice",
-        used,
-        limit,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, ctx.studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used,
+      limit,
+      period,
+    });
   }
 
   return { allowed: true };
@@ -554,16 +582,13 @@ async function checkLearnStartQuota(
   const { limit, period } = getAreaConfig(config, "learn");
 
   if (limit === 0) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "learn",
-        used: 0,
-        limit: 0,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, ctx.studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "learn",
+      used: 0,
+      limit: 0,
+      period,
+    });
   }
 
   const countStart = await getQuotaCountStart(supabase, ctx, "learn", config);
@@ -579,16 +604,13 @@ async function checkLearnStartQuota(
 
   const used = await countLearnStarts(supabase, ctx.studentId, countStart);
   if (used >= limit) {
-    return {
-      allowed: false,
-      payload: {
-        code: "QUOTA_EXCEEDED",
-        area: "learn",
-        used,
-        limit,
-        period,
-      },
-    };
+    return rejectQuotaAction(supabase, ctx.studentId, {
+      code: "QUOTA_EXCEEDED",
+      area: "learn",
+      used,
+      limit,
+      period,
+    });
   }
 
   return { allowed: true };

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
@@ -12,38 +11,22 @@ import { PracticeAttemptsCard } from "./practice-attempts-card";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@altitutor/ui";
 import {
   UCAT_CARD_CHROME,
-  UCAT_CARD_CONTENT_AFTER_HEADER,
   UCAT_DIVIDER_TOP,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  sumCorrectScoreFromAttempts,
-  sumProgressPointsFromAttempts,
-} from "@altitutor/shared";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
-import {
-  getBestAttemptPerQuestion,
-  getSectionProgressPercentage,
-} from "../lib/progress-data-utils";
+import { getSectionProgressPercentage } from "../lib/progress-data-utils";
 import {
   AnimatedFraction,
   AnimatedInteger,
   ProgressCircular,
 } from "./progress-animated-display";
 import { PercentileCard } from "./percentile-card";
-import { ProgressGraph } from "./progress-graph";
-import type {
-  ProgressResponse,
-  SectionCategoryProgress,
-  QuestionAttemptRow,
-  SetAttemptRow,
-} from "@/app/api/ucat/progress/route";
+import { PredictedScoreCard } from "./predicted-score-card";
+import type { SectionCategoryProgress } from "@altitutor/shared";
 
 type SectionProgressPageProps = {
   sectionNumber: number;
@@ -57,54 +40,8 @@ export function SectionProgressPage({
   const backHref = "/progress";
   const backLabel = "Back to progress";
 
-  const sectionId = useMemo(() => {
-    if (!data) return null;
-    const section = data.sectionProgress.find(
-      (s) => s.sectionNumber === sectionNumber,
-    );
-    return section?.sectionId ?? null;
-  }, [data, sectionNumber]);
-
-  const {
-    section,
-    categoryProgress,
-    filteredQuestionAttempts,
-    filteredSetAttempts,
-  } = useMemo(() => {
-    if (!data || sectionId == null) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: [] as QuestionAttemptRow[],
-        filteredSetAttempts: [] as SetAttemptRow[],
-      };
-    }
-    const filteredQA = data.questionAttempts.filter(
-      (a) => a.ucatSectionId === sectionId,
-    );
-    const filteredSA = data.setAttempts.filter(
-      (a) => a.sectionId === sectionId,
-    );
-    const section =
-      data.sectionProgress.find((s) => s.sectionId === sectionId) ?? null;
-    if (!section) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: filteredQA,
-        filteredSetAttempts: filteredSA,
-      };
-    }
-
-    const categoryProgress = data.sectionCategoryProgress?.[sectionId] ?? [];
-
-    return {
-      section,
-      categoryProgress,
-      filteredQuestionAttempts: filteredQA,
-      filteredSetAttempts: filteredSA,
-    };
-  }, [data, sectionId]);
+  const section = data?.section ?? null;
+  const categoryProgress = data?.categoryProgress ?? [];
 
   if (isLoading) {
     return <AppPageSkeleton />;
@@ -164,16 +101,12 @@ export function SectionProgressPage({
       score={score}
       percentage={getSectionProgressPercentage(section, "all_time")}
       totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={data.totalPublicSetsBySection?.[section.sectionId]}
-      totalPublicUntimedSets={
-        data.totalPublicUntimedSetsBySection?.[section.sectionId]
-      }
-      totalPublicTimedSets={
-        data.totalPublicTimedSetsBySection?.[section.sectionId]
-      }
-      filteredQuestionAttempts={filteredQuestionAttempts}
-      filteredSetAttempts={filteredSetAttempts}
-      practiceAttempts={data.practiceAttempts ?? []}
+      totalPublicSets={data.totalPublicSets}
+      totalPublicUntimedSets={data.totalPublicUntimedSets}
+      totalPublicTimedSets={data.totalPublicTimedSets}
+      setsCompleted={data.setsCompleted}
+      untimedSetsCompleted={data.untimedSetsCompleted}
+      timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
       scoreProjection={sectionProjection}
       backHref={backHref}
@@ -190,61 +123,46 @@ function SectionProgressContent({
   totalPublicSets,
   totalPublicUntimedSets,
   totalPublicTimedSets,
-  filteredQuestionAttempts,
-  filteredSetAttempts,
-  practiceAttempts,
+  setsCompleted,
+  untimedSetsCompleted,
+  timedSetsCompleted,
   categoryProgress,
   scoreProjection,
   backHref,
   backLabel,
 }: {
-  section: { sectionId: string; sectionName: string; sectionNumber: number };
+  section: {
+    sectionId: string;
+    sectionName: string;
+    sectionNumber: number;
+    correctScore: number;
+    maxScore: number;
+  };
   score: number | null;
   percentage: number;
   totalPublicQuestions?: number;
   totalPublicSets?: number;
   totalPublicUntimedSets?: number;
   totalPublicTimedSets?: number;
-  filteredQuestionAttempts: QuestionAttemptRow[];
-  filteredSetAttempts: SetAttemptRow[];
-  practiceAttempts: NonNullable<ProgressResponse["practiceAttempts"]>;
+  setsCompleted: number;
+  untimedSetsCompleted: number;
+  timedSetsCompleted: number;
   categoryProgress: SectionCategoryProgress[];
   scoreProjection: SectionScoreProjection | null;
   backHref: string;
   backLabel: string;
 }) {
-  const stats = useMemo(() => {
-    const unique = getBestAttemptPerQuestion(filteredQuestionAttempts);
-    const completed = sumProgressPointsFromAttempts(unique);
-    const correct = sumCorrectScoreFromAttempts(unique);
-    return {
-      completed,
-      correct,
-      incorrect: completed - correct,
-    };
-  }, [filteredQuestionAttempts]);
+  const stats = {
+    completed: section.maxScore,
+    correct: section.correctScore,
+    incorrect: section.maxScore - section.correctScore,
+  };
 
-  const setsStats = useMemo(() => {
-    const nonStudentGenerated = filteredSetAttempts.filter(
-      (a) => !a.isStudentGenerated,
-    );
-    const uniqueSetIds = new Set(
-      nonStudentGenerated.map((a) => a.questionSetId),
-    );
-    const untimedCompleted = new Set(
-      nonStudentGenerated
-        .filter((a) => !a.wasTimed)
-        .map((a) => a.questionSetId),
-    );
-    const timedCompleted = new Set(
-      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId),
-    );
-    return {
-      totalCompleted: uniqueSetIds.size,
-      untimedCompleted: untimedCompleted.size,
-      timedCompleted: timedCompleted.size,
-    };
-  }, [filteredSetAttempts]);
+  const setsStats = {
+    totalCompleted: setsCompleted,
+    untimedCompleted: untimedSetsCompleted,
+    timedCompleted: timedSetsCompleted,
+  };
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   return (
@@ -269,27 +187,12 @@ function SectionProgressContent({
           id="tour-section-predicted-score"
           className="grid gap-4 lg:grid-cols-2"
         >
-          <Card className={UCAT_CARD_CHROME}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                Predicted section score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "text-4xl font-bold tabular-nums text-center",
-                  score == null && "text-muted-foreground",
-                )}
-              >
-                {score != null ? (
-                  <AnimatedInteger value={Math.round(score)} />
-                ) : (
-                  "—"
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PredictedScoreCard
+            title="Predicted section score"
+            tooltip="Predicted section score is based on your recent timed sets and mocks, with more weight given to timed performance."
+            score={score}
+            projection={scoreProjection}
+          />
           <PercentileCard scaledScore={score} scope="section" />
         </div>
 
@@ -513,149 +416,12 @@ function SectionProgressContent({
         </div>
       </motion.div>
 
-      <motion.div id="tour-section-score-projection" variants={itemVariants}>
-        <ScoreProjectionCard projection={scoreProjection} />
-      </motion.div>
-
       <motion.div id="tour-section-practice-attempts" variants={itemVariants}>
-        <PracticeAttemptsCard attempts={practiceAttempts} />
+        <PracticeAttemptsCard sectionNumber={section.sectionNumber} />
       </motion.div>
       <motion.div id="tour-section-set-attempts" variants={itemVariants}>
-        <SetAttemptsCard
-          attempts={filteredSetAttempts}
-          sectionNumber={section.sectionNumber}
-        />
+        <SetAttemptsCard sectionNumber={section.sectionNumber} />
       </motion.div>
     </motion.div>
-  );
-}
-
-function ScoreProjectionCard({
-  projection,
-}: {
-  projection: SectionScoreProjection | null;
-}) {
-  if (!projection) {
-    return (
-      <Card className={UCAT_CARD_CHROME}>
-        <CardHeader>
-          <CardTitle>Score projection</CardTitle>
-          <CardDescription>
-            Projection will appear after your score estimate has loaded.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[280px] rounded-lg bg-muted/40" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (projection.currentEstimate == null) {
-    return (
-      <Card className={UCAT_CARD_CHROME}>
-        <CardHeader>
-          <CardTitle>Score projection</CardTitle>
-          <CardDescription>
-            Complete more timed sets or mocks before showing a predicted section
-            score.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
-            <div className="text-2xl font-bold">Not enough evidence yet</div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Current effective evidence weight is{" "}
-              {projection.effectiveEvidenceWeight.toFixed(2)}. Once it reaches
-              the configured threshold, this section will show a prediction and
-              trajectory.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const currentPoint = projection.projection.find((point) => point.day === 0);
-  const currentDate =
-    currentPoint?.date ?? new Date().toISOString().slice(0, 10);
-  const historyData = projection.history.map((point) => ({
-    date: point.date,
-    value: point.value,
-  }));
-  const graphData = historyData.some((point) => point.date === currentDate)
-    ? historyData
-    : [
-        ...historyData,
-        {
-          date: currentDate,
-          value: projection.currentEstimate,
-        },
-      ];
-  const graphProjection = {
-    pessimistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.pessimistic,
-    })),
-    realistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.realistic,
-    })),
-    optimistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.optimistic,
-    })),
-  };
-
-  return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardHeader>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Score projection</CardTitle>
-            <CardDescription>
-              Estimate of your current and projected improvement, based on your
-              historical performance and practice consistency.
-            </CardDescription>
-          </div>
-          <div className="text-left sm:text-right">
-            <div className="text-2xl font-bold tabular-nums">
-              <AnimatedInteger value={projection.currentEstimate} />
-            </div>
-            <div className="text-xs font-medium text-muted-foreground">
-              {projection.confidence} confidence +/- {projection.uncertainty}
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className={cn("space-y-5", UCAT_CARD_CONTENT_AFTER_HEADER)}>
-        <ProgressGraph
-          data={graphData}
-          type="line"
-          dataType="scaled_score"
-          dateRangeLabel={`${projection.effectivePracticePerWeek} effective questions/week`}
-          projection={graphProjection}
-        />
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {projection.horizons.map((horizon) => (
-            <div
-              key={horizon.day}
-              className="rounded-lg border border-border bg-card/50 p-3"
-            >
-              <div className="text-xs font-medium text-muted-foreground">
-                {horizon.day} days
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums">
-                {horizon.realistic}
-              </div>
-              <div className="text-xs text-muted-foreground tabular-nums">
-                {horizon.pessimistic} - {horizon.optimistic}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }

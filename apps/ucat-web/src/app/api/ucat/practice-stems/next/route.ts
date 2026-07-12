@@ -45,12 +45,16 @@ export async function POST(request: NextRequest) {
     input?: SetGeneratorInput;
     excludeStemIds?: string[];
     practiceSessionId?: string;
+    preview?: boolean;
+    deliverStemId?: string;
   };
   try {
     body = (await request.json()) as {
       input?: SetGeneratorInput;
       excludeStemIds?: string[];
       practiceSessionId?: string;
+      preview?: boolean;
+      deliverStemId?: string;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -134,6 +138,42 @@ export async function POST(request: NextRequest) {
     : [];
   const deliveredStemIds = deliveredStems.map((stem) => stem.id);
 
+  if (body.deliverStemId) {
+    const alreadyDelivered = deliveredStems.find(
+      (stem) => stem.id === body.deliverStemId,
+    );
+    if (alreadyDelivered) {
+      return NextResponse.json({ stem: alreadyDelivered });
+    }
+
+    const { data: stemDetails, error: stemDetailsError } = await supabase
+      .from("vstudent_ucat_question_stem_detail")
+      .select("id,section_name,display_columns,stem_text,questions")
+      .eq("id", body.deliverStemId)
+      .maybeSingle();
+    if (stemDetailsError || !stemDetails) {
+      return NextResponse.json(
+        { error: stemDetailsError?.message ?? "Practice stem not found" },
+        { status: 404 },
+      );
+    }
+
+    const stem = mapStemDetailToQuestionStemWithQuestions(
+      stemDetails as StemDetailRowFromDb,
+    );
+    const { error: updateError } = await supabaseAdmin
+      .from("student_practice_sessions")
+      .update({
+        stems_snapshot: [...deliveredStems, stem] as unknown as Json,
+      })
+      .eq("id", practiceSessionId)
+      .eq("student_id", student.id);
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    return NextResponse.json({ stem });
+  }
+
   const result = await pickStems(supabase, input, {
     excludeStemIds: Array.from(
       new Set([...excludeStemIds, ...deliveredStemIds]),
@@ -159,6 +199,10 @@ export async function POST(request: NextRequest) {
 
   const stemRow = stemDetails[0] as StemDetailRowFromDb;
   const stem = mapStemDetailToQuestionStemWithQuestions(stemRow);
+
+  if (body.preview) {
+    return NextResponse.json({ stem });
+  }
 
   const nextDeliveredStems = [...deliveredStems, stem];
   const { error: updateError } = await supabaseAdmin

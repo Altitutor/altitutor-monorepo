@@ -72,6 +72,10 @@ function ordinal(value: number): string {
   }
 }
 
+export function formatExactUcatPercentile(percentile: number): string {
+  return `${ordinal(Math.round(percentile))} percentile`;
+}
+
 export function formatUcatPercentile(
   scaledScore: number | null | undefined,
   scope: UcatPercentileScope,
@@ -80,7 +84,7 @@ export function formatUcatPercentile(
   if (percentile == null) return null;
   return percentile < 20
     ? "<20th percentile"
-    : `${ordinal(percentile)} percentile`;
+    : formatExactUcatPercentile(percentile);
 }
 
 export function getUcatPercentile(

@@ -26,9 +26,10 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
 import {
-  CheckoutSuccessTransition,
-  type CheckoutSuccessTransitionPhase,
-} from "@/features/signup-onboarding/components/checkout-success-transition";
+  SignupSuccessTransition,
+  type SignupSuccessJourney,
+  type SignupSuccessTransitionPhase,
+} from "@/features/signup-onboarding/components/signup-success-transition";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -83,18 +84,23 @@ export function SignupOnboardingWizard({
 
   const [step, setStep] = useState<SignupOnboardingStep>(initial.step);
   const [direction, setDirection] = useState(1);
-  const [checkoutTransitionPhase, setCheckoutTransitionPhase] =
-    useState<CheckoutSuccessTransitionPhase | null>(() =>
+  const [signupSuccessJourney, setSignupSuccessJourney] =
+    useState<SignupSuccessJourney | null>(() =>
+      checkoutReturnedSuccessfully ? "paid" : null,
+    );
+  const [signupSuccessPhase, setSignupSuccessPhase] =
+    useState<SignupSuccessTransitionPhase | null>(() =>
       checkoutReturnedSuccessfully ? "confirming" : null,
     );
-  const [checkoutTakingLonger, setCheckoutTakingLonger] = useState(false);
-  const [checkoutConfirmationError, setCheckoutConfirmationError] = useState<
-    string | null
-  >(null);
+  const [signupSuccessTakingLonger, setSignupSuccessTakingLonger] =
+    useState(false);
+  const [signupSuccessError, setSignupSuccessError] = useState<string | null>(
+    null,
+  );
   const [checkoutConfirmationAttempt, setCheckoutConfirmationAttempt] =
     useState(0);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
-  const checkoutTransitionStartedAt = useRef(
+  const signupSuccessStartedAt = useRef(
     checkoutReturnedSuccessfully ? Date.now() : 0,
   );
   const checkoutConfirmationStarted = useRef(false);
@@ -119,9 +125,31 @@ export function SignupOnboardingWizard({
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
     router.replace("/dashboard");
   }, [queryClient, router]);
-  const completeCheckoutTransition = useCallback(() => {
+  const completeSignupSuccessTransition = useCallback(() => {
     void navigateAfterSignupComplete();
   }, [navigateAfterSignupComplete]);
+  const waitForMinimumSignupSuccessAnimation = useCallback(async () => {
+    const minimumAnimationMs = reduceMotion ? 350 : 2_800;
+    const elapsed = Date.now() - signupSuccessStartedAt.current;
+    if (elapsed < minimumAnimationMs) {
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, minimumAnimationMs - elapsed),
+      );
+    }
+  }, [reduceMotion]);
+
+  const completeFreeSignup = useCallback(async () => {
+    try {
+      await patchSignupProgress({ complete: true });
+      await waitForMinimumSignupSuccessAnimation();
+      setSignupSuccessError(null);
+      setSignupSuccessPhase("welcome");
+    } catch (e) {
+      setSignupSuccessError(
+        e instanceof Error ? e.message : "Please try again.",
+      );
+    }
+  }, [waitForMinimumSignupSuccessAnimation]);
 
   useEffect(() => {
     if (checkoutStatus === "canceled") {
@@ -132,17 +160,15 @@ export function SignupOnboardingWizard({
       router.replace("/signup/complete");
       return;
     }
-    if (
-      !checkoutReturnedSuccessfully ||
-      checkoutTransitionPhase !== "confirming"
-    ) {
+    if (!checkoutReturnedSuccessfully || signupSuccessPhase !== "confirming") {
       return;
     }
 
     router.prefetch("/dashboard");
-    setCheckoutTransitionPhase((current) => current ?? "confirming");
-    if (checkoutTransitionStartedAt.current === 0) {
-      checkoutTransitionStartedAt.current = Date.now();
+    setSignupSuccessJourney("paid");
+    setSignupSuccessPhase((current) => current ?? "confirming");
+    if (signupSuccessStartedAt.current === 0) {
+      signupSuccessStartedAt.current = Date.now();
     }
 
     let attempts = 0;
@@ -151,7 +177,7 @@ export function SignupOnboardingWizard({
       attempts += 1;
       void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
       if (attempts >= 12) {
-        setCheckoutTakingLonger(true);
+        setSignupSuccessTakingLonger(true);
       }
     }, 1000);
 
@@ -159,14 +185,15 @@ export function SignupOnboardingWizard({
   }, [
     checkoutReturnedSuccessfully,
     checkoutStatus,
-    checkoutTransitionPhase,
+    signupSuccessPhase,
     queryClient,
     router,
   ]);
 
   useEffect(() => {
     if (
-      checkoutTransitionPhase !== "confirming" ||
+      signupSuccessJourney !== "paid" ||
+      signupSuccessPhase !== "confirming" ||
       access.isLoading ||
       checkoutConfirmationStarted.current
     ) {
@@ -184,39 +211,35 @@ export function SignupOnboardingWizard({
         await patchSignupProgress({ planComplete: true });
         await patchSignupProgress({ complete: true });
 
-        const minimumAnimationMs = reduceMotion ? 350 : 2_800;
-        const elapsed = Date.now() - checkoutTransitionStartedAt.current;
-        if (elapsed < minimumAnimationMs) {
-          await new Promise((resolve) =>
-            window.setTimeout(resolve, minimumAnimationMs - elapsed),
-          );
-        }
+        await waitForMinimumSignupSuccessAnimation();
 
-        setCheckoutConfirmationError(null);
-        setCheckoutTransitionPhase("welcome");
+        setSignupSuccessError(null);
+        setSignupSuccessPhase("welcome");
       } catch (e) {
         checkoutConfirmationStarted.current = false;
-        setCheckoutConfirmationError(
+        setSignupSuccessError(
           e instanceof Error ? e.message : "Please try again.",
         );
       }
     })();
   }, [
-    checkoutTransitionPhase,
+    signupSuccessJourney,
+    signupSuccessPhase,
     checkoutConfirmationAttempt,
     access.isLoading,
     access.onlineTier,
-    reduceMotion,
+    waitForMinimumSignupSuccessAnimation,
   ]);
 
-  const finishOnboarding = async () => {
+  const finishOnboarding = () => {
     setError(null);
-    try {
-      await patchSignupProgress({ complete: true });
-      await navigateAfterSignupComplete();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    }
+    router.prefetch("/dashboard");
+    signupSuccessStartedAt.current = Date.now();
+    setSignupSuccessJourney("free");
+    setSignupSuccessTakingLonger(false);
+    setSignupSuccessError(null);
+    setSignupSuccessPhase("confirming");
+    void completeFreeSignup();
   };
 
   const handlePasswordComplete = async () => {
@@ -229,26 +252,33 @@ export function SignupOnboardingWizard({
   };
 
   const handlePlanComplete = () => {
-    void finishOnboarding();
+    finishOnboarding();
   };
 
   const heading = stepHeading(step);
   const isWideStep = step === SIGNUP_STEP.PLAN;
 
-  if (checkoutTransitionPhase) {
+  if (signupSuccessJourney && signupSuccessPhase) {
     return (
-      <CheckoutSuccessTransition
-        phase={checkoutTransitionPhase}
-        isTakingLonger={checkoutTakingLonger}
-        error={checkoutConfirmationError}
+      <SignupSuccessTransition
+        journey={signupSuccessJourney}
+        occasion="signup"
+        phase={signupSuccessPhase}
+        isTakingLonger={signupSuccessTakingLonger}
+        error={signupSuccessError}
         onRetry={() => {
+          signupSuccessStartedAt.current = Date.now();
+          setSignupSuccessError(null);
+          if (signupSuccessJourney === "free") {
+            void completeFreeSignup();
+            return;
+          }
           checkoutConfirmationStarted.current = false;
-          setCheckoutConfirmationError(null);
-          setCheckoutTakingLonger(false);
+          setSignupSuccessTakingLonger(false);
           setCheckoutConfirmationAttempt((current) => current + 1);
           void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         }}
-        onComplete={completeCheckoutTransition}
+        onComplete={completeSignupSuccessTransition}
       />
     );
   }

@@ -87,6 +87,9 @@ function isQuestionNotAnswered(
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
   if (question.questionType === "syllogism") {
+    if (attempt.result === "correct" || attempt.result === "partial") {
+      return false;
+    }
     return (
       !attempt.answerSnapshot ||
       Object.keys(attempt.answerSnapshot).length === 0

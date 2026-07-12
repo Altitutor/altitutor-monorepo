@@ -123,11 +123,12 @@ const actionFormSchema = z.object({
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']).optional(),
   // CREATE_NOTIFICATION config
   notification_type: z.string().optional(),
+  notification_app_scope: z.enum(['auto', 'student_web', 'ucat_web', 'staff_web']).optional(),
   notification_title: z.string().optional(),
   notification_body: z.string().optional(),
   action_url: z.string().optional(),
   target_staff_id: z.string().optional(),
-  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
+  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'all_ucat_students', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
 }).refine((data) => {
   if (data.action_type === 'SEND_MESSAGE') {
     return !!data.message_content && data.message_content.trim().length > 0 && !!data.selected_sender_id;
@@ -194,6 +195,7 @@ export function CreateEditActionDialog({
       assigned_to: '',
       priority: 0,
       notification_type: '',
+      notification_app_scope: 'auto' as const,
       notification_title: '',
       notification_body: '',
       action_url: '',
@@ -318,6 +320,7 @@ export function CreateEditActionDialog({
         estimate: action.action_type === 'CREATE_TASK' && 'estimate' in config ? config.estimate : undefined,
         status: action.action_type === 'CREATE_TASK' && 'status' in config && typeof config.status === 'string' && ['backlog', 'todo', 'in_progress', 'in_review', 'done'].includes(config.status) ? config.status as 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' : undefined,
         notification_type: action.action_type === 'CREATE_NOTIFICATION' && 'notification_type' in config ? config.notification_type : undefined,
+        notification_app_scope: action.action_type === 'CREATE_NOTIFICATION' && 'app_scope' in config && typeof config.app_scope === 'string' && ['student_web', 'ucat_web', 'staff_web'].includes(config.app_scope) ? config.app_scope as 'student_web' | 'ucat_web' | 'staff_web' : 'auto',
         notification_title: action.action_type === 'CREATE_NOTIFICATION' && 'title' in config ? config.title : undefined,
         notification_body: action.action_type === 'CREATE_NOTIFICATION' && 'body' in config ? config.body : undefined,
         action_url: action.action_type === 'CREATE_NOTIFICATION' && 'action_url' in config ? config.action_url : undefined,
@@ -331,6 +334,7 @@ export function CreateEditActionDialog({
         order_index: 0,
         message_recipient_type: 'single',
         notification_recipient_type: 'single',
+        notification_app_scope: 'auto',
       });
     }
   }, [isOpen, isEditing, action, form, hasClassId, hasSessionId, hasStudentId, isTutorLogEntity]);
@@ -415,6 +419,7 @@ export function CreateEditActionDialog({
         const recipientType = data.notification_recipient_type || 'single';
         const createNotificationConfig: CreateNotificationActionConfig = {
           notification_type: data.notification_type || 'GENERIC',
+          ...(data.notification_app_scope && data.notification_app_scope !== 'auto' ? { app_scope: data.notification_app_scope } : {}),
           title: data.notification_title,
           body: data.notification_body || undefined,
           action_url: data.action_url || undefined,
@@ -948,6 +953,44 @@ export function CreateEditActionDialog({
 
                 <FormField
                   control={form.control}
+                  name="notification_app_scope"
+                  render={({ field }) => {
+                    const scopeOptions = [
+                      { id: 'auto', label: 'Automatic from recipient' },
+                      { id: 'student_web', label: 'Student portal' },
+                      { id: 'ucat_web', label: 'UCAT app' },
+                      { id: 'staff_web', label: 'Staff apps' },
+                    ];
+                    const selected = scopeOptions.find((option) => option.id === (field.value || 'auto')) ?? scopeOptions[0];
+                    return (
+                      <FormItem>
+                        <FormLabel>App destination</FormLabel>
+                        <FormControl>
+                          <SearchableSelect<{ id: string; label: string }>
+                            items={scopeOptions}
+                            value={selected}
+                            onValueChange={(item) => field.onChange(item?.id ?? 'auto')}
+                            getItemId={(item) => item.id}
+                            getItemLabel={(item) => item.label}
+                            placeholder="Automatic from recipient"
+                            trigger={
+                              <Button variant="outline" className="w-full justify-start font-normal">
+                                {selected.label}
+                              </Button>
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Choose UCAT app for UCAT promotions, reminders and content announcements.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+
+                <FormField
+                  control={form.control}
                   name="notification_title"
                   render={({ field }) => (
                     <FormItem>
@@ -1015,6 +1058,7 @@ export function CreateEditActionDialog({
                       { id: 'single', label: 'Single Staff Member' },
                       { id: 'all_admin_staff', label: 'All Admin Staff' },
                       { id: 'all_staff', label: 'All Staff' },
+                      { id: 'all_ucat_students', label: 'All UCAT Students' },
                       ...(hasClassId
                         ? [
                             { id: 'class_students', label: 'All Students in Class' },
@@ -1168,4 +1212,3 @@ export function CreateEditActionDialog({
     </Dialog>
   );
 }
-

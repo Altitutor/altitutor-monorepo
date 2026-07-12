@@ -28,6 +28,8 @@ import {
   notifyUcatInvoiceFinalizationFailed,
   notifyUcatInvoicePaymentFailed,
   markUcatBillingAccessEndedEmailSent,
+  resolveUcatBillingAccessEndedNotificationsForStudent,
+  resolveUcatBillingRecoveryNotificationsForStudent,
   resolveUcatInvoiceFinalizationFailedNotification,
   resolveUcatInvoicePaymentFailedNotification,
 } from "./shared/ucat-notifications.ts";
@@ -80,6 +82,11 @@ async function handleUcatFailedBillingTerminalState(
   if (!ucatSubjectId || input.subjectId !== ucatSubjectId) return;
 
   await forfeitPracticeDayCreditsForStudent(supabase, stripe, input.studentId);
+
+  await resolveUcatBillingRecoveryNotificationsForStudent(
+    supabase,
+    input.studentId,
+  );
 
   const terminalNotification = await notifyUcatBillingAccessEnded(supabase, {
     studentId: input.studentId,
@@ -356,7 +363,6 @@ Deno.serve(async (req: Request) => {
             .update({
               processed: true,
               processed_at: new Date().toISOString(),
-              error_message: "Missing student_id in metadata",
             })
             .eq("stripe_event_id", event.id);
           return json({ received: true });
@@ -1275,6 +1281,13 @@ Deno.serve(async (req: Request) => {
               { onConflict: "student_id,subject_id" },
             );
 
+            if (ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+              await resolveUcatBillingAccessEndedNotificationsForStudent(
+                supabase,
+                studentId,
+              );
+            }
+
             if (subscription.status === "trialing" && customerId) {
               const defaultPaymentMethod = subscription.default_payment_method;
               const paymentMethodId =
@@ -1425,7 +1438,10 @@ Deno.serve(async (req: Request) => {
             ...subscriptionCancelFields(subscription),
             ...(subscription.status === "unpaid"
               ? {
+                  billing_recovery_invoice_id: null,
+                  billing_recovery_started_at: null,
                   billing_recovery_next_attempt_at: null,
+                  billing_recovery_failure_code: null,
                   billing_recovery_requires_action: false,
                 }
               : {}),
@@ -1503,7 +1519,10 @@ Deno.serve(async (req: Request) => {
             status: "canceled",
             cancel_at_period_end: false,
             cancel_at: new Date().toISOString(),
+            billing_recovery_invoice_id: null,
+            billing_recovery_started_at: null,
             billing_recovery_next_attempt_at: null,
+            billing_recovery_failure_code: null,
             billing_recovery_requires_action: false,
             updated_at: new Date().toISOString(),
           })

@@ -14,13 +14,15 @@ import {
   getPracticeSession,
   setPracticeSession,
   type PracticeSessionData,
+  type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import {
   assertOkOrQuotaExceeded,
   QuotaExceededError,
@@ -40,7 +42,9 @@ import {
 } from "@altitutor/ui";
 
 /** Side-by-side from tablet when the nav is collapsed; stack when it takes horizontal space. */
-function practiceSessionLayoutClass(mainContentHasSidebarInset: boolean): string {
+function practiceSessionLayoutClass(
+  mainContentHasSidebarInset: boolean,
+): string {
   return cn(
     "grid min-h-0 gap-4",
     mainContentHasSidebarInset
@@ -53,7 +57,9 @@ function practiceSessionLayoutClass(mainContentHasSidebarInset: boolean): string
  * App shell main uses `pt-28 p-6` (7rem top + 1.5rem bottom).
  * Lock height only in the side-by-side breakpoint so the engine can fill remaining space.
  */
-function practiceSessionViewportClass(mainContentHasSidebarInset: boolean): string {
+function practiceSessionViewportClass(
+  mainContentHasSidebarInset: boolean,
+): string {
   return cn(
     "flex min-h-0 flex-col gap-4",
     mainContentHasSidebarInset
@@ -79,6 +85,7 @@ async function fetchNextStem(
   practiceSessionId: string,
   input: SetGeneratorInput,
   excludeStemIds: string[],
+  options?: { preview?: boolean; deliverStemId?: string },
 ): Promise<QuestionStemWithQuestions[] | null> {
   const response = await fetch("/api/ucat/practice-stems/next", {
     method: "POST",
@@ -87,6 +94,8 @@ async function fetchNextStem(
       input,
       excludeStemIds,
       practiceSessionId,
+      preview: options?.preview,
+      deliverStemId: options?.deliverStemId,
     }),
   });
   if (!response.ok) {
@@ -279,16 +288,20 @@ function PracticeSessionStatsCards({
         <CardContent className="pt-0">
           <dl className="space-y-2">
             <InlineStatRow label="Answered" value={String(answeredCount)} />
-            <InlineStatRow
-              label="Correct"
-              value={String(correctCount)}
-              valueClassName="text-emerald-600 dark:text-emerald-400"
-            />
-            <InlineStatRow
-              label="Incorrect"
-              value={String(incorrectCount)}
-              valueClassName="text-red-600 dark:text-red-400"
-            />
+            {stats?.revealAccuracy !== false ? (
+              <>
+                <InlineStatRow
+                  label="Correct"
+                  value={String(correctCount)}
+                  valueClassName="text-emerald-600 dark:text-emerald-400"
+                />
+                <InlineStatRow
+                  label="Incorrect"
+                  value={String(incorrectCount)}
+                  valueClassName="text-red-600 dark:text-red-400"
+                />
+              </>
+            ) : null}
           </dl>
         </CardContent>
       </Card>
@@ -341,7 +354,7 @@ export function PracticeSessionPage() {
   const { active: activeExamAttempt, isLoading: activeAttemptLoading } =
     useActiveExamAttempt();
   const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const [session, setSession] = useState<
     PracticeSessionData | null | "loading"
   >("loading");
@@ -395,7 +408,9 @@ export function PracticeSessionPage() {
         if (stemsRes.ok) {
           const detail = (await stemsRes.json()) as {
             stemsSnapshot?: QuestionStemWithQuestions[];
-            filtersSnapshot?: SetGeneratorInput;
+            filtersSnapshot?: SetGeneratorInput & {
+              reviewTiming?: PracticeReviewTiming;
+            };
             unlimited?: boolean;
           };
           if (detail.unlimited && detail.filtersSnapshot) {
@@ -404,8 +419,11 @@ export function PracticeSessionPage() {
               sessionId: activeExamAttempt.practiceSessionId,
               filters: detail.filtersSnapshot,
               stems: detail.stemsSnapshot ?? [],
-              timePerQuestionSeconds: null,
+              timePerQuestionSeconds:
+                detail.filtersSnapshot.timePerQuestionSeconds ?? null,
               startedAtMs: Date.now(),
+              reviewTiming:
+                detail.filtersSnapshot.reviewTiming ?? "afterEachStem",
             };
           } else if (detail.stemsSnapshot?.length) {
             data = {
@@ -413,8 +431,11 @@ export function PracticeSessionPage() {
               sessionId: activeExamAttempt.practiceSessionId,
               stems: detail.stemsSnapshot,
               filters: detail.filtersSnapshot,
-              timePerQuestionSeconds: null,
+              timePerQuestionSeconds:
+                detail.filtersSnapshot?.timePerQuestionSeconds ?? null,
               startedAtMs: Date.now(),
+              reviewTiming:
+                detail.filtersSnapshot?.reviewTiming ?? "afterEachStem",
             };
           }
           if (data) setPracticeSession(data);
@@ -433,13 +454,16 @@ export function PracticeSessionPage() {
           (practiceQuota.disabled || practiceQuota.atLimit)
         ) {
           clearPracticeSession();
-          openQuotaLimit({
-            code: "QUOTA_EXCEEDED",
-            area: "practice",
-            used: practiceQuota.used,
-            limit: practiceQuota.limit,
-            period: practiceQuota.period,
-          });
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "practice",
+              used: practiceQuota.used,
+              limit: practiceQuota.limit,
+              period: practiceQuota.period,
+            },
+            { dismissAction: quotaRouteFallback("practice") },
+          );
           setSession(null);
           return;
         }
@@ -522,6 +546,7 @@ export function PracticeSessionPage() {
                 initialStems={session.stems ?? []}
                 sessionMeta={session}
                 timePerQuestionSeconds={session.timePerQuestionSeconds}
+                reviewTiming={session.reviewTiming ?? "afterEachStem"}
                 onBack={handleDone}
                 onPracticeStatsChange={setLiveStats}
                 onRegisterFinishPracticeDialog={
@@ -555,11 +580,14 @@ export function PracticeSessionPage() {
               practice
               fillAvailableHeight
               practiceSessionId={session.sessionId}
+              reviewTiming={session.reviewTiming ?? "afterEachStem"}
               onPracticeStatsChange={setLiveStats}
               timePerQuestionSeconds={session.timePerQuestionSeconds}
               backHref="/practice"
               onBack={handleDone}
-              onRegisterFinishPracticeDialog={handleRegisterFinishPracticeDialog}
+              onRegisterFinishPracticeDialog={
+                handleRegisterFinishPracticeDialog
+              }
             />
           </div>
           <PracticeSessionStatsCards
@@ -579,6 +607,7 @@ function UnlimitedPracticeEngine({
   initialStems,
   sessionMeta,
   timePerQuestionSeconds,
+  reviewTiming,
   onBack,
   onPracticeStatsChange,
   onRegisterFinishPracticeDialog,
@@ -588,19 +617,57 @@ function UnlimitedPracticeEngine({
   initialStems: QuestionStemWithQuestions[];
   sessionMeta: Extract<PracticeSessionData, { mode: "unlimited" }>;
   timePerQuestionSeconds: number | null;
+  reviewTiming: PracticeReviewTiming;
   onBack: () => void;
   onPracticeStatsChange: (stats: PracticeEngineLiveStats | null) => void;
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
 }) {
   const [stems, setStems] = useState<QuestionStemWithQuestions[]>(initialStems);
+  const [prefetchedStem, setPrefetchedStem] =
+    useState<QuestionStemWithQuestions | null>(null);
+  const prefetchingRef = useRef(false);
   const [loading, setLoading] = useState(initialStems.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [quotaReached, setQuotaReached] = useState<QuotaExceededPayload | null>(
     null,
   );
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+
+  useEffect(() => {
+    if (
+      loading ||
+      error ||
+      quotaReached ||
+      prefetchedStem ||
+      prefetchingRef.current
+    ) {
+      return;
+    }
+    if (stems.length === 0) return;
+    let cancelled = false;
+    prefetchingRef.current = true;
+    void fetchNextStem(
+      sessionId,
+      filtersRef.current,
+      stems.map((stem) => stem.id),
+      { preview: true },
+    )
+      .then((next) => {
+        if (!cancelled) setPrefetchedStem(next?.[0] ?? null);
+      })
+      .catch(() => {
+        // Lookahead is opportunistic. Surface errors only when the student
+        // actually advances and delivery is attempted.
+      })
+      .finally(() => {
+        prefetchingRef.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [error, loading, prefetchedStem, quotaReached, sessionId, stems]);
 
   useEffect(() => {
     if (initialStems.length > 0) return;
@@ -618,7 +685,9 @@ function UnlimitedPracticeEngine({
       } catch (error) {
         if (cancelled) return;
         if (error instanceof QuotaExceededError) {
-          openQuotaLimit(error.payload);
+          openQuotaLimit(error.payload, {
+            dismissAction: quotaRouteFallback("practice"),
+          });
           clearPracticeSession();
           setError("Practice limit reached.");
         } else {
@@ -635,29 +704,41 @@ function UnlimitedPracticeEngine({
   const handleNeedMoreStems = useCallback(
     async (excludeStemIds: string[]) => {
       try {
-        const next = await fetchNextStem(
-          sessionId,
-          filtersRef.current,
-          excludeStemIds,
-        );
+        const next = prefetchedStem
+          ? await fetchNextStem(
+              sessionId,
+              filtersRef.current,
+              excludeStemIds,
+              { deliverStemId: prefetchedStem.id },
+            )
+          : await fetchNextStem(
+              sessionId,
+              filtersRef.current,
+              excludeStemIds,
+            );
         if (next?.length) {
+          setPrefetchedStem(null);
           setStems((prev) => {
             const updated = [...prev, ...next];
             setPracticeSession({ ...sessionMeta, stems: updated });
             return updated;
           });
-          return next;
+          return { status: "loaded" as const, stems: next };
         }
+        return { status: "exhausted" as const };
       } catch (error) {
         if (error instanceof QuotaExceededError) {
-          setQuotaReached(error.payload);
+          if (reviewTiming === "afterEachStem") {
+            setQuotaReached(error.payload);
+          }
+          return { status: "quotaReached" as const };
         } else {
           setError("No question stems match these filters.");
+          return { status: "error" as const };
         }
       }
-      return null;
     },
-    [sessionId, sessionMeta],
+    [prefetchedStem, reviewTiming, sessionId, sessionMeta],
   );
 
   if (loading) {
@@ -698,6 +779,7 @@ function UnlimitedPracticeEngine({
       practice
       fillAvailableHeight
       practiceSessionId={sessionId}
+      reviewTiming={reviewTiming}
       onPracticeStatsChange={onPracticeStatsChange}
       timePerQuestionSeconds={timePerQuestionSeconds}
       backHref="/practice"

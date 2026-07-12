@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@altitutor/ui";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
@@ -55,7 +55,7 @@ export function QuotaProgressBar({
 
 export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
   const { data, isLoading } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
   if (isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {
@@ -153,10 +153,17 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
                     <span className="truncate">{entry.label}</span>
-                    <QuotaAreaInfoButton area={entry.area} label={entry.label} />
+                    <QuotaAreaInfoButton
+                      area={entry.area}
+                      label={entry.label}
+                    />
                   </span>
                   <span className="text-muted-foreground">
-                    {formatQuotaUsageLabel(entry.used, entry.limit, entry.period)}
+                    {formatQuotaUsageLabel(
+                      entry.used,
+                      entry.limit,
+                      entry.period,
+                    )}
                   </span>
                 </div>
                 <QuotaProgressBar

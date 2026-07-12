@@ -15,7 +15,7 @@ import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { computeMarketingPlanPricing } from "@/features/subscription/lib/marketing-plan-pricing";
@@ -24,7 +24,6 @@ import {
   getPublicPlanPrice,
   getPublicPracticeDayDiscount,
   isPlanCheckoutAvailable,
-  type PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import { CheckoutPaymentForm } from "@/features/subscription/components/checkout/checkout-payment-form";
 import {
@@ -93,9 +92,10 @@ export function CheckoutPage() {
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
   const interval = isUcatBillingInterval(intervalParam) ? intervalParam : null;
   const context = isJourneyContext(contextParam) ? contextParam : "subscribe";
-  const [config, setConfig] = useState<PublicUcatSubscriptionConfig>(
-    defaultPublicSubscriptionConfig,
-  );
+  const {
+    data: config = defaultPublicSubscriptionConfig,
+    isPending: configLoading,
+  } = usePublicSubscriptionConfig();
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
     null,
   );
@@ -115,12 +115,8 @@ export function CheckoutPage() {
     }
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
-    void Promise.all([
-      fetchPublicSubscriptionConfig(),
-      createUcatCheckoutSession({ tier, interval, returnContext: context }),
-    ])
-      .then(([nextConfig, session]) => {
-        setConfig(nextConfig);
+    void createUcatCheckoutSession({ tier, interval, returnContext: context })
+      .then((session) => {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
         setSessionTrial({
@@ -399,7 +395,10 @@ export function CheckoutPage() {
               type="submit"
               form="ucat-checkout-payment-form"
               disabled={
-                !clientSecret || Boolean(checkoutError) || checkoutSubmitting
+                configLoading ||
+                !clientSecret ||
+                Boolean(checkoutError) ||
+                checkoutSubmitting
               }
               className="mt-6 h-14 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
             >

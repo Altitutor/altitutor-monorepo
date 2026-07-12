@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
@@ -22,14 +22,18 @@ import {
 } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import {
+  clearPendingPracticeStart,
   clearPracticeSession,
+  getPendingPracticeStart,
   setPracticeSession,
+  setPendingPracticeStart,
+  type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
 import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +49,7 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 export function PracticePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const {
     active: activeExamAttempt,
@@ -56,20 +61,29 @@ export function PracticePage() {
     isBlocked: questionEngineTourBlocked,
   } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const filters = useStemFilters({
     timeControlType: "perQuestion",
     showUnlimitedOption: true,
   });
+  const [reviewTiming, setReviewTiming] =
+    useState<PracticeReviewTiming>("afterEachStem");
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
   const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
   const pendingStartRef = useRef<{
-    payload: SetGeneratorInput & { unlimited?: boolean };
+    payload: SetGeneratorInput & {
+      unlimited?: boolean;
+      reviewTiming: PracticeReviewTiming;
+    };
     ucatSectionId: string;
   } | null>(null);
+  const consumedTutorialStartRef = useRef(false);
   const [reducedStart, setReducedStart] = useState<{
-    payload: SetGeneratorInput & { unlimited?: boolean };
+    payload: SetGeneratorInput & {
+      unlimited?: boolean;
+      reviewTiming: PracticeReviewTiming;
+    };
     ucatSectionId: string;
     requestedCount: number;
     remainingCount: number;
@@ -116,10 +130,13 @@ export function PracticePage() {
       payload,
       ucatSectionId,
     }: {
-      payload: SetGeneratorInput & { unlimited?: boolean };
+      payload: SetGeneratorInput & {
+        unlimited?: boolean;
+        reviewTiming: PracticeReviewTiming;
+      };
       ucatSectionId: string;
     }) => {
-      const { unlimited, ...input } = payload;
+      const { unlimited, reviewTiming, ...input } = payload;
       const sectionKey = input.section;
 
       if (unlimited) {
@@ -129,7 +146,7 @@ export function PracticePage() {
           body: JSON.stringify({
             sectionKey,
             ucatSectionId,
-            filtersSnapshot: input,
+            filtersSnapshot: { ...input, reviewTiming },
             unlimited: true,
           }),
         });
@@ -152,7 +169,7 @@ export function PracticePage() {
         body: JSON.stringify({
           sectionKey,
           ucatSectionId,
-          filtersSnapshot: input,
+          filtersSnapshot: { ...input, reviewTiming },
           unlimited: false,
         }),
       });
@@ -199,6 +216,7 @@ export function PracticePage() {
           },
           timePerQuestionSeconds,
           startedAtMs: Date.now(),
+          reviewTiming: variables.payload.reviewTiming,
         });
       } else {
         setPracticeSession({
@@ -216,6 +234,7 @@ export function PracticePage() {
           },
           timePerQuestionSeconds,
           startedAtMs: Date.now(),
+          reviewTiming: variables.payload.reviewTiming,
         });
       }
       router.push("/practice/session");
@@ -229,13 +248,16 @@ export function PracticePage() {
     },
   });
 
-  function startWithQuotaPreflight({
+  const startWithQuotaPreflight = useCallback(({
     payload,
     ucatSectionId,
   }: {
-    payload: SetGeneratorInput & { unlimited?: boolean };
+    payload: SetGeneratorInput & {
+      unlimited?: boolean;
+      reviewTiming: PracticeReviewTiming;
+    };
     ucatSectionId: string;
-  }) {
+  }) => {
     const practiceQuota = quota?.areas.find((area) => area.area === "practice");
     const enforceFreeQuota =
       quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota;
@@ -273,24 +295,28 @@ export function PracticePage() {
     }
 
     startMutation.mutate({ payload, ucatSectionId });
-  }
+  }, [openQuotaLimit, quota, startMutation]);
 
   function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
     if (questionEngineTourLoading) return;
-    // Create the DB session only after the engine tutorial — otherwise Resume
-    // points at /practice/session which immediately redirects back to tutorial.
-    if (questionEngineTourBlocked) {
-      router.push(buildQuestionEngineTutorialHref("/practice"));
-      return;
-    }
-
     const unlimited = filters.questionCountMode === "unlimited";
     const payload = {
       ...filters.input,
       unlimited: unlimited || undefined,
+      reviewTiming,
     };
+    // Create the DB session only after the engine tutorial — otherwise Resume
+    // points at /practice/session which immediately redirects back to tutorial.
+    if (questionEngineTourBlocked) {
+      const pendingStart = { payload, ucatSectionId };
+      setPendingPracticeStart(pendingStart);
+      router.push(
+        buildQuestionEngineTutorialHref("/practice?startTutorialAttempt=1"),
+      );
+      return;
+    }
 
     if (activeExamAttempt) {
       pendingStartRef.current = { payload, ucatSectionId };
@@ -300,6 +326,42 @@ export function PracticePage() {
 
     startWithQuotaPreflight({ payload, ucatSectionId });
   }
+
+  useEffect(() => {
+    if (
+      searchParams.get("startTutorialAttempt") !== "1" ||
+      questionEngineTourLoading ||
+      questionEngineTourBlocked ||
+      activeAttemptLoading ||
+      startMutation.isPending ||
+      consumedTutorialStartRef.current
+    ) {
+      return;
+    }
+
+    const pendingStart = getPendingPracticeStart();
+    consumedTutorialStartRef.current = true;
+    clearPendingPracticeStart();
+    router.replace("/practice");
+    if (!pendingStart) return;
+
+    if (activeExamAttempt) {
+      pendingStartRef.current = pendingStart;
+      setConflictActive(activeExamAttempt);
+      return;
+    }
+
+    startWithQuotaPreflight(pendingStart);
+  }, [
+    activeAttemptLoading,
+    activeExamAttempt,
+    questionEngineTourBlocked,
+    questionEngineTourLoading,
+    router,
+    searchParams,
+    startWithQuotaPreflight,
+    startMutation.isPending,
+  ]);
 
   async function handleFinalizeConflictAndStart() {
     if (!conflictActive || !pendingStartRef.current) return;
@@ -324,7 +386,6 @@ export function PracticePage() {
   const actionButton = (
     <Button
       type="button"
-      data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
       disabled={
         startMutation.isPending ||
@@ -349,7 +410,7 @@ export function PracticePage() {
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={itemVariants}>
+      <motion.div id="tour-practice-header" variants={itemVariants}>
         <UcatPageHeader
           title={wizardHeader.title}
           description={wizardHeader.subtitle}
@@ -363,7 +424,7 @@ export function PracticePage() {
           backDisabled={wizardHeader.isTransitioning}
         />
       </motion.div>
-      <motion.div id="tour-practice-filters" variants={itemVariants}>
+      <motion.div variants={itemVariants}>
         <StemFiltersPanel
           input={filters.input}
           selectedSection={filters.selectedSection}
@@ -388,6 +449,8 @@ export function PracticePage() {
           showUnlimitedOption={filters.showUnlimitedOption}
           questionCountMode={filters.questionCountMode}
           onQuestionCountModeChange={filters.handleQuestionCountModeChange}
+          reviewTiming={reviewTiming}
+          onReviewTimingChange={setReviewTiming}
           fixedQuestionCountLimit={freeQuestionLimit}
           actionButton={actionButton}
           hideStepHeader

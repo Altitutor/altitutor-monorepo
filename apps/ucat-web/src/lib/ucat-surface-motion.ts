@@ -25,11 +25,20 @@ export const UCAT_SURFACE_CARD = cn(
 
 /** Hover wash + shadow + ring (dashboard tiles, list rows, pressable cards). */
 export const UCAT_PRESSABLE_SURFACE_HOVER = cn(
-  "hover:bg-muted/40 hover:shadow-md hover:!ring-black/[0.1] dark:hover:!ring-white/[0.12]",
+  "hover:bg-muted/50 hover:shadow-md hover:!ring-black/[0.12]",
+  "dark:hover:bg-muted/80 dark:hover:!ring-white/[0.22]",
 );
 
 /** Subtle lift on hover; disabled when `prefers-reduced-motion: reduce`. */
 export const UCAT_PRESSABLE_LIFT_HOVER = "motion-safe:hover:-translate-y-0.5";
+
+/**
+ * Selected / pressed chooser state — same neutral treatment as hover, held on.
+ */
+export const UCAT_CLICKABLE_CARD_SELECTED = cn(
+  "!bg-muted/50 shadow-md !ring-black/[0.12]",
+  "dark:!bg-muted/80 dark:!ring-white/[0.22]",
+);
 
 /** Focus ring for `Link` / `button` surfaces that use `UCAT_SURFACE_CARD`. */
 export const UCAT_FOCUS_RING_INSET = cn(
@@ -44,9 +53,11 @@ export function ucatDashboardNavTileClassName() {
 /** Shared surface for settings-style nav cards and list rows. */
 export function ucatClickableCardClassName(options?: {
   interactive?: boolean;
+  /** Toggle / chooser selected state (practice wizard, option cards). */
+  selected?: boolean;
   className?: string;
 }) {
-  const { interactive = true, className } = options ?? {};
+  const { interactive = true, selected = false, className } = options ?? {};
   return cn(
     "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
     UCAT_SURFACE_CARD,
@@ -54,6 +65,7 @@ export function ucatClickableCardClassName(options?: {
     interactive && UCAT_PRESSABLE_LIFT_HOVER,
     interactive && UCAT_PRESSABLE_SURFACE_HOVER,
     interactive && UCAT_FOCUS_RING_INSET,
+    selected && UCAT_CLICKABLE_CARD_SELECTED,
     className,
   );
 }
