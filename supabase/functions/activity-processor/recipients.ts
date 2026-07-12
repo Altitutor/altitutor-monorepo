@@ -214,6 +214,34 @@ async function resolveAllStaff(
 }
 
 /**
+ * Resolve active students who have completed a UCAT signup/onboarding path.
+ */
+async function resolveAllUcatStudents(
+  supabase: SupabaseClient<unknown>,
+  _activityEvent: ActivityEvent
+): Promise<NotificationRecipient[]> {
+  const recipients: NotificationRecipient[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('id')
+      .eq('status', 'ACTIVE')
+      .not('user_id', 'is', null)
+      .or('ucat_signup_completed_at.not.is.null,ucat_onboarding_completed_at.not.is.null')
+      .order('id', { ascending: true })
+      .range(offset, offset + 999);
+
+    if (error) {
+      throw new Error(`Failed to fetch UCAT students: ${error.message}`);
+    }
+    recipients.push(...(students ?? []).map((student) => ({ student_id: student.id })));
+    if (!students || students.length < 1000) break;
+  }
+
+  return recipients;
+}
+
+/**
  * Resolve admin staff who work on a specific day
  * Determines the day from class_id (classes.day_of_week) or session_id (sessions.start_at)
  */
@@ -380,6 +408,7 @@ const notificationRecipientResolvers: Record<string, NotificationRecipientResolv
   'session_all': resolveSessionAll,
   'all_admin_staff': resolveAllAdminStaff,
   'all_staff': resolveAllStaff,
+  'all_ucat_students': resolveAllUcatStudents,
   'admin_staff_on_day': resolveAdminStaffOnDay,
   'tutor_log_staff': resolveTutorLogStaff,
 };
