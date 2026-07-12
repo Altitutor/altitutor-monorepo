@@ -8314,6 +8314,7 @@ export type Database = {
           card_country: string | null
           card_exp_month: number
           card_exp_year: number
+          card_fingerprint: string | null
           card_last4: string
           created_at: string
           id: string
@@ -8327,6 +8328,7 @@ export type Database = {
           card_country?: string | null
           card_exp_month: number
           card_exp_year: number
+          card_fingerprint?: string | null
           card_last4: string
           created_at?: string
           id?: string
@@ -8340,6 +8342,7 @@ export type Database = {
           card_country?: string | null
           card_exp_month?: number
           card_exp_year?: number
+          card_fingerprint?: string | null
           card_last4?: string
           created_at?: string
           id?: string
@@ -12229,8 +12232,10 @@ export type Database = {
         Row: {
           created_at: string
           expires_at: string
+          grant_source: string
           granted_by_staff_id: string | null
           id: string
+          referral_id: string | null
           student_id: string
           updated_at: string
           used_at: string | null
@@ -12239,8 +12244,10 @@ export type Database = {
         Insert: {
           created_at?: string
           expires_at: string
+          grant_source?: string
           granted_by_staff_id?: string | null
           id?: string
+          referral_id?: string | null
           student_id: string
           updated_at?: string
           used_at?: string | null
@@ -12249,8 +12256,10 @@ export type Database = {
         Update: {
           created_at?: string
           expires_at?: string
+          grant_source?: string
           granted_by_staff_id?: string | null
           id?: string
+          referral_id?: string | null
           student_id?: string
           updated_at?: string
           used_at?: string | null
@@ -12283,6 +12292,13 @@ export type Database = {
             columns: ["granted_by_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_free_quota_reset_entitlements_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_referrals"
             referencedColumns: ["id"]
           },
           {
@@ -13221,6 +13237,274 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_referral_bill_rewards: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          id: string
+          redeemed_at: string | null
+          referral_id: string
+          revoked_at: string | null
+          status: string
+          stripe_invoice_id: string | null
+          stripe_subscription_id: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          referral_id: string
+          revoked_at?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          referral_id?: string
+          revoked_at?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_bill_rewards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_referral_codes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_codes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_codes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_codes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_codes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_referrals: {
+        Row: {
+          created_at: string
+          free_qualified_at: string | null
+          id: string
+          paid_qualified_at: string | null
+          referral_code_id: string
+          referred_checkout_session_id: string | null
+          referred_student_id: string
+          referred_subscription_id: string | null
+          referrer_student_id: string
+          rejected_at: string | null
+          rejection_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          free_qualified_at?: string | null
+          id?: string
+          paid_qualified_at?: string | null
+          referral_code_id: string
+          referred_checkout_session_id?: string | null
+          referred_student_id: string
+          referred_subscription_id?: string | null
+          referrer_student_id: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          free_qualified_at?: string | null
+          id?: string
+          paid_qualified_at?: string | null
+          referral_code_id?: string
+          referred_checkout_session_id?: string | null
+          referred_student_id?: string
+          referred_subscription_id?: string | null
+          referrer_student_id?: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_referrals_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_referral_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referred_student_id_fkey"
+            columns: ["referred_student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referred_student_id_fkey"
+            columns: ["referred_student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referred_student_id_fkey"
+            columns: ["referred_student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referred_student_id_fkey"
+            columns: ["referred_student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referred_student_id_fkey"
+            columns: ["referred_student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referrer_student_id_fkey"
+            columns: ["referrer_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referrer_student_id_fkey"
+            columns: ["referrer_student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referrer_student_id_fkey"
+            columns: ["referrer_student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referrer_student_id_fkey"
+            columns: ["referrer_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referrals_referrer_student_id_fkey"
+            columns: ["referrer_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -24173,6 +24457,10 @@ export type Database = {
         Args: { first_name: string; last_name: string }
         Returns: string
       }
+      maybe_qualify_ucat_free_referral: {
+        Args: { p_referred_student_id: string }
+        Returns: boolean
+      }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       precreate_admin_shift_sessions: {
         Args: {
@@ -24191,6 +24479,14 @@ export type Database = {
           start_date: string
         }
         Returns: number
+      }
+      qualify_ucat_paid_referral: {
+        Args: {
+          p_checkout_session_id: string
+          p_referred_student_id: string
+          p_subscription_id: string
+        }
+        Returns: string
       }
       re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
       recalculate_topic_code_and_descendants: {
