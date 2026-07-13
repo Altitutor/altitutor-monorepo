@@ -594,33 +594,6 @@ export type Database = {
           },
         ]
       }
-      billing_duplicates_work: {
-        Row: {
-          canonical_invoice_id: string
-          canonical_invoice_item_ids: string[]
-          created_at: string
-          duplicate_invoice_ids: string[]
-          duplicate_invoice_item_ids: string[]
-          sessions_students_id: string
-        }
-        Insert: {
-          canonical_invoice_id: string
-          canonical_invoice_item_ids: string[]
-          created_at?: string
-          duplicate_invoice_ids: string[]
-          duplicate_invoice_item_ids: string[]
-          sessions_students_id: string
-        }
-        Update: {
-          canonical_invoice_id?: string
-          canonical_invoice_item_ids?: string[]
-          created_at?: string
-          duplicate_invoice_ids?: string[]
-          duplicate_invoice_item_ids?: string[]
-          sessions_students_id?: string
-        }
-        Relationships: []
-      }
       billing_pricing: {
         Row: {
           billing_type: Database["public"]["Enums"]["billing_type"]
@@ -7388,53 +7361,6 @@ export type Database = {
             foreignKeyName: "staff_files_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_notepad: {
-        Row: {
-          content: string | null
-          staff_id: string
-          updated_at: string
-        }
-        Insert: {
-          content?: string | null
-          staff_id: string
-          updated_at?: string
-        }
-        Update: {
-          content?: string | null
-          staff_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_notepad_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: true
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_notepad_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: true
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "staff_notepad_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: true
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
-          },
-          {
-            foreignKeyName: "staff_notepad_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: true
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
@@ -24462,10 +24388,6 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
-      add_enum_value: {
-        Args: { enum_name: string; new_value: string }
-        Returns: undefined
-      }
       apply_scheduled_student_discontinuations: { Args: never; Returns: number }
       assign_staff_to_booking: {
         Args: {
