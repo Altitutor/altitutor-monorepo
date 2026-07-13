@@ -5,7 +5,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Folder, ChevronRight, ChevronDown, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { Button } from '@altitutor/ui';
+import { Button, navLinkInactiveStyles } from '@altitutor/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,8 +84,9 @@ export function DraggableFolder({
         ref={setNodeRef}
         style={style}
         className={cn(
-          'group flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted/50 cursor-grab active:cursor-grabbing',
+          'group flex items-center gap-2 py-1 px-2 rounded-md cursor-grab active:cursor-grabbing',
           'text-sm',
+          navLinkInactiveStyles,
           level === 0 && 'font-medium',
           isDragging && 'opacity-50'
         )}

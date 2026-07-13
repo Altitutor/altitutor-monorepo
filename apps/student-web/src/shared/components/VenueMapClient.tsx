@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { VENUE_COORDINATES, VENUE_ADDRESS } from '../constants';
+import { cn } from '../utils';
 
 // Fix for default marker icons in Next.js
 const createIcon = (iconUrl: string) => {
@@ -46,7 +47,8 @@ export function VenueMapClient({ className, height = '400px' }: VenueMapProps) {
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   return (
-    <div className={className} style={{ height }}>
+    // Isolate Leaflet's high internal z-indexes so dialogs/overlays stay above the map.
+    <div className={cn('relative z-0 isolate', className)} style={{ height }}>
       <MapContainer
         center={[VENUE_COORDINATES.lat, VENUE_COORDINATES.lng]}
         zoom={17}

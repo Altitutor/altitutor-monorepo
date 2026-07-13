@@ -21,7 +21,8 @@ interface StaffActivityTabProps {
 }
 
 export function StaffActivityTab({ staffId, isOpen = true }: StaffActivityTabProps) {
-  const { data, isLoading, error } = useStaffActivity(staffId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useStaffActivity(staffId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -55,7 +56,14 @@ export function StaffActivityTab({ staffId, isOpen = true }: StaffActivityTabPro
         canPost={Boolean(currentStaff)}
       />
 
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
     </div>
   );
 }

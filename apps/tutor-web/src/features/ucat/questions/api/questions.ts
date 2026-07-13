@@ -685,6 +685,70 @@ export const ucatQuestionsApi = {
     }>
   },
 
+  async generateExplanations(input: {
+    modelProfileId?: string | null
+    concurrency?: number
+    stems: Array<{
+      id?: string
+      sectionId: string
+      sectionName?: string | null
+      categoryId?: string | null
+      categoryName?: string | null
+      stemText: unknown
+      isPrivate?: boolean
+      questions: Array<{
+        questionText: unknown
+        questionType: 'multiple_choice' | 'syllogism'
+        answerExplanation?: unknown
+        difficulty?: number | null
+        timeBurdenSeconds?: string | null
+        tagIds?: string[]
+        options: Array<{
+          answerText: unknown
+          answerExplanation?: unknown
+          isAnswer: boolean
+        }>
+      }>
+      questionIndices?: number[]
+    }>
+  }) {
+    const response = await fetch('/api/ucat/question-stems/explanations/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modelProfileId: input.modelProfileId ?? null,
+        concurrency: input.concurrency,
+        stems: input.stems,
+      }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error((body as { error?: string }).error ?? 'Failed to generate explanations')
+    }
+    return response.json() as Promise<{
+      results: Array<{
+        stemIndex: number
+        id: string | null
+        updates: Array<{
+          questionIndex: number
+          answerExplanation?: string | null
+          optionExplanations?: Array<string | null>
+          confidence?: number
+          unresolved?: boolean
+          rationale?: string | null
+          reviewRequired?: boolean
+          reviewMessage?: string | null
+          suggestedCorrectOptionIndex?: number | null
+          suggestedAnswerExplanation?: string | null
+          suggestedChanges?: string | null
+        }>
+        error: string | null
+      }>
+      appliedStemCount: number
+      errorCount: number
+    }>
+  },
+
   async importGenerated(sectionId: string, stems: Array<Record<string, unknown>>) {
     const response = await fetch('/api/ucat/question-stems/generated/import', {
       method: 'POST',

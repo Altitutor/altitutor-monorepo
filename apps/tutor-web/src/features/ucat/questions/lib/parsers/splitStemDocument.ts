@@ -16,7 +16,7 @@ export type StemSplitOptions = {
 }
 
 export const DEFAULT_STEM_SPLIT_OPTIONS: StemSplitOptions = {
-  mode: 'line_breaks',
+  mode: 'keyword',
   lineBreakThreshold: 2,
   keywordPrefix: 'Prompt',
   stemNumberIndicator: 'dot',

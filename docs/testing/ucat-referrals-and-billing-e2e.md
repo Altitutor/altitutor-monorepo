@@ -4,7 +4,6 @@ Use this runbook in the Altitutor development environment with Stripe in test mo
 
 ## Prerequisites
 
-- The app contains the referral/profile lookup fix.
 - Migrations through `20260712075819_grant_ucat_free_referral_resets_on_signup.sql` are applied to the environment under test.
 - The current `stripe-webhooks` Edge Function is deployed and its signing secret matches the Stripe test-mode webhook endpoint.
 - Weekly and monthly Stripe Price IDs match `ucat_plan_prices`; yearly checkout remains disabled.

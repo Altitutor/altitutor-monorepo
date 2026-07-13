@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Badge } from '@altitutor/ui'
+import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
+import { cn } from '@/shared/utils'
 import {
   applyBooleanTextFilter,
   applyRangeFilter,
@@ -267,7 +268,13 @@ export function useUcatSetsTable<T extends SetRowInput>({
         header: 'Mocks',
         cell: ({ row }) =>
           row.original.mocks.length === 0 ? (
-            <Badge variant="secondary">
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] font-normal px-1.5 py-0',
+                getUcatVisibilityColor(false),
+              )}
+            >
               {row.original.deleted_at ? 'Not student-visible' : 'Sets library'}
             </Badge>
           ) : (
@@ -285,7 +292,15 @@ export function useUcatSetsTable<T extends SetRowInput>({
                   </Link>
                 ))}
               </div>
-              <div className="text-xs text-muted-foreground">Mock only · hidden from Sets</div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] font-normal px-1.5 py-0',
+                  getUcatVisibilityColor(false),
+                )}
+              >
+                Not in sets library
+              </Badge>
             </div>
           ),
       },

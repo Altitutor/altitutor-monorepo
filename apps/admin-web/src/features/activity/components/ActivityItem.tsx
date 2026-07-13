@@ -60,8 +60,8 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
               ) : (
                 // Standard rendering for other events
                 <div className="text-sm text-foreground">
-                  {activity.isGrouped ? (
-                    // For grouped activities, message already includes performer name
+                  {activity.isGrouped || activity.isCoalesced ? (
+                    // Grouped/coalesced messages already include the performer name
                     <FormattedActivityMessage activity={activity} />
                   ) : (
                     // For regular activities, show performer name separately

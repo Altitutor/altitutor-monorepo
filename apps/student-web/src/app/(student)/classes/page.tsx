@@ -26,12 +26,12 @@ export default function ClassesPage() {
   return (
     <>
       <StudentPageContainer className="space-y-10 pb-10">
-        <div className="pb-2">
+        <div id="tour-classes-header" className="pb-2">
           <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
           <p className="mt-1 text-muted-foreground">View your enrolled classes and sessions</p>
         </div>
 
-        <div>
+        <div id="tour-classes-actions">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button
               className={cn(studentBtnPrimary, 'shrink-0 sm:w-auto')}
@@ -51,7 +51,7 @@ export default function ClassesPage() {
           </div>
         </div>
 
-        <div>
+        <div id="tour-classes-enrolments">
           <h2 className="mb-4 text-2xl font-semibold">Classes</h2>
           <ClassesTable />
         </div>

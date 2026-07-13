@@ -371,10 +371,13 @@ const questionEngineTour: Tour = {
               <kbd className="font-mono font-semibold">-</kbd> → −
             </span>
             <span>
-              <kbd className="font-mono font-semibold">* / X</kbd> → ×
+              <kbd className="font-mono font-semibold">*</kbd> → ×
             </span>
             <span>
               <kbd className="font-mono font-semibold">/</kbd> → ÷
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">X</kbd> → √
             </span>
             <span>
               <kbd className="font-mono font-semibold">%</kbd> → %
@@ -391,9 +394,13 @@ const questionEngineTour: Tour = {
             <span>
               <kbd className="font-mono font-semibold">M</kbd> → M−
             </span>
+            <span>
+              <kbd className="font-mono font-semibold">Backspace</kbd> → ON/C
+            </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Use the on-screen buttons for √, +/−, and ON/C.
+            Use the on-screen buttons for +/−. Calculations are left-to-right
+            (no BODMAS).
           </p>
           <p className="font-medium">Close the calculator to continue.</p>
         </div>

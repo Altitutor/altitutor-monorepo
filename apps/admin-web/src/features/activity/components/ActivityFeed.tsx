@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { ActivityItem } from './ActivityItem';
 import { mapActivityEventsToDisplay } from '../mappers';
 import type { ActivityEventsResponse } from '../types';
-import { Skeleton } from '@altitutor/ui';
+import { Button, Skeleton } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 
 interface ActivityFeedProps {
@@ -12,9 +12,20 @@ interface ActivityFeedProps {
   isLoading?: boolean;
   error?: Error | null;
   className?: string;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
-export function ActivityFeed({ data, isLoading, error, className }: ActivityFeedProps) {
+export function ActivityFeed({
+  data,
+  isLoading,
+  error,
+  className,
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  onLoadMore,
+}: ActivityFeedProps) {
   const activities = useMemo(() => {
     if (!data) return [];
     return mapActivityEventsToDisplay(data);
@@ -62,7 +73,20 @@ export function ActivityFeed({ data, isLoading, error, className }: ActivityFeed
           showConnector={index < activities.length - 1}
         />
       ))}
+
+      {hasNextPage && onLoadMore ? (
+        <div className="flex justify-center pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onLoadMore}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
-

@@ -22,7 +22,7 @@ export function IssueActivityTab({
   invoiceIds, 
   isOpen = true 
 }: IssueActivityTabProps) {
-  const { data, isLoading, error } = useIssueActivity({
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } = useIssueActivity({
     issueId,
     studentIds,
     staffIds,
@@ -34,7 +34,14 @@ export function IssueActivityTab({
 
   return (
     <div className="h-full">
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
     </div>
   );
 }

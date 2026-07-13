@@ -87,7 +87,7 @@ export function UcatMockEditorContent({
         />
       </section>
 
-      <aside className="flex h-full w-96 shrink-0 flex-col border-l p-6">
+      <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l p-6">
         <SegmentedTabPanel
           value={sideTab}
           onValueChange={(value) => setSideTab(value)}
@@ -100,7 +100,7 @@ export function UcatMockEditorContent({
           <SegmentedTabPanelContent
             when="properties"
             activeTab={sideTab}
-            className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pt-4"
+            className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-4"
           >
             <h2 className="font-semibold">Mock properties</h2>
             <label className="block text-sm">

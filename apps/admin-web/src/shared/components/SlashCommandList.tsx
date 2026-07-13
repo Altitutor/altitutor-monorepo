@@ -8,6 +8,10 @@ import React, {
   useMemo,
 } from 'react';
 import { cn } from '@/shared/utils';
+import {
+  commandPaletteItemActiveStyles,
+  commandPaletteItemInactiveStyles,
+} from '@altitutor/ui';
 
 export interface SlashCommandItem {
   title: string;
@@ -142,8 +146,10 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
                     key={`${item.title}-${itemIndex}`}
                     type="button"
                     className={cn(
-                      'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm transition-colors',
-                      isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/60'
+                      'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm',
+                      isSelected
+                        ? commandPaletteItemActiveStyles
+                        : commandPaletteItemInactiveStyles
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault();

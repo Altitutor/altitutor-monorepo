@@ -1,4 +1,5 @@
 import type { ActivityEvent, ActivityEventDisplay, ActivityEventsResponse, ChangedField } from '../types';
+import { getActivityDisplaySnapshot } from '../lib/activityDisplay';
 import { getActivityTemplate, getGroupedActivityTemplate, FIELD_LABELS } from './activityMessageTemplates';
 import { coalesceRelatedEvents } from './activityEventCoalescer';
 import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
@@ -97,6 +98,32 @@ function getTaskTitle(
 }
 
 /**
+ * Get issue name from related entities
+ */
+function getIssueName(
+  issueId: string | null | undefined,
+  relatedEntities: ActivityEventsResponse['relatedEntities']
+): string | undefined {
+  if (!issueId) return undefined;
+  const issue = relatedEntities.issues?.[issueId];
+  if (!issue) return undefined;
+  return issue.name || undefined;
+}
+
+/**
+ * Get project name from related entities
+ */
+function getProjectName(
+  projectId: string | null | undefined,
+  relatedEntities: ActivityEventsResponse['relatedEntities']
+): string | undefined {
+  if (!projectId) return undefined;
+  const project = relatedEntities.projects?.[projectId];
+  if (!project) return undefined;
+  return project.name || undefined;
+}
+
+/**
  * Get note content from related entities.
  * Returns raw note content (TipTap JSON or plain text) for NoteContentDisplay.
  */
@@ -120,8 +147,8 @@ function getSubjectName(
   if (!subjectId) return undefined;
   const subject = relatedEntities.subjects?.[subjectId];
   if (!subject) return undefined;
-  // Prefer short_name or long_name, fallback to name
-  return subject.short_name || subject.long_name || subject.name || undefined;
+  // Prefer long_name for activity copy; fall back to short_name / name
+  return subject.long_name || subject.short_name || subject.name || undefined;
 }
 
 /**
@@ -148,7 +175,7 @@ function formatFieldValue(
         if (!isNaN(date.getTime())) {
           return formatActivityTimestamp(date);
         }
-      } catch (e) {
+      } catch {
         // If parsing fails, fall through to other handling
       }
     }
@@ -183,26 +210,146 @@ function formatFieldValue(
   return String(value);
 }
 
+const STAFF_ATTRIBUTION_FIELDS = [
+  'created_by',
+  'enrolled_by',
+  'unenrolled_by',
+  'assigned_by',
+  'unassigned_by',
+  'credited_by',
+  'discontinued_by',
+  'planned_absence_logged_by',
+  'deleted_by',
+  'updated_by',
+] as const;
+
+const STUDENT_SELF_SERVICE_FIELDS = new Set([
+  'ucat_onboarding_completed_at',
+  'ucat_signup_completed_at',
+  'ucat_signup_step',
+  'active_at',
+  'registered_at',
+  'welcome_modal_acknowledged_at',
+  'onboarding_progress',
+  'user_id',
+  'invite_token',
+]);
+
+function getChangedFieldNewStaffId(event: ActivityEvent): string | undefined {
+  if (!event.changed_fields || typeof event.changed_fields !== 'object' || Array.isArray(event.changed_fields)) {
+    return undefined;
+  }
+  const fields = event.changed_fields as Record<string, { old?: unknown; new?: unknown }>;
+  for (const key of STAFF_ATTRIBUTION_FIELDS) {
+    const change = fields[key];
+    if (change && typeof change.new === 'string' && change.new.length === 36) {
+      return change.new;
+    }
+  }
+  return undefined;
+}
+
+function hasStudentSelfServiceChange(event: ActivityEvent): boolean {
+  if (event.entity_type !== 'students' || !event.changed_fields) return false;
+  if (typeof event.changed_fields !== 'object' || Array.isArray(event.changed_fields)) return false;
+  return Object.keys(event.changed_fields).some((key) => STUDENT_SELF_SERVICE_FIELDS.has(key));
+}
+
+/**
+ * Resolve a display name for who performed the action.
+ * Many RPCs/edge functions run as service role (or student JWT), leaving performed_by null.
+ */
+function resolvePerformedBy(
+  event: ActivityEvent,
+  relatedEntities: ActivityEventsResponse['relatedEntities']
+): { id: string; name: string } {
+  const display = getActivityDisplaySnapshot(event);
+
+  if (event.performed_by) {
+    const staffName =
+      display?.performed_by_name || getStaffName(event.performed_by, relatedEntities);
+    return {
+      id: event.performed_by,
+      name: staffName || 'Staff',
+    };
+  }
+
+  if (display?.performed_by_name) {
+    return {
+      id: '',
+      name: display.performed_by_name,
+    };
+  }
+
+  const attributedStaffId = getChangedFieldNewStaffId(event);
+  if (attributedStaffId) {
+    const staffName = getStaffName(attributedStaffId, relatedEntities);
+    return {
+      id: attributedStaffId,
+      name: staffName || 'Staff',
+    };
+  }
+
+  if (hasStudentSelfServiceChange(event)) {
+    const studentId = event.student_id || (event.entity_type === 'students' ? event.entity_id : null);
+    const studentName =
+      display?.student_name || getStudentName(studentId, relatedEntities);
+    return {
+      id: '',
+      name: studentName || 'Student',
+    };
+  }
+
+  // Billing runner, cron jobs, and other service-role automation
+  return {
+    id: '',
+    name: 'System',
+  };
+}
+
 /**
  * Map activity event to display format
  */
 export function mapActivityEventToDisplay(
   event: ActivityEvent,
   relatedEntities: ActivityEventsResponse['relatedEntities'],
-  studentsSubjectsToSubjectId?: Record<string, string>
+  studentsSubjectsToSubjectId?: Record<string, string>,
+  tutorLogTopicNamesByEntityId?: Record<string, string>
 ): ActivityEventDisplay {
   const template = getActivityTemplate(event.entity_type, event.event_type, event.changed_fields);
+  const display = getActivityDisplaySnapshot(event);
   
-  // Get performed by name
-  const performedByName = getStaffName(event.performed_by, relatedEntities) || 'Unknown';
+  // Get performed by name (never show "Unknown" — use System/Student/Staff fallbacks)
+  const performedBy = resolvePerformedBy(event, relatedEntities);
+  const performedByName = performedBy.name;
   
-  // Get related entity names
-  const studentName = getStudentName(event.student_id, relatedEntities);
-  const staffName = getStaffName(event.staff_id, relatedEntities);
-  const className = getClassName(event.class_id, relatedEntities);
-  const sessionName = getSessionName(event.session_id, relatedEntities);
-  const parentName = getParentName(event.parent_id, relatedEntities);
-  const taskTitle = getTaskTitle(event.task_id, relatedEntities);
+  // Prefer write-time snapshots; fall back to live relatedEntities for older events
+  const studentName =
+    display?.student_name || getStudentName(event.student_id, relatedEntities);
+  const staffName = display?.staff_name || getStaffName(event.staff_id, relatedEntities);
+  const className = display?.class_name || getClassName(event.class_id, relatedEntities);
+  const sessionName =
+    display?.session_name || getSessionName(event.session_id, relatedEntities);
+  const parentName =
+    display?.parent_name || getParentName(event.parent_id, relatedEntities);
+  const taskTitle =
+    display?.task_title ||
+    getTaskTitle(
+      event.task_id || (event.entity_type === 'tasks' ? event.entity_id : null),
+      relatedEntities
+    );
+  const issueName =
+    display?.issue_name ||
+    getIssueName(
+      event.issue_id || (event.entity_type === 'issues' ? event.entity_id : null),
+      relatedEntities
+    );
+  const projectName =
+    display?.project_name ||
+    getProjectName(
+      event.project_id || (event.entity_type === 'projects' ? event.entity_id : null),
+      relatedEntities
+    );
   
   // For notes CREATED events, get note content (raw for display, text for message template)
   let noteContent: Record<string, unknown> | string | undefined;
@@ -218,9 +365,9 @@ export function mapActivityEventToDisplay(
         : undefined;
   }
   
-  // For students_subjects CREATED events, extract subject_id from the entity
-  let subjectName: string | undefined;
-  if (event.entity_type === 'students_subjects' && event.event_type === 'CREATED' && studentsSubjectsToSubjectId) {
+  // For students_subjects events, resolve subject name from snapshot, live row, and/or metadata
+  let subjectName: string | undefined = display?.subject_name;
+  if (!subjectName && event.entity_type === 'students_subjects' && studentsSubjectsToSubjectId) {
     const subjectId = studentsSubjectsToSubjectId[event.entity_id];
     if (subjectId) {
       subjectName = getSubjectName(subjectId, relatedEntities);
@@ -285,6 +432,8 @@ export function mapActivityEventToDisplay(
     sessionName,
     parentName,
     taskTitle,
+    issueName,
+    projectName,
     subjectName,
     noteContent: noteContentForMessage,
     fieldLabels,
@@ -344,8 +493,52 @@ export function mapActivityEventToDisplay(
       name: taskTitle,
       type: 'task',
     };
+  } else if (event.entity_type === 'tasks' && taskTitle) {
+    relatedEntitiesDisplay.task = {
+      id: event.entity_id,
+      name: taskTitle,
+      type: 'task',
+    };
+  }
+
+  if (event.issue_id && issueName) {
+    relatedEntitiesDisplay.issue = {
+      id: event.issue_id,
+      name: issueName,
+      type: 'issue',
+    };
+  } else if (event.entity_type === 'issues' && issueName) {
+    relatedEntitiesDisplay.issue = {
+      id: event.entity_id,
+      name: issueName,
+      type: 'issue',
+    };
+  }
+
+  if (event.project_id && projectName) {
+    relatedEntitiesDisplay.project = {
+      id: event.project_id,
+      name: projectName,
+      type: 'project',
+    };
+  } else if (event.entity_type === 'projects' && projectName) {
+    relatedEntitiesDisplay.project = {
+      id: event.entity_id,
+      name: projectName,
+      type: 'project',
+    };
   }
   
+  const baseMetadata =
+    typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata)
+      ? (event.metadata as Record<string, unknown>)
+      : {};
+  const topicName =
+    display?.topic_name ||
+    (event.entity_type === 'tutor_logs_topics' && tutorLogTopicNamesByEntityId
+      ? tutorLogTopicNamesByEntityId[event.entity_id]
+      : undefined);
+
   return {
     id: event.id,
     icon: template.icon,
@@ -354,19 +547,19 @@ export function mapActivityEventToDisplay(
     timestamp: formatActivityTimestamp(event.performed_at),
     performedAt: event.performed_at,
     performedBy: {
-      id: event.performed_by || '',
+      id: performedBy.id,
       name: performedByName,
     },
     relatedEntities: Object.keys(relatedEntitiesDisplay).length > 0 ? relatedEntitiesDisplay : undefined,
-    metadata: (typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata))
-      ? event.metadata as Record<string, unknown>
-      : {},
+    metadata: topicName ? { ...baseMetadata, topicName } : baseMetadata,
     changedFields: changedFields.length > 0 ? changedFields : undefined, // Store all changed fields
     changedFieldName, // Store for grouping UPDATE events (backward compatibility)
     changedFieldLabel, // Store human-readable field label for display (backward compatibility)
     oldValue, // Store old value for display formatting (backward compatibility)
     newValue, // Store new value for display formatting (backward compatibility)
     entityId: event.entity_id, // Store entity ID for grouping (e.g., session ID for session updates)
+    entityType: event.entity_type,
+    eventType: event.event_type,
     noteContent, // Store full note content for preserving line breaks
   };
 }
@@ -481,6 +674,25 @@ function createGroupedActivity(
   }
   
   const first = activities[0];
+  const performedBy = (() => {
+    const withStaff = activities.find((activity) => {
+      const name = activity.performedBy.name?.trim();
+      return (
+        Boolean(activity.performedBy.id) &&
+        Boolean(name) &&
+        name !== 'System' &&
+        name !== 'Student' &&
+        name !== 'Staff' &&
+        name !== 'Unknown'
+      );
+    });
+    if (withStaff) return withStaff.performedBy;
+    const nonSystem = activities.find((activity) => {
+      const name = activity.performedBy.name?.trim();
+      return Boolean(name) && name !== 'System' && name !== 'Unknown';
+    });
+    return nonSystem?.performedBy ?? first.performedBy;
+  })();
   
   // Collect entity IDs for grouped entities (e.g., session IDs)
   const groupedEntityIds: string[] = [];
@@ -502,7 +714,7 @@ function createGroupedActivity(
   
   // Generate grouped message
   const groupedMessage = getGroupedActivityTemplate(
-    first,
+    { ...first, performedBy },
     activities.length,
     groupedEntityIds,
     relatedEntities,
@@ -518,6 +730,7 @@ function createGroupedActivity(
     ...first,
     id: `grouped-${first.id}`,
     message: groupedMessage,
+    performedBy,
     timestamp: formatActivityTimestamp(earliestTimestamp.performedAt),
     performedAt: earliestTimestamp.performedAt,
     groupedCount: activities.length,
@@ -586,8 +799,13 @@ export function mapActivityEventsToDisplay(
   response: ActivityEventsResponse
 ): ActivityEventDisplay[] {
   // Step 1: Map raw events to display format
-  const mapped = response.events.map((event) => 
-    mapActivityEventToDisplay(event, response.relatedEntities, response.studentsSubjectsToSubjectId)
+  const mapped = response.events.map((event) =>
+    mapActivityEventToDisplay(
+      event,
+      response.relatedEntities,
+      response.studentsSubjectsToSubjectId,
+      response.tutorLogTopicNamesByEntityId
+    )
   );
   
   // Step 2: Coalesce related events into logical actions

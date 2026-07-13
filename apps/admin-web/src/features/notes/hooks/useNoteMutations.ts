@@ -33,13 +33,7 @@ export function useCreateNote(options?: UseCreateNoteOptions) {
     onSuccess: (createdNote) => {
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
-      toast({
-        title: 'Note created',
-        description: 'The note has been created successfully.',
-        action: onNoteCreated
-          ? { label: 'Open note', onClick: () => onNoteCreated(createdNote.id) }
-          : undefined,
-      });
+      onNoteCreated?.(createdNote.id);
     },
     onError: (error: Error) => {
       toast({

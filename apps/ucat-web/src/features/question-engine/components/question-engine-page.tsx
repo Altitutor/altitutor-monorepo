@@ -547,7 +547,7 @@ export function QuestionEnginePage({
     clearLocal: clearActiveExamAttempt,
   } = useActiveExamAttempt();
   const { isLagging, runWithLag } = useUcatLag();
-  const { display: calculatorDisplay, onKey: calculatorOnKey } =
+  const { display: calculatorDisplay, onKey: calculatorOnKey, reset: resetCalculator } =
     useUcatCalculator();
   const [, setTick] = useState(0);
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false);
@@ -575,6 +575,14 @@ export function QuestionEnginePage({
   useEffect(() => {
     onRegisterFinishPracticeDialog?.(openFinishPracticeDialog);
   }, [onRegisterFinishPracticeDialog, openFinishPracticeDialog]);
+
+  // Real UCAT: calculator closes and clears (including memory) when changing question.
+  useEffect(() => {
+    resetCalculator();
+    setState((current) =>
+      current.showCalculator ? { ...current, showCalculator: false } : current,
+    );
+  }, [state.currentIndex, resetCalculator, setState]);
 
   useEffect(() => {
     setSubmittedPracticeQuestionIds(new Set());

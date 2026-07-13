@@ -24,7 +24,8 @@ interface SessionActivityTabProps {
 }
 
 export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivityTabProps) {
-  const { data, isLoading, error } = useSessionActivity(sessionId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useSessionActivity(sessionId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -61,7 +62,14 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
         <ActivityNoteComposer content={newNoteContent} onChange={setNewNoteContent} onSubmit={handleSubmit} isSubmitting={createNoteMutation.isPending} canPost={Boolean(currentStaff)} />
       </div>
 
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
       <SessionFormResponseDialog
         sessionId={sessionId}
         open={formDialogOpen}

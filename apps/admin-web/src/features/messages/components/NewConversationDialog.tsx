@@ -7,7 +7,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
@@ -545,7 +545,11 @@ export function NewConversationDialog({
                           type="button"
                           onClick={() => handleItemSelect(item)}
                           disabled={isProcessing}
-                          className="w-full text-left p-3 hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={cn(
+                            'w-full text-left p-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed',
+                            navItemTransitionStyles,
+                            navHoverStyles
+                          )}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="font-medium flex-1">{name}</div>

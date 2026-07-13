@@ -16,7 +16,11 @@ import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-a
 import { resolveCategoryPathLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
-export type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
+export type QuestionSearchScope =
+  | 'stem_text'
+  | 'question_text'
+  | 'answer_option_text'
+  | 'tutor_source_note'
 
 export type QuestionRow = {
   id: string
@@ -35,6 +39,7 @@ export type QuestionRow = {
   stem_text: string
   question_text: string
   answer_option_text: string
+  tutor_source_note: string
   set_names: string
   sets: Array<{ id: string; name: string }>
   set_ids: string[]
@@ -133,6 +138,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as Json) : '',
           question_text: searchTexts?.questionText ?? '',
           answer_option_text: searchTexts?.answerOptionText ?? '',
+          tutor_source_note: (row.tutor_source_note ?? '').trim(),
           set_names: setsDisplay,
           sets,
           set_ids: setIds,

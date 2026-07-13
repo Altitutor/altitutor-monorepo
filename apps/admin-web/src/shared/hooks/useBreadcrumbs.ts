@@ -43,7 +43,6 @@ const pathLabelMap: Record<string, string> = {
   'opening-hours': 'Opening Hours',
   blockouts: 'Blockouts',
   booking: 'Booking',
-  'class-planner': 'Class Planner',
   'my-account': 'My Account',
 };
 

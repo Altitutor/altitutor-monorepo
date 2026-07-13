@@ -33,6 +33,7 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -100,7 +101,8 @@ export function UcatQuestionStemApprovalQueueDialog({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'flex h-[92vh] w-full flex-col gap-0 p-0 md:max-w-6xl [&>button]:hidden',
+          // Force height: DialogContent base uses sm:h-auto, which collapses during load.
+          'flex !h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[92vh] md:max-w-6xl [&>button]:hidden',
           tutorDialogContentClass,
         )}
       >
@@ -372,7 +374,7 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
         ) : isLoading ? (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">Loading stem...</div>
+          <UcatStemEditorLoadingSkeleton />
         ) : (
           <UcatStemEditorShell
             flush

@@ -250,6 +250,8 @@ export function useDeleteUcatQuestionStem() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
 }

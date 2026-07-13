@@ -38,6 +38,7 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSubjectCurriculumColor, cn } from '@/shared/utils';
 import { useQuery } from '@tanstack/react-query';
+import { navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 
 interface StudentSelectorProps {
   selectedStudents: Tables<'students'>[];
@@ -640,7 +641,11 @@ export function StudentSelector({
                           key={student.id}
                           type="button"
                           onClick={() => handleAddStudentFromSearch(student)}
-                          className="w-full text-left p-3 hover:bg-accent rounded-md transition-colors"
+                          className={cn(
+                            'w-full text-left p-3 rounded-md',
+                            navItemTransitionStyles,
+                            navHoverStyles
+                          )}
                         >
                           <div className="font-medium">
                             {student.first_name} {student.last_name}

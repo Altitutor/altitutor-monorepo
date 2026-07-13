@@ -28,6 +28,7 @@ import {
   CommandItem,
   CommandList,
   DataTableToolbar,
+  getUcatVisibilityColor,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -136,12 +137,14 @@ const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: str
   { value: 'stem_text', label: 'Stem text' },
   { value: 'question_text', label: 'Question text' },
   { value: 'answer_option_text', label: 'Answer options' },
+  { value: 'tutor_source_note', label: 'Tutor source note' },
 ]
 
 const defaultQuestionSearchScopes: QuestionSearchScope[] = [
   'stem_text',
   'question_text',
   'answer_option_text',
+  'tutor_source_note',
 ]
 
 const questionColumnDefinitions: DataTableColumnDefinition[] = [
@@ -222,8 +225,8 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: false },
   { key: 'sets', label: 'Sets', visibleByDefault: true },
-  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
-  { key: 'source', label: 'Source', visibleByDefault: false },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: false },
+  { key: 'source', label: 'Source', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
   { key: 'approval_status', label: 'Approval', visibleByDefault: false },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
@@ -1147,7 +1150,13 @@ export function UcatQuestionsPage() {
                     {visible('sets') && (
                       <TableCell className="max-w-[180px]">
                         {row.sets.length === 0 ? (
-                          <Badge variant="secondary">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-[10px] font-normal px-1.5 py-0',
+                              getUcatVisibilityColor(false),
+                            )}
+                          >
                             {row.deleted_at || row.approval_status !== 'approved'
                               ? 'Not student-visible'
                               : 'Practice pool'}
@@ -1170,7 +1179,15 @@ export function UcatQuestionsPage() {
                                 </button>
                               ))}
                             </div>
-                            <div className="text-xs text-muted-foreground">Set only · hidden from practice</div>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[10px] font-normal px-1.5 py-0',
+                                getUcatVisibilityColor(false),
+                              )}
+                            >
+                              Not in practice pool
+                            </Badge>
                           </div>
                         )}
                       </TableCell>

@@ -3,6 +3,10 @@ import {
   generatedContentToPlainText,
   getGeneratedVisualSpecIssue,
 } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import {
+  compareStemSimilarityText,
+  normalizeSimilarityText,
+} from '@/features/ucat/questions/lib/stem-similarity'
 
 export type GenerationGateSeverity = 'blocking' | 'warning'
 
@@ -35,11 +39,7 @@ const DM_CATEGORIES = new Set([
 ])
 
 function norm(value: string | null | undefined): string {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[’']/gu, "'")
-    .replace(/\s+/gu, ' ')
+  return normalizeSimilarityText(value)
 }
 
 function optionNorm(value: string): string {
@@ -849,44 +849,6 @@ function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string
   })
 }
 
-const SIMILARITY_IGNORED_TOKENS = new Set([
-  'about', 'after', 'answer', 'answers', 'before', 'between', 'calculate', 'calculation',
-  'chart', 'data', 'decrease', 'following', 'increase', 'more', 'most', 'number', 'numbers',
-  'option', 'options', 'percentage', 'percentages', 'table', 'than', 'that', 'their', 'there',
-  'these', 'this', 'total', 'using', 'value', 'values', 'what', 'which', 'with', 'would',
-])
-
-const REQUIRED_DM_QUESTION_SCAFFOLDS = [
-  /place\s+['"]?yes['"]?\s+if\s+the\s+conclusion\s+does\s+follow\.?\s*place\s+['"]?no['"]?\s+if\s+the\s+conclusion\s+does\s+not\s+follow\.?/giu,
-  /select\s+the\s+strongest\s+argument\s+from\s+the\s+statements\s+below\.?/giu,
-]
-
-function stripRequiredDmQuestionScaffolds(value: string): string {
-  return REQUIRED_DM_QUESTION_SCAFFOLDS.reduce(
-    (text, pattern) => text.replace(pattern, ' '),
-    value
-  )
-}
-
-function similarityWords(value: string): string[] {
-  return norm(stripRequiredDmQuestionScaffolds(value))
-    .replace(/[^a-z0-9]+/gu, ' ')
-    .split(' ')
-    .filter((token) => (token.length >= 3 || /^\d{2,}$/u.test(token)) && !SIMILARITY_IGNORED_TOKENS.has(token))
-}
-
-function wordTrigrams(words: string[]): Set<string> {
-  const trigrams = new Set<string>()
-  for (let index = 0; index <= words.length - 3; index += 1) {
-    trigrams.add(words.slice(index, index + 3).join(' '))
-  }
-  return trigrams
-}
-
-function sharedItems<T>(left: Set<T>, right: Set<T>): T[] {
-  return [...left].filter((item) => right.has(item))
-}
-
 function validateSimilarity(
   stem: GeneratedStem,
   stemIndex: number,
@@ -894,7 +856,7 @@ function validateSimilarity(
   issues: GenerationGateIssue[]
 ) {
   if (sourceComparisonSources.length === 0) return
-  const candidate = norm(
+  const candidate = normalizeSimilarityText(
     [
       stemText(stem),
       ...stem.questions.flatMap((question) => [
@@ -903,42 +865,24 @@ function validateSimilarity(
       ]),
     ].join(' ')
   )
-  if (candidate.length < 120) return
-  const candidateWords = similarityWords(candidate)
-  const candidateTokens = new Set(candidateWords)
-  const candidateTrigrams = wordTrigrams(candidateWords)
-  if (candidateTokens.size === 0) return
 
   for (const source of sourceComparisonSources) {
-    const sourceText = norm(source.text)
-    if (sourceText.length < 120) continue
-    const sourceWords = similarityWords(sourceText)
-    const sourceTokens = new Set(sourceWords)
-    const sourceTrigrams = wordTrigrams(sourceWords)
-    const sharedTokens = sharedItems(candidateTokens, sourceTokens)
-    const sharedTrigrams = sharedItems(candidateTrigrams, sourceTrigrams)
-    const tokenRatio = sharedTokens.length / Math.max(1, Math.min(candidateTokens.size, sourceTokens.size))
-    const trigramRatio = sharedTrigrams.length / Math.max(1, Math.min(candidateTrigrams.size, sourceTrigrams.size))
-    const isNearCopy =
-      (sharedTokens.length >= 8 && tokenRatio >= 0.72) ||
-      (sharedTrigrams.length >= 3 && trigramRatio >= 0.45)
-
-    if (isNearCopy) {
-      issues.push({
-        severity: 'blocking',
-        code: 'source_similarity',
-        message: 'Candidate is too textually similar to a source stem.',
-        stemIndex,
-        details: {
-          sourceId: source.id,
-          tokenRatio: Number(tokenRatio.toFixed(3)),
-          trigramRatio: Number(trigramRatio.toFixed(3)),
-          sharedTokens: sharedTokens.slice(0, 12),
-          sharedPhrases: sharedTrigrams.slice(0, 6),
-        },
-      })
-      return
-    }
+    const result = compareStemSimilarityText(candidate, source.text)
+    if (!result.isNearCopy) continue
+    issues.push({
+      severity: 'blocking',
+      code: 'source_similarity',
+      message: 'Candidate is too textually similar to a source stem.',
+      stemIndex,
+      details: {
+        sourceId: source.id,
+        tokenRatio: result.tokenRatio,
+        trigramRatio: result.trigramRatio,
+        sharedTokens: result.sharedTokens,
+        sharedPhrases: result.sharedPhrases,
+      },
+    })
+    return
   }
 }
 

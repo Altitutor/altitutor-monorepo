@@ -1,255 +1,173 @@
 ---
 name: refactor-bulletproof-react
-description: Find antipatterns, suggest refactors by Bulletproof React priority, then execute refactors after user confirmation
+description: Turn AI-generated or messy React code into maintainable, feature-first code using impact-ranked Bulletproof React practices. Use when the user asks to refactor, clean up AI slop, improve structure/maintainability, or apply Bulletproof React.
 disable-model-invocation: true
 ---
 # Refactor Bulletproof React
 
-Find code antipatterns and refactoring opportunities that improve performance and maintainability, prioritize them according to [Bulletproof React](https://github.com/alan2207/bulletproof-react), then execute refactors after user confirmation.
+Turn AI-generated or messy React/TypeScript into **well-structured, maintainable, clean code** that follows this monorepo’s feature-first patterns and real React best practices.
+
+Prioritize by **impact** (bugs, stale data, untestable god modules), not architectural purity theater. Confirm before changing code.
+
+Patterns reference: `.cursor/skills/99-bulletproof-react-patterns/SKILL.md`  
+Priorities: `references/BULLETPROOF_REACT_PRIORITIES.md`  
+Detection: `references/DETECTION_PATTERNS.md`
 
 ## When to Use
 
-- User wants to improve code quality, performance, or maintainability
-- User mentions "refactor," "clean up," "technical debt," or "Bulletproof React"
-- Preparing codebase for scaling or team growth
-- After adding features that may have introduced antipatterns
+- Cleaning up AI-generated features/PRs
+- User says refactor, clean up, technical debt, Bulletproof React, or “make this maintainable”
+- A feature became hard to change (god components, fetch-in-useEffect, tangled logic)
 
 ## Context
 
-This monorepo follows Bulletproof React principles:
-- **Stack**: React 18, TypeScript 5.8, TanStack Query 5.77, Zustand 4.5, Next.js App Router
+- **Stack**: React, TypeScript, TanStack Query, Zustand, Next.js App Router
 - **Structure**: `apps/*/src/features/` (feature-first), `packages/shared/`, `packages/ui/`
-- **Reference**: See `references/BULLETPROOF_REACT_PRIORITIES.md` for priority definitions
-- **Detection**: See `references/DETECTION_PATTERNS.md` for search patterns
+- **Goal**: readable modules with clear SoC — not mass file-splitting or cross-feature untangling for its own sake
+
+## Impact Gate (required for every finding)
+
+Before ranking anything P0/P1, answer yes to at least one:
+
+1. Fixes a bug or likely stale/incorrect data?
+2. Makes the **next** change to this area meaningfully easier?
+3. Removes a known footgun (duplicate fetches, untyped boundaries, circular import that breaks)?
+
+If none → P2 at best, or omit. Prefer **opportunistic** cleanup when already touching a file over drive-by purity campaigns.
 
 ## Three-Phase Workflow
 
 ### Phase 1: Discovery
 
-**1.1 Determine Scope**
+**1.1 Scope**
 
-Ask user (or infer from context):
-- Entire app (`admin-web`, `student-web`, `tutor-web`, `ucat-web`)
-- Specific feature (e.g., `features/students`)
-- Codebase-wide (all apps)
+Ask or infer: one feature (preferred), one app, or a specific set of files. Prefer feature/file scope for AI cleanup; avoid codebase-wide purity sweeps.
 
-**1.2 Run Discovery**
+**1.2 Run discovery**
 
-Option A: Run the analysis script for structured output (from repo root):
+Option A — analysis script (from repo root):
 ```bash
 bash .cursor/skills/refactor-bulletproof-react/scripts/analyze-refactoring.sh <apps/admin-web|apps/student-web|apps/tutor-web|apps/ucat-web|.>
 ```
 
-Option B: Use grep/codebase_search to find antipatterns manually. For each category, search:
+Option B — manual search using `references/DETECTION_PATTERNS.md`.
 
-- **Cross-feature imports**: `from '@/features/[other-feature]'` or `from "@/features/` where importing feature ≠ current feature
-- **Circular dependencies**: Run `npx madge --circular src` from each app directory
-- **Large components**: Components with > 200 lines (check `**/components/*.tsx`, `**/components/**/*.tsx`)
-- **useEffect + fetch**: Files with `useEffect` containing fetch/axios/supabase/api calls
-- **Any types**: `: any` or `as any` in TypeScript files
-- **Business logic in components**: Components with complex calculations, data transforms, or API calls in render
-- **Barrel imports (internal)**: `from '../index'` or `from './index'` within a feature
-- **Separation of concerns**: API with UI logic, hooks with rendering, utils with side effects, mixed concerns in one file
-- **Missing tests**: Components/hooks without corresponding `*.test.tsx` or `*.test.ts` files
-- **DRY violations**: Duplicated logic across components, repeated formatters/validators, copy-pasted blocks
+Always filter script output through the **Impact Gate**. Script heuristics have false positives.
 
-**1.3 Build Findings Report**
+**1.3 Findings**
 
-For each finding, record:
-- File path
-- Antipattern type
-- Brief description
-- Line number or relevant snippet (if applicable)
-- Estimated impact (performance / maintainability / both)
+For each kept finding: path, type, why it matters (impact), suggested fix, rough effort.
 
-**1.4 Early Exit – No Refactoring Needed**
+**1.4 Early exit**
 
-**Before building the full plan, check if refactoring would produce meaningful gain.**
+If zero P0/P1 and no meaningful P2 (≤2 low-value P2s):
 
-If **zero P0, P1, and P2 findings** (only P3 or none):
 ```markdown
 ## Analysis Complete – No Refactoring Recommended
 
-The scope (`[app/feature]`) appears to follow Bulletproof React principles well.
+Scope follows practices well enough / no high-impact issues.
 
-- **P0/P1/P2 findings**: 0
-- **Conclusion**: Refactoring would produce minimal gain. No changes recommended.
-- **Optional**: You could address any P3 items (docs, style) if desired, but they are low priority.
+- **P0/P1**: 0
+- **Recommendation**: Stop. Only touch P3/style if the user has a specific pain point.
 ```
 
-**Stop here. Do not proceed to Phase 2 or 3.** Do not suggest refactoring for the sake of it.
-
-If **only P3 findings** (or very few P2, e.g. ≤2):
-```markdown
-## Analysis Complete – Minimal Refactoring Value
-
-- **P0/P1/P2 findings**: 0 (or very few)
-- **P3 findings**: [list]
-- **Recommendation**: Scope is healthy. Refactoring would have minimal impact. Proceed only if you have specific pain points.
-```
-
-Ask: "Do you want to address any of these P3 items, or consider this done?"
-
-**Only proceed to Phase 2 if there are P0, P1, or meaningful P2 findings.**
+Stop. Do not invent work.
 
 ### Phase 2: Prioritization
 
-Order findings by Bulletproof React priority (only when refactoring is warranted). Load `references/BULLETPROOF_REACT_PRIORITIES.md` for the authoritative order:
-
-**P0 - Critical (Fix First)**
-- Cross-feature imports
-- Circular dependencies
-- Business logic in components (data transforms, calculations in render)
-- Data fetching causing performance issues (useEffect fetch, no caching)
-- Server state in local state causing stale/incorrect data
-
-**P1 - High**
-- Large components (> 300 lines)
-- Missing React Query hooks (components fetching directly)
-- Type safety issues (`any` types)
-- Prop drilling > 3 levels
-
-**P2 - Medium**
-- Components 200-300 lines
-- Import pattern improvements (barrel vs direct)
-- Missing feature structure (api/, hooks/, types/)
-- Expensive computations in render (missing useMemo/useCallback)
-- **Separation of concerns violations**: API files with UI logic, hooks doing rendering, utils with side effects
-- **Missing tests**: Components/hooks without test files (especially for critical paths)
-- **DRY violations**: Duplicated logic, repeated formatters, copy-pasted blocks across components
-
-**P3 - Low**
-- Documentation
-- Minor code organization
-- Code style
-
-**Present to User:**
+Load `references/BULLETPROOF_REACT_PRIORITIES.md`. Summarize:
 
 ```markdown
-## Refactoring Plan (Bulletproof React Order)
+## Refactoring Plan (impact order)
 
-### P0 - Critical (X items)
-1. [File] - [Antipattern] - [Impact]
-2. ...
+### P0 – Fix now (X)
+1. [File] – [Issue] – [Why it matters]
 
-### P1 - High (X items)
+### P1 – High maintainability tax (X)
 ...
 
-### P2 - Medium (X items)
+### P2 – Opportunistic (X)
 ...
 
-### P3 - Low (X items)
-...
+### Skip / demoted
+- [Items found by script but rejected by Impact Gate, with one-line reason]
 
-**Total**: X findings. Estimated effort: Y hours.
+**Total actionable**: X. Estimated effort: Y.
 
-Proceed with refactoring? (y/n)
-If yes, start with P0 or specify which items to tackle.
+Proceed? (y/n) — or name which items to do.
 ```
 
-**Stop and wait for user confirmation.** Do not proceed to Phase 3 without explicit approval.
+**Stop and wait for confirmation.** Do not edit until the user approves.
 
 ### Phase 3: Execution
 
-**3.1 One Item at a Time**
+**3.1 One approved item at a time**
 
-Work through the approved list in priority order. For each item:
+1. Read the relevant files
+2. Prefer adding/adjusting tests only when the path is critical **and** behavior is non-obvious (forms, fetch/cache, domain transforms). Skip inventory-style “test every component”
+3. Implement the smallest change that restores clarity
+4. Run `pnpm lint` and `pnpm typecheck` (and `pnpm test` if tests exist for that area)
+5. **Do not commit** unless the user explicitly asks. Summarize the diff and offer a commit message
+6. After each P0/P1 (or every 2–3 P2s), check in: continue?
 
-1. Read the file(s) involved
-2. **TDD for P0/P1**: If the component/hook has no tests and is critical (forms, data fetching, core flows), add tests before refactoring
-3. Plan the refactor (what to extract, where to move, what to create)
-4. Implement the change
-5. Run quality checks: `pnpm lint`, `pnpm typecheck` (and `pnpm test` if tests exist)
-6. Commit: `git add ... && git commit -m "refactor(scope): description"`
-7. Move to next item
+**3.2 Preferred refactor moves**
 
-**3.2 Refactoring Patterns**
+| Problem | Move |
+|---------|------|
+| `useEffect` + local state for server data | `api/` fetcher + `useXQuery` / mutation hooks |
+| God module (many jobs, not just “lines”) | Extract hook (logic), subcomponents (UI), utils (pure) |
+| Logic hard to test / duplicated domain rules | Hook or `utils/` / `packages/shared` |
+| Accidental cross-feature import **blocking change or causing a cycle** | Compose at app/route, or move truly shared code to `shared/` / `packages/shared` — do **not** mass-decouple intentional CRM coupling |
+| `any` on important boundaries | Proper types or `unknown` + guards |
+| Client component doing server work | Prefer Server Components / route data load where App Router fits; keep client for interactivity |
+| AI slop (unused vars, over-abstraction, pointless memo) | Delete noise; follow repo React guidance — **do not** add `useMemo`/`useCallback` by default |
 
-**Cross-feature import** → Move shared code to `shared/` or `packages/shared/`, or compose at app level
+**3.3 Preserve behavior**
 
-**Circular dependencies** → Break cycle: extract shared code to `shared/` or `packages/shared/`, invert dependency, or compose at app level
-
-**Large component** → Extract to: hook (logic), sub-components (UI), utils (pure functions)
-
-**useEffect fetch** → Create `use[Resource]Query` hook with React Query, move fetch to `api/` layer
-
-**Any types** → Replace with proper interfaces or `unknown` + type guards
-
-**Business logic in component** → Extract to custom hook (e.g., `use[Feature]Table`)
-
-**Barrel imports (internal)** → Replace with direct imports (`from '../api/students'` not `from '../index'`)
-
-**Separation of concerns** → Move API logic to api/, UI to components/, pure logic to hooks/utils. Split mixed files.
-
-**Missing tests** → Add `*.test.tsx` or `*.test.ts` for components/hooks. Use React Testing Library, mock external deps.
-
-**DRY violations** → Extract duplicated logic to shared util, hook, or component. Move to `utils/` or `shared/` as appropriate.
-
-**3.3 After Each Refactor**
-
-- Verify `pnpm typecheck` passes
-- Verify `pnpm lint` passes
-- If tests exist, run `pnpm test`
-- Commit with conventional message
-
-**3.4 User Check-in**
-
-After completing each P0 and P1 item (or every 2-3 P2 items), briefly summarize what was done and ask: "Continue with next item? (y/n)"
+Refactoring must not change product behavior unless the user asked for a fix.
 
 ### Phase 4: Summary
-
-When done (or user requests stop):
 
 ```markdown
 ## Refactoring Summary
 
-### Completed
-- [X] Items refactored
-- Files modified: [...]
-- Commits: [...]
+### Done
+- Items: …
+- Files: …
 
-### Remaining (if any)
-- [List unchecked items]
+### Left
+- …
 
 ### Verification
-- [ ] pnpm typecheck
-- [ ] pnpm lint
-- [ ] pnpm test
-- [ ] pnpm build (optional)
+- [ ] typecheck / lint / relevant tests
 ```
 
 ## Error Handling
 
-- **Refactor breaks tests**: Revert or fix until tests pass. Do not skip tests.
-- **Scope unclear**: Ask user to specify app or feature.
-- **Too many findings**: Focus on P0 and P1 first. Offer to stop after those.
-- **User says "no" to confirmation**: Stop. Do not execute.
-- **Circular dependency discovered**: Treat as P0. Pause, explain the cycle, suggest fix (extract shared code, invert dependency), ask user how to resolve.
+- Breaks tests → fix or revert; don’t skip
+- Scope unclear → ask for feature/files
+- Huge finding list → P0/P1 only; offer to stop
+- User says no → stop
+- Circular dependency that breaks builds → P0; explain cycle; propose break; wait
 
-## Repeatability / Idempotency
+## Repeatability
 
-**The skill is designed for multiple runs across different agent sessions.**
+- Stateless re-analyze each run
+- Fixed issues disappear next run
+- Before a new run, baseline should be clean (`pnpm typecheck` / lint); fix leftovers first
 
-- **Stateless**: Each run re-analyzes the codebase from scratch. No persistent "done" list.
-- **Progressive**: Fixed issues disappear from findings. A refactored 900-line component won't be flagged on the next run.
-- **Agent-agnostic**: Different agents can run it in succession. Each sees only the current state and remaining issues.
-- **Convergent**: Successive runs reduce findings until P0/P1/P2 are zero, then early exit reports "already good."
+## Hard Rules
 
-**Before each run**: Ensure `pnpm checkall` passes so the next agent starts from a clean baseline. If a prior run left failing tests or type errors, fix those first.
-
-## Important Notes
-
-- **Never refactor without confirmation** after presenting the plan
-- **Don't refactor for the sake of it** – if P0/P1/P2 findings are zero, stop and report "already good"
-- **Add tests before refactoring** when possible (TDD approach)
-- **One change at a time** - easier to review and revert
-- **Preserve behavior** - refactoring must not change functionality
-- **Commit incrementally** - one logical change per commit
+- Never refactor without confirmation after the plan
+- Don’t refactor for purity alone
+- Impact Gate on every P0/P1
+- No auto-commits
+- No mass cross-feature untangling; no line-count-only splits; no missing-test inventory campaigns; no memoization churn
+- Prefer deleting AI noise over adding layers
 
 ## References
 
-- `references/BULLETPROOF_REACT_PRIORITIES.md` - Priority order and refactoring rules
-- `references/DETECTION_PATTERNS.md` - How to find each antipattern
+- `references/BULLETPROOF_REACT_PRIORITIES.md`
+- `references/DETECTION_PATTERNS.md`
+- `.cursor/skills/99-bulletproof-react-patterns/SKILL.md`
 - [Bulletproof React](https://github.com/alan2207/bulletproof-react)
-- [Project Structure](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md)
-- [Project Standards](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-standards.md)

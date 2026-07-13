@@ -82,7 +82,7 @@ export function UcatDialogShell({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          'flex h-[90vh] w-full flex-col gap-0 p-0 sm:!h-[90vh] md:max-w-4xl [&>button]:hidden',
           mobileFullscreen && 'max-w-none rounded-none !h-[100dvh] !w-screen sm:!h-[90vh] sm:!w-full sm:max-w-4xl sm:!rounded-2xl',
           tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,

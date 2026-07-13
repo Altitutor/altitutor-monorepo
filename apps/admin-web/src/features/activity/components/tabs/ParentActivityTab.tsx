@@ -21,7 +21,8 @@ interface ParentActivityTabProps {
 }
 
 export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTabProps) {
-  const { data, isLoading, error } = useParentActivity(parentId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useParentActivity(parentId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -55,7 +56,14 @@ export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTab
         canPost={Boolean(currentStaff)}
       />
 
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
     </div>
   );
 }

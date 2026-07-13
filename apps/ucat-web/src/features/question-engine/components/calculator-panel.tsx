@@ -87,14 +87,21 @@ export function CalculatorPanel({
             label = "-";
             break;
           case "*":
-          case "x":
             label = "×";
+            break;
+          case "x":
+            label = "sqrt";
             break;
           case "/":
             label = "÷";
             break;
           case "%":
             label = "%";
+            break;
+          case "Backspace":
+          case "Delete":
+            // Official UCAT: Backspace clears all digits (= ON/C), not one digit.
+            label = "ON/C";
             break;
           case "Enter":
           case "=":
