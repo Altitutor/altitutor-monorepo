@@ -381,6 +381,7 @@ export function UcatClassDialog({
         type: 'number-range',
         minKey: 'time_limit_min',
         maxKey: 'time_limit_max',
+        nullOptionLabel: 'Untimed',
       },
       {
         key: 'stem_count',
@@ -564,7 +565,11 @@ export function UcatClassDialog({
         setsTableState,
         'time_limit_min',
         'time_limit_max',
-        row.time_limit_seconds ?? null
+        row.time_limit_seconds ?? null,
+        {
+          nullFilterKey: 'time_limit',
+          treatNonPositiveAsNull: true,
+        }
       )
       const stemCountHit = applyRangeFilter(
         setsTableState,

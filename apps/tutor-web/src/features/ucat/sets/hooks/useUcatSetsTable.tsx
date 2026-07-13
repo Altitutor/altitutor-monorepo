@@ -143,7 +143,10 @@ export function useUcatSetsTable<T extends SetRowInput>({
       const sectionHit =
         selectedSections.length === 0 ||
         selectedSections.some((v) => row.sectionNumbers.includes(Number(v)))
-      const timeLimitHit = applyRangeFilter(tableState.state, 'time_limit_min', 'time_limit_max', row.time_limit_seconds)
+      const timeLimitHit = applyRangeFilter(tableState.state, 'time_limit_min', 'time_limit_max', row.time_limit_seconds, {
+        nullFilterKey: 'time_limit',
+        treatNonPositiveAsNull: true,
+      })
       const stemCountHit = applyRangeFilter(tableState.state, 'stem_count_min', 'stem_count_max', row.stem_count)
       const questionCountHit = applyRangeFilter(
         tableState.state,

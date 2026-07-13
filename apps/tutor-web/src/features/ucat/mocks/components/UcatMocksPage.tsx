@@ -60,7 +60,7 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
-  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: false },
   { key: 'set_count', label: 'Sets', visibleByDefault: true },
   { key: 'updated_at', label: 'Updated', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },

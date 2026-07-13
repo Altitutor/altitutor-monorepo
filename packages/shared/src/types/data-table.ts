@@ -11,6 +11,11 @@ export interface DataTableFilterDefinition<TValue = unknown> {
   /** When type is 'number-range', state keys for min and max values */
   minKey?: string;
   maxKey?: string;
+  /**
+   * When type is 'number-range', optional label for a null/empty-value toggle
+   * (e.g. "Untimed"). Stored on `key` as the sentinel `__null__`.
+   */
+  nullOptionLabel?: string;
   /** When type is 'date-range', state keys for from and to date values */
   fromKey?: string;
   toKey?: string;

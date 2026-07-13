@@ -215,7 +215,10 @@ export function DataTableToolbar({
       const maxArr = def.maxKey ? state.filters[def.maxKey] : [];
       const minSet = Array.isArray(minArr) && minArr.length > 0 && minArr[0] != null && minArr[0] !== '';
       const maxSet = Array.isArray(maxArr) && maxArr.length > 0 && maxArr[0] != null && maxArr[0] !== '';
-      if (minSet || maxSet) count += 1;
+      const nullSet =
+        !!def.nullOptionLabel &&
+        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
+      if (minSet || maxSet || nullSet) count += 1;
     }
     for (const def of dateRangeFilterDefs) {
       const fromArr = def.fromKey ? state.filters[def.fromKey] : [];
@@ -803,13 +806,31 @@ export function DataTableToolbar({
                       const maxVal = def.maxKey != null ? (state.filters[def.maxKey]?.[0] ?? '') : '';
                       const minSet = minVal !== '' && minVal != null && String(minVal).trim() !== '';
                       const maxSet = maxVal !== '' && maxVal != null && String(maxVal).trim() !== '';
-                      if (!minSet && !maxSet) return null;
+                      const nullSet =
+                        !!def.nullOptionLabel &&
+                        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
+                      if (!minSet && !maxSet && !nullSet) return null;
                       const label = def.label;
                       return (
                         <div key={def.key} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]">
+                          {nullSet ? (
+                            <>
+                              <span className="font-semibold">{label} is</span>
+                              <button
+                                onClick={() => clearRangeFilterBound(def.key)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${def.nullOptionLabel}`}
+                              >
+                                {def.nullOptionLabel}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                              {(minSet || maxSet) && <span className="opacity-50">OR</span>}
+                            </>
+                          ) : null}
                           {minSet && maxSet ? (
                             <>
-                              <span>{label} is between</span>
+                              {!nullSet && <span>{label} is between</span>}
+                              {nullSet && <span>between</span>}
                               <button
                                 onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -831,7 +852,8 @@ export function DataTableToolbar({
                             </>
                           ) : minSet ? (
                             <>
-                              <span>{label} is more than or equal to</span>
+                              {!nullSet && <span>{label} is more than or equal to</span>}
+                              {nullSet && <span>≥</span>}
                               <button
                                 onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -841,9 +863,10 @@ export function DataTableToolbar({
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
-                          ) : (
+                          ) : maxSet ? (
                             <>
-                              <span>{label} is less than or equal to</span>
+                              {!nullSet && <span>{label} is less than or equal to</span>}
+                              {nullSet && <span>≤</span>}
                               <button
                                 onClick={() => def.maxKey && clearRangeFilterBound(def.maxKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -853,7 +876,7 @@ export function DataTableToolbar({
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
@@ -960,10 +983,33 @@ export function DataTableToolbar({
                       const maxKey = def.maxKey;
                       const minVal = String((state.filters[minKey] ?? [])[0] ?? '');
                       const maxVal = String((state.filters[maxKey] ?? [])[0] ?? '');
+                      const nullSelected =
+                        !!def.nullOptionLabel &&
+                        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
                       return (
                         <DropdownMenuSub key={def.key}>
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-[200px]">
+                            {def.nullOptionLabel ? (
+                              <>
+                                <DropdownMenuCheckboxItem
+                                  checked={nullSelected}
+                                  onCheckedChange={(checked) => {
+                                    const nextFilters = { ...state.filters };
+                                    if (checked) {
+                                      nextFilters[def.key] = ['__null__'];
+                                    } else {
+                                      delete nextFilters[def.key];
+                                    }
+                                    onFiltersChange(nextFilters);
+                                  }}
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  {def.nullOptionLabel}
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            ) : null}
                             <div className="p-2 flex items-center gap-2">
                               <div className="flex-1 min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground">Min</label>

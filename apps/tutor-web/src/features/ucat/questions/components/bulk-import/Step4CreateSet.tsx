@@ -82,6 +82,7 @@ const SET_FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
     type: 'number-range',
     minKey: 'time_limit_min',
     maxKey: 'time_limit_max',
+    nullOptionLabel: 'Untimed',
   },
   {
     key: 'stem_count',
@@ -161,7 +162,11 @@ export function Step4CreateSet({
         setsTableState,
         'time_limit_min',
         'time_limit_max',
-        set.time_limit_seconds ?? null
+        set.time_limit_seconds ?? null,
+        {
+          nullFilterKey: 'time_limit',
+          treatNonPositiveAsNull: true,
+        }
       )
       const stemCountHit = applyRangeFilter(
         setsTableState,

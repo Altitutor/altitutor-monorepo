@@ -130,17 +130,44 @@ export function getRangeFilterMax(state: DataTableState, key: string): number | 
   return Number.isFinite(n) ? n : null
 }
 
-/** Range bounds are inclusive: value >= min and value <= max when set. */
+/** Sentinel stored on a number-range filter `key` when its null option is selected. */
+export const RANGE_FILTER_NULL_VALUE = '__null__'
+
+export function isRangeNullFilterSelected(state: DataTableState, filterKey: string): boolean {
+  return (state.filters[filterKey] ?? []).some((v) => String(v) === RANGE_FILTER_NULL_VALUE)
+}
+
+type ApplyRangeFilterOptions = {
+  /** Filter key that holds `RANGE_FILTER_NULL_VALUE` when the null option is selected */
+  nullFilterKey?: string
+  /** Treat <= 0 the same as null (e.g. untimed time limits) */
+  treatNonPositiveAsNull?: boolean
+}
+
+/**
+ * Range bounds are inclusive: value >= min and value <= max when set.
+ * When a null option is selected, nullish values match (OR with any range match).
+ */
 export function applyRangeFilter(
   state: DataTableState,
   minKey: string,
   maxKey: string,
-  value: number | null
+  value: number | null,
+  options?: ApplyRangeFilterOptions
 ): boolean {
   const min = getRangeFilterMin(state, minKey)
   const max = getRangeFilterMax(state, maxKey)
+  const nullSelected =
+    options?.nullFilterKey != null && isRangeNullFilterSelected(state, options.nullFilterKey)
   const hasBound = min != null || max != null
-  if (value === null) return !hasBound
+
+  if (!hasBound && !nullSelected) return true
+
+  const isNullish = value == null || (options?.treatNonPositiveAsNull === true && value <= 0)
+
+  if (isNullish) return nullSelected
+
+  if (!hasBound) return false
   if (min != null && value < min) return false
   if (max != null && value > max) return false
   return true

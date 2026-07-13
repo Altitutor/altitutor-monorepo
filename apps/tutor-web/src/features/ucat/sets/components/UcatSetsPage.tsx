@@ -66,7 +66,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'stem_count', label: 'Question stems', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
   { key: 'mocks', label: 'Mocks', visibleByDefault: true },
-  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: false },
   { key: 'created_by', label: 'Created by', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
@@ -188,6 +188,7 @@ export function UcatSetsPage() {
         type: 'number-range',
         minKey: 'time_limit_min',
         maxKey: 'time_limit_max',
+        nullOptionLabel: 'Untimed',
       },
       {
         key: 'stem_count',
