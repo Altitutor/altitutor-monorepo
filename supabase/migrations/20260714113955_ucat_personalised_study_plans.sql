@@ -206,6 +206,15 @@ CREATE TRIGGER update_ucat_student_study_plan_tasks_updated_at
 -- Signup now includes Study plan setup before the plan-choice step.
 ALTER TABLE public.students
   DROP CONSTRAINT IF EXISTS students_ucat_signup_step_check;
+
+-- The previous five-step flow persisted completed students at step 5. In the
+-- new four-step flow, plan choice is the terminal step, so normalise legacy
+-- completed/out-of-range progress before tightening the constraint.
+UPDATE public.students
+SET ucat_signup_step = 4
+WHERE ucat_signup_completed_at IS NOT NULL
+   OR ucat_signup_step > 4;
+
 ALTER TABLE public.students
   ADD CONSTRAINT students_ucat_signup_step_check
   CHECK (ucat_signup_step BETWEEN 1 AND 4);

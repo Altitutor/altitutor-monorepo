@@ -28,6 +28,8 @@ export interface SmartDatePickerPopoverProps {
   stopPropagation?: boolean;
   minDate?: string | null;
   maxDate?: string | null;
+  /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
+  showPresets?: boolean;
 }
 
 export interface SmartDatePickerPillProps {
@@ -57,6 +59,8 @@ export interface SmartDatePickerFieldProps {
   stopPropagation?: boolean;
   minDate?: string | null;
   maxDate?: string | null;
+  /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
+  showPresets?: boolean;
 }
 
 const PILL_MONTHS = [
@@ -122,18 +126,22 @@ export function SmartDatePickerPopover({
   stopPropagation = false,
   minDate,
   maxDate,
+  showPresets = true,
 }: SmartDatePickerPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const inputValue = toDateInputValue(value);
   const today = React.useMemo(() => startOfDay(new Date()), [open]);
 
-  const presets = React.useMemo(() => [
-    { label: 'Today', value: today },
-    { label: 'Tomorrow', value: addDays(today, 1) },
-    { label: 'This weekend', value: getThisWeekend(today) },
-    { label: 'Next week', value: nextWeekday(today, 1) },
-  ], [today]);
+  const presets = React.useMemo(() => {
+    if (!showPresets) return [];
+    return [
+      { label: 'Today', value: today },
+      { label: 'Tomorrow', value: addDays(today, 1) },
+      { label: 'This weekend', value: getThisWeekend(today) },
+      { label: 'Next week', value: nextWeekday(today, 1) },
+    ];
+  }, [showPresets, today]);
 
   const parsedQueryDate = React.useMemo(() => {
     const trimmed = query.trim();
@@ -196,22 +204,24 @@ export function SmartDatePickerPopover({
               <CommandEmpty>No date found</CommandEmpty>
             ) : null}
 
-            <CommandGroup heading="Presets">
-              {presets.map((preset) => (
-                <CommandItem
-                  key={preset.label}
-                  value={`${preset.label} ${formatDateOption(preset.value)}`}
-                  disabled={!isDateAllowed(preset.value, minDate, maxDate)}
-                  onSelect={() => selectDate(preset.value)}
-                  className="gap-2"
-                >
-                  <span className="font-medium">{preset.label}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {formatDateOption(preset.value)}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {presets.length > 0 ? (
+              <CommandGroup heading="Presets">
+                {presets.map((preset) => (
+                  <CommandItem
+                    key={preset.label}
+                    value={`${preset.label} ${formatDateOption(preset.value)}`}
+                    disabled={!isDateAllowed(preset.value, minDate, maxDate)}
+                    onSelect={() => selectDate(preset.value)}
+                    className="gap-2"
+                  >
+                    <span className="font-medium">{preset.label}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {formatDateOption(preset.value)}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
 
             <CommandGroup>
               <CommandItem value="clear no date" onSelect={() => selectDate(null)}>
@@ -308,6 +318,7 @@ export function SmartDatePickerField({
   stopPropagation = false,
   minDate,
   maxDate,
+  showPresets = true,
 }: SmartDatePickerFieldProps) {
   const formattedDate = value ? formatPillDisplayDate(value) : null;
 
@@ -330,6 +341,7 @@ export function SmartDatePickerField({
       stopPropagation={stopPropagation}
       minDate={minDate}
       maxDate={maxDate}
+      showPresets={showPresets}
     >
       <button
         type="button"

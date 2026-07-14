@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import { CalendarDays, ChevronLeft, Clock3, Target } from "lucide-react";
+import {
+  SearchableSelect,
+  SmartDatePickerField,
+  Switch,
+} from "@altitutor/ui";
+import { CalendarDays, Clock3, Target } from "lucide-react";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import type {
   StudyPlanAvailability,
@@ -12,56 +17,92 @@ import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
-const WEEKDAYS: Array<{ value: StudyPlanWeekday; short: string; label: string }> = [
-  { value: 1, short: "Mon", label: "Monday" },
-  { value: 2, short: "Tue", label: "Tuesday" },
-  { value: 3, short: "Wed", label: "Wednesday" },
-  { value: 4, short: "Thu", label: "Thursday" },
-  { value: 5, short: "Fri", label: "Friday" },
-  { value: 6, short: "Sat", label: "Saturday" },
-  { value: 0, short: "Sun", label: "Sunday" },
+const WEEKDAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 0, label: "Sunday" },
 ];
+
+const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
+  { weekday: 1, maxMinutes: 60 },
+  { weekday: 3, maxMinutes: 60 },
+  { weekday: 5, maxMinutes: 60 },
+  { weekday: 6, maxMinutes: 120 },
+];
+
+type YearOption = { year: number };
+type WeekdayOption = (typeof WEEKDAYS)[number];
 
 type StudyPlanStepProps = {
   onComplete: () => void;
-  onBack: () => void;
 };
+
+function defaultMinutesForDay(day: StudyPlanWeekday): number {
+  return day === 0 || day === 6 ? 120 : 60;
+}
 
 export function SignupCompleteStudyPlanStep({
   onComplete,
-  onBack,
 }: StudyPlanStepProps) {
   const currentYear = new Date().getFullYear();
+  const yearOptions = useMemo<YearOption[]>(
+    () =>
+      [currentYear, currentYear + 1, currentYear + 2].map((year) => ({ year })),
+    [currentYear],
+  );
   const [targetScore, setTargetScore] = useState(2100);
   const [testYear, setTestYear] = useState(currentYear);
   const [knowsTestDate, setKnowsTestDate] = useState(false);
-  const [testDate, setTestDate] = useState("");
-  const [availability, setAvailability] = useState<StudyPlanAvailability[]>([
-    { weekday: 1, maxMinutes: 60 },
-    { weekday: 3, maxMinutes: 60 },
-    { weekday: 6, maxMinutes: 120 },
-  ]);
+  const [testDate, setTestDate] = useState<string | null>(null);
+  const [availability, setAvailability] =
+    useState<StudyPlanAvailability[]>(DEFAULT_AVAILABILITY);
   const [preferredMockWeekday, setPreferredMockWeekday] =
     useState<StudyPlanWeekday>(6);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedWeekdays = useMemo(
-    () => new Set(availability.map((day) => day.weekday)),
-    [availability],
+  const availabilityByDay = useMemo(() => {
+    const map = new Map<StudyPlanWeekday, StudyPlanAvailability>();
+    for (const day of availability) map.set(day.weekday, day);
+    return map;
+  }, [availability]);
+
+  const mockDayOptions = useMemo(
+    () => WEEKDAYS.filter((day) => availabilityByDay.has(day.value)),
+    [availabilityByDay],
   );
 
-  function toggleDay(day: StudyPlanWeekday) {
+  const selectedYear =
+    yearOptions.find((option) => option.year === testYear) ?? yearOptions[0] ?? null;
+  const selectedMockDay =
+    mockDayOptions.find((day) => day.value === preferredMockWeekday) ??
+    mockDayOptions[0] ??
+    null;
+
+  function setDayEnabled(day: StudyPlanWeekday, enabled: boolean) {
     setAvailability((current) => {
-      if (current.some((item) => item.weekday === day)) {
-        const next = current.filter((item) => item.weekday !== day);
-        if (preferredMockWeekday === day && next[0]) {
-          setPreferredMockWeekday(next[0].weekday);
-        }
-        return next;
+      if (enabled) {
+        if (current.some((item) => item.weekday === day)) return current;
+        return [...current, { weekday: day, maxMinutes: defaultMinutesForDay(day) }];
       }
-      return [...current, { weekday: day, maxMinutes: day === 0 || day === 6 ? 120 : 60 }];
+      const next = current.filter((item) => item.weekday !== day);
+      if (preferredMockWeekday === day && next[0]) {
+        setPreferredMockWeekday(next[0].weekday);
+      }
+      return next;
     });
+  }
+
+  function setDayMinutes(day: StudyPlanWeekday, maxMinutes: number) {
+    setAvailability((current) =>
+      current.map((item) =>
+        item.weekday === day ? { ...item, maxMinutes } : item,
+      ),
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -92,17 +133,24 @@ export function SignupCompleteStudyPlanStep({
   }
 
   const fieldClass = `w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none transition-[border-color,box-shadow] focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`;
+  const selectTriggerClass = cn(
+    fieldClass,
+    "h-auto justify-between font-normal hover:bg-white/10 [&_svg]:text-marketing-cream/50",
+  );
+
+  const cardClass =
+    "space-y-4 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 backdrop-blur-sm sm:p-6";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur-sm sm:p-8">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-4 rounded-2xl bg-black/10 p-5 ring-1 ring-white/5">
+        <section className={cardClass}>
           <div className="flex items-center gap-2 text-marketing-cream">
             <Target className="h-4 w-4 text-marketing-accent" aria-hidden />
             <h2 className={`font-semibold ${typo.headingSans}`}>Your goal</h2>
           </div>
           <label className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
-            <span>Target cognitive score</span>
+            <span>Target score</span>
             <input
               type="number"
               min={900}
@@ -114,9 +162,6 @@ export function SignupCompleteStudyPlanStep({
               disabled={isSubmitting}
               className={fieldClass}
             />
-            <span className="block text-xs text-marketing-cream/40">
-              We will adapt the VR, DM and QR balance for you. SJT is planned separately.
-            </span>
           </label>
 
           <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
@@ -144,108 +189,127 @@ export function SignupCompleteStudyPlanStep({
           </div>
 
           {knowsTestDate ? (
-            <label className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
-              <span>UCAT test date</span>
-              <input
-                type="date"
-                required
+            <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+              <span className="block">UCAT test date</span>
+              <SmartDatePickerField
                 value={testDate}
-                min={`${testYear}-01-01`}
-                max={`${testYear}-12-31`}
-                onChange={(event) => {
-                  setTestDate(event.target.value);
-                  if (event.target.value) setTestYear(Number(event.target.value.slice(0, 4)));
+                onChange={(value) => {
+                  setTestDate(value);
+                  if (value) setTestYear(Number(value.slice(0, 4)));
                 }}
-                className={fieldClass}
+                placeholder="Type or pick a date"
+                showPresets={false}
+                className={cn(
+                  selectTriggerClass,
+                  "hover:bg-white/10 dark:hover:bg-white/10 dark:hover:text-marketing-cream",
+                )}
               />
-            </label>
+            </div>
           ) : (
-            <label className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
-              <span>UCAT year</span>
-              <select
-                value={testYear}
-                onChange={(event) => setTestYear(Number(event.target.value))}
-                className={fieldClass}
-              >
-                {[currentYear, currentYear + 1, currentYear + 2].map((year) => (
-                  <option key={year} value={year} className="bg-marketing-charcoal">{year}</option>
-                ))}
-              </select>
+            <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+              <span className="block">UCAT year</span>
+              <SearchableSelect<YearOption>
+                items={yearOptions}
+                value={selectedYear}
+                onValueChange={(option) => {
+                  if (option) setTestYear(option.year);
+                }}
+                getItemLabel={(item) => String(item.year)}
+                getItemId={(item) => String(item.year)}
+                placeholder="Select year"
+                searchPlaceholder="Search years…"
+                emptyMessage="No matching year."
+                disabled={isSubmitting}
+                triggerClassName={selectTriggerClass}
+                contentWidth="var(--radix-popover-trigger-width)"
+              />
               <span className="block text-xs text-marketing-cream/40">
-                We will use the middle of that year’s testing window until bookings open. You can add the real date later.
+                You can add the real date later.
               </span>
-            </label>
+            </div>
           )}
         </section>
 
-        <section className="space-y-4 rounded-2xl bg-black/10 p-5 ring-1 ring-white/5">
+        <section className={cardClass}>
           <div className="flex items-center gap-2 text-marketing-cream">
             <Clock3 className="h-4 w-4 text-marketing-accent" aria-hidden />
             <h2 className={`font-semibold ${typo.headingSans}`}>Your availability</h2>
           </div>
           <p className={`text-sm text-marketing-cream/50 ${typo.secondarySans}`}>
-            These are ceilings. Early plans may use less time, then ramp up as your test approaches.
+            This is the maximum time you would like to dedicate to study, not necessarily the time we will allocate for you every week.
           </p>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-            {WEEKDAYS.map((day) => (
-              <button
-                key={day.value}
-                type="button"
-                aria-pressed={selectedWeekdays.has(day.value)}
-                onClick={() => toggleDay(day.value)}
-                className={cn(
-                  "rounded-xl px-2 py-2.5 text-xs font-semibold ring-1 transition-colors",
-                  selectedWeekdays.has(day.value)
-                    ? "bg-marketing-accent text-marketing-charcoal ring-marketing-accent"
-                    : "bg-white/5 text-marketing-cream/50 ring-white/10 hover:bg-white/10",
-                )}
-              >
-                {day.short}
-              </button>
-            ))}
-          </div>
           <div className="space-y-2">
-            {availability
-              .slice()
-              .sort((a, b) => WEEKDAYS.findIndex((day) => day.value === a.weekday) - WEEKDAYS.findIndex((day) => day.value === b.weekday))
-              .map((available) => (
-                <label key={available.weekday} className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3">
-                  <span className={`text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
-                    {WEEKDAYS.find((day) => day.value === available.weekday)?.label}
-                  </span>
-                  <span className="flex items-center gap-2">
+            {WEEKDAYS.map((day) => {
+              const enabled = availabilityByDay.get(day.value);
+              const isOn = Boolean(enabled);
+              return (
+                <div
+                  key={day.value}
+                  className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Switch
+                      checked={isOn}
+                      disabled={isSubmitting}
+                      onCheckedChange={(checked) => setDayEnabled(day.value, checked)}
+                      className="data-[state=checked]:bg-marketing-accent data-[state=unchecked]:bg-white/20"
+                    />
+                    <span className={`text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+                      {day.label}
+                    </span>
+                  </div>
+                  <span
+                    className={cn(
+                      "flex items-center gap-2",
+                      !isOn && "invisible pointer-events-none",
+                    )}
+                    aria-hidden={!isOn}
+                  >
                     <input
                       type="number"
                       min={15}
                       max={360}
                       step={15}
-                      value={available.maxMinutes}
-                      onChange={(event) => setAvailability((current) => current.map((item) =>
-                        item.weekday === available.weekday
-                          ? { ...item, maxMinutes: Number(event.target.value) }
-                          : item,
-                      ))}
+                      tabIndex={isOn ? 0 : -1}
+                      value={enabled?.maxMinutes ?? defaultMinutesForDay(day.value)}
+                      disabled={isSubmitting || !isOn}
+                      onChange={(event) =>
+                        setDayMinutes(day.value, Number(event.target.value))
+                      }
                       className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-right text-sm text-marketing-cream outline-none focus:border-marketing-accent/50"
                     />
                     <span className="text-xs text-marketing-cream/40">min max</span>
                   </span>
-                </label>
-              ))}
+                </div>
+              );
+            })}
           </div>
-          {availability.length ? (
-            <label className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
-              <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Best mock day</span>
-              <select
-                value={preferredMockWeekday}
-                onChange={(event) => setPreferredMockWeekday(Number(event.target.value) as StudyPlanWeekday)}
-                className={fieldClass}
-              >
-                {WEEKDAYS.filter((day) => selectedWeekdays.has(day.value)).map((day) => (
-                  <option key={day.value} value={day.value} className="bg-marketing-charcoal">{day.label}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <div
+            className={cn(
+              `space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`,
+              !mockDayOptions.length && "invisible pointer-events-none",
+            )}
+            aria-hidden={!mockDayOptions.length}
+          >
+            <span className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Best mock day
+            </span>
+            <SearchableSelect<WeekdayOption>
+              items={mockDayOptions.length ? mockDayOptions : WEEKDAYS}
+              value={selectedMockDay}
+              onValueChange={(option) => {
+                if (option) setPreferredMockWeekday(option.value);
+              }}
+              getItemLabel={(item) => item.label}
+              getItemId={(item) => String(item.value)}
+              placeholder="Select day"
+              searchPlaceholder="Search days…"
+              emptyMessage="No matching day."
+              disabled={isSubmitting || !mockDayOptions.length}
+              triggerClassName={selectTriggerClass}
+              contentWidth="var(--radix-popover-trigger-width)"
+            />
+          </div>
         </section>
       </div>
 
@@ -253,27 +317,17 @@ export function SignupCompleteStudyPlanStep({
         <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>{error}</p>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row-reverse">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className={cn(
-            UCAT_ACCENT_FILL_RISE,
-            "rounded-full bg-marketing-accent px-8 py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1",
-            typo.headingSans,
-          )}
-        >
-          {isSubmitting ? "Building your plan…" : "Create my Study plan"}
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={isSubmitting}
-          className={`inline-flex items-center justify-center gap-1 rounded-full px-6 py-3 text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden /> Back
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className={cn(
+          UCAT_ACCENT_FILL_RISE,
+          "w-full rounded-full bg-marketing-accent px-8 py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50",
+          typo.headingSans,
+        )}
+      >
+        {isSubmitting ? "Building your plan…" : "Create my Study plan"}
+      </button>
     </form>
   );
 }

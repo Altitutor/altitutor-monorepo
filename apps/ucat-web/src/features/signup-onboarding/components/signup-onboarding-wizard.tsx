@@ -408,7 +408,6 @@ export function SignupOnboardingWizard({
               {step === SIGNUP_STEP.STUDY_PLAN ? (
                 <SignupCompleteStudyPlanStep
                   onComplete={() => void handleStudyPlanComplete()}
-                  onBack={() => goToStep(SIGNUP_STEP.PASSWORD, -1)}
                 />
               ) : null}
 
