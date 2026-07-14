@@ -58,6 +58,7 @@ export async function GET() {
   const resolved = await resolveStudentId();
   if ("response" in resolved) return resolved.response;
 
+  await supabaseAdmin!.rpc("expire_ucat_referral_gifts");
   const now = new Date().toISOString();
   const [{ data, error }, { count, error: countError }] = await Promise.all([
     supabaseAdmin!

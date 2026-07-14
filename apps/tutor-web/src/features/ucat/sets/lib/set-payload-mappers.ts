@@ -1,6 +1,5 @@
 import type { Json } from '@altitutor/shared'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type SetDetailLike = {
@@ -27,25 +26,4 @@ export function setDetailToUpdatePayload(
     accessScope: overrides?.accessScope ?? detail.access_scope ?? 'public',
     stemIds: overrides?.stemIds ?? parseSetStemIds(detail.stems),
   }
-}
-
-export async function removeStemsFromSets(
-  stemIds: string[],
-  setIds: string[],
-  updateSet: (args: { setId: string; payload: UcatQuestionSetPayload }) => Promise<unknown>,
-): Promise<void> {
-  const removeSet = new Set(stemIds)
-  await Promise.all(
-    setIds.map(async (setId) => {
-      const setDetail = await ucatSetsApi.detail(setId)
-      if (!setDetail) return
-      const currentIds = parseSetStemIds(setDetail.stems)
-      const newStemIds = currentIds.filter((id) => !removeSet.has(id))
-      if (newStemIds.length === currentIds.length) return
-      await updateSet({
-        setId,
-        payload: setDetailToUpdatePayload(setDetail, { stemIds: newStemIds }),
-      })
-    }),
-  )
 }

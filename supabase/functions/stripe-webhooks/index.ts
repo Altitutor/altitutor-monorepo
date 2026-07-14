@@ -1288,7 +1288,14 @@ Deno.serve(async (req: Request) => {
               );
             }
 
-            if (subscription.status === "trialing" && customerId) {
+            const referralGiftKind =
+              session.metadata?.ucat_referral_gift_kind ??
+              subscription.metadata?.ucat_referral_gift_kind;
+            const referralGiftId =
+              session.metadata?.ucat_referral_gift_id ??
+              subscription.metadata?.ucat_referral_gift_id;
+
+            if (referralGiftKind === "recipient" && customerId) {
               const defaultPaymentMethod = subscription.default_payment_method;
               const paymentMethodId =
                 typeof defaultPaymentMethod === "string"
@@ -1309,11 +1316,43 @@ Deno.serve(async (req: Request) => {
                 currentFingerprint: fingerprint,
               });
               console.log(
-                "[webhook] UCAT paid referral result",
+                "[webhook] UCAT referral gift result",
                 referralResult,
                 "for student",
                 studentId,
               );
+              if (referralResult === "rejected") {
+                await stripe.subscriptions.cancel(subscription.id, {
+                  prorate: false,
+                });
+              }
+            } else if (
+              referralGiftKind === "earned_referrer" &&
+              referralGiftId
+            ) {
+              const now = new Date().toISOString();
+              const { error: giftUseError } = await supabase
+                .from("ucat_referral_access_gifts")
+                .update({
+                  status: "used",
+                  stripe_checkout_session_id: session.id,
+                  stripe_subscription_id: subscription.id,
+                  used_at: now,
+                  updated_at: now,
+                })
+                .eq("id", referralGiftId)
+                .eq("student_id", studentId)
+                .eq("status", "checkout_pending");
+              if (giftUseError) throw giftUseError;
+
+              await supabase
+                .from("notifications")
+                .update({ resolved_at: now, updated_at: now })
+                .eq(
+                  "dedupe_key",
+                  `ucat:referral:access-gift:${referralGiftId}`,
+                )
+                .is("resolved_at", null);
             }
             console.log(
               "[webhook] UCAT subscription provisioned for student",
@@ -1321,7 +1360,9 @@ Deno.serve(async (req: Request) => {
             );
             const rawContext = session.metadata?.ucat_checkout_context;
             const journeyContext =
-              rawContext === "signup_onboarding" ||
+              rawContext === "referral_gift"
+                ? "subscribe"
+                : rawContext === "signup_onboarding" ||
               rawContext === "practice_session" ||
               rawContext === "subscribe"
                 ? rawContext
@@ -1332,7 +1373,7 @@ Deno.serve(async (req: Request) => {
               journey_context: journeyContext,
               plan_tier: planFields.plan_tier,
               billing_interval: planFields.billing_interval,
-              trial_eligible: subscription.status === "trialing",
+              trial_eligible: false,
               stripe_checkout_session_id: session.id,
             });
           }

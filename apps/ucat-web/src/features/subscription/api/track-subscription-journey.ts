@@ -4,6 +4,7 @@ export type SubscriptionJourneyContext =
   | "signup_onboarding"
   | "subscribe"
   | "practice_session"
+  | "referral_gift"
   | "quota_paywall"
   | "subscription_settings";
 

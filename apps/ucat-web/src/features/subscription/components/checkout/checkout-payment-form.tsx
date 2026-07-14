@@ -12,7 +12,11 @@ import type { UcatBillingInterval, UcatPaidPlanTier } from "@altitutor/shared";
 type CheckoutPaymentFormProps = {
   tier: UcatPaidPlanTier;
   interval: UcatBillingInterval;
-  context: "signup_onboarding" | "subscribe" | "practice_session";
+  context:
+    | "signup_onboarding"
+    | "subscribe"
+    | "practice_session"
+    | "referral_gift";
   checkoutSessionId: string | null;
   onSubmittingChange?: (submitting: boolean) => void;
 };

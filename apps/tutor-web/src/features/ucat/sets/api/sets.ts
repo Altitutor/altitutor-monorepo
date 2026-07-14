@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
+import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatSetsApi = {
   async list() {
@@ -56,14 +57,17 @@ export const ucatSetsApi = {
   },
 
   async setStatus(setId: string, status: UcatContentStatus) {
-    const response = await fetch(`/api/ucat/question-sets/${setId}/status`, {
+    return this.bulkSetStatus([setId], status)
+  },
+
+  async bulkSetStatus(setIds: string[], status: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ contentType: 'set', contentIds: setIds, status }),
     })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update set status')
+      await throwUcatLifecycleResponseError(response, 'Failed to update set status')
     }
   },
 

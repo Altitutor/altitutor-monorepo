@@ -5,10 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarCheck,
   Check,
   LockKeyhole,
-  Mail,
   Sparkles,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -48,13 +46,18 @@ const PRO_FEATURES = [
   "On-demand help from Altitutor tutors",
 ] as const;
 
-type JourneyContext = "signup_onboarding" | "subscribe" | "practice_session";
+type JourneyContext =
+  | "signup_onboarding"
+  | "subscribe"
+  | "practice_session"
+  | "referral_gift";
 
 function isJourneyContext(value: string | null): value is JourneyContext {
   return (
     value === "signup_onboarding" ||
     value === "subscribe" ||
-    value === "practice_session"
+    value === "practice_session" ||
+    value === "referral_gift"
   );
 }
 
@@ -90,6 +93,7 @@ export function CheckoutPage() {
   const tierParam = searchParams.get("tier");
   const intervalParam = searchParams.get("interval");
   const contextParam = searchParams.get("context");
+  const referralGiftId = searchParams.get("gift") ?? undefined;
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
   const interval = isUcatBillingInterval(intervalParam) ? intervalParam : null;
   const context = isJourneyContext(contextParam) ? contextParam : "subscribe";
@@ -103,10 +107,7 @@ export function CheckoutPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
-  const [sessionTrial, setSessionTrial] = useState({
-    eligible: false,
-    days: 0,
-  });
+  const [referralGiftApplied, setReferralGiftApplied] = useState(false);
   const sessionStartedRef = useRef(false);
 
   useEffect(() => {
@@ -116,14 +117,16 @@ export function CheckoutPage() {
     }
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
-    void createUcatCheckoutSession({ tier, interval, returnContext: context })
+    void createUcatCheckoutSession({
+      tier,
+      interval,
+      returnContext: context,
+      referralGiftId,
+    })
       .then((session) => {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
-        setSessionTrial({
-          eligible: session.trialEligible,
-          days: session.trialDays,
-        });
+        setReferralGiftApplied(session.referralGiftApplied);
       })
       .catch((error: unknown) => {
         setCheckoutError(
@@ -132,7 +135,7 @@ export function CheckoutPage() {
             : "Checkout could not be loaded",
         );
       });
-  }, [context, interval, router, tier]);
+  }, [context, interval, referralGiftId, router, tier]);
 
   if (!tier || !interval) {
     return null;
@@ -150,12 +153,6 @@ export function CheckoutPage() {
           discount.maxDiscountsPerPeriod,
         )
       : null;
-  const trialEligible = sessionTrial.eligible && sessionTrial.days > 0;
-  const trialDays = sessionTrial.days;
-  const trialEnd = new Date();
-  trialEnd.setDate(trialEnd.getDate() + trialDays);
-  const reminderDate = new Date();
-  reminderDate.setDate(reminderDate.getDate() + Math.max(1, trialDays - 3));
   const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
 
   return (
@@ -336,7 +333,7 @@ export function CheckoutPage() {
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Due today</span>
                   <span className="font-semibold">
-                    {trialEligible
+                    {referralGiftApplied
                       ? formatMoneyFromMinorUnits(0, config.currency)
                       : formatMoneyFromMinorUnits(
                           pricing.standardPeriodCents,
@@ -347,92 +344,23 @@ export function CheckoutPage() {
               </div>
             ) : null}
 
-            {trialEligible ? (
-              <div className="mt-6">
-                <p className="text-lg font-semibold">
-                  Your {trialDays}-day trial
-                </p>
-                <ol className="mt-4 space-y-3 text-sm">
-                  <li>
-                    <div className="rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                            <Sparkles className="h-4 w-4" aria-hidden="true" />
-                          </span>
-                          <p className="font-semibold">Access unlocked</p>
-                        </div>
-                        <span className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-primary">
-                          Today
-                        </span>
-                      </div>
-                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                        Get full access to the entire UCAT system — including
-                        unlimited questions, sets and mocks. Start earning
-                        discounts towards your first bill from today.
-                      </p>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-                            <Mail className="h-4 w-4" aria-hidden="true" />
-                          </span>
-                          <p className="font-semibold">Reminder emailed</p>
-                        </div>
-                        <time
-                          dateTime={reminderDate.toISOString()}
-                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
-                        >
-                          {reminderDate.toLocaleDateString("en-AU", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </time>
-                      </div>
-                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                        We’ll remind you that you’ll be charged at the end of
-                        your free trial.
-                      </p>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-                            <CalendarCheck
-                              className="h-4 w-4"
-                              aria-hidden="true"
-                            />
-                          </span>
-                          <p className="font-semibold">Paid plan begins</p>
-                        </div>
-                        <time
-                          dateTime={trialEnd.toISOString()}
-                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
-                        >
-                          {trialEnd.toLocaleDateString("en-AU", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </time>
-                      </div>
-                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                        You’ll be charged the {intervalNoun(interval)}ly price,
-                        minus any discount you earned during the trial.
-                      </p>
-                    </div>
-                  </li>
-                </ol>
-                {tier === "pro" ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Pro workshops, tutor help, and performance reviews begin
-                    with the paid subscription.
-                  </p>
-                ) : null}
+            {referralGiftApplied ? (
+              <div className="mt-6 rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="font-semibold">
+                      Your first {intervalNoun(interval)} is free
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Your UCAT Unlimited subscription starts now. Unless you
+                      cancel, normal {intervalNoun(interval)}ly billing begins
+                      after the gifted period.
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -455,8 +383,8 @@ export function CheckoutPage() {
             >
               {checkoutSubmitting
                 ? "Confirming…"
-                : trialEligible
-                  ? `Start my ${trialDays}-day trial`
+                : referralGiftApplied
+                  ? `Start my free ${intervalNoun(interval)}`
                   : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
               {!checkoutSubmitting ? (
                 <ArrowRight className="ml-2 h-4 w-4" />

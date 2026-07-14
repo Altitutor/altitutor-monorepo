@@ -149,16 +149,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const formatMoney = (cents: number) =>
     formatMoneyFromMinorUnits(cents, cfg.currency, { omitAudPrefix });
 
-  const unlimitedTrialEligible = access.unlimitedTrialEligible;
-  const trialCta =
-    options.checkoutReturnContext === "signup_onboarding"
-      ? "Start free trial"
-      : unlimitedTrialEligible
-        ? "Free trial"
-        : "Subscribe";
-  const trialHint = unlimitedTrialEligible
-    ? `${cfg.trialDays}-day trial — you won't be charged until day ${cfg.trialDays + 1}`
-    : "Subscribe for unlimited access";
+  const paidCta = "Subscribe";
 
   const subscription = billingData?.subscription ?? null;
   const subscribedPlanTier = subscription?.plan_tier ?? null;
@@ -510,8 +501,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       : "UCAT Unlimited",
     confirmUpgradeToPro,
     omitAudPrefix,
-    trialCta,
-    trialHint,
+    paidCta,
     unlimitedPricing,
     proPricing,
     unlimitedAvailable,
@@ -519,7 +509,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     unlimitedTierOffered,
     proTierOffered,
     practiceDiscount,
-    unlimitedTrialEligible,
     formatMoney,
     billedAt,
     onlineFeatures: ONLINE_FEATURES,

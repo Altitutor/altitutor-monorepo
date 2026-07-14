@@ -11,6 +11,12 @@ export type RichTextJson = Json
 export type UcatContentStatus = 'draft' | 'in_review' | 'published'
 export type UcatAccessScope = 'public' | 'private'
 
+export const UCAT_CONTENT_STATUS_OPTIONS: Array<{ value: UcatContentStatus; label: string }> = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'published', label: 'Published' },
+]
+
 export type UcatPublicationIssue = {
   code: string
   message: string

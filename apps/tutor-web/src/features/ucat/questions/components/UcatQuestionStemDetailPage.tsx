@@ -5,7 +5,9 @@ import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button } from '@altitutor/ui'
+import { Button, useToast } from '@altitutor/ui'
+import { useRouter } from 'next/navigation'
+import { CheckCircle2, FilePenLine, ListChecks, Send } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import type { UcatContentStatus } from '@/features/ucat/shared/types'
@@ -28,12 +30,15 @@ import {
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
 }
 
 export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPageProps) {
+  const router = useRouter()
+  const { toast } = useToast()
   const access = useUcatAccess()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
@@ -88,8 +93,14 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
   }
 
   async function handleSetStatus(status: UcatContentStatus) {
+    const previousStatus = form.getValues('status')
     form.setValue('status', status, { shouldDirty: true })
-    await onSubmit({ ...form.getValues(), status: status })
+    try {
+      await onSubmit({ ...form.getValues(), status })
+    } catch (error) {
+      form.setValue('status', previousStatus, { shouldDirty: true })
+      toast(lifecycleErrorToast(error, 'Cannot change question status', router.push))
+    }
   }
 
   if (isLoading) return <UcatPageSkeleton rows={6} />
@@ -114,6 +125,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
                   onClick={() => void handleSetStatus('draft')}
                   disabled={statusMutation.isPending}
                 >
+                  <FilePenLine className="mr-2 h-4 w-4" />
                   Move to draft
                 </Button>
             ) : null}
@@ -123,6 +135,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
                   onClick={() => void handleSetStatus('in_review')}
                   disabled={statusMutation.isPending}
                 >
+                  <ListChecks className="mr-2 h-4 w-4" />
                   Move to review
                 </Button>
             ) : null}
@@ -132,6 +145,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
                 onClick={() => void handleSetStatus('in_review')}
                 disabled={statusMutation.isPending}
               >
+                <Send className="mr-2 h-4 w-4" />
                 Send for review
               </Button>
             ) : null}
@@ -140,6 +154,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
                   onClick={() => void handleSetStatus('published')}
                   disabled={statusMutation.isPending}
                 >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
                   Publish
                 </Button>
             ) : null}

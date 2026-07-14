@@ -16,6 +16,15 @@ export async function captureUcatReferral(
 ): Promise<void> {
   if (!supabaseAdmin || !referralCode) return;
 
+  const { data: existingSubscription } = await supabaseAdmin
+    .from("student_subscriptions")
+    .select("id")
+    .eq("student_id", referredStudentId)
+    .in("status", ["trialing", "active", "past_due"])
+    .limit(1)
+    .maybeSingle();
+  if (existingSubscription) return;
+
   const { data: codeRow, error: codeError } = await supabaseAdmin
     .from("ucat_referral_codes")
     .select("id, student_id")
@@ -32,6 +41,8 @@ export async function captureUcatReferral(
     referral_code_id: codeRow.id,
     referrer_student_id: codeRow.student_id,
     referred_student_id: referredStudentId,
+    // The insert trigger replaces this with its authoritative seven-day value.
+    gift_expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
   });
 
   // A student can be attributed once. Replaying signup completion is harmless.

@@ -28,7 +28,6 @@ export function SubscribePage() {
   const { data: cfg = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
 
-  const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
     access.onlineTier === "free" && !access.isLoading && access.signupCompleted;
   const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
@@ -76,9 +75,6 @@ export function SubscribePage() {
           >
             Start with UCAT Free, or unlock unlimited online access with UCAT
             Unlimited and UCAT Pro.
-            {unlimitedTrialEligible
-              ? ` Try Unlimited free for ${cfg.trialDays} days.`
-              : null}
           </p>
 
           <div

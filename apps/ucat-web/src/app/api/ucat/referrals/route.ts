@@ -40,7 +40,12 @@ export async function GET() {
     );
   }
 
-  const [{ data: codeRow }, { data: referrals }, { data: rewards }] =
+  const [
+    { data: codeRow },
+    { data: referrals },
+    { data: billRewards },
+    { data: accessGifts },
+  ] =
     await Promise.all([
       supabaseAdmin
         .from("ucat_referral_codes")
@@ -49,10 +54,14 @@ export async function GET() {
         .single(),
       supabaseAdmin
         .from("ucat_referrals")
-        .select("free_qualified_at, paid_qualified_at, rejected_at")
+        .select("gift_status")
         .eq("referrer_student_id", studentId),
       supabaseAdmin
         .from("ucat_referral_bill_rewards")
+        .select("status")
+        .eq("student_id", studentId),
+      supabaseAdmin
+        .from("ucat_referral_access_gifts")
         .select("status")
         .eq("student_id", studentId),
     ]);
@@ -64,19 +73,28 @@ export async function GET() {
     );
   }
 
-  const validReferrals = (referrals ?? []).filter((row) => !row.rejected_at);
   return NextResponse.json({
     code: codeRow.code,
     stats: {
-      signups: validReferrals.length,
-      freeQualified: validReferrals.filter((row) => row.free_qualified_at)
-        .length,
-      paidQualified: validReferrals.filter((row) => row.paid_qualified_at)
-        .length,
-      queuedFreeBills: (rewards ?? []).filter(
+      friendsJoined: referrals?.length ?? 0,
+      giftsAccepted: (referrals ?? []).filter(
+        (row) => row.gift_status === "accepted",
+      ).length,
+      giftsPending: (referrals ?? []).filter(
+        (row) =>
+          row.gift_status === "pending" ||
+          row.gift_status === "checkout_pending",
+      ).length,
+      availableFreePeriods: (accessGifts ?? []).filter(
+        (row) => row.status === "available" || row.status === "checkout_pending",
+      ).length,
+      usedFreePeriods: (accessGifts ?? []).filter(
+        (row) => row.status === "used",
+      ).length,
+      queuedFreeBills: (billRewards ?? []).filter(
         (row) => row.status === "queued" || row.status === "applied",
       ).length,
-      redeemedFreeBills: (rewards ?? []).filter(
+      redeemedFreeBills: (billRewards ?? []).filter(
         (row) => row.status === "redeemed",
       ).length,
     },

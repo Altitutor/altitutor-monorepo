@@ -25,7 +25,7 @@ import {
   Textarea,
   useToast,
 } from '@altitutor/ui'
-import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { CheckCircle2, FilePenLine, ListChecks, Pencil, RotateCcw, Send, Trash2 } from 'lucide-react'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useSetUcatSetStatus, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
@@ -35,7 +35,7 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+import { UCAT_CONTENT_STATUS_OPTIONS, type UcatContentStatus, type UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -59,6 +59,7 @@ import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
+import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -128,6 +129,9 @@ export function UcatSetsPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
+  const [bulkStatusPending, setBulkStatusPending] = useState(false)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [mockFilterSearch, setMockFilterSearch] = useState('')
@@ -337,6 +341,29 @@ export function UcatSetsPage() {
     ])
   }
 
+  function changeSetStatus(setId: string, status: UcatContentStatus, title: string) {
+    void setStatus.mutateAsync({ setId, status }).catch((error) => {
+      toast(lifecycleErrorToast(error, title, router.push))
+    })
+  }
+
+  async function handleBulkStatusConfirm() {
+    if (!bulkStatus) return
+    const ids = Array.from(selectedSetIds)
+    setBulkStatusPending(true)
+    try {
+      await ucatSetsApi.bulkSetStatus(ids, bulkStatus)
+      await invalidateSetsListQueries(ids)
+      setBulkStatusOpen(false)
+      setBulkStatus(null)
+      clearSelection()
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Cannot move selected sets', router.push))
+    } finally {
+      setBulkStatusPending(false)
+    }
+  }
+
   function resetCreateForm() {
     setForm({
       name: '',
@@ -360,7 +387,7 @@ export function UcatSetsPage() {
     const count = setIds.length
     toast({
       title: count === 1 ? 'Set deleted' : `${count} sets deleted`,
-      description: 'Tap Undo to restore. Restored sets are not re-added to mocks they were removed from.',
+      description: 'Tap Undo to restore.',
       duration: 10_000,
       action: {
         label: 'Undo',
@@ -563,18 +590,18 @@ export function UcatSetsPage() {
                       actions={[
                         { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
                         ...(!showDeleted && r.status === 'draft'
-                          ? [{ label: 'Send for review', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot send for review', description: error instanceof Error ? error.message : 'The set is not ready for review.', variant: 'destructive' })) }]
+                          ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', 'Cannot send for review') }]
                           : []),
                         ...(!showDeleted && r.status === 'in_review'
                           ? [
-                              { label: 'Publish', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'published' }).catch((error) => toast({ title: 'Cannot publish', description: error instanceof Error ? error.message : 'The set has publication blockers.', variant: 'destructive' })) },
-                              { label: 'Return to draft', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'draft' }) },
+                              { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'published', 'Cannot publish') },
+                              { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', 'Cannot return to draft') },
                             ]
                           : []),
                         ...(!showDeleted && r.status === 'published'
                           ? [
-                              { label: 'Move to review', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot move set', description: error instanceof Error ? error.message : 'The set is still required by published content.', variant: 'destructive' })) },
-                              { label: 'Move to draft', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'draft' }).catch((error) => toast({ title: 'Cannot move set', description: error instanceof Error ? error.message : 'The set is still required by published content.', variant: 'destructive' })) },
+                              { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', 'Cannot move set') },
+                              { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', 'Cannot move set') },
                             ]
                           : []),
                         ...(showDeleted
@@ -643,6 +670,28 @@ export function UcatSetsPage() {
           align="start"
           side="top"
         />
+        <SearchableSelect<{ value: UcatContentStatus; label: string }>
+          items={UCAT_CONTENT_STATUS_OPTIONS}
+          value={null}
+          onValueChange={(item) => {
+            if (!item) return
+            setBulkStatus(item.value)
+            setBulkStatusOpen(true)
+          }}
+          getItemId={(item) => item.value}
+          getItemLabel={(item) => item.label}
+          placeholder="Status"
+          searchPlaceholder="Search statuses..."
+          emptyMessage="No status found"
+          trigger={
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
+              Status
+            </Button>
+          }
+          contentWidth="180px"
+          align="start"
+          side="top"
+        />
       </UcatSelectionToolbar>
 
       <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
@@ -661,13 +710,29 @@ export function UcatSetsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move {selectedSetIds.size} set(s) to {bulkStatus?.replace('_', ' ')}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The whole selection will be validated first. If any set is blocked, none of the statuses will change.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkStatusPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkStatusConfirm()} disabled={bulkStatusPending}>
+              {bulkStatusPending ? 'Moving...' : 'Move sets'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <UcatDeleteConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
         title={`Delete ${selectedSetIds.size} set(s)?`}
         description={
           bulkDeleteInMocksCount > 0
-            ? `${bulkDeleteInMocksCount} of the selected set(s) are in one or more mocks. They will be removed from all mocks before deletion. The sets will be hidden from students and can be restored later from the deleted list.`
+            ? `${bulkDeleteInMocksCount} of the selected set(s) are in one or more mocks. Remove them from those mocks before deleting. No mock membership will be changed automatically.`
             : 'The selected sets will be hidden from students. You can restore them later from the deleted list.'
         }
         onConfirm={handleBulkDeleteConfirm}
@@ -1010,7 +1075,7 @@ export function UcatSetsPage() {
         title="Delete set?"
         description={
           singleDeleteInMocksCount > 0
-            ? `This set is in ${singleDeleteInMocksCount} mock(s). It will be removed from all mocks before deletion. The set will be hidden from students. You can restore it later from the deleted list.`
+            ? `This set is in ${singleDeleteInMocksCount} mock(s). Remove it from those mocks before deleting. No mock membership will be changed automatically.`
             : 'The set will be hidden from students. You can restore it later from the deleted list.'
         }
         onConfirm={async () => {

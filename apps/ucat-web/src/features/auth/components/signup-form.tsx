@@ -185,7 +185,9 @@ export function SignupForm({
         if (checkData.exists) {
           const loginParams = new URLSearchParams({
             email: normalizedEmail,
-            redirect: redirectTo,
+            redirect: referralCode
+              ? `/signup?ref=${referralCode}`
+              : redirectTo,
             existing: "1",
           });
           router.push(`/login?${loginParams.toString()}`);

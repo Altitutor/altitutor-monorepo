@@ -159,6 +159,12 @@ export function NotificationTray() {
             <div className="divide-y divide-black/[0.05] dark:divide-white/[0.07]">
               {notifications.map((notification) => {
                 const unread = !notification.read_at;
+                const metadata = notification.metadata;
+                const actionRequired =
+                  metadata &&
+                  typeof metadata === "object" &&
+                  !Array.isArray(metadata) &&
+                  metadata.action_required === true;
                 return (
                   <div
                     key={notification.id}
@@ -206,6 +212,7 @@ export function NotificationTray() {
                         ) : null}
                         <span className="mt-1.5 block text-[11px] text-muted-foreground/80">
                           {relativeTime(notification.created_at)}
+                          {actionRequired ? " · Action required" : ""}
                         </span>
                       </span>
                     </button>

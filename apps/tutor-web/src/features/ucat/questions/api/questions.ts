@@ -10,6 +10,7 @@ import type {
 } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
+import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
 
 export type UcatGenerationDebugCall = {
   stemIndex: number
@@ -773,16 +774,18 @@ export const ucatQuestionsApi = {
   },
 
   async setStatus(stemId: string, status: UcatContentStatus) {
-    const response = await fetch(`/api/ucat/question-stems/${stemId}/status`, {
+    return this.bulkSetStatus([stemId], status)
+  },
+
+  async bulkSetStatus(stemIds: string[], status: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status }),
     })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update content status')
+      await throwUcatLifecycleResponseError(response, 'Failed to update question status')
     }
-    return response.json() as Promise<{ ok: true }>
   },
 }
 

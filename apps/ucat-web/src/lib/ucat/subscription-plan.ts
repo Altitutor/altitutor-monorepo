@@ -12,7 +12,13 @@ export type UcatCheckoutSelection = {
 
 export type UcatCheckoutRequest = UcatCheckoutSelection & {
   /** When set during signup onboarding, Stripe returns to /signup/complete. */
-  returnContext?: "signup_onboarding" | "subscribe" | "practice_session";
+  returnContext?:
+    | "signup_onboarding"
+    | "subscribe"
+    | "practice_session"
+    | "referral_gift";
+  /** A pending recipient gift or an earned Free-referrer access gift. */
+  referralGiftId?: string;
 };
 
 export function isUcatCheckoutSelection(
@@ -28,12 +34,17 @@ export function parseUcatCheckoutRequest(
 ): UcatCheckoutRequest | null {
   if (!isUcatCheckoutSelection(value)) return null;
   const v = value as UcatCheckoutRequest;
-  const ctx = (value as { returnContext?: unknown }).returnContext;
+  const raw = value as unknown as {
+    returnContext?: unknown;
+    referralGiftId?: unknown;
+  };
+  const ctx = raw.returnContext;
   if (
     ctx !== undefined &&
     ctx !== "signup_onboarding" &&
     ctx !== "subscribe" &&
-    ctx !== "practice_session"
+    ctx !== "practice_session" &&
+    ctx !== "referral_gift"
   ) {
     return null;
   }
@@ -41,9 +52,13 @@ export function parseUcatCheckoutRequest(
     tier: v.tier,
     interval: v.interval,
     returnContext:
-      ctx === "signup_onboarding" || ctx === "practice_session"
+      ctx === "signup_onboarding" ||
+      ctx === "practice_session" ||
+      ctx === "referral_gift"
         ? ctx
         : undefined,
+    referralGiftId:
+      typeof raw.referralGiftId === "string" ? raw.referralGiftId : undefined,
   };
 }
 

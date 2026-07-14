@@ -1,14 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Check,
   Copy,
   Gift,
   Link2,
-  Receipt,
   Share2,
   Sparkles,
   Users,
@@ -18,6 +17,8 @@ import {
   fetchUcatReferralSummary,
   type UcatReferralSummary,
 } from "@/features/subscription/api/referrals";
+import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
+import { ReferralGiftCard } from "@/features/subscription/components/referral-gift-card";
 import {
   UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
@@ -27,9 +28,14 @@ import { cn } from "@/lib/utils";
 
 export function ReferralSection() {
   const [copied, setCopied] = useState(false);
+  const queryClient = useQueryClient();
   const { data: summary, error } = useQuery<UcatReferralSummary>({
     queryKey: ["ucat-referrals"],
     queryFn: fetchUcatReferralSummary,
+  });
+  const giftQuery = useQuery({
+    queryKey: ["ucat-referral-gifts"],
+    queryFn: fetchReferralGifts,
   });
 
   const referralUrl = useMemo(() => {
@@ -87,6 +93,20 @@ export function ReferralSection() {
 
   return (
     <div className="space-y-6">
+      {giftQuery.data?.pendingGift ? (
+        <ReferralGiftCard
+          gift={giftQuery.data.pendingGift}
+          onRejected={async () => {
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: ["ucat-referral-gifts"],
+              }),
+              queryClient.invalidateQueries({ queryKey: ["ucat-referrals"] }),
+            ]);
+          }}
+        />
+      ) : null}
+
       <section
         className={cn(
           "rounded-ucatShell overflow-hidden",
@@ -106,15 +126,15 @@ export function ReferralSection() {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Refer friends
                   </p>
-                  <Badge variant="secondary">You both benefit</Badge>
+                  <Badge variant="secondary">Gift Unlimited</Badge>
                 </div>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Give one free bill. Get one free bill.
+                  Give a free week or month of UCAT Unlimited.
                 </h2>
                 <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground">
-                  Invite a friend to Altitutor. When they start an eligible UCAT
-                  Unlimited or Pro trial, both of you get your next subscription
-                  bill free.
+                  Your friend gets UCAT Unlimited free for the gifted period.
+                  When they accept, you earn Unlimited access if you’re on Free,
+                  or your next bill free if you’re already subscribed.
                 </p>
               </div>
             </div>
@@ -125,10 +145,10 @@ export function ReferralSection() {
               ["1", "Share your link", "Send your personal link to a friend."],
               [
                 "2",
-                "They start a trial",
-                "They join an eligible Unlimited or Pro trial.",
+                "They choose",
+                "They have 7 days to accept the Unlimited gift or continue Free.",
               ],
-              ["3", "You both save", "Each of you gets one free future bill."],
+              ["3", "You earn", "Your reward is based on your plan when you referred them."],
             ].map(([step, title, description]) => (
               <li
                 key={step}
@@ -211,9 +231,9 @@ export function ReferralSection() {
 
           <dl className="mt-6 grid gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 sm:grid-cols-3">
             {[
-              ["Friends joined", summary.stats.signups],
-              ["Free rewards earned", summary.stats.freeQualified],
-              ["Eligible trials", summary.stats.paidQualified],
+              ["Friends joined", summary.stats.friendsJoined],
+              ["Gifts accepted", summary.stats.giftsAccepted],
+              ["Awaiting decision", summary.stats.giftsPending],
             ].map(([label, value]) => (
               <div key={label} className="bg-background p-4">
                 <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
@@ -231,16 +251,21 @@ export function ReferralSection() {
               <p className="text-sm font-semibold">Available rewards</p>
             </div>
             <p className="mt-5 text-4xl font-semibold tabular-nums">
-              {summary.stats.queuedFreeBills}
+              {summary.stats.availableFreePeriods +
+                summary.stats.queuedFreeBills}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              free {summary.stats.queuedFreeBills === 1 ? "bill" : "bills"}{" "}
+              {summary.stats.availableFreePeriods +
+                summary.stats.queuedFreeBills ===
+              1
+                ? "reward"
+                : "rewards"}{" "}
               ready
             </p>
             <div className="mt-5 flex items-center justify-between border-t border-primary/15 pt-4 text-sm">
               <span className="text-muted-foreground">Already used</span>
               <span className="font-semibold tabular-nums">
-                {summary.stats.redeemedFreeBills}
+                {summary.stats.usedFreePeriods + summary.stats.redeemedFreeBills}
               </span>
             </div>
           </div>
@@ -248,28 +273,31 @@ export function ReferralSection() {
       </section>
 
       <section className={cn("rounded-ucatShell p-6", UCAT_SURFACE_CARD)}>
-        <h3 className="font-semibold">Two ways your link rewards you both</h3>
+        <h3 className="font-semibold">How your gift is decided</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="flex gap-3 rounded-2xl bg-muted/35 p-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </div>
             <div>
-              <p className="font-medium">When they sign up</p>
+              <p className="font-medium">If you’re on UCAT Free</p>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                You both receive a Free quota reset to use within 30 days.
+                You gift one free week of Unlimited. If they accept, you earn a
+                free week of Unlimited to start when you’re ready. If they say
+                no thanks, you both receive a Free quota reset.
               </p>
             </div>
           </div>
           <div className="flex gap-3 rounded-2xl bg-muted/35 p-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Receipt className="h-4 w-4" aria-hidden="true" />
+              <Gift className="h-4 w-4" aria-hidden="true" />
             </div>
             <div>
-              <p className="font-medium">When they start an eligible trial</p>
+              <p className="font-medium">If you’re already subscribed</p>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                You both earn a free future bill. Rewards wait safely if you are
-                currently on UCAT Free.
+                You gift a free week or month of Unlimited to match your billing
+                cadence. If they accept, your next bill is free. UCAT Pro itself
+                is never gifted.
               </p>
             </div>
           </div>

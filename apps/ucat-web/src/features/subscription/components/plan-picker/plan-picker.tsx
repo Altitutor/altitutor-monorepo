@@ -46,40 +46,15 @@ type PlanPickerProps = {
   layout?: "default" | "horizontal";
 };
 
-function TrialBadge({
-  trialDays,
-  featured = false,
-  surfaceTheme = "marketing",
-}: {
-  trialDays: number;
-  featured?: boolean;
-  surfaceTheme?: PlanPickerSurfaceTheme;
-}) {
-  if (trialDays <= 0) return null;
-  const surface = planPickerSurface(surfaceTheme);
-  return (
-    <span
-      className={cn(
-        `rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${typo.dataMono}`,
-        featured
-          ? "bg-marketing-accent text-marketing-charcoal"
-          : surface.trialBadge,
-      )}
-    >
-      {trialDays}-day free trial
-    </span>
-  );
-}
-
 function paidCtaLabel(
   tierOffered: boolean,
   available: boolean,
   loading: boolean,
-  trialCta: string,
+  paidCta: string,
 ): string {
   if (!tierOffered || !available) return "Coming soon";
   if (loading) return "Redirecting…";
-  return trialCta;
+  return paidCta;
 }
 
 function PlanPickerCard({
@@ -153,7 +128,7 @@ export function PlanPicker({
     isOnPaid,
     isOnUnlimited,
     isOnPro,
-    trialCta,
+    paidCta,
     unlimitedPricing,
     proPricing,
     unlimitedAvailable,
@@ -429,14 +404,6 @@ export function PlanPicker({
               surface.unlimitedCard,
             )}
           >
-            {cfg.trialDays > 0 ? (
-              <div className="absolute right-6 top-6">
-                <TrialBadge
-                  trialDays={cfg.trialDays}
-                  surfaceTheme={surfaceTheme}
-                />
-              </div>
-            ) : null}
             <div
               className={cn(
                 "absolute right-0 top-0 h-28 w-28 rounded-bl-full blur-2xl",
@@ -545,7 +512,7 @@ export function PlanPicker({
                         unlimitedTierOffered,
                         unlimitedAvailable,
                         loadingPlan === "unlimited",
-                        audience === "marketing" ? "Sign up" : trialCta,
+                        audience === "marketing" ? "Sign up" : paidCta,
                       )}
             </PlanPickerCta>
           </PlanPickerCard>
@@ -562,11 +529,6 @@ export function PlanPicker({
               variant === "page" && !isHorizontal ? "md:scale-[1.03]" : "",
             )}
           >
-            <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
-              {cfg.trialDays > 0 ? (
-                <TrialBadge trialDays={cfg.trialDays} featured />
-              ) : null}
-            </div>
             <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
 
             <div>
@@ -648,7 +610,7 @@ export function PlanPicker({
                         proTierOffered,
                         proAvailable,
                         loadingPlan === "pro",
-                        audience === "marketing" ? "Sign up" : trialCta,
+                        audience === "marketing" ? "Sign up" : paidCta,
                       )}
             </PlanPickerCta>
           </PlanPickerCard>

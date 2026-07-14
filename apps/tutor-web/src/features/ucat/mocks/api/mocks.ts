@@ -2,6 +2,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/types'
+import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatMocksApi = {
   async list() {
@@ -45,14 +46,17 @@ export const ucatMocksApi = {
   },
 
   async setStatus(mockId: string, status: UcatContentStatus) {
-    const response = await fetch(`/api/ucat/mocks/${mockId}/status`, {
+    return this.bulkSetStatus([mockId], status)
+  },
+
+  async bulkSetStatus(mockIds: string[], status: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ contentType: 'mock', contentIds: mockIds, status }),
     })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update mock status')
+      await throwUcatLifecycleResponseError(response, 'Failed to update mock status')
     }
   },
 

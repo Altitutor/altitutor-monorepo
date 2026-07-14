@@ -13021,14 +13021,101 @@ export type Database = {
           },
         ]
       }
+      ucat_referral_access_gifts: {
+        Row: {
+          created_at: string
+          duration_interval: string
+          id: string
+          referral_id: string
+          revoked_at: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_subscription_id: string | null
+          student_id: string
+          updated_at: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_interval: string
+          id?: string
+          referral_id: string
+          revoked_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_interval?: string
+          id?: string
+          referral_id?: string
+          revoked_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id?: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_referral_access_gifts_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_access_gifts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_access_gifts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_access_gifts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_access_gifts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_referral_access_gifts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       ucat_referral_bill_rewards: {
         Row: {
+          amount_off_cents: number | null
           applied_at: string | null
           created_at: string
           id: string
           redeemed_at: string | null
           referral_id: string
           revoked_at: string | null
+          reward_type: string
           status: string
           stripe_invoice_id: string | null
           stripe_subscription_id: string | null
@@ -13036,12 +13123,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          amount_off_cents?: number | null
           applied_at?: string | null
           created_at?: string
           id?: string
           redeemed_at?: string | null
           referral_id: string
           revoked_at?: string | null
+          reward_type?: string
           status?: string
           stripe_invoice_id?: string | null
           stripe_subscription_id?: string | null
@@ -13049,12 +13138,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          amount_off_cents?: number | null
           applied_at?: string | null
           created_at?: string
           id?: string
           redeemed_at?: string | null
           referral_id?: string
           revoked_at?: string | null
+          reward_type?: string
           status?: string
           stripe_invoice_id?: string | null
           stripe_subscription_id?: string | null
@@ -13170,13 +13261,19 @@ export type Database = {
         Row: {
           created_at: string
           free_qualified_at: string | null
+          gift_accepted_at: string | null
+          gift_duration_interval: string
+          gift_expires_at: string
+          gift_status: string
           id: string
           paid_qualified_at: string | null
           referral_code_id: string
           referred_checkout_session_id: string | null
           referred_student_id: string
           referred_subscription_id: string | null
+          referrer_billing_interval_at_offer: string | null
           referrer_student_id: string
+          referrer_tier_at_offer: string
           rejected_at: string | null
           rejection_reason: string | null
           updated_at: string
@@ -13184,13 +13281,19 @@ export type Database = {
         Insert: {
           created_at?: string
           free_qualified_at?: string | null
+          gift_accepted_at?: string | null
+          gift_duration_interval?: string
+          gift_expires_at: string
+          gift_status?: string
           id?: string
           paid_qualified_at?: string | null
           referral_code_id: string
           referred_checkout_session_id?: string | null
           referred_student_id: string
           referred_subscription_id?: string | null
+          referrer_billing_interval_at_offer?: string | null
           referrer_student_id: string
+          referrer_tier_at_offer?: string
           rejected_at?: string | null
           rejection_reason?: string | null
           updated_at?: string
@@ -13198,13 +13301,19 @@ export type Database = {
         Update: {
           created_at?: string
           free_qualified_at?: string | null
+          gift_accepted_at?: string | null
+          gift_duration_interval?: string
+          gift_expires_at?: string
+          gift_status?: string
           id?: string
           paid_qualified_at?: string | null
           referral_code_id?: string
           referred_checkout_session_id?: string | null
           referred_student_id?: string
           referred_subscription_id?: string | null
+          referrer_billing_interval_at_offer?: string | null
           referrer_student_id?: string
+          referrer_tier_at_offer?: string
           rejected_at?: string | null
           rejection_reason?: string | null
           updated_at?: string
@@ -23722,6 +23831,7 @@ export type Database = {
         }
         Returns: string
       }
+      expire_ucat_referral_gifts: { Args: never; Returns: number }
       extract_flashcard_cloze_indexes: {
         Args: { p_cloze_text: string }
         Returns: number[]
@@ -24018,6 +24128,10 @@ export type Database = {
         Args: { p_parent_id: string; p_subject_id: string }
         Returns: undefined
       }
+      reject_ucat_referral_gift: {
+        Args: { p_referral_id: string; p_referred_student_id: string }
+        Returns: boolean
+      }
       release_billing_runner_lock: {
         Args: { p_lock_name?: string; p_run_id?: string }
         Returns: boolean
@@ -24291,6 +24405,14 @@ export type Database = {
         Args: { p_section_id: string; p_stems: Json }
         Returns: string[]
       }
+      tutor_ucat_content_status_blockers: {
+        Args: {
+          p_content_id: string
+          p_content_type: string
+          p_status: Database["public"]["Enums"]["ucat_content_status"]
+        }
+        Returns: Json
+      }
       tutor_ucat_delete_mock: {
         Args: { p_mock_id: string }
         Returns: undefined
@@ -24301,14 +24423,6 @@ export type Database = {
       }
       tutor_ucat_delete_question_stem: {
         Args: { p_stem_id: string }
-        Returns: undefined
-      }
-      tutor_ucat_remove_sets_from_all_mocks: {
-        Args: { p_set_ids: string[] }
-        Returns: undefined
-      }
-      tutor_ucat_remove_stems_from_all_sets: {
-        Args: { p_stem_ids: string[] }
         Returns: undefined
       }
       tutor_ucat_reorder_learning_modules: {
@@ -24346,6 +24460,14 @@ export type Database = {
       tutor_ucat_set_content_status: {
         Args: {
           p_content_id: string
+          p_content_type: string
+          p_status: Database["public"]["Enums"]["ucat_content_status"]
+        }
+        Returns: undefined
+      }
+      tutor_ucat_set_content_status_bulk: {
+        Args: {
+          p_content_ids: string[]
           p_content_type: string
           p_status: Database["public"]["Enums"]["ucat_content_status"]
         }
