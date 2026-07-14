@@ -62,7 +62,7 @@ export type VerbalReasoningToFormOptions = {
     stem: ParsedStem
     question: ParsedStem['questions'][number]
   }) => string[]
-  isPrivate?: boolean
+  accessScope?: 'public' | 'private'
 }
 
 export function parseVerbalReasoningFromLines(
@@ -103,7 +103,7 @@ export function mapParsedVerbalReasoningToFormValues(
     categoryId = null,
     getCategoryIdForStem,
     getTagIdsForQuestion,
-    isPrivate = false,
+    accessScope = 'public',
   } = options
 
   const result: UcatQuestionStemFormValues[] = []
@@ -136,7 +136,7 @@ export function mapParsedVerbalReasoningToFormValues(
       sectionId,
       categoryId: resolvedCategoryId ?? null,
       stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
-      isPrivate,
+      accessScope,
       questions,
     })
   }

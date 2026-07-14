@@ -99,7 +99,7 @@ function toFormValues(stem: {
   sectionId: string
   categoryId: string | null
   stemText: Json
-  isPrivate: boolean
+  accessScope: 'public' | 'private'
   aiGenerationMetadata: Json | null
   questions: Array<{
     questionText: Json
@@ -119,7 +119,7 @@ function toFormValues(stem: {
     sectionId: stem.sectionId,
     categoryId: stem.categoryId,
     stemText: stem.stemText,
-    isPrivate: true,
+    accessScope: 'private',
     questions: stem.questions.map((question) => ({
       questionText: question.questionText,
       questionType: question.questionType,
@@ -417,7 +417,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return all.filter((stem) => {
       if (!stem.sectionId || stem.sectionId !== sectionId) return false
       if (categoryId && stem.categoryId !== categoryId) return false
-      if (!includeAiSourceStems && stem.isAiGenerated) return false
+      if (!includeAiSourceStems && stem.sourceChannel === 'ai_generation') return false
       return true
     })
   }, [stemCatalogQuery.data, sectionId, categoryId, includeAiSourceStems])

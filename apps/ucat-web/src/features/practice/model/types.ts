@@ -6,7 +6,7 @@ export type SectionKey =
 
 export type TimeMode = "off" | "exam" | "speed" | "custom";
 
-export type SetGeneratorInput = {
+export type PracticeSelectionInput = {
   section: SectionKey;
   unansweredOnly: boolean;
   incorrectOnly: boolean;
@@ -45,11 +45,4 @@ export type SetGeneratorInput = {
    * When set, each question (or stem = perQuestion × questions in stem) is timed.
    */
   timePerQuestionSeconds?: number | null;
-};
-
-export type GeneratedPracticeSet = {
-  id: string;
-  name: string;
-  questions: number;
-  estimatedMinutes: number;
 };

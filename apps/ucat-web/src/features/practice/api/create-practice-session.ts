@@ -1,5 +1,5 @@
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import type {
   PracticeReviewTiming,
   PracticeSessionData,
@@ -9,7 +9,7 @@ import { setPracticeSession } from "@/features/practice/lib/session-storage";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 
 export type PracticeSessionStartInput = {
-  payload: SetGeneratorInput & {
+  payload: PracticeSelectionInput & {
     unlimited?: boolean;
     reviewTiming: PracticeReviewTiming;
   };

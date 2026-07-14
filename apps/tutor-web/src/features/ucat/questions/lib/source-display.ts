@@ -40,9 +40,9 @@ export type StemSourceDisplay = {
   generatedAt: string | null
   generatedAtLabel: string | null
   generatedByName: string | null
-  approvedByName: string | null
-  approvedAt: string | null
-  approvedAtLabel: string | null
+  statusChangedByName: string | null
+  statusChangedAt: string | null
+  statusChangedAtLabel: string | null
   tutorSourceNote: string | null
 }
 
@@ -52,13 +52,13 @@ export function buildStemSourceDisplay(input: {
   tutorSourceNote?: string | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
-  approvedByFirstName?: string | null
-  approvedByLastName?: string | null
-  approvedAt?: string | null
+  statusChangedByFirstName?: string | null
+  statusChangedByLastName?: string | null
+  statusChangedAt?: string | null
 }): StemSourceDisplay {
   const sourceChannel = input.sourceChannel ?? 'individual'
   const generatedAt = metadataString(input.aiGenerationMetadata ?? null, 'generatedAt')
-  const approvedAt = input.approvedAt?.trim() ? input.approvedAt.trim() : null
+  const statusChangedAt = input.statusChangedAt?.trim() ? input.statusChangedAt.trim() : null
   return {
     sourceChannel,
     channelLabel: formatSourceChannel(sourceChannel),
@@ -66,9 +66,9 @@ export function buildStemSourceDisplay(input: {
     generatedAt,
     generatedAtLabel: formatGeneratedTimestamp(generatedAt),
     generatedByName: formatStaffDisplayName(input.createdByFirstName, input.createdByLastName),
-    approvedByName: formatStaffDisplayName(input.approvedByFirstName, input.approvedByLastName),
-    approvedAt,
-    approvedAtLabel: formatGeneratedTimestamp(approvedAt),
+    statusChangedByName: formatStaffDisplayName(input.statusChangedByFirstName, input.statusChangedByLastName),
+    statusChangedAt,
+    statusChangedAtLabel: formatGeneratedTimestamp(statusChangedAt),
     tutorSourceNote:
       typeof input.tutorSourceNote === 'string' && input.tutorSourceNote.trim()
         ? input.tutorSourceNote.trim()
@@ -85,11 +85,11 @@ export function stemSourceTooltip(source: StemSourceDisplay): string {
     lines.push(`Model: ${source.aiModel ?? 'Unknown'}`)
     lines.push(`Generated: ${source.generatedAtLabel ?? source.generatedAt ?? 'Unknown'}`)
   }
-  if (source.approvedByName) {
-    lines.push(`Approved by: ${source.approvedByName}`)
+  if (source.statusChangedByName) {
+    lines.push(`Approved by: ${source.statusChangedByName}`)
   }
-  if (source.approvedAtLabel) {
-    lines.push(`Approved at: ${source.approvedAtLabel}`)
+  if (source.statusChangedAtLabel) {
+    lines.push(`Approved at: ${source.statusChangedAtLabel}`)
   }
   if (source.tutorSourceNote) {
     lines.push(`Note: ${source.tutorSourceNote}`)

@@ -6,7 +6,6 @@ import { getStudentIdForUser } from "@/lib/ucat/ucat-subscription";
 
 const PORTAL_ACTIONS = [
   "payment_method_update",
-  "subscription_cancel",
   "subscription_update",
 ] as const;
 
@@ -133,27 +132,16 @@ export async function POST(request: NextRequest) {
               redirect: { return_url: returnUrl },
             },
           }
-        : body.action === "subscription_cancel"
-          ? {
-              type: "subscription_cancel",
-              subscription_cancel: {
-                subscription: subscription!.stripe_subscription_id,
-              },
-              after_completion: {
-                type: "redirect",
-                redirect: { return_url: returnUrl },
-              },
-            }
-          : {
-              type: "subscription_update",
-              subscription_update: {
-                subscription: subscription!.stripe_subscription_id,
-              },
-              after_completion: {
-                type: "redirect",
-                redirect: { return_url: returnUrl },
-              },
-            };
+        : {
+            type: "subscription_update",
+            subscription_update: {
+              subscription: subscription!.stripe_subscription_id,
+            },
+            after_completion: {
+              type: "redirect",
+              redirect: { return_url: returnUrl },
+            },
+          };
 
     const session = await stripe.billingPortal.sessions.create({
       customer: billing.stripe_customer_id,

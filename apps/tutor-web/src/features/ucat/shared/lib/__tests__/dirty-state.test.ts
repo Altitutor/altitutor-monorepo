@@ -11,8 +11,7 @@ describe('set detail dirty snapshot', () => {
       name: 'Set 1',
       description: 'Set 1',
       time: 1200,
-      isPrivate: false,
-      isStudentGenerated: false,
+      accessScope: 'public',
       stemIds: ['s1', 's2'],
     })
 
@@ -20,8 +19,7 @@ describe('set detail dirty snapshot', () => {
       name: 'Set 1',
       description: 'Set 1',
       time: 1200,
-      isPrivate: false,
-      isStudentGenerated: false,
+      accessScope: 'public',
       stemIds: ['s2', 's1'],
     })
 
@@ -42,7 +40,7 @@ describe('question stem form snapshot', () => {
       sectionId: 's1',
       categoryId: null,
       stemText: emptyDoc,
-      isPrivate: false,
+      accessScope: 'public',
       questions: [
         {
           questionText: docWithText,
@@ -68,7 +66,7 @@ describe('question stem form snapshot', () => {
       sectionId: 's1',
       categoryId: null,
       stemText: structurallyDifferent,
-      isPrivate: false,
+      accessScope: 'public',
       questions: [
         {
           questionText: docWithText,
@@ -93,7 +91,7 @@ describe('question stem form snapshot', () => {
       sectionId: 's1',
       categoryId: null,
       stemText: emptyDoc,
-      isPrivate: false,
+      accessScope: 'public',
       questions: [
         {
           questionText: docWithText,
@@ -114,7 +112,7 @@ describe('question stem form snapshot', () => {
       sectionId: 's1',
       categoryId: null,
       stemText: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Changed' }] }] },
-      isPrivate: false,
+      accessScope: 'public',
       questions: [
         {
           questionText: docWithText,
@@ -139,7 +137,7 @@ describe('question stem form snapshot', () => {
       sectionId: 's1',
       categoryId: null,
       stemText: emptyDoc,
-      isPrivate: false,
+      accessScope: 'public',
       questions: [
         {
           questionText: docWithText,
@@ -157,7 +155,7 @@ describe('mock draft snapshot', () => {
   it('treats structurally different ProseMirror instructionsText as equal when semantically same', () => {
     const baseline = snapshotMockDraft({
       name: 'Mock 1',
-      isPrivate: false,
+      accessScope: 'public',
       setIds: ['a', 'b'],
       instructionsText: {
         type: 'doc',
@@ -167,7 +165,7 @@ describe('mock draft snapshot', () => {
 
     const structurallyDifferent = snapshotMockDraft({
       name: 'Mock 1',
-      isPrivate: false,
+      accessScope: 'public',
       setIds: ['a', 'b'],
       instructionsText: {
         type: 'doc',
@@ -180,7 +178,7 @@ describe('mock draft snapshot', () => {
 
     const semanticallySame = snapshotMockDraft({
       name: 'Mock 1',
-      isPrivate: false,
+      accessScope: 'public',
       setIds: ['a', 'b'],
       instructionsText: {
         type: 'doc',

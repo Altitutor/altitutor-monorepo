@@ -11,7 +11,6 @@ export type StudentSetRow = {
   name?: unknown;
   description: unknown;
   time_limit_seconds: number | null;
-  is_student_generated: boolean | null;
   sections: SetSectionJson[] | null;
   created_at: string | null;
   updated_at: string | null;
@@ -20,13 +19,12 @@ export type StudentSetRow = {
 export type SetsFilters = {
   search?: string;
   timed?: "timed" | "untimed" | "all";
-  source?: "my" | "public" | "all";
   sectionNumber?: number | null;
   attempted?: "all" | "attempted" | "unattempted";
 };
 
 const STUDENT_SET_COLUMNS =
-  "id,name,description,time_limit_seconds,is_student_generated,sections,created_at,updated_at";
+  "id,name,description,time_limit_seconds,sections,created_at,updated_at";
 
 export async function getAccessibleStudentSets(): Promise<StudentSetRow[]> {
   const supabase = getSupabaseBrowserClient();
@@ -153,12 +151,6 @@ export function filterSets(
       set.time_limit_seconds != null &&
       set.time_limit_seconds > 0
     ) {
-      return false;
-    }
-    if (filters.source === "my" && !set.is_student_generated) {
-      return false;
-    }
-    if (filters.source === "public" && set.is_student_generated) {
       return false;
     }
     if (filters.sectionNumber != null) {

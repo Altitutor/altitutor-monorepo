@@ -21,7 +21,6 @@ describe("getQuotaAreaForPathname", () => {
     expect(getQuotaAreaForPathname("/sets")).toBe("sets");
     expect(getQuotaAreaForPathname("/sets/sections/1")).toBe("sets");
     expect(getQuotaAreaForPathname("/sets/sections/1/set-id")).toBe("sets");
-    expect(getQuotaAreaForPathname("/sets/set-generator")).toBe("sets");
     expect(getQuotaAreaForPathname("/progress/set-attempts/abc")).toBe("sets");
     expect(
       getQuotaAreaForPathname("/progress/sections/2/set-attempts/abc"),

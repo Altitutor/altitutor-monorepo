@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -27,7 +27,7 @@ import {
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
-import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useSetUcatSetStatus, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import {
   useUcatCategories,
@@ -35,7 +35,7 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -58,6 +58,11 @@ import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSele
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
+
+function parseStatusTab(value: string | null): UcatContentStatus {
+  return value === 'in_review' || value === 'published' ? value : 'draft'
+}
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -88,6 +93,9 @@ function countSetsInMocks(setIds: string[], rows: SetRow[]): number {
 
 export function UcatSetsPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const activeStatus = parseStatusTab(searchParams.get('tab'))
   const queryClient = useQueryClient()
   const access = useUcatAccess()
   const sets = useUcatSets()
@@ -97,6 +105,7 @@ export function UcatSetsPage() {
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
+  const setStatus = useSetUcatSetStatus()
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
@@ -107,7 +116,6 @@ export function UcatSetsPage() {
     timeLimitMinutes: '',
     timeLimitSeconds: '',
     isPrivate: false,
-    isStudentGenerated: false,
   })
   const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(false)
   const [autoSectionId, setAutoSectionId] = useState<string | null>(null)
@@ -213,7 +221,17 @@ export function UcatSetsPage() {
     sections,
     mocks: mocksQuery.data ?? [],
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
+    status: activeStatus,
   })
+
+  function changeStatusTab(status: UcatContentStatus) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (status === 'draft') params.delete('tab')
+    else params.set('tab', status)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    clearSelection()
+  }
 
   const { page, pageSize } = tableState.state
   const totalRows = rows.length
@@ -240,7 +258,9 @@ export function UcatSetsPage() {
       if (!detail) continue
       await updateSetMutation.mutateAsync({
         setId,
-        payload: setDetailToUpdatePayload(detail, { isPrivate: bulkVisibilityPrivate }),
+        payload: setDetailToUpdatePayload(detail, {
+          accessScope: bulkVisibilityPrivate ? 'private' : 'public',
+        }),
       })
     }
     setBulkVisibilityOpen(false)
@@ -293,7 +313,8 @@ export function UcatSetsPage() {
       stemCatalog,
     ],
   )
-  const autoPrivateStemCount = autoPreview?.selectedStems.filter((stem) => stem.isPrivate).length ?? 0
+  const autoPrivateStemCount =
+    autoPreview?.selectedStems.filter((stem) => stem.accessScope === 'private').length ?? 0
   const autoCreateDisabled =
     autoCriteriaEnabled &&
     (!autoCriteriaReady ||
@@ -324,7 +345,6 @@ export function UcatSetsPage() {
       timeLimitMinutes: '',
       timeLimitSeconds: '',
       isPrivate: false,
-      isStudentGenerated: false,
     })
     setAutoCriteriaEnabled(false)
     setAutoSectionId(null)
@@ -403,8 +423,7 @@ export function UcatSetsPage() {
       name: plainTextToProseMirror(form.name),
       description: form.description,
       timeLimitSeconds,
-      isPrivate: form.isPrivate,
-      isStudentGenerated: false,
+      accessScope: form.isPrivate ? 'private' : 'public',
       stemIds,
     }
     const result = await createSet.mutateAsync(payload)
@@ -433,7 +452,7 @@ export function UcatSetsPage() {
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Sets"
-        description="Build and organize UCAT question sets"
+        description="Draft, review, and publish UCAT question sets"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
         actions={
@@ -441,6 +460,17 @@ export function UcatSetsPage() {
             Add Set
           </Button>
         }
+      />
+
+      <SegmentedControl
+        className="w-fit max-w-full"
+        value={activeStatus}
+        onValueChange={(value) => changeStatusTab(parseStatusTab(value))}
+        options={[
+          { value: 'draft', label: 'Draft' },
+          { value: 'in_review', label: 'In review' },
+          { value: 'published', label: 'Published' },
+        ]}
       />
 
       <DataTableToolbar
@@ -518,14 +548,6 @@ export function UcatSetsPage() {
               header: 'Created by',
               cell: ({ row }) => {
                 const r = row.original as SetRow
-                if (r.is_student_generated) {
-                  return (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Badge variant="secondary" className="text-xs">Student</Badge>
-                      <span className="text-muted-foreground">Student-generated</span>
-                    </span>
-                  )
-                }
                 const name = [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '—'
                 return <span>{name}</span>
               },
@@ -540,6 +562,21 @@ export function UcatSetsPage() {
                     <UcatRowActions
                       actions={[
                         { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
+                        ...(!showDeleted && r.status === 'draft'
+                          ? [{ label: 'Send for review', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot send for review', description: error instanceof Error ? error.message : 'The set is not ready for review.', variant: 'destructive' })) }]
+                          : []),
+                        ...(!showDeleted && r.status === 'in_review'
+                          ? [
+                              { label: 'Publish', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'published' }).catch((error) => toast({ title: 'Cannot publish', description: error instanceof Error ? error.message : 'The set has publication blockers.', variant: 'destructive' })) },
+                              { label: 'Return to draft', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'draft' }) },
+                            ]
+                          : []),
+                        ...(!showDeleted && r.status === 'published'
+                          ? [
+                              { label: 'Move to review', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot move set', description: error instanceof Error ? error.message : 'The set is still required by published content.', variant: 'destructive' })) },
+                              { label: 'Move to draft', onClick: () => void setStatus.mutateAsync({ setId: r.id, status: 'draft' }).catch((error) => toast({ title: 'Cannot move set', description: error instanceof Error ? error.message : 'The set is still required by published content.', variant: 'destructive' })) },
+                            ]
+                          : []),
                         ...(showDeleted
                           ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreSet.mutate(r.id) }]
                           : [
@@ -810,7 +847,9 @@ export function UcatSetsPage() {
                                   stem.categoryId === id &&
                                   stem.questionsCount > 0 &&
                                   (autoStemVisibility === 'either' ||
-                                    (autoStemVisibility === 'public' ? !stem.isPrivate : stem.isPrivate)) &&
+                                    (autoStemVisibility === 'public'
+                                      ? stem.accessScope === 'public'
+                                      : stem.accessScope === 'private')) &&
                                   (!autoOnlyNotInAnotherSet || stem.setIds.length === 0),
                               ).length
                             return (

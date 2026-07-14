@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
@@ -28,7 +28,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/useUcatMocksTable'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -41,11 +41,16 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import type { RichTextJson } from '@/features/ucat/shared/types'
+import type { RichTextJson, UcatContentStatus } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
+
+function parseStatusTab(value: string | null): UcatContentStatus {
+  return value === 'in_review' || value === 'published' ? value : 'draft'
+}
 
 const filterDefinitions: DataTableFilterDefinition[] = [
   {
@@ -75,6 +80,9 @@ const sortOptions: DataTableSortOption[] = [
 
 export function UcatMocksPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const activeStatus = parseStatusTab(searchParams.get('tab'))
   const access = useUcatAccess()
   const mocks = useUcatMocks()
   const sectionsQuery = useUcatSections()
@@ -82,6 +90,7 @@ export function UcatMocksPage() {
   const createMock = useCreateUcatMock()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
+  const setStatus = useSetUcatMockStatus()
   const [openCreate, setOpenCreate] = useState(false)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -96,6 +105,7 @@ export function UcatMocksPage() {
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
+  const { toast } = useToast()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -108,7 +118,17 @@ export function UcatMocksPage() {
     availableColumns: columnDefinitions.map((column) => column.key),
     sections,
     onOpenSet: setEditingSetId,
+    status: activeStatus,
   })
+
+  function changeStatusTab(status: UcatContentStatus) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (status === 'draft') params.delete('tab')
+    else params.set('tab', status)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    clearSelection()
+  }
 
   const { page, pageSize } = tableState.state
   const totalRows = rows.length
@@ -135,6 +155,21 @@ export function UcatMocksPage() {
           <UcatRowActions
             actions={[
               { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
+              ...(!showDeleted && row.original.status === 'draft'
+                ? [{ label: 'Send for review', onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot send for review', description: error instanceof Error ? error.message : 'The mock is not ready for review.', variant: 'destructive' })) }]
+                : []),
+              ...(!showDeleted && row.original.status === 'in_review'
+                ? [
+                    { label: 'Publish', onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'published' }).catch((error) => toast({ title: 'Cannot publish', description: error instanceof Error ? error.message : 'The mock has publication blockers.', variant: 'destructive' })) },
+                    { label: 'Return to draft', onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'draft' }) },
+                  ]
+                : []),
+              ...(!showDeleted && row.original.status === 'published'
+                ? [
+                    { label: 'Move to review', onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot move mock', description: error instanceof Error ? error.message : 'The mock is still attached to a session.', variant: 'destructive' })) },
+                    { label: 'Move to draft', onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'draft' }).catch((error) => toast({ title: 'Cannot move mock', description: error instanceof Error ? error.message : 'The mock is still attached to a session.', variant: 'destructive' })) },
+                  ]
+                : []),
               ...(showDeleted
                 ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreMock.mutate(row.original.id) }]
                 : [{ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true }]),
@@ -143,7 +178,7 @@ export function UcatMocksPage() {
         </div>
       ),
     }),
-    [showDeleted, restoreMock],
+    [showDeleted, restoreMock, setStatus, toast],
   )
 
   const tableColumns = useMemo(() => {
@@ -184,7 +219,7 @@ export function UcatMocksPage() {
         mockId,
         payload: {
           name: detail.name ?? 'Untitled',
-          isPrivate: bulkVisibilityPrivate,
+          accessScope: bulkVisibilityPrivate ? 'private' : 'public',
           setIds,
         },
       })
@@ -193,8 +228,6 @@ export function UcatMocksPage() {
     setBulkVisibilityPrivate(null)
     clearSelection()
   }
-
-  const { toast } = useToast()
 
   async function invalidateMocksListQueries(mockIds: string[] = []) {
     await Promise.all([
@@ -263,7 +296,12 @@ export function UcatMocksPage() {
   }
 
   async function onCreate() {
-    const result = await createMock.mutateAsync({ name, isPrivate, setIds: [], instructionsText: instructionsText ?? undefined })
+    const result = await createMock.mutateAsync({
+      name,
+      accessScope: isPrivate ? 'private' : 'public',
+      setIds: [],
+      instructionsText: instructionsText ?? undefined,
+    })
     const mockName = name.trim() || 'Untitled'
     setOpenCreate(false)
     setName('')
@@ -298,7 +336,7 @@ export function UcatMocksPage() {
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Mocks"
-        description="Manage full mock exams (ordered sets)"
+        description="Draft, review, and publish full mock exams"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
         actions={
@@ -306,6 +344,17 @@ export function UcatMocksPage() {
             Add Mock
           </Button>
         }
+      />
+
+      <SegmentedControl
+        className="w-fit max-w-full"
+        value={activeStatus}
+        onValueChange={(value) => changeStatusTab(parseStatusTab(value))}
+        options={[
+          { value: 'draft', label: 'Draft' },
+          { value: 'in_review', label: 'In review' },
+          { value: 'published', label: 'Published' },
+        ]}
       />
 
       <DataTableToolbar

@@ -7,8 +7,6 @@ export function recordToSetsFilters(
   const f: SetsFilters = {};
   const timed = record.timed?.[0];
   if (timed === "timed" || timed === "untimed") f.timed = timed;
-  const source = record.source?.[0];
-  if (source === "my" || source === "public") f.source = source;
   const sectionNum = record.sectionNumber?.[0];
   if (typeof sectionNum === "number" && Number.isFinite(sectionNum))
     f.sectionNumber = sectionNum;
@@ -23,7 +21,6 @@ export function recordToSetsFilters(
 export function setsFiltersToRecord(f: SetsFilters): Record<string, unknown[]> {
   const record: Record<string, unknown[]> = {};
   if (f.timed === "timed" || f.timed === "untimed") record.timed = [f.timed];
-  if (f.source === "my" || f.source === "public") record.source = [f.source];
   if (f.sectionNumber != null) record.sectionNumber = [f.sectionNumber];
   if (f.attempted === "attempted" || f.attempted === "unattempted") {
     record.attempted = [f.attempted];

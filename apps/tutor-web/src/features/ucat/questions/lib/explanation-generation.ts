@@ -9,7 +9,7 @@ export function formValuesToExplanationStemPayload(
     sectionId: values.sectionId,
     categoryId: values.categoryId ?? null,
     stemText: values.stemText,
-    isPrivate: values.isPrivate,
+    accessScope: values.accessScope,
     questions: values.questions.map((question) => ({
       questionText: question.questionText,
       questionType: question.questionType,

@@ -253,7 +253,7 @@ export function Step3SetAnswers({
             categoryId: payload.categoryId ?? null,
             categoryName: category?.label ?? category?.name ?? null,
             stemText: payload.stemText,
-            isPrivate: payload.isPrivate,
+            accessScope: payload.accessScope,
             questions: payload.questions.map((question) => ({
               questionText: question.questionText,
               questionType: question.questionType,

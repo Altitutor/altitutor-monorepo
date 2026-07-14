@@ -14,8 +14,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       p_name: body.name ?? null,
       p_description: body.description ?? {},
       p_time_limit_seconds: body.timeLimitSeconds ?? null,
-      p_is_private: !!body.isPrivate,
-      p_is_student_generated: !!body.isStudentGenerated,
+      p_access_scope: body.accessScope ?? 'public',
       p_stem_ids: body.stemIds ?? [],
     })
 

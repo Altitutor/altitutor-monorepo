@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 
 type SectionRow = {
   id: string;
@@ -51,17 +51,56 @@ function computeQuestionStatus(attempts: QuestionAttemptRow[] | undefined) {
   return anyCorrect ? ("correct" as const) : ("incorrect" as const);
 }
 
+function resolveEffectiveQuestionCount(
+  requested: number,
+  sections: SectionRow[],
+  availableQuestions: number,
+): number {
+  const maxBySections = sections.reduce((sum, section) => {
+    return sum + (section.number_of_questions ?? 0);
+  }, 0);
+
+  const hardCap = maxBySections > 0 ? maxBySections : availableQuestions;
+  const clampedRequested = Math.max(1, Math.floor(requested));
+
+  return Math.min(clampedRequested, hardCap, availableQuestions);
+}
+
+export type PickStemsOptions = {
+  /** Exclude these stem IDs from the result. Used for unlimited mode to avoid repeats. */
+  excludeStemIds?: string[];
+  /** When set, return at most this many stems. For unlimited mode, use 1. */
+  limitStems?: number;
+  /** When false, do not pick a single oversized fallback stem above questionCount. */
+  allowOversizedFallback?: boolean;
+};
+
+export type PickStemsResult = {
+  chosenStemIds: string[];
+  totalMatchingQuestions: number;
+  questionCount: number;
+  sectionRows: SectionRow[];
+  stemDetailRows: StemDetailRow[];
+};
+
 /**
- * Computes the total number of questions matching the given filters.
- * Used by both the preview endpoint and the generate endpoint.
+ * Picks question stems matching the given filters. Shared by set generator and practice.
+ * Returns chosen stem IDs and metadata. Does not persist anything.
  */
-export async function countMatchingQuestions(
+export async function pickStems(
   supabase: SupabaseClient,
-  input: SetGeneratorInput,
-): Promise<{ totalMatchingQuestions: number }> {
+  input: PracticeSelectionInput,
+  options?: PickStemsOptions,
+): Promise<PickStemsResult> {
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section];
   if (typeof sectionNumber !== "number") {
-    return { totalMatchingQuestions: 0 };
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows: [],
+      stemDetailRows: [],
+    };
   }
 
   const sectionNumbers = [sectionNumber];
@@ -72,7 +111,13 @@ export async function countMatchingQuestions(
     .in("section_number", sectionNumbers);
 
   if (sectionsError || !sections?.length) {
-    return { totalMatchingQuestions: 0 };
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows: [],
+      stemDetailRows: [],
+    };
   }
 
   const sectionRows = sections as SectionRow[];
@@ -81,7 +126,8 @@ export async function countMatchingQuestions(
   let stemsQuery = supabase
     .from("vstudent_ucat_question_stems")
     .select("id,section_id,question_stem_category_id")
-    .in("section_id", sectionIds);
+    .in("section_id", sectionIds)
+    .eq("is_available_for_practice", true);
 
   if (input.categoryIds && input.categoryIds.length > 0) {
     stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);
@@ -90,7 +136,13 @@ export async function countMatchingQuestions(
   const { data: stems, error: stemsError } = await stemsQuery;
 
   if (stemsError || !stems?.length) {
-    return { totalMatchingQuestions: 0 };
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows,
+      stemDetailRows: [],
+    };
   }
 
   const stemRows = stems as StemListRow[];
@@ -102,10 +154,16 @@ export async function countMatchingQuestions(
     .in("id", stemIds);
 
   if (stemDetailsError || !stemDetails?.length) {
-    return { totalMatchingQuestions: 0 };
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows,
+      stemDetailRows: [],
+    };
   }
 
-  const stemDetailRows = stemDetails as StemDetailRow[];
+  const stemDetailRows = (stemDetails ?? []) as StemDetailRow[];
 
   const allQuestions: { stemId: string; question: StemDetailQuestion }[] = [];
   for (const stem of stemDetailRows) {
@@ -115,7 +173,13 @@ export async function countMatchingQuestions(
   }
 
   if (allQuestions.length === 0) {
-    return { totalMatchingQuestions: 0 };
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows,
+      stemDetailRows,
+    };
   }
 
   let attemptsByQuestionId = new Map<string, QuestionAttemptRow[]>();
@@ -179,16 +243,83 @@ export async function countMatchingQuestions(
     });
   }
 
-  const candidateStems: StemAggregate[] = Array.from(
+  let candidateStems: StemAggregate[] = Array.from(
     aggregatesByStemId.values(),
   ).filter(
     (agg) => agg.matchingQuestionsCount > 0 && agg.allQuestionsCount > 0,
   );
 
+  const excludeSet = new Set(options?.excludeStemIds ?? []);
+  if (excludeSet.size > 0) {
+    candidateStems = candidateStems.filter(
+      (agg) => !excludeSet.has(agg.stem.id),
+    );
+  }
+
+  if (candidateStems.length === 0) {
+    return {
+      chosenStemIds: [],
+      totalMatchingQuestions: 0,
+      questionCount: 0,
+      sectionRows,
+      stemDetailRows,
+    };
+  }
+
   const totalMatchingQuestions = candidateStems.reduce(
     (sum, agg) => sum + agg.matchingQuestionsCount,
     0,
   );
+  const availableQuestions = candidateStems.reduce(
+    (sum, agg) => sum + agg.allQuestionsCount,
+    0,
+  );
 
-  return { totalMatchingQuestions };
+  const limitStems = options?.limitStems;
+  const targetQuestionCount =
+    limitStems != null
+      ? Infinity
+      : resolveEffectiveQuestionCount(
+          input.questionCount,
+          sectionRows,
+          availableQuestions,
+        );
+
+  const chosenStems: StemDetailRow[] = [];
+  let runningQuestions = 0;
+
+  candidateStems.sort((a, b) => a.stem.id.localeCompare(b.stem.id));
+
+  for (const agg of candidateStems) {
+    if (limitStems != null && chosenStems.length >= limitStems) break;
+    if (runningQuestions + agg.allQuestionsCount > targetQuestionCount) {
+      continue;
+    }
+    chosenStems.push(agg.stem);
+    runningQuestions += agg.allQuestionsCount;
+  }
+
+  if (
+    chosenStems.length === 0 &&
+    limitStems == null &&
+    options?.allowOversizedFallback !== false
+  ) {
+    const smallest = candidateStems.reduce((min, current) => {
+      if (!min || current.allQuestionsCount < min.allQuestionsCount)
+        return current;
+      return min;
+    });
+    if (smallest) {
+      chosenStems.push(smallest.stem);
+      runningQuestions = smallest.allQuestionsCount;
+    }
+  }
+
+  return {
+    chosenStemIds: chosenStems.map((s) => s.id),
+    totalMatchingQuestions,
+    questionCount: runningQuestions,
+    sectionRows,
+    stemDetailRows,
+  };
 }

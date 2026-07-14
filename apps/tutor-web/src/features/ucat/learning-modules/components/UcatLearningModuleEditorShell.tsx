@@ -74,7 +74,7 @@ export function UcatLearningModuleEditorShell({
   )
 
   const { data: sections } = useUcatSections()
-  const stemCatalog = useUcatStemCatalog(hasUcatAccess)
+  const stemCatalog = useUcatStemCatalog(hasUcatAccess, { publishedOnly: true })
   const questionCatalog = useUcatQuestionCatalog(hasUcatAccess)
   const { data: skillTrainers } = useUcatSkillTrainersCatalog()
 

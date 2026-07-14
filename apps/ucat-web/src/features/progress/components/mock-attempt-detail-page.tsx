@@ -131,8 +131,8 @@ export function MockAttemptDetailPage({
 
       <motion.div id="attempt-review-questions" variants={itemVariants}>
         <SetAnswersCard
-          mockId={data.ucatMockId}
           questionAttempts={data.questionAttempts}
+          exam={data.exam}
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview

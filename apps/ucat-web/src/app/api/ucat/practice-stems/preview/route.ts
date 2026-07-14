@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { countMatchingQuestions } from "../count-matching";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import { countMatchingQuestions } from "@/features/practice/server/count-matching";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { input?: SetGeneratorInput };
+  let body: { input?: PracticeSelectionInput };
   try {
-    body = (await request.json()) as { input?: SetGeneratorInput };
+    body = (await request.json()) as { input?: PracticeSelectionInput };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }

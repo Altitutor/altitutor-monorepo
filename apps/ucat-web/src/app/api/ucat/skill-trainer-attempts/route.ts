@@ -80,6 +80,9 @@ export async function POST(request: NextRequest) {
     if (message === "NO_ITEMS_AVAILABLE") {
       return NextResponse.json({ error: message }, { status: 422 });
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message },
+      { status: message === "TRAINER_NOT_FOUND" ? 404 : 500 },
+    );
   }
 }

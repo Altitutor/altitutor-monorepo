@@ -19,17 +19,17 @@ export function useUcatMockDraft({ open, mockId }: UseUcatMockDraftArgs) {
   const [baseline, setBaseline] = useState('')
 
   useEffect(() => {
-    const current = detail.data as { name?: string; is_private?: boolean; sets?: Array<{ id: string }>; instructions_text?: unknown } | null
+    const current = detail.data as { name?: string; access_scope?: 'public' | 'private'; sets?: Array<{ id: string }>; instructions_text?: unknown } | null
     if (!current) return
     const setIds = ((current.sets ?? []) as Array<{ id: string }>).map((set) => set.id)
     setName(current.name ?? '')
-    setIsPrivate(!!current.is_private)
+    setIsPrivate(current.access_scope === 'private')
     setDraftSetIds(setIds)
     setInstructionsText((current.instructions_text ?? null) as RichTextJson | null)
     setBaseline(
       snapshotMockDraft({
         name: current.name ?? '',
-        isPrivate: !!current.is_private,
+        accessScope: current.access_scope ?? 'public',
         setIds,
         instructionsText: (current.instructions_text ?? null) as RichTextJson | null,
       })
@@ -41,7 +41,7 @@ export function useUcatMockDraft({ open, mockId }: UseUcatMockDraftArgs) {
       baseline !== '' &&
       snapshotMockDraft({
         name,
-        isPrivate,
+        accessScope: isPrivate ? 'private' : 'public',
         setIds: draftSetIds,
         instructionsText,
       }) !== baseline
@@ -55,7 +55,7 @@ export function useUcatMockDraft({ open, mockId }: UseUcatMockDraftArgs) {
       payload: {
         id: mockId,
         name,
-        isPrivate,
+        accessScope: isPrivate ? 'private' : 'public',
         setIds: draftSetIds,
         instructionsText,
       },
@@ -77,4 +77,3 @@ export function useUcatMockDraft({ open, mockId }: UseUcatMockDraftArgs) {
     isSaving: updateMock.isPending,
   }
 }
-

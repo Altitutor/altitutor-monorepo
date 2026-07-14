@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
-import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
+import { usePracticeFilters } from "@/features/practice/hooks/use-practice-filters";
 import {
   STEM_FILTERS_STEP_COPY,
   StemFiltersPanel,
   type StemFiltersWizardStep,
-} from "@/features/set-generator/components/stem-filters-panel";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+} from "@/features/practice/components/stem-filters-panel";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import {
   createAndPersistPracticeSession,
   type PracticeSessionStartInput,
@@ -52,7 +52,7 @@ export function PracticePage() {
   } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitDialog();
-  const filters = useStemFilters({
+  const filters = usePracticeFilters({
     timeControlType: "perQuestion",
     showUnlimitedOption: true,
   });
@@ -106,7 +106,7 @@ export function PracticePage() {
 
   const buildStartInput = useCallback(
     (
-      payload: SetGeneratorInput & {
+      payload: PracticeSelectionInput & {
         unlimited?: boolean;
         reviewTiming: PracticeReviewTiming;
       },

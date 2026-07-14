@@ -7,8 +7,7 @@ export type SetDetailLike = {
   name?: Json | null
   description?: Json | null
   time_limit_seconds?: number | null
-  is_private?: boolean | null
-  is_student_generated?: boolean | null
+  access_scope?: 'public' | 'private' | null
   stems?: unknown
 }
 
@@ -19,14 +18,13 @@ export function parseSetStemIds(stems: unknown): string[] {
 
 export function setDetailToUpdatePayload(
   detail: SetDetailLike,
-  overrides?: Partial<Pick<UcatQuestionSetPayload, 'isPrivate' | 'stemIds' | 'timeLimitSeconds' | 'description'>>,
+  overrides?: Partial<Pick<UcatQuestionSetPayload, 'accessScope' | 'stemIds' | 'timeLimitSeconds' | 'description'>>,
 ): UcatQuestionSetPayload {
   return {
     name: detail.name ?? plainTextToProseMirror(''),
     description: overrides?.description ?? proseMirrorToPlainText(detail.description ?? null) ?? '',
     timeLimitSeconds: overrides?.timeLimitSeconds ?? detail.time_limit_seconds ?? null,
-    isPrivate: overrides?.isPrivate ?? !!detail.is_private,
-    isStudentGenerated: !!detail.is_student_generated,
+    accessScope: overrides?.accessScope ?? detail.access_scope ?? 'public',
     stemIds: overrides?.stemIds ?? parseSetStemIds(detail.stems),
   }
 }

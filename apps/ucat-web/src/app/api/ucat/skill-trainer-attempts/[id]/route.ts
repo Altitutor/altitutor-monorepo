@@ -14,7 +14,7 @@ export async function GET(
 
   const { data, error } = await auth.admin
     .from("student_skill_trainer_attempts")
-    .select("*, ucat_skill_trainers(key)")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("id", params.id)
     .eq("student_id", auth.studentId)
     .maybeSingle();
@@ -26,8 +26,15 @@ export async function GET(
     return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
   }
 
+  const trainer = (data as {
+    ucat_skill_trainers?: { key?: string | null; is_enabled?: boolean | null } | null;
+  }).ucat_skill_trainers;
+  if (trainer?.is_enabled !== true) {
+    return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
+  }
+
   try {
-    const trainerKey = (data as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+    const trainerKey = trainer.key ?? undefined;
     const state = await buildAttemptState(
       auth.admin,
       {
@@ -83,7 +90,7 @@ export async function PATCH(
     const message = err instanceof Error ? err.message : "Failed to update attempt";
     return NextResponse.json(
       { error: message },
-      { status: message === "ATTEMPT_NOT_FOUND" ? 404 : 500 },
+      { status: message === "ATTEMPT_NOT_FOUND" || message === "TRAINER_NOT_FOUND" ? 404 : 500 },
     );
   }
 }

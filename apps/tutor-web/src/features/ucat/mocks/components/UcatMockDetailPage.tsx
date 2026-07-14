@@ -74,7 +74,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           firstSectionNumber: parsed.firstSectionNumber,
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
-          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          access_scope: set.access_scope ?? null,
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
@@ -82,7 +82,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
 
   const setsThatWillBecomePublicCount = useMemo(() => {
     if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
+    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.access_scope === 'private').length
   }, [draftSetIds, isPrivate, setCatalog])
 
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
@@ -158,4 +158,3 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     </div>
   )
 }
-

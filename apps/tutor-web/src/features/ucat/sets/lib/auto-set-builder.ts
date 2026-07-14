@@ -127,8 +127,8 @@ export function buildAutoSetPreview({
     if (stem.sectionId !== sectionId) return false
     if (!stem.categoryId || !categoryIds.has(stem.categoryId)) return false
     if (stem.questionsCount <= 0) return false
-    if (stemVisibility === 'public' && stem.isPrivate) return false
-    if (stemVisibility === 'private' && !stem.isPrivate) return false
+    if (stemVisibility === 'public' && stem.accessScope === 'private') return false
+    if (stemVisibility === 'private' && stem.accessScope !== 'private') return false
     if (onlyNotInAnotherSet && stem.setIds.length > 0) return false
     return true
   })

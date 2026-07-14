@@ -7,8 +7,8 @@ import { ChevronLeft, Clock3, Eye, Gauge, Infinity as InfinityIcon, ListChecks, 
 import { Button } from "@/components/ui/button";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
-import type { CategoryRow, PerformanceFilter } from "@/features/set-generator/hooks/use-stem-filters";
-import type { SectionKey, SetGeneratorInput, TimeMode } from "@/features/set-generator/model/types";
+import type { CategoryRow, PerformanceFilter } from "@/features/practice/hooks/use-practice-filters";
+import type { SectionKey, PracticeSelectionInput, TimeMode } from "@/features/practice/model/types";
 import {
   UCAT_HEADER_ICON_BUTTON,
   UCAT_PRIMARY_ACTION_BUTTON,
@@ -26,7 +26,7 @@ export type StemFiltersWizardStep = {
 };
 
 export type StemFiltersPanelProps = {
-  input: SetGeneratorInput;
+  input: PracticeSelectionInput;
   selectedSection: { id: string; number_of_questions: number | null } | null;
   sectionCategories: CategoryRow[];
   selectedCategories: CategoryRow[];

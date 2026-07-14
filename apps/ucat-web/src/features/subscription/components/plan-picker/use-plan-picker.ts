@@ -9,6 +9,8 @@ import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onbo
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { changeUcatSubscriptionTier } from "@/features/subscription/api/change-subscription-tier";
+import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
+import { scheduleUcatSubscriptionCancellation } from "@/features/subscription/api/change-subscription-cancellation";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import {
   fetchUcatUpgradePreview,
@@ -43,6 +45,10 @@ import {
   type PlanPickerTier,
 } from "@/features/subscription/lib/plan-tier-rank";
 import { buildSignupCheckoutPath } from "@/features/auth/lib/signup-plan-intent";
+import {
+  isStripeCancellationFeedback,
+  type CancellationReasonSelection,
+} from "@/features/subscription/lib/subscription-cancellation";
 
 const SUBSCRIPTION_SETTINGS_PATH = "/settings/plan/subscription";
 
@@ -118,6 +124,15 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     null,
   );
   const [upgradeConfirming, setUpgradeConfirming] = useState(false);
+  const [cancellationOpen, setCancellationOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] =
+    useState<CancellationReasonSelection | null>(null);
+  const [cancellationComment, setCancellationComment] = useState("");
+  const [cancellationConfirming, setCancellationConfirming] = useState(false);
+  const [cancellationError, setCancellationError] = useState<string | null>(
+    null,
+  );
+  const cancellationConfirmedRef = useRef(false);
   const trackedViewRef = useRef(false);
 
   useEffect(() => {
@@ -370,19 +385,95 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const canDowngradeTo = (target: PlanPickerTier) =>
     canDowngradeToTier(access.onlineTier, target, subscribedPlanTier);
 
-  const handleDowngrade = (_target: PlanPickerTier) => {
-    toast({
-      title: "Downgrade via Subscription settings",
-      description:
-        "To switch to a lower plan, manage your subscription on the Subscription tab.",
-      action: {
-        label: "Go to Subscription",
-        onClick: () => {
-          options.onDowngradeNavigate?.();
-          router.push(SUBSCRIPTION_SETTINGS_PATH);
+  const handleCancellationOpenChange = (open: boolean) => {
+    if (!open && cancellationOpen && !cancellationConfirmedRef.current) {
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_abandoned",
+        journeyContext: "subscription_settings",
+        metadata: { current_plan: subscribedPlanTier },
+      });
+    }
+    setCancellationOpen(open);
+    if (!open) {
+      setCancellationError(null);
+      cancellationConfirmedRef.current = false;
+    }
+  };
+
+  const confirmCancellation = async () => {
+    if (!cancellationReason) return;
+    setCancellationConfirming(true);
+    setCancellationError(null);
+    try {
+      await scheduleUcatSubscriptionCancellation({
+        feedback: isStripeCancellationFeedback(cancellationReason)
+          ? cancellationReason
+          : null,
+        comment: cancellationComment.trim() || null,
+      });
+      cancellationConfirmedRef.current = true;
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_confirmed",
+        journeyContext: "subscription_settings",
+        metadata: {
+          current_plan: subscribedPlanTier,
+          target_plan: "free",
+          has_comment: cancellationComment.trim().length > 0,
         },
-      },
-    });
+      });
+      await refetchSubscriptionState();
+      setCancellationOpen(false);
+      setCancellationReason(null);
+      setCancellationComment("");
+      options.onDowngradeNavigate?.();
+      router.push(SUBSCRIPTION_SETTINGS_PATH);
+      router.refresh();
+      toast({
+        title: "Switch to UCAT Free scheduled",
+        description: subscription?.current_period_end
+          ? `You'll keep your paid plan until ${new Date(subscription.current_period_end).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}.`
+          : "You'll keep your paid access until the end of this billing period.",
+      });
+    } catch (e) {
+      setCancellationError(
+        e instanceof Error ? e.message : "Failed to switch to UCAT Free",
+      );
+    } finally {
+      setCancellationConfirming(false);
+    }
+  };
+
+  const handleDowngrade = async (target: PlanPickerTier) => {
+    if (target === "free") {
+      cancellationConfirmedRef.current = false;
+      setCancellationReason(null);
+      setCancellationComment("");
+      setCancellationError(null);
+      setCancellationOpen(true);
+      trackSubscriptionJourneyEvent({
+        eventType: "free_plan_selected",
+        journeyContext: "subscription_settings",
+        metadata: { current_plan: subscribedPlanTier },
+      });
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_dialog_opened",
+        journeyContext: "subscription_settings",
+        metadata: { current_plan: subscribedPlanTier },
+      });
+      return;
+    }
+
+    setLoadingPlan("unlimited");
+    setError(null);
+    try {
+      const { url } = await createBillingPortalSession("subscription_update");
+      window.location.assign(url);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to change your plan",
+      );
+      setLoadingPlan(null);
+    }
   };
 
   return {
@@ -404,6 +495,19 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     upgradePreviewLoading,
     upgradePreviewError,
     upgradeConfirming,
+    cancellationOpen,
+    handleCancellationOpenChange,
+    cancellationReason,
+    setCancellationReason,
+    cancellationComment,
+    setCancellationComment,
+    cancellationConfirming,
+    cancellationError,
+    confirmCancellation,
+    cancellationPaidAccessEndsAt: subscription?.current_period_end ?? null,
+    cancellationCurrentPlanName: isOnPro
+      ? "UCAT Pro"
+      : "UCAT Unlimited",
     confirmUpgradeToPro,
     omitAudPrefix,
     trialCta,

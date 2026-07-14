@@ -262,7 +262,7 @@ export function normalizeQuantitativeReasoningItemStemLines(
 export type QuantitativeReasoningToFormOptions = {
   sectionId: string
   categoryId?: string | null
-  isPrivate?: boolean
+  accessScope?: 'public' | 'private'
   getCategoryIdForStem?: (stem: ParsedStem) => string | null
   getTagIdsForQuestion?: (args: {
     stem: ParsedStem
@@ -316,7 +316,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
   const {
     sectionId,
     categoryId = null,
-    isPrivate = false,
+    accessScope = 'public',
     getCategoryIdForStem,
     getTagIdsForQuestion,
   } = options
@@ -354,7 +354,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
         stem.stemText,
         tableMap
       ) as Json,
-      isPrivate,
+      accessScope,
       questions,
     })
   }

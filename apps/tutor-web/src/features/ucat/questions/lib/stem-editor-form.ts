@@ -1,9 +1,9 @@
 import type { Json } from '@altitutor/shared'
-import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 
@@ -12,7 +12,7 @@ export function buildEmptyStemFormValues(sectionId = ''): UcatQuestionStemFormVa
     sectionId,
     categoryId: null,
     stemText: EMPTY_DOC,
-    isPrivate: false,
+    accessScope: 'public',
     questions: [
       {
         questionText: EMPTY_DOC,
@@ -39,9 +39,9 @@ export function stemDetailToFormValues(
     sectionId: initial.section_id,
     categoryId: initial.question_stem_category_id,
     stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
-    isPrivate: initial.is_private,
+    accessScope: initial.access_scope,
     tutorSourceNote: initial.tutor_source_note ?? '',
-    approvalStatus: (initial.approval_status ?? 'approved') as UcatApprovalStatus,
+    status: (initial.status ?? 'published') as UcatContentStatus,
     questions: (initial.questions ?? []).map((question) => ({
       id: question.id,
       questionText: (question.question_text ?? EMPTY_DOC) as Json,
@@ -55,6 +55,7 @@ export function stemDetailToFormValues(
       options:
         (question.answer_options ?? []).length > 0
           ? (question.answer_options ?? []).map((option) => ({
+              id: option.id,
               answerText: (option.answer_text ?? EMPTY_DOC) as Json,
               answerExplanation: (option.answer_explanation ?? null) as Json | null,
               isAnswer: option.is_answer,
@@ -79,7 +80,7 @@ export function formValuesToStemBundlePayload(
     sectionId: payload.sectionId,
     categoryId: payload.categoryId || null,
     stemText: payload.stemText,
-    isPrivate: payload.isPrivate,
+    accessScope: payload.accessScope,
     sourceChannel: stemId ? undefined : 'individual',
     tutorSourceNote: payload.tutorSourceNote ?? null,
     questions: payload.questions.map((question, index) => ({
@@ -94,6 +95,7 @@ export function formValuesToStemBundlePayload(
       aiGenerationMetadata: question.aiGenerationMetadata ?? null,
       tagIds: question.tagIds ?? [],
       options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+        id: option.id,
         index: optionIndex + 1,
         answerText: option.answerText,
         answerExplanation: toExplanationNull(option.answerExplanation),
@@ -103,11 +105,11 @@ export function formValuesToStemBundlePayload(
   }
 }
 
-export function parseApprovalStatusFromSnapshot(snapshot: string): UcatApprovalStatus | null {
+export function parseContentStatusFromSnapshot(snapshot: string): UcatContentStatus | null {
   if (!snapshot) return null
   try {
-    const parsed = JSON.parse(snapshot) as { approvalStatus?: UcatApprovalStatus | null }
-    return parsed.approvalStatus ?? null
+    const parsed = JSON.parse(snapshot) as { status?: UcatContentStatus | null }
+    return parsed.status ?? null
   } catch {
     return null
   }
@@ -119,16 +121,16 @@ export async function persistStemFormValues(
   options: {
     baselineSnapshot: string
     updateStem: (payload: UcatQuestionStemBundlePayload) => Promise<unknown>
-    setApprovalStatus?: (status: UcatApprovalStatus) => Promise<unknown>
+    setStatus?: (status: UcatContentStatus) => Promise<unknown>
   },
 ): Promise<string> {
   const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
   await options.updateStem(formValuesToStemBundlePayload(valuesCopy, stemId))
 
-  const previousApproval = parseApprovalStatusFromSnapshot(options.baselineSnapshot)
-  const nextApproval = valuesCopy.approvalStatus ?? null
-  if (options.setApprovalStatus && nextApproval && nextApproval !== previousApproval) {
-    await options.setApprovalStatus(nextApproval)
+  const previousStatus = parseContentStatusFromSnapshot(options.baselineSnapshot)
+  const nextStatus = valuesCopy.status ?? null
+  if (options.setStatus && nextStatus && nextStatus !== previousStatus) {
+    await options.setStatus(nextStatus)
   }
 
   return snapshotQuestionStemFormValues(valuesCopy)

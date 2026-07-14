@@ -185,7 +185,7 @@ export function filterStemCatalogItems({
     if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
     if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
     if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
-    if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.isPrivate)) return false
+    if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.accessScope === 'private')) return false
     if (questionTypeFilter && questionTypeFilter !== 'all') {
       if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
         return false
@@ -218,7 +218,7 @@ export function sortStemCatalogItems(
     question_count: (stem) => stem.questionsCount,
     sets: (stem) => stem.setNames,
     type_summary: (stem) => stem.typeSummary,
-    visibility: (stem) => (stem.isPrivate ? 'Private' : 'Public'),
+    visibility: (stem) => (stem.accessScope === 'private' ? 'Private' : 'Public'),
     created_at: (stem) => stem.createdAt,
   })
 }

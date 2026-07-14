@@ -47,7 +47,7 @@ export type SituationalJudgementToFormOptions = {
     stem: ParsedStem
     question: ParsedStem['questions'][number]
   }) => string[]
-  isPrivate?: boolean
+  accessScope?: 'public' | 'private'
 }
 
 export function parseSituationalJudgementFromLines(
@@ -88,7 +88,7 @@ export function mapParsedSituationalJudgementToFormValues(
     categoryId = null,
     getCategoryIdForStem,
     getTagIdsForQuestion,
-    isPrivate = false,
+    accessScope = 'public',
   } = options
 
   const result: UcatQuestionStemFormValues[] = []
@@ -121,7 +121,7 @@ export function mapParsedSituationalJudgementToFormValues(
       sectionId,
       categoryId: resolvedCategoryId ?? null,
       stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
-      isPrivate,
+      accessScope,
       questions,
     })
   }

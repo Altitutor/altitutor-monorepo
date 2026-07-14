@@ -12,11 +12,13 @@ import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisib
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { MockSetsColumnCellWithData } from '@/features/ucat/shared/components/MockSetsColumnCellWithData'
 import type { UcatSectionForStatus } from '@/features/ucat/shared/lib/set-section-status'
+import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 
 export type MockRow = {
   id: string
   name: string
-  is_private: boolean
+  access_scope: UcatAccessScope
+  status: UcatContentStatus
   set_count: number
   updated_at: string | null
   deleted_at: string | null
@@ -25,7 +27,8 @@ export type MockRow = {
 type MockListRowInput = {
   id?: string | null
   name?: string | null
-  is_private?: boolean | null
+  access_scope?: UcatAccessScope | null
+  status?: UcatContentStatus | null
   set_count?: number | null
   updated_at?: string | null
   deleted_at?: string | null
@@ -37,6 +40,7 @@ type UseUcatMocksTableParams<T extends MockListRowInput> = {
   availableColumns: string[]
   sections: UcatSectionForStatus[]
   onOpenSet: (setId: string) => void
+  status: UcatContentStatus
 }
 
 export function useUcatMocksTable<T extends MockListRowInput>({
@@ -45,6 +49,7 @@ export function useUcatMocksTable<T extends MockListRowInput>({
   availableColumns,
   sections,
   onOpenSet,
+  status,
 }: UseUcatMocksTableParams<T>) {
   const tableState = useUcatTableUrlState(initialVisibleColumns, {
     syncShowDeleted: true,
@@ -57,7 +62,8 @@ export function useUcatMocksTable<T extends MockListRowInput>({
       (data ?? []).map((row) => ({
         id: row.id ?? '',
         name: row.name ?? 'Untitled',
-        is_private: !!row.is_private,
+        access_scope: row.access_scope ?? 'public',
+        status: row.status ?? 'draft',
         set_count: row.set_count ?? 0,
         updated_at: row.updated_at ?? null,
         deleted_at: row.deleted_at ?? null,
@@ -68,20 +74,20 @@ export function useUcatMocksTable<T extends MockListRowInput>({
   const filteredRows = useMemo(() => {
     const byDeleted = showDeleted
       ? rows.filter((row) => row.deleted_at != null)
-      : rows.filter((row) => row.deleted_at == null)
+      : rows.filter((row) => row.deleted_at == null && row.status === status)
     const search = tableState.state.search.trim().toLowerCase()
     return byDeleted.filter((row) => {
       const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
-      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
+      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.access_scope === 'private')
       return searchHit && visibilityHit
     })
-  }, [rows, showDeleted, tableState.state])
+  }, [rows, showDeleted, status, tableState.state])
 
   const sortedRows = useMemo(
     () =>
       applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
         name: (row) => row.name,
-        visibility: (row) => (row.is_private ? 'Private' : 'Public'),
+        visibility: (row) => (row.access_scope === 'private' ? 'Private' : 'Public'),
         set_count: (row) => row.set_count,
         updated_at: (row) => row.updated_at ?? '',
       }),
@@ -93,9 +99,9 @@ export function useUcatMocksTable<T extends MockListRowInput>({
     {
       key: 'visibility',
       column: {
-        accessorKey: 'is_private',
+        accessorKey: 'access_scope',
         header: () => <UcatVisibilityTableHeaderLabel />,
-        cell: ({ row }) => <UcatVisibilityBadge isPrivate={row.original.is_private} />,
+        cell: ({ row }) => <UcatVisibilityBadge isPrivate={row.original.access_scope === 'private'} />,
       },
     },
     {

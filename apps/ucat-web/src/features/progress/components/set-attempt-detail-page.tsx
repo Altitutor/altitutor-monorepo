@@ -122,8 +122,8 @@ export function SetAttemptDetailPage({
 
       <motion.div variants={itemVariants}>
         <SetAnswersCard
-          questionSetId={data.questionSetId}
           questionAttempts={data.questionAttempts}
+          exam={data.exam}
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview

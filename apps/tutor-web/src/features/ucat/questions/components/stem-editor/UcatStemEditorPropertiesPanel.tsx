@@ -24,12 +24,11 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { AlertTriangle, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
-import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { UcatQuestionSourceChannel, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { formatSourceChannel, formatGeneratedTimestamp, formatStaffDisplayName, metadataString } from '@/features/ucat/questions/lib/source-display'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
@@ -58,12 +57,6 @@ import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-gen
 import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 
-const APPROVAL_OPTIONS: Array<{ value: UcatApprovalStatus; label: string }> = [
-  { value: 'approved', label: 'Approved' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'rejected', label: 'Rejected' },
-]
-
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
 
@@ -85,9 +78,9 @@ type UcatStemEditorPropertiesPanelProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
-  approvedByFirstName?: string | null
-  approvedByLastName?: string | null
-  approvedAt?: string | null
+  statusChangedByFirstName?: string | null
+  statusChangedByLastName?: string | null
+  statusChangedAt?: string | null
   metadataRecommendation?: ManualStemMetadataRecommendation | null
   activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
   onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
@@ -219,9 +212,9 @@ export function UcatStemEditorPropertiesPanel({
   aiGenerationMetadata,
   createdByFirstName,
   createdByLastName,
-  approvedByFirstName,
-  approvedByLastName,
-  approvedAt,
+  statusChangedByFirstName,
+  statusChangedByLastName,
+  statusChangedAt,
   metadataRecommendation = null,
   activeTab: controlledActiveTab,
   onActiveTabChange,
@@ -251,10 +244,9 @@ export function UcatStemEditorPropertiesPanel({
     formatStaffDisplayName(createdByFirstName, createdByLastName) ??
     metadataString(aiGenerationMetadata, 'generatedByName') ??
     metadataString(aiGenerationMetadata, 'generatedByEmail')
-  const approvedByName = formatStaffDisplayName(approvedByFirstName, approvedByLastName)
-  const approvedAtLabel = formatGeneratedTimestamp(approvedAt)
+  const statusChangedByName = formatStaffDisplayName(statusChangedByFirstName, statusChangedByLastName)
+  const statusChangedAtLabel = formatGeneratedTimestamp(statusChangedAt)
 
-  const watchedApprovalStatus = form.watch('approvalStatus')
 
   const categoriesFiltered = sectionId
     ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId)
@@ -550,9 +542,11 @@ export function UcatStemEditorPropertiesPanel({
         if (typeof input.categoryId === 'string' || input.categoryId === null) {
           form.setValue('categoryId', input.categoryId ?? null, { shouldDirty: true })
         }
-        if (typeof input.isPrivate === 'boolean') form.setValue('isPrivate', input.isPrivate, { shouldDirty: true })
-        if (input.approvalStatus === 'approved' || input.approvalStatus === 'pending' || input.approvalStatus === 'rejected') {
-          form.setValue('approvalStatus', input.approvalStatus, { shouldDirty: true })
+        if (typeof input.isPrivate === 'boolean') {
+          form.setValue('accessScope', input.isPrivate ? 'private' : 'public', { shouldDirty: true })
+        }
+        if (input.status === 'published' || input.status === 'in_review' || input.status === 'draft') {
+          form.setValue('status', input.status, { shouldDirty: true })
         }
         if (typeof input.tutorSourceNote === 'string') {
           form.setValue('tutorSourceNote', input.tutorSourceNote, { shouldDirty: true })
@@ -977,19 +971,19 @@ export function UcatStemEditorPropertiesPanel({
                 />
               </div>
             </PropertyRow>
-            <PropertyRow label={<UcatVisibilityFieldLabel />}>
+            <PropertyRow label="Access scope">
               <SearchableSelect<{ value: 'public' | 'private'; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
                   { value: 'private', label: 'Private' },
                 ]}
                 value={
-                  form.watch('isPrivate')
+                  form.watch('accessScope') === 'private'
                     ? { value: 'private', label: 'Private' }
                     : { value: 'public', label: 'Public' }
                 }
                 onValueChange={(item) =>
-                  form.setValue('isPrivate', item?.value === 'private', { shouldDirty: true })
+                  form.setValue('accessScope', item?.value ?? 'public', { shouldDirty: true })
                 }
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
@@ -1016,23 +1010,6 @@ export function UcatStemEditorPropertiesPanel({
                 }}
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
-              />
-            </PropertyRow>
-            <PropertyRow label="Approval">
-              <SearchableSelect<{ value: UcatApprovalStatus; label: string }>
-                items={APPROVAL_OPTIONS}
-                value={
-                  APPROVAL_OPTIONS.find(
-                    (option) => option.value === (watchedApprovalStatus ?? 'approved'),
-                  ) ?? null
-                }
-                onValueChange={(item) => {
-                  if (!item) return
-                  form.setValue('approvalStatus', item.value, { shouldDirty: true })
-                }}
-                getItemLabel={(item) => item.label}
-                getItemId={(item) => item.value}
-                placeholder="Select approval status"
               />
             </PropertyRow>
           </PropertiesCard>
@@ -1107,10 +1084,10 @@ export function UcatStemEditorPropertiesPanel({
               </PropertyRow>
             )}
             <PropertyRow label="Approved by">
-              <ReadOnlyValue>{approvedByName ?? '—'}</ReadOnlyValue>
+              <ReadOnlyValue>{statusChangedByName ?? '—'}</ReadOnlyValue>
             </PropertyRow>
             <PropertyRow label="Approved at">
-              <ReadOnlyValue>{approvedAtLabel ?? '—'}</ReadOnlyValue>
+              <ReadOnlyValue>{statusChangedAtLabel ?? '—'}</ReadOnlyValue>
             </PropertyRow>
             {fields.length > 0 ? (
               <>

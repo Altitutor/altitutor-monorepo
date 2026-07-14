@@ -26,7 +26,6 @@ type HistoryRow = {
   section_name: string | null;
   resource_id: string;
   resource_name: unknown;
-  is_student_generated: boolean;
   unlimited: boolean;
   attempted_at: string;
   completed_at: string | null;
@@ -124,7 +123,6 @@ export async function GET(request: Request) {
         completedAt: row.completed_at,
         questionSetId: row.resource_id,
         questionSetName: name,
-        isStudentGenerated: row.is_student_generated,
         studentUcatMockAttemptId: null,
         scorePoints: row.score_points,
         totalPoints: row.total_points,

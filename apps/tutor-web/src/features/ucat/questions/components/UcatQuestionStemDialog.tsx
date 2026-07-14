@@ -23,10 +23,11 @@ import {
 import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
-import { buildEmptyStemFormValues, parseApprovalStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
-import { useSetUcatQuestionStemApprovalStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { useSetUcatQuestionStemStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -120,7 +121,7 @@ export function UcatQuestionStemDialog({
 }) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
+  const statusMutation = useSetUcatQuestionStemStatus()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
@@ -186,7 +187,7 @@ export function UcatQuestionStemDialog({
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
         stemText: EMPTY_DOC,
-        isPrivate: false,
+        accessScope: 'public',
         tutorSourceNote: '',
         questions: [
           {
@@ -238,7 +239,7 @@ export function UcatQuestionStemDialog({
     return {
       ...nextValues,
       categoryId: values.categoryId ?? null,
-      isPrivate: values.isPrivate,
+      accessScope: values.accessScope,
       tutorSourceNote: values.tutorSourceNote ?? '',
       questions: nextQuestions,
     }
@@ -339,12 +340,12 @@ export function UcatQuestionStemDialog({
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
           await onSubmit(valuesCopy, { createMore: !initial && createMore })
-          if (stemId && valuesCopy.approvalStatus) {
-            const baselineApproval = parseApprovalStatusFromSnapshot(baseline)
-            if (valuesCopy.approvalStatus !== baselineApproval) {
-              await approvalMutation.mutateAsync({
+          if (stemId && valuesCopy.status) {
+            const baselineStatus = parseContentStatusFromSnapshot(baseline)
+            if (valuesCopy.status !== baselineStatus) {
+              await statusMutation.mutateAsync({
                 stemId,
-                status: valuesCopy.approvalStatus as UcatApprovalStatus,
+                status: valuesCopy.status as UcatContentStatus,
               })
             }
           }
@@ -501,9 +502,9 @@ export function UcatQuestionStemDialog({
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}
           createdByLastName={initial?.created_by_last_name ?? null}
-          approvedByFirstName={initial?.approved_by_first_name ?? null}
-          approvedByLastName={initial?.approved_by_last_name ?? null}
-          approvedAt={initial?.approved_at ?? null}
+          statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
+          statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
+          statusChangedAt={initial?.status_changed_at ?? null}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

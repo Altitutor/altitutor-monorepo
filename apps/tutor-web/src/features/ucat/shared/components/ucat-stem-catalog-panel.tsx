@@ -62,9 +62,9 @@ export function UcatStemCatalogMetadata({
       {stemShowsColumn(visibleColumns, 'visibility') ? (
         <Badge
           variant="outline"
-          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
+          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.accessScope === 'private'))}
         >
-          {stem.isPrivate ? 'Private' : 'Public'}
+          {stem.accessScope === 'private' ? 'Private' : 'Public'}
         </Badge>
       ) : null}
       {stemShowsColumn(visibleColumns, 'question_count') ? (

@@ -3,13 +3,17 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
-import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
 import {
-  fetchAttemptReviewCategoryDescriptions,
   fetchAttemptReviewQuestionMetadata,
-  fetchAttemptReviewStemCategories,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
+import type { QuestionEngineExam } from "@/features/question-engine/model/types";
+import {
+  buildAttemptReviewExam,
+  parseAttemptContentSnapshot,
+  snapshotQuestionMetadata,
+  snapshotSyllogismOptions,
+} from "@/features/progress/lib/attempt-content-snapshot";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -59,19 +63,7 @@ export type MockAttemptDetailResponse = {
   }[];
   /** Indices (0-based) after which to draw set divider (last question index of each set except final) */
   setBoundaryIndices: number[];
-};
-
-type StemWithQuestions = {
-  stem_id: string;
-  stem_text?: string;
-  questions_meta?: Array<{ id: string; index: number }>;
-};
-
-type MockSetFromDetail = {
-  id: string;
-  name?: JsonLike;
-  description?: unknown;
-  time_limit_seconds?: number | null;
+  exam: QuestionEngineExam;
 };
 
 function parseAnswerSnapshot(
@@ -114,7 +106,7 @@ export async function GET(
   const { data: mockAttempt, error: mockError } = await supabase
     .from("vstudent_ucat_my_mock_attempts")
     .select(
-      "id, ucat_mock_id, attempted_at, completed_at, time_taken, mock_time_limit_seconds, mock_time_limit_at_exam_speed_seconds, student_mock_speed",
+      "id, ucat_mock_id, attempted_at, completed_at, score_points, total_points, scaled_score, time_taken, mock_time_limit_seconds, mock_time_limit_at_exam_speed_seconds, student_mock_speed, content_snapshot",
     )
     .eq("id", mockAttemptId)
     .maybeSingle();
@@ -138,53 +130,17 @@ export async function GET(
     );
   }
 
-  const { data: mockDetail, error: mockDetailError } = await supabase
-    .from("vstudent_ucat_mock_detail")
-    .select("id, name, sets")
-    .eq("id", ucatMockId)
-    .maybeSingle();
+  const mockSnapshot = (mockAttempt.content_snapshot ?? {}) as {
+    name?: unknown;
+    setIds?: string[];
+  };
+  const mockSetIds = Array.isArray(mockSnapshot.setIds) ? mockSnapshot.setIds : [];
 
-  if (mockDetailError) {
-    return NextResponse.json(
-      { error: mockDetailError.message },
-      { status: 500 },
-    );
-  }
-
-  const mockSets = (mockDetail?.sets ?? []) as MockSetFromDetail[];
-  const mockSetIds = mockSets.map((s) => s.id);
-
-  const [setSectionsResult, setAttemptsResult, setDetailsResult] =
-    await Promise.all([
-      mockSetIds.length > 0
-        ? supabase
-            .from("vstudent_ucat_question_sets")
-            .select("id, sections")
-            .in("id", mockSetIds)
-        : Promise.resolve({ data: [] }),
+  const setAttemptsResult = await
       supabase
         .from("vstudent_ucat_my_set_attempts")
-        .select("id, question_set_id, score_points, total_points, scaled_score")
-        .eq("student_ucat_mock_attempt_id", mockAttemptId),
-      mockSetIds.length > 0
-        ? supabase
-            .from("vstudent_ucat_question_set_detail")
-            .select("id, stems")
-            .in("id", mockSetIds)
-        : Promise.resolve({ data: [] }),
-    ]);
-
-  const { data: setDetailsForSections } = setSectionsResult;
-
-  const sectionNumberBySetId = new Map<string, number>();
-  for (const s of setDetailsForSections ?? []) {
-    const sections = s.sections as Array<{ section_number?: number }> | null;
-    const firstNum =
-      Array.isArray(sections) && sections.length > 0
-        ? sections[0]?.section_number
-        : undefined;
-    if (firstNum != null && s.id) sectionNumberBySetId.set(s.id, firstNum);
-  }
+        .select("id, question_set_id, score_points, total_points, scaled_score, content_snapshot")
+        .eq("student_ucat_mock_attempt_id", mockAttemptId);
 
   const SITUATIONAL_JUDGEMENT_SECTION = 4;
 
@@ -201,14 +157,10 @@ export async function GET(
     (setAttemptsRaw ?? []).map((a) => [a.question_set_id, a]),
   );
 
-  const setDetailsById = new Map(
-    (setDetailsResult.data ?? []).map((detail) => [detail.id, detail]),
-  );
-
   const { data: allQuestionAttempts, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot, category_name, question_stem_category_id, is_flagged",
+      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot, category_name, question_stem_category_id, is_flagged, attempted_at, content_snapshot",
     )
     .in(
       "student_question_set_attempt_id",
@@ -235,7 +187,8 @@ export async function GET(
     }
   >();
   for (const qa of allQuestionAttempts ?? []) {
-    const key = `${qa.student_question_set_attempt_id}:${qa.question_id}`;
+    const snapshot = parseAttemptContentSnapshot(qa.content_snapshot);
+    const key = `${qa.student_question_set_attempt_id}:${snapshot?.question.id ?? qa.question_id}`;
     attemptsBySetAndQuestion.set(key, {
       score: qa.score,
       timeSpentSeconds: qa.time_spent_seconds,
@@ -254,45 +207,42 @@ export async function GET(
   const setBoundaryIndices: number[] = [];
   let globalQuestionNumber = 0;
 
-  const allStemIds: string[] = [];
-  for (const setDetail of setDetailsResult.data ?? []) {
-    const stems = (setDetail.stems ?? []) as StemWithQuestions[];
-    allStemIds.push(...stems.map((s) => s.stem_id).filter(Boolean));
-  }
-  const allQuestionIds = [
-    ...new Set(
-      (allQuestionAttempts ?? [])
-        .map((qa) => qa.question_id)
-        .filter((id): id is string => !!id),
-    ),
-  ];
-  const [syllogismOptionsByQuestionId, questionMetadata, stemCategoryMap] =
-    await Promise.all([
-      fetchSyllogismOptionsByQuestionId(supabase, allStemIds),
-      fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds),
-      fetchAttemptReviewStemCategories(supabase, allStemIds),
-    ]);
-  const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
-    supabase,
-    [
-      ...(allQuestionAttempts ?? [])
-        .map((qa) => qa.question_stem_category_id)
-        .filter((id): id is string => !!id),
-      ...Array.from(stemCategoryMap.values()).map(
-        (category) => category.categoryId,
-      ),
-    ],
+  const setSnapshotByAttemptId = new Map(
+    (setAttemptsRaw ?? []).map((setAttempt) => [
+      setAttempt.id ?? "",
+      (setAttempt.content_snapshot ?? {}) as { name?: unknown; stemIds?: string[] },
+    ]),
+  );
+  const orderedSnapshotAttempts = (allQuestionAttempts ?? [])
+    .map((row) => ({ row, snapshot: parseAttemptContentSnapshot(row.content_snapshot) }))
+    .filter((entry): entry is typeof entry & { snapshot: NonNullable<typeof entry.snapshot> } => Boolean(entry.snapshot))
+    .sort((a, b) => {
+      const aSetAttempt = (setAttemptsRaw ?? []).find((attempt) => attempt.id === a.row.student_question_set_attempt_id);
+      const bSetAttempt = (setAttemptsRaw ?? []).find((attempt) => attempt.id === b.row.student_question_set_attempt_id);
+      const aSetIndex = mockSetIds.indexOf(aSetAttempt?.question_set_id ?? "");
+      const bSetIndex = mockSetIds.indexOf(bSetAttempt?.question_set_id ?? "");
+      const aStemIds = setSnapshotByAttemptId.get(a.row.student_question_set_attempt_id ?? "")?.stemIds ?? [];
+      const bStemIds = setSnapshotByAttemptId.get(b.row.student_question_set_attempt_id ?? "")?.stemIds ?? [];
+      return aSetIndex - bSetIndex ||
+        aStemIds.indexOf(a.snapshot.stem.id) - bStemIds.indexOf(b.snapshot.stem.id) ||
+        a.snapshot.question.index - b.snapshot.question.index ||
+        (a.row.attempted_at ?? "").localeCompare(b.row.attempted_at ?? "");
+    });
+  const allQuestionIds = orderedSnapshotAttempts.map(({ snapshot }) => snapshot.question.id);
+  const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds);
+  const syllogismOptionsByQuestionId = new Map(
+    orderedSnapshotAttempts.map(({ snapshot }) => [snapshot.question.id, snapshotSyllogismOptions(snapshot)]),
   );
 
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
     const questionSetId = mockSetIds[setIndex];
     const setAttempt = setAttemptsBySetId.get(questionSetId);
-    const mockSet = mockSets[setIndex];
+    const setSnapshot = (setAttempt?.content_snapshot ?? {}) as { name?: unknown; stemIds?: string[] };
 
     const setAttemptId = setAttempt?.id ?? "";
     const questionSetName =
-      mockSet?.name != null
-        ? extractTextFromRichJson(mockSet.name as JsonLike) || null
+      setSnapshot.name != null
+        ? extractTextFromRichJson(setSnapshot.name as JsonLike) || null
         : null;
 
     sets.push({
@@ -304,27 +254,23 @@ export async function GET(
       scaledScore: setAttempt?.scaled_score ?? null,
     });
 
-    const setDetail = setDetailsById.get(questionSetId);
-    const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
     let currentStemId: string | null = null;
     let stemIndex = 0;
 
-    for (const stem of stems) {
-      const questions = (stem.questions_meta ?? []).sort(
-        (a, b) => a.index - b.index,
-      );
-      if (stem.stem_id !== currentStemId) {
-        currentStemId = stem.stem_id;
+    const setQuestionSnapshots = orderedSnapshotAttempts.filter(
+      ({ row }) => row.student_question_set_attempt_id === setAttemptId,
+    );
+    for (const { snapshot } of setQuestionSnapshots) {
+      if (snapshot.stem.id !== currentStemId) {
+        currentStemId = snapshot.stem.id;
         stemIndex += 1;
       }
-
-      for (const q of questions) {
         globalQuestionNumber++;
-        const questionId = q.id;
+        const questionId = snapshot.question.id;
         const attemptData = setAttempt
           ? attemptsBySetAndQuestion.get(`${setAttempt.id}:${questionId}`)
           : undefined;
-        const stemCategory = stemCategoryMap.get(stem.stem_id);
+        const snapshotMetadata = snapshotQuestionMetadata(snapshot);
 
         const { score, result } = resolveQuestionAttemptScoreAndResult({
           questionId,
@@ -334,18 +280,14 @@ export async function GET(
         const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
         const metadata = questionMetadata.get(questionId);
         const timeBurdenSeconds =
-          attemptData?.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
-        const questionType = attemptData?.questionType ?? null;
+          attemptData?.timeBurdenSeconds ?? snapshotMetadata.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
+        const questionType = attemptData?.questionType ?? snapshot.question.questionType;
 
         const categoryName =
-          attemptData?.categoryName ?? stemCategory?.categoryName ?? null;
+          attemptData?.categoryName ?? snapshotMetadata.categoryName;
         const questionStemCategoryId =
-          attemptData?.questionStemCategoryId ??
-          stemCategory?.categoryId ??
-          null;
-        const categoryDescription = questionStemCategoryId
-          ? (categoryDescriptions.get(questionStemCategoryId) ?? null)
-          : null;
+          attemptData?.questionStemCategoryId ?? snapshotMetadata.questionStemCategoryId;
+        const categoryDescription = snapshotMetadata.categoryDescription;
 
         questionAttempts.push({
           questionNumber: globalQuestionNumber,
@@ -357,8 +299,8 @@ export async function GET(
           averageTimeSeconds: metadata?.averageTimeSeconds ?? null,
           averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
           timeBurdenSeconds,
-          difficulty: metadata?.difficulty ?? null,
-          questionTags: metadata?.questionTags ?? [],
+          difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
+          questionTags: snapshotMetadata.questionTags.length > 0 ? snapshotMetadata.questionTags : (metadata?.questionTags ?? []),
           isFlagged: attemptData?.isFlagged ?? false,
           questionType,
           result,
@@ -368,36 +310,37 @@ export async function GET(
           categoryDescription,
           questionStemCategoryId,
         });
-      }
     }
 
-    if (setIndex < mockSetIds.length - 1 && stems.length > 0) {
+    if (setIndex < mockSetIds.length - 1 && setQuestionSnapshots.length > 0) {
       setBoundaryIndices.push(globalQuestionNumber - 1);
     }
   }
 
   const mockName =
-    mockDetail?.name != null
-      ? extractTextFromRichJson(mockDetail.name as JsonLike) || null
+    mockSnapshot.name != null
+      ? extractTextFromRichJson(mockSnapshot.name as JsonLike) || null
       : null;
 
+  const sectionNumberBySetId = new Map<string, number>();
+  for (const { row, snapshot } of orderedSnapshotAttempts) {
+    const setAttempt = (setAttemptsRaw ?? []).find((attempt) => attempt.id === row.student_question_set_attempt_id);
+    if (setAttempt?.question_set_id && snapshot.stem.sectionNumber != null) {
+      sectionNumberBySetId.set(setAttempt.question_set_id, snapshot.stem.sectionNumber);
+    }
+  }
   const scoredSetCount = sets.filter((s) => {
     const sectionNum = s.questionSetId
       ? sectionNumberBySetId.get(s.questionSetId)
       : undefined;
     return sectionNum !== SITUATIONAL_JUDGEMENT_SECTION;
   }).length;
-
-  const scaledScore =
-    sets.length > 0
-      ? sets.reduce((sum, s) => {
-          const sectionNum = s.questionSetId
-            ? sectionNumberBySetId.get(s.questionSetId)
-            : undefined;
-          if (sectionNum === SITUATIONAL_JUDGEMENT_SECTION) return sum;
-          return sum + (s.scaledScore ?? 0);
-        }, 0)
-      : null;
+  const scaledScore = mockAttempt.scaled_score ?? (sets.length > 0
+    ? sets.reduce((sum, s) => {
+        const sectionNum = sectionNumberBySetId.get(s.questionSetId);
+        return sectionNum === SITUATIONAL_JUDGEMENT_SECTION ? sum : sum + (s.scaledScore ?? 0);
+      }, 0)
+    : null);
 
   const scaledScoreMax = scoredSetCount > 0 ? scoredSetCount * 900 : null;
 
@@ -437,6 +380,15 @@ export async function GET(
     sets,
     questionAttempts,
     setBoundaryIndices,
+    exam: buildAttemptReviewExam({
+      sourceType: "mock",
+      sourceId: ucatMockId,
+      title: mockName ?? "Mock attempt",
+      snapshots: orderedSnapshotAttempts.map(({ row, snapshot }) => {
+        const setAttempt = (setAttemptsRaw ?? []).find((attempt) => attempt.id === row.student_question_set_attempt_id);
+        return { snapshot, questionSetId: setAttempt?.question_set_id ?? "" };
+      }),
+    }),
   };
 
   return NextResponse.json(response);

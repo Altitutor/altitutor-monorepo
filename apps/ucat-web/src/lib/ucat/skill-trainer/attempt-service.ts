@@ -34,6 +34,11 @@ import {
 
 type AdminClient = SupabaseClient<Database>;
 
+type AttemptTrainerRelation = {
+  key?: string | null;
+  is_enabled?: boolean | null;
+} | null;
+
 type AttemptRow = {
   id: string;
   student_id: string;
@@ -156,7 +161,7 @@ export async function completeSkillTrainerAttempt(
 ): Promise<SkillTrainerAttemptState> {
   const { data: rawAttempt, error: loadError } = await supabase
     .from("student_skill_trainer_attempts")
-    .select("*, ucat_skill_trainers(key)")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
@@ -164,7 +169,9 @@ export async function completeSkillTrainerAttempt(
   if (loadError) throw new Error(loadError.message);
   if (!rawAttempt) throw new Error("ATTEMPT_NOT_FOUND");
 
-  const trainerKey = (rawAttempt as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  const trainer = (rawAttempt as { ucat_skill_trainers?: AttemptTrainerRelation }).ucat_skill_trainers;
+  if (trainer?.is_enabled !== true) throw new Error("TRAINER_NOT_FOUND");
+  const trainerKey = trainer.key ?? undefined;
   const attempt = mapAttemptRow(rawAttempt as Record<string, unknown>, trainerKey);
 
   if (attempt.completed_at) {
@@ -179,13 +186,13 @@ export async function completeSkillTrainerAttempt(
     })
     .eq("id", attempt.id)
     .eq("student_id", studentId)
-    .select("*, ucat_skill_trainers(key)")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("ATTEMPT_NOT_FOUND");
 
-  const completedTrainerKey = (data as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  const completedTrainerKey = (data as { ucat_skill_trainers?: AttemptTrainerRelation }).ucat_skill_trainers?.key ?? undefined;
   return buildAttemptState(
     supabase,
     mapAttemptRow(data as Record<string, unknown>, completedTrainerKey),
@@ -287,7 +294,7 @@ export async function getActiveAttemptForStudent(
 ): Promise<AttemptRow | null> {
   const { data, error } = await supabase
     .from("student_skill_trainer_attempts")
-    .select("*, ucat_skill_trainers(key)")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("student_id", studentId)
     .is("completed_at", null)
     .maybeSingle();
@@ -295,7 +302,19 @@ export async function getActiveAttemptForStudent(
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  const trainerKey = (data as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  const trainer = (data as { ucat_skill_trainers?: AttemptTrainerRelation }).ucat_skill_trainers;
+  if (trainer?.is_enabled !== true) {
+    const { error: closeError } = await supabase
+      .from("student_skill_trainer_attempts")
+      .update({ completed_at: new Date().toISOString(), progress: null })
+      .eq("id", data.id)
+      .eq("student_id", studentId)
+      .is("completed_at", null);
+    if (closeError) throw new Error(closeError.message);
+    return null;
+  }
+
+  const trainerKey = trainer.key ?? undefined;
   const attempt = mapAttemptRow(data as Record<string, unknown>, trainerKey);
 
   return finalizeAttemptIfExpired(supabase, attempt);
@@ -459,7 +478,7 @@ export async function submitSkillTrainerAction(
 ): Promise<SkillTrainerAttemptState> {
   const { data: rawAttempt, error } = await supabase
     .from("student_skill_trainer_attempts")
-    .select("*, ucat_skill_trainers(key)")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
@@ -467,7 +486,9 @@ export async function submitSkillTrainerAction(
   if (error) throw new Error(error.message);
   if (!rawAttempt) throw new Error("ATTEMPT_NOT_FOUND");
 
-  const trainerKey = (rawAttempt as { ucat_skill_trainers?: { key?: string } }).ucat_skill_trainers?.key;
+  const trainer = (rawAttempt as { ucat_skill_trainers?: AttemptTrainerRelation }).ucat_skill_trainers;
+  if (trainer?.is_enabled !== true) throw new Error("TRAINER_NOT_FOUND");
+  const trainerKey = trainer.key ?? undefined;
   if (!trainerKey || !isUcatSkillTrainerKey(trainerKey)) throw new Error("INVALID_TRAINER");
   const resolvedTrainerKey: UcatSkillTrainerKey = trainerKey;
 
@@ -703,7 +724,7 @@ export async function getLeaderboard(
   }>
 > {
   const trainer = await loadTrainerByKey(supabase, trainerKey);
-  if (!trainer) return [];
+  if (!trainer) throw new Error("TRAINER_NOT_FOUND");
 
   if (window === "my_scores") {
     if (!studentId) return [];

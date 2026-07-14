@@ -2,29 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
-const ApprovalBodySchema = z.object({
-  approvalStatus: z.enum(['approved', 'pending', 'rejected']),
+const StatusBodySchema = z.object({
+  status: z.enum(['published', 'in_review', 'draft']),
 })
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
-  let body: z.infer<typeof ApprovalBodySchema>
+  let body: z.infer<typeof StatusBodySchema>
   try {
-    body = ApprovalBodySchema.parse(await request.json())
+    body = StatusBodySchema.parse(await request.json())
   } catch (error) {
     return NextResponse.json(
-      { error: 'Invalid approval payload', details: error instanceof Error ? error.message : undefined },
+      { error: 'Invalid status payload', details: error instanceof Error ? error.message : undefined },
       { status: 400 }
     )
   }
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
-  const { error } = await client.rpc('tutor_ucat_set_question_stem_approval', {
-    p_stem_id: params.id,
-    p_approval_status: body.approvalStatus,
-    p_auto_publish_on_approval: false,
+  const { error } = await client.rpc('tutor_ucat_set_content_status', {
+    p_content_type: 'stem',
+    p_content_id: params.id,
+    p_status: body.status,
   })
 
   if (error) {

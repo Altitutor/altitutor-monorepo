@@ -49,6 +49,7 @@ import {
   useCreateUcatQuestionStem,
   useDeleteUcatQuestionStem,
   useRestoreUcatQuestionStem,
+  useSetUcatQuestionStemStatus,
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatQuestionSearchTexts,
@@ -93,9 +94,6 @@ import {
   resolveCategoryPathLabel,
   taxonomyDisplayLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
-import {
-  getFilterValues,
-} from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
 import {
@@ -130,8 +128,9 @@ import { SegmentedControl } from '@/shared/components/segmented-control'
 import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 
-type QuestionsTab = 'questions' | 'generated'
+type QuestionsTab = UcatContentStatus
 
 const questionSearchScopeOptions: Array<{ value: QuestionSearchScope; label: string }> = [
   { value: 'stem_text', label: 'Stem text' },
@@ -171,7 +170,7 @@ const defaultVisibleAnswerOptionColumns = answerOptionColumnDefinitions
   .map((c) => c.key)
 
 function parseQuestionsTab(value: string | null): QuestionsTab {
-  return value === 'generated' ? 'generated' : 'questions'
+  return value === 'in_review' || value === 'published' ? value : 'draft'
 }
 
 function truncate(text: string, maxLen: number): string {
@@ -200,15 +199,6 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     ],
   },
   {
-    key: 'approval_status',
-    label: 'Approval status',
-    options: [
-      { label: 'Approved', value: 'approved' },
-      { label: 'Pending', value: 'pending' },
-      { label: 'Rejected', value: 'rejected' },
-    ],
-  },
-  {
     key: 'source_channel',
     label: 'Source',
     options: [
@@ -228,7 +218,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'visibility', label: 'Visibility', visibleByDefault: false },
   { key: 'source', label: 'Source', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
-  { key: 'approval_status', label: 'Approval', visibleByDefault: false },
+  { key: 'status', label: 'Status', visibleByDefault: false },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
@@ -242,7 +232,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'visibility', label: 'Visibility' },
   { key: 'source', label: 'Source' },
   { key: 'created_at', label: 'Date created' },
-  { key: 'approval_status', label: 'Approval status' },
+  { key: 'status', label: 'Status' },
 ]
 
 export function UcatQuestionsPage() {
@@ -250,12 +240,11 @@ export function UcatQuestionsPage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeTab = parseQuestionsTab(searchParams.get('tab'))
-  const mode = activeTab === 'generated' ? 'generated' : 'default'
 
   const setActiveTab = (tab: QuestionsTab) => {
     const params = new URLSearchParams(searchParams.toString())
     clearUcatTableUrlParams(params)
-    if (tab === 'generated') params.set('tab', 'generated')
+    if (tab !== 'draft') params.set('tab', tab)
     else params.delete('tab')
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
@@ -298,11 +287,8 @@ export function UcatQuestionsPage() {
   const stemTagIdsQuery = useUcatStemTagIds()
   const stemTagIds = stemTagIdsQuery.data ?? {}
   const initialVisibleColumns = useMemo(
-    () =>
-      mode === 'generated'
-        ? [...columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), 'approval_status']
-        : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
-    [mode],
+    () => columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
+    [],
   )
   const availableColumnKeys = useMemo(() => columnDefinitions.map((column) => column.key), [])
   const tableState = useUcatTableUrlState(initialVisibleColumns, {
@@ -333,7 +319,7 @@ export function UcatQuestionsPage() {
   }, [detailQueries, expandedStemArray])
 
   const access = useUcatAccess()
-  const questions = useUcatQuestions({ mode })
+  const questions = useUcatQuestions()
   const questionSearchTexts = useUcatQuestionSearchTexts()
   const sections = useUcatSections()
   const categories = useUcatCategories()
@@ -356,20 +342,19 @@ export function UcatQuestionsPage() {
   const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
   const setsList = (setsQuery.data ?? []).filter(
-    (s) =>
-      !(s as { deleted_at?: string | null }).deleted_at &&
-      !(s as { is_student_generated?: boolean }).is_student_generated
+    (s) => !(s as { deleted_at?: string | null }).deleted_at,
   )
 
   const createMutation = useCreateUcatQuestionStem()
   const updateMutation = useUpdateUcatQuestionStem()
   const deleteMutation = useDeleteUcatQuestionStem()
   const restoreMutation = useRestoreUcatQuestionStem()
+  const setStatusMutation = useSetUcatQuestionStemStatus()
   const bulkImportMutation = useBulkImportUcatQuestionStems()
 
   const { rows } = useUcatQuestionsTable({
     data: questions.data,
-    mode,
+    status: activeTab,
     stemTypes,
     stemTagIds,
     questionSearchTexts: questionSearchTexts.data,
@@ -485,21 +470,16 @@ export function UcatQuestionsPage() {
     })
   }, [addToSetsPopoverOpen, selectedSize, setIdsForDetail.length, setDetailsReady, setsList, setInCountMap])
 
-  const generatedApprovalQueueEntries = useMemo<UcatApprovalQueueEntry[]>(() => {
-    if (mode !== 'generated') return []
-    const selectedApprovalStatuses = getFilterValues(tableState.state, 'approval_status').map(String)
-    const rowsForApproval =
-      selectedApprovalStatuses.length > 0
-        ? rows.filter((row) => row.approval_status === 'pending')
-        : rows.filter((row) => row.approval_status === 'pending')
-    return rowsForApproval.map((row) => ({ stemId: row.id, mode: 'ai_approval' as const }))
-  }, [mode, rows, tableState.state])
+  const reviewQueueEntries = useMemo<UcatApprovalQueueEntry[]>(
+    () => rows.map((row) => ({ stemId: row.id, mode: 'ai_approval' as const })),
+    [rows],
+  )
 
-  function handleBeginGeneratedApprovals() {
-    if (generatedApprovalQueueEntries.length === 0) {
+  function handleBeginReviews() {
+    if (reviewQueueEntries.length === 0) {
       toast({
-        title: 'No pending generated stems',
-        description: 'No pending AI-generated stems match these filters.',
+        title: 'No stems ready for review',
+        description: 'No in-review stems match these filters.',
       })
       return
     }
@@ -578,7 +558,7 @@ export function UcatQuestionsPage() {
     (visible('visibility') ? 1 : 0) +
     (visible('source') ? 1 : 0) +
     (visible('created_at') ? 1 : 0) +
-    (visible('approval_status') ? 1 : 0) +
+    (visible('status') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
@@ -632,8 +612,7 @@ export function UcatQuestionsPage() {
           name: plainTextToProseMirror(args.addToSet.name),
           description: args.addToSet.description,
           timeLimitSeconds: args.addToSet.timeLimitSeconds,
-          isPrivate: args.addToSet.isPrivate,
-          isStudentGenerated: false,
+          accessScope: args.addToSet.isPrivate ? 'private' : 'public',
           stemIds: ids,
         })
         await queryClient.invalidateQueries({ queryKey: ucatKeys.set(id) })
@@ -694,7 +673,9 @@ export function UcatQuestionsPage() {
     if (bulkVisibilityPrivate == null) return
     setBulkVisibilityPending(true)
     try {
-      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { isPrivate: bulkVisibilityPrivate })
+      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), {
+        accessScope: bulkVisibilityPrivate ? 'private' : 'public',
+      })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkVisibilityOpen(false)
@@ -899,9 +880,9 @@ export function UcatQuestionsPage() {
       },
       filterDefinitions[3],
       filterDefinitions[4],
-      filterDefinitions[6],
+      filterDefinitions[5],
       {
-        ...filterDefinitions[7],
+        ...filterDefinitions[6],
         options: createdByFilterOptions,
       },
       {
@@ -912,7 +893,7 @@ export function UcatQuestionsPage() {
         searchPlaceholder: 'Search sets...',
       },
     ]
-    return mode === 'generated' ? [...base, filterDefinitions[5]] : base
+    return base
   }, [
     sections.data,
     categories.data,
@@ -920,7 +901,6 @@ export function UcatQuestionsPage() {
     tableState.state.filters,
     setFilterOptions,
     createdByFilterOptions,
-    mode,
   ])
 
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading || stemTagIdsQuery.isLoading) {
@@ -932,7 +912,7 @@ export function UcatQuestionsPage() {
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Questions"
-        description="Manage question stems and review AI-generated drafts"
+        description="Draft, review, and publish complete question bundles"
         backHref="/ucat"
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
@@ -941,51 +921,45 @@ export function UcatQuestionsPage() {
         actions={
           <>
             <div className="hidden items-center gap-2 sm:flex">
-              {mode === 'generated' ? (
-                <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleBeginGeneratedApprovals}>
-                    Begin approvals
-                  </Button>
-                  <Button type="button" onClick={() => setGenerateOpen(true)}>
-                    Generate questions
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
-                    Bulk Import
-                  </Button>
-                  <Button type="button" onClick={() => setCreateOpen(true)}>
-                    Add Question Stem
-                  </Button>
-                </>
-              )}
+              {activeTab === 'in_review' ? (
+                <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleBeginReviews}>
+                  Begin review
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
+                Bulk Import
+              </Button>
+              <Button type="button" variant="outline" className={tutorBtnOutline} onClick={() => setGenerateOpen(true)}>
+                Generate
+              </Button>
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                Add Question Stem
+              </Button>
             </div>
             <TableActions
               className="sm:hidden"
               triggerClassName={`${tutorBtnOutline} min-w-0`}
               actions={
-                mode === 'generated'
-                  ? [
+                [
+                  ...(activeTab === 'in_review' ? [
                       {
-                        id: 'begin-approvals',
-                        label: 'Begin approvals',
-                        description: 'Review generated drafts in sequence',
-                        onSelect: handleBeginGeneratedApprovals,
+                        id: 'begin-review',
+                        label: 'Begin review',
+                        description: 'Review matching stems in sequence',
+                        onSelect: handleBeginReviews,
                       },
+                    ] : []),
+                  {
+                    id: 'bulk-import',
+                    label: 'Bulk Import',
+                    description: 'Paste and parse multiple stems',
+                    onSelect: () => setBulkImportOpen(true),
+                  },
                       {
                         id: 'generate-questions',
                         label: 'Generate questions',
-                        description: 'Create AI-generated question stems',
+                        description: 'Generate stems ready for review',
                         onSelect: () => setGenerateOpen(true),
-                      },
-                    ]
-                  : [
-                      {
-                        id: 'bulk-import',
-                        label: 'Bulk Import',
-                        description: 'Paste and parse multiple stems',
-                        onSelect: () => setBulkImportOpen(true),
                       },
                       {
                         id: 'add-question-stem',
@@ -1005,8 +979,9 @@ export function UcatQuestionsPage() {
         value={activeTab}
         onValueChange={(value) => setActiveTab(parseQuestionsTab(value))}
         options={[
-          { value: 'questions', label: 'Questions' },
-          { value: 'generated', label: 'Generated questions' },
+          { value: 'draft', label: 'Draft' },
+          { value: 'in_review', label: 'In review' },
+          { value: 'published', label: 'Published' },
         ]}
       />
 
@@ -1023,7 +998,7 @@ export function UcatQuestionsPage() {
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         {...tutorToolbarProps}
-        searchPlaceholder={mode === 'generated' ? 'Search generated questions' : 'Search questions'}
+        searchPlaceholder="Search question stems"
         searchFromOptions={questionSearchScopeOptions}
         searchFromValue={searchScopes}
         onSearchFromChange={(values) => setSearchScopes(values as QuestionSearchScope[])}
@@ -1081,7 +1056,7 @@ export function UcatQuestionsPage() {
               )}
               {visible('source') && <TableHead>Source</TableHead>}
               {visible('created_at') && <TableHead>Date created</TableHead>}
-              {visible('approval_status') && <TableHead>Approval</TableHead>}
+              {visible('status') && <TableHead>Status</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
               {visible('actions') && <TableHead className="w-16 shrink-0" />}
             </TableRow>
@@ -1157,9 +1132,7 @@ export function UcatQuestionsPage() {
                               getUcatVisibilityColor(false),
                             )}
                           >
-                            {row.deleted_at || row.approval_status !== 'approved'
-                              ? 'Not student-visible'
-                              : 'Practice pool'}
+                            {row.is_available_in_question_pool ? 'Practice pool' : 'Not in practice pool'}
                           </Badge>
                         ) : (
                           <div className="space-y-1">
@@ -1186,7 +1159,7 @@ export function UcatQuestionsPage() {
                                 getUcatVisibilityColor(false),
                               )}
                             >
-                              Not in practice pool
+                              {row.is_available_in_question_pool ? 'Practice pool' : 'Not in practice pool'}
                             </Badge>
                           </div>
                         )}
@@ -1194,7 +1167,7 @@ export function UcatQuestionsPage() {
                     )}
                     {visible('visibility') && (
                       <TableCell>
-                        <UcatVisibilityBadge isPrivate={row.is_private} />
+                        <UcatVisibilityBadge isPrivate={row.access_scope === 'private'} />
                       </TableCell>
                     )}
                     {visible('source') && (
@@ -1220,7 +1193,7 @@ export function UcatQuestionsPage() {
                     {visible('created_at') && (
                       <TableCell>{formatDateTime(row.created_at ?? '') || '—'}</TableCell>
                     )}
-                    {visible('approval_status') && <TableCell className="capitalize">{row.approval_status}</TableCell>}
+                    {visible('status') && <TableCell className="capitalize">{row.status}</TableCell>}
                     {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}
                     {visible('actions') && (
                     <TableCell className="w-16 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1228,6 +1201,21 @@ export function UcatQuestionsPage() {
                         <UcatRowActions
                           actions={[
                             { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.id) },
+                            ...(!showDeleted && row.status === 'draft'
+                              ? [{ label: 'Send for review', onClick: () => void setStatusMutation.mutateAsync({ stemId: row.id, status: 'in_review' }).catch((error) => toast({ title: 'Cannot send for review', description: error instanceof Error ? error.message : 'The stem is not ready for review.', variant: 'destructive' })) }]
+                              : []),
+                            ...(!showDeleted && row.status === 'in_review'
+                              ? [
+                                  { label: 'Publish', onClick: () => void setStatusMutation.mutateAsync({ stemId: row.id, status: 'published' }).catch((error) => toast({ title: 'Cannot publish', description: error instanceof Error ? error.message : 'The stem has publication blockers.', variant: 'destructive' })) },
+                                  { label: 'Return to draft', onClick: () => void setStatusMutation.mutateAsync({ stemId: row.id, status: 'draft' }) },
+                                ]
+                              : []),
+                            ...(!showDeleted && row.status === 'published'
+                              ? [
+                                  { label: 'Move to review', onClick: () => void setStatusMutation.mutateAsync({ stemId: row.id, status: 'in_review' }) },
+                                  { label: 'Move to draft', onClick: () => void setStatusMutation.mutateAsync({ stemId: row.id, status: 'draft' }) },
+                                ]
+                              : []),
                             ...(showDeleted
                               ? [
                                   {
@@ -1738,8 +1726,8 @@ export function UcatQuestionsPage() {
       <GenerateQuestionStemsModal open={generateOpen} onClose={() => setGenerateOpen(false)} />
       <UcatQuestionStemApprovalQueueDialog
         open={approvalQueueOpen}
-        title="Approve generated question stems"
-        entries={generatedApprovalQueueEntries}
+        title="Review question stems"
+        entries={reviewQueueEntries}
         onClose={() => setApprovalQueueOpen(false)}
       />
 

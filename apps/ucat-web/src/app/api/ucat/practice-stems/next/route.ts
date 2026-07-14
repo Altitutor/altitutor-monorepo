@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { pickStems } from "../../generated-sets/pick-stems";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import { pickStems } from "@/features/practice/server/pick-stems";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import {
   mapStemDetailToQuestionStemWithQuestions,
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   let body: {
-    input?: SetGeneratorInput;
+    input?: PracticeSelectionInput;
     excludeStemIds?: string[];
     practiceSessionId?: string;
     preview?: boolean;
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   };
   try {
     body = (await request.json()) as {
-      input?: SetGeneratorInput;
+      input?: PracticeSelectionInput;
       excludeStemIds?: string[];
       practiceSessionId?: string;
       preview?: boolean;

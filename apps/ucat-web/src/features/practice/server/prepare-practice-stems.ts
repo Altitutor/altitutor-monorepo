@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
-import { pickStems } from "@/app/api/ucat/generated-sets/pick-stems";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
+import { pickStems } from "@/features/practice/server/pick-stems";
 import {
   mapStemDetailToQuestionStemWithQuestions,
   type StemDetailRowFromDb,
@@ -23,7 +23,7 @@ export async function preparePracticeStems({
   reader: SupabaseClient;
   admin: SupabaseClient;
   studentId: string;
-  input: SetGeneratorInput;
+  input: PracticeSelectionInput;
 }): Promise<{
   stems: QuestionStemWithQuestions[];
   questionCount: number;

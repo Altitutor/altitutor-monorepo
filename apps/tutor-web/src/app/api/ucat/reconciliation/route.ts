@@ -95,8 +95,8 @@ type StemDetailRow = {
   stem_text: unknown
   question_stem_category_id: string | null
   category_name?: string | null
-  is_ai_generated?: boolean | null
-  approval_status?: 'approved' | 'pending' | 'rejected' | null
+  source_channel?: string | null
+  status?: 'draft' | 'in_review' | 'published' | null
   deleted_at: string | null
   questions: QuestionRow[]
 }
@@ -112,7 +112,7 @@ export async function GET() {
 
   const { data: stems, error } = await access.userClient
     .from('vtutor_ucat_question_stem_detail')
-    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,is_ai_generated,approval_status,deleted_at,questions')
+    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,source_channel,status,deleted_at,questions')
     .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -121,7 +121,7 @@ export async function GET() {
 
   const { data: stemsList, error: stemsListError } = await access.userClient
     .from('vtutor_ucat_question_stems')
-    .select('id,is_private,set_names')
+    .select('id,access_scope,set_names')
     .is('deleted_at', null)
 
   if (stemsListError) return NextResponse.json({ error: stemsListError.message }, { status: 500 })
@@ -129,10 +129,10 @@ export async function GET() {
   const stemMetaById = new Map<string, StemListMeta>()
   const privateStemIdsNotInSet = new Set<string>()
   for (const s of stemsList ?? []) {
-    const row = s as { id: string; is_private: boolean; set_names: unknown }
+    const row = s as { id: string; access_scope: 'public' | 'private'; set_names: unknown }
     const setNames = parseSetNames(row.set_names)
-    stemMetaById.set(row.id, { isPrivate: !!row.is_private, setNames })
-    if (!row.is_private) continue
+    stemMetaById.set(row.id, { isPrivate: row.access_scope === 'private', setNames })
+    if (row.access_scope !== 'private') continue
     if (setNames.length === 0) privateStemIdsNotInSet.add(row.id)
   }
 
@@ -202,7 +202,7 @@ export async function GET() {
   }
 
   const pendingGeneratedStems = rows
-    .filter((r) => r.is_ai_generated === true && r.approval_status === 'pending')
+    .filter((r) => r.source_channel === 'ai_generation' && r.status === 'in_review')
     .map((r) => ({
       id: r.id,
       sectionId: r.section_id,
@@ -350,12 +350,11 @@ export async function GET() {
     }
   })
 
-  // Fetch sets: exclude deleted and student-generated
+  // Fetch active tutor-authored sets.
   const { data: setsData, error: setsError } = await access.userClient
     .from('vtutor_ucat_question_sets')
     .select('id,name,sections,stem_count,question_count,time_limit_seconds')
     .is('deleted_at', null)
-    .eq('is_student_generated', false)
 
   if (setsError) return NextResponse.json({ error: setsError.message }, { status: 500 })
   const allSets = (setsData ?? []) as Array<{

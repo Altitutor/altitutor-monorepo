@@ -1,6 +1,5 @@
 export type BillingPortalAction =
   | "payment_method_update"
-  | "subscription_cancel"
   | "subscription_update";
 
 export async function createBillingPortalSession(

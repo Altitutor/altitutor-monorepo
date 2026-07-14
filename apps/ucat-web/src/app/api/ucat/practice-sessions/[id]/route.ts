@@ -181,7 +181,7 @@ export async function PATCH(
       id: qa.id,
       question_id: qa.question_id,
       student_id: qa.student_id,
-      score: scoreByQuestionId.get(qa.question_id) ?? 0,
+      score: qa.question_id ? (scoreByQuestionId.get(qa.question_id) ?? 0) : 0,
       is_submitted: true,
     }));
 

@@ -7,13 +7,14 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@altitutor/ui'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { buildEmptyStemFormValues, persistStemFormValues, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatSections,
-  useSetUcatQuestionStemApprovalStatus,
+  useSetUcatQuestionStemStatus,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -30,17 +31,16 @@ import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
-  mode?: 'default' | 'generated'
 }
 
-export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQuestionStemDetailPageProps) {
+export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPageProps) {
   const access = useUcatAccess()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const detailQuery = useUcatQuestionDetail(stemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
+  const statusMutation = useSetUcatQuestionStemStatus()
 
   const isLoading =
     access.isLoading ||
@@ -74,7 +74,7 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
   const baseline = useMemo(() => snapshotQuestionStemFormValues(defaultValues), [defaultValues])
   const watchedValues = form.watch()
   const hasUnsavedChanges = isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
-  const approvalStatus = (watchedValues.approvalStatus ?? initial?.approval_status ?? 'approved') as UcatApprovalStatus
+  const status = (watchedValues.status ?? initial?.status ?? 'published') as UcatContentStatus
 
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
@@ -83,13 +83,13 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
     await persistStemFormValues(stemId, values, {
       baselineSnapshot: baseline,
       updateStem: (payload) => updateStemMutation.mutateAsync({ stemId, payload }),
-      setApprovalStatus: (status) => approvalMutation.mutateAsync({ stemId, status }),
+      setStatus: (status) => statusMutation.mutateAsync({ stemId, status }),
     })
   }
 
-  async function handleSetApproval(status: UcatApprovalStatus) {
-    form.setValue('approvalStatus', status, { shouldDirty: true })
-    await onSubmit({ ...form.getValues(), approvalStatus: status })
+  async function handleSetStatus(status: UcatContentStatus) {
+    form.setValue('status', status, { shouldDirty: true })
+    await onSubmit({ ...form.getValues(), status: status })
   }
 
   if (isLoading) return <UcatPageSkeleton rows={6} />
@@ -98,43 +98,51 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
-        title={mode === 'generated' ? 'Review generated UCAT stem' : 'Edit UCAT Question Stem'}
+        title="Edit UCAT Question Stem"
         description={initial?.id ? `Editing stem ${initial.id}` : 'Edit question stem'}
-        backHref={mode === 'generated' ? '/ucat/questions?tab=generated' : '/ucat/questions'}
+        backHref={status === 'draft' ? '/ucat/questions' : `/ucat/questions?tab=${status}`}
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
           { label: 'Questions', href: '/ucat/questions' },
-          ...(mode === 'generated'
-            ? [{ label: 'Generated questions', href: '/ucat/questions?tab=generated' }]
-            : []),
           { label: stemId ?? 'Question stem' },
         ]}
         actions={
           <div className="flex items-center gap-2">
-            {mode === 'generated' && (
-              <>
+            {status !== 'draft' ? (
                 <Button
                   variant="outline"
-                  onClick={() => void handleSetApproval('rejected')}
-                  disabled={approvalMutation.isPending || approvalStatus === 'rejected'}
+                  onClick={() => void handleSetStatus('draft')}
+                  disabled={statusMutation.isPending}
                 >
-                  Reject
+                  Move to draft
                 </Button>
-                <Button
+            ) : null}
+            {status === 'published' ? (
+              <Button
                   variant="outline"
-                  onClick={() => void handleSetApproval('pending')}
-                  disabled={approvalMutation.isPending || approvalStatus === 'pending'}
+                  onClick={() => void handleSetStatus('in_review')}
+                  disabled={statusMutation.isPending}
                 >
-                  Mark pending
+                  Move to review
                 </Button>
+            ) : null}
+            {status === 'draft' ? (
+              <Button
+                variant="outline"
+                onClick={() => void handleSetStatus('in_review')}
+                disabled={statusMutation.isPending}
+              >
+                Send for review
+              </Button>
+            ) : null}
+            {status === 'in_review' ? (
                 <Button
-                  onClick={() => void handleSetApproval('approved')}
-                  disabled={approvalMutation.isPending || approvalStatus === 'approved'}
+                  onClick={() => void handleSetStatus('published')}
+                  disabled={statusMutation.isPending}
                 >
-                  Approve and publish
+                  Publish
                 </Button>
-              </>
-            )}
+            ) : null}
             <Button
               onClick={form.handleSubmit(onSubmit)}
               disabled={!hasUnsavedChanges || updateStemMutation.isPending}
@@ -165,9 +173,9 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}
           createdByLastName={initial?.created_by_last_name ?? null}
-          approvedByFirstName={initial?.approved_by_first_name ?? null}
-          approvedByLastName={initial?.approved_by_last_name ?? null}
-          approvedAt={initial?.approved_at ?? null}
+          statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
+          statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
+          statusChangedAt={initial?.status_changed_at ?? null}
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>

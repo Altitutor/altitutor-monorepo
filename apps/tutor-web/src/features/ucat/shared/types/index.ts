@@ -8,6 +8,14 @@ export type UcatStudentProgress = Tables<'vtutor_ucat_student_progress_summary'>
 
 export type RichTextJson = Json
 
+export type UcatContentStatus = 'draft' | 'in_review' | 'published'
+export type UcatAccessScope = 'public' | 'private'
+
+export type UcatPublicationIssue = {
+  code: string
+  message: string
+}
+
 export type UcatQuestionFormOption = {
   id?: string
   answerText: RichTextJson
@@ -35,7 +43,7 @@ export type UcatQuestionStemBundlePayload = {
   sectionId: string
   categoryId?: string | null
   stemText: RichTextJson
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   tutorSourceNote?: string | null
   questions: UcatQuestionFormItem[]
@@ -46,15 +54,14 @@ export type UcatQuestionSetPayload = {
   name?: RichTextJson | null
   description: string | RichTextJson
   timeLimitSeconds?: number | null
-  isPrivate: boolean
-  isStudentGenerated: boolean
+  accessScope: UcatAccessScope
   stemIds: string[]
 }
 
 export type UcatMockPayload = {
   id?: string | null
   name: string
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   setIds: string[]
   instructionsText?: RichTextJson | null
 }

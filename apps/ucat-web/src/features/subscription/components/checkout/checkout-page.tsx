@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarCheck,
   Check,
   LockKeyhole,
   Mail,
@@ -348,32 +349,82 @@ export function CheckoutPage() {
 
             {trialEligible ? (
               <div className="mt-6">
-                <p className="font-semibold">Your {trialDays}-day trial</p>
-                <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Today
-                    </span>
-                    <p className="mt-1 font-medium">Access unlocked</p>
+                <p className="text-lg font-semibold">
+                  Your {trialDays}-day trial
+                </p>
+                <ol className="mt-4 space-y-3 text-sm">
+                  <li>
+                    <div className="rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                            <Sparkles className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <p className="font-semibold">Access unlocked</p>
+                        </div>
+                        <span className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-primary">
+                          Today
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        Get full access to the entire UCAT system — including
+                        unlimited questions, sets and mocks. Start earning
+                        discounts towards your first bill from today.
+                      </p>
+                    </div>
                   </li>
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Mail className="h-3 w-3" />{" "}
-                      {reminderDate.toLocaleDateString("en-AU", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                    <p className="mt-1 font-medium">Reminder emailed</p>
+                  <li>
+                    <div className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                            <Mail className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <p className="font-semibold">Reminder emailed</p>
+                        </div>
+                        <time
+                          dateTime={reminderDate.toISOString()}
+                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {reminderDate.toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </time>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        We’ll remind you that you’ll be charged at the end of
+                        your free trial.
+                      </p>
+                    </div>
                   </li>
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {trialEnd.toLocaleDateString("en-AU", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                    <p className="mt-1 font-medium">Paid plan begins</p>
+                  <li>
+                    <div className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                            <CalendarCheck
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                          </span>
+                          <p className="font-semibold">Paid plan begins</p>
+                        </div>
+                        <time
+                          dateTime={trialEnd.toISOString()}
+                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {trialEnd.toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </time>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        You’ll be charged the {intervalNoun(interval)}ly price,
+                        minus any discount you earned during the trial.
+                      </p>
+                    </div>
                   </li>
                 </ol>
                 {tier === "pro" ? (

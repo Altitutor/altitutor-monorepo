@@ -12,7 +12,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { data, error } = await client.rpc('tutor_ucat_upsert_mock', {
       p_mock_id: params.id,
       p_name: body.name,
-      p_is_private: !!body.isPrivate,
+      p_access_scope: body.accessScope ?? 'public',
       p_set_ids: body.setIds ?? [],
       p_instructions_text: body.instructionsText ?? null,
     })

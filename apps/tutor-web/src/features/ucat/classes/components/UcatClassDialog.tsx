@@ -37,7 +37,6 @@ import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
   applyRangeFilter,
-  applySingleSelectFilter,
   applySort,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { DataTableFilterDefinition, Json } from '@altitutor/shared'
@@ -301,22 +300,22 @@ export function UcatClassDialog({
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
     () =>
-      (setsList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
+      (setsList as Array<{ deleted_at?: string | null; status?: string | null }>).filter(
+        (row) => row.deleted_at == null && row.status === 'published'
       ),
     [setsList]
   )
   const activeMocksList = useMemo(
     () =>
-      (mocksList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
+      (mocksList as Array<{ deleted_at?: string | null; status?: string | null }>).filter(
+        (row) => row.deleted_at == null && row.status === 'published'
       ),
     [mocksList]
   )
   const activeStemsList = useMemo(
     () =>
-      (stemsList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
+      (stemsList as Array<{ deleted_at?: string | null; status?: string | null }>).filter(
+        (row) => row.deleted_at == null && row.status === 'published'
       ),
     [stemsList]
   )
@@ -359,14 +358,6 @@ export function UcatClassDialog({
 
   const setFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
-      {
-        key: 'is_student_generated',
-        label: 'Origin',
-        options: [
-          { label: 'Staff', value: 'staff' },
-          { label: 'Student', value: 'student' },
-        ],
-      },
       {
         key: 'visibility',
         label: 'Visibility',
@@ -545,8 +536,7 @@ export function UcatClassDialog({
       sections: unknown
       question_count: number | null
       time_limit_seconds: number | null
-      is_private: boolean | null
-      is_student_generated: boolean | null
+      access_scope: 'public' | 'private' | null
       stem_count?: number
     }>
     return list.filter((row) => {
@@ -558,9 +548,7 @@ export function UcatClassDialog({
         !searchSets.trim() ||
         applyCoreStringFilter(name, searchSets) ||
         applyCoreStringFilter(sectionName, searchSets)
-      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', !!row.is_private)
-      const originValue = row.is_student_generated ? 'student' : 'staff'
-      const originHit = applySingleSelectFilter(setsTableState, 'is_student_generated', originValue)
+      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', row.access_scope === 'private')
       const timeLimitHit = applyRangeFilter(
         setsTableState,
         'time_limit_min',
@@ -583,7 +571,7 @@ export function UcatClassDialog({
         'question_count_max',
         row.question_count ?? null
       )
-      return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
+      return searchHit && visibilityHit && timeLimitHit && stemCountHit && questionCountHit
     })
   }, [activeSetsList, searchSets, setsTableState])
 
@@ -593,10 +581,10 @@ export function UcatClassDialog({
   )
 
   const filteredMocks = useMemo(() => {
-    const list = activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number; is_private?: boolean | null }>
+    const list = activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number; access_scope?: 'public' | 'private' | null }>
     return list.filter((row) => {
       const searchHit = !searchMocks.trim() || applyCoreStringFilter(row.name ?? '', searchMocks)
-      const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', !!row.is_private)
+      const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', row.access_scope === 'private')
       return searchHit && visibilityHit
     })
   }, [activeMocksList, searchMocks, mocksTableState])
@@ -621,7 +609,7 @@ export function UcatClassDialog({
       stem_text: unknown
       section_name?: string | null
       question_count: number | null
-      is_private?: boolean | null
+      access_scope?: 'public' | 'private' | null
     }>
     return list.filter((row) => {
       const plain = proseMirrorToPlainText(row.stem_text as Json | undefined)
@@ -629,7 +617,7 @@ export function UcatClassDialog({
         !searchStems.trim() ||
         applyCoreStringFilter(plain, searchStems) ||
         applyCoreStringFilter(row.section_name ?? '', searchStems)
-      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', !!row.is_private)
+      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', row.access_scope === 'private')
       return searchHit && visibilityHit
     })
   }, [activeStemsList, searchStems, stemsTableState])

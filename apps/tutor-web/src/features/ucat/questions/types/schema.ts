@@ -20,6 +20,7 @@ const nonEmptyRichTextSchema: z.ZodType<Json> = jsonSchema.refine(
 
 /** Option answer/statement text; may be empty (only at least one option needs content). */
 export const ucatQuestionOptionSchema = z.object({
+  id: z.string().uuid().optional(),
   answerText: jsonSchema,
   answerExplanation: jsonSchema.nullable().optional(),
   isAnswer: z.boolean(),
@@ -53,9 +54,9 @@ export const ucatQuestionStemSchema = z.object({
   sectionId: z.string().uuid('Section is required'),
   categoryId: z.string().uuid().nullable().optional(),
   stemText: nonEmptyRichTextSchema,
-  isPrivate: z.boolean().default(false),
+  accessScope: z.enum(['public', 'private']).default('public'),
   tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
-  approvalStatus: z.enum(['approved', 'pending', 'rejected']).optional(),
+  status: z.enum(['published', 'in_review', 'draft']).optional(),
   questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
 })
 

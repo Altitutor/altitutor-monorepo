@@ -26,7 +26,7 @@ export type SetOption = {
   firstSectionNumber: number | null
   question_count: number | null
   time_limit_seconds: number | null
-  is_private?: boolean | null
+  access_scope?: 'public' | 'private' | null
   stem_count?: number | null
 }
 
@@ -86,11 +86,7 @@ export function UcatMockEditorDialog({
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
-      .filter(
-        (set) =>
-          (set as { deleted_at?: string | null }).deleted_at == null &&
-          !(set as { is_student_generated?: boolean }).is_student_generated
-      )
+      .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
       .map((set) => {
         const parsed = parseSetSections(set.sections ?? null)
         return {
@@ -101,7 +97,7 @@ export function UcatMockEditorDialog({
           firstSectionNumber: parsed.firstSectionNumber,
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
-          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          access_scope: set.access_scope ?? null,
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
@@ -109,7 +105,7 @@ export function UcatMockEditorDialog({
 
   const setsThatWillBecomePublicCount = useMemo(() => {
     if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
+    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.access_scope === 'private').length
   }, [draftSetIds, isPrivate, setCatalog])
 
   function handleRequestClose() {

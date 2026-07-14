@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import {
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { input?: SetGeneratorInput };
+  let body: { input?: PracticeSelectionInput };
   try {
-    body = (await request.json()) as { input?: SetGeneratorInput };
+    body = (await request.json()) as { input?: PracticeSelectionInput };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }

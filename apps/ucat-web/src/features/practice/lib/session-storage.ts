@@ -1,4 +1,4 @@
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 
 export const PRACTICE_SESSION_KEY = "practice-session";
@@ -7,7 +7,7 @@ export const PENDING_PRACTICE_START_KEY = "pending-practice-start";
 export type PracticeReviewTiming = "afterEachStem" | "atEnd";
 
 export type PendingPracticeStart = {
-  payload: SetGeneratorInput & {
+  payload: PracticeSelectionInput & {
     unlimited?: boolean;
     reviewTiming: PracticeReviewTiming;
   };
@@ -26,7 +26,7 @@ export type PracticeSessionData =
       mode: "set";
       sessionId: string;
       stems: QuestionStemWithQuestions[];
-      filters?: SetGeneratorInput;
+      filters?: PracticeSelectionInput;
       filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;
       startedAtMs?: number;
@@ -35,7 +35,7 @@ export type PracticeSessionData =
   | {
       mode: "unlimited";
       sessionId: string;
-      filters: SetGeneratorInput;
+      filters: PracticeSelectionInput;
       stems?: QuestionStemWithQuestions[];
       filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;

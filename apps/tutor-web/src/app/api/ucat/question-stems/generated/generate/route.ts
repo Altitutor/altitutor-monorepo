@@ -78,7 +78,7 @@ const SOURCE_IMAGE_DETAIL: Extract<UcatAiUserContentPart, { type: 'image' }>['de
 
 type SourceStem = {
   id: string
-  is_ai_generated?: boolean | null
+  source_channel?: string | null
   question_stem_category_id?: string | null
   category_name?: string | null
   stem_text: Json | null
@@ -944,13 +944,13 @@ async function fetchSourceStems(
 
   let query = asAny(client)
     .from('vtutor_ucat_question_stem_detail')
-    .select('id,is_ai_generated,question_stem_category_id,category_name,stem_text,questions')
+    .select('id,source_channel,question_stem_category_id,category_name,stem_text,questions')
     .eq('section_id', body.sectionId)
-    .filter('approval_status', 'eq', 'approved')
+    .filter('status', 'eq', 'published')
     .is('deleted_at', null)
 
   if (body.categoryId) query = query.eq('question_stem_category_id', body.categoryId)
-  if (!body.includeAiSourceStems) query = query.eq('is_ai_generated', false)
+  if (!body.includeAiSourceStems) query = query.neq('source_channel', 'ai_generation')
 
   if (body.sourceMode === 'selected') {
     if (!body.sourceStemIds || body.sourceStemIds.length === 0) {
@@ -1039,7 +1039,7 @@ async function fetchBankComparisonSources(
     .from('vtutor_ucat_question_stem_detail')
     .select('id,stem_text,questions')
     .eq('section_id', sectionId)
-    .filter('approval_status', 'eq', 'approved')
+    .filter('status', 'eq', 'published')
     .is('deleted_at', null)
     .limit(300)
   if (error) return []

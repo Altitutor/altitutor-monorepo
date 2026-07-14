@@ -1,12 +1,15 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { UcatQuestionStem, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type {
+  UcatAccessScope,
+  UcatContentStatus,
+  UcatPublicationIssue,
+  UcatQuestionStem,
+  UcatQuestionStemBundlePayload,
+} from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
-
-export type UcatQuestionListMode = 'default' | 'generated' | 'all'
-export type UcatApprovalStatus = 'approved' | 'pending' | 'rejected'
 
 export type UcatGenerationDebugCall = {
   stemIndex: number
@@ -77,7 +80,7 @@ export type UcatGeneratedDraftStem = {
   sectionId: string
   categoryId: string | null
   stemText: Json
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   questions: Array<{
     index: number
     questionText: Json
@@ -110,15 +113,16 @@ type UcatGenerationStreamFinal = UcatGenerateDraftsResult & {
 }
 
 export type UcatQuestionStemRow = UcatQuestionStem & {
-  is_ai_generated?: boolean | null
   ai_generation_metadata?: Json | null
   source_channel?: UcatQuestionSourceChannel | null
   tutor_source_note?: string | null
-  approval_status?: UcatApprovalStatus | null
-  approved_by?: string | null
-  approved_at?: string | null
-  approved_by_first_name?: string | null
-  approved_by_last_name?: string | null
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
+  publication_issues?: UcatPublicationIssue[] | null
+  status_changed_at?: string | null
+  status_changed_by?: string | null
+  status_changed_by_first_name?: string | null
+  status_changed_by_last_name?: string | null
 }
 
 export type UcatQuestionSourceChannel = 'individual' | 'bulk_import' | 'ai_generation'
@@ -153,16 +157,16 @@ export type StemDetailRow = {
   display_columns: number
   question_stem_category_id: string | null
   category_name: string | null
-  is_private: boolean
-  is_ai_generated?: boolean | null
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
+  publication_issues?: UcatPublicationIssue[] | null
   ai_generation_metadata?: Json | null
   source_channel?: UcatQuestionSourceChannel | null
   tutor_source_note?: string | null
-  approval_status?: UcatApprovalStatus | null
-  approved_by?: string | null
-  approved_at?: string | null
-  approved_by_first_name?: string | null
-  approved_by_last_name?: string | null
+  status_changed_at?: string | null
+  status_changed_by?: string | null
+  status_changed_by_first_name?: string | null
+  status_changed_by_last_name?: string | null
   created_by?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
@@ -173,24 +177,17 @@ export type StemDetailRow = {
 
 export const ucatQuestionsApi = {
   async list(options?: {
-    mode?: UcatQuestionListMode
+    status?: UcatContentStatus | null
+    sourceChannel?: UcatQuestionSourceChannel | null
     sectionId?: string | null
     categoryId?: string | null
-    approvalStatus?: UcatApprovalStatus | null
   }) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const mode = options?.mode ?? 'default'
     let query = supabase
       .from('vtutor_ucat_question_stems')
       .select('*')
       .order('updated_at', { ascending: false })
       .order('id')
-
-    if (mode === 'default') {
-      query = query.filter('approval_status', 'eq', 'approved')
-    } else if (mode === 'generated') {
-      query = query.filter('is_ai_generated', 'eq', 'true')
-    }
 
     if (options?.sectionId) {
       query = query.eq('section_id', options.sectionId)
@@ -198,8 +195,11 @@ export const ucatQuestionsApi = {
     if (options?.categoryId) {
       query = query.eq('question_stem_category_id', options.categoryId)
     }
-    if (options?.approvalStatus) {
-      query = query.filter('approval_status', 'eq', options.approvalStatus)
+    if (options?.status) {
+      query = query.eq('status', options.status)
+    }
+    if (options?.sourceChannel) {
+      query = query.eq('source_channel', options.sourceChannel)
     }
 
     const data = await fetchAllSupabaseRows((from, to) => query.range(from, to))
@@ -234,7 +234,7 @@ export const ucatQuestionsApi = {
       supabase
         .from('vtutor_ucat_question_stems')
         .select(
-          'created_by, created_by_first_name, created_by_last_name, created_at, approved_by, approved_at, approved_by_first_name, approved_by_last_name',
+          'created_by, created_by_first_name, created_by_last_name, created_at, status_changed_by, status_changed_at, status_changed_by_first_name, status_changed_by_last_name',
         )
         .eq('id', stemId)
         .maybeSingle(),
@@ -249,10 +249,10 @@ export const ucatQuestionsApi = {
       created_by_first_name?: string | null
       created_by_last_name?: string | null
       created_at?: string | null
-      approved_by?: string | null
-      approved_at?: string | null
-      approved_by_first_name?: string | null
-      approved_by_last_name?: string | null
+      status_changed_by?: string | null
+      status_changed_at?: string | null
+      status_changed_by_first_name?: string | null
+      status_changed_by_last_name?: string | null
     } | null
 
     return {
@@ -261,10 +261,10 @@ export const ucatQuestionsApi = {
       created_by_first_name: meta?.created_by_first_name ?? null,
       created_by_last_name: meta?.created_by_last_name ?? null,
       created_at: meta?.created_at ?? null,
-      approved_by: meta?.approved_by ?? null,
-      approved_at: meta?.approved_at ?? null,
-      approved_by_first_name: meta?.approved_by_first_name ?? null,
-      approved_by_last_name: meta?.approved_by_last_name ?? null,
+      status_changed_by: meta?.status_changed_by ?? null,
+      status_changed_at: meta?.status_changed_at ?? null,
+      status_changed_by_first_name: meta?.status_changed_by_first_name ?? null,
+      status_changed_by_last_name: meta?.status_changed_by_last_name ?? null,
     } as StemDetailRow
   },
 
@@ -380,31 +380,40 @@ export const ucatQuestionsApi = {
     return map
   },
 
-  async getStemCatalog() {
+  async getStemCatalog(options?: { publishedOnly?: boolean }) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const [detailData, approvedData] = await Promise.all([
+    const publishedOnly = options?.publishedOnly ?? false
+    const [detailData, listData] = await Promise.all([
       fetchAllSupabaseRows((from, to) =>
-        supabase
+        (publishedOnly
+          ? supabase
+              .from('vtutor_ucat_question_stem_detail')
+              .select(
+                'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at'
+              )
+              .is('deleted_at', null)
+              .eq('status', 'published')
+          : supabase
           .from('vtutor_ucat_question_stem_detail')
           .select(
-            'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,is_ai_generated,created_at,deleted_at'
+              'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at'
           )
-          .is('deleted_at', null)
-          .filter('approval_status', 'eq', 'approved')
+              .is('deleted_at', null))
           .order('id')
           .range(from, to)
       ),
       fetchAllSupabaseRows((from, to) =>
         supabase
-          .from('vtutor_ucat_question_stems_approved')
+          .from('vtutor_ucat_question_stems')
           .select('id,set_names,set_ids')
+          .is('deleted_at', null)
           .order('id')
           .range(from, to)
       ),
     ])
 
     const setInfoById = new Map(
-      approvedData.map((row) => [
+      listData.map((row) => [
         row.id ?? '',
         {
           setNames: row.set_names,
@@ -422,8 +431,9 @@ export const ucatQuestionsApi = {
       section_id: string | null
       question_stem_category_id: string | null
       category_name: string | null
-      is_private: boolean | null
-      is_ai_generated: boolean | null
+      status: UcatContentStatus
+      access_scope: UcatAccessScope
+      source_channel: UcatQuestionSourceChannel | null
       created_at: string | null
       set_names?: unknown
       set_ids?: unknown
@@ -517,7 +527,7 @@ export const ucatQuestionsApi = {
 
   async bulkUpdateMetadata(
     stemIds: string[],
-    updates: { categoryId?: string | null; isPrivate?: boolean }
+    updates: { categoryId?: string | null; accessScope?: UcatAccessScope }
   ) {
     const response = await fetch('/api/ucat/question-stems/bulk-update', {
       method: 'PATCH',
@@ -525,7 +535,7 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         stemIds,
         categoryId: updates.categoryId ?? null,
-        isPrivate: updates.isPrivate ?? null,
+        accessScope: updates.accessScope ?? null,
       }),
     })
 
@@ -762,15 +772,15 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ ids: string[] }>
   },
 
-  async setApprovalStatus(stemId: string, status: UcatApprovalStatus) {
-    const response = await fetch(`/api/ucat/question-stems/${stemId}/approval`, {
+  async setStatus(stemId: string, status: UcatContentStatus) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvalStatus: status }),
+      body: JSON.stringify({ status }),
     })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update approval status')
+      throw new Error(body.error ?? 'Failed to update content status')
     }
     return response.json() as Promise<{ ok: true }>
   },
@@ -793,7 +803,7 @@ function stemDetailToBundlePayload(
     sectionId: detail.section_id,
     categoryId: detail.question_stem_category_id ?? null,
     stemText: detail.stem_text ?? {},
-    isPrivate: !!detail.is_private,
+    accessScope: detail.access_scope,
     sourceChannel: detail.source_channel ?? null,
     tutorSourceNote: detail.tutor_source_note ?? null,
     questions: questions.map((q, i) => ({
@@ -808,6 +818,7 @@ function stemDetailToBundlePayload(
       aiGenerationMetadata: q.ai_generation_metadata ?? null,
       tagIds: getTagIds(q, i),
       options: (q.answer_options ?? []).map((opt) => ({
+        id: opt.id,
         index: opt.index,
         answerText: opt.answer_text ?? {},
         answerExplanation: toJsonOrNull(opt.answer_explanation),
@@ -823,7 +834,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     sectionId: payload.sectionId,
     categoryId: payload.categoryId ?? null,
     stemText: payload.stemText,
-    isPrivate: payload.isPrivate,
+    accessScope: payload.accessScope,
     sourceChannel: payload.sourceChannel ?? null,
     tutorSourceNote: payload.tutorSourceNote ?? null,
     questions: payload.questions.map((question) => ({
@@ -838,6 +849,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
       ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
       answer_options: question.options.map((option) => ({
+        id: option.id ?? null,
         index: option.index,
         answer_text: option.answerText,
         answer_explanation: toJsonOrNull(option.answerExplanation),

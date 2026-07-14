@@ -12,6 +12,7 @@ import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
 import { PlanPickerPriceSkeleton } from "./plan-picker-price-skeleton";
 import { PlanUpgradeConfirmDialog } from "./plan-upgrade-confirm-dialog";
+import { PlanCancellationDialog } from "./plan-cancellation-dialog";
 import { planPickerCardMotionProps } from "./plan-picker-dialog-shell";
 import {
   planPickerSurface,
@@ -175,6 +176,17 @@ export function PlanPicker({
     upgradePreviewLoading,
     upgradePreviewError,
     upgradeConfirming,
+    cancellationOpen,
+    handleCancellationOpenChange,
+    cancellationReason,
+    setCancellationReason,
+    cancellationComment,
+    setCancellationComment,
+    cancellationConfirming,
+    cancellationError,
+    confirmCancellation,
+    cancellationPaidAccessEndsAt,
+    cancellationCurrentPlanName,
     confirmUpgradeToPro,
     omitAudPrefix,
   } = picker;
@@ -644,16 +656,31 @@ export function PlanPicker({
       </Grid>
 
       {audience === "app" ? (
-        <PlanUpgradeConfirmDialog
-          open={upgradeConfirmOpen}
-          onOpenChange={setUpgradeConfirmOpen}
-          preview={upgradePreview}
-          previewLoading={upgradePreviewLoading}
-          previewError={upgradePreviewError}
-          confirming={upgradeConfirming}
-          omitAudPrefix={omitAudPrefix}
-          onConfirm={() => void confirmUpgradeToPro()}
-        />
+        <>
+          <PlanUpgradeConfirmDialog
+            open={upgradeConfirmOpen}
+            onOpenChange={setUpgradeConfirmOpen}
+            preview={upgradePreview}
+            previewLoading={upgradePreviewLoading}
+            previewError={upgradePreviewError}
+            confirming={upgradeConfirming}
+            omitAudPrefix={omitAudPrefix}
+            onConfirm={() => void confirmUpgradeToPro()}
+          />
+          <PlanCancellationDialog
+            open={cancellationOpen}
+            onOpenChange={handleCancellationOpenChange}
+            currentPlanName={cancellationCurrentPlanName}
+            paidAccessEndsAt={cancellationPaidAccessEndsAt}
+            reason={cancellationReason}
+            onReasonChange={setCancellationReason}
+            comment={cancellationComment}
+            onCommentChange={setCancellationComment}
+            confirming={cancellationConfirming}
+            error={cancellationError}
+            onConfirm={() => void confirmCancellation()}
+          />
+        </>
       ) : null}
     </div>
   );

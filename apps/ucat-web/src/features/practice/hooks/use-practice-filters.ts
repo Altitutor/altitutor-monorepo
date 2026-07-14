@@ -6,12 +6,12 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   sectionLabels,
   SECTION_KEY_TO_NUMBER,
-} from "@/features/set-generator/model/mock-data";
+} from "@/features/practice/model/sections";
 import type {
   SectionKey,
-  SetGeneratorInput,
+  PracticeSelectionInput,
   TimeMode,
-} from "@/features/set-generator/model/types";
+} from "@/features/practice/model/types";
 import {
   extractTextFromRichJson,
   type JsonLike,
@@ -77,7 +77,7 @@ function estimateExamTimeSeconds(
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : null;
 }
 
-const initialInput: SetGeneratorInput = {
+const initialInput: PracticeSelectionInput = {
   section: "verbal_reasoning",
   unansweredOnly: true,
   incorrectOnly: false,
@@ -89,15 +89,15 @@ const initialInput: SetGeneratorInput = {
   timePerQuestionSeconds: null,
 };
 
-const initialPracticeInput: SetGeneratorInput = {
+const initialPracticeInput: PracticeSelectionInput = {
   ...initialInput,
   timePerQuestionSeconds: null,
 };
 
 export type PerformanceFilter = "any" | "unanswered" | "incorrect";
 
-export type UseStemFiltersOptions = {
-  /** API path for preview (matching count). Default: /api/ucat/generated-sets/preview */
+export type UsePracticeFiltersOptions = {
+  /** API path for preview (matching count). */
   previewApiPath?: string;
   /** When 'perQuestion', show time-per-question controls instead of set-level time. For practice page. */
   timeControlType?: "set" | "perQuestion";
@@ -105,14 +105,14 @@ export type UseStemFiltersOptions = {
   showUnlimitedOption?: boolean;
 };
 
-export function useStemFilters(options: UseStemFiltersOptions = {}) {
+export function usePracticeFilters(options: UsePracticeFiltersOptions = {}) {
   const {
-    previewApiPath = "/api/ucat/generated-sets/preview",
+    previewApiPath = "/api/ucat/practice-stems/preview",
     timeControlType = "set",
     showUnlimitedOption = false,
   } = options;
 
-  const [input, setInput] = useState<SetGeneratorInput>(
+  const [input, setInput] = useState<PracticeSelectionInput>(
     timeControlType === "perQuestion" ? initialPracticeInput : initialInput,
   );
   const [questionCountMode, setQuestionCountMode] = useState<

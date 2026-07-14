@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge, Skeleton } from "@altitutor/ui";
 import {
   AlertTriangle,
+  CalendarDays,
+  CircleDollarSign,
   CreditCard,
   ExternalLink,
   Loader2,
   RefreshCw,
-  XCircle,
+  Sparkles,
 } from "lucide-react";
 import {
   createBillingPortalSession,
@@ -38,6 +41,12 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  cancelUcatSubscriptionImmediately,
+  resumeUcatSubscription,
+} from "@/features/subscription/api/change-subscription-cancellation";
+import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
+import { ImmediatePlanCancellationDialog } from "@/features/subscription/components/immediate-plan-cancellation-dialog";
 import type { UcatSubscriptionDetails } from "@/features/subscription/types/ucat-subscription-billing";
 import {
   hasPaidUcatSubscriptionAccess,
@@ -127,11 +136,20 @@ function PastSubscriptionsSection({
 }
 
 export function SubscriptionBillingSection() {
-  const { data, isLoading, error } = useUcatSubscriptionBilling();
+  const queryClient = useQueryClient();
+  const { data, isLoading, error, refetch } = useUcatSubscriptionBilling();
   const { openPlanPicker } = useUpsellDialog();
-  const [portalAction, setPortalAction] =
-    useState<BillingPortalAction | null>(null);
+  const [portalAction, setPortalAction] = useState<BillingPortalAction | null>(
+    null,
+  );
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [immediateCancelOpen, setImmediateCancelOpen] = useState(false);
+  const [immediateCancelLoading, setImmediateCancelLoading] = useState(false);
+  const [immediateCancelError, setImmediateCancelError] = useState<
+    string | null
+  >(null);
   const { data: pricingConfig = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
   const [discountProgress, setDiscountProgress] = useState<{
@@ -219,16 +237,55 @@ export function SubscriptionBillingSection() {
     await handlePortalAction("payment_method_update");
   };
 
-  const handleChangePlan = async () => {
-    if (subscription?.plan_tier === "pro") {
-      await handlePortalAction("subscription_update");
-      return;
-    }
-
+  const handleChangePlan = () => {
     openPlanPicker({
       title: "Change your plan",
-      description: "Compare your current plan with UCAT Pro.",
+      description: "Compare UCAT Free, Unlimited and Pro.",
     });
+  };
+
+  const handleKeepPaidPlan = async () => {
+    setResumeLoading(true);
+    setResumeError(null);
+    try {
+      await resumeUcatSubscription();
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_reversed",
+        journeyContext: "subscription_settings",
+        metadata: { current_plan: subscription?.plan_tier ?? null },
+      });
+      await refetch();
+    } catch (e) {
+      setResumeError(
+        e instanceof Error ? e.message : "Failed to keep your paid plan",
+      );
+    } finally {
+      setResumeLoading(false);
+    }
+  };
+
+  const handleCancelImmediately = async () => {
+    setImmediateCancelLoading(true);
+    setImmediateCancelError(null);
+    try {
+      await cancelUcatSubscriptionImmediately();
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_accelerated",
+        journeyContext: "subscription_settings",
+        metadata: { previous_plan: subscription?.plan_tier ?? null },
+      });
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["ucat-access"] }),
+      ]);
+      setImmediateCancelOpen(false);
+    } catch (e) {
+      setImmediateCancelError(
+        e instanceof Error ? e.message : "Failed to switch to UCAT Free now",
+      );
+    } finally {
+      setImmediateCancelLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -366,163 +423,253 @@ export function SubscriptionBillingSection() {
       ) : null}
 
       {isCancelScheduled && cancelEndDate ? (
-        <div className="rounded-ucatShell border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
-          Your subscription is scheduled to cancel on{" "}
-          <span className="font-semibold">
-            {formatInvoiceDate(cancelEndDate)}
-          </span>
-          . You&apos;ll keep access until then.
+        <div
+          role="alert"
+          className="rounded-ucatShell flex flex-col gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:text-amber-100"
+        >
+          <div>
+            <p>
+              You&apos;re switching to UCAT Free on{" "}
+              <span className="font-semibold">
+                {formatInvoiceDate(cancelEndDate)}
+              </span>
+              . You&apos;ll keep paid access until then.
+            </p>
+            {resumeError ? (
+              <p className="mt-1 text-destructive">{resumeError}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="shrink-0 text-amber-950 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100 dark:hover:text-amber-100"
+              disabled={resumeLoading}
+              onClick={() => {
+                setImmediateCancelError(null);
+                setImmediateCancelOpen(true);
+              }}
+            >
+              Switch now
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              disabled={resumeLoading}
+              onClick={() => void handleKeepPaidPlan()}
+            >
+              {resumeLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Keep paid plan
+            </Button>
+          </div>
         </div>
       ) : null}
 
-      <div
+      <section
         className={cn(
-          "rounded-ucatShell p-6",
+          "rounded-ucatShell overflow-hidden",
           UCAT_SURFACE_CARD,
           UCAT_SURFACE_MOTION,
         )}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight">
+        <div className="relative overflow-hidden border-b border-border/60 bg-gradient-to-br from-primary/[0.09] via-background to-accent/[0.08] p-6 sm:p-8">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 My subscription
-              </h2>
-              <Badge variant={hasPaidAccess ? "default" : "secondary"}>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {formatSubscriptionPlan(subscription)}
+                </h2>
+                <Badge variant={hasPaidAccess ? "default" : "secondary"}>
+                  {isCancelScheduled
+                    ? "Switching to Free"
+                    : formatSubscriptionStatus(subscription.status)}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 {isCancelScheduled
-                  ? "Canceling"
-                  : formatSubscriptionStatus(subscription.status)}
-              </Badge>
+                  ? cancelEndDate
+                    ? `Paid access until ${formatInvoiceDate(cancelEndDate)}`
+                    : "Your subscription will switch to UCAT Free."
+                  : "Your plan, renewal and practice rewards at a glance."}
+              </p>
             </div>
-
             {pricing ? (
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  <span className="font-medium text-foreground">
-                    Standard price:{" "}
-                  </span>
+              <div className="sm:text-right">
+                <p className="text-3xl font-semibold tracking-tight">
                   {formatMoneyFromMinorUnits(
                     pricing.standardPriceCents,
                     pricingConfig.currency,
-                  )}{" "}
-                  / {pricing.billingIntervalNoun}
-                </p>
-                <p>
-                  <span className="font-medium text-foreground">
-                    Practice discount:{" "}
-                  </span>
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  off per day you answer {pricing.minQuestionsPerDay}+ questions
-                </p>
-                <p>
-                  <span className="font-medium text-foreground">
-                    Best case this period:{" "}
-                  </span>
-                  {formatMoneyFromMinorUnits(
-                    pricing.minimumPriceCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  / {pricing.billingIntervalNoun} if you earn the maximum{" "}
-                  {pricing.maxDiscountsPerPeriod} practice discounts (
-                  {pricing.maxDiscountsPerPeriod} ×{" "}
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
                   )}
-                  )
                 </p>
-                {discountProgress ? (
-                  <p>
-                    <span className="font-medium text-foreground">
-                      This billing period:{" "}
-                    </span>
-                    {discountProgress.earned} / {discountProgress.cap} practice
-                    discounts earned
-                  </p>
-                ) : null}
+                <p className="text-sm text-muted-foreground">
+                  standard / {pricing.billingIntervalNoun}
+                </p>
               </div>
-            ) : null}
-
-            {hasPaidAccess &&
-            subscription.current_period_end &&
-            !isCancelScheduled &&
-            !isPaymentRecovery ? (
-              <p className="text-sm text-muted-foreground">
-                Next billing date:{" "}
-                {formatInvoiceDate(
-                  subscription.current_period_end.slice(0, 10),
-                )}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-2 sm:max-w-sm sm:justify-end">
-            {!isPaymentRecovery && !isTerminalBillingState ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={portalAction !== null || isCancelScheduled}
-                onClick={() => void handleChangePlan()}
-              >
-                {portalAction === "subscription_update" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Change plan
-              </Button>
-            ) : null}
-
-            <Button
-              type="button"
-              className={UCAT_PRIMARY_ACTION_BUTTON}
-              disabled={portalAction !== null}
-              onClick={() =>
-                void (isPaymentRecovery
-                  ? handleFixPayment()
-                  : handlePortalAction("payment_method_update"))
-              }
-            >
-              {portalAction === "payment_method_update" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CreditCard className="mr-2 h-4 w-4" />
-              )}
-              {isPaymentRecovery
-                ? subscription.billing_recovery_requires_action
-                  ? "Confirm payment"
-                  : "Update payment"
-                : "Update payment method"}
-            </Button>
-
-            {!isPaymentRecovery && !isTerminalBillingState ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                disabled={portalAction !== null}
-                onClick={() =>
-                  void handlePortalAction("subscription_cancel")
-                }
-              >
-                {portalAction === "subscription_cancel" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <XCircle className="mr-2 h-4 w-4" />
-                )}
-                {isCancelScheduled ? "Review cancellation" : "Cancel plan"}
-              </Button>
             ) : null}
           </div>
         </div>
 
-        {portalError ? (
-          <p className="mt-4 text-sm text-destructive">{portalError}</p>
+        {pricing ? (
+          <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  {isCancelScheduled ? "Paid access until" : "Next renewal"}
+                </p>
+              </div>
+              <p className="mt-2 font-semibold">
+                {subscription.current_period_end
+                  ? formatInvoiceDate(
+                      subscription.current_period_end.slice(0, 10),
+                    )
+                  : "Not scheduled"}
+              </p>
+            </div>
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  Practice days
+                </p>
+              </div>
+              <p className="mt-2 font-semibold">
+                {discountProgress
+                  ? `${discountProgress.earned} of ${discountProgress.cap} earned`
+                  : `${formatMoneyFromMinorUnits(
+                      pricing.discountPerDayCents,
+                      pricingConfig.currency,
+                    )} off each day`}
+              </p>
+              {discountProgress ? (
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
+                  role="progressbar"
+                  aria-label="Practice discounts earned"
+                  aria-valuemin={0}
+                  aria-valuemax={discountProgress.cap}
+                  aria-valuenow={discountProgress.earned}
+                >
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (discountProgress.earned / discountProgress.cap) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  Lowest possible
+                </p>
+              </div>
+              <p className="mt-2 font-semibold">
+                {formatMoneyFromMinorUnits(
+                  pricing.minimumPriceCents,
+                  pricingConfig.currency,
+                )}{" "}
+                / {pricing.billingIntervalNoun}
+              </p>
+            </div>
+          </div>
         ) : null}
-      </div>
+
+        <div className="space-y-5 p-5 sm:p-6">
+          {pricing ? (
+            <details className="group rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm">
+              <summary className="cursor-pointer font-medium text-foreground marker:text-muted-foreground">
+                How practice discounts work
+              </summary>
+              <p className="mt-2 max-w-3xl leading-relaxed text-muted-foreground">
+                Answer {pricing.minQuestionsPerDay}+ questions in a day to take{" "}
+                {formatMoneyFromMinorUnits(
+                  pricing.discountPerDayCents,
+                  pricingConfig.currency,
+                )}{" "}
+                off your next bill, up to {pricing.maxDiscountsPerPeriod} days
+                per {pricing.billingIntervalNoun}.
+              </p>
+            </details>
+          ) : null}
+
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Manage your plan here. Payment details open securely in Stripe.
+            </p>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              {!isPaymentRecovery && !isTerminalBillingState ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={portalAction !== null || isCancelScheduled}
+                  onClick={() => void handleChangePlan()}
+                >
+                  {portalAction === "subscription_update" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Change plan
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                className={UCAT_PRIMARY_ACTION_BUTTON}
+                disabled={portalAction !== null}
+                onClick={() =>
+                  void (isPaymentRecovery
+                    ? handleFixPayment()
+                    : handlePortalAction("payment_method_update"))
+                }
+              >
+                {portalAction === "payment_method_update" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" />
+                )}
+                {isPaymentRecovery
+                  ? subscription.billing_recovery_requires_action
+                    ? "Confirm payment"
+                    : "Update payment"
+                  : "Update payment method"}
+              </Button>
+            </div>
+          </div>
+
+          {portalError ? (
+            <p className="text-sm text-destructive">{portalError}</p>
+          ) : null}
+        </div>
+      </section>
+
+      {cancelEndDate ? (
+        <ImmediatePlanCancellationDialog
+          open={immediateCancelOpen}
+          onOpenChange={(open) => {
+            if (!immediateCancelLoading) {
+              setImmediateCancelOpen(open);
+            }
+          }}
+          scheduledEndDate={formatInvoiceDate(cancelEndDate)}
+          confirming={immediateCancelLoading}
+          error={immediateCancelError}
+          onConfirm={() => void handleCancelImmediately()}
+        />
+      ) : null}
 
       <PastSubscriptionsSection subscriptions={pastSubscriptions} />
 

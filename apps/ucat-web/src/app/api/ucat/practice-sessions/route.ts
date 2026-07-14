@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import {
   checkPracticeStartQuota,
   getPracticeQuotaStatusForStudent,
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         reader: supabase,
         admin: supabaseAdmin,
         studentId: student.id,
-        input: body.filtersSnapshot as SetGeneratorInput,
+        input: body.filtersSnapshot as PracticeSelectionInput,
       });
       body.stemsSnapshot = prepared.stems;
     } catch (error) {

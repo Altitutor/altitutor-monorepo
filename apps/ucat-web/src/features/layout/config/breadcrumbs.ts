@@ -15,7 +15,6 @@ export const SEGMENT_LABELS: Record<string, string> = {
   profile: "My profile",
   subscription: "Subscription",
   "skill-trainer": "Skill trainer",
-  "set-generator": "Set Generator",
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
   "practice-sessions": "Practice session",
@@ -68,7 +67,6 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "learn" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||
-        (segments[0] === "sets" && segments[1] === "set-generator") ||
         (segments[0] === "mocks" && isDynamicSegment(segments[1])) ||
         (segments[0] === "skill-trainer" && segments[1] !== "play") ||
         (segments[0] === "practice" &&
@@ -87,9 +85,6 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sets" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2])) ||
-        (segments[0] === "sets" &&
-          segments[1] === "set-generator" &&
-          isDynamicSegment(segments[2])) ||
         (segments[0] === "settings" &&
           segments[1] === "plan" &&
           segments[2] === "subscription") ||

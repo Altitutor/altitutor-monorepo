@@ -37,7 +37,7 @@ export async function GET(
     dynamic.from("vstudent_ucat_public_question_counts").select("question_stem_category_id, total_questions").eq("section_id", sectionId),
     supabase.from("vstudent_ucat_question_stem_categories").select("id, name").eq("ucat_section_id", sectionId),
     dynamic.from("vstudent_ucat_section_set_progress").select("total_completed, untimed_completed, timed_completed").eq("section_id", sectionId).maybeSingle(),
-    supabase.from("vstudent_ucat_question_sets").select("sections, is_student_generated, time_limit_seconds").eq("is_student_generated", false),
+    supabase.from("vstudent_ucat_question_sets").select("sections, time_limit_seconds"),
   ]);
   const error = progressRes.error ?? countsRes.error ?? categoriesRes.error ?? setProgressRes.error ?? publicSetsRes.error;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

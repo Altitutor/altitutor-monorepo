@@ -30,7 +30,7 @@ import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/e
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
@@ -39,7 +39,7 @@ import {
   assertOkOrQuotaExceeded,
   QuotaExceededError,
 } from "@/lib/ucat/quota/parse-quota-error";
-import { sectionLabels } from "@/features/set-generator/model/mock-data";
+import { sectionLabels } from "@/features/practice/model/sections";
 import {
   UCAT_CARD_CHROME,
   UCAT_PRIMARY_ACTION_BUTTON,
@@ -95,7 +95,7 @@ function practiceSessionEngineSlotClass(
 
 async function fetchNextStem(
   practiceSessionId: string,
-  input: SetGeneratorInput,
+  input: PracticeSelectionInput,
   excludeStemIds: string[],
   options?: { preview?: boolean; deliverStemId?: string },
 ): Promise<QuestionStemWithQuestions[] | null> {
@@ -121,7 +121,7 @@ async function fetchNextStem(
 }
 
 function getPracticeCategoryList(
-  input?: SetGeneratorInput,
+  input?: PracticeSelectionInput,
   meta?: PracticeSessionData["filterMeta"],
 ): string {
   const count = input?.categoryIds?.length ?? 0;
@@ -158,7 +158,7 @@ function buildPracticeSessionTitle({
   filterMeta,
 }: {
   stats: PracticeEngineLiveStats | null;
-  filters?: SetGeneratorInput;
+  filters?: PracticeSelectionInput;
   filterMeta?: PracticeSessionData["filterMeta"];
 }) {
   const timePerQuestionSeconds = filters?.timePerQuestionSeconds ?? null;
@@ -548,7 +548,7 @@ export function PracticeSessionPage() {
         if (stemsRes.ok) {
           const detail = (await stemsRes.json()) as {
             stemsSnapshot?: QuestionStemWithQuestions[];
-            filtersSnapshot?: SetGeneratorInput & {
+            filtersSnapshot?: PracticeSelectionInput & {
               reviewTiming?: PracticeReviewTiming;
             };
             unlimited?: boolean;
@@ -831,7 +831,7 @@ function UnlimitedPracticeEngine({
   onRegisterFinishPracticeDialog,
 }: {
   sessionId: string;
-  filters: SetGeneratorInput;
+  filters: PracticeSelectionInput;
   initialStems: QuestionStemWithQuestions[];
   sessionMeta: Extract<PracticeSessionData, { mode: "unlimited" }>;
   timePerQuestionSeconds: number | null;

@@ -1,17 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { ListChecks, Sparkles } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
-import { isSetGeneratorEnabled } from "@/lib/feature-flags";
 import { UcatClickableCardLink } from "@/shared/components/ucat-clickable-card";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const SECTIONS = [1, 2, 3, 4] as const;
 
 export function SetsLandingPage() {
-  const setGeneratorEnabled = isSetGeneratorEnabled();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   return (
@@ -39,24 +37,6 @@ export function SetsLandingPage() {
           );
         })}
       </motion.div>
-      {setGeneratorEnabled ? (
-        <motion.section
-          className="space-y-3"
-          variants={itemVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Create
-          </h2>
-          <UcatClickableCardLink
-            href="/sets/set-generator"
-            icon={Sparkles}
-            title="Set Generator"
-            description="Build a custom practice set from section, timing, and performance filters."
-          />
-        </motion.section>
-      ) : null}
     </div>
   );
 }

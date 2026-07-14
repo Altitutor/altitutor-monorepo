@@ -144,7 +144,7 @@
 - **Learning module skill trainer block** — A learning module block that references one skill trainer type. The student runs a timed embedded skill trainer session using a random queue from approved active items in that trainer's bank. Block completion when that learn-context session completes (time expiry or current run finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
   _Avoid_: Embedded trainer game, inline drill
 
-- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references an approved question stem; the student works through all questions on that stem. **Question block:** references one approved question; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its approved referenced assessment content without making that content part of the general question bank. Tutors may place a pending generated stem in a private lesson draft to preserve intended lesson structure, but pending, rejected, or deleted assessment content is not valid in a student-visible lesson. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+- **Learning module question block** — A learning module block that embeds published UCAT assessment content. **Stem block:** references a published question stem; the student works through all questions on that stem. **Question block:** references one question on a published stem; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its referenced private assessment content without placing that content in the public question pool. Draft, in-review, or deleted assessment content cannot be attached to a learning module. Answers submitted from learn blocks do not consume UCAT Free practice quota.
   _Avoid_: Practice embed, inline quiz
 
 - **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
@@ -212,8 +212,23 @@
 - **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
   _Avoid_: Stem point, question attempt count
 
-- **Accessible question bank** — The set of non-deleted questions on approved, accessible question stems that define the denominator for a student's UCAT progress totals.
-  _Avoid_: Public question bank (ambiguous with `is_private` stems), stem catalog
+- **Accessible question bank** — The set of non-deleted questions on published question stems that the student may access, either publicly or through an explicit learning-module or session link. It defines the denominator for the student's UCAT progress totals.
+  _Avoid_: All published questions, tutor question list, stem catalog
+
+- **UCAT content status** — The authoring lifecycle shared by question stems, question sets, and mock exams: **draft**, **in review**, or **published**. Draft and in-review content is tutor-only. Published content may be student-accessible according to its access scope. AI generation creates question stems in review; tutor authoring creates drafts. Published content may be edited in place, and may be moved back to in review or draft to withdraw it from student access.
+  _Avoid_: Approval status, visibility, active status
+
+- **UCAT content access scope** — The access rule for published question stems, question sets, and mock exams: **public** content may appear in the relevant student pool, while **private** content is accessible only through an explicit learning-module or session link. Access scope has no student-facing effect until the content is published. A public parent cannot contain a private child.
+  _Avoid_: Publication status, approval, visibility
+
+- **Deleted UCAT content** — A soft-deleted question stem, question set, or mock exam. Deleted content is hidden from students and normal tutor lists and appears in the tutor Deleted view. Restoring deleted content always returns it to draft.
+  _Avoid_: Archived content, unpublished content
+
+- **UCAT publication readiness** — The hard validation required before a question stem, set, or mock can become published. A stem requires a category, question tags, valid answer structure, and complete student-facing explanations. A published parent may contain only published children, and a public parent may contain only public children.
+  _Avoid_: Generation gate, review status, quality score
+
+- **UCAT attempt content snapshot** — The immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw.
+  _Avoid_: Content version, live question lookup, resume snapshot
 
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
   _Avoid_: Question type, answer mode, category
@@ -221,25 +236,25 @@
 - **Tutor source note** — Optional free-text provenance entered by a tutor to describe where source-derived UCAT content came from. It complements the question source channel and is not shown to students.
   _Avoid_: Citation, student explanation, generation metadata
 
-- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
+- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so tutor auto-selection may approximate a requested question total rather than match it exactly. Students cannot generate or persist their own sets.
   _Avoid_: Individual question playlist
 
 - **UCAT set instruction section** — The UCAT section whose instructions are shown before a question set. For a multi-section set, this is the section represented by the largest number of stems in that set; ties use the earliest canonical UCAT section order. Its instruction content and instruction timing define the set's instructions segment.
   _Avoid_: First stem section, arbitrary section
 
-- **Stem not in another set** — A question stem that is not included in any other non-deleted, staff-authored UCAT question set. Student-generated sets do not count; private staff-authored sets do count.
-  _Avoid_: Unused question, not attempted, public-only set membership
+- **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
+  _Avoid_: Unused question, not attempted, not in any set
 
-- **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
-  _Avoid_: Approval status, published status
+- **Set available in the sets pool** — A published public question set that is not included in any published, non-deleted mock exam. Draft and in-review mocks do not reserve their sets from the pool.
+  _Avoid_: Unused set, not attempted, not in any mock
 
-- **Question stem approval queue** — A tutor workflow for reviewing a filtered sequence of question stems, applying small edits or reconciliation fixes, then advancing to the next stem. For AI-generated question stems, approval makes the stem available for student-facing use; for reconciliation, saving advances the tutor through unresolved content gaps without necessarily changing approval status.
-  _Avoid_: Bulk approval, generation gate, question list
+- **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying edits, and either publishing or returning each stem to draft. AI-generated stems enter this queue automatically; tutor-authored stems enter only when a tutor sends them for review.
+  _Avoid_: AI approval queue, bulk approval, generated questions tab
 
 - **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
   _Avoid_: Approval status, generation warning, validation error
 
-- **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
+- **AI-generated question stem** — A UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable and enters the in-review lifecycle stage automatically, but remains unavailable to students until published by a tutor.
   _Avoid_: Auto-published question, synthetic question
 
 - **AI lesson text drafting** — A tutor-requested draft or rewrite of a learning module text block. It uses the surrounding lesson, the tutor's teaching intent, and the block's intended lesson position as context; may produce rich-text teaching structure such as headings, lists, emphasis, and tables; updates only the tutor's unsaved lesson draft until the tutor accepts and saves; and does not itself approve or publish learning content.

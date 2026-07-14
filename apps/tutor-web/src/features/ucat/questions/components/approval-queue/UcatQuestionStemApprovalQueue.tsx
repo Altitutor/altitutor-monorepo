@@ -26,7 +26,7 @@ import { X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
-  useSetUcatQuestionStemApprovalStatus,
+  useSetUcatQuestionStemStatus,
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatSections,
@@ -153,7 +153,7 @@ function UcatQuestionStemApprovalQueue({
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const updateMutation = useUpdateUcatQuestionStem()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
+  const statusMutation = useSetUcatQuestionStemStatus()
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[], [categoriesQuery.data])
@@ -188,7 +188,7 @@ function UcatQuestionStemApprovalQueue({
 
   const isLoading =
     detailQuery.isLoading || sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
-  const isMutating = updateMutation.isPending || approvalMutation.isPending
+  const isMutating = updateMutation.isPending || statusMutation.isPending
   const isAiMode = currentEntry?.mode === 'ai_approval'
   const currentNumber = entries.length === 0 ? 0 : index + 1
   const progressLabel = `${currentNumber} of ${entries.length}`
@@ -196,7 +196,7 @@ function UcatQuestionStemApprovalQueue({
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
   const hasPreviousAiQuestion = isAiMode && activeQuestionIndex > 0
-  const aiPrimaryLabel = isLastAiQuestion ? 'Approve' : 'Next question'
+  const aiPrimaryLabel = isLastAiQuestion ? 'Publish' : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
 
@@ -230,8 +230,8 @@ function UcatQuestionStemApprovalQueue({
           baselineSnapshot: baselineRef.current,
           updateStem: (payload) =>
             updateMutation.mutateAsync({ stemId: currentEntry.stemId, payload }),
-          setApprovalStatus: (status) =>
-            approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
+          setStatus: (status) =>
+            statusMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
         })
         ok = true
       },
@@ -282,7 +282,7 @@ function UcatQuestionStemApprovalQueue({
 
   async function handleApprove() {
     if (!currentEntry) return
-    form.setValue('approvalStatus', 'approved', { shouldDirty: true })
+    form.setValue('status', 'published', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
     if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
@@ -308,7 +308,7 @@ function UcatQuestionStemApprovalQueue({
 
   async function handleReject() {
     if (!currentEntry) return
-    form.setValue('approvalStatus', 'rejected', { shouldDirty: true })
+    form.setValue('status', 'draft', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
     goNext()
@@ -400,9 +400,9 @@ function UcatQuestionStemApprovalQueue({
             aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
             createdByFirstName={detailQuery.data?.created_by_first_name ?? null}
             createdByLastName={detailQuery.data?.created_by_last_name ?? null}
-            approvedByFirstName={detailQuery.data?.approved_by_first_name ?? null}
-            approvedByLastName={detailQuery.data?.approved_by_last_name ?? null}
-            approvedAt={detailQuery.data?.approved_at ?? null}
+            statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
+            statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
+            statusChangedAt={detailQuery.data?.status_changed_at ?? null}
           />
         )}
       </div>

@@ -13,7 +13,7 @@ function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionSt
     sectionId: '00000000-0000-0000-0000-000000000001',
     categoryId: null,
     stemText: plainTextToProseMirror('Stem'),
-    isPrivate: true,
+    accessScope: 'private',
     questions: [
       {
         questionText: plainTextToProseMirror('Question'),
