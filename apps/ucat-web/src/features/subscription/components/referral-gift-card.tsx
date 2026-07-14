@@ -75,9 +75,9 @@ export function ReferralGiftCard({
                 Unlimited
               </h2>
               <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground">
-                Accept to start an Unlimited subscription with your first {duration}
-                free. You’ll add a payment method securely in Stripe and can
-                cancel before normal {duration}ly billing begins.
+                Accept to start an Unlimited subscription with your first{" "}
+                {duration} free. You’ll add a payment method securely in Stripe
+                and can cancel before normal {duration}ly billing begins.
               </p>
             </div>
           </div>

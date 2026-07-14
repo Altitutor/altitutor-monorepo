@@ -306,6 +306,9 @@ export function UcatLearningModuleOrderEditor({
       child_count: 0,
       block_count: 0,
       updated_at: '',
+      study_plan_priority: 'recommended',
+      study_plan_category_ids: [],
+      study_plan_tag_ids: [],
     }
     return [...modules, row]
   }, [

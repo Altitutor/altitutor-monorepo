@@ -14,6 +14,7 @@ import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
 import { DashboardFreeQuotaCard } from "@/features/dashboard/components/dashboard-free-quota-card";
 import { DashboardPracticeDiscountCard } from "@/features/dashboard/components/dashboard-practice-discount-card";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
+import { StudyPlanDashboardCard } from "@/features/study-plan/components/study-plan-dashboard-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
 import {
   UcatClickableCardButton,
@@ -41,6 +42,8 @@ export function DashboardPage() {
       />
 
       {access.hasInPersonAccess ? <TodaySessionCard /> : null}
+
+      <StudyPlanDashboardCard />
 
       <div className="grid items-stretch gap-4 sm:grid-cols-2">
         {access.hasOnlineAccess ? (

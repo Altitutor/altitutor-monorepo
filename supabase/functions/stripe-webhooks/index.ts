@@ -1188,6 +1188,10 @@ Deno.serve(async (req: Request) => {
             ucat_plan_tier?: string;
             ucat_billing_interval?: string;
             ucat_checkout_context?: string;
+            ucat_acquisition_benefit?: string;
+            ucat_standard_trial_days?: string;
+            ucat_referral_gift_id?: string;
+            ucat_referral_gift_kind?: string;
           };
         };
 
@@ -1373,8 +1377,20 @@ Deno.serve(async (req: Request) => {
               journey_context: journeyContext,
               plan_tier: planFields.plan_tier,
               billing_interval: planFields.billing_interval,
-              trial_eligible: false,
+              trial_eligible: subscription.status === "trialing",
               stripe_checkout_session_id: session.id,
+              metadata: {
+                acquisition_benefit:
+                  session.metadata?.ucat_acquisition_benefit ??
+                  subscription.metadata?.ucat_acquisition_benefit ??
+                  (subscription.status === "trialing"
+                    ? "standard_trial"
+                    : "none"),
+                trial_days:
+                  session.metadata?.ucat_standard_trial_days ??
+                  subscription.metadata?.ucat_standard_trial_days ??
+                  null,
+              },
             });
           }
         } catch (e: unknown) {

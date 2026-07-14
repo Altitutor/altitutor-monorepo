@@ -174,8 +174,12 @@ if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
         fi
 
         confirmation_content=$(echo "$BODY" | jq -r '.mailer_templates_confirmation_content // empty' 2>/dev/null || true)
-        if [ -n "$confirmation_content" ] && echo "$confirmation_content" | grep -q 'token_hash'; then
-            echo "  ✅ Confirmation content: includes token_hash (cross-browser signup link)"
+        if [ -n "$confirmation_content" ] && echo "$confirmation_content" | grep -q '{{ .Token }}'; then
+            echo "  ✅ Confirmation content: includes the code-only signup token"
+        elif [ -n "$confirmation_content" ]; then
+            echo "  ⚠️  Confirmation content: deployed but missing the signup token — check confirmation.html"
+        else
+            echo "  ⚠️  Confirmation content: not returned in API response (re-run or check dashboard)"
         fi
     fi
 else

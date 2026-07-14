@@ -32,7 +32,6 @@ import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } f
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
@@ -271,13 +270,6 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     }
   }
 
-  const stemsThatWillBecomePublicCount = useMemo(() => {
-    if (draftPrivate) return 0
-    return draftStemIds.filter(
-      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.accessScope === 'private'
-    ).length
-  }, [draftPrivate, draftStemIds, stemCatalog])
-
   const isLoading =
     access.isLoading ||
     detail.isLoading ||
@@ -309,9 +301,6 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         }
       />
 
-      {stemsThatWillBecomePublicCount > 0 && (
-        <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
-      )}
       <div className={cn('relative mt-4 flex h-[70vh] min-h-0 flex-col', tutorTableShell)}>
         <UcatSetEditorContent
           draftName={draftName}

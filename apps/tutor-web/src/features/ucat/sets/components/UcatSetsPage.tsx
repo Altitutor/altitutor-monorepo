@@ -39,6 +39,7 @@ import { UCAT_CONTENT_STATUS_OPTIONS, type UcatContentStatus, type UcatQuestionS
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
+import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
@@ -59,7 +60,7 @@ import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -109,6 +110,7 @@ export function UcatSetsPage() {
   const setStatus = useSetUcatSetStatus()
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
+  const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
@@ -341,10 +343,44 @@ export function UcatSetsPage() {
     ])
   }
 
-  function changeSetStatus(setId: string, status: UcatContentStatus, title: string) {
-    void setStatus.mutateAsync({ setId, status }).catch((error) => {
-      toast(lifecycleErrorToast(error, title, router.push))
-    })
+  function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
+    if (entityType === 'set') {
+      setEditingSetId(entityId)
+      return true
+    }
+    if (entityType === 'mock') {
+      setEditingMockId(entityId)
+      return true
+    }
+    return false
+  }
+
+  function changeSetStatus(
+    setId: string,
+    status: UcatContentStatus,
+    previousStatus: UcatContentStatus,
+    title: string,
+  ) {
+    void (async () => {
+      try {
+        await setStatus.mutateAsync({ setId, status })
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Set',
+          count: 1,
+          status,
+          onUndo: () => {
+            void ucatSetsApi.bulkRestoreStatus([setId], status, previousStatus)
+              .then(async () => {
+                await invalidateSetsListQueries([setId])
+                toast({ title: 'Set status restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      } catch (error) {
+        toast(lifecycleErrorToast(error, title, router.push, openLifecycleEntity))
+      }
+    })()
   }
 
   async function handleBulkStatusConfirm() {
@@ -354,11 +390,25 @@ export function UcatSetsPage() {
     try {
       await ucatSetsApi.bulkSetStatus(ids, bulkStatus)
       await invalidateSetsListQueries(ids)
+      const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
+      toast(lifecycleStatusSuccessToast({
+        contentLabel: 'Set',
+        count: ids.length,
+        status: nextStatus,
+        onUndo: () => {
+          void ucatSetsApi.bulkRestoreStatus(ids, nextStatus, activeStatus)
+            .then(async () => {
+              await invalidateSetsListQueries(ids)
+              toast({ title: ids.length === 1 ? 'Set status restored' : 'Set statuses restored' })
+            })
+            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+        },
+      }))
     } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected sets', router.push))
+      toast(lifecycleErrorToast(error, 'Cannot move selected sets', router.push, openLifecycleEntity))
     } finally {
       setBulkStatusPending(false)
     }
@@ -590,18 +640,18 @@ export function UcatSetsPage() {
                       actions={[
                         { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
                         ...(!showDeleted && r.status === 'draft'
-                          ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', 'Cannot send for review') }]
+                          ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', r.status, 'Cannot send for review') }]
                           : []),
                         ...(!showDeleted && r.status === 'in_review'
                           ? [
-                              { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'published', 'Cannot publish') },
-                              { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', 'Cannot return to draft') },
+                              { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'published', r.status, 'Cannot publish') },
+                              { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', r.status, 'Cannot return to draft') },
                             ]
                           : []),
                         ...(!showDeleted && r.status === 'published'
                           ? [
-                              { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', 'Cannot move set') },
-                              { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', 'Cannot move set') },
+                              { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', r.status, 'Cannot move set') },
+                              { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'draft', r.status, 'Cannot move set') },
                             ]
                           : []),
                         ...(showDeleted
@@ -1068,6 +1118,15 @@ export function UcatSetsPage() {
               }
             : undefined
         }
+      />
+      <UcatMockEditorDialog
+        open={!!editingMockId}
+        mockId={editingMockId}
+        onClose={() => setEditingMockId(null)}
+        onEditSet={(setId) => {
+          setEditingMockId(null)
+          setEditingSetId(setId)
+        }}
       />
       <UcatDeleteConfirmDialog
         open={!!deletingSetId}

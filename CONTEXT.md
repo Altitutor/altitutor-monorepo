@@ -425,6 +425,54 @@
 - **Available study day** — A weekday the student explicitly permits the Study plan to schedule. The student sets a maximum study duration for each available day; the plan may use fewer available days or less than the maximum duration, especially when the test is distant. A flexible student may instead ask the plan to choose days automatically.
   _Avoid_: Required study day, booked session, tutoring availability
 
+- **Study capacity** — The maximum time the student permits the Study plan to schedule across their available study days. It is a ceiling rather than a commitment: the plan may schedule less and ramp toward it as the test approaches. When capacity is below the plan's recommended workload, the student still receives the best plan possible within that capacity together with a non-blocking target-risk warning and actions to change availability, target score, or test date. Only zero capacity prevents plan generation.
+  _Avoid_: Required workload, guaranteed improvement threshold, minimum subscription usage
+
+- **Study plan test timing** — The student's exact UCAT test date when booked, or their test year while no exact date is available. Year-only planning is the normal pre-booking state: the plan uses the midpoint of that year's admin-configured testing window as a clearly labelled provisional planning date and does not ask the student to predict an early, middle, or late sitting. When bookings open, the app prompts for the booked date and recalculates all future Study plan work after it is supplied.
+  _Avoid_: Required exact date, hidden assumed date, student-predicted test window
+
+- **Study plan target** — The student's single target for the overall cognitive UCAT score. The Study plan dynamically distributes the required improvement across Verbal Reasoning, Decision Making, and Quantitative Reasoning using current Section score estimates and realistic improvement potential; students do not enter target section scores. Situational Judgement is excluded from this total and managed through a separate automatic goal.
+  _Avoid_: Target section inputs, Situational Judgement in total, guaranteed target score
+
+- **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
+  _Avoid_: Overall-score contribution, student-entered SJT target, ignored section
+
+- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or push a later day beyond its Study capacity. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Near-term tasks may be reconciled when the student next opens the plan, while the full future calendar follows the normal weekly or event-driven recalculation schedule.
+  _Avoid_: Backlog rollover, catch-up workload, plan failure
+
+- **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.
+  _Avoid_: Any activity counts, plan-only activity, duplicate required practice
+
+- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The completed work contributes to progress evidence and plan recalculation, but the task remains visibly partial and its remainder does not automatically become next-day study debt. A mock or benchmark is complete only when its required attempt is finalized.
+  _Avoid_: Failed task, automatic completion, remaining-work rollover
+
+- **Study plan task controls** — The intentionally limited actions available on a generated study task: start the prescribed activity or skip it for automatic Study plan rebalancing. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks. This preserves the student-facing promise that the plan decides what to do next.
+  _Avoid_: Timetable editor, drag-and-drop plan, task swap
+
+- **Study plan quota handling** — The Study plan prescribes the same academically appropriate work regardless of Online access tier; it is not weakened to fit UCAT Free quotas. A Free student can see the complete plan and complete tasks while quota remains. A task blocked by quota remains visibly locked with its reset or upgrade action, is not counted as missed, and may contribute to an access-risk warning when the target workload cannot be executed.
+  _Avoid_: Paid-only hidden plan, quota-sized academic plan, locked task as non-adherence
+
+- **Study plan calibration phase** — The opening phase used when a student has insufficient Attempt evidence for confident personalisation. It begins immediately and emphasises learning modules, short representative practice, and frequent review rather than requiring a diagnostic mock. Existing history may shorten or bypass calibration. A first mock is scheduled only after the student demonstrates reasonable familiarity with the question types, not merely because their preferred mock day arrives.
+  _Avoid_: Mandatory diagnostic mock, first-week mock, unpersonalised permanent plan
+
+- **Study feedback progression** — The Study plan's normal movement from learning and short-loop practice with feedback after each stem, through longer mini practice, into full-section benchmarks and finally mocks. Longer feedback intervals are prescribed only as familiarity grows. This is an adaptive progression rather than a compulsory sequence: credible historical or out-of-plan attempt evidence may place an experienced student directly into a later stage, and learning is prescribed only where evidence indicates it is useful.
+  _Avoid_: Fixed course sequence, mocks from day one, mandatory Learn completion
+
+- **Full-section benchmark** — A completed section-length UCAT set or equivalent exam-like section attempt whose feedback is received after the uninterrupted attempt. It provides stronger section readiness evidence than short-loop practice. Before the first prescribed mock, the Study plan normally requires at least one Full-section benchmark in every section and adaptively repeats a section benchmark after targeted remediation when the earlier result reveals fundamental gaps.
+  _Avoid_: Any question set, mini-set, mandatory fixed benchmark count
+
+- **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
+  _Avoid_: Minimum accuracy gate, mandatory lesson sequence, preferred mock day alone
+
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Incomplete Essential lessons are prioritised early; Recommended lessons are included when capacity permits; Optional lessons are selected for relevant weaknesses or longer timelines; Excluded lessons are never prescribed. Selection uses this metadata and stable lesson references rather than hard-coded lesson IDs or titles.
+  _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
+
+- **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
+  _Avoid_: Study-plan tags, category arrays, polymorphic taxonomy link
+
+- **Estimated lesson duration** — An automatically calculated planning estimate derived from a learning module lesson's current blocks. Text uses reading-time estimation; video uses stored provider duration when available and a fallback otherwise; question and stem blocks use question volume and section timing; skill-trainer blocks use their configured time limit; file blocks add no duration. It is recalculated when lesson content changes and is used for scheduling rather than presented as a completion guarantee.
+  _Avoid_: Tutor-entered required duration, fixed time per lesson, exact completion time
+
 - **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, minimum evidence threshold, effective-practice pace, and trajectory curve constants.
   _Avoid_: UCAT model config, study planner settings
 

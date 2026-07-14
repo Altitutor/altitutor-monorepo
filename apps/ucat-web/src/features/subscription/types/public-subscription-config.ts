@@ -29,7 +29,7 @@ export type PublicUcatSubscriptionConfig = {
 
 /** Fallback when the public API is unavailable */
 export const defaultPublicSubscriptionConfig: PublicUcatSubscriptionConfig = {
-  trialDays: 7,
+  trialDays: 5,
   minQuestionsPerDay: 10,
   currency: "aud",
   freeQuotas: DEFAULT_FREE_QUOTA_CONFIG,

@@ -1,19 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
+  Button,
   Input,
   SearchableSelect,
 } from '@altitutor/ui'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
-import {
-  UcatSetCatalogListPanel,
-  UcatSetMembershipListPanel,
-} from '@/features/ucat/shared/components/ucat-set-catalog-panel'
+import { UcatSetCatalogListPanel } from '@/features/ucat/shared/components/ucat-set-catalog-panel'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
@@ -69,22 +68,108 @@ export function UcatMockEditorContent({
   onEditSet,
 }: UcatMockEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-sets'>('properties')
+  const orderedSections = useMemo(
+    () => [...sections].sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)),
+    [sections],
+  )
+  const setById = useMemo(() => new Map(setCatalog.map((set) => [set.id, set])), [setCatalog])
+  const occupiedSectionNumbers = useMemo(
+    () => new Set(
+      draftSetIds
+        .map((id) => setById.get(id))
+        .filter((set): set is SetOption => set?.sectionCount === 1 && set.firstSectionNumber != null)
+        .map((set) => set.firstSectionNumber as number),
+    ),
+    [draftSetIds, setById],
+  )
+  const availableSets = useMemo(
+    () => setCatalog.filter((set) =>
+      set.sectionCount === 1 &&
+      set.firstSectionNumber != null &&
+      !occupiedSectionNumbers.has(set.firstSectionNumber),
+    ),
+    [setCatalog, occupiedSectionNumbers],
+  )
+
+  function removeSet(setId: string) {
+    setDraftSetIds(draftSetIds.filter((id) => id !== setId))
+  }
+
+  function addSet(setId: string) {
+    const nextIds = [...draftSetIds, setId]
+    nextIds.sort((leftId, rightId) => {
+      const left = setById.get(leftId)?.firstSectionNumber ?? Number.MAX_SAFE_INTEGER
+      const right = setById.get(rightId)?.firstSectionNumber ?? Number.MAX_SAFE_INTEGER
+      return left - right
+    })
+    setDraftSetIds(nextIds)
+  }
 
   return (
     <div className="flex h-full min-h-0">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r p-6">
-        <h2 className="mb-3 shrink-0 font-semibold">Sets in mock</h2>
-        <UcatSetMembershipListPanel
-          setIds={draftSetIds}
-          onSetIdsChange={setDraftSetIds}
-          sets={setCatalog}
-          filterDefinitions={filterDefinitions}
-          filterSearchValues={filterSearchValues}
-          onFilterSearchChange={onFilterSearchChange}
-          sections={sections}
-          onEditSet={onEditSet}
-          className="min-h-0 flex-1"
-        />
+        <h2 className="mb-1 shrink-0 font-semibold">Mock sections</h2>
+        <p className="mb-4 text-sm text-muted-foreground">Choose one set for each UCAT section.</p>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          {orderedSections.map((section) => {
+            const assignedSets = draftSetIds
+              .map((id) => setById.get(id))
+              .filter((set): set is SetOption =>
+                set?.firstSectionNumber === section.section_number,
+              )
+            const label = section.section_number != null
+              ? `Section ${section.section_number}: ${section.name ?? 'Untitled section'}`
+              : section.name ?? 'Untitled section'
+
+            return (
+              <div key={section.id ?? label} className="rounded-xl border bg-muted/20 p-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold">{label}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {section.number_of_questions ?? '—'} questions · {section.time_limit_seconds ?? '—'}s
+                  </span>
+                </div>
+                {assignedSets.length === 0 ? (
+                  <div className="rounded-lg border border-dashed bg-background px-3 py-4 text-sm text-muted-foreground">
+                    No set selected
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {assignedSets.map((set) => (
+                      <div key={set.id} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{set.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {set.question_count ?? '—'} questions · {set.time_limit_seconds ?? '—'}s
+                          </p>
+                          {set.sectionCount !== 1 ? (
+                            <p className="mt-1 text-xs font-medium text-destructive">This set spans multiple sections and cannot be published in a mock.</p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {onEditSet ? (
+                            <Button type="button" variant="ghost" size="icon" onClick={() => onEditSet(set.id)} aria-label={`Edit ${set.name}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeSet(set.id)} aria-label={`Remove ${set.name}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {assignedSets.length > 1 ? (
+                      <p className="text-xs font-medium text-destructive">Remove duplicates; only one set is allowed for this section.</p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {orderedSections.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No UCAT sections are configured.</p>
+          ) : null}
+        </div>
       </section>
 
       <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l p-6">
@@ -147,7 +232,7 @@ export function UcatMockEditorContent({
             className="m-0 mt-3 flex min-h-0 flex-1 flex-col pt-2"
           >
             <UcatSetCatalogListPanel
-              sets={setCatalog}
+              sets={availableSets}
               excludedIds={draftSetIds}
               search={search}
               onSearchChange={setSearch}
@@ -158,7 +243,8 @@ export function UcatMockEditorContent({
               onFilterSearchChange={onFilterSearchChange}
               sections={sections}
               isLoading={setCatalogLoading}
-              onAddSet={(setId) => setDraftSetIds([...draftSetIds, setId])}
+              emptyMessage="No eligible sets remain. Each section can have only one set."
+              onAddSet={addSet}
               onEditSet={onEditSet}
             />
           </SegmentedTabPanelContent>

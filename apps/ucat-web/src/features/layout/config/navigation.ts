@@ -34,6 +34,7 @@ export const appNavigation: NavSection[] = [
     // Top-level dashboard entry, no heading
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/study-plan", label: "Study plan", icon: CalendarDays },
       {
         href: "/progress",
         label: "Progress",

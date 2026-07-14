@@ -7,6 +7,7 @@ const BodySchema = z.object({
   contentType: z.enum(['stem', 'set', 'mock']),
   contentIds: z.array(z.string().uuid()).min(1).max(500),
   status: z.enum(['draft', 'in_review', 'published']),
+  previousStatus: z.enum(['draft', 'in_review', 'published']).optional(),
 })
 
 const FRIENDLY_FALLBACKS: Record<string, string> = {
@@ -16,6 +17,7 @@ const FRIENDLY_FALLBACKS: Record<string, string> = {
   status_blocked_by_attachment: 'Remove this content from its session or learning module before moving it out of Published.',
   in_review_set_contains_draft_stem: 'This set contains a draft question that must be sent for review first.',
   in_review_mock_contains_draft_set: 'This mock contains a draft set that must be sent for review first.',
+  undo_status_changed: 'The status changed again after this action, so it can no longer be undone.',
 }
 
 function failedContentId(message: string, fallbackId: string) {
@@ -40,19 +42,26 @@ export async function PATCH(request: NextRequest) {
   }
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
-  const { contentType, contentIds, status } = parsed.data
-  const { error } = await client.rpc('tutor_ucat_set_content_status_bulk', {
-    p_content_type: contentType,
-    p_content_ids: contentIds,
-    p_status: status,
-  })
+  const { contentType, contentIds, status, previousStatus } = parsed.data
+  const { error } = previousStatus
+    ? await client.rpc('tutor_ucat_restore_content_status_bulk', {
+        p_content_type: contentType,
+        p_content_ids: contentIds,
+        p_current_status: status,
+        p_previous_status: previousStatus,
+      })
+    : await client.rpc('tutor_ucat_set_content_status_bulk', {
+        p_content_type: contentType,
+        p_content_ids: contentIds,
+        p_status: status,
+      })
 
   if (error) {
     const blockerId = failedContentId(error.message, contentIds[0])
     const { data } = await client.rpc('tutor_ucat_content_status_blockers', {
       p_content_type: contentType,
       p_content_id: blockerId,
-      p_status: status,
+      p_status: previousStatus ?? status,
     })
     const blockers = Array.isArray(data) ? (data as UcatLifecycleBlocker[]) : []
     return NextResponse.json(

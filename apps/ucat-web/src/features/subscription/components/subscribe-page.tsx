@@ -139,7 +139,7 @@ export function SubscribePage() {
                 {
                   icon: "◎",
                   title: "Cancel anytime",
-                  desc: "No lock-in. Cancel before your trial ends and you won't be charged a cent.",
+                  desc: "No lock-in. You can schedule cancellation from your subscription settings at any time.",
                   accent: false,
                 },
               ].map(({ icon, title, desc, accent }) => (
@@ -197,8 +197,8 @@ export function SubscribePage() {
             className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}
           >
             All prices in AUD and include GST where applicable. Cancel anytime
-            before trial ends. Practice-day discounts are earned when daily
-            question targets are met.
+            from subscription settings. Practice-day discounts are earned when
+            daily question targets are met.
           </p>
         </div>
       </section>

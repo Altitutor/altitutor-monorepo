@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -47,7 +47,7 @@ import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -150,6 +150,47 @@ export function UcatMocksPage() {
     clearSelection,
   } = useUcatRowSelection(paginatedRows)
 
+  const openLifecycleEntity = useCallback((entityType: UcatLifecycleEntityType, entityId: string) => {
+    if (entityType === 'mock') {
+      setEditingMockId(entityId)
+      return true
+    }
+    if (entityType === 'set') {
+      setEditingSetId(entityId)
+      return true
+    }
+    return false
+  }, [])
+
+  const changeMockStatus = useCallback((
+    mockId: string,
+    status: UcatContentStatus,
+    previousStatus: UcatContentStatus,
+    title: string,
+  ) => {
+    void (async () => {
+      try {
+        await setStatus.mutateAsync({ mockId, status })
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Mock',
+          count: 1,
+          status,
+          onUndo: () => {
+            void ucatMocksApi.bulkRestoreStatus([mockId], status, previousStatus)
+              .then(async () => {
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.mock(mockId) })
+                toast({ title: 'Mock status restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      } catch (error) {
+        toast(lifecycleErrorToast(error, title, router.push, openLifecycleEntity))
+      }
+    })()
+  }, [openLifecycleEntity, queryClient, router, setStatus, toast])
+
   const actionsColumn: ColumnDef<MockRow> = useMemo(
     () => ({
       id: 'actions',
@@ -160,18 +201,18 @@ export function UcatMocksPage() {
             actions={[
               { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
               ...(!showDeleted && row.original.status === 'draft'
-                ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'in_review' }).catch((error) => toast(lifecycleErrorToast(error, 'Cannot send for review', router.push))) }]
+                ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'in_review', row.original.status, 'Cannot send for review') }]
                 : []),
               ...(!showDeleted && row.original.status === 'in_review'
                 ? [
-                    { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'published' }).catch((error) => toast(lifecycleErrorToast(error, 'Cannot publish', router.push))) },
-                    { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'draft' }).catch((error) => toast(lifecycleErrorToast(error, 'Cannot return to draft', router.push))) },
+                    { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'published', row.original.status, 'Cannot publish') },
+                    { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'draft', row.original.status, 'Cannot return to draft') },
                   ]
                 : []),
               ...(!showDeleted && row.original.status === 'published'
                 ? [
-                    { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'in_review' }).catch((error) => toast(lifecycleErrorToast(error, 'Cannot move mock', router.push))) },
-                    { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => void setStatus.mutateAsync({ mockId: row.original.id, status: 'draft' }).catch((error) => toast(lifecycleErrorToast(error, 'Cannot move mock', router.push))) },
+                    { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'in_review', row.original.status, 'Cannot move mock') },
+                    { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'draft', row.original.status, 'Cannot move mock') },
                   ]
                 : []),
               ...(showDeleted
@@ -182,7 +223,7 @@ export function UcatMocksPage() {
         </div>
       ),
     }),
-    [showDeleted, restoreMock, router, setStatus, toast],
+    [changeMockStatus, showDeleted, restoreMock],
   )
 
   const tableColumns = useMemo(() => {
@@ -248,11 +289,25 @@ export function UcatMocksPage() {
     try {
       await ucatMocksApi.bulkSetStatus(ids, bulkStatus)
       await invalidateMocksListQueries(ids)
+      const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
+      toast(lifecycleStatusSuccessToast({
+        contentLabel: 'Mock',
+        count: ids.length,
+        status: nextStatus,
+        onUndo: () => {
+          void ucatMocksApi.bulkRestoreStatus(ids, nextStatus, activeStatus)
+            .then(async () => {
+              await invalidateMocksListQueries(ids)
+              toast({ title: ids.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
+            })
+            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+        },
+      }))
     } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected mocks', router.push))
+      toast(lifecycleErrorToast(error, 'Cannot move selected mocks', router.push, openLifecycleEntity))
     } finally {
       setBulkStatusPending(false)
     }

@@ -3,6 +3,7 @@ import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 /** Maps path segments to display labels for breadcrumbs. */
 export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
+  "study-plan": "Study plan",
   progress: "Progress",
   sets: "Sets",
   sections: "Sections",
@@ -50,6 +51,7 @@ function isValidPagePath(path: string): boolean {
     case 1:
       return [
         "dashboard",
+        "study-plan",
         "progress",
         "learn",
         "sessions",

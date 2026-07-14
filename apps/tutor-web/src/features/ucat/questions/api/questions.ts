@@ -787,6 +787,17 @@ export const ucatQuestionsApi = {
       await throwUcatLifecycleResponseError(response, 'Failed to update question status')
     }
   },
+
+  async bulkRestoreStatus(stemIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status: currentStatus, previousStatus }),
+    })
+    if (!response.ok) {
+      await throwUcatLifecycleResponseError(response, 'Failed to restore question status')
+    }
+  },
 }
 
 /** Ensure we send actual null for DB, never the string "null". */

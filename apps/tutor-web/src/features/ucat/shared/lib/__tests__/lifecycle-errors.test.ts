@@ -1,6 +1,7 @@
 import {
   UcatLifecycleError,
   lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
 } from '@/features/ucat/shared/lifecycle-errors'
 
 describe('lifecycleErrorToast', () => {
@@ -38,5 +39,43 @@ describe('lifecycleErrorToast', () => {
 
     expect(toast.description).toBe('This mock is attached to session “Session A”. There is 1 more blocker.')
     expect(toast).not.toHaveProperty('action')
+  })
+
+  it('opens a parent editor when the page can host it', () => {
+    const navigate = jest.fn()
+    const openEntity = jest.fn(() => true)
+    const toast = lifecycleErrorToast(
+      new UcatLifecycleError('Blocked by Mock A.', [{
+        code: 'parent_mock',
+        message: 'Blocked by Mock A.',
+        entity_type: 'mock',
+        entity_id: 'mock-a',
+      }]),
+      'Cannot move set',
+      navigate,
+      openEntity,
+    )
+
+    expect(toast.action?.label).toBe('Edit mock')
+    toast.action?.onClick()
+    expect(openEntity).toHaveBeenCalledWith('mock', 'mock-a')
+    expect(navigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('lifecycleStatusSuccessToast', () => {
+  it('offers an undo action for a successful status change', () => {
+    const onUndo = jest.fn()
+    const toast = lifecycleStatusSuccessToast({
+      contentLabel: 'Set',
+      count: 2,
+      status: 'in_review',
+      onUndo,
+    })
+
+    expect(toast.title).toBe('2 sets moved to In review')
+    expect(toast.action.label).toBe('Undo')
+    toast.action.onClick()
+    expect(onUndo).toHaveBeenCalled()
   })
 })

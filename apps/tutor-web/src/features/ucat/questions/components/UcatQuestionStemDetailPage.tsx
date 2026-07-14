@@ -9,7 +9,7 @@ import { Button, useToast } from '@altitutor/ui'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, FilePenLine, ListChecks, Send } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
 import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { buildEmptyStemFormValues, persistStemFormValues, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
 import {
@@ -29,8 +29,9 @@ import {
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
@@ -82,6 +83,15 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
   const status = (watchedValues.status ?? initial?.status ?? 'published') as UcatContentStatus
 
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
+
+  function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
+    if (entityType === 'set') {
+      setEditingSetId(entityId)
+      return true
+    }
+    return false
+  }
 
   async function onSubmit(values: UcatQuestionStemFormValues) {
     if (!stemId) return
@@ -93,13 +103,26 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
   }
 
   async function handleSetStatus(status: UcatContentStatus) {
-    const previousStatus = form.getValues('status')
+    const previousStatus = (form.getValues('status') ?? initial?.status ?? 'draft') as UcatContentStatus
     form.setValue('status', status, { shouldDirty: true })
     try {
       await onSubmit({ ...form.getValues(), status })
+      toast(lifecycleStatusSuccessToast({
+        contentLabel: 'Question',
+        count: 1,
+        status,
+        onUndo: () => {
+          void ucatQuestionsApi.bulkRestoreStatus([stemId], status, previousStatus)
+            .then(() => {
+              form.setValue('status', previousStatus, { shouldDirty: false })
+              toast({ title: 'Question status restored' })
+            })
+            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+        },
+      }))
     } catch (error) {
       form.setValue('status', previousStatus, { shouldDirty: true })
-      toast(lifecycleErrorToast(error, 'Cannot change question status', router.push))
+      toast(lifecycleErrorToast(error, 'Cannot change question status', router.push, openLifecycleEntity))
     }
   }
 
@@ -194,6 +217,11 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+      />
     </div>
   )
 }

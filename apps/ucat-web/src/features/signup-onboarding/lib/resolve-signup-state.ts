@@ -47,8 +47,12 @@ export function resolveSignupState(
 
   if (planChoiceCompleted) {
     step = SIGNUP_STEP.PLAN;
-  } else if (profileSetupComplete && !planChoiceCompleted && step < SIGNUP_STEP.PLAN) {
-    step = SIGNUP_STEP.PLAN;
+  } else if (
+    profileSetupComplete &&
+    !planChoiceCompleted &&
+    step < SIGNUP_STEP.STUDY_PLAN
+  ) {
+    step = SIGNUP_STEP.STUDY_PLAN;
   } else if (
     student?.first_name?.trim() &&
     student?.last_name?.trim() &&

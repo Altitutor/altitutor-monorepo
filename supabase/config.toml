@@ -177,7 +177,7 @@ sender_name = "Altitutor"
 
 # Email templates with modern design
 [auth.email.template.confirmation]
-subject = "Confirm Your Signup - Altitutor"
+subject = "Your Alti UCAT signup code"
 content_path = "./supabase/templates-rendered/confirmation.html"
 
 [auth.email.template.invite]
@@ -185,7 +185,7 @@ subject = "You Have Been Invited to Altitutor"
 content_path = "./supabase/templates-rendered/invite.html"
 
 [auth.email.template.magic_link]
-subject = "Your Magic Link - Altitutor"
+subject = "Your Alti UCAT sign-in code"
 content_path = "./supabase/templates-rendered/magic_link.html"
 
 [auth.email.template.recovery]

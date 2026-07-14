@@ -39,10 +39,10 @@ function buildRows(initial: UcatSubscriptionConfigRow): SubscriptionSettingRow[]
   return [
     {
       key: 'trial_days',
-      label: 'Unlimited trial days',
+      label: 'Standard Unlimited trial days',
       value: String(initial.trial_days),
       rawValue: String(initial.trial_days),
-      description: 'Trial length for UCAT Unlimited.',
+      description: 'Trial length for eligible first-time students without a referral gift. Set to 0 to disable.',
       inputType: 'number',
     },
     {
@@ -130,8 +130,8 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
     const updates: UcatSubscriptionConfigUpdate = {};
     if (editingRow.key === 'trial_days') {
       const parsed = parseInt(value, 10);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        setError('Trial days must be 0 or greater');
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 730) {
+        setError('Trial days must be between 0 and 730');
         return;
       }
       updates.trial_days = parsed;
@@ -207,6 +207,7 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
             id="subscription-setting-value"
             type={editingRow?.inputType ?? 'text'}
             min={editingRow?.inputType === 'number' ? 0 : undefined}
+            max={editingRow?.key === 'trial_days' ? 730 : undefined}
             value={value}
             placeholder={editingRow?.placeholder}
             onChange={(event) => setValue(event.target.value)}

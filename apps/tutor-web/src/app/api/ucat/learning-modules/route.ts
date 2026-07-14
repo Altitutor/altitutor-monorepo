@@ -23,7 +23,18 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    return NextResponse.json({ id: data })
+    const moduleId = data as string
+    const { error: metadataError } = await client.rpc(
+      'tutor_ucat_update_learning_module_study_plan_metadata',
+      {
+        p_learning_module_id: moduleId,
+        p_priority: body.studyPlanPriority ?? 'recommended',
+        p_category_ids: body.studyPlanCategoryIds ?? [],
+        p_tag_ids: body.studyPlanTagIds ?? [],
+      },
+    )
+    if (metadataError) return NextResponse.json({ error: metadataError.message }, { status: 400 })
+    return NextResponse.json({ id: moduleId })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })
   }

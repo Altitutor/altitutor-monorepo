@@ -48,6 +48,8 @@ import {
 } from '@/features/ucat/questions/lib/stem-editor-form'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { fetchReconciliationData } from '@/features/ucat/reconciliation/api/reconciliation'
+import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { cn } from '@/shared/utils'
 import {
   tutorBtnIconOutline,
@@ -285,6 +287,24 @@ function UcatQuestionStemApprovalQueue({
     form.setValue('status', 'published', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
+    const approvedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'published',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([approvedStemId], 'published', 'in_review')
+          .then(async () => {
+            await invalidateQueueData(approvedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to review.',
+            variant: 'destructive',
+          }))
+      },
+    }))
     if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
       await invalidateQueueData(currentEntry.stemId)
       onExit()
@@ -311,6 +331,24 @@ function UcatQuestionStemApprovalQueue({
     form.setValue('status', 'draft', { shouldDirty: true })
     const saved = await saveCurrent()
     if (!saved) return
+    const rejectedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'draft',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([rejectedStemId], 'draft', 'in_review')
+          .then(async () => {
+            await invalidateQueueData(rejectedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to review.',
+            variant: 'destructive',
+          }))
+      },
+    }))
     goNext()
     void invalidateQueueData(currentEntry.stemId)
   }

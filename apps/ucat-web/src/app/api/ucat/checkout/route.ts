@@ -12,14 +12,69 @@ import {
   parseUcatCheckoutRequest,
   type UcatCheckoutRequest,
 } from "@/lib/ucat/subscription-plan";
+import { isStandardUcatTrialEligible } from "@/lib/ucat/subscription-trial";
 
 const REFERRAL_GIFT_COUPON_ID = "ucat-referral-unlimited-gift";
+const REFERRAL_GIFT_COUPON_NAME = "UCAT gift — first period free";
 
 type ReferralGiftCheckout = {
   id: string;
   kind: "recipient" | "earned_referrer";
   interval: "week" | "month";
 };
+
+type ReferralTrialContext = {
+  hasPendingRecipientGift: boolean;
+  hasAcceptedRecipientGift: boolean;
+  hasReferralAccessGift: boolean;
+};
+
+async function loadReferralTrialContext(
+  studentId: string,
+): Promise<ReferralTrialContext> {
+  if (!supabaseAdmin) {
+    throw new Error("Server not configured");
+  }
+
+  const { error: expiryError } = await supabaseAdmin.rpc(
+    "expire_ucat_referral_gifts",
+  );
+  if (expiryError) throw expiryError;
+  const [pendingResult, acceptedResult, accessGiftResult] = await Promise.all([
+    supabaseAdmin
+      .from("ucat_referrals")
+      .select("id")
+      .eq("referred_student_id", studentId)
+      .in("gift_status", ["pending", "checkout_pending"])
+      .gt("gift_expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("ucat_referrals")
+      .select("id")
+      .eq("referred_student_id", studentId)
+      .eq("gift_status", "accepted")
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("ucat_referral_access_gifts")
+      .select("id")
+      .eq("student_id", studentId)
+      .in("status", ["available", "checkout_pending", "used"])
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const error =
+    pendingResult.error ?? acceptedResult.error ?? accessGiftResult.error;
+  if (error) throw error;
+
+  return {
+    hasPendingRecipientGift: Boolean(pendingResult.data),
+    hasAcceptedRecipientGift: Boolean(acceptedResult.data),
+    hasReferralAccessGift: Boolean(accessGiftResult.data),
+  };
+}
 
 async function getOrCreateReferralGiftCoupon(
   stripe: Stripe,
@@ -39,7 +94,7 @@ async function getOrCreateReferralGiftCoupon(
   try {
     return await stripe.coupons.create({
       id: REFERRAL_GIFT_COUPON_ID,
-      name: "Referral gift — first Unlimited period free",
+      name: REFERRAL_GIFT_COUPON_NAME,
       percent_off: 100,
       duration: "once",
       metadata: { source: "ucat_referral_gift", tier: "unlimited" },
@@ -96,8 +151,9 @@ async function resolveReferralGift(
 
 /**
  * Creates Stripe's custom Checkout Session. Card data stays inside Stripe.
- * Ordinary checkout has no trial. A validated referral gift applies a once-only
- * 100%-off coupon to the first UCAT Unlimited invoice.
+ * Eligible first-time students receive the admin-configured standard trial.
+ * A validated referral gift is mutually exclusive and instead applies a
+ * once-only 100%-off coupon to the first UCAT Unlimited invoice.
  */
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -125,7 +181,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 503 },
+    );
   }
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -139,21 +198,37 @@ export async function POST(request: NextRequest) {
     apiVersion: "2025-12-15.clover",
   });
 
-  const [studentResult, ucatSubjectId] = await Promise.all([
+  const [studentResult, ucatSubjectId, configResult] = await Promise.all([
     supabaseAdmin
       .from("students")
       .select(
-        "id, email, students_billing(stripe_customer_id), student_subscriptions(id, subject_id, status)",
+        "id, email, ucat_unlimited_trial_consumed_at, students_billing(stripe_customer_id), student_subscriptions(id, subject_id, status)",
       )
       .eq("user_id", user.id)
       .maybeSingle(),
     getUcatSubjectId(supabaseAdmin),
+    supabaseAdmin
+      .from("ucat_subscription_config")
+      .select("trial_days")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const { data: student, error: studentError } = studentResult;
 
   if (studentError) {
     return NextResponse.json(
       { error: "Failed to resolve student" },
+      { status: 500 },
+    );
+  }
+  if (configResult.error) {
+    console.error(
+      "[ucat checkout] Failed to load trial config:",
+      configResult.error,
+    );
+    return NextResponse.json(
+      { error: "Failed to load subscription configuration" },
       { status: 500 },
     );
   }
@@ -196,6 +271,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let referralTrialContext: ReferralTrialContext = {
+    hasPendingRecipientGift: false,
+    hasAcceptedRecipientGift: false,
+    hasReferralAccessGift: false,
+  };
+  if (!referralGift) {
+    try {
+      referralTrialContext = await loadReferralTrialContext(student.id);
+    } catch (error: unknown) {
+      console.error(
+        "[ucat checkout] Failed to resolve trial eligibility:",
+        error,
+      );
+      return NextResponse.json(
+        { error: "Failed to confirm trial eligibility" },
+        { status: 500 },
+      );
+    }
+    if (referralTrialContext.hasPendingRecipientGift) {
+      return NextResponse.json(
+        {
+          error:
+            "Accept or decline your pending referral gift before starting another plan.",
+          code: "pending_referral_gift",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const selection: UcatCheckoutRequest = referralGift
     ? {
         tier: "unlimited",
@@ -231,12 +336,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const configuredTrialDays = configResult.data?.trial_days ?? 5;
+  const trialDays = Number.isInteger(configuredTrialDays)
+    ? Math.max(0, Math.min(730, configuredTrialDays))
+    : 5;
+  const hasPriorUcatSubscription = student.student_subscriptions.some(
+    (subscription) => subscription.subject_id === ucatSubjectId,
+  );
+  const trialEligible =
+    !referralGift &&
+    trialDays > 0 &&
+    isStandardUcatTrialEligible({
+      trialConsumedAt: student.ucat_unlimited_trial_consumed_at,
+      hasPriorUcatSubscription,
+      hasAcceptedRecipientGift: referralTrialContext.hasAcceptedRecipientGift,
+      hasReferralAccessGift: referralTrialContext.hasReferralAccessGift,
+    });
+
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
   const metadata: Stripe.MetadataParam = {
     student_id: student.id,
     ucat_plan_tier: selection.tier,
     ucat_billing_interval: selection.interval,
     ucat_checkout_context: returnContext,
+    ucat_acquisition_benefit: referralGift
+      ? "referral_gift"
+      : trialEligible
+        ? "standard_trial"
+        : "none",
   };
   if (referralGift) {
     metadata.ucat_referral_gift_id = referralGift.id;
@@ -250,13 +377,20 @@ export async function POST(request: NextRequest) {
         ? `${origin}/practice/session`
         : `${origin}/dashboard`;
 
+  const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
+    { metadata };
+  if (trialEligible) {
+    subscriptionData.trial_period_days = trialDays;
+    metadata.ucat_standard_trial_days = String(trialDays);
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     ui_mode: "custom",
     payment_method_types: ["card"],
     wallet_options: { link: { display: "never" } },
     line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: { metadata },
+    subscription_data: subscriptionData,
     payment_method_collection: "always",
     customer_email: student.email ?? undefined,
     metadata,
@@ -278,7 +412,9 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create(
       sessionParams,
       referralGift
-        ? { idempotencyKey: `ucat-referral-gift:${referralGift.kind}:${referralGift.id}` }
+        ? {
+            idempotencyKey: `ucat-referral-gift:${referralGift.kind}:${referralGift.id}`,
+          }
         : undefined,
     );
     if (!session.client_secret) {
@@ -319,14 +455,20 @@ export async function POST(request: NextRequest) {
         returnContext === "referral_gift" ? "subscribe" : returnContext,
       plan_tier: selection.tier,
       billing_interval: selection.interval,
-      trial_eligible: false,
+      trial_eligible: trialEligible,
       stripe_checkout_session_id: session.id,
+      metadata: {
+        acquisition_benefit: metadata.ucat_acquisition_benefit,
+        trial_days: trialEligible ? trialDays : 0,
+      },
     });
 
     return NextResponse.json({
       clientSecret: session.client_secret,
       checkoutSessionId: session.id,
       referralGiftApplied: Boolean(referralGift),
+      trialEligible,
+      trialDays: trialEligible ? trialDays : 0,
     });
   } catch (error: unknown) {
     console.error(

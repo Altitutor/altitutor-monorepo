@@ -23,7 +23,7 @@ import {
 import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
 import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
@@ -43,6 +43,7 @@ import {
   inferManualStemMetadataRecommendation,
   type ManualStemMetadataRecommendation,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -343,10 +344,26 @@ export function UcatQuestionStemDialog({
           if (stemId && valuesCopy.status) {
             const baselineStatus = parseContentStatusFromSnapshot(baseline)
             if (valuesCopy.status !== baselineStatus) {
+              const nextStatus = valuesCopy.status as UcatContentStatus
+              const previousStatus = baselineStatus ?? 'draft'
               await statusMutation.mutateAsync({
                 stemId,
-                status: valuesCopy.status as UcatContentStatus,
+                status: nextStatus,
               })
+              toast(lifecycleStatusSuccessToast({
+                contentLabel: 'Question',
+                count: 1,
+                status: nextStatus,
+                onUndo: () => {
+                  void ucatQuestionsApi.bulkRestoreStatus([stemId], nextStatus, previousStatus)
+                    .then(() => toast({ title: 'Question status restored' }))
+                    .catch((error) => toast({
+                      title: 'Could not undo status change',
+                      description: error instanceof Error ? error.message : 'The previous status could not be restored.',
+                      variant: 'destructive',
+                    }))
+                },
+              }))
             }
           }
           setNewImageFileIds(new Set())

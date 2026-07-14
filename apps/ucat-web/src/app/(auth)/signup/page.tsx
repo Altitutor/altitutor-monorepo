@@ -2,7 +2,10 @@ import { SignupForm } from "@/features/auth";
 import { redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { captureUcatReferral } from "@/lib/ucat/referrals/capture-referral";
+import {
+  captureUcatReferral,
+  resolveUcatReferralOfferPreview,
+} from "@/lib/ucat/referrals/capture-referral";
 
 type PageProps = {
   searchParams: Promise<{ redirect?: string; ref?: string }>;
@@ -19,6 +22,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
   const referralCode = /^[A-Z0-9]{8,16}$/.test(requestedReferralCode)
     ? requestedReferralCode
     : null;
+  const referralOffer = await resolveUcatReferralOfferPreview(referralCode);
 
   if (referralCode && supabaseAdmin) {
     const supabase = await getSupabaseServerClient();
@@ -37,5 +41,11 @@ export default async function SignupPage({ searchParams }: PageProps) {
       }
     }
   }
-  return <SignupForm redirectTo={redirectTo} referralCode={referralCode} />;
+  return (
+    <SignupForm
+      redirectTo={redirectTo}
+      referralCode={referralCode}
+      referralOffer={referralOffer}
+    />
+  );
 }

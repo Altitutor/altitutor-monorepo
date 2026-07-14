@@ -39,6 +39,7 @@ export function PaidCheckoutSuccessGate({
     active ? "confirming" : null,
   );
   const [isTakingLonger, setIsTakingLonger] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const transitionStartedAt = useRef(active ? Date.now() : 0);
   const confirmationStarted = useRef(false);
 
@@ -65,6 +66,22 @@ export function PaidCheckoutSuccessGate({
 
     return () => window.clearInterval(timer);
   }, [active, phase, queryClient]);
+
+  useEffect(() => {
+    if (phase !== "confirming") return;
+    if (!access.accessLoadFailed) {
+      setAccessError(null);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setAccessError(
+        "Your payment succeeded, but we couldn’t refresh your plan. Please try again.",
+      );
+    }, 2_000);
+
+    return () => window.clearTimeout(timer);
+  }, [access.accessLoadFailed, phase]);
 
   useEffect(() => {
     if (
@@ -120,9 +137,10 @@ export function PaidCheckoutSuccessGate({
         occasion="upgrade"
         phase={phase}
         isTakingLonger={isTakingLonger}
-        error={null}
+        error={accessError}
         onRetry={() => {
           setIsTakingLonger(false);
+          setAccessError(null);
           void queryClient.refetchQueries({
             queryKey: ["ucat-access"],
             type: "active",

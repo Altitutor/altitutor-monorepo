@@ -33,7 +33,6 @@ import { Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
@@ -200,13 +199,6 @@ export function UcatSetEditorDialog({
     [categoriesQuery.data],
   )
 
-  const stemsThatWillBecomePublicCount = useMemo(() => {
-    if (draftPrivate) return 0
-    return draftStemIds.filter(
-      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.accessScope === 'private'
-    ).length
-  }, [draftPrivate, draftStemIds, stemCatalog])
-
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
@@ -354,9 +346,6 @@ export function UcatSetEditorDialog({
         defaultExpanded
         richTextToolbarEditor={activeTextEditor}
       >
-        {stemsThatWillBecomePublicCount > 0 && (
-          <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
-        )}
         <div className="flex min-h-0 flex-1 flex-col">
           <UcatSetEditorContent
           draftName={draftName}

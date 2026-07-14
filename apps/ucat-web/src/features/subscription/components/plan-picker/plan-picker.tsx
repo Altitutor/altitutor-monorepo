@@ -436,6 +436,17 @@ export function PlanPicker({
                 Unlimited online practice with accountability pricing — complete
                 your daily targets to keep costs low.
               </p>
+              {cfg.trialDays > 0 && !isOnPaid ? (
+                <p
+                  className={cn(
+                    `mt-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${typo.secondarySans}`,
+                    surface.trialBadge,
+                  )}
+                >
+                  {cfg.trialDays}-day UCAT Unlimited trial for eligible new
+                  students
+                </p>
+              ) : null}
 
               {isPricingLoading ? (
                 <PlanPickerPriceSkeleton />
@@ -548,6 +559,14 @@ export function PlanPicker({
                 Everything in Unlimited, plus workshops, on-demand tutor help,
                 and monthly 1-1 performance reviews.
               </p>
+              {cfg.trialDays > 0 && !isOnPaid ? (
+                <p
+                  className={`mt-4 inline-flex rounded-full bg-marketing-accent/15 px-3 py-1 text-xs font-semibold text-marketing-accent ${typo.secondarySans}`}
+                >
+                  {cfg.trialDays}-day UCAT Unlimited trial for eligible new
+                  students
+                </p>
+              ) : null}
 
               {isPricingLoading ? (
                 <PlanPickerPriceSkeleton featured />

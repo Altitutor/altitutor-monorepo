@@ -12,6 +12,7 @@ import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
+import type { UcatReferralOfferPreview } from "@/lib/ucat/referrals/capture-referral";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -56,9 +57,11 @@ async function subscribeToNewsletter(email: string): Promise<void> {
 export function SignupForm({
   redirectTo = "/subscribe",
   referralCode = null,
+  referralOffer = null,
 }: {
   redirectTo?: string;
   referralCode?: string | null;
+  referralOffer?: UcatReferralOfferPreview | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -104,16 +107,6 @@ export function SignupForm({
     return () => window.clearInterval(timer);
   }, [resendCooldown]);
 
-  function getCallbackUrl() {
-    const next = planIntent
-      ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
-      : "/signup/complete";
-    const params = new URLSearchParams({ next });
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback?${params.toString()}`
-      : `/auth/callback?${params.toString()}`;
-  }
-
   async function sendConfirmationEmail(
     normalizedEmail: string,
   ): Promise<AuthError | null> {
@@ -121,7 +114,6 @@ export function SignupForm({
       email: normalizedEmail,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: getCallbackUrl(),
         data: {
           pending_redirect: redirectTo,
           pending_plan: planIntent?.tier ?? null,
@@ -185,9 +177,7 @@ export function SignupForm({
         if (checkData.exists) {
           const loginParams = new URLSearchParams({
             email: normalizedEmail,
-            redirect: referralCode
-              ? `/signup?ref=${referralCode}`
-              : redirectTo,
+            redirect: referralCode ? `/signup?ref=${referralCode}` : redirectTo,
             existing: "1",
           });
           router.push(`/login?${loginParams.toString()}`);
@@ -235,31 +225,22 @@ export function SignupForm({
     const normalizedEmail = (submittedEmail || email).trim().toLowerCase();
 
     try {
-      const tryTypes = ["email", "signup", "magiclink"] as const;
-      let lastError: AuthError | null = null;
-      for (const type of tryTypes) {
-        const { error } = await supabase.auth.verifyOtp({
-          email: normalizedEmail,
-          token: digits,
-          type,
-        });
-        if (!error) {
-          const next = planIntent
-            ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
-            : "/signup/complete";
-          router.push(next);
-          router.refresh();
-          // Leave otpSubmitting true so the button stays locked during navigation.
-          return;
-        }
-        lastError = error;
+      const { error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: digits,
+        type: "email",
+      });
+      if (!error) {
+        const next = planIntent
+          ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
+          : "/signup/complete";
+        router.push(next);
+        router.refresh();
+        // Leave otpSubmitting true so the button stays locked during navigation.
+        return;
       }
 
-      setOtpError(
-        lastError
-          ? getSignupOtpUserMessage(lastError)
-          : "Invalid code. Try again or request a new email.",
-      );
+      setOtpError(getSignupOtpUserMessage(error));
       otpInFlightRef.current = false;
       setOtpSubmitting(false);
     } catch {
@@ -322,7 +303,7 @@ export function SignupForm({
               )}
             >
               <p className="text-sm text-muted-foreground">
-                Click the link in your inbox, or enter the 6-digit code below.
+                Enter the 6-digit code from your email.
               </p>
               <div className="space-y-1.5">
                 <input
@@ -425,7 +406,11 @@ export function SignupForm({
                   <span
                     className={`italic text-muted-foreground ${typo.dramaSerif}`}
                   >
-                    {planIntent ? planName : "UCAT Free"}
+                    {referralOffer
+                      ? "UCAT Unlimited"
+                      : planIntent
+                        ? planName
+                        : "UCAT Free"}
                   </span>
                 </h1>
                 <p
@@ -434,10 +419,10 @@ export function SignupForm({
                     typo.secondarySans,
                   )}
                 >
-                  {planIntent
-                    ? `Create your account to continue to ${planName} checkout.`
-                    : referralCode
-                      ? "A friend invited you. Create your free account and your referral will be attached automatically."
+                  {referralOffer
+                    ? `You've received a free ${referralOffer.duration} of UCAT Unlimited from ${referralOffer.referrerName}, enter your email to continue.`
+                    : planIntent
+                      ? `Create your account to continue to ${planName} checkout.`
                       : "Create your account for free by entering your email below."}
                 </p>
               </div>
@@ -517,7 +502,7 @@ export function SignupForm({
                   )}
                 >
                   {isSubmitting
-                    ? "Sending link…"
+                    ? "Sending code…"
                     : planIntent
                       ? "Continue"
                       : "Register"}
@@ -569,8 +554,8 @@ export function SignupForm({
                     : planIntent.interval === "week"
                       ? "Weekly"
                       : "Monthly"}{" "}
-                  billing. You&apos;ll review the full price and trial details
-                  before confirming.
+                  billing. You&apos;ll review the full price and any trial
+                  eligibility before confirming.
                 </p>
                 <ul className={cn("mt-8 space-y-4", typo.secondarySans)}>
                   {planFeatures.map((feature) => (

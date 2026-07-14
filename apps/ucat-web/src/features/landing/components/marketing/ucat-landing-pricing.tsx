@@ -27,20 +27,19 @@ export function UcatLandingPricing() {
           </p>
         </div>
 
-        <PlanPicker
-          variant="page"
-          selectorTheme="light"
-          audience="marketing"
-        />
+        <PlanPicker variant="page" selectorTheme="light" audience="marketing" />
 
         <p
           className={`mx-auto mt-10 max-w-2xl text-center text-sm text-marketing-charcoal/50 ${typo.secondarySans}`}
         >
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-marketing-primary underline-offset-2 hover:underline">
+          <Link
+            href="/login"
+            className="font-medium text-marketing-primary underline-offset-2 hover:underline"
+          >
             Log in
           </Link>{" "}
-          to manage your plan or start a trial.
+          to manage or change your plan.
         </p>
       </div>
     </section>

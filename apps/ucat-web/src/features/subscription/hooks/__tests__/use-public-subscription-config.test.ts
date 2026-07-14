@@ -5,7 +5,7 @@ import {
 } from "@/features/subscription/hooks/use-public-subscription-config";
 
 const CONFIG_RESPONSE = {
-  trialDays: 7,
+  trialDays: 5,
   minQuestionsPerDay: 10,
   currency: "aud",
   freeQuotas: {

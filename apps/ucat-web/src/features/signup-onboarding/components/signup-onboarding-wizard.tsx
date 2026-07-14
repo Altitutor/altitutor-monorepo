@@ -7,7 +7,10 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
-import { patchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
+import {
+  fetchSignupProgress,
+  patchSignupProgress,
+} from "@/features/signup-onboarding/api/signup-progress";
 import {
   markSignupOnboardingTourPending,
   markSignupJustCompleted,
@@ -19,6 +22,7 @@ import type {
 } from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
+import { SignupCompleteStudyPlanStep } from "@/features/signup-onboarding/components/steps/study-plan-step";
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
@@ -57,9 +61,15 @@ function stepHeading(step: SignupOnboardingStep): {
       };
     case SIGNUP_STEP.PLAN:
       return {
-        kicker: "Step 3 of 3",
+        kicker: "Step 4 of 4",
         title: "Choose your plan",
         desc: "Start free or unlock unlimited access.",
+      };
+    case SIGNUP_STEP.STUDY_PLAN:
+      return {
+        kicker: "Step 3 of 4",
+        title: "Build your Study plan",
+        desc: "Tell us your goal and availability. We will decide what to do each study day.",
       };
     default:
       return { kicker: "", title: "", desc: "" };
@@ -82,7 +92,9 @@ export function SignupOnboardingWizard({
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
 
-  const [step, setStep] = useState<SignupOnboardingStep>(initial.step);
+  const [step, setStep] = useState<SignupOnboardingStep>(() =>
+    checkoutStatus === "canceled" ? SIGNUP_STEP.PLAN : initial.step,
+  );
   const [direction, setDirection] = useState(1);
   const [signupSuccessJourney, setSignupSuccessJourney] =
     useState<SignupSuccessJourney | null>(() =>
@@ -99,7 +111,11 @@ export function SignupOnboardingWizard({
   );
   const [checkoutConfirmationAttempt, setCheckoutConfirmationAttempt] =
     useState(0);
-  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(() =>
+    checkoutStatus === "canceled"
+      ? "Checkout cancelled. Pick a plan or continue on Free."
+      : null,
+  );
   const signupSuccessStartedAt = useRef(
     checkoutReturnedSuccessfully ? Date.now() : 0,
   );
@@ -150,6 +166,36 @@ export function SignupOnboardingWizard({
       );
     }
   }, [waitForMinimumSignupSuccessAnimation]);
+
+  // App Router client cache can remount this page with a stale RSC `initial.step`
+  // (e.g. password) after the user had already advanced client-side to plan.
+  useEffect(() => {
+    if (checkoutReturnedSuccessfully || signupSuccessPhase) return;
+
+    let cancelled = false;
+    void fetchSignupProgress()
+      .then((progress) => {
+        if (cancelled) return;
+        if (progress.signupCompleted) {
+          void navigateAfterSignupComplete();
+          return;
+        }
+        setStep((current) =>
+          progress.step > current ? progress.step : current,
+        );
+      })
+      .catch(() => {
+        // Keep server-rendered initial step if progress fetch fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    checkoutReturnedSuccessfully,
+    navigateAfterSignupComplete,
+    signupSuccessPhase,
+  ]);
 
   useEffect(() => {
     if (checkoutStatus === "canceled") {
@@ -243,6 +289,11 @@ export function SignupOnboardingWizard({
   };
 
   const handlePasswordComplete = async () => {
+    await patchSignupProgress({ step: SIGNUP_STEP.STUDY_PLAN });
+    goToStep(SIGNUP_STEP.STUDY_PLAN, 1);
+  };
+
+  const handleStudyPlanComplete = async () => {
     await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
     if (planIntent) {
       router.push(planIntent.checkoutPath);
@@ -256,7 +307,7 @@ export function SignupOnboardingWizard({
   };
 
   const heading = stepHeading(step);
-  const isWideStep = step === SIGNUP_STEP.PLAN;
+  const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.STUDY_PLAN;
 
   if (signupSuccessJourney && signupSuccessPhase) {
     return (
@@ -351,6 +402,13 @@ export function SignupOnboardingWizard({
                   onBack={() => goToStep(SIGNUP_STEP.DETAILS, -1)}
                   error={error}
                   setError={setError}
+                />
+              ) : null}
+
+              {step === SIGNUP_STEP.STUDY_PLAN ? (
+                <SignupCompleteStudyPlanStep
+                  onComplete={() => void handleStudyPlanComplete()}
+                  onBack={() => goToStep(SIGNUP_STEP.PASSWORD, -1)}
                 />
               ) : null}
 

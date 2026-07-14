@@ -78,8 +78,8 @@ export function PlanUpgradeConfirmDialog({
                     </p>
                     {preview.isTrialing ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        You&apos;re still in your free trial — you won&apos;t be
-                        charged until the trial ends.
+                        Your existing complimentary period remains free. Pro
+                        billing begins at its scheduled renewal.
                       </p>
                     ) : (
                       <p className="mt-1 text-xs text-muted-foreground">

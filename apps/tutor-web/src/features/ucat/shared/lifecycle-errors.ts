@@ -51,6 +51,7 @@ export function lifecycleErrorToast(
   error: unknown,
   title: string,
   navigate: (href: string) => void,
+  openEntity?: (entityType: UcatLifecycleEntityType, entityId: string) => boolean,
 ) {
   const blocker = error instanceof UcatLifecycleError ? error.blockers[0] : null
   const action = blocker ? blockerAction(blocker) : null
@@ -64,10 +65,44 @@ export function lifecycleErrorToast(
     ...(action
       ? {
           action: {
-            label: action.label,
-            onClick: () => navigate(action.href),
+            label: openEntity && blocker?.entity_type && ['stem', 'set', 'mock'].includes(blocker.entity_type)
+              ? action.label.replace('View', 'Edit')
+              : action.label,
+            onClick: () => {
+              if (
+                blocker?.entity_type &&
+                blocker.entity_id &&
+                openEntity?.(blocker.entity_type, blocker.entity_id)
+              ) return
+              navigate(action.href)
+            },
           },
         }
       : {}),
+  }
+}
+
+export function lifecycleStatusSuccessToast({
+  contentLabel,
+  count,
+  status,
+  onUndo,
+}: {
+  contentLabel: string
+  count: number
+  status: 'draft' | 'in_review' | 'published'
+  onUndo: () => void
+}) {
+  const displayStatus = status === 'in_review' ? 'In review' : status[0].toUpperCase() + status.slice(1)
+  return {
+    title: count === 1
+      ? `${contentLabel} moved to ${displayStatus}`
+      : `${count} ${contentLabel.toLowerCase()}s moved to ${displayStatus}`,
+    description: 'Tap Undo to restore the previous status.',
+    duration: 10_000,
+    action: {
+      label: 'Undo',
+      onClick: onUndo,
+    },
   }
 }

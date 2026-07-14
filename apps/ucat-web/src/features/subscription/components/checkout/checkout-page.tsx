@@ -108,6 +108,9 @@ export function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [referralGiftApplied, setReferralGiftApplied] = useState(false);
+  const [standardTrialDays, setStandardTrialDays] = useState<number | null>(
+    null,
+  );
   const sessionStartedRef = useRef(false);
 
   useEffect(() => {
@@ -127,6 +130,7 @@ export function CheckoutPage() {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
         setReferralGiftApplied(session.referralGiftApplied);
+        setStandardTrialDays(session.trialEligible ? session.trialDays : 0);
       })
       .catch((error: unknown) => {
         setCheckoutError(
@@ -154,6 +158,7 @@ export function CheckoutPage() {
         )
       : null;
   const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
+  const hasStandardTrial = (standardTrialDays ?? 0) > 0;
 
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
@@ -169,7 +174,9 @@ export function CheckoutPage() {
               checkoutSessionId: checkoutSessionId ?? undefined,
             });
             if (context === "signup_onboarding") {
-              router.push("/signup/complete");
+              // Bust the App Router client cache for /signup/complete (plan step
+              // is client-only until remount) and land on plan via existing handler.
+              router.push("/signup/complete?checkout=canceled");
             } else if (window.history.length > 1) {
               router.back();
             } else {
@@ -333,12 +340,14 @@ export function CheckoutPage() {
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Due today</span>
                   <span className="font-semibold">
-                    {referralGiftApplied
-                      ? formatMoneyFromMinorUnits(0, config.currency)
-                      : formatMoneyFromMinorUnits(
-                          pricing.standardPeriodCents,
-                          config.currency,
-                        )}
+                    {standardTrialDays === null
+                      ? "—"
+                      : referralGiftApplied || hasStandardTrial
+                        ? formatMoneyFromMinorUnits(0, config.currency)
+                        : formatMoneyFromMinorUnits(
+                            pricing.standardPeriodCents,
+                            config.currency,
+                          )}
                   </span>
                 </div>
               </div>
@@ -358,6 +367,26 @@ export function CheckoutPage() {
                       Your UCAT Unlimited subscription starts now. Unless you
                       cancel, normal {intervalNoun(interval)}ly billing begins
                       after the gifted period.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {hasStandardTrial ? (
+              <div className="mt-6 rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="font-semibold">
+                      {standardTrialDays} days of UCAT Unlimited free
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Your card will not be charged today. Unless you cancel,
+                      your selected UCAT {tier === "pro" ? "Pro" : "Unlimited"}{" "}
+                      plan begins after the trial at the price shown above.
                     </p>
                   </div>
                 </div>
@@ -385,7 +414,9 @@ export function CheckoutPage() {
                 ? "Confirming…"
                 : referralGiftApplied
                   ? `Start my free ${intervalNoun(interval)}`
-                  : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
+                  : hasStandardTrial
+                    ? `Start my ${standardTrialDays}-day free trial`
+                    : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
               {!checkoutSubmitting ? (
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}

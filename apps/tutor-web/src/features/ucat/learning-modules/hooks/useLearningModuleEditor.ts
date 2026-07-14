@@ -11,7 +11,7 @@ import {
   useUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
-import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleKind, UcatLearningModuleStudyPlanPriority } from '@/features/ucat/learning-modules/types'
 import {
   toBlockPayload,
   validateBlocksForSave,
@@ -39,6 +39,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
   const [parentId, setParentId] = useState<string | null>(null)
   const [index, setIndex] = useState('0')
   const [isPrivate, setIsPrivate] = useState(true)
+  const [studyPlanPriority, setStudyPlanPriority] = useState<UcatLearningModuleStudyPlanPriority>('recommended')
+  const [studyPlanCategoryIds, setStudyPlanCategoryIds] = useState<string[]>([])
+  const [studyPlanTagIds, setStudyPlanTagIds] = useState<string[]>([])
   const [draftBlocks, setDraftBlocks] = useState<DraftBlock[]>([])
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [settingsBaseline, setSettingsBaseline] = useState('')
@@ -60,6 +63,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setParentId(m.parent_ucat_learning_module_id)
     setIndex(String(m.index))
     setIsPrivate(m.is_private)
+    setStudyPlanPriority(m.study_plan_priority)
+    setStudyPlanCategoryIds(m.study_plan_category_ids)
+    setStudyPlanTagIds(m.study_plan_tag_ids)
     setSettingsBaseline(
       snapshotSettings({
         kind: m.kind,
@@ -69,6 +75,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId: m.parent_ucat_learning_module_id,
         index: m.index,
         isPrivate: m.is_private,
+        studyPlanPriority: m.study_plan_priority,
+        studyPlanCategoryIds: m.study_plan_category_ids,
+        studyPlanTagIds: m.study_plan_tag_ids,
       }),
     )
   }, [moduleQuery.data])
@@ -104,9 +113,12 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       isPrivate,
+      studyPlanPriority,
+      studyPlanCategoryIds,
+      studyPlanTagIds,
     })
     return current !== settingsBaseline
-  }, [kind, title, description, sectionId, parentId, index, isPrivate, settingsBaseline])
+  }, [kind, title, description, sectionId, parentId, index, isPrivate, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
 
   const blocksDirty = useMemo(
     () => JSON.stringify(toBlockPayload(draftBlocks)) !== blocksBaseline,
@@ -177,6 +189,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       isPrivate,
+      studyPlanPriority,
+      studyPlanCategoryIds,
+      studyPlanTagIds,
     })
     setSettingsBaseline(
       snapshotSettings({
@@ -187,6 +202,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId,
         index: Number(index) || 0,
         isPrivate,
+        studyPlanPriority,
+        studyPlanCategoryIds,
+        studyPlanTagIds,
       }),
     )
     toast({ title: 'Settings saved' })
@@ -199,6 +217,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
     parentId,
     index,
     isPrivate,
+    studyPlanPriority,
+    studyPlanCategoryIds,
+    studyPlanTagIds,
     upsert,
     toast,
   ])
@@ -235,6 +256,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
             parentId,
             index: current.index,
             isPrivate,
+            studyPlanPriority,
+            studyPlanCategoryIds,
+            studyPlanTagIds,
           }),
         )
       }
@@ -249,6 +273,9 @@ export function useLearningModuleEditor(moduleId: string | null) {
       sectionId,
       parentId,
       isPrivate,
+      studyPlanPriority,
+      studyPlanCategoryIds,
+      studyPlanTagIds,
       toast,
     ],
   )
@@ -278,6 +305,12 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setIndex,
     isPrivate,
     setIsPrivate,
+    studyPlanPriority,
+    setStudyPlanPriority,
+    studyPlanCategoryIds,
+    setStudyPlanCategoryIds,
+    studyPlanTagIds,
+    setStudyPlanTagIds,
     draftBlocks,
     selectedBlockId,
     setSelectedBlockId,

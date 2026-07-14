@@ -10,7 +10,6 @@ import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
@@ -80,11 +79,6 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
       })
   }, [sets.data])
 
-  const setsThatWillBecomePublicCount = useMemo(() => {
-    if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.access_scope === 'private').length
-  }, [draftSetIds, isPrivate, setCatalog])
-
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
   if (isLoading) return <UcatPageSkeleton rows={6} />
@@ -132,9 +126,6 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
         }
       />
 
-      {setsThatWillBecomePublicCount > 0 && (
-        <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
-      )}
       <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
         <UcatMockEditorContent
           name={name}

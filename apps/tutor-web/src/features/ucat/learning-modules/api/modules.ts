@@ -23,6 +23,13 @@ function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
     child_count: (row.child_count as number) ?? 0,
     block_count: (row.block_count as number) ?? 0,
     updated_at: (row.updated_at as string) ?? '',
+    study_plan_priority: (row.study_plan_priority as UcatLearningModuleRow['study_plan_priority']) ?? 'recommended',
+    study_plan_category_ids: Array.isArray(row.study_plan_category_ids)
+      ? row.study_plan_category_ids.filter((id): id is string => typeof id === 'string')
+      : [],
+    study_plan_tag_ids: Array.isArray(row.study_plan_tag_ids)
+      ? row.study_plan_tag_ids.filter((id): id is string => typeof id === 'string')
+      : [],
   }
 }
 
@@ -71,7 +78,23 @@ export const ucatLearningModulesApi = {
       .maybeSingle()
     if (error) throw error
     if (!data?.id) return null
-    return mapModuleRow(data as Record<string, unknown>)
+    const [categoryLinks, tagLinks] = await Promise.all([
+      supabase
+        .from('ucat_learning_module_question_stem_categories')
+        .select('question_stem_category_id')
+        .eq('learning_module_id', moduleId),
+      supabase
+        .from('ucat_learning_module_question_tags')
+        .select('question_tag_id')
+        .eq('learning_module_id', moduleId),
+    ])
+    if (categoryLinks.error) throw categoryLinks.error
+    if (tagLinks.error) throw tagLinks.error
+    return mapModuleRow({
+      ...(data as Record<string, unknown>),
+      study_plan_category_ids: (categoryLinks.data ?? []).map((link) => link.question_stem_category_id),
+      study_plan_tag_ids: (tagLinks.data ?? []).map((link) => link.question_tag_id),
+    })
   },
 
   async listBlocks(moduleId: string): Promise<UcatLearningModuleBlockRow[]> {

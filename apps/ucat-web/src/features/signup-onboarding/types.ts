@@ -1,4 +1,4 @@
-export type SignupOnboardingStep = 1 | 2 | 3;
+export type SignupOnboardingStep = 1 | 2 | 3 | 4;
 
 export type SignupProgress = {
   step: SignupOnboardingStep;

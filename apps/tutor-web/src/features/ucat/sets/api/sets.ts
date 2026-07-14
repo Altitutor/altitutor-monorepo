@@ -71,6 +71,17 @@ export const ucatSetsApi = {
     }
   },
 
+  async bulkRestoreStatus(setIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentType: 'set', contentIds: setIds, status: currentStatus, previousStatus }),
+    })
+    if (!response.ok) {
+      await throwUcatLifecycleResponseError(response, 'Failed to restore set status')
+    }
+  },
+
   async remove(setId: string) {
     const response = await fetch(`/api/ucat/question-sets/${setId}`, { method: 'DELETE' })
     if (!response.ok) {

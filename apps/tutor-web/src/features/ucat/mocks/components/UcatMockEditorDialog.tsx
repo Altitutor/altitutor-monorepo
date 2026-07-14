@@ -12,7 +12,6 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
@@ -103,11 +102,6 @@ export function UcatMockEditorDialog({
       })
   }, [sets.data])
 
-  const setsThatWillBecomePublicCount = useMemo(() => {
-    if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.access_scope === 'private').length
-  }, [draftSetIds, isPrivate, setCatalog])
-
   function handleRequestClose() {
     if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
       onClose()
@@ -193,9 +187,6 @@ export function UcatMockEditorDialog({
         hideCancel
         defaultExpanded
       >
-        {setsThatWillBecomePublicCount > 0 && (
-          <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
-        )}
         <div className="flex min-h-0 flex-1 flex-col">
           <UcatMockEditorContent
         name={name}

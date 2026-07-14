@@ -128,7 +128,7 @@ import {
   tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
@@ -451,10 +451,44 @@ export function UcatQuestionsPage() {
     setApprovalQueueOpen(true)
   }
 
-  function changeQuestionStatus(stemId: string, status: UcatContentStatus, title: string) {
-    void setStatusMutation.mutateAsync({ stemId, status }).catch((error) => {
-      toast(lifecycleErrorToast(error, title, router.push))
-    })
+  function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
+    if (entityType === 'stem') {
+      setEditingStemId(entityId)
+      return true
+    }
+    if (entityType === 'set') {
+      setEditingSetId(entityId)
+      return true
+    }
+    return false
+  }
+
+  function changeQuestionStatus(
+    stemId: string,
+    status: UcatContentStatus,
+    previousStatus: UcatContentStatus,
+    title: string,
+  ) {
+    void (async () => {
+      try {
+        await setStatusMutation.mutateAsync({ stemId, status })
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Question',
+          count: 1,
+          status,
+          onUndo: () => {
+            void ucatQuestionsApi.bulkRestoreStatus([stemId], status, previousStatus)
+              .then(async () => {
+                await invalidateQuestionsListQueries()
+                toast({ title: 'Question status restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      } catch (error) {
+        toast(lifecycleErrorToast(error, title, router.push, openLifecycleEntity))
+      }
+    })()
   }
 
   const toggleStemExpanded = (stemId: string) => {
@@ -663,11 +697,26 @@ export function UcatQuestionsPage() {
     try {
       await ucatQuestionsApi.bulkSetStatus(Array.from(selectedStemIds), bulkStatus)
       await invalidateQuestionsListQueries()
+      const movedIds = Array.from(selectedStemIds)
+      const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
+      toast(lifecycleStatusSuccessToast({
+        contentLabel: 'Question',
+        count: movedIds.length,
+        status: nextStatus,
+        onUndo: () => {
+          void ucatQuestionsApi.bulkRestoreStatus(movedIds, nextStatus, activeTab)
+            .then(async () => {
+              await invalidateQuestionsListQueries()
+              toast({ title: movedIds.length === 1 ? 'Question status restored' : 'Question statuses restored' })
+            })
+            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+        },
+      }))
     } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected questions', router.push))
+      toast(lifecycleErrorToast(error, 'Cannot move selected questions', router.push, openLifecycleEntity))
     } finally {
       setBulkStatusPending(false)
     }
@@ -1123,18 +1172,18 @@ export function UcatQuestionsPage() {
                           actions={[
                             { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.id) },
                             ...(!showDeleted && row.status === 'draft'
-                              ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', 'Cannot send for review') }]
+                              ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', row.status, 'Cannot send for review') }]
                               : []),
                             ...(!showDeleted && row.status === 'in_review'
                               ? [
-                                  { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'published', 'Cannot publish') },
-                                  { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'draft', 'Cannot return to draft') },
+                                  { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'published', row.status, 'Cannot publish') },
+                                  { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'draft', row.status, 'Cannot return to draft') },
                                 ]
                               : []),
                             ...(!showDeleted && row.status === 'published'
                               ? [
-                                  { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', 'Cannot move question') },
-                                  { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'draft', 'Cannot move question') },
+                                  { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', row.status, 'Cannot move question') },
+                                  { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'draft', row.status, 'Cannot move question') },
                                 ]
                               : []),
                             ...(showDeleted
