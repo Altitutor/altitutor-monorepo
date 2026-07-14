@@ -49,7 +49,7 @@ export function CurrentPlanSection() {
     ? "Build your UCAT routine with daily access across the platform."
     : displayKey === "pro" || displayKey === "pro_trial"
       ? "Unlimited UCAT preparation, plus personal support when you need it."
-      : "Unlimited access to every online UCAT practice and learning tool.";
+      : "Unlimited access to the entire Alti UCAT prep system.";
   const planHighlights = isFree
     ? ["Daily practice access", "Progress saved", "Upgrade anytime"]
     : displayKey === "pro" || displayKey === "pro_trial"

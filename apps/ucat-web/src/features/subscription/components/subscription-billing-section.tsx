@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge, Skeleton } from "@altitutor/ui";
+import {
+  Badge,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
 import {
   AlertTriangle,
   CalendarDays,
   CircleDollarSign,
   CreditCard,
   ExternalLink,
+  Info,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -27,7 +35,10 @@ import {
 } from "@/features/subscription/lib/invoice-display";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { fetchPracticeDiscountProgress } from "@/features/subscription/api/fetch-practice-discount-progress";
-import { computePracticeDiscountPricing } from "@/features/subscription/lib/pricing";
+import {
+  computePracticeDiscountBillSnapshot,
+  computePracticeDiscountPricing,
+} from "@/features/subscription/lib/pricing";
 import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
 import {
   getSubscriptionEndDateIso,
@@ -84,6 +95,36 @@ function formatSubscriptionPlan(subscription: UcatSubscriptionDetails) {
   return (
     UCAT_ONLINE_TIER_LABELS[subscription.plan_tier] ??
     `UCAT ${subscription.plan_tier}`
+  );
+}
+
+function MetricInfoTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={label}
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-[290px] text-sm leading-relaxed"
+        >
+          {children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -210,6 +251,13 @@ export function SubscriptionBillingSection() {
     if (!subscription) return null;
     return computePracticeDiscountPricing(pricingConfig, subscription);
   }, [pricingConfig, subscription]);
+  const billSnapshot = useMemo(
+    () =>
+      pricing
+        ? computePracticeDiscountBillSnapshot(pricing, discountProgress)
+        : null,
+    [discountProgress, pricing],
+  );
 
   const handlePortalAction = async (action: BillingPortalAction) => {
     setPortalAction(action);
@@ -500,23 +548,31 @@ export function SubscriptionBillingSection() {
                   : "Your plan, renewal and practice rewards at a glance."}
               </p>
             </div>
-            {pricing ? (
+            {pricing && billSnapshot ? (
               <div className="sm:text-right">
-                <p className="text-3xl font-semibold tracking-tight">
+                {billSnapshot.earnedDiscountCents > 0 ? (
+                  <p className="text-sm text-muted-foreground line-through decoration-muted-foreground/70">
+                    {formatMoneyFromMinorUnits(
+                      pricing.standardPriceCents,
+                      pricingConfig.currency,
+                    )}
+                  </p>
+                ) : null}
+                <p className="text-3xl font-semibold tracking-tight tabular-nums">
                   {formatMoneyFromMinorUnits(
-                    pricing.standardPriceCents,
+                    billSnapshot.projectedBillCents,
                     pricingConfig.currency,
                   )}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  standard / {pricing.billingIntervalNoun}
+                  estimated next bill / {pricing.billingIntervalNoun}
                 </p>
               </div>
             ) : null}
           </div>
         </div>
 
-        {pricing ? (
+        {pricing && billSnapshot ? (
           <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
             <div className="bg-background p-5">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -539,73 +595,51 @@ export function SubscriptionBillingSection() {
                 <p className="text-xs font-semibold uppercase tracking-wide">
                   Practice days
                 </p>
+                <MetricInfoTooltip label="How practice days reduce your bill">
+                  Answer {pricing.minQuestionsPerDay}+ questions in a day to
+                  earn{" "}
+                  {formatMoneyFromMinorUnits(
+                    pricing.discountPerDayCents,
+                    pricingConfig.currency,
+                  )}{" "}
+                  off your next bill. You can earn this on up to{" "}
+                  {billSnapshot.availableDays} days this billing cycle.
+                </MetricInfoTooltip>
               </div>
               <p className="mt-2 font-semibold">
-                {discountProgress
-                  ? `${discountProgress.earned} of ${discountProgress.cap} earned`
-                  : `${formatMoneyFromMinorUnits(
-                      pricing.discountPerDayCents,
-                      pricingConfig.currency,
-                    )} off each day`}
+                {billSnapshot.earnedDays} of {billSnapshot.availableDays} earned
               </p>
-              {discountProgress ? (
-                <div
-                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
-                  role="progressbar"
-                  aria-label="Practice discounts earned"
-                  aria-valuemin={0}
-                  aria-valuemax={discountProgress.cap}
-                  aria-valuenow={discountProgress.earned}
-                >
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width]"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (discountProgress.earned / discountProgress.cap) * 100,
-                      )}%`,
-                    }}
-                  />
-                </div>
-              ) : null}
             </div>
             <div className="bg-background p-5">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
                 <p className="text-xs font-semibold uppercase tracking-wide">
-                  Lowest possible
+                  Discount still available
                 </p>
+                <MetricInfoTooltip label="How much more discount you can earn">
+                  This is the additional amount you can still take off your next
+                  bill before this billing cycle ends. Each qualifying practice
+                  day reduces it by{" "}
+                  {formatMoneyFromMinorUnits(
+                    pricing.discountPerDayCents,
+                    pricingConfig.currency,
+                  )}
+                  .
+                </MetricInfoTooltip>
               </div>
-              <p className="mt-2 font-semibold">
+              <p className="mt-2 font-semibold tabular-nums">
                 {formatMoneyFromMinorUnits(
-                  pricing.minimumPriceCents,
+                  billSnapshot.remainingDiscountCents,
                   pricingConfig.currency,
                 )}{" "}
-                / {pricing.billingIntervalNoun}
+                left to earn
               </p>
             </div>
           </div>
         ) : null}
 
         <div className="space-y-5 p-5 sm:p-6">
-          {pricing ? (
-            <details className="group rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm">
-              <summary className="cursor-pointer font-medium text-foreground marker:text-muted-foreground">
-                How practice discounts work
-              </summary>
-              <p className="mt-2 max-w-3xl leading-relaxed text-muted-foreground">
-                Answer {pricing.minQuestionsPerDay}+ questions in a day to take{" "}
-                {formatMoneyFromMinorUnits(
-                  pricing.discountPerDayCents,
-                  pricingConfig.currency,
-                )}{" "}
-                off your next bill, up to {pricing.maxDiscountsPerPeriod} days
-                per {pricing.billingIntervalNoun}.
-              </p>
-            </details>
-          ) : null}
-
-          <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               Manage your plan here. Payment details open securely in Stripe.
             </p>

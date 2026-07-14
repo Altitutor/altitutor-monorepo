@@ -1,9 +1,9 @@
 export const UCAT_ONLINE_TIER_LABELS: Record<string, string> = {
   free: "UCAT Free",
-  unlimited_trial: "UCAT Unlimited (trial)",
+  unlimited_trial: "UCAT Unlimited",
   unlimited: "UCAT Unlimited",
   pro: "UCAT Pro",
-  pro_trial: "UCAT Pro (trial)",
+  pro_trial: "UCAT Pro",
 };
 
 export const UCAT_CURRENT_PLAN_BENEFITS: Record<string, string[]> = {
