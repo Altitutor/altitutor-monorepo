@@ -2387,6 +2387,7 @@ export type Database = {
           form_token_id: string | null
           form_version_id: string
           id: string
+          recorded_by_staff_id: string | null
           respondent_parent_id: string | null
           respondent_staff_id: string | null
           respondent_student_id: string | null
@@ -2408,6 +2409,7 @@ export type Database = {
           form_token_id?: string | null
           form_version_id: string
           id?: string
+          recorded_by_staff_id?: string | null
           respondent_parent_id?: string | null
           respondent_staff_id?: string | null
           respondent_student_id?: string | null
@@ -2429,6 +2431,7 @@ export type Database = {
           form_token_id?: string | null
           form_version_id?: string
           id?: string
+          recorded_by_staff_id?: string | null
           respondent_parent_id?: string | null
           respondent_staff_id?: string | null
           respondent_student_id?: string | null
@@ -2490,6 +2493,34 @@ export type Database = {
             columns: ["form_version_id"]
             isOneToOne: false
             referencedRelation: "form_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_recorded_by_staff_id_fkey"
+            columns: ["recorded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_recorded_by_staff_id_fkey"
+            columns: ["recorded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "form_responses_recorded_by_staff_id_fkey"
+            columns: ["recorded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "form_responses_recorded_by_staff_id_fkey"
+            columns: ["recorded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
           {
@@ -14403,6 +14434,101 @@ export type Database = {
           },
         ]
       }
+      ucat_skill_trainer_question_stem_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          question_stem_category_id: string
+          skill_trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          question_stem_category_id: string
+          skill_trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          question_stem_category_id?: string
+          skill_trainer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categori_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categori_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categori_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_skill_trainer_question_stem_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ucat_skill_trainers: {
         Row: {
           created_at: string
@@ -24700,6 +24826,13 @@ export type Database = {
       get_excluded_fields_for_table: {
         Args: { table_name: string }
         Returns: string[]
+      }
+      get_form_model_options: {
+        Args: { p_source: string }
+        Returns: {
+          label: string
+          value: string
+        }[]
       }
       get_invoiced_sessions_students_ids: {
         Args: { p_sessions_students_ids: string[] }
