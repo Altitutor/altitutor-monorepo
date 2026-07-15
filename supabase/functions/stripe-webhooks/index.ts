@@ -1413,14 +1413,9 @@ Deno.serve(async (req: Request) => {
           id: string;
           trial_end?: number | null;
         };
-        try {
-          await sendUcatTrialReminder(supabase, subscription);
-        } catch (error: unknown) {
-          console.error(
-            "[webhook] UCAT trial reminder failed:",
-            error instanceof Error ? error.message : String(error),
-          );
-        }
+        // Let delivery errors reach the outer handler. Returning a non-2xx
+        // response keeps the event unprocessed so Stripe can retry it.
+        await sendUcatTrialReminder(supabase, subscription);
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
