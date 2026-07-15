@@ -2,6 +2,21 @@
 -- students from 01_core_entities.sql. The same scenarios can be assigned to a
 -- hosted-dev student by changing only the student UUIDs.
 
+-- These are post-onboarding product personas. Keep them out of the signup
+-- wizard so browser tests land on the Study plan surface they are exercising.
+UPDATE public.students
+SET ucat_signup_step = 4,
+    ucat_signup_completed_at = COALESCE(ucat_signup_completed_at, NOW()),
+    ucat_onboarding_completed_at = COALESCE(ucat_onboarding_completed_at, NOW())
+WHERE id IN (
+  '10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000003',
+  '10000000-0000-0000-0000-000000000004',
+  '10000000-0000-0000-0000-000000000005',
+  '10000000-0000-0000-0000-000000000006'
+);
+
 DELETE FROM public.ucat_student_study_plan_generations
 WHERE student_id IN (
   '10000000-0000-0000-0000-000000000001',
