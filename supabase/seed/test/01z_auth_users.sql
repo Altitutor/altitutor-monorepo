@@ -265,3 +265,12 @@ BEGIN
     END;
   END LOOP;
 END $$;
+
+-- GoTrue scans these legacy string columns into non-nullable fields during
+-- password login. Direct seed inserts must match the empty-string values that
+-- GoTrue itself writes, otherwise local logins fail with a schema scan error.
+UPDATE auth.users
+SET confirmation_token = COALESCE(confirmation_token, ''),
+    recovery_token = COALESCE(recovery_token, ''),
+    email_change_token_new = COALESCE(email_change_token_new, ''),
+    email_change = COALESCE(email_change, '');
