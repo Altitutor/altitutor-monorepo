@@ -4161,6 +4161,7 @@ export type Database = {
           created_at: string | null
           created_by_staff_id: string | null
           dedupe_key: string | null
+          dismissed_at: string | null
           expires_at: string | null
           id: string
           metadata: Json
@@ -4181,6 +4182,7 @@ export type Database = {
           created_at?: string | null
           created_by_staff_id?: string | null
           dedupe_key?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string
           metadata?: Json
@@ -4201,6 +4203,7 @@ export type Database = {
           created_at?: string | null
           created_by_staff_id?: string | null
           dedupe_key?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string
           metadata?: Json
@@ -5386,6 +5389,7 @@ export type Database = {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata: Json | null
+          ai_generation_run_id: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -5407,6 +5411,7 @@ export type Database = {
         Insert: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata?: Json | null
+          ai_generation_run_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -5428,6 +5433,7 @@ export type Database = {
         Update: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata?: Json | null
+          ai_generation_run_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -5447,6 +5453,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_stems_ai_generation_run_id_fkey"
+            columns: ["ai_generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
@@ -11549,51 +11562,72 @@ export type Database = {
       ucat_ai_generation_runs: {
         Row: {
           accepted_stem_count: number
+          completed_at: string | null
           created_at: string
           created_by: string | null
           debug_payload: Json | null
           discarded_stem_count: number
+          dismissed_at: string | null
           error_message: string | null
+          generated_stem_ids: string[]
           id: string
           model_profile_id: string | null
+          processed_stem_count: number
+          progress_message: string | null
+          progress_step: string | null
           question_stem_category_id: string | null
           requested_stem_count: number
           section_id: string | null
           status: string
           updated_at: string
           updated_by: string | null
+          workflow_run_id: string | null
         }
         Insert: {
           accepted_stem_count?: number
+          completed_at?: string | null
           created_at?: string
           created_by?: string | null
           debug_payload?: Json | null
           discarded_stem_count?: number
+          dismissed_at?: string | null
           error_message?: string | null
+          generated_stem_ids?: string[]
           id?: string
           model_profile_id?: string | null
+          processed_stem_count?: number
+          progress_message?: string | null
+          progress_step?: string | null
           question_stem_category_id?: string | null
           requested_stem_count: number
           section_id?: string | null
           status?: string
           updated_at?: string
           updated_by?: string | null
+          workflow_run_id?: string | null
         }
         Update: {
           accepted_stem_count?: number
+          completed_at?: string | null
           created_at?: string
           created_by?: string | null
           debug_payload?: Json | null
           discarded_stem_count?: number
+          dismissed_at?: string | null
           error_message?: string | null
+          generated_stem_ids?: string[]
           id?: string
           model_profile_id?: string | null
+          processed_stem_count?: number
+          progress_message?: string | null
+          progress_step?: string | null
           question_stem_category_id?: string | null
           requested_stem_count?: number
           section_id?: string | null
           status?: string
           updated_at?: string
           updated_by?: string | null
+          workflow_run_id?: string | null
         }
         Relationships: [
           {
@@ -16832,6 +16866,7 @@ export type Database = {
           app_scope: string | null
           body: string | null
           created_at: string | null
+          dismissed_at: string | null
           expires_at: string | null
           id: string | null
           metadata: Json | null
@@ -16849,6 +16884,7 @@ export type Database = {
           app_scope?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -16866,6 +16902,7 @@ export type Database = {
           app_scope?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -20045,6 +20082,7 @@ export type Database = {
           app_scope: string | null
           body: string | null
           created_at: string | null
+          dismissed_at: string | null
           expires_at: string | null
           id: string | null
           metadata: Json | null
@@ -20062,6 +20100,7 @@ export type Database = {
           app_scope?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -20079,6 +20118,7 @@ export type Database = {
           app_scope?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -24432,6 +24472,7 @@ export type Database = {
           action_url: string | null
           body: string | null
           created_at: string | null
+          dismissed_at: string | null
           expires_at: string | null
           id: string | null
           metadata: Json | null
@@ -24447,6 +24488,7 @@ export type Database = {
           action_url?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -24462,6 +24504,7 @@ export type Database = {
           action_url?: string | null
           body?: string | null
           created_at?: string | null
+          dismissed_at?: string | null
           expires_at?: string | null
           id?: string | null
           metadata?: Json | null
@@ -25218,6 +25261,10 @@ export type Database = {
           p_staff_id?: string
         }
         Returns: Json
+      }
+      service_ucat_persist_generated_stem: {
+        Args: { p_run_id: string; p_stem: Json }
+        Returns: string
       }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }

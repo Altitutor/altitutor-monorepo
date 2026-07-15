@@ -7,7 +7,11 @@
 UPDATE public.students
 SET ucat_signup_step = 4,
     ucat_signup_completed_at = COALESCE(ucat_signup_completed_at, NOW()),
-    ucat_onboarding_completed_at = COALESCE(ucat_onboarding_completed_at, NOW())
+    ucat_onboarding_completed_at = COALESCE(ucat_onboarding_completed_at, NOW()),
+    onboarding_progress = COALESCE(onboarding_progress, '{}'::jsonb) || jsonb_build_object(
+      'ucat-question-engine-intro',
+      jsonb_build_object('completed_at', NOW(), 'version', 1)
+    )
 WHERE id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002',

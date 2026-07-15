@@ -172,7 +172,10 @@ BEGIN
     ORDER BY parent_question_tag_id NULLS FIRST, name, id
     LIMIT 1;
 
-    FOR item_number IN 1..item_count LOOP
+    -- Keep one complete category-sized pool discoverable for practice and a
+    -- second pool available for benchmark-set assembly. Published set members
+    -- are intentionally excluded from ordinary practice by the content model.
+    FOR item_number IN 1..(item_count * 2) LOOP
       stem_id := md5('study-plan-fixture-stem:' || category_record.id::TEXT || ':' || item_number::TEXT)::UUID;
       question_id := md5('study-plan-fixture-question:' || category_record.id::TEXT || ':' || item_number::TEXT)::UUID;
       v_rich_document := jsonb_build_object(
@@ -192,12 +195,18 @@ BEGIN
         status_changed_at, published_at, deleted_at
       ) VALUES (
         stem_id, category_record.ucat_section_id, v_rich_document, category_record.id,
-        'individual', 'Study plan golden fixture', 'published', 'public',
+        'individual',
+        CASE
+          WHEN item_number <= item_count THEN 'Study plan benchmark fixture'
+          ELSE 'Study plan practice fixture'
+        END,
+        'published', 'public',
         NOW(), NOW(), NULL
       )
       ON CONFLICT (id) DO UPDATE SET
         stem_text = EXCLUDED.stem_text,
         question_stem_category_id = EXCLUDED.question_stem_category_id,
+        tutor_source_note = EXCLUDED.tutor_source_note,
         status = 'published',
         access_scope = 'public',
         deleted_at = NULL,
@@ -400,6 +409,7 @@ BEGIN
           AND stem.deleted_at IS NULL
           AND stem.status = 'published'
           AND stem.access_scope = 'public'
+          AND stem.tutor_source_note IS DISTINCT FROM 'Study plan practice fixture'
         GROUP BY stem.id
         ORDER BY md5(stem.id::TEXT || ':' || version_number::TEXT)
       LOOP
