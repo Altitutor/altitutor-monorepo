@@ -1,7 +1,7 @@
 -- Durable, tutor-visible state for background UCAT AI generation.
 
 ALTER TABLE public.ucat_ai_generation_runs
-  ADD COLUMN IF NOT EXISTS workflow_run_id text,
+  ADD COLUMN IF NOT EXISTS queue_message_id text,
   ADD COLUMN IF NOT EXISTS progress_step text,
   ADD COLUMN IF NOT EXISTS progress_message text,
   ADD COLUMN IF NOT EXISTS processed_stem_count integer NOT NULL DEFAULT 0,
@@ -19,17 +19,29 @@ CREATE INDEX IF NOT EXISTS idx_ucat_ai_generation_runs_companion
 
 ALTER TABLE public.question_stems
   ADD COLUMN IF NOT EXISTS ai_generation_run_id uuid
-    REFERENCES public.ucat_ai_generation_runs(id) ON DELETE SET NULL;
+    REFERENCES public.ucat_ai_generation_runs(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS ai_generation_output_index integer;
+
+ALTER TABLE public.question_stems
+  DROP CONSTRAINT IF EXISTS question_stems_ai_generation_output_index_check,
+  ADD CONSTRAINT question_stems_ai_generation_output_index_check
+    CHECK (ai_generation_output_index IS NULL OR ai_generation_output_index >= 0);
 
 CREATE INDEX IF NOT EXISTS idx_question_stems_ai_generation_run_id
   ON public.question_stems(ai_generation_run_id)
   WHERE ai_generation_run_id IS NOT NULL;
 
--- Workflow steps execute with the service role and therefore have no tutor JWT.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_question_stems_ai_generation_output
+  ON public.question_stems(ai_generation_run_id, ai_generation_output_index)
+  WHERE ai_generation_run_id IS NOT NULL
+    AND ai_generation_output_index IS NOT NULL;
+
+-- Queue consumers execute with the service role and therefore have no tutor JWT.
 -- This narrowly-scoped RPC restores the originating tutor's auth context for the
 -- existing, validated bundle writer. It is callable by service_role only.
 CREATE OR REPLACE FUNCTION public.service_ucat_persist_generated_stem(
   p_run_id uuid,
+  p_output_index integer,
   p_stem jsonb
 )
 RETURNS uuid
@@ -44,6 +56,10 @@ DECLARE
   v_stem_ids uuid[];
   v_stem_id uuid;
 BEGIN
+  IF p_output_index < 0 THEN
+    RAISE EXCEPTION 'generation_output_index_invalid';
+  END IF;
+
   SELECT run.created_by, run.section_id
   INTO v_staff_id, v_section_id
   FROM public.ucat_ai_generation_runs run
@@ -53,6 +69,16 @@ BEGIN
 
   IF v_staff_id IS NULL OR v_section_id IS NULL THEN
     RAISE EXCEPTION 'generation_run_not_running';
+  END IF;
+
+  SELECT stem.id
+  INTO v_stem_id
+  FROM public.question_stems stem
+  WHERE stem.ai_generation_run_id = p_run_id
+    AND stem.ai_generation_output_index = p_output_index;
+
+  IF v_stem_id IS NOT NULL THEN
+    RETURN v_stem_id;
   END IF;
 
   SELECT staff.user_id
@@ -78,7 +104,8 @@ BEGIN
   END IF;
 
   UPDATE public.question_stems
-  SET ai_generation_run_id = p_run_id
+  SET ai_generation_run_id = p_run_id,
+      ai_generation_output_index = p_output_index
   WHERE id = v_stem_id;
 
   UPDATE public.ucat_ai_generation_runs
@@ -91,7 +118,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, jsonb) FROM anon;
-REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, jsonb) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.service_ucat_persist_generated_stem(uuid, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, integer, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, integer, jsonb) FROM anon;
+REVOKE ALL ON FUNCTION public.service_ucat_persist_generated_stem(uuid, integer, jsonb) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.service_ucat_persist_generated_stem(uuid, integer, jsonb) TO service_role;

@@ -5389,6 +5389,7 @@ export type Database = {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata: Json | null
+          ai_generation_output_index: number | null
           ai_generation_run_id: string | null
           created_at: string | null
           created_by: string | null
@@ -5411,6 +5412,7 @@ export type Database = {
         Insert: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata?: Json | null
+          ai_generation_output_index?: number | null
           ai_generation_run_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -5433,6 +5435,7 @@ export type Database = {
         Update: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
           ai_generation_metadata?: Json | null
+          ai_generation_output_index?: number | null
           ai_generation_run_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -11576,12 +11579,12 @@ export type Database = {
           progress_message: string | null
           progress_step: string | null
           question_stem_category_id: string | null
+          queue_message_id: string | null
           requested_stem_count: number
           section_id: string | null
           status: string
           updated_at: string
           updated_by: string | null
-          workflow_run_id: string | null
         }
         Insert: {
           accepted_stem_count?: number
@@ -11599,12 +11602,12 @@ export type Database = {
           progress_message?: string | null
           progress_step?: string | null
           question_stem_category_id?: string | null
+          queue_message_id?: string | null
           requested_stem_count: number
           section_id?: string | null
           status?: string
           updated_at?: string
           updated_by?: string | null
-          workflow_run_id?: string | null
         }
         Update: {
           accepted_stem_count?: number
@@ -11622,12 +11625,12 @@ export type Database = {
           progress_message?: string | null
           progress_step?: string | null
           question_stem_category_id?: string | null
+          queue_message_id?: string | null
           requested_stem_count?: number
           section_id?: string | null
           status?: string
           updated_at?: string
           updated_by?: string | null
-          workflow_run_id?: string | null
         }
         Relationships: [
           {
@@ -25263,7 +25266,7 @@ export type Database = {
         Returns: Json
       }
       service_ucat_persist_generated_stem: {
-        Args: { p_run_id: string; p_stem: Json }
+        Args: { p_output_index: number; p_run_id: string; p_stem: Json }
         Returns: string
       }
       staff_full_name_lower: {
