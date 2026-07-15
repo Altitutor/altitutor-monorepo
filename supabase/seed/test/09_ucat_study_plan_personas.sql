@@ -34,17 +34,17 @@ INSERT INTO public.ucat_student_study_plan_profiles (
 )
 VALUES
   -- Alice: new student, no historical evidence.
-  ('f5000000-0000-4000-8000-000000000001', '10000000-0000-0000-0000-000000000001', 2100, 2026, '2026-08-05', '[{"weekday":1,"maxMinutes":60},{"weekday":3,"maxMinutes":60},{"weekday":6,"maxMinutes":120}]', 6, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000001', '10000000-0000-0000-0000-000000000001', 2100, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 120)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Bob: severely constrained availability, used to verify warning-not-blocking.
-  ('f5000000-0000-4000-8000-000000000002', '10000000-0000-0000-0000-000000000002', 2500, 2026, '2026-08-05', '[{"weekday":6,"maxMinutes":30}]', 6, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000002', '10000000-0000-0000-0000-000000000002', 2500, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 30)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Charlie: experienced and ready for performance work.
-  ('f5000000-0000-4000-8000-000000000003', '10000000-0000-0000-0000-000000000003', 2400, 2026, '2026-08-05', '[{"weekday":1,"maxMinutes":90},{"weekday":2,"maxMinutes":90},{"weekday":4,"maxMinutes":90},{"weekday":6,"maxMinutes":150}]', 6, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000003', '10000000-0000-0000-0000-000000000003', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 150), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 90), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 90), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 6) % 7, 'maxMinutes', 90)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Diana: partially completed beginner curriculum.
-  ('f5000000-0000-4000-8000-000000000004', '10000000-0000-0000-0000-000000000004', 2200, 2026, '2026-08-05', '[{"weekday":1,"maxMinutes":60},{"weekday":3,"maxMinutes":60},{"weekday":5,"maxMinutes":60}]', 5, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000004', '10000000-0000-0000-0000-000000000004', 2200, EXTRACT(YEAR FROM CURRENT_DATE + 30)::INT, CURRENT_DATE + 30, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 60)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Edward: near-test taper with high daily capacity.
-  ('f5000000-0000-4000-8000-000000000005', '10000000-0000-0000-0000-000000000005', 2300, 2026, '2026-08-05', '[{"weekday":0,"maxMinutes":120},{"weekday":2,"maxMinutes":120},{"weekday":4,"maxMinutes":120},{"weekday":6,"maxMinutes":150}]', 6, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000005', '10000000-0000-0000-0000-000000000005', 2300, EXTRACT(YEAR FROM CURRENT_DATE + 10)::INT, CURRENT_DATE + 10, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 150), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 1) % 7, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 3) % 7, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 5) % 7, 'maxMinutes', 120)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Fiona: one-section weakness with otherwise strong evidence.
-  ('f5000000-0000-4000-8000-000000000006', '10000000-0000-0000-0000-000000000006', 2400, 2026, '2026-08-05', '[{"weekday":1,"maxMinutes":75},{"weekday":3,"maxMinutes":75},{"weekday":5,"maxMinutes":120}]', 5, NOW(), NULL, NULL)
+  ('f5000000-0000-4000-8000-000000000006', '10000000-0000-0000-0000-000000000006', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 75), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 75)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL)
 ON CONFLICT (student_id) DO UPDATE SET
   target_score = EXCLUDED.target_score,
   test_year = EXCLUDED.test_year,
@@ -124,3 +124,34 @@ ON CONFLICT (id) DO UPDATE SET
   total_points = EXCLUDED.total_points,
   scaled_score = EXCLUDED.scaled_score,
   completed_at = EXCLUDED.completed_at;
+
+-- The student progress view resolves a set's section from immutable question
+-- attempt snapshots rather than today's editable set membership. One snapshot
+-- row per attempt is enough for this experienced-persona prerequisite.
+WITH fixture(set_attempt_id, section_number, suffix) AS (
+  VALUES
+    ('f7000000-0000-4000-8000-000000000001'::UUID, 1, 1),
+    ('f7000000-0000-4000-8000-000000000002'::UUID, 2, 2),
+    ('f7000000-0000-4000-8000-000000000003'::UUID, 3, 3)
+)
+INSERT INTO public.student_question_attempts (
+  id, student_id, student_question_set_attempt_id, question_id,
+  content_snapshot, score, is_submitted, attempted_at, was_timed, mode
+)
+SELECT
+  ('f8000000-0000-4000-8000-' || lpad(fixture.suffix::TEXT, 12, '0'))::UUID,
+  '10000000-0000-0000-0000-000000000003',
+  fixture.set_attempt_id,
+  NULL,
+  jsonb_build_object('stem', jsonb_build_object('sectionId', section.id)),
+  1,
+  true,
+  NOW() - make_interval(days => 8 - fixture.section_number),
+  true,
+  'set'
+FROM fixture
+JOIN public.ucat_sections section ON section.section_number = fixture.section_number
+ON CONFLICT (id) DO UPDATE SET
+  content_snapshot = EXCLUDED.content_snapshot,
+  is_submitted = true,
+  was_timed = true;
