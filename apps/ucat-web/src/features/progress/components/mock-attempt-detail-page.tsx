@@ -10,6 +10,8 @@ import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempt
 import { MockAttemptScoreTimingRow } from "./mock-attempt-score-timing-row";
 import { MockAttemptSetCards } from "./mock-attempt-set-cards";
 import { SetAnswersCard } from "./set-answers-card";
+import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
+import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;
@@ -23,6 +25,8 @@ export function MockAttemptDetailPage({
   backLabel = "Back to mocks",
 }: MockAttemptDetailPageProps) {
   const { data, isLoading, error } = useMockAttemptDetail(mockAttemptId);
+  useMarkFirstResultReviewed(Boolean(data));
+  useCompleteStudyPlanReview(Boolean(data));
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =

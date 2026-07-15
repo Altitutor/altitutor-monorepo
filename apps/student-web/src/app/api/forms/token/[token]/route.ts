@@ -9,6 +9,7 @@ import {
   type FormBlock,
   type Json,
 } from '@altitutor/shared';
+import { resolveFormBlocks } from '@/shared/lib/forms/resolve-form-blocks';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
@@ -21,6 +22,15 @@ function asFormBlocks(value: unknown): FormBlock[] {
 function asFormAnswers(value: unknown): FormAnswerPayload {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as FormAnswerPayload;
+}
+
+function getSessionContext(metadata: Json): { sessionId: string; studentId: string } | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const sessionId = metadata.session_id;
+  const studentId = metadata.respondent_id;
+  return metadata.context === 'check_in_session' && typeof sessionId === 'string' && typeof studentId === 'string'
+    ? { sessionId, studentId }
+    : null;
 }
 
 async function resolveToken(token: string) {
@@ -58,6 +68,10 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     if (!student) return NextResponse.json({ error: 'Sign in to answer this form' }, { status: 401 });
     authenticatedStudentId = student.id;
   }
+  const sessionContext = getSessionContext(tokenRow.metadata);
+  if (sessionContext && authenticatedStudentId && sessionContext.studentId !== authenticatedStudentId) {
+    return NextResponse.json({ error: 'This form link belongs to another student.' }, { status: 403 });
+  }
   if (!tokenRow.forms || !tokenRow.form_versions) {
     return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   }
@@ -90,6 +104,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     return [...(mostRecentPast ?? []), ...(futureSessions ?? [])];
   }));
   const sessions = sessionGroups.flat();
+  const blocks = await resolveFormBlocks(admin, asFormBlocks(tokenRow.form_versions.blocks));
 
   return NextResponse.json({
     form: {
@@ -98,7 +113,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       purpose: tokenRow.forms.purpose,
       versionId: tokenRow.form_versions.id,
       versionNumber: tokenRow.form_versions.version_number,
-      blocks: tokenRow.form_versions.blocks,
+      blocks,
       thankYouMessage: tokenRow.form_versions.thank_you_message,
     },
     exitRequest: exitRequest ? {
@@ -120,17 +135,22 @@ export async function POST(request: Request, { params }: { params: { token: stri
   if (tokenRow.access_type === 'authenticated' && !student) {
     return NextResponse.json({ error: 'Sign in to answer this form' }, { status: 401 });
   }
+  const sessionContext = getSessionContext(tokenRow.metadata);
+  if (sessionContext && student && sessionContext.studentId !== student.id) {
+    return NextResponse.json({ error: 'This form link belongs to another student.' }, { status: 403 });
+  }
+  const respondentStudentId = sessionContext?.studentId ?? student?.id ?? null;
 
   const body = await request.json().catch(() => ({})) as {
     answers?: unknown;
     exitSelections?: Array<{ requestEnrolmentId?: string; sessionId?: string }>;
   };
   const answers = asFormAnswers(body.answers);
-  const blocks = asFormBlocks(tokenRow.form_versions.blocks);
+  const admin = getServerSupabaseAdmin();
+  const blocks = await resolveFormBlocks(admin, asFormBlocks(tokenRow.form_versions.blocks));
   const errors = validateFormAnswers(blocks, answers);
   if (errors.length) return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
 
-  const admin = getServerSupabaseAdmin();
   const normalized = normalizeFormAnswers(blocks, answers);
   const { data: exitRequest } = await admin
     .from('student_exit_requests')
@@ -198,12 +218,12 @@ export async function POST(request: Request, { params }: { params: { token: stri
       .is('deleted_at', null);
     if ((count ?? 0) > 0) return NextResponse.json({ error: 'This form link has already been used.' }, { status: 409 });
   }
-  if (tokenRow.submission_limit === 'one_per_authenticated_respondent' && student) {
+  if (tokenRow.submission_limit === 'one_per_authenticated_respondent' && respondentStudentId) {
     const { count } = await admin
       .from('form_responses')
       .select('id', { count: 'exact', head: true })
       .eq('form_version_id', tokenRow.form_version_id)
-      .eq('respondent_student_id', student.id)
+      .eq('respondent_student_id', respondentStudentId)
       .is('deleted_at', null);
     if ((count ?? 0) > 0) return NextResponse.json({ error: 'You have already submitted this form.' }, { status: 409 });
   }
@@ -214,10 +234,11 @@ export async function POST(request: Request, { params }: { params: { token: stri
       form_id: tokenRow.form_id,
       form_version_id: tokenRow.form_version_id,
       form_token_id: tokenRow.id,
-      respondent_type: student ? 'student' : 'anonymous',
-      respondent_student_id: student?.id ?? null,
-      subject_type: student ? 'student' : 'none',
-      subject_student_id: student?.id ?? null,
+      session_id: sessionContext?.sessionId ?? null,
+      respondent_type: respondentStudentId ? 'student' : 'anonymous',
+      respondent_student_id: respondentStudentId,
+      subject_type: respondentStudentId ? 'student' : 'none',
+      subject_student_id: respondentStudentId,
       submitted_by_user_id: user?.id ?? null,
       response_json: { answers } as Json,
     })
@@ -242,6 +263,22 @@ export async function POST(request: Request, { params }: { params: { token: stri
   if (responseAnswers.length) {
     const { error: answersError } = await admin.from('form_response_answers').insert(responseAnswers);
     if (answersError) return NextResponse.json({ error: answersError.message }, { status: 500 });
+  }
+
+  if (sessionContext) {
+    await admin.from('activity_events').insert({
+      entity_type: 'form_responses',
+      entity_id: response.id,
+      event_type: 'CREATED',
+      session_id: sessionContext.sessionId,
+      student_id: sessionContext.studentId,
+      metadata: {
+        form_id: tokenRow.form_id,
+        form_name: tokenRow.forms?.name ?? 'Form',
+        form_response_id: response.id,
+        recorded_on_behalf: false,
+      },
+    });
   }
 
   return NextResponse.json({ ok: true });

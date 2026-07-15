@@ -12,7 +12,7 @@ export type UcatAccessFlags = {
   hasUcatAccess: boolean;
   onlineTier: UcatOnlineTier | null;
   isQuotaExempt: boolean;
-  /** Plan choice recorded (step 3). */
+  /** Plan or referral-gift choice recorded (step 4). */
   onboardingCompleted: boolean;
   /** Full signup wizard finished. */
   signupCompleted: boolean;

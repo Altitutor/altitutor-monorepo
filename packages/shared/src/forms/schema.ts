@@ -3,6 +3,8 @@ import type {
   FormBlock,
   FormChoiceQuestion,
   FormDefinition,
+  FormChoiceOption,
+  FormModelOptionSource,
   FormQuestion,
   NormalizedFormAnswer,
 } from './types';
@@ -37,6 +39,7 @@ export function createDefaultQuestion(type: FormQuestion['type']): FormQuestion 
     return {
       ...base,
       type,
+      optionSource: { kind: 'static' },
       options: [
         { id: createId('option'), label: 'Option 1', value: 'option_1' },
         { id: createId('option'), label: 'Option 2', value: 'option_2' },
@@ -55,6 +58,41 @@ export function isQuestionBlock(block: FormBlock): block is FormQuestion {
 
 export function isChoiceQuestion(block: FormBlock): block is FormChoiceQuestion {
   return block.type === 'single_choice' || block.type === 'multi_select';
+}
+
+export function isModelChoiceQuestion(block: FormBlock): block is FormChoiceQuestion {
+  return isChoiceQuestion(block) && block.optionSource?.kind === 'model';
+}
+
+export function getFormModelOptionSources(blocks: FormBlock[]) {
+  return [...new Set(
+    blocks
+      .filter(isModelChoiceQuestion)
+      .map((block) => block.optionSource?.kind === 'model' ? block.optionSource.source : null)
+      .filter((source): source is NonNullable<typeof source> => source !== null),
+  )];
+}
+
+export function hydrateFormModelOptions(
+  blocks: FormBlock[],
+  optionsBySource: Partial<Record<FormModelOptionSource, FormChoiceOption[]>>,
+): FormBlock[] {
+  return blocks.map((block) => {
+    if (!isModelChoiceQuestion(block) || block.optionSource?.kind !== 'model') return block;
+    return { ...block, options: optionsBySource[block.optionSource.source] ?? [] };
+  });
+}
+
+export async function resolveFormModelOptions(
+  blocks: FormBlock[],
+  loadOptions: (source: FormModelOptionSource) => Promise<FormChoiceOption[]>,
+): Promise<FormBlock[]> {
+  const sources = getFormModelOptionSources(blocks);
+  if (!sources.length) return blocks;
+  const entries = await Promise.all(
+    sources.map(async (source) => [source, await loadOptions(source)] as const),
+  );
+  return hydrateFormModelOptions(blocks, Object.fromEntries(entries));
 }
 
 export function validateFormDefinition(definition: FormDefinition): string[] {
@@ -77,7 +115,7 @@ export function validateFormDefinition(definition: FormDefinition): string[] {
       continue;
     }
     if (!block.title.trim()) errors.push(`Question ${index + 1} needs a title.`);
-    if (isChoiceQuestion(block)) {
+    if (isChoiceQuestion(block) && block.optionSource?.kind !== 'model') {
       if (block.options.length === 0) errors.push(`Question ${index + 1} needs at least one option.`);
       const values = new Set<string>();
       for (const option of block.options) {
@@ -119,9 +157,17 @@ export function validateFormAnswers(blocks: FormBlock[], answers: FormAnswerPayl
     if (empty) continue;
     if (block.type === 'single_choice' && typeof value !== 'string') {
       errors.push(`${block.title} must have one selected option.`);
+    } else if (block.type === 'single_choice' && !block.options.some((option) => option.value === value)) {
+      errors.push(`${block.title} contains an unavailable option.`);
     }
     if (block.type === 'multi_select' && !Array.isArray(value)) {
       errors.push(`${block.title} must have selected options.`);
+    } else if (
+      block.type === 'multi_select' &&
+      Array.isArray(value) &&
+      value.some((selected) => !block.options.some((option) => option.value === String(selected)))
+    ) {
+      errors.push(`${block.title} contains an unavailable option.`);
     }
     if ((block.type === 'short_text' || block.type === 'long_text') && typeof value === 'string') {
       if (block.type === 'short_text' && value.includes('\n')) errors.push(`${block.title} cannot contain line breaks.`);

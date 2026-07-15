@@ -38,7 +38,7 @@ function formatHomeworkHelpTime(homeworkClass: HomeworkHelpClassRow | null): str
 /**
  * GET /api/welcome-modal/context
  * Returns dynamic content for the student welcome modal:
- * - Student's enrolled subjects
+ * - Student's linked subjects (via vstudent_subjects)
  * - Homework help session time
  */
 export async function GET(_request: NextRequest) {

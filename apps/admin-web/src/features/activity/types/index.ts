@@ -39,7 +39,8 @@ export type ActivityEntityType =
   | 'admin_shifts'
   | 'admin_shifts_staff'
   | 'issues'
-  | 'projects';
+  | 'projects'
+  | 'form_responses';
 
 /**
  * Event type

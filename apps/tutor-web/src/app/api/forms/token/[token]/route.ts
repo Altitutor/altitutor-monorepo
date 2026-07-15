@@ -9,6 +9,7 @@ import {
   type FormBlock,
   type Json,
 } from '@altitutor/shared';
+import { resolveFormBlocks } from '@/shared/lib/forms/resolve-form-blocks';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
@@ -62,6 +63,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   if (!tokenRow.forms || !tokenRow.form_versions) {
     return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   }
+  const blocks = await resolveFormBlocks(supabaseAdmin!, asFormBlocks(tokenRow.form_versions.blocks));
   return NextResponse.json({
     form: {
       id: tokenRow.forms.id,
@@ -69,7 +71,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       purpose: tokenRow.forms.purpose,
       versionId: tokenRow.form_versions.id,
       versionNumber: tokenRow.form_versions.version_number,
-      blocks: tokenRow.form_versions.blocks,
+      blocks,
       thankYouMessage: tokenRow.form_versions.thank_you_message,
     },
   });
@@ -89,7 +91,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   const body = await request.json().catch(() => ({})) as { answers?: unknown };
   const answers = asFormAnswers(body.answers);
-  const blocks = asFormBlocks(tokenRow.form_versions.blocks);
+  const blocks = await resolveFormBlocks(supabaseAdmin, asFormBlocks(tokenRow.form_versions.blocks));
   const errors = validateFormAnswers(blocks, answers);
   if (errors.length) return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
 

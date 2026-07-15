@@ -1188,7 +1188,7 @@ export function CreateEditActionDialog({
                         />
                       </FormControl>
                       <FormDescription>
-                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc.
+                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc. Use {'modal://session/{entity_id}'} to open a session modal.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

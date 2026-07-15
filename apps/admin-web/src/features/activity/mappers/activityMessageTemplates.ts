@@ -24,6 +24,7 @@ export interface ActivityMessageContext {
   projectName?: string;
   subjectName?: string;
   noteContent?: string;
+  formName?: string;
   fieldLabels?: Record<string, string>;
   oldValue?: string;
   newValue?: string;
@@ -171,6 +172,13 @@ export function getActivityTemplate(
           messageTemplate: (event, ctx) =>
             `${ctx.performedByName} logged topics for ${ctx.sessionName || 'session'}`,
         };
+      case 'form_responses':
+        return {
+          icon: 'check',
+          color: 'green',
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} recorded a response${ctx.formName ? ` to ${ctx.formName}` : ''}`,
+        };
       case 'invoices':
         return {
           icon: 'default',
@@ -280,6 +288,15 @@ export function getActivityTemplate(
   }
 
   // Handle UPDATED events
+  if (eventType === 'UPDATED' && entityType === 'form_responses') {
+    return {
+      icon: 'check',
+      color: 'green',
+      messageTemplate: (_event, ctx) =>
+        `${ctx.performedByName} updated a response${ctx.formName ? ` to ${ctx.formName}` : ''}`,
+    };
+  }
+
   if (eventType === 'UPDATED' && changedFields) {
     const changedFieldsObj = typeof changedFields === 'object' && changedFields !== null && !Array.isArray(changedFields)
       ? changedFields as Record<string, unknown>
@@ -527,4 +544,3 @@ export function getGroupedActivityTemplate(
   // Fallback
   return `${performedByName} performed ${count} similar actions`;
 }
-

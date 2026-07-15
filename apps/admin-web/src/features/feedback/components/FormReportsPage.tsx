@@ -148,6 +148,16 @@ export function FormReportsPage() {
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [responses]);
 
+  const recordedByOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const response of responses) {
+      if (response.recorded_by_staff) {
+        map.set(response.recorded_by_staff.id, `${response.recorded_by_staff.first_name ?? ''} ${response.recorded_by_staff.last_name ?? ''}`.trim());
+      }
+    }
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [responses]);
+
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
       {
@@ -161,8 +171,22 @@ export function FormReportsPage() {
         options: respondentOptions,
         searchable: true,
       },
+      {
+        key: 'recorded_by',
+        label: 'Recorded by',
+        options: recordedByOptions,
+        searchable: true,
+      },
+      {
+        key: 'session_linked',
+        label: 'Check-in session',
+        options: [
+          { value: 'linked', label: 'Linked' },
+          { value: 'unlinked', label: 'Not linked' },
+        ],
+      },
     ],
-    [respondentOptions, respondentTypeOptions],
+    [recordedByOptions, respondentOptions, respondentTypeOptions],
   );
 
   const filteredAnswers = useMemo(
@@ -173,12 +197,20 @@ export function FormReportsPage() {
         const query = filterState.search.trim().toLowerCase();
         if (filters.respondent_type?.length && !filters.respondent_type.includes(response.respondent_type)) return false;
         if (filters.respondent?.length && !filters.respondent.includes(personKey(response, 'respondent'))) return false;
+        if (filters.recorded_by?.length && !filters.recorded_by.includes(response.recorded_by_staff?.id ?? '')) return false;
+        if (filters.session_linked?.length) {
+          const linkage = response.session_id ? 'linked' : 'unlinked';
+          if (!filters.session_linked.includes(linkage)) return false;
+        }
         if (query) {
           const haystack = [
             answer.question_label_snapshot,
             answerValue(answer),
             responsePersonLabel(response, 'respondent'),
             responsePersonLabel(response, 'subject'),
+            response.recorded_by_staff ? `${response.recorded_by_staff.first_name ?? ''} ${response.recorded_by_staff.last_name ?? ''}` : '',
+            response.sessions?.long_name,
+            response.sessions?.short_name,
           ]
             .join(' ')
             .toLowerCase();

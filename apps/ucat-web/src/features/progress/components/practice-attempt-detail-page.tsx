@@ -15,6 +15,8 @@ import {
   type QuestionEngineExam,
   type QuestionStemWithQuestions,
 } from "@/features/question-engine/model/types";
+import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
+import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
 
 type PracticeAttemptDetailPageProps = {
   attemptId: string;
@@ -67,6 +69,8 @@ export function PracticeAttemptDetailPage({
   backLabel = "Back to progress",
 }: PracticeAttemptDetailPageProps) {
   const { data, isLoading, error } = usePracticeAttemptDetail(attemptId);
+  useMarkFirstResultReviewed(Boolean(data));
+  useCompleteStudyPlanReview(Boolean(data));
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =

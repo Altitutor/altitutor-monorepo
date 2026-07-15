@@ -5,6 +5,7 @@ import { X, RotateCcw } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { formatRelativeDate } from '@/features/messages/utils/templateHelpers';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import type { Notification } from '../types';
 
 interface NotificationItemProps {
@@ -12,13 +13,24 @@ interface NotificationItemProps {
   isDismissed?: boolean;
   onDismiss: () => void;
   onUndismiss: () => void;
+  onAction: () => void;
 }
 
-export function NotificationItem({ notification, isDismissed = false, onDismiss, onUndismiss }: NotificationItemProps) {
+export function NotificationItem({ notification, isDismissed = false, onDismiss, onUndismiss, onAction }: NotificationItemProps) {
   const router = useRouter();
+  const entityModals = useEntityModals();
 
   const handleClick = () => {
     if (notification.action_url) {
+      const sessionModalMatch = notification.action_url.match(/^modal:\/\/session\/([^/?#]+)$/);
+      if (sessionModalMatch) {
+        onAction();
+        entityModals.openSession(decodeURIComponent(sessionModalMatch[1]));
+        return;
+      }
+
+      onAction();
+
       // Handle both relative and absolute URLs
       if (notification.action_url.startsWith('http')) {
         window.open(notification.action_url, '_blank');

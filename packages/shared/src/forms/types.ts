@@ -67,9 +67,24 @@ export interface FormChoiceOption {
   allowOtherText?: boolean;
 }
 
+export const FORM_MODEL_OPTION_SOURCES = ['staff', 'classes', 'subjects', 'topics'] as const;
+export type FormModelOptionSource = (typeof FORM_MODEL_OPTION_SOURCES)[number];
+
+export const FORM_MODEL_OPTION_SOURCE_OPTIONS = [
+  { value: 'staff', label: 'Active tutors' },
+  { value: 'classes', label: 'Active classes' },
+  { value: 'subjects', label: 'Subjects' },
+  { value: 'topics', label: 'Topics' },
+] as const satisfies ReadonlyArray<{ value: FormModelOptionSource; label: string }>;
+
+export type FormChoiceOptionSource =
+  | { kind: 'static' }
+  | { kind: 'model'; source: FormModelOptionSource };
+
 export interface FormChoiceQuestion extends FormBaseQuestion {
   type: 'single_choice' | 'multi_select';
   options: FormChoiceOption[];
+  optionSource?: FormChoiceOptionSource;
 }
 
 export interface FormTextQuestion extends FormBaseQuestion {

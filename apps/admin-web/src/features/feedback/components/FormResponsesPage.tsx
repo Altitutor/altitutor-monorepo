@@ -32,7 +32,7 @@ const INITIAL_STATE: DataTableState = {
   groupBy: null,
   page: 1,
   pageSize: 50,
-  visibleColumns: ['form', 'respondent_type', 'respondent', 'subject', 'submitted_at'],
+  visibleColumns: ['form', 'respondent_type', 'respondent', 'subject', 'recorded_by', 'session', 'submitted_at'],
 };
 
 function personKey(response: FormResponseDetail, kind: 'respondent' | 'subject') {
@@ -119,6 +119,8 @@ export function FormResponsesPage() {
     { key: 'respondent_type', label: 'Respondent type', visibleByDefault: true },
     { key: 'respondent', label: 'Respondent', visibleByDefault: true },
     { key: 'subject', label: 'Subject', visibleByDefault: true },
+    { key: 'recorded_by', label: 'Recorded by', visibleByDefault: true },
+    { key: 'session', label: 'Session', visibleByDefault: true },
     { key: 'submitted_at', label: 'Submitted', visibleByDefault: true },
   ];
 
@@ -134,6 +136,9 @@ export function FormResponsesPage() {
           row.subject_type,
           responsePersonLabel(row, 'respondent'),
           responsePersonLabel(row, 'subject'),
+          row.recorded_by_staff ? `${row.recorded_by_staff.first_name ?? ''} ${row.recorded_by_staff.last_name ?? ''}` : '',
+          row.sessions?.long_name,
+          row.sessions?.short_name,
           row.id,
         ].join(' ').toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -189,6 +194,8 @@ export function FormResponsesPage() {
               <TableHead>Respondent type</TableHead>
               <TableHead>Respondent</TableHead>
               <TableHead>Subject</TableHead>
+              <TableHead>Recorded by</TableHead>
+              <TableHead>Session</TableHead>
               <TableHead>Submitted</TableHead>
               <TableHead className="w-[56px]" />
             </TableRow>
@@ -201,6 +208,8 @@ export function FormResponsesPage() {
                 <TableCell>{row.respondent_type}</TableCell>
                 <TableCell>{responsePersonLabel(row, 'respondent')}</TableCell>
                 <TableCell>{responsePersonLabel(row, 'subject')}</TableCell>
+                <TableCell>{row.recorded_by_staff ? `${row.recorded_by_staff.first_name ?? ''} ${row.recorded_by_staff.last_name ?? ''}`.trim() : '-'}</TableCell>
+                <TableCell>{row.sessions?.long_name ?? row.sessions?.short_name ?? (row.sessions?.start_at ? format(new Date(row.sessions.start_at), 'PP p') : '-')}</TableCell>
                 <TableCell>{format(new Date(row.submitted_at), 'PP p')}</TableCell>
                 <TableCell className="text-right">
                   <SettingsTableActions
@@ -211,7 +220,7 @@ export function FormResponsesPage() {
             ))}
             {paged.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                   No form responses found.
                 </TableCell>
               </TableRow>

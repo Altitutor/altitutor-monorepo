@@ -7,6 +7,7 @@ export function useStudyPlan() {
   return useQuery({
     queryKey: ["ucat-study-plan"],
     queryFn: fetchStudyPlan,
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }

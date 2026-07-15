@@ -803,15 +803,11 @@ export function PracticeSessionPage() {
               timePerQuestionSeconds={session.timePerQuestionSeconds}
               backHref="/practice"
               onBack={handleDone}
-              onRegisterFinishPracticeDialog={
-                handleRegisterFinishPracticeDialog
-              }
             />
           </div>
           <PracticeSessionStatsCards
             stats={liveStats}
             elapsedSeconds={elapsedSeconds}
-            onFinishPractice={handleFinishPracticeFromSidebar}
           />
         </div>
       </div>

@@ -8,12 +8,14 @@ import type {
   GeneratedStudyPlanTask,
   StudyPlanAvailability,
   StudyPlanCapacityRisk,
+  StudyPlanCategorySignal,
   StudyPlanGenerationResult,
   StudyPlanLearningModule,
   StudyPlanPhase,
   StudyPlanProfileInput,
   StudyPlanSection,
   StudyPlanSectionSignal,
+  StudyPlanSkillTrainer,
 } from "@/features/study-plan/model/types";
 
 type GenerateStudyPlanInput = {
@@ -22,7 +24,9 @@ type GenerateStudyPlanInput = {
   profile: StudyPlanProfileInput;
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
+  categories: StudyPlanCategorySignal[];
   learningModules: StudyPlanLearningModule[];
+  skillTrainers: StudyPlanSkillTrainer[];
   completedMockCount: number;
 };
 
@@ -158,45 +162,60 @@ function sectionPriority(
 function practiceTask(
   section: StudyPlanSection,
   signal: StudyPlanSectionSignal | undefined,
+  category: StudyPlanCategorySignal | null,
   phase: StudyPlanPhase,
   budgetMinutes: number,
   scheduledDate: string,
   sortOrder: number,
+  supplementary = false,
 ): GeneratedStudyPlanTask {
   const speed = practiceSpeed(phase, signal?.evidenceCount ?? 0);
   const timed = speed != null;
   const secondsPerQuestion = timed
     ? Math.round(section.timePerQuestionSeconds / speed)
     : null;
-  const questionCount = Math.max(
+  const requestedQuestionCount = Math.max(
     5,
     Math.min(30, Math.floor((budgetMinutes * 60) / (secondsPerQuestion ?? 120))),
   );
+  const questionCount = category
+    ? Math.max(1, Math.min(requestedQuestionCount, category.availableQuestionCount))
+    : requestedQuestionCount;
   const timingLabel = timed ? `${speed}x exam speed` : "untimed";
   return {
     scheduledDate,
     sortOrder,
     taskType: "practice",
-    title: `${section.shortName} practice · ${timingLabel}`,
+    title: `${supplementary ? "SJT add-on" : category?.name ?? `${section.shortName} practice`} · ${timingLabel}`,
     description: `${questionCount} questions with ${phase === "foundation" ? "feedback after each stem" : "feedback at the end"}.`,
     rationale: signal?.currentEstimate == null
-      ? `Build a reliable baseline in ${section.name}.`
-      : `Prioritised from your current ${section.name} score trajectory.`,
+      ? `Build a reliable baseline in ${category?.name ?? section.name}.`
+      : supplementary
+        ? "Keep SJT familiar without displacing your scored-section priorities."
+        : category
+          ? `This is currently one of your highest-value ${section.shortName} categories.`
+          : `Prioritised from your current ${section.name} score trajectory.`,
     estimatedMinutes: Math.max(10, Math.min(budgetMinutes, Math.ceil(questionCount * (secondsPerQuestion ?? 120) / 60) + 5)),
     targetUnits: questionCount,
     sectionId: section.id,
+    questionStemCategoryId: category?.id ?? null,
+    questionTagId: null,
     learningModuleId: null,
+    questionSetId: null,
+    mockId: null,
+    skillTrainerId: null,
     launchPath: "/practice",
     launchConfig: {
       kind: "practice",
       section: section.key,
       ucatSectionId: section.id,
       questionCount,
-      categoryIds: [],
+      categoryIds: category ? [category.id] : [],
       timeMode: timed ? "speed" : "off",
       timeSpeedMultiplier: speed ?? 1,
       timePerQuestionSeconds: secondsPerQuestion,
       reviewTiming: phase === "foundation" ? "afterEachStem" : "atEnd",
+      supplementary,
     },
   };
 }
@@ -217,7 +236,12 @@ function benchmarkTask(
     estimatedMinutes: Math.max(20, Math.ceil(section.questionCount * section.timePerQuestionSeconds / speed / 60) + 5),
     targetUnits: section.questionCount,
     sectionId: section.id,
+    questionStemCategoryId: null,
+    questionTagId: null,
     learningModuleId: null,
+    questionSetId: null,
+    mockId: null,
+    skillTrainerId: null,
     launchPath: "/practice",
     launchConfig: {
       kind: "practice",
@@ -234,6 +258,108 @@ function benchmarkTask(
   };
 }
 
+function skillTrainerTask(
+  trainer: StudyPlanSkillTrainer,
+  category: StudyPlanCategorySignal | null,
+  scheduledDate: string,
+  sortOrder: number,
+): GeneratedStudyPlanTask {
+  return {
+    scheduledDate,
+    sortOrder,
+    taskType: "skill_trainer",
+    title: `Warm up · ${trainer.name}`,
+    description: `A short ${trainer.estimatedMinutes}-minute speed and accuracy warm-up.`,
+    rationale: category
+      ? `This supports today’s ${category.name} work.`
+      : "Wake up the core skill before beginning longer practice.",
+    estimatedMinutes: trainer.estimatedMinutes,
+    targetUnits: 1,
+    sectionId: trainer.sectionId,
+    questionStemCategoryId: category?.id ?? null,
+    questionTagId: null,
+    learningModuleId: null,
+    questionSetId: null,
+    mockId: null,
+    skillTrainerId: trainer.id,
+    launchPath: `/skill-trainer/${trainer.key.replaceAll("_", "-")}`,
+    launchConfig: {
+      kind: "skill_trainer",
+      skillTrainerId: trainer.id,
+      skillTrainerKey: trainer.key,
+    },
+  };
+}
+
+function reviewTask(
+  sourceTask: GeneratedStudyPlanTask,
+  scheduledDate: string,
+  sortOrder: number,
+): GeneratedStudyPlanTask {
+  const minutes = sourceTask.taskType === "mock" ? 20 : 10;
+  return {
+    scheduledDate,
+    sortOrder,
+    taskType: "review",
+    title: `Review · ${sourceTask.title}`,
+    description: "Review every answer and identify the method or timing change to carry forward.",
+    rationale: "Immediate review turns the attempt into usable evidence for your next session.",
+    estimatedMinutes: minutes,
+    targetUnits: 1,
+    sectionId: sourceTask.sectionId,
+    questionStemCategoryId: sourceTask.questionStemCategoryId,
+    questionTagId: sourceTask.questionTagId,
+    learningModuleId: null,
+    questionSetId: sourceTask.questionSetId,
+    mockId: sourceTask.mockId,
+    skillTrainerId: null,
+    launchPath: "/progress",
+    launchConfig: {
+      kind: "review",
+      sourceTaskSortOrder: sourceTask.sortOrder,
+      sourceTaskScheduledDate: sourceTask.scheduledDate,
+      awaitingAttempt: true,
+    },
+  };
+}
+
+function pickCategory(
+  sectionId: string,
+  categories: StudyPlanCategorySignal[],
+  scheduledCounts: Map<string, number>,
+): StudyPlanCategorySignal | null {
+  const candidates = categories.filter(
+    (category) => category.sectionId === sectionId && category.availableQuestionCount > 0,
+  );
+  if (!candidates.length) return null;
+  const selected = [...candidates].sort((a, b) => {
+    const aCount = scheduledCounts.get(a.id) ?? 0;
+    const bCount = scheduledCounts.get(b.id) ?? 0;
+    const aPriority = (0.5 + a.weaknessScore) / (1 + aCount * 0.55);
+    const bPriority = (0.5 + b.weaknessScore) / (1 + bCount * 0.55);
+    return bPriority - aPriority
+      || b.availableQuestionCount - a.availableQuestionCount
+      || a.name.localeCompare(b.name);
+  })[0];
+  scheduledCounts.set(selected.id, (scheduledCounts.get(selected.id) ?? 0) + 1);
+  return selected;
+}
+
+function pickSkillTrainer(
+  sectionId: string,
+  categoryId: string | null,
+  trainers: StudyPlanSkillTrainer[],
+  cursor: number,
+): StudyPlanSkillTrainer | null {
+  const sectionTrainers = trainers.filter((trainer) => trainer.sectionId === sectionId);
+  if (!sectionTrainers.length) return null;
+  const categoryTrainers = categoryId
+    ? sectionTrainers.filter((trainer) => trainer.categoryIds.includes(categoryId))
+    : [];
+  const candidates = categoryTrainers.length ? categoryTrainers : sectionTrainers;
+  return candidates[cursor % candidates.length] ?? null;
+}
+
 export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGenerationResult {
   parseIsoDate(input.today);
   parseIsoDate(input.planningDate);
@@ -247,8 +373,12 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
     input.signals,
   );
   const signals = new Map(input.signals.map((signal) => [signal.sectionId, signal]));
-  const sectionsByPriority = sectionPriority(input.sections, input.signals, sectionTargets);
   const cognitiveSections = input.sections.filter((section) => section.sectionNumber <= 3);
+  const cognitiveByPriority = sectionPriority(cognitiveSections, input.signals, sectionTargets);
+  const weightedCognitiveSections = cognitiveByPriority.flatMap((section, index) =>
+    Array.from({ length: Math.max(1, cognitiveByPriority.length - index) }, () => section),
+  );
+  const sjtSection = input.sections.find((section) => section.sectionNumber === 4) ?? null;
   const benchmarked = new Set(
     input.signals
       .filter((signal) => signal.completedFullSets > 0)
@@ -268,6 +398,9 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
   let practiceDays = 0;
   let mockCount = input.completedMockCount;
   let lastMockDate: string | null = null;
+  let trainerCursor = 0;
+  const categoryScheduleCounts = new Map<string, number>();
+  const pendingReviewSources: GeneratedStudyPlanTask[] = [];
   const tasks: GeneratedStudyPlanTask[] = [];
 
   dates.forEach((day, dayIndex) => {
@@ -276,6 +409,15 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
     const usableMinutes = Math.max(15, Math.round(day.maxMinutes * workloadFraction(phase) / 5) * 5);
     let remaining = Math.min(day.maxMinutes, phase === "foundation" ? Math.min(45, usableMinutes) : usableMinutes);
     let sortOrder = 0;
+
+    while (pendingReviewSources.length) {
+      const review = reviewTask(pendingReviewSources[0], day.date, sortOrder);
+      if (review.estimatedMinutes > remaining) break;
+      pendingReviewSources.shift();
+      tasks.push(review);
+      sortOrder += 1;
+      remaining -= review.estimatedMinutes;
+    }
 
     const shouldLearn = moduleCursor < moduleQueue.length && (
       phase === "foundation" ||
@@ -297,16 +439,19 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
         estimatedMinutes: minutes,
         targetUnits: null,
         sectionId: learningModule.sectionId,
+        questionStemCategoryId: null,
+        questionTagId: null,
         learningModuleId: learningModule.id,
+        questionSetId: null,
+        mockId: null,
+        skillTrainerId: null,
         launchPath: `/learn/${learningModule.id}`,
         launchConfig: { kind: "learning_module", learningModuleId: learningModule.id },
       });
       remaining -= minutes;
     }
 
-    const allBenchmarksReady = cognitiveSections.every(
-      (section) => benchmarked.has(section.id) || scheduledBenchmarks.has(section.id),
-    );
+    const allBenchmarksReady = cognitiveSections.every((section) => benchmarked.has(section.id));
     const isPreferredMockDay = weekday(day.date) === input.profile.preferredMockWeekday;
     const mockIntervalDays = daysRemaining <= 28 ? 7 : 14;
     const canScheduleMock =
@@ -319,20 +464,32 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
     if (canScheduleMock) {
       mockCount += 1;
       lastMockDate = day.date;
-      tasks.push({
+      const mockTask: GeneratedStudyPlanTask = {
         scheduledDate: day.date,
         sortOrder: sortOrder++,
         taskType: "mock",
         title: `Full mock ${mockCount}`,
         description: "Complete a full mock under uninterrupted exam conditions.",
         rationale: "Your full-section evidence is ready; this mock will recalibrate the plan.",
-        estimatedMinutes: Math.min(day.maxMinutes, 125),
+        estimatedMinutes: Math.min(remaining, 125),
         targetUnits: null,
         sectionId: null,
+        questionStemCategoryId: null,
+        questionTagId: null,
         learningModuleId: null,
+        questionSetId: null,
+        mockId: null,
+        skillTrainerId: null,
         launchPath: "/mocks",
         launchConfig: { kind: "mock" },
-      });
+      };
+      tasks.push(mockTask);
+      remaining -= mockTask.estimatedMinutes;
+      if (remaining >= 20) {
+        tasks.push(reviewTask(mockTask, day.date, sortOrder++));
+      } else {
+        pendingReviewSources.push(mockTask);
+      }
       return;
     }
 
@@ -350,25 +507,104 @@ export function generateStudyPlan(input: GenerateStudyPlanInput): StudyPlanGener
         sortOrder++,
         speed,
       );
-      if (benchmark.estimatedMinutes <= day.maxMinutes) {
+      if (benchmark.estimatedMinutes <= remaining) {
+        const benchmarkCategory = pickCategory(
+          benchmarkCandidate.id,
+          input.categories,
+          categoryScheduleCounts,
+        );
+        const trainer = pickSkillTrainer(
+          benchmarkCandidate.id,
+          benchmarkCategory?.id ?? null,
+          input.skillTrainers,
+          trainerCursor++,
+        );
+        if (trainer && remaining >= benchmark.estimatedMinutes + trainer.estimatedMinutes + 10) {
+          tasks.push(skillTrainerTask(trainer, benchmarkCategory, day.date, benchmark.sortOrder));
+          benchmark.sortOrder = sortOrder++;
+          remaining -= trainer.estimatedMinutes;
+        }
         tasks.push(benchmark);
+        remaining -= benchmark.estimatedMinutes;
+        if (remaining >= 10) {
+          tasks.push(reviewTask(benchmark, day.date, sortOrder++));
+        } else {
+          pendingReviewSources.push(benchmark);
+        }
         scheduledBenchmarks.add(benchmarkCandidate.id);
         return;
       }
     }
 
-    if (remaining >= 10) {
-      const section = sectionsByPriority[sectionCursor++ % sectionsByPriority.length];
-      tasks.push(
-        practiceTask(
-          section,
-          signals.get(section.id),
+    if (remaining >= 10 && weightedCognitiveSections.length) {
+      const section = weightedCognitiveSections[sectionCursor++ % weightedCognitiveSections.length];
+      const category = pickCategory(section.id, input.categories, categoryScheduleCounts);
+      const trainer = pickSkillTrainer(
+        section.id,
+        category?.id ?? null,
+        input.skillTrainers,
+        trainerCursor++,
+      );
+      const sjtCategory = sjtSection
+        ? pickCategory(sjtSection.id, input.categories, new Map(categoryScheduleCounts))
+        : null;
+      const includeSjt = Boolean(
+        sjtSection &&
+        sjtCategory &&
+        phase !== "foundation" &&
+        (practiceDays + 1) % 4 === 0 &&
+        remaining >= 55,
+      );
+      const warmupMinutes = trainer && remaining >= 30 ? trainer.estimatedMinutes : 0;
+      const reviewMinutes = remaining - warmupMinutes >= 20 ? 10 : 0;
+      const sjtReserve = includeSjt ? 20 : 0;
+      const practiceBudget = remaining - warmupMinutes - reviewMinutes - sjtReserve;
+
+      if (trainer && warmupMinutes > 0) {
+        tasks.push(skillTrainerTask(trainer, category, day.date, sortOrder++));
+        remaining -= warmupMinutes;
+      }
+      const practice = practiceTask(
+        section,
+        signals.get(section.id),
+        category,
+        phase,
+        Math.max(10, practiceBudget),
+        day.date,
+        sortOrder++,
+      );
+      tasks.push(practice);
+      remaining -= practice.estimatedMinutes;
+      if (reviewMinutes > 0 && remaining >= reviewMinutes) {
+        tasks.push(reviewTask(practice, day.date, sortOrder++));
+        remaining -= reviewMinutes;
+      } else {
+        pendingReviewSources.push(practice);
+      }
+
+      if (includeSjt && sjtSection && sjtCategory && remaining >= 10) {
+        categoryScheduleCounts.set(
+          sjtCategory.id,
+          (categoryScheduleCounts.get(sjtCategory.id) ?? 0) + 1,
+        );
+        const sjtPractice = practiceTask(
+          sjtSection,
+          signals.get(sjtSection.id),
+          sjtCategory,
           phase,
-          remaining,
+          Math.min(10, remaining),
           day.date,
           sortOrder++,
-        ),
-      );
+          true,
+        );
+        tasks.push(sjtPractice);
+        remaining -= sjtPractice.estimatedMinutes;
+        if (remaining >= 10) {
+          tasks.push(reviewTask(sjtPractice, day.date, sortOrder++));
+        } else {
+          pendingReviewSources.push(sjtPractice);
+        }
+      }
       practiceDays += 1;
     }
   });

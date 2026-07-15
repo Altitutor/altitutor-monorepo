@@ -29,6 +29,8 @@ const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 export interface IssuesListProps {
   /** Initial filter values (e.g. dashboard: open only) */
   defaultFilters?: Record<string, unknown[]>;
+  /** Force collapsed pill layout (e.g. dashboard cards) */
+  compact?: boolean;
   hideToolbar?: boolean;
   embedView?: {
     groupBy?: string | null;
@@ -37,7 +39,12 @@ export interface IssuesListProps {
   };
 }
 
-export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: IssuesListProps = {}) {
+export function IssuesList({
+  defaultFilters,
+  compact = false,
+  hideToolbar = false,
+  embedView,
+}: IssuesListProps = {}) {
   const embedLocked = hideToolbar && embedView != null;
 
   const {
@@ -219,6 +226,7 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
         isLoading={isLoading}
         noPadding={true}
         hideToolbar={hideToolbar}
+        compact={compact}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
         searchValue={search}

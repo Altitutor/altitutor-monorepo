@@ -84,9 +84,15 @@ export function ReferralGiftCard({
 
           <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+              <ShieldCheck
+                className="h-4 w-4 text-primary"
+                aria-hidden="true"
+              />
               <span>
-                Offer expires {formatDistanceToNowStrict(new Date(gift.expiresAt), { addSuffix: true })}
+                Offer expires{" "}
+                {formatDistanceToNowStrict(new Date(gift.expiresAt), {
+                  addSuffix: true,
+                })}
               </span>
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
@@ -95,18 +101,22 @@ export function ReferralGiftCard({
                 variant="ghost"
                 onClick={() => setConfirmReject(true)}
               >
-                No thanks
+                Continue with UCAT Free
               </Button>
               <Button
                 type="button"
                 className={UCAT_PRIMARY_ACTION_BUTTON}
-                onClick={() => router.push(`/checkout?${checkoutParams.toString()}`)}
+                onClick={() =>
+                  router.push(`/checkout?${checkoutParams.toString()}`)
+                }
               >
-                Accept gift
+                Accept gift and continue
               </Button>
             </div>
           </div>
-          {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p className="mt-3 text-sm text-destructive">{error}</p>
+          ) : null}
         </div>
       </section>
 
@@ -120,7 +130,9 @@ export function ReferralGiftCard({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={rejecting}>Keep gift</AlertDialogCancel>
+            <AlertDialogCancel disabled={rejecting}>
+              Keep gift
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={rejecting}
               onClick={(event) => {

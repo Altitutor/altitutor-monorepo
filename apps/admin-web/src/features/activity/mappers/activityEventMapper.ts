@@ -290,6 +290,17 @@ function resolvePerformedBy(
     };
   }
 
+  const metadata =
+    typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata)
+      ? (event.metadata as Record<string, unknown>)
+      : null;
+  if (event.entity_type === 'form_responses' && event.student_id && metadata?.recorded_on_behalf === false) {
+    return {
+      id: event.student_id,
+      name: getStudentName(event.student_id, relatedEntities) || 'Student',
+    };
+  }
+
   if (hasStudentSelfServiceChange(event)) {
     const studentId = event.student_id || (event.entity_type === 'students' ? event.entity_id : null);
     const studentName =
@@ -424,6 +435,10 @@ export function mapActivityEventToDisplay(
   }
   
   // Build message context
+  const eventMetadata =
+    typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata)
+      ? (event.metadata as Record<string, unknown>)
+      : {};
   const context = {
     performedByName,
     studentName,
@@ -436,6 +451,7 @@ export function mapActivityEventToDisplay(
     projectName,
     subjectName,
     noteContent: noteContentForMessage,
+    formName: typeof eventMetadata.form_name === 'string' ? eventMetadata.form_name : undefined,
     fieldLabels,
     oldValue,
     newValue,
@@ -529,10 +545,7 @@ export function mapActivityEventToDisplay(
     };
   }
   
-  const baseMetadata =
-    typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata)
-      ? (event.metadata as Record<string, unknown>)
-      : {};
+  const baseMetadata = eventMetadata;
   const topicName =
     display?.topic_name ||
     (event.entity_type === 'tutor_logs_topics' && tutorLogTopicNamesByEntityId
@@ -816,4 +829,3 @@ export function mapActivityEventsToDisplay(
   // This groups repeated similar actions (e.g., adding same student to multiple sessions)
   return groupSimilarActivities(coalesced, response.relatedEntities);
 }
-

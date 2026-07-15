@@ -393,13 +393,19 @@
 - **UCAT Pro** — Everything in UCAT Unlimited, plus human support entitlements: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. The top paid tier on the subscribe page; requires its own Stripe product.
   _Avoid_: Premium, coaching tier
 
-- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) choose UCAT Free or a paid subscription. A student with a pending referral gift decides whether to accept it before making the ordinary plan choice. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
+- **Signup onboarding** — The required first-time sequence for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) complete or explicitly skip the Guided UCAT sampler, and (4) choose UCAT Free or a paid subscription. A student with clear paid intent may complete checkout before the sampler and return to it afterward. A student with a pending referral gift sees that it is waiting before the sampler and may accept it immediately, while the full gift or plan decision remains the final signup step. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
   _Avoid_: Onboarding flow, signup wizard
 
 - **Signup onboarding gate** — While signup onboarding is incomplete, the student may only reach `/signup/complete` (and auth/API paths required for the wizard). All other app routes redirect to `/signup/complete` at their persisted step. `/subscribe` is not part of first-time gating. Legacy accounts with plan choice recorded but no new completion flag are treated as fully onboarded.
   _Avoid_: Onboarding redirect, subscribe gate
 
 - **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Respects `prefers-reduced-motion`.
+
+- **Guided UCAT sampler** — The short, sequential first experience of Verbal Reasoning, Decision Making, Quantitative Reasoning, and Situational Judgement during Signup onboarding. It uses authentic question controls, adapts the amount of guidance to the student's stated familiarity, and teaches controls in the section where they are useful. It is unscored, consumes no quota, creates no Attempt evidence, and must not be described as a diagnostic.
+  _Avoid_: Diagnostic test, scored attempt, question-engine tour
+
+- **UCAT activation checklist** — The temporary dashboard checklist that follows Signup onboarding and leads a new student through exploring every UCAT section, building a Study plan, completing their first Study plan task, and reviewing their first real result. It supports the Study plan's next recommendation rather than acting as a second plan, and disappears after completion.
+  _Avoid_: Product tour, permanent task list, second Study plan
 
 - **Section score estimate** — The app's current estimate of a student’s latent UCAT cognitive-section score on the 300-900 scale at a point in time. It is derived from attempt evidence and should be treated as uncertain, not as a known score.
   _Avoid_: Predicted section score, known section score
@@ -421,6 +427,9 @@
 
 - **Study plan** — A personalised calendar of UCAT study tasks generated through the student's test date from their target score, score projection, available study days, per-day time limits, and preferred mock day. It may use less than the student's available capacity when that is appropriate and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed.
   _Avoid_: Score projection, fixed timetable, target guarantee
+
+- **Study plan activation setup** — The strongly encouraged but optional post-plan step that asks for the minimum inputs needed to build the first Study plan: overall cognitive target, test year or exact date, available study days, and maximum time per day. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
+  _Avoid_: Required signup step, diagnostic, full settings form
 
 - **Available study day** — A weekday the student explicitly permits the Study plan to schedule. The student sets a maximum study duration for each available day; the plan may use fewer available days or less than the maximum duration, especially when the test is distant. A flexible student may instead ask the plan to choose days automatically.
   _Avoid_: Required study day, booked session, tutoring availability

@@ -157,6 +157,25 @@ export async function markAllLessonBlocksComplete(
   const blockIds = await loadLessonBlockIds(supabase, lessonId);
   const now = new Date().toISOString();
 
+  // An explicit lesson-level completion remains meaningful for an empty
+  // lesson (especially draft/test content). Recalculation alone would turn it
+  // back into 0% because there are no blocks to count.
+  if (blockIds.length === 0) {
+    const { error } = await supabase
+      .from("ucat_student_learning_module_progress")
+      .upsert(
+        {
+          student_id: studentId,
+          learning_module_id: lessonId,
+          completion_percent: 100,
+          completed_at: now,
+        },
+        { onConflict: "student_id,learning_module_id" },
+      );
+    if (error) throw new Error(error.message);
+    return;
+  }
+
   for (const blockId of blockIds) {
     const { data: existing } = await supabase
       .from("ucat_student_learning_module_block_progress")

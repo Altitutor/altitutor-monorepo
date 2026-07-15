@@ -13,14 +13,21 @@ import {
 import { addDays, midpointDate, todayIso } from "@/features/study-plan/lib/dates";
 import { generateStudyPlan } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
+import {
+  matchLearningModuleProgress,
+  matchPracticeSession,
+  shouldReconcileStudyPlanTask,
+} from "@/features/study-plan/lib/reconciliation";
 import type {
   StudyPlanCapacityRisk,
+  StudyPlanCategorySignal,
   StudyPlanGenerationResult,
   StudyPlanLearningModule,
   StudyPlanProfileInput,
   StudyPlanResponse,
   StudyPlanSection,
   StudyPlanSectionSignal,
+  StudyPlanSkillTrainer,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
 
@@ -165,22 +172,62 @@ async function loadGenerationInputs(
 ): Promise<{
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
+  categories: StudyPlanCategorySignal[];
   learningModules: StudyPlanLearningModule[];
+  skillTrainers: StudyPlanSkillTrainer[];
   completedMockCount: number;
 }> {
   const admin = requireAdmin();
-  const [sectionsRes, evidenceRes, projectionSettingsRes, fullSetRes, modulesRes, blocksRes, moduleCategoriesRes, categoryProgressRes, mockRes] = await Promise.all([
+  const [
+    sectionsRes,
+    evidenceRes,
+    projectionSettingsRes,
+    fullSetRes,
+    completedBenchmarksRes,
+    categoriesRes,
+    categoryCountsRes,
+    categoryProgressRes,
+    modulesRes,
+    blocksRes,
+    moduleCategoriesRes,
+    trainersRes,
+    trainerCategoriesRes,
+    trainerItemsRes,
+    mockRes,
+  ] = await Promise.all([
     admin.from("ucat_sections").select("id, name, section_number, number_of_questions, time_per_question").order("section_number"),
     supabase.from("vstudent_ucat_score_projection_evidence").select("source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed"),
     admin.from("ucat_score_projection_settings").select("section_id, mock_source_weight, set_source_weight, practice_source_weight, timed_weight, slow_timed_weight, untimed_weight, recency_half_life_days, min_practice_scored_points, min_prediction_evidence_weight"),
     supabase.from("vstudent_ucat_section_set_progress").select("section_id, total_completed"),
+    admin.from("ucat_student_study_plan_tasks").select("section_id").eq("student_id", studentId).eq("task_type", "section_benchmark").eq("status", "completed"),
+    admin.from("question_stem_categories").select("id, name, ucat_section_id"),
+    supabase.from("vstudent_ucat_public_question_counts").select("section_id, question_stem_category_id, total_questions"),
+    supabase.from("vstudent_ucat_my_question_progress").select("category_id, correct_score, max_score"),
     supabase.from("vstudent_ucat_learning_modules").select("id, title, kind, ucat_section_id, study_plan_priority, completion_percent").eq("kind", "lesson").neq("study_plan_priority", "excluded"),
     supabase.from("vstudent_ucat_learning_module_blocks").select("learning_module_id, block_type, content, question_id, question_stem_id, skill_trainer_id, file_id"),
     admin.from("ucat_learning_module_question_stem_categories").select("learning_module_id, question_stem_category_id"),
-    supabase.from("vstudent_ucat_my_question_progress").select("category_id, correct_score, max_score"),
+    admin.from("ucat_skill_trainers").select("id, key, name, ucat_section_id").eq("is_enabled", true),
+    admin.from("ucat_skill_trainer_question_stem_categories").select("skill_trainer_id, question_stem_category_id"),
+    admin.from("ucat_skill_trainer_items").select("skill_trainer_id").eq("is_active", true).eq("approval_status", "approved").is("deleted_at", null),
     admin.from("student_ucat_mock_attempts").select("id", { count: "exact", head: true }).eq("student_id", studentId).not("completed_at", "is", null),
   ]);
-  for (const result of [sectionsRes, evidenceRes, projectionSettingsRes, fullSetRes, modulesRes, blocksRes, moduleCategoriesRes, categoryProgressRes, mockRes]) {
+  for (const result of [
+    sectionsRes,
+    evidenceRes,
+    projectionSettingsRes,
+    fullSetRes,
+    completedBenchmarksRes,
+    categoriesRes,
+    categoryCountsRes,
+    categoryProgressRes,
+    modulesRes,
+    blocksRes,
+    moduleCategoriesRes,
+    trainersRes,
+    trainerCategoriesRes,
+    trainerItemsRes,
+    mockRes,
+  ]) {
     if (result.error) throw result.error;
   }
   const sections: StudyPlanSection[] = (sectionsRes.data ?? []).flatMap((row) => {
@@ -205,6 +252,10 @@ async function loadGenerationInputs(
       ? [[row.section_id, row.total_completed ?? 0] as const]
       : []),
   );
+  for (const benchmark of completedBenchmarksRes.data ?? []) {
+    if (!benchmark.section_id) continue;
+    fullSets.set(benchmark.section_id, Math.max(1, fullSets.get(benchmark.section_id) ?? 0));
+  }
   const settingsBySection = new Map(
     (projectionSettingsRes.data ?? []).flatMap((row) => row.section_id ? [[row.section_id, row] as const] : []),
   );
@@ -220,6 +271,37 @@ async function loadGenerationInputs(
       evidenceCount: estimate.evidenceCount,
       completedFullSets: fullSets.get(section.id) ?? 0,
     };
+  });
+  const categoryCounts = new Map(
+    (categoryCountsRes.data ?? []).flatMap((row) => row.question_stem_category_id
+      ? [[row.question_stem_category_id, row.total_questions ?? 0] as const]
+      : []),
+  );
+  const categoryProgress = new Map(
+    (categoryProgressRes.data ?? []).flatMap((row) => row.category_id
+      ? [[row.category_id, {
+          correctScore: row.correct_score ?? 0,
+          maxScore: row.max_score ?? 0,
+        }] as const]
+      : []),
+  );
+  const categories: StudyPlanCategorySignal[] = (categoriesRes.data ?? []).flatMap((category) => {
+    const availableQuestionCount = categoryCounts.get(category.id) ?? 0;
+    if (!category.ucat_section_id || availableQuestionCount <= 0) return [];
+    const progress = categoryProgress.get(category.id) ?? { correctScore: 0, maxScore: 0 };
+    const observedWeakness = progress.maxScore > 0
+      ? 1 - progress.correctScore / progress.maxScore
+      : 0.55;
+    const reliability = Math.min(1, progress.maxScore / 10);
+    return [{
+      id: category.id,
+      sectionId: category.ucat_section_id,
+      name: category.name,
+      availableQuestionCount,
+      correctScore: progress.correctScore,
+      maxScore: progress.maxScore,
+      weaknessScore: observedWeakness * reliability + 0.55 * (1 - reliability),
+    }];
   });
   const blocksByModule = new Map<string, Array<{
     blockType: string | null;
@@ -266,7 +348,28 @@ async function loadGenerationInputs(
         : 0.3,
     }];
   });
-  return { sections, signals, learningModules, completedMockCount: mockRes.count ?? 0 };
+  const trainersWithItems = new Set((trainerItemsRes.data ?? []).map((item) => item.skill_trainer_id));
+  const skillTrainers: StudyPlanSkillTrainer[] = (trainersRes.data ?? []).flatMap((trainer) => {
+    if (!trainersWithItems.has(trainer.id)) return [];
+    return [{
+      id: trainer.id,
+      key: trainer.key,
+      name: trainer.name,
+      sectionId: trainer.ucat_section_id,
+      categoryIds: (trainerCategoriesRes.data ?? [])
+        .filter((link) => link.skill_trainer_id === trainer.id)
+        .map((link) => link.question_stem_category_id),
+      estimatedMinutes: 6,
+    }];
+  });
+  return {
+    sections,
+    signals,
+    categories,
+    learningModules,
+    skillTrainers,
+    completedMockCount: mockRes.count ?? 0,
+  };
 }
 
 async function persistGeneration(
@@ -327,7 +430,12 @@ async function persistGeneration(
         estimated_minutes: task.estimatedMinutes,
         target_units: task.targetUnits,
         section_id: task.sectionId,
+        question_stem_category_id: task.questionStemCategoryId,
+        question_tag_id: task.questionTagId,
         learning_module_id: task.learningModuleId,
+        question_set_id: task.questionSetId,
+        mock_id: task.mockId,
+        skill_trainer_id: task.skillTrainerId,
         launch_path: task.launchPath,
         launch_config: task.launchConfig as Json,
       })));
@@ -375,19 +483,68 @@ async function generateForProfile(
   );
 }
 
+function reviewSourceSortOrder(value: Json): number | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const sortOrder = (value as Record<string, Json | undefined>).sourceTaskSortOrder;
+  return typeof sortOrder === "number" ? sortOrder : null;
+}
+
+function reviewSourceScheduledDate(value: Json): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const date = (value as Record<string, Json | undefined>).sourceTaskScheduledDate;
+  return typeof date === "string" ? date : null;
+}
+
+async function linkCompanionReview(
+  tasks: TaskRow[],
+  sourceTask: TaskRow,
+  activity: { id: string; type: "practice_session" | "mock_attempt" },
+): Promise<void> {
+  const review = tasks.find((task) =>
+    task.task_type === "review" &&
+    reviewSourceSortOrder(task.launch_config) === sourceTask.sort_order &&
+    reviewSourceScheduledDate(task.launch_config) === sourceTask.scheduled_date,
+  );
+  if (!review) return;
+  const currentConfig = review.launch_config && typeof review.launch_config === "object" && !Array.isArray(review.launch_config)
+    ? review.launch_config as Record<string, Json | undefined>
+    : {};
+  const launchPath = activity.type === "mock_attempt"
+    ? `/progress/mock-attempts/${activity.id}`
+    : `/progress/practice-sessions/${activity.id}`;
+  const { error } = await requireAdmin()
+    .from("ucat_student_study_plan_tasks")
+    .update({
+      matched_activity_type: activity.type,
+      matched_activity_id: activity.id,
+      launch_path: launchPath,
+      launch_config: {
+        ...currentConfig,
+        awaitingAttempt: false,
+        sourceActivityType: activity.type,
+        sourceActivityId: activity.id,
+      },
+    })
+    .eq("id", review.id);
+  if (error) throw error;
+}
+
 async function reconcileTasks(
   studentId: string,
   generation: GenerationRow,
   tasks: TaskRow[],
 ): Promise<void> {
   const admin = requireAdmin();
-  const actionable = tasks.filter((task) =>
-    task.scheduled_date <= todayIso() && !["completed", "skipped"].includes(task.status),
-  );
+  const today = todayIso();
+  const actionable = tasks.filter((task) => shouldReconcileStudyPlanTask({
+    scheduledDate: task.scheduled_date,
+    status: task.status as StudyPlanTask["status"],
+    taskType: task.task_type as StudyPlanTask["taskType"],
+  }, today));
   if (!actionable.length) return;
   const [learningRes, practiceRes, mockRes, trainerRes] = await Promise.all([
     admin.from("ucat_student_learning_module_progress").select("id, learning_module_id, completion_percent, completed_at").eq("student_id", studentId),
-    admin.from("student_practice_sessions").select("id, ucat_section_id, question_count, started_at, completed_at").eq("student_id", studentId).gte("started_at", generation.generated_at).order("started_at"),
+    admin.from("student_practice_sessions").select("id, ucat_section_id, question_count, filters_snapshot, started_at, completed_at").eq("student_id", studentId).gte("started_at", generation.generated_at).order("started_at"),
     admin.from("student_ucat_mock_attempts").select("id, attempted_at, completed_at").eq("student_id", studentId).gte("attempted_at", generation.generated_at).order("attempted_at"),
     admin.from("student_skill_trainer_attempts").select("id, skill_trainer_id, started_at, completed_at").eq("student_id", studentId).gte("started_at", generation.generated_at).order("started_at"),
   ]);
@@ -397,42 +554,60 @@ async function reconcileTasks(
   const usedActivities = new Set<string>(
     tasks.flatMap((task) => task.matched_activity_id ? [task.matched_activity_id] : []),
   );
+  const reconciledAt = new Date().toISOString();
   for (const task of actionable) {
     let update: Database["public"]["Tables"]["ucat_student_study_plan_tasks"]["Update"] | null = null;
+    let reviewActivity: { id: string; type: "practice_session" | "mock_attempt" } | null = null;
     if (task.task_type === "learn" && task.learning_module_id) {
       const progress = learningRes.data?.find((item) => item.learning_module_id === task.learning_module_id);
-      if (progress?.completed_at) {
+      const match = progress ? matchLearningModuleProgress({
+        completedAt: progress.completed_at,
+        completionPercent: progress.completion_percent,
+      }, reconciledAt) : null;
+      if (match?.status === "completed") {
         update = {
           status: "completed",
-          completed_at: progress.completed_at,
-          completed_units: 1,
+          completed_at: match.completedAt,
+          completed_units: match.completedUnits,
           matched_activity_type: "learning_module",
-          matched_activity_id: progress.id,
+          matched_activity_id: progress!.id,
         };
-      } else if (progress && progress.completion_percent > 0) {
+      } else if (match?.status === "partial") {
         update = {
           status: "partial",
-          completed_units: Math.round(progress.completion_percent),
+          completed_units: match.completedUnits,
           matched_activity_type: "learning_module",
-          matched_activity_id: progress.id,
+          matched_activity_id: progress!.id,
         };
       }
     } else if (["practice", "section_benchmark"].includes(task.task_type) && task.section_id) {
-      const session = practiceRes.data?.find((item) =>
-        !usedActivities.has(item.id) &&
-        item.ucat_section_id === task.section_id &&
-        item.completed_at &&
-        (task.task_type !== "section_benchmark" || (item.question_count ?? 0) >= (task.target_units ?? 1) * 0.85),
-      );
-      if (session?.completed_at) {
+      const candidate = (practiceRes.data ?? []).flatMap((session) => {
+        if (usedActivities.has(session.id)) return [];
+        const match = matchPracticeSession({
+          sectionId: task.section_id!,
+          questionStemCategoryId: task.task_type === "section_benchmark"
+            ? null
+            : task.question_stem_category_id,
+          targetUnits: task.target_units,
+        }, {
+          sectionId: session.ucat_section_id,
+          questionCount: session.question_count,
+          completedAt: session.completed_at,
+          filtersSnapshot: session.filters_snapshot,
+        });
+        return match ? [{ session, match }] : [];
+      })[0];
+      if (candidate?.session.completed_at) {
+        const { session, match } = candidate;
         usedActivities.add(session.id);
         update = {
-          status: "completed",
-          completed_at: session.completed_at,
-          completed_units: Math.min(task.target_units ?? session.question_count ?? 1, session.question_count ?? 1),
+          status: match.status,
+          completed_at: match.status === "completed" ? session.completed_at : null,
+          completed_units: match.completedUnits,
           matched_activity_type: "practice_session",
           matched_activity_id: session.id,
         };
+        reviewActivity = { id: session.id, type: "practice_session" };
       }
     } else if (task.task_type === "mock") {
       const attempt = mockRes.data?.find((item) => !usedActivities.has(item.id) && item.completed_at);
@@ -445,6 +620,7 @@ async function reconcileTasks(
           matched_activity_type: "mock_attempt",
           matched_activity_id: attempt.id,
         };
+        reviewActivity = { id: attempt.id, type: "mock_attempt" };
       }
     } else if (task.task_type === "skill_trainer" && task.skill_trainer_id) {
       const attempt = trainerRes.data?.find((item) =>
@@ -464,6 +640,7 @@ async function reconcileTasks(
     if (update) {
       const { error } = await admin.from("ucat_student_study_plan_tasks").update(update).eq("id", task.id);
       if (error) throw error;
+      if (reviewActivity) await linkCompanionReview(tasks, task, reviewActivity);
     }
   }
 }
@@ -482,7 +659,12 @@ function mapTask(row: TaskRow): StudyPlanTask {
     targetUnits: row.target_units,
     completedUnits: row.completed_units,
     sectionId: row.section_id,
+    questionStemCategoryId: row.question_stem_category_id,
+    questionTagId: row.question_tag_id,
     learningModuleId: row.learning_module_id,
+    questionSetId: row.question_set_id,
+    mockId: row.mock_id,
+    skillTrainerId: row.skill_trainer_id,
     launchPath: row.launch_path ?? "/dashboard",
     launchConfig: row.launch_config && typeof row.launch_config === "object" && !Array.isArray(row.launch_config)
       ? row.launch_config as Record<string, unknown>
@@ -640,6 +822,31 @@ export async function getStudyPlan(
       .order("sort_order");
     if (refreshed.error) throw refreshed.error;
     taskRows = refreshed.data ?? [];
+    const completedBenchmarkSinceGeneration = taskRows.some((task) =>
+      task.task_type === "section_benchmark" &&
+      task.status === "completed" &&
+      task.completed_at != null &&
+      task.completed_at >= generation!.generated_at,
+    );
+    if (options.allowAutomaticReplan !== false && completedBenchmarkSinceGeneration) {
+      await generateForProfile(supabase, studentId, profile, "significant_activity");
+      const [nextProfileResult, nextGenerationResult] = await Promise.all([
+        admin.from("ucat_student_study_plan_profiles").select("*").eq("id", profile.id).single(),
+        admin.from("ucat_student_study_plan_generations").select("*").eq("student_id", studentId).is("superseded_at", null).single(),
+      ]);
+      if (nextProfileResult.error) throw nextProfileResult.error;
+      if (nextGenerationResult.error) throw nextGenerationResult.error;
+      profile = nextProfileResult.data;
+      generation = nextGenerationResult.data;
+      const nextTaskResult = await admin
+        .from("ucat_student_study_plan_tasks")
+        .select("*")
+        .eq("generation_id", generation.id)
+        .order("scheduled_date")
+        .order("sort_order");
+      if (nextTaskResult.error) throw nextTaskResult.error;
+      taskRows = nextTaskResult.data ?? [];
+    }
   }
   const planning = await planningDateFor(profile);
   const tasks = taskRows.map(mapTask);
@@ -681,25 +888,51 @@ export async function getStudyPlan(
 export async function updateStudyPlanTask(
   userId: string,
   taskId: string,
-  action: "start" | "skip",
+  action: "start" | "skip" | "complete",
 ): Promise<void> {
   const admin = requireAdmin();
   const studentId = await resolveStudentId(userId);
   const now = new Date().toISOString();
   const { data: task, error: taskError } = await admin
     .from("ucat_student_study_plan_tasks")
-    .select("id, status")
+    .select("id, status, task_type, generation_id, scheduled_date, sort_order")
     .eq("id", taskId)
     .eq("student_id", studentId)
     .maybeSingle();
   if (taskError) throw taskError;
   if (!task) throw new Error("Study plan task not found.");
   if (task.status === "completed") return;
+  if (action === "complete" && task.task_type !== "review") {
+    throw new Error("Only review tasks can be completed manually.");
+  }
+  const update = action === "start"
+    ? { status: "in_progress", started_at: now, skipped_at: null }
+    : action === "complete"
+      ? { status: "completed", completed_at: now, completed_units: 1 }
+      : { status: "skipped", skipped_at: now };
   const { error } = await admin
     .from("ucat_student_study_plan_tasks")
-    .update(action === "start"
-      ? { status: "in_progress", started_at: now, skipped_at: null }
-      : { status: "skipped", skipped_at: now })
+    .update(update)
     .eq("id", task.id);
   if (error) throw error;
+
+  if (action === "skip" && task.task_type !== "review") {
+    const { data: generationTasks, error: generationTasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("id, task_type, scheduled_date, launch_config")
+      .eq("generation_id", task.generation_id)
+      .eq("scheduled_date", task.scheduled_date);
+    if (generationTasksError) throw generationTasksError;
+    const companion = (generationTasks ?? []).find((candidate) =>
+      candidate.task_type === "review" &&
+      reviewSourceSortOrder(candidate.launch_config) === task.sort_order,
+    );
+    if (companion) {
+      const { error: companionError } = await admin
+        .from("ucat_student_study_plan_tasks")
+        .update({ status: "skipped", skipped_at: now })
+        .eq("id", companion.id);
+      if (companionError) throw companionError;
+    }
+  }
 }

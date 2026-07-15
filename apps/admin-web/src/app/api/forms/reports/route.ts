@@ -55,6 +55,8 @@ export async function GET(request: Request) {
         respondent_type,
         subject_type,
         submitted_at,
+        sessions ( id, start_at, short_name, long_name ),
+        recorded_by_staff:staff!form_responses_recorded_by_staff_id_fkey ( id, first_name, last_name ),
         respondent_student:students!form_responses_respondent_student_id_fkey ( id, first_name, last_name ),
         respondent_staff:staff!form_responses_respondent_staff_id_fkey ( id, first_name, last_name ),
         respondent_parent:parents!form_responses_respondent_parent_id_fkey ( id, first_name, last_name ),

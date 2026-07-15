@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
@@ -11,10 +11,7 @@ import {
   fetchSignupProgress,
   patchSignupProgress,
 } from "@/features/signup-onboarding/api/signup-progress";
-import {
-  markSignupOnboardingTourPending,
-  markSignupJustCompleted,
-} from "@/features/signup-onboarding/lib/signup-tour-flag";
+import { markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
 import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
 import type {
   SignupOnboardingInitial,
@@ -22,7 +19,10 @@ import type {
 } from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
-import { SignupCompleteStudyPlanStep } from "@/features/signup-onboarding/components/steps/study-plan-step";
+import {
+  SignupCompleteSamplerStep,
+  type UcatFamiliarity,
+} from "@/features/signup-onboarding/components/steps/sampler-step";
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
@@ -34,6 +34,9 @@ import {
   type SignupSuccessJourney,
   type SignupSuccessTransitionPhase,
 } from "@/features/signup-onboarding/components/signup-success-transition";
+import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
+import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -41,7 +44,10 @@ type SignupOnboardingWizardProps = {
   initial: SignupOnboardingInitial;
 };
 
-function stepHeading(step: SignupOnboardingStep): {
+function stepHeading(
+  step: SignupOnboardingStep,
+  hasGift: boolean,
+): {
   kicker: string;
   title: string;
   desc: string;
@@ -62,14 +68,16 @@ function stepHeading(step: SignupOnboardingStep): {
     case SIGNUP_STEP.PLAN:
       return {
         kicker: "Step 4 of 4",
-        title: "Choose your plan",
-        desc: "Start free or unlock unlimited access.",
+        title: hasGift ? "Your gift is ready" : "Choose how to continue",
+        desc: hasGift
+          ? "Accept your gift or continue with UCAT Free."
+          : "Start with UCAT Free or unlock unlimited access.",
       };
-    case SIGNUP_STEP.STUDY_PLAN:
+    case SIGNUP_STEP.SAMPLER:
       return {
         kicker: "Step 3 of 4",
-        title: "Build your Study plan",
-        desc: "Tell us your goal and availability. We will decide what to do each study day.",
+        title: "Let’s get you ready for your first UCAT session",
+        desc: "Answer two questions from every section while we show you the exam controls. About 6 minutes.",
       };
     default:
       return { kicker: "", title: "", desc: "" };
@@ -83,6 +91,7 @@ export function SignupOnboardingWizard({
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const access = useUcatAccess();
+  const { refetch: refetchOnboardingProgress } = useOnboardingProgress();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const planIntent = useMemo(
@@ -91,6 +100,10 @@ export function SignupOnboardingWizard({
   );
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
+  const giftQuery = useQuery({
+    queryKey: ["ucat-referral-gifts"],
+    queryFn: fetchReferralGifts,
+  });
 
   const [step, setStep] = useState<SignupOnboardingStep>(() =>
     checkoutStatus === "canceled" ? SIGNUP_STEP.PLAN : initial.step,
@@ -125,6 +138,7 @@ export function SignupOnboardingWizard({
     lastName: initial.lastName,
     phone: initial.phone,
   });
+  const [familiarity, setFamiliarity] = useState<UcatFamiliarity | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -135,12 +149,16 @@ export function SignupOnboardingWizard({
   };
 
   const navigateAfterSignupComplete = useCallback(async () => {
-    markSignupOnboardingTourPending();
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
-    router.replace("/dashboard");
-  }, [queryClient, router]);
+    const refreshedProgress = await refetchOnboardingProgress();
+    if (!refreshedProgress.data?.[UCAT_GUIDED_SAMPLER_DECIDED]?.completed_at) {
+      router.replace("/signup/complete/sampler?afterPlan=1");
+      return;
+    }
+    router.replace("/getting-started");
+  }, [queryClient, refetchOnboardingProgress, router]);
   const completeSignupSuccessTransition = useCallback(() => {
     void navigateAfterSignupComplete();
   }, [navigateAfterSignupComplete]);
@@ -210,7 +228,8 @@ export function SignupOnboardingWizard({
       return;
     }
 
-    router.prefetch("/dashboard");
+    router.prefetch("/getting-started");
+    router.prefetch("/signup/complete/sampler?afterPlan=1");
     setSignupSuccessJourney("paid");
     setSignupSuccessPhase((current) => current ?? "confirming");
     if (signupSuccessStartedAt.current === 0) {
@@ -279,7 +298,7 @@ export function SignupOnboardingWizard({
 
   const finishOnboarding = () => {
     setError(null);
-    router.prefetch("/dashboard");
+    router.prefetch("/getting-started");
     signupSuccessStartedAt.current = Date.now();
     setSignupSuccessJourney("free");
     setSignupSuccessTakingLonger(false);
@@ -289,25 +308,22 @@ export function SignupOnboardingWizard({
   };
 
   const handlePasswordComplete = async () => {
-    await patchSignupProgress({ step: SIGNUP_STEP.STUDY_PLAN });
-    goToStep(SIGNUP_STEP.STUDY_PLAN, 1);
-  };
-
-  const handleStudyPlanComplete = async () => {
-    await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
-    if (planIntent) {
+    if (planIntent && giftQuery.isSuccess && !giftQuery.data.pendingGift) {
+      await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
       router.push(planIntent.checkoutPath);
       return;
     }
-    goToStep(SIGNUP_STEP.PLAN, 1);
+    await patchSignupProgress({ step: SIGNUP_STEP.SAMPLER });
+    goToStep(SIGNUP_STEP.SAMPLER, 1);
   };
 
   const handlePlanComplete = () => {
     finishOnboarding();
   };
 
-  const heading = stepHeading(step);
-  const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.STUDY_PLAN;
+  const pendingGift = giftQuery.data?.pendingGift ?? null;
+  const heading = stepHeading(step, Boolean(pendingGift));
+  const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.SAMPLER;
 
   if (signupSuccessJourney && signupSuccessPhase) {
     return (
@@ -405,9 +421,11 @@ export function SignupOnboardingWizard({
                 />
               ) : null}
 
-              {step === SIGNUP_STEP.STUDY_PLAN ? (
-                <SignupCompleteStudyPlanStep
-                  onComplete={() => void handleStudyPlanComplete()}
+              {step === SIGNUP_STEP.SAMPLER ? (
+                <SignupCompleteSamplerStep
+                  familiarity={familiarity}
+                  onFamiliarityChange={setFamiliarity}
+                  gift={pendingGift}
                 />
               ) : null}
 

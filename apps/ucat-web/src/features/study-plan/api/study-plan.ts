@@ -12,7 +12,7 @@ async function parseResponse(response: Response): Promise<StudyPlanResponse> {
 }
 
 export function fetchStudyPlan(): Promise<StudyPlanResponse> {
-  return fetch("/api/ucat/study-plan").then(parseResponse);
+  return fetch("/api/ucat/study-plan", { cache: "no-store" }).then(parseResponse);
 }
 
 export function saveStudyPlan(input: StudyPlanProfileInput): Promise<StudyPlanResponse> {
@@ -25,7 +25,7 @@ export function saveStudyPlan(input: StudyPlanProfileInput): Promise<StudyPlanRe
 
 export async function updateStudyPlanTask(
   taskId: string,
-  action: "start" | "skip",
+  action: "start" | "skip" | "complete",
 ): Promise<void> {
   const response = await fetch(`/api/ucat/study-plan/tasks/${taskId}`, {
     method: "PATCH",

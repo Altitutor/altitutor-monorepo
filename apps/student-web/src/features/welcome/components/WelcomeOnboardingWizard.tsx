@@ -189,102 +189,109 @@ export function WelcomeOnboardingWizard({
 
   return (
     <div
-      className="fixed inset-0 z-[1200] overflow-y-auto bg-background"
+      className="fixed inset-0 z-[1200] flex flex-col overflow-hidden bg-background"
       role="dialog"
       aria-modal="true"
       aria-labelledby="welcome-onboarding-title"
     >
-      <motion.div
+      <div
         aria-hidden
-        className="pointer-events-none absolute -left-28 top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-brand-lightBlue/25 blur-3xl dark:bg-brand-lightBlue/15"
-        animate={
-          reduceMotion
-            ? undefined
-            : { x: [0, 40, 0], y: [0, 24, 0], scale: [1, 1.08, 1] }
-        }
-        transition={{ duration: 10, ease: 'easeInOut', repeat: Infinity }}
-      />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-32 -right-20 h-[22rem] w-[22rem] rounded-full bg-primary/10 blur-3xl"
-        animate={
-          reduceMotion
-            ? undefined
-            : { x: [0, -36, 0], y: [0, -20, 0], scale: [1, 1.12, 1] }
-        }
-        transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity }}
-      />
-
-      <main
-        className={cn(
-          'relative z-10 mx-auto flex min-h-dvh w-full flex-col px-4 py-10 sm:px-6 sm:py-14',
-          macroStep === 'info' ? 'max-w-4xl' : 'max-w-3xl',
-        )}
+        className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        <WelcomeStepIndicator activeStep={macroStepNumber} totalSteps={2} />
+        <motion.div
+          className="absolute -left-28 top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-brand-lightBlue/25 blur-3xl dark:bg-brand-lightBlue/15"
+          animate={
+            reduceMotion
+              ? undefined
+              : { x: [0, 40, 0], y: [0, 24, 0], scale: [1, 1.08, 1] }
+          }
+          transition={{ duration: 10, ease: 'easeInOut', repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute -bottom-32 -right-20 h-[22rem] w-[22rem] rounded-full bg-primary/10 blur-3xl"
+          animate={
+            reduceMotion
+              ? undefined
+              : { x: [0, -36, 0], y: [0, -20, 0], scale: [1, 1.12, 1] }
+          }
+          transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity }}
+        />
+      </div>
 
-        <WelcomeAnimatedStepPanel stepKey={macroStep} direction={direction}>
-          <div className="space-y-6">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-                {heading.kicker}
-              </span>
-              <h1
-                id="welcome-onboarding-title"
-                className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl"
-              >
-                {heading.title}
-              </h1>
-              <p className="mt-2 text-muted-foreground">{heading.desc}</p>
+      <div className="relative z-10 flex-1 overflow-y-auto overflow-x-clip">
+        <main
+          className={cn(
+            'mx-auto flex w-full flex-col px-4 pt-10 sm:px-6 sm:pt-14',
+            macroStep === 'info' ? 'max-w-4xl' : 'max-w-3xl',
+          )}
+        >
+          <WelcomeStepIndicator activeStep={macroStepNumber} totalSteps={2} />
+
+          <WelcomeAnimatedStepPanel stepKey={macroStep} direction={direction}>
+            <div className="space-y-6">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+                  {heading.kicker}
+                </span>
+                <h1
+                  id="welcome-onboarding-title"
+                  className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl"
+                >
+                  {heading.title}
+                </h1>
+                <p className="mt-2 text-muted-foreground">{heading.desc}</p>
+              </div>
+
+              {macroStep === 'intro' ? (
+                <WelcomeIntroStep
+                  subjects={subjects}
+                  isContextLoading={isContextLoading}
+                />
+              ) : null}
+
+              {macroStep === 'info' ? (
+                <WelcomeInfoStep cards={infoCards} />
+              ) : null}
             </div>
+          </WelcomeAnimatedStepPanel>
 
-            {macroStep === 'intro' ? (
-              <WelcomeIntroStep
-                subjects={subjects}
-                isContextLoading={isContextLoading}
-              />
-            ) : null}
+          <div className="mt-10 flex shrink-0 items-center justify-between gap-3 pb-10 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={macroStep === 'intro' || isSubmitting}
+              className={cn(studentBtnOutline)}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
 
-            {macroStep === 'info' ? <WelcomeInfoStep cards={infoCards} /> : null}
+            <Button
+              type="button"
+              onClick={handleNext}
+              disabled={
+                isSubmitting || (macroStep === 'intro' && isContextLoading)
+              }
+              className={cn(studentBtnPrimary)}
+            >
+              {isSubmitting && macroStep === 'info' ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : macroStep === 'info' ? (
+                'Finish'
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
           </div>
-        </WelcomeAnimatedStepPanel>
-
-        <div className="mt-10 flex items-center justify-between gap-3 pb-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleBack}
-            disabled={macroStep === 'intro' || isSubmitting}
-            className={cn(studentBtnOutline)}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-
-          <Button
-            type="button"
-            onClick={handleNext}
-            disabled={
-              isSubmitting || (macroStep === 'intro' && isContextLoading)
-            }
-            className={cn(studentBtnPrimary)}
-          >
-            {isSubmitting && macroStep === 'info' ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : macroStep === 'info' ? (
-              'Finish'
-            ) : (
-              <>
-                Continue
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

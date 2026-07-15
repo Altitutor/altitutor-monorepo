@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Button,
   Dialog,
@@ -42,6 +43,7 @@ import {
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
+import { staffApi } from '@/features/staff/api/staff';
 import { cn } from '@/shared/utils';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
@@ -123,10 +125,14 @@ export function CheckInBookSessionModal({
   const [submitting, setSubmitting] = useState(false);
 
   const wasOpenRef = useRef(false);
+  const appliedDefaultAdminStaffRef = useRef(false);
+  const shouldDefaultAdminStaff =
+    sessionType === 'ADMIN_MEETING' && !(initialPrefill?.staff && initialPrefill.staff.length > 0);
 
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false;
+      appliedDefaultAdminStaffRef.current = false;
       setExpanded(false);
       return;
     }
@@ -141,6 +147,38 @@ export function CheckInBookSessionModal({
       setParentPicks(parents);
     }
   }, [isOpen, initialPrefill]);
+
+  const { data: defaultAdminStaff } = useQuery({
+    queryKey: ['admin-meeting-default-staff'],
+    queryFn: async () => {
+      const { staff } = await staffApi.list({
+        role: 'ADMINSTAFF',
+        status: 'ACTIVE',
+        limit: 200,
+        offset: 0,
+      });
+      return [...staff].sort((a, b) => {
+        const aName = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+        const bName = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+        return aName.localeCompare(bName);
+      });
+    },
+    enabled: isOpen && shouldDefaultAdminStaff,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (!isOpen || !shouldDefaultAdminStaff || appliedDefaultAdminStaffRef.current) return;
+    if (!defaultAdminStaff?.length) return;
+    appliedDefaultAdminStaffRef.current = true;
+    setStaffPicks(
+      defaultAdminStaff.map((s) => ({
+        id: s.id,
+        label: nameStaff(s as Tables<'staff'>),
+        role: 'receiver' as const,
+      }))
+    );
+  }, [isOpen, shouldDefaultAdminStaff, defaultAdminStaff]);
 
   const staffIds = staffPicks.map((p) => p.id);
   const studentIds = studentPicks.map((p) => p.id);

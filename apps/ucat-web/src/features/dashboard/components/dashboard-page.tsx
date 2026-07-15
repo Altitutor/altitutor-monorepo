@@ -15,6 +15,7 @@ import { DashboardFreeQuotaCard } from "@/features/dashboard/components/dashboar
 import { DashboardPracticeDiscountCard } from "@/features/dashboard/components/dashboard-practice-discount-card";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { StudyPlanDashboardCard } from "@/features/study-plan/components/study-plan-dashboard-card";
+import { DashboardActivationChecklist } from "@/features/dashboard/components/dashboard-activation-checklist";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
 import {
   UcatClickableCardButton,
@@ -42,6 +43,8 @@ export function DashboardPage() {
       />
 
       {access.hasInPersonAccess ? <TodaySessionCard /> : null}
+
+      <DashboardActivationChecklist />
 
       <StudyPlanDashboardCard />
 
@@ -102,7 +105,10 @@ export function DashboardPage() {
                   showChevron={false}
                   trailing={
                     accessConfig ? (
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[10px]"
+                      >
                         {accessConfig.badgeLabel}
                       </Badge>
                     ) : null

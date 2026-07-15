@@ -12,7 +12,7 @@ export async function PATCH(
     if (error) throw error;
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await request.json() as { action?: unknown };
-    if (body.action !== "start" && body.action !== "skip") {
+    if (body.action !== "start" && body.action !== "skip" && body.action !== "complete") {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
     const { taskId } = await context.params;

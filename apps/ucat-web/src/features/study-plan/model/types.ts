@@ -49,6 +49,25 @@ export type StudyPlanSectionSignal = {
   completedFullSets: number;
 };
 
+export type StudyPlanCategorySignal = {
+  id: string;
+  sectionId: string;
+  name: string;
+  availableQuestionCount: number;
+  correctScore: number;
+  maxScore: number;
+  weaknessScore: number;
+};
+
+export type StudyPlanSkillTrainer = {
+  id: string;
+  key: string;
+  name: string;
+  sectionId: string;
+  categoryIds: string[];
+  estimatedMinutes: number;
+};
+
 export type StudyPlanLearningModule = {
   id: string;
   title: string;
@@ -69,7 +88,12 @@ export type GeneratedStudyPlanTask = {
   estimatedMinutes: number;
   targetUnits: number | null;
   sectionId: string | null;
+  questionStemCategoryId: string | null;
+  questionTagId: string | null;
   learningModuleId: string | null;
+  questionSetId: string | null;
+  mockId: string | null;
+  skillTrainerId: string | null;
   launchPath: string;
   launchConfig: Record<string, unknown>;
 };

@@ -330,6 +330,8 @@ export function QuestionEnginePage({
   fillAvailableHeight = false,
   onRegisterFinishPracticeDialog,
   tutorialMode = false,
+  onTutorialComplete,
+  tutorialFinishLabel = "Finish tutorial",
 }: {
   mode: QuestionEngineMode;
   sourceId?: string;
@@ -372,6 +374,10 @@ export function QuestionEnginePage({
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
   /** Runs the real engine with local tutorial data and no persistence or leave warning. */
   tutorialMode?: boolean;
+  /** Completes a locally orchestrated tutorial segment. The legacy tour handles this when omitted. */
+  onTutorialComplete?: () => void;
+  /** Label for a locally orchestrated tutorial segment's completion action. */
+  tutorialFinishLabel?: string;
 }) {
   const { currentTour, currentStep } = useNextStep();
   const invalidLearningMode =
@@ -1587,7 +1593,13 @@ export function QuestionEnginePage({
             } else if (isPracticeMode && state.phase === "practiceAnswer") {
               const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
               const viewing = state.viewingQuestionIndex ?? 0;
-              if (viewing >= unitEnd && confirmPracticeTransitions) {
+              if (
+                viewing >= unitEnd &&
+                viewing === questions.length - 1 &&
+                !onNeedMoreStems
+              ) {
+                setShowConfirmFinishPracticeDialog(true);
+              } else if (viewing >= unitEnd && confirmPracticeTransitions) {
                 setShowConfirmNextStemDialog(true);
               } else {
                 goNext();
@@ -2573,10 +2585,10 @@ export function QuestionEnginePage({
             ) : isResultsPhase ? null : isReviewScreen && tutorialMode ? (
               <UcatExamActionButton
                 data-tour="question-engine-finish-tutorial"
-                onClick={() => {}}
+                onClick={() => onTutorialComplete?.()}
                 icon={<LogOut className="h-4 w-4" />}
               >
-                <span className="text-[14pt]">Finish tutorial</span>
+                <span className="text-[14pt]">{tutorialFinishLabel}</span>
               </UcatExamActionButton>
             ) : isReviewScreen ? (
               <UcatExamActionButton
@@ -2633,10 +2645,22 @@ export function QuestionEnginePage({
                     </span>
                   </UcatExamActionButton>
                 ) : null}
-                {!(
-                    state.viewingQuestionIndex === questions.length - 1 &&
-                    !onNeedMoreStems
-                  ) ? (
+                {(state.viewingQuestionIndex ?? 0) === questions.length - 1 &&
+                !onNeedMoreStems ? (
+                  <UcatExamActionButton
+                    data-tour="question-engine-finish-practice"
+                    onClick={() =>
+                      void runWithLag(() => {
+                        setShowConfirmFinishPracticeDialog(true);
+                      })
+                    }
+                    variant="highlight"
+                    icon={<ArrowRight className="h-4 w-4" />}
+                    iconRight
+                  >
+                    <span className="text-[14pt]">Finish</span>
+                  </UcatExamActionButton>
+                ) : (
                   <UcatExamActionButton
                     onClick={() =>
                       void runWithLag(() => {
@@ -2667,7 +2691,7 @@ export function QuestionEnginePage({
                       )}
                     </span>
                   </UcatExamActionButton>
-                ) : null}
+                )}
               </>
             ) : isResultsPhase ? (
               state.viewingQuestionIndex != null ? (
@@ -2883,6 +2907,11 @@ export function QuestionEnginePage({
                     <span className="text-[14pt]">
                       <span className="underline">S</span>ubmit
                     </span>
+                  ) : practice &&
+                    reviewTiming === "atEnd" &&
+                    isLastQuestion &&
+                    !onNeedMoreStems ? (
+                    <span className="text-[14pt]">Finish</span>
                   ) : isLastQuestion && !isPracticeMode && !onNeedMoreStems ? (
                     <span className="text-[14pt]">Submit</span>
                   ) : (

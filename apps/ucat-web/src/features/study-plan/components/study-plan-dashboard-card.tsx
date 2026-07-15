@@ -1,8 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@altitutor/ui";
-import { AlertTriangle, ArrowRight, CalendarCheck2, Sparkles } from "lucide-react";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+} from "@altitutor/ui";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarCheck2,
+  Sparkles,
+} from "lucide-react";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
@@ -14,8 +26,16 @@ export function StudyPlanDashboardCard() {
     return (
       <Card className={UCAT_CARD_CHROME}>
         <CardContent className="flex items-center justify-between gap-4 pt-6">
-          <p className="text-sm text-muted-foreground">Your Study plan could not be loaded.</p>
-          <Button variant="outline" size="sm" onClick={() => void query.refetch()}>Try again</Button>
+          <p className="text-sm text-muted-foreground">
+            Your Study plan could not be loaded.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void query.refetch()}
+          >
+            Try again
+          </Button>
         </CardContent>
       </Card>
     );
@@ -30,11 +50,18 @@ export function StudyPlanDashboardCard() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-semibold">Create your personalised Study plan</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Tell us your target and availability. We will tell you what to do next.</p>
+              <h2 className="font-semibold">
+                Create your personalised Study plan
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tell us your target and availability. We will tell you what to
+                do next.
+              </p>
             </div>
           </div>
-          <Button asChild><Link href="/study-plan">Set up Study plan</Link></Button>
+          <Button asChild>
+            <Link href="/getting-started">Set up Study plan</Link>
+          </Button>
         </CardContent>
       </Card>
     );
@@ -45,7 +72,8 @@ export function StudyPlanDashboardCard() {
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <CalendarCheck2 className="h-5 w-5 text-primary" /> Today’s Study plan
+            <CalendarCheck2 className="h-5 w-5 text-primary" /> Today’s Study
+            plan
           </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             {plan.completion.scheduledThroughToday
@@ -54,7 +82,9 @@ export function StudyPlanDashboardCard() {
           </p>
         </div>
         <Button asChild variant="ghost" size="sm">
-          <Link href="/study-plan">Full plan <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+          <Link href="/study-plan">
+            Full plan <ArrowRight className="ml-1.5 h-4 w-4" />
+          </Link>
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,7 +99,9 @@ export function StudyPlanDashboardCard() {
         ) : (
           <div className="rounded-xl border border-dashed p-6 text-center">
             <p className="font-medium">No Study plan tasks today</p>
-            <p className="mt-1 text-sm text-muted-foreground">Rest today. Your next planned study day is already scheduled.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Rest today. Your next planned study day is already scheduled.
+            </p>
           </div>
         )}
       </CardContent>

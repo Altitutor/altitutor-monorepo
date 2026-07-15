@@ -10,6 +10,15 @@ export const learningKeys = {
   lesson: (id: string) => [...learningKeys.all, "lesson", id] as const,
 };
 
+function invalidateLearningAndStudyPlan(
+  queryClient: ReturnType<typeof useQueryClient>,
+  lessonId: string,
+) {
+  void queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+  void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+  void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+}
+
 export function useLearningModules() {
   return useQuery({
     queryKey: learningKeys.modules(),
@@ -39,8 +48,7 @@ export function useUpdateBlockProgress(lessonId: string) {
       payload: BlockProgressPayload;
     }) => learningApi.updateBlockProgress(blockId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
-      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+      invalidateLearningAndStudyPlan(queryClient, lessonId);
     },
   });
 }
@@ -50,8 +58,7 @@ export function useMarkBlockComplete(lessonId: string) {
   return useMutation({
     mutationFn: (blockId: string) => learningApi.markBlockComplete(blockId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
-      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+      invalidateLearningAndStudyPlan(queryClient, lessonId);
     },
   });
 }
@@ -61,8 +68,7 @@ export function useMarkLessonComplete(lessonId: string) {
   return useMutation({
     mutationFn: () => learningApi.markLessonComplete(lessonId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
-      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+      invalidateLearningAndStudyPlan(queryClient, lessonId);
     },
   });
 }
@@ -72,8 +78,7 @@ export function useResetLessonProgress(lessonId: string) {
   return useMutation({
     mutationFn: () => learningApi.resetLessonProgress(lessonId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
-      queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+      invalidateLearningAndStudyPlan(queryClient, lessonId);
     },
   });
 }

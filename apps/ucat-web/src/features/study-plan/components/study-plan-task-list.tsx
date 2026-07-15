@@ -12,6 +12,7 @@ import {
   Gauge,
   Loader2,
   NotebookText,
+  RotateCcw,
   SkipForward,
   Sparkles,
 } from "lucide-react";
@@ -32,6 +33,7 @@ function TaskIcon({ task }: { task: StudyPlanTask }) {
   if (task.taskType === "mock") return <NotebookText className={className} />;
   if (task.taskType === "section_benchmark") return <Gauge className={className} />;
   if (task.taskType === "skill_trainer") return <Sparkles className={className} />;
+  if (task.taskType === "review") return <RotateCcw className={className} />;
   return <BrainCircuit className={className} />;
 }
 
@@ -75,6 +77,7 @@ function TaskRow({ task, compact }: { task: StudyPlanTask; compact: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const isDone = task.status === "completed";
   const isSkipped = task.status === "skipped";
+  const awaitingReviewAttempt = task.taskType === "review" && task.launchConfig.awaitingAttempt !== false;
 
   async function startTask() {
     setPendingAction("start");
@@ -90,7 +93,10 @@ function TaskRow({ task, compact }: { task: StudyPlanTask; compact: boolean }) {
       }
       await updateStudyPlanTask(task.id, "start");
       await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
-      router.push(task.launchPath);
+      const launchPath = task.taskType === "review"
+        ? `${task.launchPath}${task.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(task.id)}`
+        : task.launchPath;
+      router.push(launchPath);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not start this task.");
       setPendingAction(null);
@@ -146,9 +152,13 @@ function TaskRow({ task, compact }: { task: StudyPlanTask; compact: boolean }) {
         </div>
         {!isDone && !isSkipped ? (
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            <Button size="sm" onClick={() => void startTask()} disabled={pendingAction != null}>
+            <Button size="sm" onClick={() => void startTask()} disabled={pendingAction != null || awaitingReviewAttempt}>
               {pendingAction === "start" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-              {task.status === "partial" || task.status === "in_progress" ? "Continue" : "Start"}
+              {awaitingReviewAttempt
+                ? "Finish attempt first"
+                : task.status === "partial" || task.status === "in_progress"
+                  ? "Continue"
+                  : task.taskType === "review" ? "Review now" : "Start"}
             </Button>
             <Button
               size="sm"

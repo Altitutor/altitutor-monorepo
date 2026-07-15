@@ -50,9 +50,9 @@ export function resolveSignupState(
   } else if (
     profileSetupComplete &&
     !planChoiceCompleted &&
-    step < SIGNUP_STEP.STUDY_PLAN
+    step < SIGNUP_STEP.SAMPLER
   ) {
-    step = SIGNUP_STEP.STUDY_PLAN;
+    step = SIGNUP_STEP.SAMPLER;
   } else if (
     student?.first_name?.trim() &&
     student?.last_name?.trim() &&

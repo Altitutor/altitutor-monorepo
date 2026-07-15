@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import type { FormAnswerPayload, FormBlock, FormQuestion } from '@altitutor/shared';
+import type { FormAnswerPayload, FormBlock, FormChoiceOption, FormQuestion } from '@altitutor/shared';
 import { isQuestionBlock } from '@altitutor/shared';
 import { Button } from '../button';
 import { Checkbox } from '../checkbox';
@@ -11,6 +11,8 @@ import { RadioGroup, RadioGroupItem } from '../radio-group';
 import { Slider } from '../slider';
 import { Textarea } from '../textarea';
 import { RichTextEditor } from '../rich-text-editor';
+import { SearchableSelect } from '../searchable-select';
+import { SearchableSelectInline } from '../searchable-select-inline';
 import { cn } from '../../lib/cn';
 import type { JSONContent } from '@tiptap/core';
 
@@ -22,6 +24,9 @@ export interface FormAnswererProps {
   disabled?: boolean;
   onSubmit: (answers: FormAnswerPayload) => Promise<void> | void;
   className?: string;
+  formId?: string;
+  hideSubmitButton?: boolean;
+  initialAnswers?: FormAnswerPayload;
 }
 
 function emptyValueForQuestion(question: FormQuestion) {
@@ -30,14 +35,14 @@ function emptyValueForQuestion(question: FormQuestion) {
   return '';
 }
 
-function getInitialAnswers(blocks: FormBlock[]): FormAnswerPayload {
+function getInitialAnswers(blocks: FormBlock[], initialAnswers?: FormAnswerPayload): FormAnswerPayload {
   const answers: FormAnswerPayload = {};
   for (const block of blocks) {
     if (isQuestionBlock(block)) {
       answers[block.id] = emptyValueForQuestion(block);
     }
   }
-  return answers;
+  return { ...answers, ...initialAnswers };
 }
 
 function QuestionLabel({ block }: { block: FormQuestion }) {
@@ -62,17 +67,20 @@ export function FormAnswerer({
   disabled,
   onSubmit,
   className,
+  formId,
+  hideSubmitButton = false,
+  initialAnswers,
 }: FormAnswererProps) {
-  const [answers, setAnswers] = React.useState<FormAnswerPayload>(() => getInitialAnswers(blocks));
+  const [answers, setAnswers] = React.useState<FormAnswerPayload>(() => getInitialAnswers(blocks, initialAnswers));
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    setAnswers(getInitialAnswers(blocks));
+    setAnswers(getInitialAnswers(blocks, initialAnswers));
     setSubmitted(false);
     setError(null);
-  }, [blocks]);
+  }, [blocks, initialAnswers]);
 
   const setAnswer = React.useCallback((id: string, value: FormAnswerPayload[string]) => {
     setAnswers((current) => ({ ...current, [id]: value }));
@@ -104,7 +112,7 @@ export function FormAnswerer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn('mx-auto max-w-2xl px-4 py-8', className)}>
+    <form id={formId} onSubmit={handleSubmit} className={cn('mx-auto max-w-2xl px-4 py-8', className)}>
       <div className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
       </div>
@@ -148,6 +156,27 @@ export function FormAnswerer({
           }
 
           if (block.type === 'single_choice') {
+            if (block.optionSource?.kind === 'model') {
+              const selectedValue = String(answers[block.id] ?? '');
+              const selectedOption = block.options.find((option) => option.value === selectedValue) ?? null;
+              return (
+                <section key={block.id} className="space-y-3">
+                  <QuestionLabel block={block} />
+                  <SearchableSelect
+                    items={block.options}
+                    value={selectedOption}
+                    onValueChange={(option) => setAnswer(block.id, option?.value ?? '')}
+                    getItemId={(option) => option.value}
+                    getItemLabel={(option) => option.label}
+                    placeholder="Select an option"
+                    searchPlaceholder="Search options..."
+                    emptyMessage="No available options."
+                    allowClear={!block.required}
+                    contentWidth="min(420px, calc(100vw - 2rem))"
+                  />
+                </section>
+              );
+            }
             return (
               <section key={block.id} className="space-y-3">
                 <QuestionLabel block={block} />
@@ -169,6 +198,27 @@ export function FormAnswerer({
 
           if (block.type === 'multi_select') {
             const selected = Array.isArray(answers[block.id]) ? answers[block.id] as string[] : [];
+            if (block.optionSource?.kind === 'model') {
+              const selectedOptions = block.options.filter((option) => selected.includes(option.value));
+              return (
+                <section key={block.id} className="space-y-3">
+                  <QuestionLabel block={block} />
+                  <div className="overflow-hidden rounded-md border">
+                    <SearchableSelectInline<FormChoiceOption>
+                      items={block.options}
+                      value={selectedOptions}
+                      onValueChange={(options) => setAnswer(block.id, options.map((option) => option.value))}
+                      getItemId={(option) => option.value}
+                      getItemLabel={(option) => option.label}
+                      searchPlaceholder="Search options..."
+                      emptyMessage="No available options."
+                      multiSelect
+                      className="max-h-80"
+                    />
+                  </div>
+                </section>
+              );
+            }
             return (
               <section key={block.id} className="space-y-3">
                 <QuestionLabel block={block} />
@@ -261,11 +311,13 @@ export function FormAnswerer({
         </div>
       ) : null}
 
-      <div className="mt-8">
-        <Button type="submit" disabled={disabled || submitting}>
-          {submitting ? 'Submitting...' : submitLabel}
-        </Button>
-      </div>
+      {!hideSubmitButton ? (
+        <div className="mt-8">
+          <Button type="submit" disabled={disabled || submitting}>
+            {submitting ? 'Submitting...' : submitLabel}
+          </Button>
+        </div>
+      ) : null}
     </form>
   );
 }

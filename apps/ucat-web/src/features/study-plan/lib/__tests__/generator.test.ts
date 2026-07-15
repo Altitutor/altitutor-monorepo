@@ -1,7 +1,9 @@
 import { generateStudyPlan } from "@/features/study-plan/lib/generator";
 import type {
+  StudyPlanCategorySignal,
   StudyPlanProfileInput,
   StudyPlanSection,
+  StudyPlanSkillTrainer,
 } from "@/features/study-plan/model/types";
 
 const sections: StudyPlanSection[] = [
@@ -31,6 +33,38 @@ const profile: StudyPlanProfileInput = {
   preferredMockWeekday: 6,
 };
 
+const categories: StudyPlanCategorySignal[] = sections.flatMap((section, index) => [
+  {
+    id: `${section.id}-weak`,
+    sectionId: section.id,
+    name: `${section.shortName} weak category`,
+    availableQuestionCount: 100,
+    correctScore: 2,
+    maxScore: 10,
+    weaknessScore: 0.8 - index * 0.05,
+  },
+  {
+    id: `${section.id}-strong`,
+    sectionId: section.id,
+    name: `${section.shortName} strong category`,
+    availableQuestionCount: 100,
+    correctScore: 8,
+    maxScore: 10,
+    weaknessScore: 0.2,
+  },
+]);
+
+const skillTrainers: StudyPlanSkillTrainer[] = sections.slice(0, 3).map((section) => ({
+  id: `${section.id}-trainer`,
+  key: `${section.key}_warmup`,
+  name: `${section.shortName} warm-up`,
+  sectionId: section.id,
+  categoryIds: [`${section.id}-weak`],
+  estimatedMinutes: 6,
+}));
+
+const contentInputs = { categories, skillTrainers };
+
 describe("generateStudyPlan", () => {
   it("starts with short feedback loops and schedules section benchmarks before mocks", () => {
     const result = generateStudyPlan({
@@ -53,6 +87,7 @@ describe("generateStudyPlan", () => {
         completionPercent: 0,
         relevanceScore: 1,
       }],
+      ...contentInputs,
       completedMockCount: 0,
     });
 
@@ -62,14 +97,16 @@ describe("generateStudyPlan", () => {
       timeMode: "off",
       reviewTiming: "afterEachStem",
     });
-    const firstMockIndex = result.tasks.findIndex((task) => task.taskType === "mock");
     const benchmarkIndices = sections.slice(0, 3).map((section) =>
       result.tasks.findIndex(
         (task) => task.taskType === "section_benchmark" && task.sectionId === section.id,
       ),
     );
     expect(benchmarkIndices.every((index) => index >= 0)).toBe(true);
-    expect(firstMockIndex).toBeGreaterThan(Math.max(...benchmarkIndices));
+    expect(result.tasks.some((task) => task.taskType === "mock")).toBe(false);
+    expect(firstPractice?.questionStemCategoryId).toBe("vr-weak");
+    expect(result.tasks.some((task) => task.taskType === "skill_trainer")).toBe(true);
+    expect(result.tasks.some((task) => task.taskType === "review")).toBe(true);
   });
 
   it("does not block a constrained student and reports capacity risk", () => {
@@ -89,6 +126,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: 0,
       })),
       learningModules: [],
+      ...contentInputs,
       completedMockCount: 0,
     });
 
@@ -110,9 +148,42 @@ describe("generateStudyPlan", () => {
         completedFullSets: 1,
       })),
       learningModules: [],
+      ...contentInputs,
       completedMockCount: 1,
     });
 
     expect(Object.values(result.sectionTargets).reduce((sum, score) => sum + score, 0)).toBe(2100);
+    expect(result.tasks.some((task) => task.taskType === "mock")).toBe(true);
+  });
+
+  it("carries a review into the next available session when the attempt fills the day", () => {
+    const result = generateStudyPlan({
+      today: "2026-07-04",
+      planningDate: "2026-07-11",
+      profile: {
+        ...profile,
+        availableDays: [{ weekday: 6, maxMinutes: 200 }],
+        preferredMockWeekday: 6,
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+        evidenceCount: 3,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    const mock = result.tasks.find((task) => task.taskType === "mock");
+    const review = result.tasks.find((task) => task.taskType === "review");
+    expect(mock).toBeDefined();
+    expect(review?.scheduledDate).toBe("2026-07-11");
+    expect(review?.launchConfig).toMatchObject({
+      sourceTaskScheduledDate: mock?.scheduledDate,
+      sourceTaskSortOrder: mock?.sortOrder,
+    });
   });
 });

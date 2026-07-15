@@ -16,7 +16,10 @@ import {
 } from "@/features/onboarding";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
-import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
+import {
+  SidebarOverrideProvider,
+  useSidebarOverride,
+} from "@/features/layout/context/sidebar-override-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
@@ -67,6 +70,7 @@ function AppShellInner({ children }: AppShellProps) {
   }, [isImmersiveRoute]);
 
   const isSubscribeRoute = pathname.startsWith("/subscribe");
+  const isSignupSamplerRoute = pathname === "/signup/complete/sampler";
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -111,6 +115,14 @@ function AppShellInner({ children }: AppShellProps) {
 
   if (isSubscribeRoute) {
     return <>{children}</>;
+  }
+
+  if (isSignupSamplerRoute) {
+    return (
+      <OnboardingProvider>
+        <UcatLagProvider>{children}</UcatLagProvider>
+      </OnboardingProvider>
+    );
   }
 
   const sidebarExpanded = isMobile ? mobileOpen : !effectiveCollapsed;

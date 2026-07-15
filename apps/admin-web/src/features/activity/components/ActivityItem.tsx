@@ -14,9 +14,10 @@ interface ActivityItemProps {
   showConnector?: boolean;
   className?: string;
   isNested?: boolean; // For nested events when expanded
+  onOpenFormResponse?: (responseId: string) => void;
 }
 
-export function ActivityItem({ activity, showConnector = true, className, isNested: _isNested }: ActivityItemProps) {
+export function ActivityItem({ activity, showConnector = true, className, isNested: _isNested, onOpenFormResponse }: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if this event can be expanded (has originalEvents)
@@ -76,6 +77,17 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
               <div className="text-xs text-muted-foreground mt-1">
                 {activity.timestamp}
               </div>
+              {activity.entityType === 'form_responses' && onOpenFormResponse ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="mt-1 h-auto px-0"
+                  onClick={() => onOpenFormResponse(activity.entityId ?? '')}
+                >
+                  Open / edit response
+                </Button>
+              ) : null}
             </div>
             
             {/* Expand/Collapse button */}
@@ -107,6 +119,7 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
               activity={originalEvent}
               showConnector={index < activity.originalEvents!.length - 1}
               isNested={true}
+              onOpenFormResponse={onOpenFormResponse}
             />
           ))}
         </div>
@@ -114,4 +127,3 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
     </>
   );
 }
-

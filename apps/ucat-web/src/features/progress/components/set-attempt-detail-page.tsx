@@ -12,6 +12,8 @@ import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-quest
 import { SetAnswersCard } from "./set-answers-card";
 import { AttemptReviewSummaryGrid } from "./attempt-review-summary-grid";
 import { computeCategoryBreakdown } from "../lib/compute-category-breakdown";
+import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
+import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
 
 type SetAttemptDetailPageProps = {
   attemptId: string;
@@ -26,6 +28,8 @@ export function SetAttemptDetailPage({
 }: SetAttemptDetailPageProps) {
   const pathname = usePathname();
   const { data, isLoading, error } = useSetAttemptDetail(attemptId);
+  useMarkFirstResultReviewed(Boolean(data));
+  useCompleteStudyPlanReview(Boolean(data));
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =

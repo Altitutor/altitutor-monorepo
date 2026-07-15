@@ -11,6 +11,7 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "test": "jest",
+    "test:e2e": "playwright test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit",
@@ -42,6 +43,7 @@
     "stripe": "^20.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@swc/core": "^1.11.21",
     "@swc/jest": "^0.2.37",
     "@testing-library/jest-dom": "^6.6.3",

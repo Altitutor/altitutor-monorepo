@@ -15,6 +15,7 @@ interface ActivityFeedProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   onLoadMore?: () => void;
+  onOpenFormResponse?: (responseId: string) => void;
 }
 
 export function ActivityFeed({
@@ -25,6 +26,7 @@ export function ActivityFeed({
   hasNextPage = false,
   isFetchingNextPage = false,
   onLoadMore,
+  onOpenFormResponse,
 }: ActivityFeedProps) {
   const activities = useMemo(() => {
     if (!data) return [];
@@ -71,6 +73,7 @@ export function ActivityFeed({
           key={activity.id}
           activity={activity}
           showConnector={index < activities.length - 1}
+          onOpenFormResponse={onOpenFormResponse}
         />
       ))}
 

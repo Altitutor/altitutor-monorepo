@@ -84,6 +84,10 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
                 isDismissed={dismissedIds.has(notification.id)}
                 onDismiss={() => handleDismiss(notification.id)}
                 onUndismiss={() => handleUndismiss(notification.id)}
+                onAction={() => {
+                  handleDismiss(notification.id);
+                  setIsOpen(false);
+                }}
               />
             ))
           )}
