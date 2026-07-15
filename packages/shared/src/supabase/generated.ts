@@ -24976,6 +24976,7 @@ export type Database = {
         Returns: string
       }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
+      notify_overdue_invoices: { Args: never; Returns: number }
       precreate_admin_shift_sessions: {
         Args: {
           end_date: string
