@@ -5,10 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarCheck,
   Check,
   LockKeyhole,
+  Mail,
   Sparkles,
 } from "lucide-react";
+import { addDays, addMonths, addWeeks, subDays } from "date-fns";
 import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
@@ -65,6 +68,22 @@ function intervalNoun(interval: UcatBillingInterval) {
   return interval === "week" ? "week" : interval === "month" ? "month" : "year";
 }
 
+function addBillingInterval(date: Date, interval: UcatBillingInterval) {
+  return interval === "week"
+    ? addWeeks(date, 1)
+    : interval === "month"
+      ? addMonths(date, 1)
+      : addMonths(date, 12);
+}
+
+function formatTimelineDate(date: Date) {
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function CheckoutFieldsSkeleton() {
   return (
     <div
@@ -112,6 +131,7 @@ export function CheckoutPage() {
     null,
   );
   const sessionStartedRef = useRef(false);
+  const checkoutStartedAtRef = useRef(new Date());
 
   useEffect(() => {
     if (!tier || !interval) {
@@ -159,6 +179,18 @@ export function CheckoutPage() {
       : null;
   const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
   const hasStandardTrial = (standardTrialDays ?? 0) > 0;
+  const freePeriodEndsAt = referralGiftApplied
+    ? addBillingInterval(checkoutStartedAtRef.current, interval)
+    : hasStandardTrial
+      ? addDays(checkoutStartedAtRef.current, standardTrialDays ?? 0)
+      : null;
+  const firstChargeAt =
+    freePeriodEndsAt ?? addBillingInterval(checkoutStartedAtRef.current, interval);
+  const standardTrialReminderAt = hasStandardTrial
+    ? (standardTrialDays ?? 0) <= 3
+      ? checkoutStartedAtRef.current
+      : subDays(firstChargeAt, 3)
+    : null;
 
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
@@ -353,43 +385,89 @@ export function CheckoutPage() {
               </div>
             ) : null}
 
-            {referralGiftApplied ? (
-              <div className="mt-6 rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                    <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p className="font-semibold">
-                      Your first {intervalNoun(interval)} is free
+            {pricing ? (
+              <div className="mt-6">
+                <p className="text-lg font-semibold">
+                  {referralGiftApplied
+                    ? `Your free ${intervalNoun(interval)}`
+                    : hasStandardTrial
+                      ? `Your ${standardTrialDays}-day free trial`
+                      : "What happens next"}
+                </p>
+                <ol className="mt-4 space-y-3 text-sm">
+                  <li className="rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                          <Sparkles className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <p className="font-semibold">Full access unlocks</p>
+                      </div>
+                      <span className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-primary">
+                        Today
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                      {referralGiftApplied || hasStandardTrial
+                        ? "You pay nothing today and unlock the entire UCAT system. Start earning practice discounts towards your first bill straight away."
+                        : `You’re charged ${formatMoneyFromMinorUnits(pricing.standardPeriodCents, config.currency)} today and unlock the entire UCAT system. Start earning practice discounts towards your next bill straight away.`}
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      Your UCAT Unlimited subscription starts now. Unless you
-                      cancel, normal {intervalNoun(interval)}ly billing begins
-                      after the gifted period.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+                  </li>
 
-            {hasStandardTrial ? (
-              <div className="mt-6 rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                    <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p className="font-semibold">
-                      {standardTrialDays} days of UCAT Unlimited free
+                  {standardTrialReminderAt ? (
+                    <li className="rounded-2xl border border-border bg-muted/20 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                            <Mail className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <p className="font-semibold">Reminder email</p>
+                        </div>
+                        <time
+                          dateTime={standardTrialReminderAt.toISOString()}
+                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {formatTimelineDate(standardTrialReminderAt)}
+                        </time>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        We’ll email you before the trial ends with your current
+                        estimated first bill and the practice discount you’ve
+                        earned so far.
+                      </p>
+                    </li>
+                  ) : null}
+
+                  <li className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                          <CalendarCheck
+                            className="h-4 w-4"
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <p className="font-semibold">
+                          {freePeriodEndsAt ? "First bill" : "Next bill"}
+                        </p>
+                      </div>
+                      <time
+                        dateTime={firstChargeAt.toISOString()}
+                        className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                      >
+                        {formatTimelineDate(firstChargeAt)}
+                      </time>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                      You’ll be charged{" "}
+                      {formatMoneyFromMinorUnits(
+                        pricing.standardPeriodCents,
+                        config.currency,
+                      )}{" "}
+                      minus any practice discount you earn before this bill.
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      Your card will not be charged today. Unless you cancel,
-                      your selected UCAT {tier === "pro" ? "Pro" : "Unlimited"}{" "}
-                      plan begins after the trial at the price shown above.
-                    </p>
-                  </div>
-                </div>
+                  </li>
+                </ol>
               </div>
             ) : null}
 

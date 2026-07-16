@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
@@ -37,11 +37,19 @@ export function Navbar() {
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [formResponseSubmitted, setFormResponseSubmitted] = useState(false);
+
+  useEffect(() => {
+    setFormResponseSubmitted(false);
+    const showNavbar = () => setFormResponseSubmitted(true);
+    window.addEventListener('altitutor:form-submitted', showNavbar);
+    return () => window.removeEventListener('altitutor:form-submitted', showNavbar);
+  }, [pathname]);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
 
-  if (shouldHideNavbar(pathname)) {
+  if (shouldHideNavbar(pathname) && !formResponseSubmitted) {
     return null;
   }
 

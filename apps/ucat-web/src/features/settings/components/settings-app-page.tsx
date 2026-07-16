@@ -21,6 +21,7 @@ import { formatTimeZoneWithGmtOffset } from "@/lib/supported-timezones";
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { useLeaveGuard } from "@/shared/hooks/use-leave-guard";
 import { motion } from "motion/react";
 
 const THEME_OPTIONS = [
@@ -37,6 +38,9 @@ type TourReplayOption = (typeof UCAT_TOUR_REPLAY_OPTIONS)[number];
 const SELECT_TRIGGER =
   "h-10 w-full justify-between font-normal sm:w-auto sm:min-w-[14rem] sm:max-w-md";
 const SELECT_CONTENT_WIDTH = "min(100vw - 2rem, 22rem)";
+
+const SETTINGS_LEAVE_MESSAGE =
+  "You have unsaved settings. Leave this page without saving?";
 
 export function SettingsAppPage() {
   const queryClient = useQueryClient();
@@ -64,6 +68,7 @@ export function SettingsAppPage() {
   }, [mounted, themeChoice]);
 
   const isDirty = savedTimezone !== null && timezone !== savedTimezone;
+  useLeaveGuard(isDirty, SETTINGS_LEAVE_MESSAGE);
 
   useEffect(() => {
     async function load() {

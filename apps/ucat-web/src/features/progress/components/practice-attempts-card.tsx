@@ -16,7 +16,6 @@ import {
 import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
-import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
@@ -57,7 +56,6 @@ export function PracticeAttemptsCard({
 }: PracticeAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("percentage");
-  const [graphType, setGraphType] = useState<"line" | "bar">("line");
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -69,7 +67,8 @@ export function PracticeAttemptsCard({
     dateRange,
     sectionNumber,
   });
-  const filteredAttempts = (attemptsQuery.data?.attempts ?? []) as PracticeAttemptRow[];
+  const filteredAttempts = (attemptsQuery.data?.attempts ??
+    []) as PracticeAttemptRow[];
   const metricOptions = PRACTICE_GRAPH_DATA_TYPES;
 
   const handleDateRangeChange = (nextRange: GraphDateRange) => {
@@ -83,11 +82,7 @@ export function PracticeAttemptsCard({
       graphDataType,
       dateRange,
     );
-  }, [
-    graphDataType,
-    dateRange,
-    seriesQuery.data?.points,
-  ]);
+  }, [graphDataType, dateRange, seriesQuery.data?.points]);
 
   const attemptsTableTitleId = useId();
   const tableMetric = resolveAttemptTableMetric(graphDataType, "practice");
@@ -98,12 +93,11 @@ export function PracticeAttemptsCard({
       <Card className={UCAT_CARD_CHROME}>
         <CardHeader className={UCAT_CARD_HEADER_ROW}>
           <CardTitle>Practice sessions</CardTitle>
-          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </CardHeader>
         <CardContent className={UCAT_CARD_CONTENT_AFTER_HEADER}>
           <ProgressGraph
             data={graphData}
-            type={graphType}
+            type="bar"
             dataType={graphDataType}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeChange}

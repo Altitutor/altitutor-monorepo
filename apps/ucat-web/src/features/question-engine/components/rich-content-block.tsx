@@ -31,7 +31,27 @@ type RichContentBlockProps = {
   preloadedContent?: Record<string, unknown> | null;
   className?: string;
   paragraphSpacing?: boolean;
+  /** Sampler-only coaching emphasis for an exact plain-text phrase. */
+  highlightText?: string;
 };
+
+function renderHighlightedText(text: string, highlightText?: string) {
+  if (!highlightText) return text;
+  const index = text.toLocaleLowerCase().indexOf(highlightText.toLocaleLowerCase());
+  if (index < 0) return text;
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark
+        data-sampler-passage-highlight
+        className="rounded-sm bg-[#fff59d] px-0.5 text-inherit shadow-[0_0_0_2px_rgba(255,245,157,0.35)] transition-colors"
+      >
+        {text.slice(index, index + highlightText.length)}
+      </mark>
+      {text.slice(index + highlightText.length)}
+    </>
+  );
+}
 
 /**
  * Renders rich content (images, formatting) when JSON is available.
@@ -43,6 +63,7 @@ export function RichContentBlock({
   preloadedContent,
   className,
   paragraphSpacing = false,
+  highlightText,
 }: RichContentBlockProps) {
   const normalizedDoc = useMemo(() => {
     if (!json || typeof json !== "object") return null;
@@ -74,7 +95,11 @@ export function RichContentBlock({
   const renderPlainText = () => {
     const text = plainText || "\u00A0";
     if (!paragraphSpacing) {
-      return <p className={cn("whitespace-pre-line", className)}>{text}</p>;
+      return (
+        <p className={cn("whitespace-pre-line", className)}>
+          {renderHighlightedText(text, highlightText)}
+        </p>
+      );
     }
 
     const paragraphs = text.split(/\r?\n/u);
@@ -82,7 +107,7 @@ export function RichContentBlock({
       <div className={cn("space-y-2", className)}>
         {paragraphs.map((paragraph, index) => (
           <p key={`${index}-${paragraph.slice(0, 12)}`}>
-            {paragraph || "\u00A0"}
+            {renderHighlightedText(paragraph || "\u00A0", highlightText)}
           </p>
         ))}
       </div>

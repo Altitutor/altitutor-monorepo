@@ -42,6 +42,13 @@ export type StudyPlanSection = {
   timePerQuestionSeconds: number;
 };
 
+export type StudyPlanExtraStudyMinutes = 10 | 20 | 30 | 45;
+
+export type StudyPlanExtraStudyInput = {
+  minutes: StudyPlanExtraStudyMinutes;
+  sectionKey: StudyPlanSection["key"] | null;
+};
+
 export type StudyPlanSectionSignal = {
   sectionId: string;
   currentEstimate: number | null;

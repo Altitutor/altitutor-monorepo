@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest) {
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const { contentType, contentIds, status, previousStatus } = parsed.data
-  const { error } = previousStatus
+  const { data: resultData, error } = previousStatus
     ? await client.rpc('tutor_ucat_restore_content_status_bulk', {
         p_content_type: contentType,
         p_content_ids: contentIds,
@@ -70,5 +70,31 @@ export async function PATCH(request: NextRequest) {
     )
   }
 
-  return NextResponse.json({ ok: true })
+  if (previousStatus) {
+    return NextResponse.json({ ok: true, movedIds: contentIds, failures: [] })
+  }
+
+  const result = (resultData ?? {}) as {
+    movedIds?: string[]
+    failures?: Array<{ contentId?: string; rawError?: string }>
+  }
+  const movedIds = Array.isArray(result.movedIds) ? result.movedIds : []
+  const rawFailures = Array.isArray(result.failures) ? result.failures : []
+  const failures = await Promise.all(rawFailures.map(async (failure) => {
+    const contentId = failure.contentId ?? contentIds[0]
+    const rawError = failure.rawError ?? 'lifecycle_change_failed'
+    const { data } = await client.rpc('tutor_ucat_content_status_blockers', {
+      p_content_type: contentType,
+      p_content_id: contentId,
+      p_status: status,
+    })
+    const blockers = Array.isArray(data) ? (data as UcatLifecycleBlocker[]) : []
+    return {
+      contentId,
+      error: friendlyMessage(rawError, blockers),
+      blockers,
+    }
+  }))
+
+  return NextResponse.json({ ok: true, movedIds, failures })
 }

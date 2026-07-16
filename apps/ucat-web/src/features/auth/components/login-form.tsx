@@ -93,21 +93,15 @@ export function LoginForm({
           className="h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
         />
       </div>
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <Label
-            htmlFor="password"
-            className="text-sm font-medium text-foreground/90"
-          >
-            Password
-          </Label>
-          <Link
-            href="/forgot-password"
-            className="text-sm font-medium text-primary underline-offset-2 transition-colors hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
+      {/* Grid places Forgot password beside the label visually while DOM
+          order keeps tab as: password → sign in → forgot password. */}
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5">
+        <Label
+          htmlFor="password"
+          className="col-start-1 row-start-1 text-sm font-medium text-foreground/90"
+        >
+          Password
+        </Label>
         <Input
           id="password"
           type="password"
@@ -116,28 +110,36 @@ export function LoginForm({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isSubmitting}
-          className="h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
+          className="col-span-2 row-start-2 h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
         />
-      </div>
-      {error ? (
-        <p
-          className="auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          role="alert"
+        <div className="col-span-2 row-start-3 mt-3.5 space-y-5">
+          {error ? (
+            <p
+              className="auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className={cn(
+              "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
+              typo.headingSans,
+            )}
+            size="lg"
+          >
+            {isSubmitting ? "Signing in…" : "Sign in"}
+          </Button>
+        </div>
+        <Link
+          href="/forgot-password"
+          className="col-start-2 row-start-1 text-sm font-medium text-primary underline-offset-2 transition-colors hover:underline"
         >
-          {error}
-        </p>
-      ) : null}
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className={cn(
-          "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
-          typo.headingSans,
-        )}
-        size="lg"
-      >
-        {isSubmitting ? "Signing in…" : "Sign in"}
-      </Button>
+          Forgot password?
+        </Link>
+      </div>
     </form>
   );
 }

@@ -1116,6 +1116,9 @@ function EntityListRow<TItem>({
       tabIndex={0}
       onClick={() => onRowClick?.(item)}
       onKeyDown={(e) => {
+        // Only activate when the row itself is focused — nested controls (e.g. SmartDatePicker
+        // CommandInput in a portal) bubble Enter/Space through the React tree and must not open the entity.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onRowClick?.(item);

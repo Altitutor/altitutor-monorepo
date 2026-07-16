@@ -21,6 +21,7 @@ export type LearningModuleTaskMatch = {
 };
 
 type PracticeTaskRequirement = {
+  taskId: string;
   sectionId: string;
   questionStemCategoryId: string | null;
   targetUnits: number | null;
@@ -84,10 +85,27 @@ function categoryIdsFromFilters(value: unknown): string[] {
     : [];
 }
 
+function numberFromFilters(value: unknown, key: string): number | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "number" && Number.isFinite(candidate)
+    ? Math.max(0, candidate)
+    : null;
+}
+
+function stringFromFilters(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "string" ? candidate : null;
+}
+
 /**
  * A practice task is evidence-specific: the session must match its section and
- * category. At least 85% of the requested volume completes the task; a smaller
- * completed session is retained as partial progress instead of disappearing.
+ * category. A completed session fulfils the task when it was launched directly
+ * from that task, or when the student requested at least the planned volume.
+ * This lets the practice selector preserve whole stems even when their delivered
+ * question count is slightly below the request, without letting an intentionally
+ * short ad-hoc session consume a larger planned task.
  */
 export function matchPracticeSession(
   task: PracticeTaskRequirement,
@@ -102,8 +120,15 @@ export function matchPracticeSession(
   const completedUnits = Math.max(0, session.questionCount ?? 0);
   if (completedUnits === 0) return null;
   const targetUnits = Math.max(1, task.targetUnits ?? completedUnits);
+  const requestedUnits = numberFromFilters(session.filtersSnapshot, "questionCount");
+  const linkedTaskId = stringFromFilters(session.filtersSnapshot, "studyPlanTaskId");
+  const fulfilsPlannedVolume =
+    linkedTaskId === task.taskId ||
+    (requestedUnits != null
+      ? requestedUnits >= targetUnits
+      : completedUnits >= targetUnits);
   return {
-    status: completedUnits >= Math.ceil(targetUnits * 0.85) ? "completed" : "partial",
-    completedUnits: Math.min(targetUnits, completedUnits),
+    status: fulfilsPlannedVolume ? "completed" : "partial",
+    completedUnits,
   };
 }

@@ -24,6 +24,9 @@ import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
+import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
+import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
+import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -50,6 +53,11 @@ function AppShellInner({ children }: AppShellProps) {
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
+  const hideFloatingStudyPlanCompanion =
+    isExamRoute ||
+    isPracticeEngineRoute(pathname) ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/study-plan");
 
   useEffect(() => {
     if (isImmersiveRoute) {
@@ -71,6 +79,7 @@ function AppShellInner({ children }: AppShellProps) {
 
   const isSubscribeRoute = pathname.startsWith("/subscribe");
   const isSignupSamplerRoute = pathname === "/signup/complete/sampler";
+  const isStudyPlanSetupRoute = pathname === "/study-plan/setup";
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -117,7 +126,7 @@ function AppShellInner({ children }: AppShellProps) {
     return <>{children}</>;
   }
 
-  if (isSignupSamplerRoute) {
+  if (isSignupSamplerRoute || isStudyPlanSetupRoute) {
     return (
       <OnboardingProvider>
         <UcatLagProvider>{children}</UcatLagProvider>
@@ -132,7 +141,18 @@ function AppShellInner({ children }: AppShellProps) {
     router.replace("/dashboard");
   };
 
-  const mainPaddingClass = hideTopBar ? "p-4" : "pt-28 p-6";
+  const isProgressCanvasRoute =
+    pathname === "/progress" ||
+    pathname === "/progress/mocks" ||
+    pathname === "/progress/preview" ||
+    /^\/progress\/sections\/[1-4]$/.test(pathname);
+  const isCanvasRoute =
+    pathname.startsWith("/dashboard") || isProgressCanvasRoute;
+  const mainPaddingClass = hideTopBar
+    ? "p-4"
+    : isCanvasRoute
+      ? "p-0 pt-20"
+      : "p-6 pt-28";
 
   return (
     <ComingSoonProvider
@@ -217,7 +237,8 @@ function AppShellInner({ children }: AppShellProps) {
                   >
                     <div
                       className={cn(
-                        "mx-auto w-full min-w-0 max-w-[1400px]",
+                        "mx-auto w-full min-w-0",
+                        isCanvasRoute ? "max-w-none" : "max-w-[1400px]",
                         mainPaddingClass,
                       )}
                     >
@@ -239,6 +260,7 @@ function AppShellInner({ children }: AppShellProps) {
               )}
             </div>
           </div>
+          <StudyPlanCompanion hidden={hideFloatingStudyPlanCompanion} />
         </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>
@@ -248,7 +270,11 @@ function AppShellInner({ children }: AppShellProps) {
 export function AppShell({ children }: AppShellProps) {
   return (
     <SidebarOverrideProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <StudyPlanCompanionProvider>
+        <StudyPlanExtraStudyProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </StudyPlanExtraStudyProvider>
+      </StudyPlanCompanionProvider>
     </SidebarOverrideProvider>
   );
 }

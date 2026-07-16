@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import {
-  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   Skeleton,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import {
   AlertTriangle,
   ArrowRight,
@@ -16,8 +16,12 @@ import {
   Sparkles,
 } from "lucide-react";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
+import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_NEUTRAL_ACTION_HOVER,
+} from "@/lib/ucat-surface-motion";
 
 export function StudyPlanDashboardCard() {
   const query = useStudyPlan();
@@ -60,7 +64,7 @@ export function StudyPlanDashboardCard() {
             </div>
           </div>
           <Button asChild>
-            <Link href="/getting-started">Set up Study plan</Link>
+            <Link href="/study-plan/setup">Set up Study plan</Link>
           </Button>
         </CardContent>
       </Card>
@@ -81,7 +85,12 @@ export function StudyPlanDashboardCard() {
               : "Your workload will build as your test approaches"}
           </p>
         </div>
-        <Button asChild variant="ghost" size="sm">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className={UCAT_NEUTRAL_ACTION_HOVER}
+        >
           <Link href="/study-plan">
             Full plan <ArrowRight className="ml-1.5 h-4 w-4" />
           </Link>
@@ -95,15 +104,9 @@ export function StudyPlanDashboardCard() {
           </div>
         ) : null}
         {tasks.length ? (
-          <StudyPlanTaskList tasks={tasks} compact />
-        ) : (
-          <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="font-medium">No Study plan tasks today</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Rest today. Your next planned study day is already scheduled.
-            </p>
-          </div>
-        )}
+          <StudyPlanTaskList tasks={tasks} compact today={plan.today} />
+        ) : null}
+        <StudyPlanExtraStudy plan={plan} />
       </CardContent>
     </Card>
   );

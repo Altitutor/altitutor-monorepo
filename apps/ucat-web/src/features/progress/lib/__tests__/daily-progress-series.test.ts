@@ -38,4 +38,17 @@ describe("buildDailyProgressGraphData", () => {
     expect(values).not.toContain(50);
     jest.useRealTimers();
   });
+
+  it("starts at the first bucket with scored data", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-01-10T12:00:00Z"));
+    const result = buildDailyProgressGraphData(
+      [point("2026-01-08", 3, 4)],
+      "percentage",
+      "90",
+    );
+
+    expect(result[0]?.date).toBe("2026-01-05");
+    expect(result[0]?.value).toBe(75);
+    jest.useRealTimers();
+  });
 });

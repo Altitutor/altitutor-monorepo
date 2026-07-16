@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { MARKETING_TOKENS } from '@altitutor/shared';
 import { Button } from '@altitutor/ui';
@@ -37,6 +37,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -66,7 +67,12 @@ export function LoginForm() {
         throw new Error('Authentication failed: No user or session data');
       }
 
-      router.replace('/dashboard');
+      const requestedPath = searchParams.get('next');
+      const safeNextPath = requestedPath?.startsWith('/') && !requestedPath.startsWith('//')
+        ? requestedPath
+        : '/dashboard';
+      router.replace(safeNextPath);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setLoading(false);

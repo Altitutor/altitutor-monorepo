@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import type { UseFormReturn } from 'react-hook-form'
@@ -27,6 +27,7 @@ import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/
 import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { useManualStemMetadataAutoApply } from '@/features/ucat/questions/hooks/useManualStemMetadataAutoApply'
 import { useSetUcatQuestionStemStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -38,11 +39,6 @@ import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-e
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import {
-  inferManualStemMetadataRecommendation,
-  type ManualStemMetadataRecommendation,
-} from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
@@ -126,10 +122,6 @@ export function UcatQuestionStemDialog({
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
-  const [metadataRecommendation, setMetadataRecommendation] =
-    useState<ManualStemMetadataRecommendation | null>(null)
-  const lastAutoAppliedMetadataSignatureRef = useRef<string | null>(null)
-  const lastMetadataRecommendationSnapshotRef = useRef<string | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -173,9 +165,6 @@ export function UcatQuestionStemDialog({
       lastResetStemIdRef.current = null
       setActiveTextEditor(null)
       setCreateMore(false)
-      setMetadataRecommendation(null)
-      lastAutoAppliedMetadataSignatureRef.current = null
-      lastMetadataRecommendationSnapshotRef.current = null
       createResetOpenRef.current = false
     }
   }, [open])
@@ -245,90 +234,6 @@ export function UcatQuestionStemDialog({
       questions: nextQuestions,
     }
   }
-
-  function buildMetadataDetectionSignature(values: UcatQuestionStemFormValues): string {
-    return JSON.stringify({
-      stemText: proseMirrorToPlainText(values.stemText) ?? '',
-      questions: (values.questions ?? []).map((question) => ({
-        questionText: proseMirrorToPlainText(question.questionText) ?? '',
-        options: (question.options ?? []).map((option) => proseMirrorToPlainText(option.answerText) ?? ''),
-      })),
-    })
-  }
-
-  const sameIds = useCallback((left: string[], right: string[]): boolean => {
-    if (left.length !== right.length) return false
-    const leftSorted = [...left].sort()
-    const rightSorted = [...right].sort()
-    return leftSorted.every((id, index) => id === rightSorted[index])
-  }, [])
-
-  const applyMetadataRecommendation = useCallback(
-    (
-      recommendation: ManualStemMetadataRecommendation,
-      values: UcatQuestionStemFormValues
-    ): boolean => {
-      const previous = {
-        sectionId: values.sectionId,
-        categoryId: values.categoryId ?? null,
-        questionTypes: (values.questions ?? []).map((question) => question.questionType),
-        tagIdsByQuestionIndex: Object.fromEntries(
-          (values.questions ?? []).map((question, index) => [index, [...(question.tagIds ?? [])]])
-        ) as Record<number, string[]>,
-      }
-      let changed = false
-
-      if (recommendation.sectionId && recommendation.sectionId !== values.sectionId) {
-        form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
-        changed = true
-      }
-      if (recommendation.categoryId && recommendation.categoryId !== (values.categoryId ?? null)) {
-        form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
-        changed = true
-      }
-      if (recommendation.questionType) {
-        const questionType = recommendation.questionType
-        ;(values.questions ?? []).forEach((question, index) => {
-          if (question.questionType !== questionType) {
-            form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
-            changed = true
-          }
-        })
-      }
-      Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-        const index = Number(indexText)
-        const current = values.questions?.[index]?.tagIds ?? []
-        if (!sameIds(current, tagIds)) {
-          form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-          changed = true
-        }
-      })
-
-      if (!changed) return false
-
-      toast({
-        title: 'Detected UCAT metadata',
-        description: 'Section, category, question type, or question tags were updated from the parser suggestion.',
-        duration: 10_000,
-        action: {
-          label: 'Undo',
-          onClick: () => {
-            form.setValue('sectionId', previous.sectionId, { shouldDirty: true })
-            form.setValue('categoryId', previous.categoryId, { shouldDirty: true })
-            previous.questionTypes.forEach((questionType, index) => {
-              form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
-            })
-            Object.entries(previous.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-              const index = Number(indexText)
-              form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-            })
-          },
-        },
-      })
-      return true
-    },
-    [form, sameIds, toast]
-  )
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -403,31 +308,21 @@ export function UcatQuestionStemDialog({
   }
 
   const watchedValues = form.watch()
-  useEffect(() => {
-    if (!open || initial) return
-    const signature = buildMetadataDetectionSignature(watchedValues)
-    const recommendation = inferManualStemMetadataRecommendation({
-      values: watchedValues,
-      sections,
-      categories,
-      tags,
-    })
-    const recommendationSnapshot = JSON.stringify(recommendation)
-    if (lastMetadataRecommendationSnapshotRef.current !== recommendationSnapshot) {
-      lastMetadataRecommendationSnapshotRef.current = recommendationSnapshot
-      setMetadataRecommendation(recommendation)
-    }
-    if (!recommendation) return
-    if (lastAutoAppliedMetadataSignatureRef.current === signature) return
-    lastAutoAppliedMetadataSignatureRef.current = signature
-    applyMetadataRecommendation(recommendation, watchedValues)
-  }, [open, initial, watchedValues, sections, categories, tags, applyMetadataRecommendation])
+  const showCreateMore = !initial && !readOnly
+  const metadataRecommendation = useManualStemMetadataAutoApply({
+    enabled: open && showCreateMore,
+    resetKey: open ? 'create' : null,
+    form,
+    values: watchedValues,
+    sections,
+    categories,
+    tags,
+  })
 
   const hasUnsavedChanges =
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
-  const showCreateMore = !initial && !readOnly
 
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null

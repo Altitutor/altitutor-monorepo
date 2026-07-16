@@ -64,10 +64,11 @@ export async function GET() {
     supabaseAdmin!
       .from("notifications")
       .select(
-        "id, notification_type, title, body, read_at, action_url, metadata, priority, expires_at, resolved_at, created_at",
+        "id, notification_type, title, body, read_at, dismissed_at, action_url, metadata, priority, expires_at, resolved_at, created_at",
       )
       .eq("student_id", resolved.studentId)
       .eq("app_scope", "ucat_web")
+      .is("dismissed_at", null)
       .is("resolved_at", null)
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order("created_at", { ascending: false })
@@ -78,6 +79,7 @@ export async function GET() {
       .eq("student_id", resolved.studentId)
       .eq("app_scope", "ucat_web")
       .is("read_at", null)
+      .is("dismissed_at", null)
       .is("resolved_at", null)
       .or(`expires_at.is.null,expires_at.gt.${now}`),
   ]);
@@ -103,7 +105,11 @@ export async function PATCH(request: NextRequest) {
   const resolved = await resolveStudentId();
   if ("response" in resolved) return resolved.response;
 
-  let body: { notificationIds?: string[]; markAllRead?: boolean };
+  let body: {
+    notificationIds?: string[];
+    markAllRead?: boolean;
+    dismiss?: boolean;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -123,15 +129,62 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const now = new Date().toISOString();
+
+  if (body.dismiss) {
+    if (body.markAllRead) {
+      return NextResponse.json(
+        { error: "Cannot dismiss all notifications" },
+        { status: 400 },
+      );
+    }
+
+    const { error: dismissError } = await supabaseAdmin!
+      .from("notifications")
+      .update({ dismissed_at: now, updated_at: now })
+      .eq("student_id", resolved.studentId)
+      .eq("app_scope", "ucat_web")
+      .in("id", ids)
+      .is("dismissed_at", null);
+
+    if (dismissError) {
+      console.error("[ucat notifications] Failed to dismiss inbox items", dismissError);
+      return NextResponse.json(
+        { error: "Failed to update notifications" },
+        { status: 500 },
+      );
+    }
+
+    const { error: readError } = await supabaseAdmin!
+      .from("notifications")
+      .update({ read_at: now, updated_at: now })
+      .eq("student_id", resolved.studentId)
+      .eq("app_scope", "ucat_web")
+      .in("id", ids)
+      .is("read_at", null);
+
+    if (readError) {
+      console.error("[ucat notifications] Failed to mark dismissed items read", readError);
+      return NextResponse.json(
+        { error: "Failed to update notifications" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
   let update = supabaseAdmin!
     .from("notifications")
     .update({
-      read_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      read_at: now,
+      updated_at: now,
     })
     .eq("student_id", resolved.studentId)
     .eq("app_scope", "ucat_web")
-    .is("read_at", null);
+    .is("read_at", null)
+    .is("dismissed_at", null)
+    .is("resolved_at", null);
 
   if (!body.markAllRead) {
     update = update.in("id", ids);

@@ -1,5 +1,5 @@
-import { StudyPlanActivationPage } from "@/features/study-plan/components/study-plan-activation-page";
+import { redirect } from "next/navigation";
 
 export default function GettingStartedPage() {
-  return <StudyPlanActivationPage />;
+  redirect("/study-plan/setup");
 }

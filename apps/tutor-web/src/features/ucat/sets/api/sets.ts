@@ -4,7 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
-import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  readUcatBulkStatusResponse,
+  throwFirstUcatBulkStatusFailure,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatSetsApi = {
   async list() {
@@ -57,7 +60,9 @@ export const ucatSetsApi = {
   },
 
   async setStatus(setId: string, status: UcatContentStatus) {
-    return this.bulkSetStatus([setId], status)
+    const result = await this.bulkSetStatus([setId], status)
+    throwFirstUcatBulkStatusFailure(result)
+    return result
   },
 
   async bulkSetStatus(setIds: string[], status: UcatContentStatus) {
@@ -66,9 +71,7 @@ export const ucatSetsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'set', contentIds: setIds, status }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to update set status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to update set status')
   },
 
   async bulkRestoreStatus(setIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
@@ -77,9 +80,7 @@ export const ucatSetsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'set', contentIds: setIds, status: currentStatus, previousStatus }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to restore set status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to restore set status')
   },
 
   async remove(setId: string) {

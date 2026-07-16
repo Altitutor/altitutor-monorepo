@@ -14,6 +14,10 @@ import {
   snapshotQuestionMetadata,
   snapshotSyllogismOptions,
 } from "@/features/progress/lib/attempt-content-snapshot";
+import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
+import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
+import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
+import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -29,6 +33,8 @@ export type MockAttemptDetailResponse = {
   ucatMockId: string;
   mockName: string | null;
   scaledScore: number | null;
+  percentile: CohortPercentileResult;
+  recentPerformance: AttemptRecentPerformance;
   /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
   scaledScoreMax: number | null;
   timeTakenSeconds: number | null;
@@ -364,11 +370,23 @@ export async function GET(
     }
   }
 
+  const [percentile, recentPerformance] = await Promise.all([
+    getAttemptPercentile("mock", mockAttemptId),
+    fetchRecentAttemptPerformance(supabase, {
+      source: "mock",
+      attemptId: mockAttemptId,
+      attemptedAt: mockAttempt.attempted_at ?? "",
+      sectionId: null,
+    }),
+  ]);
+
   const response: MockAttemptDetailResponse = {
     id: mockAttempt.id ?? "",
     ucatMockId,
     mockName,
     scaledScore,
+    percentile,
+    recentPerformance,
     scaledScoreMax,
     timeTakenSeconds,
     mockTimeLimitSeconds,

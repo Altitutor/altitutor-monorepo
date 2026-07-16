@@ -32,7 +32,7 @@ import type {
 } from '@altitutor/shared';
 import { format } from 'date-fns';
 import { AdminDialogShell } from '@/shared/components';
-import type { AdminFormRow, AdminFormVersionRow } from '@/features/forms/types';
+import type { AdminFormRow } from '@/features/forms/types';
 import {
   FormResponseDialog,
   type FormResponseAnswer,
@@ -42,6 +42,7 @@ import {
 
 type AnswerRow = FormResponseAnswer & {
   response: FormResponseDetail;
+  reporting_question_id: string;
 };
 
 type ChartMode = 'bar' | 'pie';
@@ -83,8 +84,6 @@ function answerValue(answer: AnswerRow | FormResponseAnswer) {
 export function FormReportsPage() {
   const [forms, setForms] = useState<AdminFormRow[]>([]);
   const [formId, setFormId] = useState<string>('');
-  const [versions, setVersions] = useState<AdminFormVersionRow[]>([]);
-  const [versionId, setVersionId] = useState<string>('');
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [responses, setResponses] = useState<FormResponseDetail[]>([]);
   const [responseCount, setResponseCount] = useState(0);
@@ -106,7 +105,7 @@ export function FormReportsPage() {
   const loadReport = useCallback(async () => {
     if (!formId) return;
     setError(null);
-    const res = await fetch(`/api/forms/reports?formId=${formId}${versionId ? `&versionId=${versionId}` : ''}`);
+    const res = await fetch(`/api/forms/reports?formId=${formId}`);
     const json = await res.json();
     if (!res.ok) {
       setError(json.error ?? 'Failed to load report');
@@ -117,23 +116,11 @@ export function FormReportsPage() {
     setResponseCount(json.report?.responseCount ?? 0);
     setSelectedQuestion(null);
     setSelectedResponse(null);
-  }, [formId, versionId]);
+  }, [formId]);
 
   useEffect(() => {
     void loadReport();
   }, [loadReport]);
-
-  useEffect(() => {
-    if (!formId) return;
-    fetch(`/api/forms/${formId}`)
-      .then((res) => res.json())
-      .then((json) => {
-        const nextVersions = json.versions ?? [];
-        setVersions(nextVersions);
-        setVersionId(nextVersions[0]?.id ?? '');
-      })
-      .catch((err) => setError(err.message));
-  }, [formId]);
 
   const selectedForm = forms.find((form) => form.id === formId) ?? null;
 
@@ -224,7 +211,7 @@ export function FormReportsPage() {
   const groups = useMemo(() => {
     const byQuestion = new Map<string, AnswerRow[]>();
     for (const answer of filteredAnswers) {
-      byQuestion.set(answer.question_id, [...(byQuestion.get(answer.question_id) ?? []), answer]);
+      byQuestion.set(answer.reporting_question_id, [...(byQuestion.get(answer.reporting_question_id) ?? []), answer]);
     }
     return [...byQuestion.entries()].map(([questionId, rows]) => ({
       questionId,
@@ -261,19 +248,7 @@ export function FormReportsPage() {
             }
           />
         </div>
-        <div className="w-52 max-w-full">
-          <SearchableSelect<AdminFormVersionRow>
-            items={versions}
-            value={versions.find((version) => version.id === versionId) ?? null}
-            onValueChange={(version) => setVersionId(version?.id ?? '')}
-            getItemId={(version) => version.id}
-            getItemLabel={(version) => `Version ${version.version_number}`}
-            placeholder="Select version"
-            searchPlaceholder="Search versions..."
-            trigger={<Button type="button" variant="outline" className="w-full justify-start font-normal">{versionId ? `Version ${versions.find((version) => version.id === versionId)?.version_number ?? ''}` : 'Select version'}</Button>}
-          />
-        </div>
-        <div className="text-sm text-muted-foreground">{filteredAnswers.length ? `${responseCount} responses` : `${responseCount} responses`}</div>
+        <div className="text-sm text-muted-foreground">All published versions · {responseCount} responses</div>
       </div>
       <DataTableToolbar
         state={filterState}

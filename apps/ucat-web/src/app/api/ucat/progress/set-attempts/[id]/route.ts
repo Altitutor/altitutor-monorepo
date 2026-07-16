@@ -14,6 +14,10 @@ import {
   snapshotQuestionMetadata,
   snapshotSyllogismOptions,
 } from "@/features/progress/lib/attempt-content-snapshot";
+import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
+import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
+import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
+import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -22,6 +26,8 @@ export type SetAttemptDetailResponse = {
   scorePoints: number | null;
   totalPoints: number | null;
   scaledScore: number | null;
+  percentile: CohortPercentileResult;
+  recentPerformance: AttemptRecentPerformance;
   timeTakenSeconds: number | null;
   setTimeLimitSeconds: number | null;
   examTimeLimitSeconds: number | null;
@@ -268,6 +274,15 @@ export async function GET(
     }
   }
 
+  const [percentile, recentPerformance] = await Promise.all([
+    getAttemptPercentile("set", attemptId),
+    fetchRecentAttemptPerformance(supabase, {
+      source: "set",
+      attemptId,
+      attemptedAt: attempt.attempted_at ?? "",
+    }),
+  ]);
+
   const response: SetAttemptDetailResponse = {
     id: attempt.id ?? "",
     questionSetId,
@@ -275,6 +290,8 @@ export async function GET(
     scorePoints: attempt.score_points,
     totalPoints: attempt.total_points,
     scaledScore: attempt.scaled_score,
+    percentile,
+    recentPerformance,
     timeTakenSeconds,
     setTimeLimitSeconds,
     examTimeLimitSeconds: timeLimitExamSeconds,

@@ -5,8 +5,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,7 +17,9 @@ import {
 import { format } from "date-fns";
 import { SearchableSelect } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { formatTimeSeconds } from "../lib/format-time";
+import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import type { GraphXAxisMode } from "../lib/progress-data-utils";
 import {
   GRAPH_DATE_RANGE_OPTIONS,
@@ -33,11 +37,11 @@ function formatXAxisDate(dateStr: string): string {
 
 function getXAxisTickLabel(
   data: { date: string; label?: string }[],
-  index: number,
+  date: string,
 ): string {
-  const point = data[index];
+  const point = data.find((candidate) => candidate.date === date);
   if (point?.label) return point.label;
-  return formatXAxisDate(point?.date ?? "");
+  return formatXAxisDate(point?.date ?? date);
 }
 
 export type GraphDataType =
@@ -74,6 +78,7 @@ export type ProgressGraphProps = {
     value: number | null;
     label?: string;
     tooltipLabel?: string;
+    isSpacer?: boolean;
   }[];
   type: "line" | "bar";
   dataType: GraphDataType;
@@ -102,14 +107,23 @@ export type ProgressGraphProps = {
     realistic: { date: string; value: number }[];
     optimistic: { date: string; value: number }[];
   };
+  selectedDate?: string | null;
+  onPointSelect?: (point: {
+    date: string;
+    value: number | null;
+    label?: string;
+    tooltipLabel?: string;
+  }) => void;
+  /** Adds blank plot columns so the latest real point sits before an overlay card. */
+  trailingSpace?: boolean;
 };
 
 const dataTypeLabels: Record<GraphDataType, string> = {
   scaled_score: "Scaled score",
   percentage: "Percentage (%)",
   time_taken: "Time taken",
-  exam_speed: "Exam speed (%)",
-  question_speed: "Question speed (%)",
+  exam_speed: "Exam speed",
+  question_speed: "Question speed",
   attempt_count: "Number of attempts",
 };
 
@@ -166,6 +180,35 @@ const PROJECTION_SERIES_LABELS: Record<string, string> = {
   projectionOptimistic: "High",
 };
 
+function GraphColumnCursor({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}) {
+  if (x == null || y == null || width == null || height == null) return null;
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={4}
+      fill="var(--graph-column-highlight)"
+      focusable="false"
+      pointerEvents="none"
+      aria-hidden="true"
+      style={{ outline: "none" }}
+    />
+  );
+}
+
 export function ProgressGraph({
   data,
   type,
@@ -186,7 +229,11 @@ export function ProgressGraph({
   dateRangeOptions,
   onDateRangeChange,
   projection,
+  selectedDate = null,
+  onPointSelect,
+  trailingSpace = false,
 }: ProgressGraphProps) {
+  const hasOverlayCard = useMediaQuery("(min-width: 1024px)");
   type GraphLinePoint = {
     date: string;
     value: number | null;
@@ -199,6 +246,23 @@ export function ProgressGraph({
     projectionBandHigh?: number;
   };
 
+  const trailingSpacerCount =
+    trailingSpace && hasOverlayCard && data.length > 0
+      ? Math.max(2, Math.ceil(data.length * 0.9))
+      : 0;
+  const displayData =
+    trailingSpacerCount === 0
+      ? data
+      : [
+          ...data,
+          ...Array.from({ length: trailingSpacerCount }, (_, index) => ({
+            date: `__trailing-space-${index}`,
+            value: null,
+            label: "",
+            tooltipLabel: "",
+            isSpacer: true,
+          })),
+        ];
   const hasCustomTickLabels = data.some((d) => d.label);
   const selectedMetricOption =
     metricOptions?.find((option) => option.value === dataType) ?? null;
@@ -216,8 +280,9 @@ export function ProgressGraph({
   const resolvedDateRangeOptions = dateRangeOptions ?? GRAPH_DATE_RANGE_OPTIONS;
   const selectedDateRangeOption =
     dateRange != null
-      ? (resolvedDateRangeOptions.find((option) => option.value === dateRange) ??
-        null)
+      ? (resolvedDateRangeOptions.find(
+          (option) => option.value === dateRange,
+        ) ?? null)
       : null;
   const canSelectDateRange =
     dateRange != null &&
@@ -280,11 +345,10 @@ export function ProgressGraph({
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return "—";
     if (dataType === "time_taken") return formatTimeSeconds(value); // value is in seconds
-    if (
-      dataType === "percentage" ||
-      dataType === "exam_speed" ||
-      dataType === "question_speed"
-    ) {
+    if (dataType === "exam_speed" || dataType === "question_speed") {
+      return formatSpeedPercentAsMultiplier(value);
+    }
+    if (dataType === "percentage") {
       return String(Math.round(value));
     }
     if (dataType === "scaled_score") return String(Math.round(value));
@@ -308,7 +372,9 @@ export function ProgressGraph({
     return `Date: ${displayLabel}`;
   };
 
-  const pointCount = showProjection ? mergedLineData.length : data.length;
+  const pointCount = showProjection
+    ? mergedLineData.length
+    : displayData.length;
   // Keep labels horizontal and sparse — never tilt ticks.
   const maxXTicks = compact ? 5 : 6;
   const xTickInterval =
@@ -337,12 +403,14 @@ export function ProgressGraph({
         label?: string;
         tooltipLabel?: string;
         value?: number | null;
+        isSpacer?: boolean;
       };
     }>;
   }) => {
     if (!active || payload == null || payload.length === 0) return null;
 
     const point = payload[0]?.payload;
+    if (point?.isSpacer) return null;
     const hasEstimate = point?.value != null;
     const seenKeys = new Set<string>();
     const rows = payload.filter((entry) => {
@@ -427,8 +495,8 @@ export function ProgressGraph({
             fontSize: tickFontSize,
             textAnchor: "middle",
           }}
-          tickFormatter={(_value, index) =>
-            getXAxisTickLabel(mergedLineData, index)
+          tickFormatter={(value) =>
+            getXAxisTickLabel(mergedLineData, String(value))
           }
           interval={xTickInterval}
           stroke="currentColor"
@@ -442,7 +510,11 @@ export function ProgressGraph({
           className="text-muted-foreground"
           width={compact ? 36 : undefined}
           tickFormatter={
-            dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
+            dataType === "time_taken"
+              ? (value) => formatTimeSeconds(value)
+              : dataType === "exam_speed" || dataType === "question_speed"
+                ? (value) => formatSpeedPercentAsMultiplier(value)
+                : undefined
           }
         />
         <Tooltip content={tooltipContent} />
@@ -506,14 +578,56 @@ export function ProgressGraph({
           dot={{ fill: "hsl(var(--accent))", r: compact ? 3 : 4 }}
           activeDot={{ r: compact ? 5 : 6 }}
           connectNulls={true}
-          isAnimationActive
-          animationDuration={800}
-          animationEasing="ease-out"
+          isAnimationActive={false}
         />
       </LineChart>
     ) : (
       <BarChart
-        data={data}
+        data={displayData}
+        className={onPointSelect ? "cursor-pointer" : undefined}
+        onClick={(state) => {
+          if (!onPointSelect) return;
+          const chartState = state as unknown as {
+            activeLabel?: string | number;
+            activeTooltipIndex?: string | number;
+            activePayload?: Array<{
+              payload?: {
+                date?: string;
+                value?: number | null;
+                label?: string;
+                tooltipLabel?: string;
+                isSpacer?: boolean;
+              };
+            }>;
+          };
+          const payloadPoint = (
+            chartState as {
+              activePayload?: Array<{
+                payload?: {
+                  date?: string;
+                  value?: number | null;
+                  label?: string;
+                  tooltipLabel?: string;
+                  isSpacer?: boolean;
+                };
+              }>;
+            }
+          ).activePayload?.[0]?.payload;
+          const activePoint =
+            payloadPoint ??
+            displayData.find(
+              (point, index) =>
+                point.date === String(chartState.activeLabel ?? "") ||
+                index === Number(chartState.activeTooltipIndex),
+            );
+          if (!activePoint?.date || activePoint.isSpacer) return;
+          onPointSelect({
+            date: activePoint.date,
+            value: activePoint.value ?? null,
+            label: activePoint.label,
+            tooltipLabel: activePoint.tooltipLabel,
+          });
+        }}
         margin={{
           top: chartTopMargin,
           right: 5,
@@ -528,7 +642,11 @@ export function ProgressGraph({
             fontSize: tickFontSize,
             textAnchor: "middle",
           }}
-          tickFormatter={(_value, index) => getXAxisTickLabel(data, index)}
+          tickFormatter={(value) =>
+            String(value).startsWith("__trailing-space-")
+              ? ""
+              : getXAxisTickLabel(displayData, String(value))
+          }
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
@@ -540,18 +658,42 @@ export function ProgressGraph({
           stroke="currentColor"
           className="text-muted-foreground"
           tickFormatter={
-            dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
+            dataType === "time_taken"
+              ? (value) => formatTimeSeconds(value)
+              : dataType === "exam_speed" || dataType === "question_speed"
+                ? (value) => formatSpeedPercentAsMultiplier(value)
+                : undefined
           }
         />
-        <Tooltip content={tooltipContent} />
+        <Tooltip content={tooltipContent} cursor={<GraphColumnCursor />} />
+        {selectedDate ? (
+          <ReferenceLine
+            x={selectedDate}
+            stroke="var(--graph-column-highlight)"
+            strokeOpacity={1}
+            strokeWidth={24}
+          />
+        ) : null}
         <Bar
           dataKey="value"
           fill="hsl(var(--accent))"
           radius={[4, 4, 0, 0]}
-          isAnimationActive
-          animationDuration={800}
-          animationEasing="ease-out"
-        />
+          isAnimationActive={false}
+        >
+          {displayData.map((point) => (
+            <Cell
+              key={point.date}
+              fill="hsl(var(--accent))"
+              fillOpacity={
+                point.isSpacer
+                  ? 0
+                  : selectedDate == null || selectedDate === point.date
+                    ? 0.95
+                    : 0.28
+              }
+            />
+          ))}
+        </Bar>
       </BarChart>
     );
 

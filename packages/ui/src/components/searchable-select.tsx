@@ -69,6 +69,8 @@ export interface SearchableSelectProps<T> {
   /** Additional class names */
   className?: string;
   triggerClassName?: string;
+  /** Accessible name for the default combobox trigger. */
+  ariaLabel?: string;
   /** Controlled open state - when provided, parent controls when popover is open */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -109,6 +111,7 @@ export function SearchableSelect<T>({
   getItemDisabled,
   className,
   triggerClassName,
+  ariaLabel,
   open: controlledOpen,
   onOpenChange,
   showChevron = true,
@@ -218,6 +221,7 @@ export function SearchableSelect<T>({
     <Button
       variant="outline"
       role="combobox"
+      aria-label={ariaLabel}
       aria-expanded={open}
       aria-haspopup="listbox"
       disabled={disabled}

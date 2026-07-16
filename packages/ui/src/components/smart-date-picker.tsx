@@ -171,6 +171,7 @@ export function SmartDatePickerPopover({
         className="w-[20rem] p-0"
         align={align}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onKeyDown={stopPropagation ? (event) => event.stopPropagation() : undefined}
       >
         {name ? <input type="hidden" name={name} value={inputValue} /> : null}
         <Command shouldFilter={false}>
@@ -181,6 +182,7 @@ export function SmartDatePickerPopover({
             onKeyDown={(event) => {
               if (event.key === 'Enter' && parsedQueryDate) {
                 event.preventDefault();
+                event.stopPropagation();
                 selectDate(parsedQueryDate);
               }
             }}
@@ -276,6 +278,15 @@ export function SmartDatePickerPill({
           className
         )}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onKeyDown={
+          stopPropagation
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.stopPropagation();
+                }
+              }
+            : undefined
+        }
       >
         {icon ?? (
           <Calendar
@@ -351,6 +362,15 @@ export function SmartDatePickerField({
           className
         )}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onKeyDown={
+          stopPropagation
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.stopPropagation();
+                }
+              }
+            : undefined
+        }
       >
         <span className="truncate">{formattedDate ?? placeholder}</span>
         <Calendar className={cn('h-4 w-4 shrink-0', formattedDate ? 'text-foreground' : 'text-muted-foreground opacity-40 group-hover:opacity-100')} />

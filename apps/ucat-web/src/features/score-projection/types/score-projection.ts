@@ -25,6 +25,15 @@ export type HistoricalProjectionPoint = {
   effectiveEvidenceWeight: number;
 };
 
+export type ScoreProjectionSnapshot = {
+  date: string;
+  currentEstimate: number;
+  confidence: ProjectionConfidence;
+  uncertainty: number;
+  effectiveEvidenceWeight: number;
+  sectionEstimates: Record<string, number>;
+};
+
 export type SectionScoreProjection = {
   sectionId: string;
   sectionName: string;
@@ -45,6 +54,7 @@ export type ScoreProjectionResponse = {
   generatedAt: string;
   horizons: number[];
   sections: SectionScoreProjection[];
+  snapshots: ScoreProjectionSnapshot[];
 };
 
 export type TotalScoreProjection = {

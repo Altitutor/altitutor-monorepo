@@ -6,6 +6,12 @@ export const PENDING_PRACTICE_START_KEY = "pending-practice-start";
 
 export type PracticeReviewTiming = "afterEachStem" | "atEnd";
 
+export type StudyPlanPracticeLink = {
+  taskId: string;
+  title: string;
+  targetUnits: number | null;
+};
+
 export type PendingPracticeStart = {
   payload: PracticeSelectionInput & {
     unlimited?: boolean;
@@ -13,6 +19,7 @@ export type PendingPracticeStart = {
   };
   ucatSectionId: string;
   filterMeta?: PracticeSessionFilterMeta;
+  studyPlan?: StudyPlanPracticeLink;
 };
 
 export type PracticeSessionFilterMeta = {
@@ -31,6 +38,7 @@ export type PracticeSessionData =
       timePerQuestionSeconds: number | null;
       startedAtMs?: number;
       reviewTiming?: PracticeReviewTiming;
+      studyPlan?: StudyPlanPracticeLink;
     }
   | {
       mode: "unlimited";
@@ -41,6 +49,7 @@ export type PracticeSessionData =
       timePerQuestionSeconds: number | null;
       startedAtMs?: number;
       reviewTiming?: PracticeReviewTiming;
+      studyPlan?: StudyPlanPracticeLink;
     };
 
 export function getPracticeSession(): PracticeSessionData | null {

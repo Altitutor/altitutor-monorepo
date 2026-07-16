@@ -6,6 +6,7 @@ export type UcatNotification = {
   title: string;
   body: string | null;
   read_at: string | null;
+  dismissed_at: string | null;
   action_url: string | null;
   metadata: Json;
   priority: "normal" | "important" | "critical";

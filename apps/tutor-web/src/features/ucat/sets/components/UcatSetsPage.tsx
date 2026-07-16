@@ -35,7 +35,7 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UCAT_CONTENT_STATUS_OPTIONS, type UcatContentStatus, type UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+import { getUcatContentStatusTransitionOptions, type UcatContentStatus, type UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -60,7 +60,12 @@ import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  firstUcatBulkStatusFailureError,
+  lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
+  type UcatLifecycleEntityType,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -98,6 +103,7 @@ export function UcatSetsPage() {
   const router = useRouter()
   const pathname = usePathname()
   const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const queryClient = useQueryClient()
   const access = useUcatAccess()
   const sets = useUcatSets()
@@ -388,25 +394,38 @@ export function UcatSetsPage() {
     const ids = Array.from(selectedSetIds)
     setBulkStatusPending(true)
     try {
-      await ucatSetsApi.bulkSetStatus(ids, bulkStatus)
+      const result = await ucatSetsApi.bulkSetStatus(ids, bulkStatus)
       await invalidateSetsListQueries(ids)
+      const movedIds = result.movedIds
       const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
-      toast(lifecycleStatusSuccessToast({
-        contentLabel: 'Set',
-        count: ids.length,
-        status: nextStatus,
-        onUndo: () => {
-          void ucatSetsApi.bulkRestoreStatus(ids, nextStatus, activeStatus)
-            .then(async () => {
-              await invalidateSetsListQueries(ids)
-              toast({ title: ids.length === 1 ? 'Set status restored' : 'Set statuses restored' })
-            })
-            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-        },
-      }))
+      if (movedIds.length > 0) {
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Set',
+          count: movedIds.length,
+          status: nextStatus,
+          onUndo: () => {
+            void ucatSetsApi.bulkRestoreStatus(movedIds, nextStatus, activeStatus)
+              .then(async () => {
+                await invalidateSetsListQueries(movedIds)
+                toast({ title: movedIds.length === 1 ? 'Set status restored' : 'Set statuses restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      }
+      const failureError = firstUcatBulkStatusFailureError(result)
+      if (failureError) {
+        const count = result.failures.length
+        toast(lifecycleErrorToast(
+          failureError,
+          count === 1 ? '1 set could not be moved' : `${count} sets could not be moved`,
+          router.push,
+          openLifecycleEntity,
+        ))
+      }
     } catch (error) {
       toast(lifecycleErrorToast(error, 'Cannot move selected sets', router.push, openLifecycleEntity))
     } finally {
@@ -721,7 +740,7 @@ export function UcatSetsPage() {
           side="top"
         />
         <SearchableSelect<{ value: UcatContentStatus; label: string }>
-          items={UCAT_CONTENT_STATUS_OPTIONS}
+          items={bulkStatusOptions}
           value={null}
           onValueChange={(item) => {
             if (!item) return
@@ -765,7 +784,7 @@ export function UcatSetsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Move {selectedSetIds.size} set(s) to {bulkStatus?.replace('_', ' ')}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The whole selection will be validated first. If any set is blocked, none of the statuses will change.
+              Eligible sets will move. Any blocked sets will remain in their current status.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

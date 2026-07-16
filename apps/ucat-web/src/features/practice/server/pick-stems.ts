@@ -66,6 +66,16 @@ function resolveEffectiveQuestionCount(
   return Math.min(clampedRequested, hardCap, availableQuestions);
 }
 
+/** Fisher–Yates shuffle (mutates array in place). */
+function shuffleInPlace<T>(items: T[]): void {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = tmp;
+  }
+}
+
 export type PickStemsOptions = {
   /** Exclude these stem IDs from the result. Used for unlimited mode to avoid repeats. */
   excludeStemIds?: string[];
@@ -85,6 +95,7 @@ export type PickStemsResult = {
 
 /**
  * Picks question stems matching the given filters. Shared by set generator and practice.
+ * Candidates are shuffled (Fisher–Yates) then greedily filled to the target question count.
  * Returns chosen stem IDs and metadata. Does not persist anything.
  */
 export async function pickStems(
@@ -288,7 +299,8 @@ export async function pickStems(
   const chosenStems: StemDetailRow[] = [];
   let runningQuestions = 0;
 
-  candidateStems.sort((a, b) => a.stem.id.localeCompare(b.stem.id));
+  // Random order so repeated sessions with the same filters vary.
+  shuffleInPlace(candidateStems);
 
   for (const agg of candidateStems) {
     if (limitStems != null && chosenStems.length >= limitStems) break;

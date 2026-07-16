@@ -17,14 +17,17 @@ import { AnimatedInteger } from "./progress-animated-display";
 import { AttemptReviewTimingCard } from "./attempt-review-timing-card";
 import type { AttemptReviewTimingMetrics } from "./attempt-review-timing-card";
 import { PercentileCard } from "./percentile-card";
+import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 
 type MockAttemptScoreTimingRowProps = {
   scaledScore: number | null;
+  percentile: CohortPercentileResult;
   timing: AttemptReviewTimingMetrics;
 };
 
 export function MockAttemptScoreTimingRow({
   scaledScore,
+  percentile,
   timing,
 }: MockAttemptScoreTimingRowProps) {
   return (
@@ -70,7 +73,11 @@ export function MockAttemptScoreTimingRow({
         </CardContent>
       </Card>
 
-      <PercentileCard scaledScore={scaledScore} scope="mock" />
+      <PercentileCard
+        scaledScore={scaledScore}
+        percentile={percentile}
+        scope="mock"
+      />
 
       <AttemptReviewTimingCard timing={timing} scopeLabel="mock" />
     </div>

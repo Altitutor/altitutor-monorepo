@@ -2,11 +2,30 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PercentileCard } from "../percentile-card";
 
+const percentile = {
+  status: "available" as const,
+  percentile: 80,
+  cohortSize: 20,
+  minimumCohortSize: 20,
+  targetScore: 700,
+  bins: [
+    { score: 500, count: 8 },
+    { score: 600, count: 4 },
+    { score: 700, count: 8 },
+  ],
+};
+
 describe("PercentileCard", () => {
   it("shows the student's percentile and resets after hover exploration", () => {
-    render(<PercentileCard scaledScore={700} scope="section" />);
+    render(
+      <PercentileCard
+        scaledScore={700}
+        percentile={percentile}
+        scope="set"
+      />,
+    );
 
-    expect(screen.getByText("80th")).toBeInTheDocument();
+    expect(screen.getByText("80th percentile")).toBeInTheDocument();
     expect(screen.getByText("Score 700 · 80th percentile")).toBeInTheDocument();
 
     const curve = screen.getByRole("img");
@@ -29,9 +48,22 @@ describe("PercentileCard", () => {
   });
 
   it("shows an empty state without an interactive chart", () => {
-    render(<PercentileCard scaledScore={null} scope="section" />);
+    render(
+      <PercentileCard
+        scaledScore={600}
+        scope="set"
+        percentile={{
+          status: "insufficient_data",
+          cohortSize: 8,
+          minimumCohortSize: 20,
+          targetScore: 600,
+          bins: [{ score: 600, count: 8 }],
+        }}
+      />,
+    );
 
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Not enough data yet")).toBeInTheDocument();
+    expect(screen.getByText("8 of 20 eligible first attempts so far.")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Percentile explanation"),
     ).toBeInTheDocument();

@@ -42,11 +42,13 @@ export function CalculatorPanel({
   onKey,
   onClose,
   tutorialMode = false,
+  draggableInTutorial = false,
 }: {
   display: string;
   onKey: (label: string) => void;
   onClose: () => void;
   tutorialMode?: boolean;
+  draggableInTutorial?: boolean;
 }) {
   const { position, handleMouseDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -65,8 +67,7 @@ export function CalculatorPanel({
       if (/^[0-9]$/.test(event.key)) {
         label = event.key;
       } else {
-        const k =
-          event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        const k = event.key.length === 1 ? event.key.toLowerCase() : event.key;
         switch (k) {
           case "c":
             label = "MRC";
@@ -172,10 +173,14 @@ export function CalculatorPanel({
         title="Calculator"
         titleIcon={<Calculator className="h-5 w-5" />}
         onClose={onClose}
-        onDragMouseDown={tutorialMode ? undefined : handleMouseDown}
-        closeButtonProps={{
-          "data-tour": "question-engine-calculator-close",
-        } as React.ButtonHTMLAttributes<HTMLButtonElement>}
+        onDragMouseDown={
+          tutorialMode && !draggableInTutorial ? undefined : handleMouseDown
+        }
+        closeButtonProps={
+          {
+            "data-tour": "question-engine-calculator-close",
+          } as React.ButtonHTMLAttributes<HTMLButtonElement>
+        }
         className="w-[280px]"
       >
         <div className="rounded-[12px] border border-black/60 bg-[#507ABD] px-3 pb-4 pt-5 shadow-[0_2px_4px_rgba(0,0,0,0.6)]">

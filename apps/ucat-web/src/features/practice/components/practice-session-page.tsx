@@ -40,6 +40,8 @@ import {
   QuotaExceededError,
 } from "@/lib/ucat/quota/parse-quota-error";
 import { sectionLabels } from "@/features/practice/model/sections";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
+import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
 import {
   UCAT_CARD_CHROME,
   UCAT_PRIMARY_ACTION_BUTTON,
@@ -50,8 +52,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Button,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 
 /** Side-by-side from tablet when the nav is collapsed; stack when it takes horizontal space. */
 function practiceSessionLayoutClass(
@@ -292,7 +294,8 @@ function PracticeSessionStatsCards({
     answeredCount > 0 ? answeredTimeSeconds / answeredCount : null;
 
   return (
-    <aside className="space-y-3">
+    <div className="space-y-3">
+      <StudyPlanCompanion placement="sidebar" />
       <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Answers</CardTitle>
@@ -355,7 +358,7 @@ function PracticeSessionStatsCards({
           </CardContent>
         </Card>
       ) : null}
-    </aside>
+    </div>
   );
 }
 
@@ -370,6 +373,7 @@ export function PracticeSessionPage() {
   } = useActiveExamAttempt();
   const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
   const { openQuotaLimit } = useQuotaLimitDialog();
+  const { clearLivePractice, reportLivePractice } = useStudyPlanCompanion();
   const [session, setSession] = useState<
     PracticeSessionData | null | "loading"
   >("loading");
@@ -704,6 +708,29 @@ export function PracticeSessionPage() {
     const id = setInterval(updateElapsed, 1000);
     return () => clearInterval(id);
   }, [session]);
+
+  const activeSessionId = session === "loading" || !session ? null : session.sessionId;
+  useEffect(() => {
+    if (!activeSessionId) return;
+    return () => clearLivePractice(activeSessionId);
+  }, [activeSessionId, clearLivePractice]);
+
+  useEffect(() => {
+    if (session === "loading" || !session) return;
+    reportLivePractice({
+      sessionId: session.sessionId,
+      studyPlanTaskId: session.studyPlan?.taskId ?? null,
+      title: session.studyPlan?.title ??
+        `${session.filterMeta?.sectionLabel ?? "UCAT"} practice`,
+      answeredCount: liveStats?.answeredCount ?? 0,
+      currentQuestionNumber: liveStats?.currentQuestionNumber ?? 1,
+      targetUnits: session.studyPlan?.targetUnits ?? null,
+      totalQuestionLabel: liveStats?.totalQuestionLabel ??
+        (session.studyPlan?.targetUnits != null
+          ? String(session.studyPlan.targetUnits)
+          : "—"),
+    });
+  }, [liveStats, reportLivePractice, session]);
 
   if (session === "loading" || conflictActive != null || reducedStart != null) {
     return (

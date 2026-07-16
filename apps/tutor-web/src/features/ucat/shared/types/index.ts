@@ -17,6 +17,15 @@ export const UCAT_CONTENT_STATUS_OPTIONS: Array<{ value: UcatContentStatus; labe
   { value: 'published', label: 'Published' },
 ]
 
+export function getUcatContentStatusTransitionOptions(
+  currentStatus: UcatContentStatus,
+): Array<{ value: UcatContentStatus; label: string }> {
+  if (currentStatus === 'draft') {
+    return UCAT_CONTENT_STATUS_OPTIONS.filter((option) => option.value === 'in_review')
+  }
+  return UCAT_CONTENT_STATUS_OPTIONS.filter((option) => option.value !== currentStatus)
+}
+
 export type UcatPublicationIssue = {
   code: string
   message: string

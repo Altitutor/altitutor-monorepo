@@ -4,6 +4,7 @@ import type {
   PracticeReviewTiming,
   PracticeSessionData,
   PracticeSessionFilterMeta,
+  StudyPlanPracticeLink,
 } from "@/features/practice/lib/session-storage";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
@@ -15,6 +16,7 @@ export type PracticeSessionStartInput = {
   };
   ucatSectionId: string;
   filterMeta?: PracticeSessionFilterMeta;
+  studyPlan?: StudyPlanPracticeLink;
 };
 
 export type CreatePracticeSessionResult =
@@ -36,6 +38,11 @@ export async function createPracticeSession(
 ): Promise<CreatePracticeSessionResult> {
   const { unlimited, reviewTiming, ...filters } = input.payload;
   const sectionKey = filters.section;
+  const filtersSnapshot = {
+    ...filters,
+    reviewTiming,
+    ...(input.studyPlan ? { studyPlanTaskId: input.studyPlan.taskId } : {}),
+  };
 
   if (unlimited) {
     const createSessionRes = await fetch("/api/ucat/practice-sessions", {
@@ -44,7 +51,7 @@ export async function createPracticeSession(
       body: JSON.stringify({
         sectionKey,
         ucatSectionId: input.ucatSectionId,
-        filtersSnapshot: { ...filters, reviewTiming },
+        filtersSnapshot,
         unlimited: true,
       }),
     });
@@ -69,7 +76,7 @@ export async function createPracticeSession(
     body: JSON.stringify({
       sectionKey,
       ucatSectionId: input.ucatSectionId,
-      filtersSnapshot: { ...filters, reviewTiming },
+      filtersSnapshot,
       unlimited: false,
     }),
   });
@@ -116,6 +123,7 @@ export function buildPracticeSessionData(
       timePerQuestionSeconds,
       startedAtMs: Date.now(),
       reviewTiming: input.payload.reviewTiming,
+      studyPlan: input.studyPlan,
     };
   }
 
@@ -128,6 +136,7 @@ export function buildPracticeSessionData(
     timePerQuestionSeconds,
     startedAtMs: Date.now(),
     reviewTiming: input.payload.reviewTiming,
+    studyPlan: input.studyPlan,
   };
 }
 

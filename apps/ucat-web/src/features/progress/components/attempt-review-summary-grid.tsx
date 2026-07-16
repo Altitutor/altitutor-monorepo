@@ -21,6 +21,7 @@ import {
   type AttemptReviewPracticeTimingMetrics,
 } from "./attempt-review-timing-card";
 import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
+import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
 import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 
@@ -28,6 +29,7 @@ type AttemptReviewSummaryGridProps = {
   points: number;
   total: number;
   scaledScore?: number | null;
+  percentile?: CohortPercentileResult;
   categoryBreakdown: CategoryBreakdownEntry[];
   chartData: QuestionAttemptForChart[];
   selectedQuestionIndex: number;
@@ -161,6 +163,7 @@ export function AttemptReviewSummaryGrid({
   points,
   total,
   scaledScore,
+  percentile,
   categoryBreakdown,
   chartData,
   selectedQuestionIndex,
@@ -184,14 +187,23 @@ export function AttemptReviewSummaryGrid({
       onBarClick={onBarClick}
     />
   );
-  const percentileCard = (
-    <PercentileCard scaledScore={scaledScore} scope="section" />
-  );
+  const percentileCard = percentile ? (
+    <PercentileCard
+      scaledScore={scaledScore}
+      percentile={percentile}
+      scope="set"
+    />
+  ) : null;
 
   if (timing != null || practiceTiming != null) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div
+          className={cn(
+            "grid gap-4",
+            percentileCard ? "lg:grid-cols-3" : "lg:grid-cols-2",
+          )}
+        >
           {scoreCard}
           {percentileCard}
           {practiceTiming != null ? (

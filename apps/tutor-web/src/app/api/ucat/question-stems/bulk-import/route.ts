@@ -32,7 +32,7 @@ const SerializedStemSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   // Stem text is also rich-text JSON.
   stemText: z.unknown(),
-  accessScope: z.enum(['public', 'private']),
+  accessScope: z.enum(['public', 'private']).default('public'),
   sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   tutorSourceNote: z.string().nullable().optional(),
   questions: z.array(SerializedQuestionSchema),

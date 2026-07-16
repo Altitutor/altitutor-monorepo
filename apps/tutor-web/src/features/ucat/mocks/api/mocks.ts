@@ -2,7 +2,10 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/types'
-import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  readUcatBulkStatusResponse,
+  throwFirstUcatBulkStatusFailure,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatMocksApi = {
   async list() {
@@ -46,7 +49,9 @@ export const ucatMocksApi = {
   },
 
   async setStatus(mockId: string, status: UcatContentStatus) {
-    return this.bulkSetStatus([mockId], status)
+    const result = await this.bulkSetStatus([mockId], status)
+    throwFirstUcatBulkStatusFailure(result)
+    return result
   },
 
   async bulkSetStatus(mockIds: string[], status: UcatContentStatus) {
@@ -55,9 +60,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'mock', contentIds: mockIds, status }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to update mock status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to update mock status')
   },
 
   async bulkRestoreStatus(mockIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
@@ -66,9 +69,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'mock', contentIds: mockIds, status: currentStatus, previousStatus }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to restore mock status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to restore mock status')
   },
 
   async remove(mockId: string) {

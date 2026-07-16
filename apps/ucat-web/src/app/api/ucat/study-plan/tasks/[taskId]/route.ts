@@ -8,11 +8,20 @@ export async function PATCH(
 ) {
   try {
     const supabase = await getSupabaseServerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
     if (error) throw error;
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const body = await request.json() as { action?: unknown };
-    if (body.action !== "start" && body.action !== "skip" && body.action !== "complete") {
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const body = (await request.json()) as { action?: unknown };
+    if (
+      body.action !== "start" &&
+      body.action !== "skip" &&
+      body.action !== "unskip" &&
+      body.action !== "complete"
+    ) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
     const { taskId } = await context.params;
@@ -20,7 +29,12 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update Study plan task." },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update Study plan task.",
+      },
       { status: 500 },
     );
   }

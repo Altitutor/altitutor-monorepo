@@ -11,6 +11,7 @@ import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
+import { UcatGenerationTaskCompanion } from '@/features/ucat/questions/components/generated/UcatGenerationTaskCompanion'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -51,6 +52,7 @@ export default function RootLayout({
                       <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
                         <Navbar />
                         <MainContent>{children}</MainContent>
+                        <UcatGenerationTaskCompanion />
                       </div>
                     </CommandPaletteProvider>
                   </MobileMenuProvider>
@@ -62,4 +64,4 @@ export default function RootLayout({
       </body>
     </html>
   )
-} 
+}

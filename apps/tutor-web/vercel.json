@@ -1,9 +1,20 @@
 {
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=tutor-web",
-  "devCommand": "cd ../.. && pnpm turbo run dev --filter=tutor-web"
+  "devCommand": "cd ../.. && pnpm turbo run dev --filter=tutor-web",
+  "functions": {
+    "src/app/api/queues/ucat-question-generation/route.ts": {
+      "maxDuration": 600,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "ucat-question-generation",
+          "retryAfterSeconds": 30
+        }
+      ]
+    }
+  }
 }
-
 
 
 

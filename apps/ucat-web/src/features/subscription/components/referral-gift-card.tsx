@@ -13,11 +13,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import type { PendingReferralGift } from "@/features/subscription/api/referral-gifts";
 import { rejectReferralGift } from "@/features/subscription/api/referral-gifts";
-import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { UCAT_DIALOG_PRIMARY_ACTION, UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 type ReferralGiftCardProps = {
   gift: PendingReferralGift;
@@ -134,6 +134,7 @@ export function ReferralGiftCard({
               Keep gift
             </AlertDialogCancel>
             <AlertDialogAction
+              className={UCAT_DIALOG_PRIMARY_ACTION}
               disabled={rejecting}
               onClick={(event) => {
                 event.preventDefault();

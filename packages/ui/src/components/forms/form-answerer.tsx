@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import type { FormAnswerPayload, FormBlock, FormChoiceOption, FormQuestion } from '@altitutor/shared';
+import type { FormAnswerPayload, FormBlock, FormQuestion } from '@altitutor/shared';
 import { isQuestionBlock } from '@altitutor/shared';
 import { Button } from '../button';
+import { Badge } from '../badge';
 import { Checkbox } from '../checkbox';
 import { Input } from '../input';
 import { Label } from '../label';
@@ -12,9 +13,9 @@ import { Slider } from '../slider';
 import { Textarea } from '../textarea';
 import { RichTextEditor } from '../rich-text-editor';
 import { SearchableSelect } from '../searchable-select';
-import { SearchableSelectInline } from '../searchable-select-inline';
 import { cn } from '../../lib/cn';
 import type { JSONContent } from '@tiptap/core';
+import { Plus, X } from 'lucide-react';
 
 export interface FormAnswererProps {
   title: string;
@@ -27,6 +28,7 @@ export interface FormAnswererProps {
   formId?: string;
   hideSubmitButton?: boolean;
   initialAnswers?: FormAnswerPayload;
+  onSubmitted?: () => void;
 }
 
 function emptyValueForQuestion(question: FormQuestion) {
@@ -70,6 +72,7 @@ export function FormAnswerer({
   formId,
   hideSubmitButton = false,
   initialAnswers,
+  onSubmitted,
 }: FormAnswererProps) {
   const [answers, setAnswers] = React.useState<FormAnswerPayload>(() => getInitialAnswers(blocks, initialAnswers));
   const [submitting, setSubmitting] = React.useState(false);
@@ -93,6 +96,7 @@ export function FormAnswerer({
     try {
       await onSubmit(answers);
       setSubmitted(true);
+      onSubmitted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit this form.');
     } finally {
@@ -200,20 +204,42 @@ export function FormAnswerer({
             const selected = Array.isArray(answers[block.id]) ? answers[block.id] as string[] : [];
             if (block.optionSource?.kind === 'model') {
               const selectedOptions = block.options.filter((option) => selected.includes(option.value));
+              const availableOptions = block.options.filter((option) => !selected.includes(option.value));
               return (
                 <section key={block.id} className="space-y-3">
                   <QuestionLabel block={block} />
-                  <div className="overflow-hidden rounded-md border">
-                    <SearchableSelectInline<FormChoiceOption>
-                      items={block.options}
-                      value={selectedOptions}
-                      onValueChange={(options) => setAnswer(block.id, options.map((option) => option.value))}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedOptions.map((option) => (
+                      <Badge key={option.value} variant="secondary" className="gap-1 pr-1.5">
+                        <span>{option.label}</span>
+                        <button
+                          type="button"
+                          className="rounded-full p-0.5 hover:bg-foreground/10"
+                          onClick={() => setAnswer(block.id, selected.filter((value) => value !== option.value))}
+                          aria-label={`Remove ${option.label}`}
+                        >
+                          <X className="h-3 w-3" aria-hidden />
+                        </button>
+                      </Badge>
+                    ))}
+                    <SearchableSelect
+                      items={availableOptions}
+                      value={null}
+                      onValueChange={(option) => {
+                        if (option) setAnswer(block.id, [...selected, option.value]);
+                      }}
                       getItemId={(option) => option.value}
                       getItemLabel={(option) => option.label}
+                      placeholder="Add option"
                       searchPlaceholder="Search options..."
                       emptyMessage="No available options."
-                      multiSelect
-                      className="max-h-80"
+                      disabled={availableOptions.length === 0}
+                      trigger={
+                        <Button type="button" variant="outline" size="sm" disabled={availableOptions.length === 0}>
+                          <Plus className="mr-1 h-4 w-4" aria-hidden />
+                          Add option
+                        </Button>
+                      }
                     />
                   </div>
                 </section>
@@ -312,7 +338,7 @@ export function FormAnswerer({
       ) : null}
 
       {!hideSubmitButton ? (
-        <div className="mt-8">
+        <div className="mt-8 flex justify-end">
           <Button type="submit" disabled={disabled || submitting}>
             {submitting ? 'Submitting...' : submitLabel}
           </Button>

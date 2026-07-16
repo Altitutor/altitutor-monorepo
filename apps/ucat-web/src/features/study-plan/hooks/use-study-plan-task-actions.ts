@@ -1,0 +1,184 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { createAndPersistPracticeSession } from "@/features/practice/api/create-practice-session";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
+import { updateStudyPlanTask } from "@/features/study-plan/api/study-plan";
+import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import {
+  selectCurrentStudyPlanTasks,
+  selectNextStudyPlanTask,
+} from "@/features/study-plan/lib/companion";
+import type { StudyPlanTask } from "@/features/study-plan/model/types";
+
+type PendingAction = "start" | "skip" | "unskip" | null;
+
+function practiceStartInput(task: StudyPlanTask) {
+  const config = task.launchConfig;
+  if (config.kind !== "practice" || typeof config.ucatSectionId !== "string")
+    return null;
+  const section = config.section;
+  if (
+    section !== "verbal_reasoning" &&
+    section !== "decision_making" &&
+    section !== "quantitative_reasoning" &&
+    section !== "situational_judgement"
+  )
+    return null;
+  const payload: PracticeSelectionInput & {
+    reviewTiming: "afterEachStem" | "atEnd";
+  } = {
+    section,
+    unansweredOnly: false,
+    incorrectOnly: false,
+    categoryIds: Array.isArray(config.categoryIds)
+      ? config.categoryIds.filter((id): id is string => typeof id === "string")
+      : [],
+    timeMode: config.timeMode === "off" ? "off" : "speed",
+    timeSpeedMultiplier:
+      typeof config.timeSpeedMultiplier === "number"
+        ? config.timeSpeedMultiplier
+        : 1,
+    customTimeMinutes: null,
+    questionCount:
+      typeof config.questionCount === "number" ? config.questionCount : 10,
+    timePerQuestionSeconds:
+      typeof config.timePerQuestionSeconds === "number"
+        ? config.timePerQuestionSeconds
+        : null,
+    reviewTiming:
+      config.reviewTiming === "afterEachStem" ? "afterEachStem" : "atEnd",
+  };
+  return {
+    payload,
+    ucatSectionId: config.ucatSectionId,
+    studyPlan: {
+      taskId: task.id,
+      title: task.title,
+      targetUnits: task.targetUnits,
+    },
+  };
+}
+
+export function useStudyPlanTaskActions(
+  task: StudyPlanTask | null,
+  enabled = true,
+) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const planQuery = useStudyPlan(enabled);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [futureStartPromptOpen, setFutureStartPromptOpen] = useState(false);
+
+  const currentRecommendedTask = planQuery.data
+    ? selectNextStudyPlanTask(
+        selectCurrentStudyPlanTasks(planQuery.data.tasks, planQuery.data.today),
+      )
+    : null;
+
+  async function executeTask(taskToStart: StudyPlanTask) {
+    if (!enabled) return;
+    setPendingAction("start");
+    setError(null);
+    try {
+      const practiceInput = practiceStartInput(taskToStart);
+      if (practiceInput) {
+        await createAndPersistPracticeSession(practiceInput);
+        await updateStudyPlanTask(taskToStart.id, "start");
+        await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+        setPendingAction(null);
+        router.push("/practice/session");
+        return;
+      }
+      await updateStudyPlanTask(taskToStart.id, "start");
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+      const launchPath =
+        taskToStart.taskType === "review"
+          ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
+          : taskToStart.launchPath;
+      setPendingAction(null);
+      router.push(launchPath);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not start this task.",
+      );
+      setPendingAction(null);
+    }
+  }
+
+  async function startTask() {
+    if (!task) return;
+    const isFutureTask = Boolean(
+      planQuery.data && task.scheduledDate > planQuery.data.today,
+    );
+    if (
+      isFutureTask &&
+      currentRecommendedTask &&
+      currentRecommendedTask.id !== task.id
+    ) {
+      setFutureStartPromptOpen(true);
+      return;
+    }
+    await executeTask(task);
+  }
+
+  async function continueFutureTask() {
+    if (!task) return;
+    setFutureStartPromptOpen(false);
+    await executeTask(task);
+  }
+
+  async function startCurrentRecommendedTask() {
+    if (!currentRecommendedTask) return;
+    setFutureStartPromptOpen(false);
+    await executeTask(currentRecommendedTask);
+  }
+
+  async function skipTask() {
+    if (!task || !enabled) return;
+    setPendingAction("skip");
+    setError(null);
+    try {
+      await updateStudyPlanTask(task.id, "skip");
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not skip this task.",
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function unskipTask() {
+    if (!task || !enabled) return;
+    setPendingAction("unskip");
+    setError(null);
+    try {
+      await updateStudyPlanTask(task.id, "unskip");
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not undo this skip.",
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  return {
+    error,
+    pendingAction,
+    futureStartPromptOpen,
+    currentRecommendedTask,
+    setFutureStartPromptOpen,
+    continueFutureTask,
+    startCurrentRecommendedTask,
+    startTask,
+    skipTask,
+    unskipTask,
+  };
+}

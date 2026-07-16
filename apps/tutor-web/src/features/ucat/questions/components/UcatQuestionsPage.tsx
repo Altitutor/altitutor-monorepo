@@ -128,11 +128,16 @@ import {
   tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  firstUcatBulkStatusFailureError,
+  lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
+  type UcatLifecycleEntityType,
+} from '@/features/ucat/shared/lifecycle-errors'
 import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
-import { UCAT_CONTENT_STATUS_OPTIONS, type UcatContentStatus } from '@/features/ucat/shared/types'
+import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
 
 type QuestionsTab = UcatContentStatus
 
@@ -265,6 +270,7 @@ export function UcatQuestionsPage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeTab = parseQuestionsTab(searchParams.get('tab'))
+  const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeTab), [activeTab])
 
   const setActiveTab = (tab: QuestionsTab) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -361,6 +367,11 @@ export function UcatQuestionsPage() {
   const createSetMutation = useCreateUcatSet()
   const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
+  const editingStemStatus = useMemo(() => {
+    if (detail.data?.status) return detail.data.status
+    return (questions.data ?? []).find((row) => row.id === editingStemId)?.status ?? null
+  }, [detail.data?.status, editingStemId, questions.data])
+  const editDialogInitialMode = editingStemStatus === 'published' ? 'view' : 'edit'
   const setsList = (setsQuery.data ?? []).filter(
     (s) => !(s as { deleted_at?: string | null }).deleted_at,
   )
@@ -695,26 +706,38 @@ export function UcatQuestionsPage() {
     if (!bulkStatus) return
     setBulkStatusPending(true)
     try {
-      await ucatQuestionsApi.bulkSetStatus(Array.from(selectedStemIds), bulkStatus)
+      const result = await ucatQuestionsApi.bulkSetStatus(Array.from(selectedStemIds), bulkStatus)
       await invalidateQuestionsListQueries()
-      const movedIds = Array.from(selectedStemIds)
+      const movedIds = result.movedIds
       const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
-      toast(lifecycleStatusSuccessToast({
-        contentLabel: 'Question',
-        count: movedIds.length,
-        status: nextStatus,
-        onUndo: () => {
-          void ucatQuestionsApi.bulkRestoreStatus(movedIds, nextStatus, activeTab)
-            .then(async () => {
-              await invalidateQuestionsListQueries()
-              toast({ title: movedIds.length === 1 ? 'Question status restored' : 'Question statuses restored' })
-            })
-            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-        },
-      }))
+      if (movedIds.length > 0) {
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Question',
+          count: movedIds.length,
+          status: nextStatus,
+          onUndo: () => {
+            void ucatQuestionsApi.bulkRestoreStatus(movedIds, nextStatus, activeTab)
+              .then(async () => {
+                await invalidateQuestionsListQueries()
+                toast({ title: movedIds.length === 1 ? 'Question status restored' : 'Question statuses restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      }
+      const failureError = firstUcatBulkStatusFailureError(result)
+      if (failureError) {
+        const count = result.failures.length
+        toast(lifecycleErrorToast(
+          failureError,
+          count === 1 ? '1 question could not be moved' : `${count} questions could not be moved`,
+          router.push,
+          openLifecycleEntity,
+        ))
+      }
     } catch (error) {
       toast(lifecycleErrorToast(error, 'Cannot move selected questions', router.push, openLifecycleEntity))
     } finally {
@@ -1421,7 +1444,7 @@ export function UcatQuestionsPage() {
           side="top"
         />
         <SearchableSelect<{ value: UcatContentStatus; label: string }>
-          items={UCAT_CONTENT_STATUS_OPTIONS}
+          items={bulkStatusOptions}
           value={null}
           onValueChange={(item) => {
             if (!item) return
@@ -1481,7 +1504,7 @@ export function UcatQuestionsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Move {selectedStemIds.size} question(s) to {bulkStatus?.replace('_', ' ')}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The whole selection will be validated first. If any question is blocked, none of the statuses will change.
+              Eligible questions will move. Any blocked questions will remain in their current status.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1535,6 +1558,7 @@ export function UcatQuestionsPage() {
         categories={categoryOptions}
         tags={tagOptions}
         initial={detail.data}
+        initialEditorMode={editDialogInitialMode}
         loading={updateMutation.isPending || detail.isLoading}
         onDelete={
           editingStemId

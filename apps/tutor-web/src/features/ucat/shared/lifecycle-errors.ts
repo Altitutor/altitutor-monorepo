@@ -13,6 +13,17 @@ export type UcatLifecycleBlocker = {
   entity_name?: string | null
 }
 
+export type UcatBulkStatusFailure = {
+  contentId: string
+  error: string
+  blockers: UcatLifecycleBlocker[]
+}
+
+export type UcatBulkStatusResult = {
+  movedIds: string[]
+  failures: UcatBulkStatusFailure[]
+}
+
 export class UcatLifecycleError extends Error {
   blockers: UcatLifecycleBlocker[]
 
@@ -29,6 +40,28 @@ export async function throwUcatLifecycleResponseError(response: Response, fallba
     blockers?: UcatLifecycleBlocker[]
   }
   throw new UcatLifecycleError(body.error ?? fallback, body.blockers ?? [])
+}
+
+export async function readUcatBulkStatusResponse(
+  response: Response,
+  fallback: string,
+): Promise<UcatBulkStatusResult> {
+  if (!response.ok) await throwUcatLifecycleResponseError(response, fallback)
+  const body = (await response.json()) as Partial<UcatBulkStatusResult>
+  return {
+    movedIds: Array.isArray(body.movedIds) ? body.movedIds : [],
+    failures: Array.isArray(body.failures) ? body.failures : [],
+  }
+}
+
+export function throwFirstUcatBulkStatusFailure(result: UcatBulkStatusResult): void {
+  const failure = result.failures[0]
+  if (failure) throw new UcatLifecycleError(failure.error, failure.blockers)
+}
+
+export function firstUcatBulkStatusFailureError(result: UcatBulkStatusResult): UcatLifecycleError | null {
+  const failure = result.failures[0]
+  return failure ? new UcatLifecycleError(failure.error, failure.blockers) : null
 }
 
 function blockerAction(blocker: UcatLifecycleBlocker) {

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     sectionId: stem.sectionId,
     categoryId: stem.categoryId ?? null,
     stemText: stem.stemText ?? {},
-    isPrivate: true,
+    accessScope: 'public',
     sourceChannel: 'ai_generation',
     tutorSourceNote: null,
     questions: stem.questions.map((question) => ({

@@ -8,9 +8,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
   Skeleton,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import type { UcatUpgradePreview } from "@/features/subscription/api/fetch-upgrade-preview";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";

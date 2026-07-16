@@ -32,7 +32,10 @@ function add(target: AdditivePoint, point: DailyProgressSeriesPoint) {
   }
 }
 
-function metricValue(point: AdditivePoint, metric: GraphDataType): number | null {
+function metricValue(
+  point: AdditivePoint,
+  metric: GraphDataType,
+): number | null {
   if (metric === "attempt_count") return point.attemptCount;
   if (metric === "scaled_score") {
     return point.scaledScoreCount > 0
@@ -86,11 +89,16 @@ export function buildDailyProgressGraphData(
     totals.set(key, aggregate);
   }
 
-  return getBucketKeysBetween(range.start, range.end, bucket).map((date) => ({
-    date,
-    value: totals.has(date) ? metricValue(totals.get(date)!, metric) : null,
-    label: bucket === "week" ? formatWeekStartLabel(date) : undefined,
-    tooltipLabel:
-      bucket === "week" ? `Period: ${formatWeekRangeLabel(date)}` : undefined,
-  }));
+  const graphData = getBucketKeysBetween(range.start, range.end, bucket).map(
+    (date) => ({
+      date,
+      value: totals.has(date) ? metricValue(totals.get(date)!, metric) : null,
+      label: bucket === "week" ? formatWeekStartLabel(date) : undefined,
+      tooltipLabel:
+        bucket === "week" ? `Period: ${formatWeekRangeLabel(date)}` : undefined,
+    }),
+  );
+
+  const firstScoredIndex = graphData.findIndex((point) => point.value != null);
+  return firstScoredIndex === -1 ? [] : graphData.slice(firstScoredIndex);
 }

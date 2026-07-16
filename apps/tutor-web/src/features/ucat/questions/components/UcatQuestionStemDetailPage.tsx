@@ -202,6 +202,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
           categories={mapCategoriesToOptions(categories) as CategoryOption[]}
           tags={mapTagsToOptions(tags) as TagOption[]}
           stemId={stemId}
+          initialEditorMode={initial?.status === 'published' ? 'view' : 'edit'}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}

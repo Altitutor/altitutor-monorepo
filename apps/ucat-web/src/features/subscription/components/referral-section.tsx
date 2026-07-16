@@ -12,7 +12,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { Badge, Button, Skeleton } from "@altitutor/ui";
+import { Badge, Skeleton } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import {
   fetchUcatReferralSummary,
   type UcatReferralSummary,

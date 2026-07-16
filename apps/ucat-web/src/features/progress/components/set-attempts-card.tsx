@@ -16,7 +16,6 @@ import {
 import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
-import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
@@ -55,12 +54,9 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-export function SetAttemptsCard({
-  sectionNumber,
-}: SetAttemptsCardProps) {
+export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
-  const [graphType, setGraphType] = useState<"line" | "bar">("line");
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -72,7 +68,8 @@ export function SetAttemptsCard({
     dateRange,
     sectionNumber,
   });
-  const standaloneAttempts = (attemptsQuery.data?.attempts ?? []) as SetAttemptRow[];
+  const standaloneAttempts = (attemptsQuery.data?.attempts ??
+    []) as SetAttemptRow[];
   const metricOptions = GRAPH_DATA_TYPES;
 
   const handleDateRangeChange = (nextRange: GraphDateRange) => {
@@ -86,11 +83,7 @@ export function SetAttemptsCard({
       graphDataType,
       dateRange,
     );
-  }, [
-    graphDataType,
-    dateRange,
-    seriesQuery.data?.points,
-  ]);
+  }, [graphDataType, dateRange, seriesQuery.data?.points]);
 
   const setAttemptHref = (attemptId: string) =>
     sectionNumber != null
@@ -106,12 +99,11 @@ export function SetAttemptsCard({
       <Card className={UCAT_CARD_CHROME}>
         <CardHeader className={UCAT_CARD_HEADER_ROW}>
           <CardTitle>Set attempts</CardTitle>
-          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </CardHeader>
         <CardContent className={UCAT_CARD_CONTENT_AFTER_HEADER}>
           <ProgressGraph
             data={graphData}
-            type={graphType}
+            type="bar"
             dataType={graphDataType}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeChange}

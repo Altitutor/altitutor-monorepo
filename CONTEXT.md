@@ -425,8 +425,17 @@
 - **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
   _Avoid_: Study planner, goal tracker, target prediction
 
+- **Score projection snapshot** — The trusted total score estimate actually shown to a student on a calendar day, stored at most once per day in the student's timezone. Snapshot history must not be reconstructed later using a newer model.
+  _Avoid_: Recomputed historical prediction, attempt average
+
+- **Dashboard trajectory** — The dashboard presentation that overlays a Study plan target, scheduled mocks, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
+  _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
+
 - **Study plan** — A personalised calendar of UCAT study tasks generated through the student's test date from their target score, score projection, available study days, per-day time limits, and preferred mock day. It may use less than the student's available capacity when that is appropriate and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed.
   _Avoid_: Score projection, fixed timetable, target guarantee
+
+- **Study plan companion** — The persistent, compact guide to today's Study plan progress and next prescribed task. It preserves continuity while the student moves between activities and the full Study plan, but is not a second plan or an alternative task list.
+  _Avoid_: Study plan widget, floating task list, plan bubble
 
 - **Study plan activation setup** — The strongly encouraged but optional post-plan step that asks for the minimum inputs needed to build the first Study plan: overall cognitive target, test year or exact date, available study days, and maximum time per day. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
   _Avoid_: Required signup step, diagnostic, full settings form

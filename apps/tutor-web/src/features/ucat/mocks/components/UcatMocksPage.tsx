@@ -41,13 +41,18 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import { UCAT_CONTENT_STATUS_OPTIONS, type RichTextJson, type UcatContentStatus } from '@/features/ucat/shared/types'
+import { getUcatContentStatusTransitionOptions, type RichTextJson, type UcatContentStatus } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  firstUcatBulkStatusFailureError,
+  lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
+  type UcatLifecycleEntityType,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -84,6 +89,7 @@ export function UcatMocksPage() {
   const router = useRouter()
   const pathname = usePathname()
   const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const access = useUcatAccess()
   const mocks = useUcatMocks()
   const sectionsQuery = useUcatSections()
@@ -287,25 +293,38 @@ export function UcatMocksPage() {
     const ids = Array.from(selectedMockIds)
     setBulkStatusPending(true)
     try {
-      await ucatMocksApi.bulkSetStatus(ids, bulkStatus)
+      const result = await ucatMocksApi.bulkSetStatus(ids, bulkStatus)
       await invalidateMocksListQueries(ids)
+      const movedIds = result.movedIds
       const nextStatus = bulkStatus
       setBulkStatusOpen(false)
       setBulkStatus(null)
       clearSelection()
-      toast(lifecycleStatusSuccessToast({
-        contentLabel: 'Mock',
-        count: ids.length,
-        status: nextStatus,
-        onUndo: () => {
-          void ucatMocksApi.bulkRestoreStatus(ids, nextStatus, activeStatus)
-            .then(async () => {
-              await invalidateMocksListQueries(ids)
-              toast({ title: ids.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
-            })
-            .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-        },
-      }))
+      if (movedIds.length > 0) {
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Mock',
+          count: movedIds.length,
+          status: nextStatus,
+          onUndo: () => {
+            void ucatMocksApi.bulkRestoreStatus(movedIds, nextStatus, activeStatus)
+              .then(async () => {
+                await invalidateMocksListQueries(movedIds)
+                toast({ title: movedIds.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      }
+      const failureError = firstUcatBulkStatusFailureError(result)
+      if (failureError) {
+        const count = result.failures.length
+        toast(lifecycleErrorToast(
+          failureError,
+          count === 1 ? '1 mock could not be moved' : `${count} mocks could not be moved`,
+          router.push,
+          openLifecycleEntity,
+        ))
+      }
     } catch (error) {
       toast(lifecycleErrorToast(error, 'Cannot move selected mocks', router.push, openLifecycleEntity))
     } finally {
@@ -515,7 +534,7 @@ export function UcatMocksPage() {
           </DropdownMenuContent>
         </DropdownMenu>
         <SearchableSelect<{ value: UcatContentStatus; label: string }>
-          items={UCAT_CONTENT_STATUS_OPTIONS}
+          items={bulkStatusOptions}
           value={null}
           onValueChange={(item) => {
             if (!item) return
@@ -559,7 +578,7 @@ export function UcatMocksPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Move {selectedMockIds.size} mock(s) to {bulkStatus?.replace('_', ' ')}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The whole selection will be validated first. If any mock is blocked, none of the statuses will change.
+              Eligible mocks will move. Any blocked mocks will remain in their current status.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

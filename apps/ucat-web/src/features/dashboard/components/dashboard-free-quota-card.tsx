@@ -13,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Badge,
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -21,6 +20,7 @@ import {
   Skeleton,
   useToast,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";
@@ -35,6 +35,7 @@ import {
 } from "@/features/subscription/lib/plan-tier-display";
 import {
   UCAT_CARD_CHROME,
+  UCAT_DIALOG_PRIMARY_ACTION,
   UCAT_PRESSABLE_LIFT_HOVER,
   UCAT_PRIMARY_ACTION_BUTTON_SM,
   UCAT_SURFACE_MOTION,
@@ -247,7 +248,11 @@ export function DashboardFreeQuotaCard() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={usingReset}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUseReset} disabled={usingReset}>
+            <AlertDialogAction
+              className={UCAT_DIALOG_PRIMARY_ACTION}
+              onClick={handleUseReset}
+              disabled={usingReset}
+            >
               {usingReset ? "Using reset..." : "Use reset"}
             </AlertDialogAction>
           </AlertDialogFooter>

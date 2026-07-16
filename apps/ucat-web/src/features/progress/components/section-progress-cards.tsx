@@ -4,17 +4,15 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
-import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_RAISED_HOVER,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type { ProgressMode } from "../lib/progress-mode";
-import { formatUcatPercentile } from "../lib/percentiles";
-import { getSectionProgressPercentage } from "../lib/progress-data-utils";
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
-import {
-  AnimatedInteger,
-  ProgressCircular,
-} from "./progress-animated-display";
+import { AnimatedInteger } from "./progress-animated-display";
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[];
@@ -25,15 +23,17 @@ type SectionProgressCardsProps = {
   mode: ProgressMode;
   timeFrameDays: string;
   scoreProjections?: SectionScoreProjection[];
+  sectionTargets?: Record<string, number>;
 };
 
 export function SectionProgressCards({
   sections,
   linkToSection = false,
   sectionHrefPrefix = "/progress/sections",
-  mode,
+  mode: _mode,
   timeFrameDays: _timeFrameDays,
   scoreProjections,
+  sectionTargets = {},
 }: SectionProgressCardsProps) {
   const showPredictedScores = scoreProjections != null;
   const scoreBySectionNumber = new Map(
@@ -44,13 +44,22 @@ export function SectionProgressCards({
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {sections.map((section) => {
-          const projection = scoreBySectionNumber.get(section.sectionNumber);
-          const score = projection?.currentEstimate ?? null;
-          const percentile = formatUcatPercentile(score, "section");
-          const card = (
+    <div className="grid grid-cols-2 gap-4">
+      {sections.map((section) => {
+        const projection = scoreBySectionNumber.get(section.sectionNumber);
+        const score = projection?.currentEstimate ?? null;
+        const target = sectionTargets[section.sectionId] ?? null;
+        const gap =
+          score != null && target != null ? Math.round(target - score) : null;
+        const scorePosition =
+          score == null
+            ? null
+            : Math.max(0, Math.min(100, ((score - 300) / 600) * 100));
+        const targetPosition =
+          target == null
+            ? null
+            : Math.max(0, Math.min(100, ((target - 300) / 600) * 100));
+        const card = (
             <Card
               className={cn(
                 UCAT_CARD_CHROME,
@@ -74,63 +83,110 @@ export function SectionProgressCards({
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {showPredictedScores ? (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Predicted section score
-                    </div>
-                    <div
-                      className={cn(
-                        "text-3xl font-bold tabular-nums",
-                        score == null && "text-muted-foreground",
-                      )}
-                    >
-                      {score != null ? (
-                        <AnimatedInteger value={Math.round(score)} />
-                      ) : (
-                        "—"
-                      )}
-                    </div>
-                    {score == null && projection ? (
-                      <div className="mt-1 text-xs font-medium text-muted-foreground">
-                        Not enough evidence yet
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Estimated score
                       </div>
-                    ) : percentile ? (
-                      <div className="mt-1 text-xs font-medium text-muted-foreground">
-                        {percentile}
+                      <div
+                        className={cn(
+                          "text-3xl font-bold tabular-nums",
+                          score == null && "text-muted-foreground",
+                        )}
+                      >
+                        {score != null ? (
+                          <AnimatedInteger value={Math.round(score)} />
+                        ) : (
+                          "—"
+                        )}
                       </div>
-                    ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="space-y-0.5">
+                        <div
+                          className="relative h-7"
+                          aria-label={`Score scale from 300 to 900${score == null ? "" : `, current estimate ${Math.round(score)}`}${target == null ? "" : `, target ${target}`}`}
+                        >
+                          <div className="absolute inset-x-0 top-3 h-1 rounded-full bg-muted" />
+                          {scorePosition != null && targetPosition != null ? (
+                            <div
+                              className="absolute top-3 h-1 rounded-full bg-primary/35"
+                              style={{
+                                left: `${Math.min(scorePosition, targetPosition)}%`,
+                                width: `${Math.abs(targetPosition - scorePosition)}%`,
+                              }}
+                            />
+                          ) : null}
+                          {targetPosition != null ? (
+                            <div
+                              className="absolute top-0 -translate-x-1/2"
+                              style={{ left: `${targetPosition}%` }}
+                            >
+                              <span className="block h-7 w-px bg-foreground/55" />
+                              <span className="sr-only">Target {target}</span>
+                            </div>
+                          ) : null}
+                          {scorePosition != null ? (
+                            <div
+                              className="absolute top-1.5 size-4 -translate-x-1/2 rounded-full border-[3px] border-background bg-primary shadow-sm ring-1 ring-primary/35"
+                              style={{ left: `${scorePosition}%` }}
+                            />
+                          ) : null}
+                        </div>
+                        <div className="flex justify-between text-[11px] leading-none tabular-nums text-muted-foreground">
+                          <span>300</span>
+                          <span>900</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">Target</span>
+                        <span className="font-semibold tabular-nums">
+                          {target ?? "—"}
+                        </span>
+                      </div>
+                      {target != null ? (
+                        <div className="flex items-baseline justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground">Gap</span>
+                          <span
+                            className={cn(
+                              "font-semibold tabular-nums",
+                              gap != null &&
+                                gap <= 0 &&
+                                "text-emerald-600 dark:text-emerald-400",
+                            )}
+                          >
+                            {gap == null
+                              ? "—"
+                              : gap <= 0
+                                ? `${Math.abs(gap)} ahead`
+                                : `${gap} points`}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                ) : null}
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Percentage correct
-                  </div>
-                  <ProgressCircular
-                    percentage={getSectionProgressPercentage(section, mode)}
-                    size={120}
-                    strokeWidth={10}
-                    className="text-accent"
-                    footerCount={section.maxScore}
-                    footerSuffix="questions completed"
-                  />
-                </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Complete timed sets or mocks to establish an estimated
+                    score.
+                  </p>
+                )}
               </CardContent>
             </Card>
           );
-          return linkToSection ? (
-            <Link
-              key={section.sectionId}
-              href={`${sectionHrefPrefix}/${section.sectionNumber}`}
-              className="group block"
-              aria-label={`View ${section.sectionName} section progress`}
-            >
-              {card}
-            </Link>
-          ) : (
-            <Fragment key={section.sectionId}>{card}</Fragment>
-          );
-        })}
-      </div>
+        return linkToSection ? (
+          <Link
+            key={section.sectionId}
+            href={`${sectionHrefPrefix}/${section.sectionNumber}`}
+            className="group block"
+            aria-label={`View ${section.sectionName} section progress`}
+          >
+            {card}
+          </Link>
+        ) : (
+          <Fragment key={section.sectionId}>{card}</Fragment>
+        );
+      })}
     </div>
   );
 }

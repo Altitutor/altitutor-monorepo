@@ -14,7 +14,7 @@ export const AiToolQuestionStemPayloadSchema = z.object({
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
   stemText: z.unknown(),
-  accessScope: z.enum(['public', 'private']).default('private'),
+  accessScope: z.enum(['public', 'private']).default('public'),
   questions: z.array(
     z.object({
       questionText: z.unknown(),

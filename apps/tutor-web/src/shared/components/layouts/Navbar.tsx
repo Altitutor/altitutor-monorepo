@@ -41,6 +41,14 @@ export function Navbar() {
   const { data: staffRecord } = useCurrentStaff(!!user);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [formResponseSubmitted, setFormResponseSubmitted] = useState(false);
+
+  useEffect(() => {
+    setFormResponseSubmitted(false);
+    const showNavbar = () => setFormResponseSubmitted(true);
+    window.addEventListener('altitutor:form-submitted', showNavbar);
+    return () => window.removeEventListener('altitutor:form-submitted', showNavbar);
+  }, [pathname]);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(staffRecord?.id ?? '');
@@ -60,7 +68,7 @@ export function Navbar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
 
-  if (shouldHideNavbar(pathname)) {
+  if (shouldHideNavbar(pathname) && !formResponseSubmitted) {
     return null;
   }
 

@@ -21,9 +21,11 @@ async function fetchProgressSeries(
 export function useProgressSeries(
   source: ProgressSeriesSource,
   sectionNumber?: number,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: ["ucat", "progress", "series", source, sectionNumber ?? "all"],
     queryFn: () => fetchProgressSeries(source, sectionNumber),
+    enabled,
   });
 }

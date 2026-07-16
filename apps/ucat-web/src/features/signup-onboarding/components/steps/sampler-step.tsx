@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -23,13 +23,13 @@ const OPTIONS: Array<{
   {
     value: "new",
     title: "I’m completely new",
-    description: "Show me each essential control as I answer.",
+    description: "Coach me through the method and controls step by step.",
     Icon: GraduationCap,
   },
   {
     value: "familiar",
     title: "I know the UCAT format",
-    description: "Give me short prompts for the controls that matter.",
+    description: "Let me solve realistic questions independently.",
     Icon: BookOpenCheck,
   },
   {
@@ -110,7 +110,7 @@ export function SignupCompleteSamplerStep({
                 className={cn(
                   "rounded-2xl border p-4 text-left transition-colors",
                   selected
-                    ? "border-marketing-accent bg-marketing-accent/[0.12]"
+                    ? "border-white/25 bg-white/[0.1] ring-1 ring-white/[0.22]"
                     : "border-white/10 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.05]",
                 )}
               >
@@ -118,7 +118,7 @@ export function SignupCompleteSamplerStep({
                   className={cn(
                     "h-5 w-5",
                     selected
-                      ? "text-marketing-accent"
+                      ? "text-marketing-cream"
                       : "text-marketing-cream/50",
                   )}
                   aria-hidden
@@ -135,10 +135,7 @@ export function SignupCompleteSamplerStep({
         </div>
       </fieldset>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-marketing-cream/50">
-          This sampler is not scored and does not use your practice quota.
-        </p>
+      <div className="flex justify-end">
         <Button
           type="button"
           disabled={!familiarity}

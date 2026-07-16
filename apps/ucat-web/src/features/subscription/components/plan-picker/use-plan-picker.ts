@@ -149,7 +149,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const formatMoney = (cents: number) =>
     formatMoneyFromMinorUnits(cents, cfg.currency, { omitAudPrefix });
 
-  const paidCta = "Subscribe";
+  const paidCta =
+    access.unlimitedTrialEligible && cfg.trialDays > 0
+      ? "Start free trial"
+      : "Subscribe";
 
   const subscription = billingData?.subscription ?? null;
   const subscribedPlanTier = subscription?.plan_tier ?? null;

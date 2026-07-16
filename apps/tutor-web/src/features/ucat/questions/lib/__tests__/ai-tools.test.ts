@@ -1,6 +1,7 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { plainTextToProseMirror, plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 import {
+  AiToolQuestionStemPayloadSchema,
   applyReviewFlagSuggestion,
   applyExplanationUpdates,
   findMissingExplanations,
@@ -13,7 +14,7 @@ function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionSt
     sectionId: '00000000-0000-0000-0000-000000000001',
     categoryId: null,
     stemText: plainTextToProseMirror('Stem'),
-    accessScope: 'private',
+    accessScope: 'public',
     questions: [
       {
         questionText: plainTextToProseMirror('Question'),
@@ -39,6 +40,16 @@ describe('AI tools explanation helpers', () => {
     expect(findMissingExplanations(stem)).toEqual([
       { questionIndex: 0, questionNumber: 1, kind: 'question' },
     ])
+  })
+
+  it('defaults question visibility to public when omitted', () => {
+    const stem = baseStem('multiple_choice')
+    const parsed = AiToolQuestionStemPayloadSchema.parse({
+      ...stem,
+      accessScope: undefined,
+    })
+
+    expect(parsed.accessScope).toBe('public')
   })
 
   it('requires every syllogism option to have an explanation', () => {

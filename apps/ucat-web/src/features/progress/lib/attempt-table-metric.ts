@@ -1,4 +1,5 @@
 import { formatTimeSeconds } from "./format-time";
+import { formatSpeedMultiplier } from "./format-speed-multiplier";
 
 /** Graph metrics that map to a single per-attempt table column. */
 export type AttemptTableMetric =
@@ -65,7 +66,7 @@ const SET_METRIC_COLUMNS: Record<AttemptTableMetric, MetricColumnConfig> = {
   exam_speed: {
     label: "Exam speed",
     tooltip:
-      "How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace.",
+      "How fast you completed this set vs exam pace. 1x matches exam pace; above 1x is faster.",
   },
   questions: {
     label: "Questions",
@@ -91,7 +92,7 @@ const MOCK_METRIC_COLUMNS: Record<AttemptTableMetric, MetricColumnConfig> = {
   exam_speed: {
     label: "Exam speed",
     tooltip:
-      "Average exam speed across all sets. >100% means you finished faster than exam pace.",
+      "Average speed across all sets. 1x matches exam pace; above 1x is faster.",
   },
   questions: {
     label: "Questions",
@@ -182,8 +183,7 @@ export function formatAttemptTableMetricValue(
       return formatTimeSeconds(Math.round(timeTaken));
     }
     case "exam_speed": {
-      if (attempt.studentExamSpeed == null) return "—";
-      return `${(attempt.studentExamSpeed * 100).toFixed(1)}%`;
+      return formatSpeedMultiplier(attempt.studentExamSpeed);
     }
     case "questions": {
       return attempt.questionCount != null ? String(attempt.questionCount) : "—";

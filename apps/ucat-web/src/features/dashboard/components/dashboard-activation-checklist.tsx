@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { Button, Card, CardContent, Skeleton } from "@altitutor/ui";
-import { ArrowRight, Check, Circle, ListChecks, Sparkles } from "lucide-react";
+import { Card, CardContent, Skeleton } from "@altitutor/ui";
+import { ArrowRight, Check, Circle, ListChecks, Lock } from "lucide-react";
 import {
   useCompleteOnboardingTour,
   useOnboardingProgress,
@@ -15,7 +15,13 @@ import {
   UCAT_GUIDED_SAMPLER_DECIDED,
 } from "@/features/onboarding/lib/activation-milestones";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_COMPLETED_ITEM_SURFACE,
+  UCAT_FOCUS_RING_INSET,
+  UCAT_PRESSABLE_SURFACE_HOVER,
+  UCAT_SURFACE_MOTION,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export function DashboardActivationChecklist() {
@@ -35,126 +41,122 @@ export function DashboardActivationChecklist() {
   }, [completeMilestone, observedCompletedTask, progress]);
 
   if (progress.isLoading || planQuery.isLoading) {
-    return <Skeleton className="h-48 w-full rounded-2xl" />;
+    return <Skeleton className="h-44 w-full rounded-2xl" />;
   }
 
-  // Existing students are not retroactively placed into the new activation
-  // journey. Every new path records this milestone, including an explicit skip.
   if (!progress.isCompleted(UCAT_GUIDED_SAMPLER_DECIDED)) return null;
 
+  const hasPlan = Boolean(planQuery.data?.profile);
+  const hasCompletedFirstTask =
+    observedCompletedTask ||
+    progress.isCompleted(UCAT_FIRST_STUDY_PLAN_TASK_COMPLETED);
   const items = [
     {
       label: "Explore all four UCAT sections",
-      description: "Finish the guided, unscored sampler.",
       complete: progress.isCompleted(UCAT_GUIDED_SAMPLER_COMPLETED),
+      unlocked: true,
       href: "/signup/complete/sampler?replay=1&familiarity=familiar",
       action: "Explore",
     },
     {
       label: "Build your Study plan",
-      description: "Turn your target and available time into next actions.",
-      complete: Boolean(planQuery.data?.profile),
-      href: "/getting-started",
+      complete: hasPlan,
+      unlocked: true,
+      href: "/study-plan/setup",
       action: "Build",
     },
     {
       label: "Complete your first Study plan task",
-      description: "Give the plan its first real signal.",
-      complete:
-        observedCompletedTask ||
-        progress.isCompleted(UCAT_FIRST_STUDY_PLAN_TASK_COMPLETED),
+      complete: hasCompletedFirstTask,
+      unlocked: hasPlan,
       href: "/study-plan",
       action: "View task",
     },
     {
       label: "Review your first real result",
-      description: "Use feedback to understand what to do next.",
       complete: progress.isCompleted(UCAT_FIRST_RESULT_REVIEWED),
+      unlocked: hasCompletedFirstTask,
       href: "/progress",
       action: "Review",
     },
   ];
   const completedCount = items.filter((item) => item.complete).length;
   if (completedCount === items.length) return null;
-  const nextItem = items.find((item) => !item.complete);
 
   return (
-    <Card className={cn(UCAT_CARD_CHROME, "border-primary/20")}>
-      <CardContent className="p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ListChecks className="h-5 w-5" aria-hidden />
-            </span>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-semibold">
-                  Get set up for smarter practice
-                </h2>
-                <span className="text-xs text-muted-foreground">
-                  {completedCount} of {items.length}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Each step helps Altitutor give you a clearer next
-                recommendation.
-              </p>
-            </div>
+    <Card className={cn(UCAT_CARD_CHROME, "max-w-2xl")}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <ListChecks className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">
+              Get set up for smarter practice
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {completedCount} of {items.length} complete
+            </p>
           </div>
-          {nextItem ? (
-            <Button asChild size="sm">
-              <Link href={nextItem.href}>
-                {nextItem.action}
-                <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
-              </Link>
-            </Button>
-          ) : null}
         </div>
 
-        <div className="mt-5 grid gap-2 md:grid-cols-2">
-          {items.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={cn(
-                "flex gap-3 rounded-xl border p-3 transition-colors",
-                item.complete
-                  ? "border-emerald-500/15 bg-emerald-500/[0.04]"
-                  : "border-border/60 hover:border-primary/30 hover:bg-primary/[0.03]",
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-0.5",
-                  item.complete ? "text-emerald-600" : "text-muted-foreground",
-                )}
-              >
-                {item.complete ? (
-                  <Check className="h-4 w-4" aria-hidden />
-                ) : (
-                  <Circle className="h-4 w-4" aria-hidden />
-                )}
-              </span>
-              <span>
+        <div className="mt-3 divide-y overflow-hidden rounded-xl border">
+          {items.map((item) => {
+            const rowClassName = cn(
+              "flex min-h-11 items-center gap-2.5 px-3 py-2 text-sm",
+              item.unlocked &&
+                !item.complete && [
+                  UCAT_SURFACE_MOTION,
+                  UCAT_PRESSABLE_SURFACE_HOVER,
+                  UCAT_FOCUS_RING_INSET,
+                ],
+              item.complete && UCAT_COMPLETED_ITEM_SURFACE,
+              !item.unlocked && "cursor-not-allowed bg-muted/35",
+            );
+            const contents = (
+              <>
+                <span className="shrink-0 text-muted-foreground">
+                  {item.complete ? (
+                    <Check className="h-4 w-4" aria-hidden />
+                  ) : item.unlocked ? (
+                    <Circle className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                </span>
                 <span
                   className={cn(
-                    "block text-sm font-medium",
+                    "min-w-0 flex-1 truncate font-medium",
                     item.complete && "text-muted-foreground line-through",
+                    !item.unlocked && "text-muted-foreground",
                   )}
                 >
                   {item.label}
                 </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {item.description}
-                </span>
-              </span>
-            </Link>
-          ))}
+                {!item.complete && item.unlocked ? (
+                  <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                    {item.action}
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                ) : null}
+              </>
+            );
+
+            return item.unlocked && !item.complete ? (
+              <Link key={item.label} href={item.href} className={rowClassName}>
+                {contents}
+              </Link>
+            ) : (
+              <div
+                key={item.label}
+                className={rowClassName}
+                aria-disabled={!item.unlocked || undefined}
+              >
+                {contents}
+              </div>
+            );
+          })}
         </div>
-        <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
-          This checklist disappears when you finish it.
-        </p>
       </CardContent>
     </Card>
   );

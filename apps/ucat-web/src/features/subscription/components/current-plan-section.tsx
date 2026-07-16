@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge, Button, Skeleton } from "@altitutor/ui";
+import { Badge, Skeleton } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";

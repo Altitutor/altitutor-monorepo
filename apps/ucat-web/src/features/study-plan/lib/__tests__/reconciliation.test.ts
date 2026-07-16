@@ -42,6 +42,7 @@ describe("Study plan reconciliation", () => {
 
   it("only completes category practice with a matching category and broadly matching volume", () => {
     const task = {
+      taskId: "practice-task",
       sectionId: "dm",
       questionStemCategoryId: "syllogisms",
       targetUnits: 10,
@@ -50,18 +51,19 @@ describe("Study plan reconciliation", () => {
       sectionId: "dm",
       questionCount: 9,
       completedAt: "2026-07-14T12:00:00.000Z",
-      filtersSnapshot: { categoryIds: ["syllogisms"] },
+      filtersSnapshot: { categoryIds: ["syllogisms"], questionCount: 10 },
     })).toEqual({ status: "completed", completedUnits: 9 });
     expect(matchPracticeSession(task, {
       sectionId: "dm",
       questionCount: 10,
       completedAt: "2026-07-14T12:00:00.000Z",
-      filtersSnapshot: { categoryIds: ["logical-puzzles"] },
+      filtersSnapshot: { categoryIds: ["logical-puzzles"], questionCount: 10 },
     })).toBeNull();
   });
 
   it("keeps an undersized matching practice session partial", () => {
     expect(matchPracticeSession({
+      taskId: "practice-task",
       sectionId: "vr",
       questionStemCategoryId: "reading",
       targetUnits: 10,
@@ -69,7 +71,24 @@ describe("Study plan reconciliation", () => {
       sectionId: "vr",
       questionCount: 8,
       completedAt: "2026-07-14T12:00:00.000Z",
-      filtersSnapshot: { categoryIds: ["reading"] },
+      filtersSnapshot: { categoryIds: ["reading"], questionCount: 8 },
     })).toEqual({ status: "partial", completedUnits: 8 });
+  });
+
+  it("completes a directly linked planned session at its delivered whole-stem volume", () => {
+    expect(matchPracticeSession({
+      taskId: "practice-task",
+      sectionId: "vr",
+      questionStemCategoryId: "reading",
+      targetUnits: 5,
+    }, {
+      sectionId: "vr",
+      questionCount: 4,
+      completedAt: "2026-07-14T12:00:00.000Z",
+      filtersSnapshot: {
+        categoryIds: ["reading"],
+        studyPlanTaskId: "practice-task",
+      },
+    })).toEqual({ status: "completed", completedUnits: 4 });
   });
 });

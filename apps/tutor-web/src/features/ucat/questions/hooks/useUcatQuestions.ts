@@ -282,7 +282,8 @@ export function useBulkImportUcatQuestionStems() {
   })
 }
 
-export function useGenerateUcatQuestionDrafts() {
+export function useStartUcatQuestionGeneration() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (args: {
       sectionId: string
@@ -297,8 +298,10 @@ export function useGenerateUcatQuestionDrafts() {
       timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
       targetTagIds: string[]
       runInstructions?: string | null
-      onProgress?: Parameters<typeof ucatQuestionsApi.generateDrafts>[0]['onProgress']
-    }) => ucatQuestionsApi.generateDrafts(args),
+    }) => ucatQuestionsApi.startGeneration(args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions(), 'generation-runs'] })
+    },
   })
 }
 
@@ -307,6 +310,26 @@ export function useUcatGenerationModelProfiles(enabled: boolean) {
     queryKey: [...ucatKeys.questions(), 'generation-model-profiles'],
     queryFn: () => ucatQuestionsApi.getGenerationModelProfiles(),
     enabled,
+  })
+}
+
+export function useUcatGenerationRuns(enabled = true) {
+  return useQuery({
+    queryKey: [...ucatKeys.questions(), 'generation-runs'],
+    queryFn: () => ucatQuestionsApi.getGenerationRuns(),
+    enabled,
+    refetchInterval: (query) =>
+      query.state.data?.some((run) => run.status === 'running') ? 1_500 : 10_000,
+  })
+}
+
+export function useDismissUcatGenerationRun() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (runId: string) => ucatQuestionsApi.dismissGenerationRun(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions(), 'generation-runs'] })
+    },
   })
 }
 

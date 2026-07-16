@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateStudyPlanTask } from "@/features/study-plan/api/study-plan";
 
-/** Opening the linked result is the completion event for a Study plan review. */
+/** Complete the linked Study plan task once durable attempt review is finished. */
 export function useCompleteStudyPlanReview(ready: boolean) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -16,7 +16,9 @@ export function useCompleteStudyPlanReview(ready: boolean) {
     if (!ready || !taskId || sentTaskId.current === taskId) return;
     sentTaskId.current = taskId;
     void updateStudyPlanTask(taskId, "complete")
-      .then(() => queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] }))
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] }),
+      )
       .catch(() => {
         sentTaskId.current = null;
       });

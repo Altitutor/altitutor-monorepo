@@ -64,7 +64,9 @@ function isValidPagePath(path: string): boolean {
     case 2:
       return (
         (segments[0] === "settings" &&
-          ["app", "profile", "subscription", "plan"].includes(segments[1])) ||
+          ["app", "profile", "subscription", "plan", "study-plan"].includes(
+            segments[1],
+          )) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
         (segments[0] === "learn" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||

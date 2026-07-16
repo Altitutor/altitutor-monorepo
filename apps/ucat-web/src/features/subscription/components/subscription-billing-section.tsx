@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,12 @@ import {
 } from "@/features/subscription/api/change-subscription-cancellation";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { ImmediatePlanCancellationDialog } from "@/features/subscription/components/immediate-plan-cancellation-dialog";
+import { UcatPaymentMethodDialog } from "@/features/subscription/components/ucat-payment-method-dialog";
+import { applyUcatPaymentMethod } from "@/features/subscription/api/ucat-payment-method";
+import {
+  UCAT_PAYMENT_METHOD_QUERY_KEY,
+  useUcatPaymentMethod,
+} from "@/features/subscription/hooks/use-ucat-payment-method";
 import type { UcatSubscriptionDetails } from "@/features/subscription/types/ucat-subscription-billing";
 import {
   hasPaidUcatSubscriptionAccess,
@@ -96,6 +102,19 @@ function formatSubscriptionPlan(subscription: UcatSubscriptionDetails) {
     UCAT_ONLINE_TIER_LABELS[subscription.plan_tier] ??
     `UCAT ${subscription.plan_tier}`
   );
+}
+
+function formatCardBrand(brand: string): string {
+  const labels: Record<string, string> = {
+    amex: "American Express",
+    diners: "Diners Club",
+    discover: "Discover",
+    jcb: "JCB",
+    mastercard: "Mastercard",
+    unionpay: "UnionPay",
+    visa: "Visa",
+  };
+  return labels[brand.toLowerCase()] ?? "Card";
 }
 
 function MetricInfoTooltip({
@@ -179,6 +198,11 @@ function PastSubscriptionsSection({
 export function SubscriptionBillingSection() {
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useUcatSubscriptionBilling();
+  const {
+    data: paymentMethodData,
+    isLoading: paymentMethodLoading,
+    error: paymentMethodLoadError,
+  } = useUcatPaymentMethod();
   const { openPlanPicker } = useUpsellDialog();
   const [portalAction, setPortalAction] = useState<BillingPortalAction | null>(
     null,
@@ -191,6 +215,14 @@ export function SubscriptionBillingSection() {
   const [immediateCancelError, setImmediateCancelError] = useState<
     string | null
   >(null);
+  const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  const [paymentMethodStatus, setPaymentMethodStatus] = useState<string | null>(
+    null,
+  );
+  const [paymentMethodError, setPaymentMethodError] = useState<string | null>(
+    null,
+  );
+  const handledPaymentMethodReturn = useRef(false);
   const { data: pricingConfig = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
   const [discountProgress, setDiscountProgress] = useState<{
@@ -214,6 +246,43 @@ export function SubscriptionBillingSection() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (handledPaymentMethodReturn.current) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("payment_method") !== "return") return;
+
+    handledPaymentMethodReturn.current = true;
+    const setupIntentId = url.searchParams.get("setup_intent");
+    const cleanReturnUrl = () => {
+      url.searchParams.delete("payment_method");
+      url.searchParams.delete("setup_intent");
+      url.searchParams.delete("setup_intent_client_secret");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+    };
+
+    setPaymentMethodStatus(null);
+    setPaymentMethodError(null);
+    if (!setupIntentId) {
+      setPaymentMethodError("Stripe returned without a completed card update.");
+      cleanReturnUrl();
+      return;
+    }
+
+    void applyUcatPaymentMethod(setupIntentId)
+      .then((result) => {
+        queryClient.setQueryData(UCAT_PAYMENT_METHOD_QUERY_KEY, result);
+        setPaymentMethodStatus("Your UCAT payment card has been updated.");
+      })
+      .catch((applyError: unknown) => {
+        setPaymentMethodError(
+          applyError instanceof Error
+            ? applyError.message
+            : "Failed to finish updating your card",
+        );
+      })
+      .finally(cleanReturnUrl);
+  }, [queryClient]);
 
   const subscription = data?.subscription ?? null;
   const subscriptions = data?.subscriptions ?? [];
@@ -470,6 +539,12 @@ export function SubscriptionBillingSection() {
         </div>
       ) : null}
 
+      {portalError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {portalError}
+        </p>
+      ) : null}
+
       {isCancelScheduled && cancelEndDate ? (
         <div
           role="alert"
@@ -591,24 +666,22 @@ export function SubscriptionBillingSection() {
             </div>
             <div className="bg-background p-5">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
                 <p className="text-xs font-semibold uppercase tracking-wide">
-                  Practice days
+                  Card ending
                 </p>
-                <MetricInfoTooltip label="How practice days reduce your bill">
-                  Answer {pricing.minQuestionsPerDay}+ questions in a day to
-                  earn{" "}
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  off your next bill. You can earn this on up to{" "}
-                  {billSnapshot.availableDays} days this billing cycle.
-                </MetricInfoTooltip>
               </div>
-              <p className="mt-2 font-semibold">
-                {billSnapshot.earnedDays} of {billSnapshot.availableDays} earned
-              </p>
+              {paymentMethodLoading ? (
+                <Skeleton className="mt-2 h-5 w-32" />
+              ) : (
+                <p className="mt-2 font-semibold">
+                  {paymentMethodData?.paymentMethod
+                    ? `${formatCardBrand(paymentMethodData.paymentMethod.brand)} ending in ${paymentMethodData.paymentMethod.last4}`
+                    : paymentMethodLoadError
+                      ? "Card unavailable"
+                      : "No card saved"}
+                </p>
+              )}
             </div>
             <div className="bg-background p-5">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -638,13 +711,13 @@ export function SubscriptionBillingSection() {
           </div>
         ) : null}
 
-        <div className="space-y-5 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Manage your plan here. Payment details open securely in Stripe.
-            </p>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              {!isPaymentRecovery && !isTerminalBillingState ? (
+        {!isPaymentRecovery && !isTerminalBillingState ? (
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Manage your UCAT plan and billing card here.
+              </p>
+              <div className="flex flex-wrap gap-2 sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
@@ -658,37 +731,48 @@ export function SubscriptionBillingSection() {
                   )}
                   Change plan
                 </Button>
-              ) : null}
-
-              <Button
-                type="button"
-                className={UCAT_PRIMARY_ACTION_BUTTON}
-                disabled={portalAction !== null}
-                onClick={() =>
-                  void (isPaymentRecovery
-                    ? handleFixPayment()
-                    : handlePortalAction("payment_method_update"))
-                }
-              >
-                {portalAction === "payment_method_update" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="mr-2 h-4 w-4" />
-                )}
-                {isPaymentRecovery
-                  ? subscription.billing_recovery_requires_action
-                    ? "Confirm payment"
-                    : "Update payment"
-                  : "Update payment method"}
-              </Button>
+                <Button
+                  type="button"
+                  className={UCAT_PRIMARY_ACTION_BUTTON}
+                  onClick={() => {
+                    setPaymentMethodStatus(null);
+                    setPaymentMethodError(null);
+                    setPaymentMethodDialogOpen(true);
+                  }}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Change card
+                </Button>
+              </div>
             </div>
+            {paymentMethodStatus ? (
+              <p
+                role="status"
+                className="mt-3 text-sm text-emerald-700 dark:text-emerald-300"
+              >
+                {paymentMethodStatus}
+              </p>
+            ) : null}
+            {paymentMethodError ? (
+              <p role="alert" className="mt-3 text-sm text-destructive">
+                {paymentMethodError}
+              </p>
+            ) : null}
           </div>
-
-          {portalError ? (
-            <p className="text-sm text-destructive">{portalError}</p>
-          ) : null}
-        </div>
+        ) : null}
       </section>
+
+      <UcatPaymentMethodDialog
+        open={paymentMethodDialogOpen}
+        onOpenChange={setPaymentMethodDialogOpen}
+        onSuccess={() => {
+          setPaymentMethodError(null);
+          setPaymentMethodStatus("Your UCAT payment card has been updated.");
+          void queryClient.invalidateQueries({
+            queryKey: UCAT_PAYMENT_METHOD_QUERY_KEY,
+          });
+        }}
+      />
 
       {cancelEndDate ? (
         <ImmediatePlanCancellationDialog

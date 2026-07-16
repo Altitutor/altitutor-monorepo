@@ -1,6 +1,8 @@
 import type {
   StudyPlanAvailability,
+  StudyPlanExtraStudyInput,
   StudyPlanProfileInput,
+  StudyPlanSection,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
 import { parseIsoDate } from "@/features/study-plan/lib/dates";
@@ -10,6 +12,36 @@ function integer(value: unknown, label: string): number {
     throw new Error(`${label} must be a whole number.`);
   }
   return value;
+}
+
+const EXTRA_STUDY_MINUTES = new Set([10, 20, 30, 45]);
+const SECTION_KEYS = new Set<StudyPlanSection["key"]>([
+  "verbal_reasoning",
+  "decision_making",
+  "quantitative_reasoning",
+  "situational_judgement",
+]);
+
+export function parseExtraStudyInput(value: unknown): StudyPlanExtraStudyInput {
+  if (!value || typeof value !== "object") {
+    throw new Error("Choose how much time you have.");
+  }
+  const record = value as Record<string, unknown>;
+  const minutes = integer(record.minutes, "Extra study time");
+  if (!EXTRA_STUDY_MINUTES.has(minutes)) {
+    throw new Error("Choose 10, 20, 30, or 45 minutes.");
+  }
+  const sectionKey = record.sectionKey == null ? null : String(record.sectionKey);
+  if (
+    sectionKey != null &&
+    !SECTION_KEYS.has(sectionKey as StudyPlanSection["key"])
+  ) {
+    throw new Error("Choose a valid UCAT section.");
+  }
+  return {
+    minutes: minutes as StudyPlanExtraStudyInput["minutes"],
+    sectionKey: sectionKey as StudyPlanExtraStudyInput["sectionKey"],
+  };
 }
 
 export function parseStudyPlanProfileInput(value: unknown): StudyPlanProfileInput {

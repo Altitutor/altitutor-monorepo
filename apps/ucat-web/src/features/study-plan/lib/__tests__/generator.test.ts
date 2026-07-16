@@ -1,4 +1,8 @@
-import { generateStudyPlan } from "@/features/study-plan/lib/generator";
+import {
+  generateExtraStudyTasks,
+  generateStudyPlan,
+  reviewTask,
+} from "@/features/study-plan/lib/generator";
 import type {
   StudyPlanCategorySignal,
   StudyPlanProfileInput,
@@ -11,15 +15,25 @@ const sections: StudyPlanSection[] = [
   ["dm", "decision_making", "Decision Making", "DM", 2, 35, 64],
   ["qr", "quantitative_reasoning", "Quantitative Reasoning", "QR", 3, 36, 42],
   ["sjt", "situational_judgement", "Situational Judgement", "SJT", 4, 69, 32],
-].map(([id, key, name, shortName, sectionNumber, questionCount, timePerQuestionSeconds]) => ({
-  id: String(id),
-  key: key as StudyPlanSection["key"],
-  name: String(name),
-  shortName: String(shortName),
-  sectionNumber: Number(sectionNumber),
-  questionCount: Number(questionCount),
-  timePerQuestionSeconds: Number(timePerQuestionSeconds),
-}));
+].map(
+  ([
+    id,
+    key,
+    name,
+    shortName,
+    sectionNumber,
+    questionCount,
+    timePerQuestionSeconds,
+  ]) => ({
+    id: String(id),
+    key: key as StudyPlanSection["key"],
+    name: String(name),
+    shortName: String(shortName),
+    sectionNumber: Number(sectionNumber),
+    questionCount: Number(questionCount),
+    timePerQuestionSeconds: Number(timePerQuestionSeconds),
+  }),
+);
 
 const profile: StudyPlanProfileInput = {
   targetScore: 2100,
@@ -33,35 +47,39 @@ const profile: StudyPlanProfileInput = {
   preferredMockWeekday: 6,
 };
 
-const categories: StudyPlanCategorySignal[] = sections.flatMap((section, index) => [
-  {
-    id: `${section.id}-weak`,
-    sectionId: section.id,
-    name: `${section.shortName} weak category`,
-    availableQuestionCount: 100,
-    correctScore: 2,
-    maxScore: 10,
-    weaknessScore: 0.8 - index * 0.05,
-  },
-  {
-    id: `${section.id}-strong`,
-    sectionId: section.id,
-    name: `${section.shortName} strong category`,
-    availableQuestionCount: 100,
-    correctScore: 8,
-    maxScore: 10,
-    weaknessScore: 0.2,
-  },
-]);
+const categories: StudyPlanCategorySignal[] = sections.flatMap(
+  (section, index) => [
+    {
+      id: `${section.id}-weak`,
+      sectionId: section.id,
+      name: `${section.shortName} weak category`,
+      availableQuestionCount: 100,
+      correctScore: 2,
+      maxScore: 10,
+      weaknessScore: 0.8 - index * 0.05,
+    },
+    {
+      id: `${section.id}-strong`,
+      sectionId: section.id,
+      name: `${section.shortName} strong category`,
+      availableQuestionCount: 100,
+      correctScore: 8,
+      maxScore: 10,
+      weaknessScore: 0.2,
+    },
+  ],
+);
 
-const skillTrainers: StudyPlanSkillTrainer[] = sections.slice(0, 3).map((section) => ({
-  id: `${section.id}-trainer`,
-  key: `${section.key}_warmup`,
-  name: `${section.shortName} warm-up`,
-  sectionId: section.id,
-  categoryIds: [`${section.id}-weak`],
-  estimatedMinutes: 6,
-}));
+const skillTrainers: StudyPlanSkillTrainer[] = sections
+  .slice(0, 3)
+  .map((section) => ({
+    id: `${section.id}-trainer`,
+    key: `${section.key}_warmup`,
+    name: `${section.shortName} warm-up`,
+    sectionId: section.id,
+    categoryIds: [`${section.id}-weak`],
+    estimatedMinutes: 1,
+  }));
 
 const contentInputs = { categories, skillTrainers };
 
@@ -78,34 +96,47 @@ describe("generateStudyPlan", () => {
         evidenceCount: 0,
         completedFullSets: 0,
       })),
-      learningModules: [{
-        id: "lesson-1",
-        title: "How to approach VR passages",
-        sectionId: "vr",
-        priority: "essential",
-        estimatedMinutes: 20,
-        completionPercent: 0,
-        relevanceScore: 1,
-      }],
+      learningModules: [
+        {
+          id: "lesson-1",
+          title: "How to approach VR passages",
+          sectionId: "vr",
+          priority: "essential",
+          estimatedMinutes: 20,
+          completionPercent: 0,
+          relevanceScore: 1,
+        },
+      ],
       ...contentInputs,
       completedMockCount: 0,
     });
 
-    expect(result.tasks[0]).toMatchObject({ taskType: "learn", learningModuleId: "lesson-1" });
-    const firstPractice = result.tasks.find((task) => task.taskType === "practice");
+    expect(result.tasks[0]).toMatchObject({
+      taskType: "learn",
+      learningModuleId: "lesson-1",
+    });
+    const firstPractice = result.tasks.find(
+      (task) => task.taskType === "practice",
+    );
     expect(firstPractice?.launchConfig).toMatchObject({
       timeMode: "off",
       reviewTiming: "afterEachStem",
     });
-    const benchmarkIndices = sections.slice(0, 3).map((section) =>
-      result.tasks.findIndex(
-        (task) => task.taskType === "section_benchmark" && task.sectionId === section.id,
-      ),
-    );
+    const benchmarkIndices = sections
+      .slice(0, 3)
+      .map((section) =>
+        result.tasks.findIndex(
+          (task) =>
+            task.taskType === "section_benchmark" &&
+            task.sectionId === section.id,
+        ),
+      );
     expect(benchmarkIndices.every((index) => index >= 0)).toBe(true);
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(false);
     expect(firstPractice?.questionStemCategoryId).toBe("vr-weak");
-    expect(result.tasks.some((task) => task.taskType === "skill_trainer")).toBe(true);
+    expect(result.tasks.some((task) => task.taskType === "skill_trainer")).toBe(
+      true,
+    );
     expect(result.tasks.some((task) => task.taskType === "review")).toBe(true);
   });
 
@@ -132,7 +163,9 @@ describe("generateStudyPlan", () => {
 
     expect(result.capacityRisk.level).toBe("warning");
     expect(result.tasks.length).toBeGreaterThan(0);
-    expect(Math.max(...result.tasks.map((task) => task.estimatedMinutes))).toBeLessThanOrEqual(30);
+    expect(
+      Math.max(...result.tasks.map((task) => task.estimatedMinutes)),
+    ).toBeLessThanOrEqual(30);
   });
 
   it("allocates cognitive section targets that sum to the overall target", () => {
@@ -143,7 +176,8 @@ describe("generateStudyPlan", () => {
       sections,
       signals: sections.map((section) => ({
         sectionId: section.id,
-        currentEstimate: section.sectionNumber <= 3 ? 500 + section.sectionNumber * 80 : null,
+        currentEstimate:
+          section.sectionNumber <= 3 ? 500 + section.sectionNumber * 80 : null,
         evidenceCount: 3,
         completedFullSets: 1,
       })),
@@ -152,7 +186,12 @@ describe("generateStudyPlan", () => {
       completedMockCount: 1,
     });
 
-    expect(Object.values(result.sectionTargets).reduce((sum, score) => sum + score, 0)).toBe(2100);
+    expect(
+      Object.values(result.sectionTargets).reduce(
+        (sum, score) => sum + score,
+        0,
+      ),
+    ).toBe(2100);
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(true);
   });
 
@@ -184,6 +223,129 @@ describe("generateStudyPlan", () => {
     expect(review?.launchConfig).toMatchObject({
       sourceTaskScheduledDate: mock?.scheduledDate,
       sourceTaskSortOrder: mock?.sortOrder,
+    });
+  });
+});
+
+describe("generateExtraStudyTasks", () => {
+  const signals = sections.map((section) => ({
+    sectionId: section.id,
+    currentEstimate:
+      section.id === "dm" ? 430 : section.sectionNumber <= 3 ? 650 : null,
+    evidenceCount: 3,
+    completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+  }));
+
+  it("uses a brief warm-up then targets the weakest scored section by default", () => {
+    const tasks = generateExtraStudyTasks({
+      today: "2026-07-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 30,
+      sectionKey: null,
+      sections,
+      signals,
+      categories,
+      skillTrainers,
+      sortOrder: 4,
+    });
+
+    const task = tasks.find((candidate) => candidate.taskType === "practice");
+    expect(task).toMatchObject({
+      scheduledDate: "2026-07-15",
+      sortOrder: 5,
+      taskType: "practice",
+      sectionId: "dm",
+      questionStemCategoryId: "dm-weak",
+      estimatedMinutes: 29,
+    });
+    expect(task?.launchConfig).toMatchObject({
+      extraStudy: true,
+      requestedMinutes: 30,
+      requestedSectionKey: null,
+    });
+  });
+
+  it("uses a linked skill trainer for a short section-specific session", () => {
+    const tasks = generateExtraStudyTasks({
+      today: "2026-07-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 10,
+      sectionKey: "verbal_reasoning",
+      sections,
+      signals,
+      categories,
+      skillTrainers,
+      sortOrder: 0,
+    });
+
+    expect(tasks[0]).toMatchObject({
+      taskType: "skill_trainer",
+      sectionId: "vr",
+      skillTrainerId: "vr-trainer",
+    });
+    expect(tasks[0].launchConfig).toMatchObject({
+      extraStudy: true,
+      requestedMinutes: 10,
+      requestedSectionKey: "verbal_reasoning",
+    });
+    expect(tasks.map((task) => task.taskType)).toEqual([
+      "skill_trainer",
+      "practice",
+    ]);
+    expect(
+      tasks.reduce((total, task) => total + task.estimatedMinutes, 0),
+    ).toBe(10);
+  });
+
+  it("scales short review estimates with the number of questions", () => {
+    const [practice] = generateExtraStudyTasks({
+      today: "2026-07-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 20,
+      sectionKey: "situational_judgement",
+      sections,
+      signals,
+      categories,
+      skillTrainers: [],
+      sortOrder: 0,
+    });
+
+    expect(
+      reviewTask(
+        { ...practice, targetUnits: 5 },
+        practice.scheduledDate,
+        1,
+      ).estimatedMinutes,
+    ).toBe(3);
+    expect(
+      reviewTask({ ...practice, targetUnits: 30 }, practice.scheduledDate, 1)
+        .estimatedMinutes,
+    ).toBe(5);
+  });
+
+  it("honours an explicit SJT preference without making SJT the default", () => {
+    const tasks = generateExtraStudyTasks({
+      today: "2026-07-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 20,
+      sectionKey: "situational_judgement",
+      sections,
+      signals,
+      categories,
+      skillTrainers,
+      sortOrder: 0,
+    });
+
+    expect(
+      tasks.find((candidate) => candidate.taskType === "practice"),
+    ).toMatchObject({
+      taskType: "practice",
+      sectionId: "sjt",
+      questionStemCategoryId: "sjt-weak",
     });
   });
 });

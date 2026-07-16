@@ -2,13 +2,13 @@
 
 import {
   Badge,
-  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";

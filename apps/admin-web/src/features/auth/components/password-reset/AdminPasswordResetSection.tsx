@@ -17,6 +17,7 @@ import { Check, Copy, Loader2, MessageSquare, Send, ShieldCheck } from 'lucide-r
 import { Composer } from '@/features/messages/components/Composer';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
+import { AdminDialogShell } from '@/shared/components';
 
 type ResetUserType = 'student' | 'tutor' | 'admin';
 type ResetAction = 'send-email' | 'send-text' | 'copy-link' | 'manual-reset';
@@ -292,58 +293,62 @@ export function AdminPasswordResetSection({
         </p>
       )}
 
-      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manually reset password</DialogTitle>
-            <DialogDescription>
-              Set a new password for {displayName}. This applies immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="manual-password">New password</Label>
-              <Input
-                id="manual-password"
-                type="password"
-                value={manualPassword}
-                onChange={(event) => setManualPassword(event.target.value)}
-                placeholder="Enter a new password"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setManualDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={isRunning || manualPassword.length < 6}
-                onClick={async () => {
-                  try {
-                    setIsRunning(true);
-                    await manualReset();
-                  } catch (error) {
-                    toast({
-                      title: 'Password reset failed',
-                      description: error instanceof Error ? error.message : 'Please try again.',
-                      variant: 'destructive',
-                    });
-                  } finally {
-                    setIsRunning(false);
-                  }
-                }}
-              >
-                {isRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reset password
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminDialogShell
+        open={manualDialogOpen}
+        onClose={() => {
+          setManualDialogOpen(false);
+          setManualPassword('');
+        }}
+        title="Manually reset password"
+        subtitle={`Set a new password for ${displayName}. This applies immediately.`}
+        contentClassName="md:max-w-md"
+        footer={(
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setManualDialogOpen(false);
+                setManualPassword('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isRunning || manualPassword.length < 6}
+              onClick={async () => {
+                try {
+                  setIsRunning(true);
+                  await manualReset();
+                } catch (error) {
+                  toast({
+                    title: 'Password reset failed',
+                    description: error instanceof Error ? error.message : 'Please try again.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setIsRunning(false);
+                }
+              }}
+            >
+              {isRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset password
+            </Button>
+          </>
+        )}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="manual-password">New password</Label>
+          <Input
+            id="manual-password"
+            type="password"
+            value={manualPassword}
+            onChange={(event) => setManualPassword(event.target.value)}
+            placeholder="Enter a new password"
+          />
+        </div>
+      </AdminDialogShell>
 
       <Dialog open={textDialogOpen} onOpenChange={setTextDialogOpen}>
         <DialogContent className="flex h-[80dvh] max-w-3xl flex-col p-0">

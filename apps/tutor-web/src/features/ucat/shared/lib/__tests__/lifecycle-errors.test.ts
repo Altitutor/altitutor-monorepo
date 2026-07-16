@@ -1,8 +1,40 @@
 import {
+  firstUcatBulkStatusFailureError,
+  readUcatBulkStatusResponse,
   UcatLifecycleError,
   lifecycleErrorToast,
   lifecycleStatusSuccessToast,
 } from '@/features/ucat/shared/lifecycle-errors'
+
+describe('bulk lifecycle status responses', () => {
+  it('keeps successful IDs and structured failures from a partial result', async () => {
+    const response = {
+      ok: true,
+      json: async () => ({
+        movedIds: ['moved-id'],
+        failures: [{
+          contentId: 'blocked-id',
+          error: 'Blocked by Mock A.',
+          blockers: [{
+            code: 'parent_mock',
+            message: 'Blocked by Mock A.',
+            entity_type: 'mock',
+            entity_id: 'mock-a',
+          }],
+        }],
+      }),
+    } as Response
+
+    const result = await readUcatBulkStatusResponse(response, 'Failed to update statuses')
+    expect(result.movedIds).toEqual(['moved-id'])
+    expect(result.failures).toHaveLength(1)
+
+    const error = firstUcatBulkStatusFailureError(result)
+    expect(error).toBeInstanceOf(UcatLifecycleError)
+    expect(error?.message).toBe('Blocked by Mock A.')
+    expect(error?.blockers[0]?.entity_id).toBe('mock-a')
+  })
+})
 
 describe('lifecycleErrorToast', () => {
   it('shows a human blocker and links to its parent mock', () => {

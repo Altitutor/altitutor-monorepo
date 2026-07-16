@@ -308,6 +308,24 @@ async function fetchPracticeQuestionTiming(
   return response.json() as Promise<PracticeQuestionTimingResponse>;
 }
 
+export type QuestionEngineTutorialSnapshot = {
+  questionId: string | null;
+  questionIndex: number;
+  selectedOptionId: string | null;
+  syllogismSnapshot: Record<string, boolean>;
+  flagged: boolean;
+  showCalculator: boolean;
+  showNavigator: boolean;
+  calculatorDisplay: string;
+};
+
+export type QuestionEngineTutorialControl =
+  | "calculator"
+  | "flag"
+  | "navigator"
+  | "previous"
+  | "syllogismChoice";
+
 export function QuestionEnginePage({
   mode,
   sourceId,
@@ -330,6 +348,20 @@ export function QuestionEnginePage({
   fillAvailableHeight = false,
   onRegisterFinishPracticeDialog,
   tutorialMode = false,
+  tutorialCalculatorDraggable = false,
+  tutorialSequential = false,
+  tutorialLockedQuestionIds = [],
+  tutorialLockedSyllogismOptionIds = {},
+  tutorialCorrectSyllogismOptionIds = {},
+  tutorialHighlightText,
+  tutorialSyllogismDragOnly = false,
+  tutorialHidePrevious = false,
+  tutorialHidePrimaryAction = false,
+  tutorialPrimaryActionLabel,
+  onTutorialStateChange,
+  onTutorialRequestNext,
+  onTutorialControl,
+  onRegisterTutorialAdvance,
   onTutorialComplete,
   tutorialFinishLabel = "Finish tutorial",
 }: {
@@ -374,6 +406,37 @@ export function QuestionEnginePage({
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
   /** Runs the real engine with local tutorial data and no persistence or leave warning. */
   tutorialMode?: boolean;
+  /** Keep the calculator movable while a local tutorial is active. */
+  tutorialCalculatorDraggable?: boolean;
+  /** Advance straight through local tutorial questions instead of showing review. */
+  tutorialSequential?: boolean;
+  /** Keep already-correct tutorial answers visible and immutable. */
+  tutorialLockedQuestionIds?: readonly string[];
+  /** Lock individual correct syllogism rows while the student retries the rest. */
+  tutorialLockedSyllogismOptionIds?: Record<string, readonly string[]>;
+  /** Visually mark correctly assigned syllogism rows. */
+  tutorialCorrectSyllogismOptionIds?: Record<string, readonly string[]>;
+  /** Emphasise exact plain text referenced by sampler coaching. */
+  tutorialHighlightText?: string;
+  /** Require drag-and-drop for tutorial syllogism tokens. */
+  tutorialSyllogismDragOnly?: boolean;
+  /** Hide Previous while preserving the normal engine default. */
+  tutorialHidePrevious?: boolean;
+  /** Let an external feedback card own progression after a correct answer. */
+  tutorialHidePrimaryAction?: boolean;
+  /** Override the tutorial question action label. */
+  tutorialPrimaryActionLabel?: string;
+  /** A small read-only snapshot for locally orchestrated tutorial coaching. */
+  onTutorialStateChange?: (snapshot: QuestionEngineTutorialSnapshot) => void;
+  /** Return false to keep the tutorial on the current question. */
+  onTutorialRequestNext?: (snapshot: QuestionEngineTutorialSnapshot) => boolean;
+  /** Observe or block sampler-only control interactions. */
+  onTutorialControl?: (
+    control: QuestionEngineTutorialControl,
+    snapshot: QuestionEngineTutorialSnapshot,
+  ) => boolean | void;
+  /** Registers the sampler's external Next action. */
+  onRegisterTutorialAdvance?: (advance: () => void) => void;
   /** Completes a locally orchestrated tutorial segment. The legacy tour handles this when omitted. */
   onTutorialComplete?: () => void;
   /** Label for a locally orchestrated tutorial segment's completion action. */
@@ -553,8 +616,11 @@ export function QuestionEnginePage({
     clearLocal: clearActiveExamAttempt,
   } = useActiveExamAttempt();
   const { isLagging, runWithLag } = useUcatLag();
-  const { display: calculatorDisplay, onKey: calculatorOnKey, reset: resetCalculator } =
-    useUcatCalculator();
+  const {
+    display: calculatorDisplay,
+    onKey: calculatorOnKey,
+    reset: resetCalculator,
+  } = useUcatCalculator();
   const [, setTick] = useState(0);
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false);
   const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] =
@@ -567,6 +633,80 @@ export function QuestionEnginePage({
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
+
+  const tutorialSnapshot = useMemo<QuestionEngineTutorialSnapshot>(
+    () => ({
+      questionId: currentQuestion?.id ?? null,
+      questionIndex: effectiveCurrentIndex,
+      selectedOptionId: currentQuestion
+        ? (state.selectedAnswers[currentQuestion.id] ?? null)
+        : null,
+      syllogismSnapshot: currentQuestion
+        ? (state.syllogismSnapshots?.[currentQuestion.id] ?? {})
+        : {},
+      flagged: currentQuestion
+        ? state.flaggedIds.includes(currentQuestion.id)
+        : false,
+      showCalculator: state.showCalculator,
+      showNavigator: state.showNavigator,
+      calculatorDisplay,
+    }),
+    [
+      calculatorDisplay,
+      currentQuestion,
+      effectiveCurrentIndex,
+      state.flaggedIds,
+      state.selectedAnswers,
+      state.showCalculator,
+      state.showNavigator,
+      state.syllogismSnapshots,
+    ],
+  );
+  const tutorialQuestionLocked =
+    tutorialMode &&
+    tutorialSnapshot.questionId != null &&
+    tutorialLockedQuestionIds.includes(tutorialSnapshot.questionId);
+
+  useEffect(() => {
+    if (!tutorialMode || !onTutorialStateChange) return;
+    onTutorialStateChange(tutorialSnapshot);
+  }, [onTutorialStateChange, tutorialMode, tutorialSnapshot]);
+
+  const allowTutorialControl = useCallback(
+    (control: QuestionEngineTutorialControl) =>
+      !tutorialMode ||
+      !onTutorialControl ||
+      onTutorialControl(control, tutorialSnapshot) !== false,
+    [onTutorialControl, tutorialMode, tutorialSnapshot],
+  );
+
+  const advanceTutorialQuestion = useCallback(() => {
+    if (
+      tutorialMode &&
+      onTutorialRequestNext &&
+      !onTutorialRequestNext(tutorialSnapshot)
+    ) {
+      return;
+    }
+    if (tutorialMode && tutorialSequential && isLastQuestion) {
+      onTutorialComplete?.();
+      return;
+    }
+    goNext();
+  }, [
+    goNext,
+    isLastQuestion,
+    onTutorialComplete,
+    onTutorialRequestNext,
+    tutorialMode,
+    tutorialSequential,
+    tutorialSnapshot,
+  ]);
+  useEffect(() => {
+    if (!tutorialMode || !onRegisterTutorialAdvance) return;
+    onRegisterTutorialAdvance(advanceTutorialQuestion);
+    return () => onRegisterTutorialAdvance(() => undefined);
+  }, [advanceTutorialQuestion, onRegisterTutorialAdvance, tutorialMode]);
   const engineStateRef = useRef(state);
   engineStateRef.current = state;
   const expiredMockNextSegmentRef = useRef<{
@@ -596,9 +736,7 @@ export function QuestionEnginePage({
 
   const examAttemptManaged =
     !learningModuleBlockId &&
-    (mode === "set" ||
-      mode === "mock" ||
-      isPracticeSession);
+    (mode === "set" || mode === "mock" || isPracticeSession);
 
   const managedResourceId =
     practice && practiceSessionId != null ? practiceSessionId : exam?.sourceId;
@@ -913,10 +1051,7 @@ export function QuestionEnginePage({
         redirectHref: string | null;
       };
       if (practice && practiceSessionId && exam) {
-        await recordAnswersForUnit(
-          0,
-          Math.max(exam.questions.length - 1, 0),
-        );
+        await recordAnswersForUnit(0, Math.max(exam.questions.length - 1, 0));
         await flushQuestionTiming();
         const result = computeMarkingResult(
           exam.questions,
@@ -943,6 +1078,7 @@ export function QuestionEnginePage({
         completion = await handleExamCompleted();
       }
       const { earnedDiscount, discountCents, redirectHref } = completion;
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       if (examAttemptManaged) {
         clearActiveExamAttempt();
         await refreshActiveExamAttempt();
@@ -979,6 +1115,7 @@ export function QuestionEnginePage({
     examAttemptManaged,
     clearActiveExamAttempt,
     refreshActiveExamAttempt,
+    queryClient,
     toast,
     router,
   ]);
@@ -1197,6 +1334,7 @@ export function QuestionEnginePage({
           void Promise.all([
             queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
             queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+            queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] }),
           ]);
         } catch {
           // Session complete may fail; still navigate to session when we have an id.
@@ -1367,6 +1505,10 @@ export function QuestionEnginePage({
         const answerKeys = ["a", "b", "c", "d", "e", "f"];
         const keyIndex = answerKeys.indexOf(key);
         if (keyIndex >= 0 && currentQuestion.options[keyIndex]) {
+          if (tutorialQuestionLocked) {
+            event.preventDefault();
+            return;
+          }
           const optionId = currentQuestion.options[keyIndex].id;
           const flaggedCurrent = state.flaggedIds.includes(currentQuestion.id);
           event.preventDefault();
@@ -1537,7 +1679,7 @@ export function QuestionEnginePage({
           // Only allow when calculator button is visible (not on review screen)
           const isReviewScreen =
             state.phase === "review" && !state.reviewFilter;
-          if (!isReviewScreen) {
+          if (!isReviewScreen && allowTutorialControl("calculator")) {
             void runWithLag(() =>
               setState((current) => ({
                 ...current,
@@ -1548,16 +1690,19 @@ export function QuestionEnginePage({
           break;
         }
         case "toggleFlagForReview":
+          if (!allowTutorialControl("flag")) break;
           void runWithLag(() => {
             toggleFlagCurrent();
           });
           break;
         case "previousQuestion":
+          if (tutorialMode && tutorialHidePrevious) break;
           if (
             hasPreviousQuestion ||
             hasPreviousReviewQuestion ||
             hasPreviousPracticeAnswerQuestion
           ) {
+            if (!allowTutorialControl("previous")) break;
             void runWithLag(() => {
               goPrevious();
             });
@@ -1568,7 +1713,7 @@ export function QuestionEnginePage({
           const showNavigatorButton =
             !practice &&
             (state.phase === "question" || state.phase === "intro");
-          if (showNavigatorButton) {
+          if (showNavigatorButton && allowTutorialControl("navigator")) {
             void runWithLag(() =>
               setState((current) => ({
                 ...current,
@@ -1579,6 +1724,7 @@ export function QuestionEnginePage({
           break;
         }
         case "nextQuestion":
+          if (tutorialMode && tutorialHidePrimaryAction) break;
           void runWithLag(() => {
             if (
               isPracticeMode &&
@@ -1612,6 +1758,8 @@ export function QuestionEnginePage({
               !onNeedMoreStems
             ) {
               setShowConfirmFinishPracticeDialog(true);
+            } else if (tutorialMode) {
+              advanceTutorialQuestion();
             } else {
               goNext();
             }
@@ -1688,6 +1836,12 @@ export function QuestionEnginePage({
     router,
     instructionsScreens.length,
     onBack,
+    advanceTutorialQuestion,
+    allowTutorialControl,
+    tutorialHidePrevious,
+    tutorialHidePrimaryAction,
+    tutorialMode,
+    tutorialQuestionLocked,
   ]);
 
   useEffect(() => {
@@ -2072,9 +2226,10 @@ export function QuestionEnginePage({
         if (learningModuleBlockId && disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
-        clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
-          clientPracticeTimingRef.current,
-        );
+        clientPracticeTimingRef.current =
+          flushActiveClientPracticeQuestionTiming(
+            clientPracticeTimingRef.current,
+          );
         await flushQuestionTiming();
         await refreshPracticeStemTimingFromServer();
         await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
@@ -2514,14 +2669,15 @@ export function QuestionEnginePage({
                   type="button"
                   data-tour="question-engine-calculator"
                   className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-                  onClick={() =>
+                  onClick={() => {
+                    if (!allowTutorialControl("calculator")) return;
                     void runWithLag(() =>
                       setState((current) => ({
                         ...current,
                         showCalculator: !current.showCalculator,
                       })),
-                    )
-                  }
+                    );
+                  }}
                 >
                   <Calculator className="h-4 w-4" />
                   <span className="text-[13pt]">
@@ -2542,11 +2698,12 @@ export function QuestionEnginePage({
                 type="button"
                 data-tour="question-engine-flag"
                 className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-                onClick={() =>
+                onClick={() => {
+                  if (!allowTutorialControl("flag")) return;
                   void runWithLag(() => {
                     toggleFlagCurrent();
-                  })
-                }
+                  });
+                }}
               >
                 {flaggedCurrent ? (
                   <span
@@ -2844,14 +3001,16 @@ export function QuestionEnginePage({
               </>
             ) : isPracticeCompletePhase ? null : (
               <>
-                {hasPreviousQuestion ? (
+                {hasPreviousQuestion &&
+                !(tutorialMode && tutorialHidePrevious) ? (
                   <UcatExamActionButton
                     data-tour="question-engine-previous"
-                    onClick={() =>
+                    onClick={() => {
+                      if (!allowTutorialControl("previous")) return;
                       void runWithLag(() => {
                         goPrevious();
-                      })
-                    }
+                      });
+                    }}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >
                     <span className="text-[14pt]">
@@ -2862,14 +3021,15 @@ export function QuestionEnginePage({
                 {!practice ? (
                   <UcatExamActionButton
                     data-tour="question-engine-navigator"
-                    onClick={() =>
+                    onClick={() => {
+                      if (!allowTutorialControl("navigator")) return;
                       void runWithLag(() =>
                         setState((current) => ({
                           ...current,
                           showNavigator: !current.showNavigator,
                         })),
-                      )
-                    }
+                      );
+                    }}
                     icon={<Navigation className="h-4 w-4" />}
                   >
                     <span className="text-[14pt]">
@@ -2877,6 +3037,7 @@ export function QuestionEnginePage({
                     </span>
                   </UcatExamActionButton>
                 ) : null}
+                {tutorialMode && tutorialHidePrimaryAction ? null : (
                 <UcatExamActionButton
                   data-tour="question-engine-next"
                   onClick={() =>
@@ -2894,6 +3055,8 @@ export function QuestionEnginePage({
                         !onNeedMoreStems
                       ) {
                         setShowConfirmFinishPracticeDialog(true);
+                      } else if (tutorialMode) {
+                        advanceTutorialQuestion();
                       } else {
                         goNext();
                       }
@@ -2903,7 +3066,11 @@ export function QuestionEnginePage({
                   icon={<ArrowRight className="h-4 w-4" />}
                   iconRight
                 >
-                  {isPracticeMode && isLastQuestionOfCurrentUnit ? (
+                  {tutorialMode && tutorialPrimaryActionLabel ? (
+                    <span className="text-[14pt]">
+                      {tutorialPrimaryActionLabel}
+                    </span>
+                  ) : isPracticeMode && isLastQuestionOfCurrentUnit ? (
                     <span className="text-[14pt]">
                       <span className="underline">S</span>ubmit
                     </span>
@@ -2912,7 +3079,10 @@ export function QuestionEnginePage({
                     isLastQuestion &&
                     !onNeedMoreStems ? (
                     <span className="text-[14pt]">Finish</span>
-                  ) : isLastQuestion && !isPracticeMode && !onNeedMoreStems ? (
+                  ) : isLastQuestion &&
+                    !isPracticeMode &&
+                    !onNeedMoreStems &&
+                    !tutorialSequential ? (
                     <span className="text-[14pt]">Submit</span>
                   ) : (
                     <span className="text-[14pt]">
@@ -2920,6 +3090,7 @@ export function QuestionEnginePage({
                     </span>
                   )}
                 </UcatExamActionButton>
+                )}
               </>
             )
           }
@@ -3064,9 +3235,26 @@ export function QuestionEnginePage({
           ) : currentQuestion ? (
             <QuestionContent
               question={currentQuestion}
+              readOnly={tutorialQuestionLocked}
+              highlightText={tutorialHighlightText}
+              syllogismDragOnly={tutorialMode && tutorialSyllogismDragOnly}
+              syllogismLockedOptionIds={
+                currentQuestion
+                  ? tutorialLockedSyllogismOptionIds[currentQuestion.id]
+                  : undefined
+              }
+              syllogismCorrectOptionIds={
+                currentQuestion
+                  ? tutorialCorrectSyllogismOptionIds[currentQuestion.id]
+                  : undefined
+              }
+              onSyllogismClickAttempt={() => {
+                allowTutorialControl("syllogismChoice");
+              }}
               selectedOptionId={state.selectedAnswers[currentQuestion.id]}
               syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
               onChangeSyllogismSnapshot={(snapshot) => {
+                if (tutorialQuestionLocked) return;
                 setSyllogismSnapshot(currentQuestion.id, snapshot);
                 recordSyllogismSnapshot(
                   currentQuestion.id,
@@ -3075,6 +3263,7 @@ export function QuestionEnginePage({
                 );
               }}
               onSelectOption={(optionId) => {
+                if (tutorialQuestionLocked) return;
                 setAnswer(optionId);
                 recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
               }}
@@ -3094,6 +3283,7 @@ export function QuestionEnginePage({
           display={calculatorDisplay}
           onKey={calculatorOnKey}
           tutorialMode={tutorialMode}
+          draggableInTutorial={tutorialCalculatorDraggable}
           onClose={() =>
             void runWithLag(() =>
               setState((current) => ({ ...current, showCalculator: false })),

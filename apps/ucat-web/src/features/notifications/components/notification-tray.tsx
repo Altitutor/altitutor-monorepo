@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, Bell, CheckCheck } from "lucide-react";
+import { AlertCircle, Bell, CheckCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import {
+  useDismissUcatNotifications,
   useMarkUcatNotificationsRead,
   useUcatNotifications,
 } from "@/features/notifications/hooks";
@@ -38,14 +39,33 @@ function notificationActionLabel(notification: UcatNotification): string {
 export function NotificationTray() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
   const inbox = useUcatNotifications(true);
   const markRead = useMarkUcatNotificationsRead();
+  const dismiss = useDismissUcatNotifications();
   const notifications = inbox.data?.notifications ?? [];
   const unreadCount = inbox.data?.unreadCount ?? 0;
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (nextOpen) void inbox.refetch();
+    if (nextOpen) {
+      void inbox.refetch();
+      return;
+    }
+    setArmedIds(new Set());
+  };
+
+  const handleArm = (notificationId: string) => {
+    setArmedIds((prev) => new Set(prev).add(notificationId));
+  };
+
+  const handleConfirmDismiss = (notificationId: string) => {
+    setArmedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(notificationId);
+      return next;
+    });
+    dismiss.mutate([notificationId]);
   };
 
   const openNotification = async (notification: UcatNotification) => {
@@ -159,6 +179,7 @@ export function NotificationTray() {
             <div className="divide-y divide-black/[0.05] dark:divide-white/[0.07]">
               {notifications.map((notification) => {
                 const unread = !notification.read_at;
+                const isArmed = armedIds.has(notification.id);
                 const metadata = notification.metadata;
                 const actionRequired =
                   metadata &&
@@ -216,17 +237,38 @@ export function NotificationTray() {
                         </span>
                       </span>
                     </button>
-                    {notification.action_url ? (
+                    <div className="mr-3 flex shrink-0 items-center gap-2">
+                      {notification.action_url ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void openNotification(notification)}
+                        >
+                          {notificationActionLabel(notification)}
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mr-3 shrink-0"
-                        onClick={() => void openNotification(notification)}
+                        variant={isArmed ? "destructive" : "outline"}
+                        size="icon"
+                        className={cn(
+                          "h-8 w-8 transition-all duration-200",
+                          isArmed && "scale-110",
+                        )}
+                        disabled={dismiss.isPending}
+                        aria-label={isArmed ? "Confirm dismiss" : "Dismiss"}
+                        onClick={() => {
+                          if (isArmed) {
+                            handleConfirmDismiss(notification.id);
+                          } else {
+                            handleArm(notification.id);
+                          }
+                        }}
                       >
-                        {notificationActionLabel(notification)}
+                        <X className="h-4 w-4" />
                       </Button>
-                    ) : null}
+                    </div>
                   </div>
                 );
               })}

@@ -10,7 +10,10 @@ import type {
 } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
-import { throwUcatLifecycleResponseError } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  readUcatBulkStatusResponse,
+  throwFirstUcatBulkStatusFailure,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 export type UcatGenerationDebugCall = {
   stemIndex: number
@@ -67,6 +70,22 @@ export type UcatGenerationProgress = {
   runId?: string | null
 }
 
+export type UcatGenerationRun = {
+  id: string
+  status: 'running' | 'completed' | 'failed'
+  requested_stem_count: number
+  accepted_stem_count: number
+  discarded_stem_count: number
+  processed_stem_count: number
+  progress_step: UcatGenerationProgress['step'] | null
+  progress_message: string | null
+  error_message: string | null
+  generated_stem_ids: string[]
+  created_at: string
+  completed_at: string | null
+  dismissed_at: string | null
+}
+
 export class UcatGenerationApiError extends Error {
   debug: UcatGenerationDebugInfo | null
 
@@ -105,12 +124,6 @@ export type UcatGenerateDraftsResult = {
   debug?: UcatGenerationDebugInfo | null
   debugRunId?: string | null
   stems: UcatGeneratedDraftStem[]
-}
-
-type UcatGenerationStreamFinal = UcatGenerateDraftsResult & {
-  type?: string
-  status?: number
-  error?: string
 }
 
 export type UcatQuestionStemRow = UcatQuestionStem & {
@@ -566,7 +579,7 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ ids: string[] }>
   },
 
-  async generateDrafts(input: {
+  async startGeneration(input: {
     sectionId: string
     categoryId?: string | null
     modelProfileId?: string | null
@@ -579,102 +592,47 @@ export const ucatQuestionsApi = {
     timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
     targetTagIds: string[]
     runInstructions?: string | null
-    onProgress?: (progress: UcatGenerationProgress) => void
-  }): Promise<UcatGenerateDraftsResult> {
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 600_000)
-    let response: Response
-    try {
-      response = await fetch('/api/ucat/question-stems/generated/generate', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
-        body: JSON.stringify({
-          sectionId: input.sectionId,
-          categoryId: input.categoryId,
-          modelProfileId: input.modelProfileId,
-          sourceMode: input.sourceMode,
-          includeAiSourceStems: input.includeAiSourceStems ?? false,
-          imageGenerationMode: input.imageGenerationMode ?? 'auto',
-          sourceStemIds: input.sourceStemIds,
-          stemCount: input.stemCount,
-          difficultyTarget: input.difficultyTarget,
-          timeBurdenTarget: input.timeBurdenTarget,
-          targetTagIds: input.targetTagIds,
-          runInstructions: input.runInstructions,
-        }),
-      })
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Generation timed out after 600 seconds. Try fewer stems or a faster model.')
-      }
-      throw error
-    } finally {
-      window.clearTimeout(timeout)
-    }
-
-    if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('Generation stream did not include a response body')
-      const decoder = new TextDecoder()
-      let buffer = ''
-      const finalRef: { current: UcatGenerationStreamFinal | null } = { current: null }
-
-      const consumeLine = (line: string) => {
-        if (!line.trim()) return
-        const event = JSON.parse(line) as {
-          type?: string
-          step?: UcatGenerationProgress['step']
-          message?: string
-          completedStems?: number
-          totalStems?: number
-          runId?: string | null
-        }
-        if (event.type === 'progress' && event.step && event.message) {
-          input.onProgress?.({
-            step: event.step,
-            message: event.message,
-            completedStems: event.completedStems,
-            totalStems: event.totalStems,
-            runId: event.runId,
-          })
-          return
-        }
-        if (event.type === 'complete' || event.type === 'error') {
-          finalRef.current = event as UcatGenerationStreamFinal
-        }
-      }
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) consumeLine(line)
-      }
-      buffer += decoder.decode()
-      consumeLine(buffer)
-
-      const finalBody = finalRef.current
-      if (!finalBody) throw new Error('Generation stream ended without a final response')
-      if (finalBody.type === 'error' || (finalBody.status && finalBody.status >= 400)) {
-        throw new UcatGenerationApiError(finalBody.error ?? 'Failed to generate question drafts', finalBody.debug ?? null)
-      }
-      if (!finalBody.stems) throw new Error('Generation response did not include generated stems')
-      return {
-        discardedCount: finalBody.discardedCount,
-        debug: finalBody.debug,
-        debugRunId: finalBody.debugRunId,
-        stems: finalBody.stems,
-      }
-    }
-
+  }): Promise<{ runId: string }> {
+    const response = await fetch('/api/ucat/question-stems/generated/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sectionId: input.sectionId,
+        categoryId: input.categoryId,
+        modelProfileId: input.modelProfileId,
+        sourceMode: input.sourceMode,
+        includeAiSourceStems: input.includeAiSourceStems ?? false,
+        imageGenerationMode: input.imageGenerationMode ?? 'auto',
+        sourceStemIds: input.sourceStemIds,
+        stemCount: input.stemCount,
+        difficultyTarget: input.difficultyTarget,
+        timeBurdenTarget: input.timeBurdenTarget,
+        targetTagIds: input.targetTagIds,
+        runInstructions: input.runInstructions,
+      }),
+    })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { error?: string; debug?: UcatGenerationDebugInfo | null }
-      throw new UcatGenerationApiError(body.error ?? 'Failed to generate question drafts', body.debug ?? null)
+      const body = await response.json().catch(() => ({})) as { error?: string }
+      throw new Error(body.error ?? 'Failed to start question generation')
     }
-    return response.json() as Promise<UcatGenerateDraftsResult>
+    return response.json() as Promise<{ runId: string }>
+  },
+
+  async getGenerationRuns(): Promise<UcatGenerationRun[]> {
+    const response = await fetch('/api/ucat/question-stems/generated/runs')
+    if (response.status === 403) return []
+    if (!response.ok) throw new Error('Failed to load generation tasks')
+    const body = await response.json() as { runs: UcatGenerationRun[] }
+    return body.runs
+  },
+
+  async dismissGenerationRun(runId: string): Promise<void> {
+    const response = await fetch(`/api/ucat/question-stems/generated/runs/${runId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dismissed: true }),
+    })
+    if (!response.ok) throw new Error('Failed to dismiss generation task')
   },
 
   async getGenerationModelProfiles() {
@@ -774,7 +732,9 @@ export const ucatQuestionsApi = {
   },
 
   async setStatus(stemId: string, status: UcatContentStatus) {
-    return this.bulkSetStatus([stemId], status)
+    const result = await this.bulkSetStatus([stemId], status)
+    throwFirstUcatBulkStatusFailure(result)
+    return result
   },
 
   async bulkSetStatus(stemIds: string[], status: UcatContentStatus) {
@@ -783,9 +743,7 @@ export const ucatQuestionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to update question status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to update question status')
   },
 
   async bulkRestoreStatus(stemIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
@@ -794,9 +752,7 @@ export const ucatQuestionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status: currentStatus, previousStatus }),
     })
-    if (!response.ok) {
-      await throwUcatLifecycleResponseError(response, 'Failed to restore question status')
-    }
+    return readUcatBulkStatusResponse(response, 'Failed to restore question status')
   },
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CreditCard, Palette, User } from "lucide-react";
+import { CalendarClock, CreditCard, Palette, User } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatClickableCardLink } from "@/shared/components/ucat-clickable-card";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -18,6 +18,12 @@ const LINKS = [
     label: "My profile",
     description: "Email, your name, and password.",
     icon: User,
+  },
+  {
+    href: "/settings/study-plan",
+    label: "Study plan",
+    description: "Target, test date, and weekly availability.",
+    icon: CalendarClock,
   },
   {
     href: "/settings/plan",

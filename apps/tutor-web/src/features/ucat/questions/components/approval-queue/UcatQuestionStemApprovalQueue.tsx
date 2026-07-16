@@ -27,12 +27,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
   useSetUcatQuestionStemStatus,
+  useDeleteUcatQuestionStem,
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatSections,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useManualStemMetadataAutoApply } from '@/features/ucat/questions/hooks/useManualStemMetadataAutoApply'
 import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
@@ -144,6 +146,7 @@ function UcatQuestionStemApprovalQueue({
   const [index, setIndex] = useState(0)
   const [skipDialogOpen, setSkipDialogOpen] = useState(false)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
 
@@ -156,6 +159,7 @@ function UcatQuestionStemApprovalQueue({
   const tagsQuery = useUcatTags()
   const updateMutation = useUpdateUcatQuestionStem()
   const statusMutation = useSetUcatQuestionStemStatus()
+  const deleteMutation = useDeleteUcatQuestionStem()
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[], [categoriesQuery.data])
@@ -185,13 +189,21 @@ function UcatQuestionStemApprovalQueue({
   }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex])
 
   const watchedValues = form.watch()
-  const hasUnsavedChanges =
-    baselineRef.current !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baselineRef.current)
-
   const isLoading =
     detailQuery.isLoading || sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
-  const isMutating = updateMutation.isPending || statusMutation.isPending
+  const isMutating = updateMutation.isPending || statusMutation.isPending || deleteMutation.isPending
   const isAiMode = currentEntry?.mode === 'ai_approval'
+  const metadataRecommendation = useManualStemMetadataAutoApply({
+    enabled: isAiMode && !isLoading && detailQuery.data != null,
+    resetKey: currentEntry?.stemId ?? null,
+    form,
+    values: watchedValues,
+    sections,
+    categories,
+    tags,
+  })
+  const hasUnsavedChanges =
+    baselineRef.current !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baselineRef.current)
   const currentNumber = entries.length === 0 ? 0 : index + 1
   const progressLabel = `${currentNumber} of ${entries.length}`
   const queueComplete = entries.length > 0 && index >= entries.length
@@ -386,6 +398,16 @@ function UcatQuestionStemApprovalQueue({
     else onExit()
   }
 
+  async function handleDeleteStem() {
+    if (!currentEntry) return
+    const stemId = currentEntry.stemId
+    await deleteMutation.mutateAsync(stemId)
+    setDeleteDialogOpen(false)
+    toast({ title: 'Question stem deleted' })
+    goNext()
+    void invalidateQueueData(stemId)
+  }
+
   return (
     <>
       <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
@@ -441,6 +463,8 @@ function UcatQuestionStemApprovalQueue({
             statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
             statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
             statusChangedAt={detailQuery.data?.status_changed_at ?? null}
+            onDeleteStem={() => setDeleteDialogOpen(true)}
+            metadataRecommendation={isAiMode ? metadataRecommendation : null}
           />
         )}
       </div>
@@ -522,6 +546,29 @@ function UcatQuestionStemApprovalQueue({
           <AlertDialogFooter>
             <AlertDialogCancel>Stay</AlertDialogCancel>
             <AlertDialogAction onClick={onExit}>Discard and leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete question stem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the current generated stem from the review queue. You can restore it later from deleted questions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDeleteStem()
+              }}
+            >
+              Delete stem
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
