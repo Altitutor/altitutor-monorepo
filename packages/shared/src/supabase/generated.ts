@@ -25117,6 +25117,26 @@ export type Database = {
         Args: { p_quota_area: string; p_student_id: string }
         Returns: string
       }
+      get_ucat_mock_attempt_percentile_cohort: {
+        Args: { p_attempt_id: string }
+        Returns: {
+          bins: Json
+          cohort_size: number
+          scores_below: number
+          scores_equal: number
+          target_score: number
+        }[]
+      }
+      get_ucat_set_attempt_percentile_cohort: {
+        Args: { p_attempt_id: string }
+        Returns: {
+          bins: Json
+          cohort_size: number
+          scores_below: number
+          scores_equal: number
+          target_score: number
+        }[]
+      }
       get_ucat_stem_id_from_image_path: {
         Args: { file_path: string }
         Returns: string
