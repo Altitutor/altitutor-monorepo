@@ -102,6 +102,9 @@ Environment-specific values such as:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - Stripe keys (test in development, live in production)
 - `OPENROUTER_API_KEY` (tutor-web UCAT AI generation)
+- `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
+- `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
+  deployed web app, such as `UCAT_WEB_SENTRY_DSN`
 
 ## Where Secrets Go
 
@@ -121,10 +124,16 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 - Production: `NEXT_PUBLIC_*` from `.env.production`
 - `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
 - `RESEND_API_KEY` to all web apps managed by the script
+- Per-app Sentry values are mapped to framework-standard target names:
+  `{APP}_SENTRY_DSN` → `NEXT_PUBLIC_SENTRY_DSN` and
+  `{APP}_SENTRY_PROJECT` → `SENTRY_PROJECT`
+- Shared `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` values are sent only to apps
+  whose per-app Sentry configuration is non-empty
 
 Projects currently deployed by the script:
 
 - `altitutor-admin-web` (`apps/admin-web`)
+- `altitutor-marketing-web` (`apps/marketing-web`; Sentry variables only)
 - `altitutor-student-web` (`apps/student-web`)
 - `altitutor-tutor-web` (`apps/tutor-web`)
 - `altitutor-ucat-web` (`apps/ucat-web`)

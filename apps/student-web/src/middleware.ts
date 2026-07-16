@@ -24,7 +24,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/form/') ||
     pathname.startsWith('/booking/trial-session') ||
-    pathname.startsWith('/booking-success');
+    pathname.startsWith('/booking-success') ||
+    pathname.startsWith('/sentry-example-page');
 
   if (isPublicPath) {
     return NextResponse.next({

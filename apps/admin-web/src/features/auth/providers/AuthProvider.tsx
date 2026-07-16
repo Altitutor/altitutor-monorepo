@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { Session } from '@supabase/supabase-js';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
@@ -20,6 +21,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabaseClient();
   const { setUser, setLoading } = useAuthStore();
+
+  useEffect(() => {
+    Sentry.setUser(session?.user ? { id: session.user.id } : null);
+  }, [session]);
 
   useEffect(() => {
     // Get initial session (already validated by middleware)
@@ -104,4 +109,4 @@ export function useAuth() {
   }
   
   return context;
-} 
+}

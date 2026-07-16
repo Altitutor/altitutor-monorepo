@@ -33,6 +33,7 @@ fi
 
 # Vercel configuration - UPDATE THESE FOR YOUR SETUP
 VERCEL_ADMIN_PROJECT="altitutor-admin-web"
+VERCEL_MARKETING_PROJECT="altitutor-marketing-web"
 VERCEL_STUDENT_PROJECT="altitutor-student-web"
 VERCEL_TUTOR_PROJECT="altitutor-tutor-web"
 VERCEL_UCAT_PROJECT="altitutor-ucat-web"
@@ -40,7 +41,7 @@ VERCEL_UCAT_PROJECT="altitutor-ucat-web"
 # Get team ID from Vercel CLI or set manually
 # Run: vercel teams list
 # Or leave empty for personal account
-VERCEL_TEAM_ID=""  # e.g., "team_xxxxxx" or leave empty
+VERCEL_TEAM_ID="team_1E1lzurM2oIC9oDKmQDdk7Bz"  # e.g., "team_xxxxxx" or leave empty
 
 echo -e "${BLUE}================================================${NC}"
 echo -e "${BLUE}Vercel Secret Deployment${NC}"
@@ -197,12 +198,43 @@ deploy_all_web_server_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
 }
 
+deploy_sentry_project() {
+    local env_file=$1
+    local source_prefix=$2
+    local vercel_project=$3
+    local environment=$4
+    local runtime_dsn_name=${5:-NEXT_PUBLIC_SENTRY_DSN}
+
+    local dsn=$(get_env_value "$env_file" "${source_prefix}_SENTRY_DSN" || true)
+    local sentry_project=$(get_env_value "$env_file" "${source_prefix}_SENTRY_PROJECT" || true)
+
+    # Do not distribute shared build credentials until this app has its own
+    # Sentry project configured.
+    if [ -z "$dsn" ] && [ -z "$sentry_project" ]; then
+        return
+    fi
+
+    local sentry_org=$(get_env_value "$env_file" "SENTRY_ORG" || true)
+    local auth_token=$(get_env_value "$env_file" "SENTRY_AUTH_TOKEN" || true)
+
+    deploy_vercel_secret "$runtime_dsn_name" "$dsn" "$vercel_project" "$environment"
+    deploy_vercel_secret "SENTRY_PROJECT" "$sentry_project" "$vercel_project" "$environment"
+    deploy_vercel_secret "SENTRY_ORG" "$sentry_org" "$vercel_project" "$environment"
+    deploy_vercel_secret "SENTRY_AUTH_TOKEN" "$auth_token" "$vercel_project" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
 
 echo -e "${BLUE}1. Deploying Development Secrets (Preview)${NC}"
 echo -e "${YELLOW}Vercel Preview Environment:${NC}"
+
+deploy_sentry_project "$SECRETS_DIR/.env.development" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "preview"
+deploy_sentry_project "$SECRETS_DIR/.env.development" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "preview"
+deploy_sentry_project "$SECRETS_DIR/.env.development" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "preview"
+deploy_sentry_project "$SECRETS_DIR/.env.development" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "preview"
+deploy_sentry_project "$SECRETS_DIR/.env.development" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "preview"
 
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
@@ -243,6 +275,12 @@ echo ""
 echo -e "${BLUE}2. Deploying Production Secrets${NC}"
 echo -e "${YELLOW}Vercel Production Environment:${NC}"
 
+deploy_sentry_project "$SECRETS_DIR/.env.production" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "production"
+deploy_sentry_project "$SECRETS_DIR/.env.production" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "production"
+deploy_sentry_project "$SECRETS_DIR/.env.production" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "production"
+deploy_sentry_project "$SECRETS_DIR/.env.production" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "production"
+deploy_sentry_project "$SECRETS_DIR/.env.production" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "production"
+
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
@@ -279,4 +317,3 @@ echo ""
 print_summary
 
 exit $?
-

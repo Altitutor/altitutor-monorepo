@@ -543,17 +543,9 @@ export function DashboardTrajectoryHero({
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
     return (
-      <section className="relative isolate -mt-20 overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background">
-        <div className="relative min-h-[600px] sm:min-h-[680px] lg:min-h-[730px]">
-          <DashboardTrajectoryChart
-            mode="preview"
-            targetScore={2100}
-            today={todayIso()}
-            testDate={null}
-            plotTopInset={88}
-            className="absolute inset-x-0 top-0 h-[490px] sm:h-[580px] lg:h-[650px]"
-          />
-          <div className="absolute inset-x-0 top-20 z-10 px-5 py-6 sm:px-8 lg:px-10">
+      <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/30 via-background to-background">
+        <div className="relative min-h-[520px] sm:min-h-[600px] lg:min-h-[650px]">
+          <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
               {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
             </h1>
@@ -561,7 +553,14 @@ export function DashboardTrajectoryHero({
               Your path to test day
             </p>
           </div>
-          <aside className="absolute right-6 top-44 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+          <DashboardTrajectoryChart
+            mode="preview"
+            targetScore={2100}
+            today={todayIso()}
+            testDate={null}
+            className="absolute inset-x-0 top-20 h-[410px] sm:h-[500px] lg:h-[570px]"
+          />
+          <aside className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Why
             </p>
@@ -657,13 +656,26 @@ export function DashboardTrajectoryHero({
             : "Building your score outlook";
 
   return (
-    <section className="relative isolate -mt-20 overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background">
-      <div className="relative min-h-[700px] sm:min-h-[780px] lg:min-h-[770px]">
-        <div className="absolute inset-x-0 top-0 min-w-0">
+    <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/25 via-background to-background">
+      <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
+        <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 px-5 py-6 sm:px-8 lg:px-10">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Target {plan.profile.targetScore} · {outlook}
+            </p>
+          </div>
+          <Badge className={cn("border-0", status.className)}>
+            {status.label}
+          </Badge>
+        </div>
+        <div className="absolute inset-x-0 top-20 min-w-0">
           {projectionLoading ? (
-            <Skeleton className="mx-5 h-[490px] rounded-xl sm:mx-8 sm:h-[580px] lg:h-[650px]" />
+            <Skeleton className="mx-5 h-[410px] rounded-xl sm:mx-8 sm:h-[500px] lg:h-[570px]" />
           ) : projectionError ? (
-            <div className="flex h-[490px] items-center justify-center px-6 pt-20 text-center sm:h-[580px] lg:h-[650px]">
+            <div className="flex h-[410px] items-center justify-center px-6 text-center sm:h-[500px] lg:h-[570px]">
               <div>
                 <TrendingUp
                   className="mx-auto size-6 text-muted-foreground"
@@ -690,25 +702,11 @@ export function DashboardTrajectoryHero({
               showTestMarker={state.projectedAtTest != null}
               mocks={mocks}
               targetBreakdown={targetBreakdown}
-              plotTopInset={88}
-              className="h-[490px] sm:h-[580px] lg:h-[650px]"
+              className="h-[410px] sm:h-[500px] lg:h-[570px]"
             />
           )}
         </div>
-        <div className="absolute inset-x-0 top-20 z-10 flex flex-wrap items-start justify-between gap-3 px-5 py-6 sm:px-8 lg:px-10">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Target {plan.profile.targetScore} · {outlook}
-            </p>
-          </div>
-          <Badge className={cn("border-0", status.className)}>
-            {status.label}
-          </Badge>
-        </div>
-        <aside className="absolute right-6 top-44 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+        <aside className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
           <section aria-labelledby="dashboard-why-title">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <Sparkles className="size-3.5" aria-hidden />

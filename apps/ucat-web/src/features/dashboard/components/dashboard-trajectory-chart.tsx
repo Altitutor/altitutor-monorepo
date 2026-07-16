@@ -50,8 +50,6 @@ type DashboardTrajectoryChartProps = {
   targetBreakdown?: DashboardTargetBreakdown[];
   scoreMinimum?: number;
   scoreMaximum?: number;
-  /** Extra top inset for the plot so axis labels clear overlapping chrome. */
-  plotTopInset?: number;
   className?: string;
 };
 
@@ -218,7 +216,6 @@ export function DashboardTrajectoryChart({
   targetBreakdown = [],
   scoreMinimum = 900,
   scoreMaximum = 2700,
-  plotTopInset = 46,
   className,
 }: DashboardTrajectoryChartProps) {
   if (mode !== "forecast" || data.length === 0) {
@@ -347,7 +344,7 @@ export function DashboardTrajectoryChart({
           <ComposedChart
             data={visibleData}
             margin={{
-              top: plotTopInset,
+              top: 46,
               right: 28,
               bottom: 10,
               left: 4,

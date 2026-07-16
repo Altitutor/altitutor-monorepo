@@ -23,7 +23,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const publicPaths = ["/", "/login", "/signup", "/forgot-password"];
-  const isPublicPath = publicPaths.includes(pathname);
+  const isDevelopmentSentryExample =
+    process.env.NODE_ENV === "development" &&
+    pathname === "/sentry-example-page";
+  const isPublicPath =
+    publicPaths.includes(pathname) || isDevelopmentSentryExample;
   const isNoAuthPublicPath =
     pathname === "/reset-password" ||
     pathname.startsWith("/api/auth") ||
