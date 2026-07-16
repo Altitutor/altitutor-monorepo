@@ -38,6 +38,7 @@ import {
 } from "@/features/signup-onboarding/lib/guided-sampler-questions";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 type SeenControl =
   | "calculator"
@@ -885,6 +886,12 @@ export function GuidedSamplerPage() {
       await completeMilestone.mutateAsync(UCAT_QUESTION_ENGINE_TOUR);
       if (completed) {
         await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_COMPLETED);
+        captureUcatEvent("first_value_reached", {
+          value_type: "guided_sampler_completed",
+          familiarity,
+          after_plan: afterPlan,
+          replay,
+        });
       }
       if (!afterPlan && !replay) {
         await patchSignupProgress({ step: SIGNUP_STEP.PLAN });

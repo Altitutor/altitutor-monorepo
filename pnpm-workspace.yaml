@@ -6,6 +6,7 @@ allowBuilds:
   '@sentry/cli': true
   '@swc/core': true
   cbor-extract: true
+  core-js: false
   core-js-pure: true
   esbuild: true
   msgpackr-extract: true

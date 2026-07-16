@@ -33,6 +33,7 @@ fi
 
 # Vercel configuration - UPDATE THESE FOR YOUR SETUP
 VERCEL_ADMIN_PROJECT="altitutor-admin-web"
+VERCEL_MARKETING_PROJECT="altitutor-marketing-web"
 VERCEL_STUDENT_PROJECT="altitutor-student-web"
 VERCEL_TUTOR_PROJECT="altitutor-tutor-web"
 VERCEL_UCAT_PROJECT="altitutor-ucat-web"
@@ -197,6 +198,16 @@ deploy_all_web_server_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
 }
 
+deploy_public_analytics_secret() {
+    local secret_name=$1
+    local secret_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_MARKETING_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_STUDENT_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
@@ -207,7 +218,9 @@ echo -e "${YELLOW}Vercel Preview Environment:${NC}"
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
+        deploy_public_analytics_secret "$key" "$value" "preview"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
@@ -246,7 +259,9 @@ echo -e "${YELLOW}Vercel Production Environment:${NC}"
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
+        deploy_public_analytics_secret "$key" "$value" "production"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
@@ -279,4 +294,3 @@ echo ""
 print_summary
 
 exit $?
-

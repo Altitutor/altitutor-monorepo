@@ -49,6 +49,7 @@ import {
   isStripeCancellationFeedback,
   type CancellationReasonSelection,
 } from "@/features/subscription/lib/subscription-cancellation";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 const SUBSCRIPTION_SETTINGS_PATH = "/settings/plan/subscription";
 
@@ -281,6 +282,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     setError(null);
     try {
       await changeUcatSubscriptionTier({ tier: "pro" });
+      captureUcatEvent("subscription_activated", {
+        plan_tier: "pro",
+        activation_type: "upgrade",
+      });
       await refetchSubscriptionState();
       toast({
         title: "Upgraded to UCAT Pro",
@@ -299,6 +304,13 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   }, [options, refetchSubscriptionState, router, toast]);
 
   const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
+    captureUcatEvent("plan_selected", {
+      plan_tier: tier,
+      billing_interval: billingInterval,
+      journey_context: options.checkoutReturnContext ?? "subscribe",
+      audience: options.audience,
+    });
+
     if (options.audience === "marketing") {
       const checkoutPath = buildSignupCheckoutPath(tier, billingInterval);
       router.push(`/signup?redirect=${encodeURIComponent(checkoutPath)}`);
@@ -344,6 +356,11 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     setLoadingPlan("free");
     setError(null);
     try {
+      captureUcatEvent("plan_selected", {
+        plan_tier: "free",
+        journey_context: options.checkoutReturnContext ?? "subscribe",
+        audience: options.audience,
+      });
       trackSubscriptionJourneyEvent({
         eventType: "continued_free",
         journeyContext: options.checkoutReturnContext ?? "subscribe",

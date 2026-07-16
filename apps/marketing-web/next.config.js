@@ -15,6 +15,11 @@ const nextConfig = {
         hostname: "student.altitutor.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
     ],
   },
   async headers() {

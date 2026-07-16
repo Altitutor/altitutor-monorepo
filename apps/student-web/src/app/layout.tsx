@@ -7,12 +7,20 @@ import { AuthGuard } from '@/features/auth/components'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
+import {
+  StudentPostHogIdentity,
+  StudentPostHogProvider,
+} from '@/shared/lib/analytics/posthog-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Altitutor Student',
   description: 'Student portal for Altitutor',
+  robots: {
+    index: false,
+    follow: false,
+  },
   icons: {
     icon: [
       { url: '/images/logo-icon-light.svg', media: '(prefers-color-scheme: light)' },
@@ -30,33 +38,34 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
-        <ReactQueryProvider>
-          <AuthProvider>
-            <AuthGuard>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                <HapticFeedbackProvider />
-                <ToastProviderWrapper>
-                  <MobileMenuProvider>
-                    <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
-                      <Navbar />
-                      <MainContent>
-                        {children}
-                      </MainContent>
-                    </div>
-                  </MobileMenuProvider>
-                </ToastProviderWrapper>
-              </ThemeProvider>
-            </AuthGuard>
-          </AuthProvider>
-        </ReactQueryProvider>
+        <StudentPostHogProvider>
+          <ReactQueryProvider>
+            <AuthProvider>
+              <StudentPostHogIdentity />
+              <AuthGuard>
+                <ThemeProvider
+                  attribute="class"
+                  defaultTheme="system"
+                  enableSystem
+                  disableTransitionOnChange
+                >
+                  <HapticFeedbackProvider />
+                  <ToastProviderWrapper>
+                    <MobileMenuProvider>
+                      <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
+                        <Navbar />
+                        <MainContent>
+                          {children}
+                        </MainContent>
+                      </div>
+                    </MobileMenuProvider>
+                  </ToastProviderWrapper>
+                </ThemeProvider>
+              </AuthGuard>
+            </AuthProvider>
+          </ReactQueryProvider>
+        </StudentPostHogProvider>
       </body>
     </html>
   )
 }
-
-

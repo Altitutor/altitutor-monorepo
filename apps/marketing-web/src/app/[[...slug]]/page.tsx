@@ -11,6 +11,7 @@ import {
   getRenderableHtml,
   pathFromSlug,
 } from "@/lib/wordpress";
+import { WORDPRESS_COMMON_STYLES } from "@/lib/wordpress-assets";
 
 type PageProps = {
   params: {
@@ -80,6 +81,9 @@ export default function MarketingRoute({ params }: PageProps) {
 
   return (
     <>
+      {WORDPRESS_COMMON_STYLES.map((href) => (
+        <link key={href} rel="stylesheet" href={href} />
+      ))}
       <link rel="stylesheet" href={pageStylePath} />
       {schema ? (
         <script

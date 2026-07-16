@@ -119,12 +119,14 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 
 - Preview: `NEXT_PUBLIC_*` from `.env.development`
 - Production: `NEXT_PUBLIC_*` from `.env.production`
+- `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT apps
 - `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
 - `RESEND_API_KEY` to all web apps managed by the script
 
 Projects currently deployed by the script:
 
 - `altitutor-admin-web` (`apps/admin-web`)
+- `altitutor-marketing-web` (`apps/marketing-web`)
 - `altitutor-student-web` (`apps/student-web`)
 - `altitutor-tutor-web` (`apps/tutor-web`)
 - `altitutor-ucat-web` (`apps/ucat-web`)
@@ -195,7 +197,7 @@ Excludes `NEXT_PUBLIC_*` (those go to Vercel).
 
 ### Vercel (`deploy-vercel.sh`)
 
-Deploys `NEXT_PUBLIC_*` to all configured web projects, `OPENROUTER_API_KEY` to tutor-web, and `RESEND_API_KEY` to all configured web projects.
+Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. Other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, and `RESEND_API_KEY` goes to all application web projects.
 
 ### EAS (`deploy-eas.sh`)
 
@@ -221,6 +223,7 @@ gh secret list --repo Altitutor/altitutor-monorepo --env production
 
 ```bash
 vercel env ls --project altitutor-admin-web
+vercel env ls --project altitutor-marketing-web
 vercel env ls --project altitutor-student-web
 vercel env ls --project altitutor-tutor-web
 vercel env ls --project altitutor-ucat-web
