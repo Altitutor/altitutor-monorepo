@@ -9055,6 +9055,84 @@ export type Database = {
           },
         ]
       }
+      student_ucat_attempt_reviews: {
+        Row: {
+          attempt_id: string
+          attempt_type: string
+          completed_at: string | null
+          completion_method: string | null
+          created_at: string
+          id: string
+          required_question_ids: string[]
+          started_at: string
+          student_id: string
+          updated_at: string
+          viewed_question_ids: string[]
+        }
+        Insert: {
+          attempt_id: string
+          attempt_type: string
+          completed_at?: string | null
+          completion_method?: string | null
+          created_at?: string
+          id?: string
+          required_question_ids?: string[]
+          started_at?: string
+          student_id: string
+          updated_at?: string
+          viewed_question_ids?: string[]
+        }
+        Update: {
+          attempt_id?: string
+          attempt_type?: string
+          completed_at?: string | null
+          completion_method?: string | null
+          created_at?: string
+          id?: string
+          required_question_ids?: string[]
+          started_at?: string
+          student_id?: string
+          updated_at?: string
+          viewed_question_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       student_ucat_mock_attempts: {
         Row: {
           attempted_at: string
@@ -13798,6 +13876,84 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
             referencedColumns: ["ucat_section_id"]
+          },
+        ]
+      }
+      ucat_score_projection_snapshots: {
+        Row: {
+          confidence: string
+          created_at: string
+          current_estimate: number
+          effective_evidence_weight: number
+          generated_at: string
+          id: string
+          section_estimates: Json
+          snapshot_date: string
+          student_id: string
+          uncertainty: number
+          updated_at: string
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          current_estimate: number
+          effective_evidence_weight: number
+          generated_at: string
+          id?: string
+          section_estimates?: Json
+          snapshot_date: string
+          student_id: string
+          uncertainty: number
+          updated_at?: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          current_estimate?: number
+          effective_evidence_weight?: number
+          generated_at?: string
+          id?: string
+          section_estimates?: Json
+          snapshot_date?: string
+          student_id?: string
+          uncertainty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_score_projection_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_score_projection_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -25082,6 +25238,24 @@ export type Database = {
         Args: { p_lock_name?: string; p_run_id?: string }
         Returns: boolean
       }
+      replace_ucat_study_plan_generation: {
+        Args: {
+          p_capacity_risk: Json
+          p_ends_on: string
+          p_input_snapshot: Json
+          p_next_weekly_replan_on: string
+          p_planning_date: string
+          p_preserve_through?: string
+          p_profile_id: string
+          p_projection_snapshot: Json
+          p_reason: string
+          p_setup_completed_at: string
+          p_starts_on: string
+          p_student_id: string
+          p_tasks: Json
+        }
+        Returns: string
+      }
       reschedule_drafting_session: {
         Args: {
           p_bypass_date_restrictions?: boolean
@@ -25430,7 +25604,7 @@ export type Database = {
           p_content_type: string
           p_status: Database["public"]["Enums"]["ucat_content_status"]
         }
-        Returns: undefined
+        Returns: Json
       }
       tutor_ucat_set_skill_trainer_item_approval: {
         Args: { p_approval_status: string; p_item_id: string }
