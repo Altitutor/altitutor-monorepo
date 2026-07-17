@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { WORDPRESS_COMMON_STYLES } from "@/lib/wordpress-assets";
+import { MarketingPostHogProvider } from "@/lib/analytics/posthog-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -18,12 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en-AU">
-      <head>
-        {WORDPRESS_COMMON_STYLES.map((href) => (
-          <link key={href} rel="stylesheet" href={href} />
-        ))}
-      </head>
-      <body>{children}</body>
+      <body>
+        <MarketingPostHogProvider>{children}</MarketingPostHogProvider>
+      </body>
     </html>
   );
 }

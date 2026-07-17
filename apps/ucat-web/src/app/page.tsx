@@ -1,5 +1,5 @@
-import { UcatMarketingLandingPage } from "@/features/landing";
+import { permanentRedirect } from "next/navigation";
 
-export default function LandingPage() {
-  return <UcatMarketingLandingPage />;
+export default function LandingRedirect() {
+  permanentRedirect("https://altitutor.com/ucat/");
 }

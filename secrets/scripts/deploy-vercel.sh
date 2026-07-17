@@ -223,6 +223,16 @@ deploy_sentry_project() {
     deploy_vercel_secret "SENTRY_AUTH_TOKEN" "$auth_token" "$vercel_project" "$environment"
 }
 
+deploy_public_analytics_secret() {
+    local secret_name=$1
+    local secret_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_MARKETING_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_STUDENT_PROJECT" "$environment"
+    deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
@@ -239,7 +249,9 @@ deploy_sentry_project "$SECRETS_DIR/.env.development" "UCAT_WEB" "$VERCEL_UCAT_P
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
+        deploy_public_analytics_secret "$key" "$value" "preview"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
@@ -284,7 +296,9 @@ deploy_sentry_project "$SECRETS_DIR/.env.production" "UCAT_WEB" "$VERCEL_UCAT_PR
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
+    if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
+        deploy_public_analytics_secret "$key" "$value" "production"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"

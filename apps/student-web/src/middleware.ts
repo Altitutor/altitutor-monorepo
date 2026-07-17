@@ -14,8 +14,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  if (pathname === '/') {
+    return NextResponse.redirect(
+      new URL('https://altitutor.com/online-learning/'),
+      308,
+    );
+  }
+
   const isPublicPath =
-    pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/reset-password') ||
@@ -145,16 +151,6 @@ export async function middleware(req: NextRequest) {
   // If user is not a student, block access
   if (!student) {
     const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Redirect root path to dashboard
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value);

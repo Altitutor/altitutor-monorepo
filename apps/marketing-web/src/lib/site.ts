@@ -4,7 +4,10 @@ export const SITE_NAME = "Altitutor";
 
 export const PRODUCT_LINKS = {
   student: "https://student.altitutor.com",
+  studentLogin: "https://student.altitutor.com/login",
   ucat: "https://ucat.altitutor.com",
+  ucatLogin: "https://ucat.altitutor.com/login",
+  ucatSignup: "https://ucat.altitutor.com/signup",
   trialBooking: "https://student.altitutor.com/booking/trial-session",
 };
 
