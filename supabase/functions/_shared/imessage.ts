@@ -196,7 +196,20 @@ export function parseIMessageEvent(value: unknown): ParsedIMessageEvent {
   );
   const connectorId = firstString(value.connectorId, value.ConnectorId);
   const explicitKey = firstString(value.eventId, value.EventId, value.id);
-  const identity = guid ?? tempGuid ?? stableEventFingerprint(value);
+  const messageScoped = eventType === "new-message" ||
+    eventType === "reconciliation-message" ||
+    eventType === "delivery" ||
+    eventType === "message-send-error";
+  const rawIdentity = isRecord(value.RawPayload)
+    ? value.RawPayload
+    : isRecord(value.rawPayload)
+    ? value.rawPayload
+    : isRecord(value.data)
+    ? value.data
+    : value;
+  const identity = messageScoped
+    ? guid ?? tempGuid ?? stableEventFingerprint(rawIdentity)
+    : stableEventFingerprint(rawIdentity);
   const eventVersion = eventVersionFingerprint(eventType, value);
   const eventKey = explicitKey ?? [
     connectorId ?? "mac",

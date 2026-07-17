@@ -13,7 +13,9 @@ export function useSendMessage() {
   const user = useAuthStore(s => s.user);
   return useMutation({
     mutationFn: async (args: { 
-      contactId: string; 
+      contactId?: string | null;
+      conversationId?: string | null;
+      groupChatId?: string | null;
       body: string; 
       selectedSenderId: string;
       attachments?: Array<{
@@ -33,21 +35,23 @@ export function useSendMessage() {
         .maybeSingle();
 
       // Get contact phone number
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('phone_e164')
-        .eq('id', args.contactId)
-        .maybeSingle();
+      const { data: contact } = args.contactId
+        ? await supabase
+            .from('contacts')
+            .select('phone_e164')
+            .eq('id', args.contactId)
+            .maybeSingle()
+        : { data: null };
 
-      const toNumber = contact?.phone_e164;
+      const toNumber = args.groupChatId ?? contact?.phone_e164;
       if (!toNumber) {
-        throw new Error('Contact phone number not found');
+        throw new Error('Message destination not found');
       }
 
       // Get selected sender details
       const { data: sender } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, provider')
         .eq('id', args.selectedSenderId)
         .maybeSingle();
 
@@ -55,8 +59,15 @@ export function useSendMessage() {
         throw new Error('Selected sender not found');
       }
 
-      // Ensure conversation exists with selected sender
-      const conversationId = await ensureConversationForContact(args.contactId, args.selectedSenderId);
+      if (args.groupChatId && sender.provider !== 'IMESSAGE') {
+        throw new Error('Group chats require an iMessage sender');
+      }
+
+      const conversationId = args.conversationId
+        ?? (args.contactId
+          ? await ensureConversationForContact(args.contactId, args.selectedSenderId)
+          : null);
+      if (!conversationId) throw new Error('Conversation not found');
 
       // Determine from value based on sender type
       const fromValue = sender.sender_type === 'ALPHANUMERIC'
@@ -118,7 +129,9 @@ export function useSendMessage() {
     },
     onSuccess: (result, vars) => {
       // Invalidate messages for this contact (aggregated view)
-      qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(vars.contactId) });
+      if (vars.contactId) {
+        qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(vars.contactId) });
+      }
       // Also invalidate the specific conversation's messages (for backward compatibility)
       qc.invalidateQueries({ queryKey: messagesKeys.messages(result.conversationId) });
       // Invalidate conversations list (both old and new aggregated)
@@ -184,6 +197,35 @@ export function useMarkUnread() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+    },
+  });
+}
+
+export function useMarkConversationRead() {
+  const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  return useMutation({
+    mutationFn: async (args: { conversationId: string; lastMessageId: string }) => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
+      if (!staff?.id) return;
+
+      const { error } = await supabase
+        .from('conversation_reads')
+        .upsert({
+          conversation_id: args.conversationId,
+          staff_id: staff.id,
+          last_read_message_id: args.lastMessageId,
+          last_read_at: new Date().toISOString(),
+        }, { onConflict: 'conversation_id,staff_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
     },
   });

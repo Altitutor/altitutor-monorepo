@@ -3,7 +3,13 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { messagesKeys } from './queryKeys';
-import type { Sender, AggregatedConversation } from '../types';
+import {
+  isContactConversation,
+  type Sender,
+  type AggregatedConversation,
+  type ConversationListItem,
+  type GroupConversation,
+} from '../types';
 import type { Tables } from '@altitutor/shared';
 
 // Re-export types for backward compatibility
@@ -33,9 +39,18 @@ type ConversationRow = {
     students: Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name'> | null;
     parents: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name'> | null;
     staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
-  };
+  } | null;
   owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'label'> | null;
   conversation_reads: Array<Pick<Tables<'conversation_reads'>, 'id' | 'last_read_message_id' | 'last_read_at'>>;
+  group_chat_participants?: Array<{
+    contact_id: string;
+    contacts: {
+      phone_e164: string | null;
+      students: Pick<Tables<'students'>, 'first_name' | 'last_name'> | null;
+      parents: Pick<Tables<'parents'>, 'first_name' | 'last_name'> | null;
+      staff: Pick<Tables<'staff'>, 'first_name' | 'last_name'> | null;
+    } | null;
+  }>;
 };
 
 type MessageRow = {
@@ -131,7 +146,14 @@ export function useMessages(conversationId: string) {
         ? messages[messages.length - 1].created_at 
         : undefined;
       
-      return { items: messages, nextCursor };
+      return {
+        items: messages.map((message) => ({
+          ...message,
+          sender: null,
+          conversation_owned_number_id: null,
+        })),
+        nextCursor,
+      };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!conversationId,
@@ -215,7 +237,11 @@ export async function getContactIdByRelatedId(relatedId: string, type: 'student'
 }
 
 // Helper to GET EXISTING conversation for student/staff/parent (does NOT create)
-export async function getExistingConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
+export async function getExistingConversationForRelated(
+  relatedId: string,
+  type: 'student' | 'staff' | 'parent',
+  requestedOwnedNumberId?: string
+): Promise<string | null> {
   const contactId = await getContactIdByRelatedId(relatedId, type);
   if (!contactId) {
     return null;
@@ -223,15 +249,16 @@ export async function getExistingConversationForRelated(relatedId: string, type:
   
   const supabase = getSupabaseClient();
   
-  // Get default owned number
-  const { data: owned } = await supabase
-    .from('owned_numbers')
-    .select('id')
-    .eq('is_default', true)
-    .limit(1)
-    .maybeSingle();
-  
-  const ownedNumberId = owned?.id;
+  let ownedNumberId = requestedOwnedNumberId;
+  if (!ownedNumberId) {
+    const { data: owned } = await supabase
+      .from('owned_numbers')
+      .select('id')
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle();
+    ownedNumberId = owned?.id;
+  }
   if (!ownedNumberId) {
     // fallback to any owned number
     const { data: anyOwned } = await supabase.from('owned_numbers').select('id').limit(1).maybeSingle();
@@ -342,9 +369,9 @@ type MessageWithCreatedAt = MessageRow & {
   created_at: string;
 };
 
-export async function fetchConversationsByContact(
+export async function fetchConversationList(
   ownedNumberId?: string | null
-): Promise<AggregatedConversation[]> {
+): Promise<ConversationListItem[]> {
   const supabase = getSupabaseClient();
 
   let query = supabase
@@ -354,11 +381,20 @@ export async function fetchConversationsByContact(
       assigned_staff_id, contact_id, owned_number_id,
       is_group_chat, group_chat_id, group_chat_name,
       needs_follow_up,
-      contacts!inner(
+      contacts(
         id, phone_e164, contact_type, student_id, parent_id, staff_id,
         students(id, first_name, last_name),
         parents(id, first_name, last_name),
         staff(id, first_name, last_name)
+      ),
+      group_chat_participants(
+        contact_id,
+        contacts(
+          phone_e164,
+          students(first_name, last_name),
+          parents(first_name, last_name),
+          staff(first_name, last_name)
+        )
       ),
       owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
       conversation_reads(id, last_read_message_id, last_read_at)
@@ -392,11 +428,36 @@ export async function fetchConversationsByContact(
   }
 
   const byContact = new Map<string, AggregatedConversation>();
+  const groups: GroupConversation[] = [];
 
   for (const conv of typedConversations) {
     const contactId = conv.contact_id;
+    const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
 
-    if (!contactId) continue;
+    if (conv.is_group_chat && conv.group_chat_id) {
+      const participantNames = (conv.group_chat_participants ?? []).map((participant) => {
+        const contact = participant.contacts;
+        const person = contact?.students ?? contact?.parents ?? contact?.staff;
+        const name = person
+          ? `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim()
+          : '';
+        return name || contact?.phone_e164 || 'Unknown participant';
+      });
+      groups.push({
+        kind: 'group',
+        conversationId: conv.id,
+        groupChatId: conv.group_chat_id,
+        groupName: conv.group_chat_name,
+        participantNames,
+        ownedNumberId: conv.owned_number_id,
+        latestMessageAt: conv.last_message_at,
+        latestMessage: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
+        unreadCount: conv.conversation_reads?.length ? 0 : 1,
+      });
+      continue;
+    }
+
+    if (!contactId || !conv.contacts) continue;
 
     if (!byContact.has(contactId)) {
       byContact.set(contactId, {
@@ -410,8 +471,6 @@ export async function fetchConversationsByContact(
     }
 
     const aggregated = byContact.get(contactId)!;
-    const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
-
     aggregated.conversations.push({
       id: conv.id,
       owned_number_id: conv.owned_number_id,
@@ -433,12 +492,23 @@ export async function fetchConversationsByContact(
     }
   }
 
-  return Array.from(byContact.values()).sort((a, b) => {
+  const contacts: ConversationListItem[] = Array.from(byContact.values()).map((item) => ({
+    ...item,
+    kind: 'contact' as const,
+  }));
+
+  return [...contacts, ...groups].sort((a, b) => {
     if (!a.latestMessageAt && !b.latestMessageAt) return 0;
     if (!a.latestMessageAt) return 1;
     if (!b.latestMessageAt) return -1;
     return b.latestMessageAt.localeCompare(a.latestMessageAt);
   });
+}
+
+export async function fetchConversationsByContact(
+  ownedNumberId?: string | null
+): Promise<AggregatedConversation[]> {
+  return (await fetchConversationList(ownedNumberId)).filter(isContactConversation);
 }
 
 export function useConversationsByContact(ownedNumberId?: string | null) {
@@ -447,6 +517,15 @@ export function useConversationsByContact(ownedNumberId?: string | null) {
     queryFn: () => fetchConversationsByContact(ownedNumberId),
     staleTime: 1000 * 30, // 30 seconds
     refetchOnWindowFocus: false, // Realtime handles updates
+  });
+}
+
+export function useConversationList(ownedNumberId?: string | null) {
+  return useQuery({
+    queryKey: [...messagesKeys.conversationsByContact(ownedNumberId), 'including-groups'],
+    queryFn: () => fetchConversationList(ownedNumberId),
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
   });
 }
 

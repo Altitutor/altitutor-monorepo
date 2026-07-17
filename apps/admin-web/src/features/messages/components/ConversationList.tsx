@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useAvailableSenders, useConversationsByContact } from '../api/queries';
+import { useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import {
   Button,
+  Badge,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuSub,
@@ -20,10 +21,14 @@ import { Plus, Mail, Filter, Search, X } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
-import { useMarkUnread, useMarkRead } from '../api/mutations';
+import { useMarkConversationRead, useMarkUnread, useMarkRead } from '../api/mutations';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AggregatedConversation } from '../types';
+import type {
+  AggregatedConversation,
+  ConversationListItem,
+  ConversationSelection,
+} from '../types';
 
 type FilterOption = 'all' | 'unread' | 'unreplied' | 'to_follow_up';
 const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
@@ -34,19 +39,19 @@ const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
 ];
 
 interface Props {
-  activeContactId?: string | null;
-  onSelect: (contactId: string) => void;
+  activeSelection?: ConversationSelection | null;
+  onSelect: (selection: ConversationSelection) => void;
   selectedOwnedNumberId: string | null;
   onOwnedNumberFilterChange: (ownedNumberId: string | null) => void;
 }
 
 export function ConversationList({
-  activeContactId,
+  activeSelection,
   onSelect,
   selectedOwnedNumberId,
   onOwnedNumberFilterChange,
 }: Props) {
-  const { data } = useConversationsByContact(selectedOwnedNumberId);
+  const { data } = useConversationList(selectedOwnedNumberId);
   const { data: senders = [] } = useAvailableSenders();
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +59,7 @@ export function ConversationList({
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const markUnreadMutation = useMarkUnread();
   const markReadMutation = useMarkRead();
+  const markConversationReadMutation = useMarkConversationRead();
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -109,12 +115,14 @@ export function ConversationList({
 
   // Filter conversations by contact name/phone or filter pills
   const filteredItems = useMemo(() => {
-    const items: AggregatedConversation[] = data || [];
+    const items: ConversationListItem[] = data || [];
     let filtered = items;
 
     if (selectedOwnedNumberId) {
       filtered = filtered.filter((conversation) =>
-        conversation.conversations.some((c) => c.owned_number_id === selectedOwnedNumberId)
+        conversation.kind === 'group'
+          ? conversation.ownedNumberId === selectedOwnedNumberId
+          : conversation.conversations.some((c) => c.owned_number_id === selectedOwnedNumberId)
       );
     }
     
@@ -123,6 +131,12 @@ export function ConversationList({
       const search = searchTerm.toLowerCase();
       const normalizedSearch = normalizePhoneForSearch(searchTerm);
       filtered = filtered.filter((c) => {
+        if (c.kind === 'group') {
+          return (
+            (c.groupName ?? 'Group chat').toLowerCase().includes(search) ||
+            c.participantNames.some((participant) => participant.toLowerCase().includes(search))
+          );
+        }
         const contactName = formatContactName({ contacts: c.contact });
         const phoneNumber = c.contact?.phone_e164 || '';
         const normalizedPhone = normalizePhoneForSearch(phoneNumber);
@@ -147,11 +161,11 @@ export function ConversationList({
     } else {
       // Only apply filter pills when not searching
       if (activeFilter === 'unread') {
-        filtered = filtered.filter((c) => isUnread(c));
+        filtered = filtered.filter((c) => c.kind === 'group' ? c.unreadCount > 0 : isUnread(c));
       } else if (activeFilter === 'unreplied') {
-        filtered = filtered.filter((c) => isUnreplied(c));
+        filtered = filtered.filter((c) => c.kind === 'group' ? c.latestMessage?.direction === 'INBOUND' : isUnreplied(c));
       } else if (activeFilter === 'to_follow_up') {
-        filtered = filtered.filter((c) => isToFollowUp(c));
+        filtered = filtered.filter((c) => c.kind === 'contact' && isToFollowUp(c));
       }
     }
     
@@ -202,7 +216,7 @@ export function ConversationList({
       .maybeSingle();
     
     if (conv?.contact_id) {
-      onSelect(conv.contact_id);
+      onSelect({ kind: 'contact', contactId: conv.contact_id });
     }
     setIsNewConversationDialogOpen(false);
     // Invalidate conversations to refresh the list
@@ -318,9 +332,67 @@ export function ConversationList({
           </div>
         ) : (
           filteredItems.map((aggregated) => {
+            if (aggregated.kind === 'group') {
+              const isActive =
+                activeSelection?.kind === 'group' &&
+                activeSelection.conversationId === aggregated.conversationId;
+              const title = aggregated.groupName || 'Group chat';
+              const participants = aggregated.participantNames.length
+                ? aggregated.participantNames.join(', ')
+                : 'Participants unavailable';
+              const lastMessageTime = aggregated.latestMessageAt
+                ? new Date(aggregated.latestMessageAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                : '';
+
+              return (
+                <div
+                  key={aggregated.conversationId}
+                  className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="w-full p-3 pr-12 text-left hover:bg-muted"
+                    onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate text-sm font-medium">{title}</div>
+                      <Badge variant="outline">Group</Badge>
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{participants}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {aggregated.latestMessageAt ? `${formatConversationDate(aggregated.latestMessageAt)} ${lastMessageTime}` : ''}
+                    </div>
+                  </button>
+                  {aggregated.latestMessage?.id && (
+                    <Button
+                      size="sm"
+                      variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
+                      className={cn(
+                        'absolute right-3 top-3 h-6 w-6 p-0',
+                        aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
+                      )}
+                      title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
+                      onClick={() => {
+                        if (aggregated.unreadCount > 0) {
+                          markConversationReadMutation.mutate({
+                            conversationId: aggregated.conversationId,
+                            lastMessageId: aggregated.latestMessage!.id,
+                          });
+                        } else {
+                          markUnreadMutation.mutate(aggregated.conversationId);
+                        }
+                      }}
+                    >
+                      <Mail className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              );
+            }
+
             const title = formatContactName({ contacts: aggregated.contact });
             const phoneNumber = aggregated.contact?.phone_e164;
-            const isActive = aggregated.contactId === activeContactId;
+            const isActive = activeSelection?.kind === 'contact' && aggregated.contactId === activeSelection.contactId;
             const isUnreadConv = isUnread(aggregated);
             const lastMessageTime = aggregated.latestMessageAt ? new Date(aggregated.latestMessageAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
@@ -347,11 +419,11 @@ export function ConversationList({
                   role="button"
                   tabIndex={0}
                   className={`w-full text-left p-3 hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
-                  onClick={() => onSelect(aggregated.contactId)}
+                  onClick={() => onSelect({ kind: 'contact', contactId: aggregated.contactId })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onSelect(aggregated.contactId);
+                      onSelect({ kind: 'contact', contactId: aggregated.contactId });
                     }
                   }}
                 >
@@ -391,6 +463,7 @@ export function ConversationList({
         isOpen={isNewConversationDialogOpen}
         onClose={() => setIsNewConversationDialogOpen(false)}
         onConversationSelected={handleNewConversation}
+        ownedNumberId={selectedOwnedNumberId}
       />
     </div>
   );

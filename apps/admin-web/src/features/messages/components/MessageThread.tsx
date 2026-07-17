@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
-import { useMessagesForContact, useContactHeader } from '../api/queries';
+import { useMessages, useMessagesForContact, useContactHeader } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
@@ -19,6 +19,7 @@ import { issuesApi } from '@/features/issues/api/issues';
 import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
+import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
@@ -50,7 +51,8 @@ function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[]
 }
 
 interface Props {
-  contactId: string;
+  contactId?: string | null;
+  conversationId?: string | null;
   ownedNumberId?: string | null;
   isSearching?: boolean;
   searchTerm?: string;
@@ -384,6 +386,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 
 export function MessageThread({
   contactId,
+  conversationId,
   ownedNumberId,
   isSearching = false,
   searchTerm = '',
@@ -391,12 +394,17 @@ export function MessageThread({
   onExitSearch,
   hideAddIssueHover = false
 }: Props) {
-  const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId, ownedNumberId);
+  const contactMessages = useMessagesForContact(contactId ?? null, ownedNumberId);
+  const conversationMessages = useMessages(conversationId ?? '');
+  const { data, fetchNextPage, hasNextPage } = conversationId
+    ? conversationMessages
+    : contactMessages;
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const selectionKey = conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`;
   const lastRenderedContactIdRef = useRef<string | null>(null);
-  const prevContactId = useRef(contactId);
+  const prevContactId = useRef(selectionKey);
   
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
@@ -405,20 +413,40 @@ export function MessageThread({
   
   // Reset initial load flag when contact changes
   useEffect(() => {
-    if (prevContactId.current !== contactId) {
-      prevContactId.current = contactId;
+    if (prevContactId.current !== selectionKey) {
+      prevContactId.current = selectionKey;
       shouldStickToBottomRef.current = true;
     }
-  }, [contactId]);
+  }, [selectionKey]);
 
   useEffect(() => {
-    if (!contactId) return;
+    if (!contactId && !conversationId) return;
     
     // Get all conversation IDs for this contact to subscribe to all of them
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
     
+    if (conversationId) {
+      channel = supabase
+        .channel(`messages-conversation-${conversationId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, () => {
+          qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
+        })
+        .subscribe();
+
+      return () => {
+        if (channel) supabase.removeChannel(channel);
+      };
+    }
+
+    if (!contactId) return;
+
     // Fetch conversation IDs for this contact
     supabase
       .from('conversations')
@@ -471,7 +499,7 @@ export function MessageThread({
         supabase.removeChannel(channel);
       }
     };
-  }, [contactId, ownedNumberId, qc]);
+  }, [contactId, conversationId, ownedNumberId, qc]);
 
   // Filter and process messages for search
   const processedMessages = useMemo(() => {
@@ -524,13 +552,13 @@ export function MessageThread({
     const el = scrollRef.current;
     if (!el) return;
 
-    const isContactSwitch = lastRenderedContactIdRef.current !== contactId;
+    const isContactSwitch = lastRenderedContactIdRef.current !== selectionKey;
     if (isContactSwitch || shouldStickToBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
 
-    lastRenderedContactIdRef.current = contactId;
-  }, [contactId, renderedMessages.length]);
+    lastRenderedContactIdRef.current = selectionKey;
+  }, [selectionKey, renderedMessages.length]);
 
   // Keep pinned to bottom while dynamic content (attachments, images, etc.) settles.
   useEffect(() => {
@@ -548,7 +576,7 @@ export function MessageThread({
 
     observer.observe(el, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [contactId]);
+  }, [selectionKey]);
 
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
@@ -567,7 +595,7 @@ export function MessageThread({
     );
   };
 
-  const { data: contact } = useContactHeader(contactId);
+  const { data: contact } = useContactHeader(contactId ?? null);
   const { data: candidateIssues = [] } = useIssues({ status: ['open', 'awaiting_response'] });
 
   const contactIssueTags = useMemo<IssueTagDraft[]>(() => {
@@ -819,6 +847,13 @@ export function MessageThread({
                         </div>
                       )}
                       {/* Message body */}
+                      {m.is_reaction && (
+                        <div className="mb-1 text-xs text-muted-foreground">
+                          {m.reaction_type?.toLowerCase().startsWith('remove')
+                            ? `Tapback removed: ${m.reaction_type.replace(/^remove[_ ]?/i, '') || 'reaction'}`
+                            : `Tapback: ${m.reaction_type ?? 'reaction'}`}
+                        </div>
+                      )}
                       {(() => {
                         // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
                         // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
@@ -844,6 +879,14 @@ export function MessageThread({
                         <span>{formatMessageDate(m.created_at)}</span>
                         {direction === 'OUTBOUND' && m.status && (
                           <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
+                        )}
+                        {m.imessage_guid && !m.is_reaction && (
+                          <ImessageMessageActions
+                            messageId={m.id}
+                            imessageGuid={m.imessage_guid}
+                            body={m.body}
+                            isOwnMessage={direction === 'OUTBOUND'}
+                          />
                         )}
                       </div>
                     </div>
