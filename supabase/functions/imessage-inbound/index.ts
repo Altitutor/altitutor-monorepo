@@ -238,6 +238,7 @@ async function processMessage(
   const message = normalizeMessage(event);
   const isHistoricalImport =
     event.sourceEventType === "reconciliation-message";
+  const statusUpdatedAt = message.readAt ?? message.deliveredAt ?? message.date;
   const conversationId = await ensureMessageConversation(
     supabase,
     owned,
@@ -277,7 +278,7 @@ async function processMessage(
       imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
       message_sid: message.messageId,
       status,
-      status_updated_at: new Date().toISOString(),
+      status_updated_at: statusUpdatedAt,
       sent_at: message.isFromMe ? message.date : undefined,
       received_at: message.isFromMe ? undefined : message.date,
       delivered_at: message.deliveredAt ?? undefined,
@@ -298,10 +299,11 @@ async function processMessage(
       conversation_id: conversationId,
       direction: message.isFromMe ? "OUTBOUND" : "INBOUND",
       body: message.body,
+      created_at: message.date,
       from_number_e164: sender,
       to_number_e164: recipient,
       status: incomingStatus,
-      status_updated_at: message.date,
+      status_updated_at: statusUpdatedAt,
       message_sid: message.messageId,
       imessage_guid: message.guid,
       imessage_temp_guid: message.tempGuid,
