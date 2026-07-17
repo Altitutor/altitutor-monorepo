@@ -9,8 +9,10 @@ import {
   type UcatBillingInterval,
   type UcatPaidPlanTier,
 } from "@altitutor/shared";
+import { SegmentedControl } from "@altitutor/ui";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
+import { MagneticButton } from "./magnetic-button";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -233,7 +235,7 @@ export function UcatLandingPricing() {
     );
   };
 
-  const ctaClass = `mt-10 flex w-full items-center justify-center rounded-full px-6 py-4 text-base font-semibold tracking-wide transition-transform hover:scale-[1.02] ${typo.headingSans}`;
+  const ctaButtonClass = `w-full px-6 py-4 text-base font-semibold tracking-wide ${typo.headingSans}`;
 
   return (
     <section id="pricing" className="relative flex min-h-dvh w-full flex-col justify-center overflow-hidden bg-marketing-cream py-24 md:py-32">
@@ -248,22 +250,17 @@ export function UcatLandingPricing() {
         </div>
 
         <div className="mb-10 flex justify-center">
-          <div className="inline-flex rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/5">
-            {availableIntervals.map((candidate) => (
-              <button
-                key={candidate}
-                type="button"
-                onClick={() => setInterval(candidate)}
-                className={`rounded-full px-5 py-2.5 text-sm font-semibold transition sm:px-8 sm:py-3 sm:text-base ${
-                  candidate === interval
-                    ? "bg-marketing-primary text-marketing-cream shadow-sm"
-                    : "text-marketing-charcoal/60 hover:text-marketing-charcoal"
-                }`}
-              >
-                {INTERVAL_LABELS[candidate]}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            value={interval}
+            onValueChange={setInterval}
+            options={availableIntervals.map((candidate) => ({
+              value: candidate,
+              label: INTERVAL_LABELS[candidate],
+            }))}
+            variant="light"
+            aria-label="UCAT billing interval"
+            className="text-sm sm:text-base [&_button]:!px-5 [&_button]:!py-2.5 sm:[&_button]:!px-8 sm:[&_button]:!py-3"
+          />
         </div>
 
         {loadFailed ? (
@@ -289,8 +286,10 @@ export function UcatLandingPricing() {
                 ))}
               </ul>
             </div>
-            <AnalyticsLink href={PRODUCT_LINKS.ucatSignup} analytics={{ product: "ucat", placement: "pricing", action: "start_free", planTier: "free" }} className={`${ctaClass} border border-marketing-charcoal/30 text-marketing-charcoal hover:bg-marketing-charcoal/5`}>
-              Sign up free
+            <AnalyticsLink href={PRODUCT_LINKS.ucatSignup} analytics={{ product: "ucat", placement: "pricing", action: "start_free", planTier: "free" }} className="mt-10 block">
+              <MagneticButton className={`${ctaButtonClass} border border-marketing-charcoal/30 text-marketing-charcoal`}>
+                Sign up free
+              </MagneticButton>
             </AnalyticsLink>
           </article>
 
@@ -306,11 +305,13 @@ export function UcatLandingPricing() {
               <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>{UNLIMITED_FEATURES.map((feature) => <CheckItem key={feature}>{feature}</CheckItem>)}</ul>
             </div>
             {checkoutAvailable("unlimited") ? (
-              <AnalyticsLink href={checkoutHref("unlimited", interval)} analytics={{ product: "ucat", placement: "pricing", action: "select_plan", planTier: "unlimited" }} className={`${ctaClass} bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30`}>
-                Sign up
+              <AnalyticsLink href={checkoutHref("unlimited", interval)} analytics={{ product: "ucat", placement: "pricing", action: "select_plan", planTier: "unlimited" }} className="mt-10 block">
+                <MagneticButton className={`${ctaButtonClass} bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30`}>
+                  Sign up
+                </MagneticButton>
               </AnalyticsLink>
             ) : (
-              <span className={`${ctaClass} cursor-not-allowed bg-marketing-charcoal/10 text-marketing-charcoal/45`}>
+              <span className={`mt-10 flex w-full cursor-not-allowed items-center justify-center rounded-full bg-marketing-charcoal/10 ${ctaButtonClass} text-marketing-charcoal/45`}>
                 Coming soon
               </span>
             )}
@@ -328,11 +329,13 @@ export function UcatLandingPricing() {
               <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>{PRO_FEATURES.map((feature) => <CheckItem key={feature} featured>{feature}</CheckItem>)}</ul>
             </div>
             {checkoutAvailable("pro") ? (
-              <AnalyticsLink href={checkoutHref("pro", interval)} analytics={{ product: "ucat", placement: "pricing", action: "select_plan", planTier: "pro" }} className={`${ctaClass} bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30`}>
-                Sign up
+              <AnalyticsLink href={checkoutHref("pro", interval)} analytics={{ product: "ucat", placement: "pricing", action: "select_plan", planTier: "pro" }} className="mt-10 block">
+                <MagneticButton className={`${ctaButtonClass} bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30`}>
+                  Sign up
+                </MagneticButton>
               </AnalyticsLink>
             ) : (
-              <span className={`${ctaClass} cursor-not-allowed bg-marketing-cream/10 text-marketing-cream/50`}>
+              <span className={`mt-10 flex w-full cursor-not-allowed items-center justify-center rounded-full bg-marketing-cream/10 ${ctaButtonClass} text-marketing-cream/50`}>
                 Coming soon
               </span>
             )}
