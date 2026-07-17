@@ -8,6 +8,14 @@ module.exports = {
     "^@altitutor/shared/(.*)$": "<rootDir>/../../packages/shared/src/$1",
     "^@altitutor/ui$": "<rootDir>/../../packages/ui/src/index.ts",
     "^@altitutor/ui/(.*)$": "<rootDir>/../../packages/ui/src/$1",
+    "^@altitutor/ucat-marking$":
+      "<rootDir>/../../packages/ucat-marking/src/index.ts",
+    "^@altitutor/ucat-marking/(.*)$":
+      "<rootDir>/../../packages/ucat-marking/src/$1",
+    "^@altitutor/ucat-percentiles$":
+      "<rootDir>/../../packages/ucat-percentiles/src/index.ts",
+    "^@altitutor/ucat-percentiles/(.*)$":
+      "<rootDir>/../../packages/ucat-percentiles/src/$1",
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
   transform: {
