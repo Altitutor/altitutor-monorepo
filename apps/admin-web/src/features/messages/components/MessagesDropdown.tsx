@@ -19,6 +19,7 @@ import { useConversationsByContact, getContactIdFromConversation } from '../api/
 import { useMarkRead, useMarkUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
 import { cn } from '@/shared/utils';
+import type { ConversationSelection } from '../types';
 
 export function MessagesDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -231,8 +232,14 @@ export function MessagesDropdown() {
             {view === 'list' && (
               <div className="w-full h-full flex-shrink-0">
                 <ConversationList 
-                  activeContactId={activeContactId} 
-                  onSelect={handleConversationClick}
+                  activeSelection={activeContactId ? { kind: 'contact', contactId: activeContactId } : null}
+                  onSelect={(selection: ConversationSelection) => {
+                    if (selection.kind === 'contact') {
+                      handleConversationClick(selection.contactId);
+                    } else {
+                      window.location.assign(`/messages?group=${selection.conversationId}`);
+                    }
+                  }}
                   selectedOwnedNumberId={selectedOwnedNumberId}
                   onOwnedNumberFilterChange={setSelectedOwnedNumberId}
                 />

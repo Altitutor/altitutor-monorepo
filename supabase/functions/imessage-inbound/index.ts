@@ -1,329 +1,570 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createSupabaseClient } from '../_shared/supabase.ts';
-import { findOrCreateContact } from '../_shared/contacts.ts';
-import { ensureConversation, ensureGroupChatConversation, addGroupChatParticipant } from '../_shared/conversations.ts';
-import { insertMessage } from '../_shared/messages.ts';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { createSupabaseClient } from "../_shared/supabase.ts";
+import {
+  findContactByIdentifier,
+  findOrCreateContact,
+} from "../_shared/contacts.ts";
+import {
+  addGroupChatParticipant,
+  ensureConversation,
+  ensureGroupChatConversation,
+} from "../_shared/conversations.ts";
+import {
+  assertNever,
+  authenticateBearer,
+  extractChatIdentifier,
+  firstString,
+  isRecord,
+  monotonicStatus,
+  type ParsedIMessageEvent,
+  parseIMessageEvent,
+} from "../_shared/imessage.ts";
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    const acrh = req.headers.get('access-control-request-headers') || '';
-    const requestHeaders = (acrh || 'content-type, authorization').toLowerCase();
-    return new Response('ok', { headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': requestHeaders,
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Max-Age': '86400'
-    } });
+interface OwnedNumber {
+  id: string;
+  phone_e164: string;
+}
+
+interface NormalizedMessage {
+  guid: string;
+  tempGuid: string | null;
+  messageId: string | null;
+  from: string | null;
+  to: string | null;
+  chatId: string | null;
+  body: string;
+  date: string;
+  isFromMe: boolean;
+  isGroup: boolean;
+  groupName: string;
+  isReaction: boolean;
+  reactionType: string | null;
+  associatedMessageGuid: string | null;
+  status: "SENT" | "DELIVERED" | "READ" | "FAILED" | "RECEIVED";
+  deliveredAt: string | null;
+  readAt: string | null;
+  errorCode: string | null;
+  attachments: Array<{
+    storage_url: string;
+    filename: string | null;
+    mime_type: string | null;
+    size_bytes: number | null;
+  }>;
+}
+
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, { status });
+}
+
+function booleanValue(...values: unknown[]): boolean {
+  return values.some((value) => value === true);
+}
+
+function stringOrNumber(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return null;
+}
+
+function rawEventData(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const rawPayload = isRecord(payload.RawPayload)
+    ? payload.RawPayload
+    : isRecord(payload.rawPayload)
+    ? payload.rawPayload
+    : null;
+  return rawPayload && isRecord(rawPayload.data) ? rawPayload.data : {};
+}
+
+function outboundStatus(
+  payload: Record<string, unknown>,
+): NormalizedMessage["status"] {
+  const state = firstString(payload.DeliveryState, payload.deliveryState)
+    ?.toLowerCase();
+  if (state === "read" || payload.IsRead === true) return "READ";
+  if (state === "delivered") return "DELIVERED";
+  if (state === "failed") return "FAILED";
+  return "SENT";
+}
+
+function normalizeMessage(event: ParsedIMessageEvent): NormalizedMessage {
+  const payload = event.payload;
+  const guid = event.guid;
+  if (!guid) throw new Error("MessageGuid/guid is required");
+  const chatId = firstString(
+    payload.chatId,
+    payload.ChatId,
+    extractChatIdentifier(payload.chatGuid),
+    extractChatIdentifier(payload.ChatGuid),
+  );
+  const rawAttachments = Array.isArray(payload.attachments)
+    ? payload.attachments
+    : Array.isArray(payload.Attachments)
+    ? payload.Attachments
+    : [];
+  const attachments = rawAttachments.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const storageUrl = firstString(item.storageUrl, item.url, item.path);
+    if (!storageUrl) return [];
+    const size = item.sizeBytes ?? item.size;
+    return [{
+      storage_url: storageUrl,
+      filename: firstString(item.filename),
+      mime_type: firstString(item.mimeType, item.type),
+      size_bytes: typeof size === "number" && Number.isFinite(size)
+        ? Math.trunc(size)
+        : null,
+    }];
+  });
+  return {
+    guid,
+    tempGuid: event.tempGuid,
+    messageId: stringOrNumber(
+      payload.messageId,
+      payload.MessageId,
+      payload.MessageSid,
+    ),
+    from: firstString(payload.from, payload.From, payload.sender),
+    to: firstString(payload.to, payload.To, payload.recipient),
+    chatId,
+    body: firstString(payload.body, payload.Body, payload.text) ?? "",
+    date: firstString(payload.date, payload.Date, payload.timestamp) ??
+      new Date().toISOString(),
+    isFromMe: booleanValue(payload.isFromMe, payload.IsFromMe),
+    isGroup: booleanValue(payload.isGroupChat, payload.IsGroupChat) ||
+      Boolean(chatId?.startsWith("chat")),
+    groupName: firstString(
+      payload.groupName,
+      payload.chatDisplayName,
+      payload.SenderName,
+    ) ?? "Group Chat",
+    isReaction: booleanValue(payload.isReaction, payload.IsReaction),
+    reactionType: firstString(payload.reactionType, payload.ReactionType),
+    associatedMessageGuid: firstString(
+      payload.associatedMessageGuid,
+      payload.AssociatedMessageGuid,
+    ),
+    status: booleanValue(payload.isFromMe, payload.IsFromMe)
+      ? outboundStatus(payload)
+      : "RECEIVED",
+    deliveredAt: firstString(
+      payload.dateDelivered,
+      payload.DateDelivered,
+    ),
+    readAt: firstString(payload.dateRead, payload.DateRead),
+    errorCode: stringOrNumber(payload.errorCode, payload.ErrorCode),
+    attachments,
+  };
+}
+
+async function ownedNumber(supabase: SupabaseClient): Promise<OwnedNumber> {
+  const { data, error } = await supabase
+    .from("owned_numbers")
+    .select("id, phone_e164")
+    .eq("provider", "IMESSAGE")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) {
+    throw error ?? new Error("iMessage owned number not configured");
+  }
+  return data as OwnedNumber;
+}
+
+async function ensureMessageConversation(
+  supabase: SupabaseClient,
+  owned: OwnedNumber,
+  message: NormalizedMessage,
+): Promise<string> {
+  if (message.isGroup) {
+    if (!message.chatId) {
+      throw new Error("Group message missing ChatGuid/ChatId");
+    }
+    const participant = message.isFromMe ? null : message.from;
+    const participantId = participant
+      ? await findOrCreateContact(
+        supabase,
+        participant.includes("@") ? undefined : participant,
+        participant.includes("@") ? participant : undefined,
+      )
+      : null;
+    return ensureGroupChatConversation(
+      supabase,
+      message.chatId,
+      message.groupName,
+      owned.id,
+      participantId ? [participantId] : [],
+    );
   }
 
-  try {
-    // Webhook authentication
-    const webhookSecret = Deno.env.get('IMESSAGE_WEBHOOK_SECRET');
-    const authHeader = req.headers.get('Authorization');
-    
-    if (!webhookSecret) {
-      console.error('[imessage-inbound] IMESSAGE_WEBHOOK_SECRET not configured');
-      return new Response(JSON.stringify({ error: 'webhook secret not configured' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-    }
+  const identifier = message.isFromMe
+    ? message.to ?? message.chatId
+    : message.from ?? message.chatId;
+  if (!identifier) {
+    throw new Error("Individual message missing sender/recipient");
+  }
+  const contactId = await findOrCreateContact(
+    supabase,
+    identifier.includes("@") ? undefined : identifier,
+    identifier.includes("@") ? identifier : undefined,
+  );
+  return ensureConversation(supabase, contactId, owned.id);
+}
 
-    if (authHeader !== `Bearer ${webhookSecret}`) {
-      console.error('[imessage-inbound] Authentication failed', { 
-        provided: authHeader ? 'Bearer ***' : 'none',
-        expected: 'Bearer ***'
-      });
-      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-    }
+async function upsertAttachments(
+  supabase: SupabaseClient,
+  messageId: string,
+  attachments: NormalizedMessage["attachments"],
+): Promise<void> {
+  if (attachments.length === 0) return;
+  const { error } = await supabase.from("message_attachments").upsert(
+    attachments.map((attachment) => ({ ...attachment, message_id: messageId })),
+    { onConflict: "message_id,storage_url", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
 
-    // Parse payload (JSON format from iMessage bridge)
-    const body = await req.json();
-    
-    const from = body.From as string;
-    const to = body.To as string; // This is chatId for groups, phone/email for individuals
-    const text = body.Body as string;
-    const messageGuid = body.MessageGuid as string;
-    const messageId = body.MessageId as string;
-    const isGroupChat = body.IsGroupChat === true;
-    const chatId = body.ChatId as string; // iMessage chatId
-    const senderName = body.SenderName as string | null;
-    const isFromMe = body.IsFromMe === true;
-    const isReaction = body.IsReaction === true;
-    const reactionType = body.ReactionType as string | null;
-    const isReactionRemoval = body.IsReactionRemoval === true;
-    const associatedMessageGuid = body.AssociatedMessageGuid as string | null;
-    const attachments = (body.Attachments || []) as Array<{
-      url: string;
-      type: string;
-      filename: string;
-      size: number;
-    }>;
-    const date = body.Date as string; // ISO 8601 timestamp
+async function processMessage(
+  supabase: SupabaseClient,
+  owned: OwnedNumber,
+  event: ParsedIMessageEvent,
+): Promise<void> {
+  const message = normalizeMessage(event);
+  const conversationId = await ensureMessageConversation(
+    supabase,
+    owned,
+    message,
+  );
+  let existing: Record<string, unknown> | null = null;
 
-    // Log full webhook payload for debugging
-    console.log('[imessage-inbound] Webhook payload received', {
-      From: from,
-      To: to,
-      Body: text ? `${text.substring(0, 100)}${text.length > 100 ? '...' : ''}` : '(empty)',
-      MessageGuid: messageGuid,
-      MessageId: messageId,
-      IsGroupChat: isGroupChat,
-      ChatId: chatId,
-      SenderName: senderName,
-      IsFromMe: isFromMe,
-      IsReaction: isReaction,
-      ReactionType: reactionType,
-      IsReactionRemoval: isReactionRemoval,
-      AssociatedMessageGuid: associatedMessageGuid,
-      AttachmentsCount: attachments.length,
-      Date: date,
-    });
+  const { data: byGuid, error: guidError } = await supabase
+    .from("messages")
+    .select("id, status, imessage_guid, imessage_temp_guid")
+    .eq("imessage_guid", message.guid)
+    .maybeSingle();
+  if (guidError) throw guidError;
+  existing = byGuid;
 
-    if (!messageGuid) {
-      console.error('[imessage-inbound] Missing MessageGuid in payload', { body });
-      return new Response(JSON.stringify({ error: 'missing MessageGuid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    const supabase = createSupabaseClient();
-
-    // Find owned number (iMessage number +61483849842)
-    const { data: owned, error: ownErr } = await supabase
-      .from('owned_numbers')
-      .select('id, phone_e164')
-      .eq('provider', 'IMESSAGE')
+  if (!existing && message.tempGuid) {
+    const { data: byTempGuid, error: tempError } = await supabase
+      .from("messages")
+      .select("id, status, imessage_guid, imessage_temp_guid")
+      .eq("imessage_temp_guid", message.tempGuid)
       .maybeSingle();
-    
-    if (ownErr || !owned?.id) {
-      console.error('[imessage-inbound] iMessage owned number not found', ownErr);
-      throw ownErr || new Error('iMessage owned number not configured');
-    }
+    if (tempError) throw tempError;
+    existing = byTempGuid;
+  }
 
-    // Determine direction: OUTBOUND if sent by us, INBOUND otherwise
-    const direction: 'INBOUND' | 'OUTBOUND' = isFromMe ? 'OUTBOUND' : 'INBOUND';
-    console.log('[imessage-inbound] Processing message', { 
-      messageGuid, 
-      direction, 
-      isFromMe, 
-      isGroupChat,
-      hasAttachments: attachments.length > 0,
-      from,
-      to,
-      conversationType: isGroupChat ? 'group' : 'individual'
-    });
-
-    let conversationId: string;
-    let recipientContactId: string | null = null;
-
-    if (isGroupChat) {
-      // Handle group chat
-      const groupChatId = chatId || to;
-      const groupChatName = senderName || 'Group Chat';
-      
-      if (isFromMe) {
-        // OUTBOUND group chat: we sent it, so find/create contact for recipient
-        // For group chats, we need to find participants from the group
-        // Since we're sending TO the group, the conversation should already exist
-        // But we need to ensure it exists with the group chat ID
-        conversationId = await ensureGroupChatConversation(
-          supabase,
-          groupChatId,
-          groupChatName,
-          owned.id,
-          [] // Participants will be added as they message
-        );
-      } else {
-        // INBOUND group chat: find/create contact for sender
-        const isEmail = from.includes('@');
-        recipientContactId = await findOrCreateContact(
-          supabase,
-          isEmail ? undefined : from,
-          isEmail ? from : undefined
-        );
-
-        conversationId = await ensureGroupChatConversation(
-          supabase,
-          groupChatId,
-          groupChatName,
-          owned.id,
-          [recipientContactId] // Start with sender, others will be added as they message
-        );
-
-        // Ensure sender is a participant
-        await addGroupChatParticipant(supabase, conversationId, recipientContactId);
-      }
-    } else {
-      // Handle individual chat
-      if (isFromMe) {
-        // OUTBOUND individual chat: we sent it TO the recipient
-        // 'to' field contains the recipient's phone/email
-        if (!to) {
-          return new Response(JSON.stringify({ error: 'missing recipient (to) for OUTBOUND message' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-        
-        const isEmail = to.includes('@');
-        recipientContactId = await findOrCreateContact(
-          supabase,
-          isEmail ? undefined : to,
-          isEmail ? to : undefined
-        );
-
-        // Ensure conversation exists
-        conversationId = await ensureConversation(supabase, recipientContactId, owned.id);
-      } else {
-        // INBOUND individual chat: find/create contact for sender
-        if (!from) {
-          return new Response(JSON.stringify({ error: 'missing sender (from) for INBOUND message' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-        
-        const isEmail = from.includes('@');
-        recipientContactId = await findOrCreateContact(
-          supabase,
-          isEmail ? undefined : from,
-          isEmail ? from : undefined
-        );
-
-        // Ensure conversation exists
-        conversationId = await ensureConversation(supabase, recipientContactId, owned.id);
-      }
-    }
-
-    // Check if message already exists (by imessage_guid to avoid duplicates)
-    const { data: existingMessage } = await supabase
-      .from('messages')
-      .select('id, direction, imessage_guid, from_number_e164, to_number_e164, body, created_at')
-      .eq('imessage_guid', messageGuid)
-      .maybeSingle();
-
-    if (existingMessage?.id) {
-      console.log('[imessage-inbound] Message already exists - DUPLICATE DETECTED', {
-        messageGuid,
-        incomingDirection: direction,
-        existingMessageId: existingMessage.id,
-        existingDirection: existingMessage.direction,
-        existingFrom: existingMessage.from_number_e164,
-        existingTo: existingMessage.to_number_e164,
-        existingBody: existingMessage.body ? `${existingMessage.body.substring(0, 50)}...` : '(empty)',
-        existingCreatedAt: existingMessage.created_at,
-        incomingFrom: from,
-        incomingTo: to,
-        incomingIsFromMe: isFromMe,
-        isGUIDCollision: existingMessage.direction !== direction,
-      });
-      return new Response(JSON.stringify({ ok: true, duplicate: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    // Also check for OUTBOUND messages in the same conversation that might not have GUID set yet
-    // This handles race condition where webhook arrives before GUID is set on OUTBOUND message
-    // Only check this for OUTBOUND messages (when isFromMe is true)
-    if (isFromMe) {
-      const { data: recentOutbound } = await supabase
-        .from('messages')
-        .select('id, direction, imessage_guid, body, created_at')
-        .eq('conversation_id', conversationId)
-        .eq('direction', 'OUTBOUND')
-        .is('imessage_guid', null)
-        .order('created_at', { ascending: false })
-        .limit(5)
-        .maybeSingle();
-
-      if (recentOutbound?.id) {
-        // Check if this might be the same message (same body, recent timestamp)
-        const recentTime = new Date(recentOutbound.created_at).getTime();
-        const webhookTime = date ? new Date(date).getTime() : Date.now();
-        const timeDiff = Math.abs(webhookTime - recentTime);
-        
-        // If messages are within 10 seconds and have same body (or both have attachments), likely duplicate
-        if (timeDiff < 10000 && (
-          (text && recentOutbound.body === text) ||
-          (attachments.length > 0 && !text && !recentOutbound.body)
-        )) {
-          console.log('[imessage-inbound] Duplicate OUTBOUND message detected (race condition)', { messageGuid });
-          return new Response(JSON.stringify({ ok: true, duplicate: true, reason: 'outbound_race' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        }
-      }
-    }
-
-    // Prepare attachments
-    const attachmentInserts = attachments.map(att => ({
-      storage_url: att.url,
-      filename: att.filename || null,
-      mime_type: att.type || null,
-      size_bytes: att.size || null,
-    }));
-
-    // Determine from/to numbers for message based on direction
-    let fromNumber: string | null;
-    let toNumber: string;
-
-    if (isFromMe) {
-      // OUTBOUND: from is owned number, to is recipient
-      fromNumber = owned.phone_e164;
-      if (isGroupChat) {
-        // For group chats, store the chatId or owned number as 'to'
-        toNumber = chatId || to || owned.phone_e164;
-      } else {
-        // For individual chats, 'to' is the recipient's phone/email
-        toNumber = to || owned.phone_e164;
-      }
-    } else {
-      // INBOUND: from is sender, to is owned number
-      fromNumber = from.includes('@') ? null : from; // NULL for email senders
-      toNumber = isGroupChat ? owned.phone_e164 : (owned.phone_e164 || to);
-    }
-
-    // Insert message with appropriate direction and status
-    const messageData: Record<string, unknown> = {
+  const incomingStatus = message.status;
+  let messageId: string;
+  if (existing) {
+    messageId = String(existing.id);
+    const status = monotonicStatus(String(existing.status), incomingStatus);
+    const { error } = await supabase.from("messages").update({
+      imessage_guid: message.guid,
+      imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
+      message_sid: message.messageId,
+      status,
+      status_updated_at: new Date().toISOString(),
+      sent_at: message.isFromMe ? message.date : undefined,
+      received_at: message.isFromMe ? undefined : message.date,
+      delivered_at: message.deliveredAt ?? undefined,
+      read_at: message.readAt ?? undefined,
+      provider_error_at: status === "FAILED" ? message.date : undefined,
+      error_message: status === "FAILED" ? "iMessage delivery failed" : null,
+      provider_error_code: status === "FAILED" ? message.errorCode : null,
+    }).eq("id", messageId);
+    if (error) throw error;
+  } else {
+    const recipient = message.isFromMe
+      ? message.to ?? message.chatId ?? owned.phone_e164
+      : owned.phone_e164;
+    const sender = message.isFromMe ? owned.phone_e164 : message.from;
+    const { data, error } = await supabase.from("messages").insert({
       conversation_id: conversationId,
-      direction: direction,
-      body: text || '',
-      from_number_e164: fromNumber,
-      to_number_e164: toNumber,
-      status: isFromMe ? 'SENT' : 'RECEIVED',
-      message_sid: messageId || null,
-      imessage_guid: messageGuid,
-      is_reaction: isReaction || false,
-      reaction_type: reactionType || null,
-      associated_message_guid: associatedMessageGuid || null,
-    };
+      direction: message.isFromMe ? "OUTBOUND" : "INBOUND",
+      body: message.body,
+      from_number_e164: sender,
+      to_number_e164: recipient,
+      status: incomingStatus,
+      status_updated_at: message.date,
+      message_sid: message.messageId,
+      imessage_guid: message.guid,
+      imessage_temp_guid: message.tempGuid,
+      is_reaction: message.isReaction,
+      reaction_type: message.reactionType,
+      associated_message_guid: message.associatedMessageGuid,
+      sent_at: message.isFromMe ? message.date : null,
+      received_at: message.isFromMe ? null : message.date,
+      delivered_at: message.deliveredAt,
+      read_at: message.readAt,
+      provider_error_at: message.status === "FAILED" ? message.date : null,
+      provider_error_code: message.errorCode,
+      error_message: message.status === "FAILED"
+        ? "iMessage delivery failed"
+        : null,
+    }).select("id").single();
+    if (error || !data) throw error ?? new Error("Message insert failed");
+    messageId = String(data.id);
+  }
 
-    // Set appropriate timestamp based on direction
-    const timestamp = date || new Date().toISOString();
-    if (isFromMe) {
-      messageData.sent_at = timestamp;
-    } else {
-      messageData.received_at = timestamp;
+  await upsertAttachments(supabase, messageId, message.attachments);
+  const { error: conversationError } = await supabase.from("conversations")
+    .update({
+      last_message_at: message.date,
+    }).eq("id", conversationId).lt("last_message_at", message.date);
+  if (conversationError) throw conversationError;
+}
+
+async function updateCorrelatedMessage(
+  supabase: SupabaseClient,
+  event: ParsedIMessageEvent,
+  values: Record<string, unknown>,
+): Promise<void> {
+  if (!event.guid && !event.tempGuid) {
+    throw new Error("Event requires guid or tempGuid");
+  }
+  let query = supabase.from("messages").update(values);
+  query = event.guid
+    ? query.eq("imessage_guid", event.guid)
+    : query.eq("imessage_temp_guid", event.tempGuid);
+  if (values.status === "FAILED") {
+    query = query.in("status", ["QUEUED", "SENDING", "SENT", "AMBIGUOUS"]);
+  } else if (values.status === "DELIVERED") {
+    query = query.in("status", [
+      "QUEUED",
+      "SENDING",
+      "FAILED",
+      "AMBIGUOUS",
+      "SENT",
+      "DELIVERED",
+    ]);
+  }
+  const { error } = await query;
+  if (error) throw error;
+}
+
+async function processGroupEvent(
+  supabase: SupabaseClient,
+  owned: OwnedNumber,
+  event: ParsedIMessageEvent,
+): Promise<void> {
+  const rawData = rawEventData(event.payload);
+  const chatId = firstString(
+    event.payload.chatId,
+    event.payload.ChatId,
+    extractChatIdentifier(event.payload.chatGuid),
+    extractChatIdentifier(event.payload.ChatGuid),
+    rawData.chatId,
+    extractChatIdentifier(rawData.chatGuid),
+    extractChatIdentifier(rawData.guid),
+  );
+  if (!chatId) throw new Error("Group event missing ChatGuid/ChatId");
+  const groupName = firstString(
+    event.payload.groupName,
+    event.payload.name,
+    rawData.groupName,
+    rawData.displayName,
+    rawData.name,
+    rawData.newName,
+  );
+  const conversationId = await ensureGroupChatConversation(
+    supabase,
+    chatId,
+    groupName ?? "Group Chat",
+    owned.id,
+    [],
+  );
+
+  switch (event.eventType) {
+    case "group-name-changed": {
+      if (!groupName) return;
+      const { error } = await supabase.from("conversations")
+        .update({ group_chat_name: groupName })
+        .eq("id", conversationId);
+      if (error) throw error;
+      return;
     }
+    case "participant-added":
+    case "participant-removed": {
+      const rawHandle = isRecord(rawData.handle) ? rawData.handle : null;
+      const rawParticipant = isRecord(rawData.participant)
+        ? rawData.participant
+        : null;
+      const participant = firstString(
+        event.payload.participant,
+        event.payload.handle,
+        rawData.participant,
+        rawData.address,
+        rawData.participantAddress,
+        rawHandle?.address,
+        rawParticipant?.address,
+      );
+      if (!participant) {
+        if (event.sourceEventType === "participant-left") return;
+        throw new Error("Participant event missing participant");
+      }
+      if (event.eventType === "participant-added") {
+        const contactId = await findOrCreateContact(
+          supabase,
+          participant.includes("@") ? undefined : participant,
+          participant.includes("@") ? participant : undefined,
+        );
+        await addGroupChatParticipant(supabase, conversationId, contactId);
+      } else {
+        const contactId = await findContactByIdentifier(supabase, participant);
+        if (!contactId) return;
+        const { error } = await supabase.from("group_chat_participants")
+          .delete()
+          .eq("conversation_id", conversationId)
+          .eq("contact_id", contactId);
+        if (error) throw error;
+      }
+      return;
+    }
+    case "new-message":
+    case "reconciliation-message":
+    case "message-send-error":
+    case "delivery":
+    case "typing":
+    case "read":
+    case "server":
+    case "system":
+      throw new Error(`Invalid group event type: ${event.eventType}`);
+    default:
+      return assertNever(event.eventType);
+  }
+}
 
-    const insertedMessageId = await insertMessage(supabase, messageData, attachmentInserts);
+async function dispatchEvent(
+  supabase: SupabaseClient,
+  event: ParsedIMessageEvent,
+): Promise<void> {
+  switch (event.eventType) {
+    case "new-message":
+    case "reconciliation-message":
+      return processMessage(supabase, await ownedNumber(supabase), event);
+    case "message-send-error":
+      return updateCorrelatedMessage(supabase, event, {
+        status: "FAILED",
+        status_updated_at: new Date().toISOString(),
+        provider_error_at: new Date().toISOString(),
+        provider_error_code: stringOrNumber(
+          event.payload.errorCode,
+          event.payload.code,
+          event.payload.ErrorCode,
+        ),
+        error_message:
+          firstString(event.payload.error, event.payload.message) ??
+            "iMessage send failed",
+      });
+    case "delivery":
+      return processMessage(supabase, await ownedNumber(supabase), event);
+    case "read": {
+      if (!event.guid && !event.tempGuid) return;
+      return updateCorrelatedMessage(supabase, event, {
+        status: "READ",
+        status_updated_at: new Date().toISOString(),
+        read_at: firstString(
+          event.payload.DateRead,
+          event.payload.dateRead,
+          event.payload.Date,
+          event.payload.date,
+          event.payload.timestamp,
+        ) ?? new Date().toISOString(),
+      });
+    }
+    case "group-name-changed":
+    case "participant-added":
+    case "participant-removed":
+      return processGroupEvent(supabase, await ownedNumber(supabase), event);
+    case "typing":
+    case "server":
+    case "system":
+      return;
+    default:
+      return assertNever(event.eventType);
+  }
+}
 
-    console.log('[imessage-inbound] Message inserted successfully', {
-      messageId: insertedMessageId,
-      messageGuid,
-      direction,
-      conversationId,
-      fromNumber,
-      toNumber,
-      bodyLength: text?.length || 0,
-      attachmentsCount: attachments.length,
-    });
+async function saveInbox(
+  supabase: SupabaseClient,
+  event: ParsedIMessageEvent,
+): Promise<{ id: string; processed: boolean }> {
+  const { data, error } = await supabase.from("imessage_events").insert({
+    event_key: event.eventKey,
+    event_type: event.eventType,
+    connector_id: event.connectorId,
+    imessage_guid: event.guid,
+    temp_guid: event.tempGuid,
+    payload: event.payload,
+  }).select("id, processed_at").single();
+  if (!error && data) {
+    return { id: String(data.id), processed: Boolean(data.processed_at) };
+  }
+  if (error?.code !== "23505") throw error;
+  const { data: existing, error: existingError } = await supabase.from(
+    "imessage_events",
+  )
+    .select("id, processed_at")
+    .eq("event_key", event.eventKey)
+    .single();
+  if (existingError || !existing) {
+    throw existingError ?? new Error("Inbox lookup failed");
+  }
+  return { id: String(existing.id), processed: Boolean(existing.processed_at) };
+}
 
-    // Update conversation last_message_at
-    await supabase
-      .from('conversations')
-      .update({ last_message_at: date || new Date().toISOString() })
-      .eq('id', conversationId);
+Deno.serve(async (request: Request) => {
+  if (request.method !== "POST") {
+    return json({ error: "method not allowed" }, 405);
+  }
+  const secret = Deno.env.get("IMESSAGE_WEBHOOK_SECRET") ?? "";
+  if (!secret) {
+    return json({ error: "webhook authentication is not configured" }, 503);
+  }
+  if (!authenticateBearer(request.headers.get("Authorization"), secret)) {
+    return json({ error: "unauthorized" }, 401);
+  }
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (e: unknown) {
-    const err = e instanceof Error ? e : new Error(String(e));
-    const ext = e && typeof e === 'object' ? e as { messageGuid?: string; from?: string; to?: string } : {};
-    console.error('[imessage-inbound] Error processing webhook', {
-      error: err.message || e,
-      stack: err.stack,
-      messageGuid: ext.messageGuid || 'unknown',
-      from: ext.from || 'unknown',
-      to: ext.to || 'unknown',
-    });
-    return new Response(JSON.stringify({ error: err.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  let inboxId: string | null = null;
+  try {
+    const event = parseIMessageEvent(await request.json());
+    const supabase = createSupabaseClient();
+    const inbox = await saveInbox(supabase, event);
+    inboxId = inbox.id;
+    if (inbox.processed) return json({ ok: true, duplicate: true });
+
+    const { error: attemptError } = await supabase.from("imessage_events")
+      .update({ processing_attempts: 1, processing_error: null })
+      .eq("id", inbox.id)
+      .eq("processing_attempts", 0);
+    if (attemptError) throw attemptError;
+
+    await dispatchEvent(supabase, event);
+    const { error } = await supabase.from("imessage_events").update({
+      processed_at: new Date().toISOString(),
+      processing_error: null,
+    }).eq("id", inbox.id);
+    if (error) throw error;
+    return json({ ok: true, eventId: inbox.id });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    console.error("[imessage-inbound] processing failed", { inboxId, message });
+    if (inboxId) {
+      const supabase = createSupabaseClient();
+      await supabase.from("imessage_events").update({
+        processing_error: message.slice(0, 2000),
+      }).eq("id", inboxId);
+    }
+    return json({ error: message, eventId: inboxId }, 500);
   }
 });
+
+export { dispatchEvent, normalizeMessage };

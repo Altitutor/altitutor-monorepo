@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Layers,
   ClipboardList,
+  MessageSquare,
 } from 'lucide-react';
 import { AdminSettingsCard } from '@/shared/components';
 
@@ -47,6 +48,12 @@ export default function SettingsPage() {
     {
       title: 'Messaging',
       items: [
+        {
+          title: 'Messaging',
+          description: 'Monitor iMessage connector health and safe recovery operations',
+          href: '/settings/messaging',
+          icon: MessageSquare,
+        },
         {
           title: 'Message Templates',
           description: 'Create and manage message templates',

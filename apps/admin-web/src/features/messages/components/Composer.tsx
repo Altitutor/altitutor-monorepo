@@ -24,6 +24,9 @@ import { ComposerSenderSelector } from './ComposerSenderSelector';
 
 interface Props {
   contactId: string | null;
+  conversationId?: string | null;
+  groupChatId?: string | null;
+  initialSenderId?: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
   draft?: string;
@@ -33,6 +36,9 @@ interface Props {
 
 export function Composer({ 
   contactId, 
+  conversationId,
+  groupChatId,
+  initialSenderId,
   onTyping, 
   onBeforeSend,
   draft,
@@ -44,7 +50,7 @@ export function Composer({
   const text = draft !== undefined ? draft : internalText;
   const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
   
-  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
+  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(initialSenderId ?? null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
@@ -70,10 +76,14 @@ export function Composer({
   // Set default sender when senders load
   useEffect(() => {
     if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
-      const defaultSender = availableSenders.find(s => s.is_default) || availableSenders[0];
+      const compatibleSenders = groupChatId
+        ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE')
+        : availableSenders;
+      const defaultSender = compatibleSenders.find(s => s.is_default) || compatibleSenders[0];
+      if (!defaultSender) return;
       setSelectedSenderId(defaultSender.id);
     }
-  }, [availableSenders, selectedSenderId]);
+  }, [availableSenders, groupChatId, selectedSenderId]);
 
   // Check if selected sender is iMessage
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
@@ -165,7 +175,7 @@ export function Composer({
     const body = text.trim();
     // Allow sending if there's text OR attachments (for iMessage, can send attachments without text)
     const hasContent = body || (isIMessageSender && hasAttachments);
-    if (!hasContent || !contactId || !selectedSenderId) return;
+    if (!hasContent || (!contactId && !conversationId) || !selectedSenderId) return;
 
     // Get successful attachments
     const successfulAttachments = getSuccessfulAttachments();
@@ -199,6 +209,8 @@ export function Composer({
       
       const result = await send.mutateAsync({
         contactId,
+        conversationId,
+        groupChatId,
         body: body || '', // Allow empty body if attachments exist
         selectedSenderId,
         attachments: successfulAttachments.map(att => ({
@@ -210,7 +222,9 @@ export function Composer({
       });
 
       // Mark conversation as read when sending a message
-      markRead.mutate({ contactId, lastMessageId: result.messageId });
+      if (contactId) {
+        markRead.mutate({ contactId, lastMessageId: result.messageId });
+      }
 
       // Clear attachments after successful send
       clearAll();
@@ -456,7 +470,7 @@ export function Composer({
               }
             }}
             rows={1}
-            disabled={!contactId || !selectedSenderId}
+            disabled={(!contactId && !conversationId) || !selectedSenderId}
           />
           {/* SMS segment counter (bottom right of textarea) */}
           {isSMSSender && smsSegments && (
@@ -476,7 +490,7 @@ export function Composer({
             <div className="relative flex-shrink-0">
               <MessageTemplatesPicker 
                 onSelect={handleTemplateSelect}
-                disabled={send.isPending || !contactId || !selectedSenderId || isGeneratingTokens}
+                disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId || isGeneratingTokens}
                 expanded={canExpand}
               />
               {isGeneratingTokens && (
@@ -495,7 +509,7 @@ export function Composer({
               onOpenChange={setVariablesMenuOpen}
               onInsertVariable={handleInsertVariable}
               canExpand={canExpand}
-              disabled={send.isPending || !contactId || !selectedSenderId}
+              disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
             />
             
             {/* Upload button - only show for iMessage senders */}
@@ -507,7 +521,7 @@ export function Composer({
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
                     className="h-10"
                   >
                     <Paperclip className="h-4 w-4 mr-2" />
@@ -519,7 +533,7 @@ export function Composer({
                     variant="outline"
                     size="icon"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
                     className="h-10"
                     aria-label="Attach files"
                   >
@@ -529,13 +543,13 @@ export function Composer({
               </div>
             )}
             
-            {contactId && availableSenders && availableSenders.length > 0 && (
+            {(contactId || conversationId) && availableSenders && availableSenders.length > 0 && (
               <ComposerSenderSelector
-                availableSenders={availableSenders}
+                availableSenders={groupChatId ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE') : availableSenders}
                 selectedSenderId={selectedSenderId}
                 onSelectSender={setSelectedSenderId}
                 canExpand={canExpand}
-                disabled={send.isPending || !contactId}
+                disabled={send.isPending || (!contactId && !conversationId)}
               />
             )}
           </div>
@@ -556,7 +570,7 @@ export function Composer({
               onClick={onSend}
               disabled={
                 send.isPending || 
-                !contactId || 
+                (!contactId && !conversationId) ||
                 !selectedSenderId || 
                 (!text.trim() && !(isIMessageSender && hasAttachments))
               }

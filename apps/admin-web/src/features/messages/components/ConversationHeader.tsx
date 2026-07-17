@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Button,
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   SearchableSelectInline,
 } from "@altitutor/ui";
-import { Search, ArrowLeft, Mail, Plus, Filter } from 'lucide-react';
+import { Search, ArrowLeft, Mail, Plus, Filter, CheckCheck } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { IssuePill } from '@/features/issues';
 
@@ -56,6 +56,9 @@ interface Props {
   fromNumberOptions?: FromNumberOption[];
   selectedFromNumber?: FromNumberOption | null;
   onFromNumberChange?: (option: FromNumberOption | null) => void;
+  onMarkIMessageRead?: () => void;
+  isMarkingIMessageRead?: boolean;
+  extraActions?: ReactNode;
 }
 
 export function ConversationHeader({ 
@@ -81,6 +84,9 @@ export function ConversationHeader({
   fromNumberOptions = [],
   selectedFromNumber = null,
   onFromNumberChange,
+  onMarkIMessageRead,
+  isMarkingIMessageRead = false,
+  extraActions,
 }: Props) {
   const [isLinkMenuOpen, setIsLinkMenuOpen] = useState(false);
   const [isFromNumberMenuOpen, setIsFromNumberMenuOpen] = useState(false);
@@ -205,6 +211,18 @@ export function ConversationHeader({
             <Mail className="h-4 w-4" />
           </Button>
         )}
+        {onMarkIMessageRead && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onMarkIMessageRead}
+            disabled={isMarkingIMessageRead}
+            title="Mark iMessage chat read on the dedicated Mac"
+          >
+            <CheckCheck className="h-4 w-4" />
+          </Button>
+        )}
+        {extraActions}
         {onSearchToggle && (
           <Button variant="outline" size="icon" onClick={onSearchToggle} className="flex-shrink-0">
             <Search className="h-4 w-4" />

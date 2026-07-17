@@ -28,6 +28,7 @@ interface NewConversationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConversationSelected: (conversationId: string) => void;
+  ownedNumberId?: string | null;
 }
 
 type SearchResultItem = 
@@ -41,6 +42,7 @@ export function NewConversationDialog({
   isOpen,
   onClose,
   onConversationSelected,
+  ownedNumberId,
 }: NewConversationDialogProps) {
   const [mode, setMode] = useState<DialogMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,13 +232,15 @@ export function NewConversationDialog({
       }
 
       // Check if conversation already exists for this contact
-      const { data: existingConversation } = await supabase
+      let existingConversationQuery = supabase
         .from('conversations')
         .select('id')
         .eq('contact_id', contactId)
-        .in('status', ['OPEN', 'SNOOZED'])
-        .limit(1)
-        .maybeSingle();
+        .in('status', ['OPEN', 'SNOOZED']);
+      if (ownedNumberId) {
+        existingConversationQuery = existingConversationQuery.eq('owned_number_id', ownedNumberId);
+      }
+      const { data: existingConversation } = await existingConversationQuery.limit(1).maybeSingle();
 
       if (existingConversation?.id) {
         onConversationSelected(existingConversation.id);
@@ -245,7 +249,7 @@ export function NewConversationDialog({
       }
 
       // Create conversation
-      const conversationId = await ensureConversationForContact(contactId);
+      const conversationId = await ensureConversationForContact(contactId, ownedNumberId ?? undefined);
       onConversationSelected(conversationId);
       onClose();
     } catch (err) {
@@ -281,7 +285,11 @@ export function NewConversationDialog({
       }
 
       // Step 1: Check if conversation already exists
-      const existingConversationId = await getExistingConversationForRelated(relatedId, relatedType);
+      const existingConversationId = await getExistingConversationForRelated(
+        relatedId,
+        relatedType,
+        ownedNumberId ?? undefined
+      );
       if (existingConversationId) {
         onConversationSelected(existingConversationId);
         onClose();
@@ -317,7 +325,10 @@ export function NewConversationDialog({
         }
 
         // Create conversation for existing contact
-        const conversationId = await ensureConversationForContact(existingContact.id);
+        const conversationId = await ensureConversationForContact(
+          existingContact.id,
+          ownedNumberId ?? undefined
+        );
         onConversationSelected(conversationId);
         onClose();
         return;
@@ -344,7 +355,7 @@ export function NewConversationDialog({
         throw new Error('Failed to create contact');
       }
 
-      const conversationId = await ensureConversationForContact(contactId);
+      const conversationId = await ensureConversationForContact(contactId, ownedNumberId ?? undefined);
       onConversationSelected(conversationId);
       onClose();
     } catch (err) {

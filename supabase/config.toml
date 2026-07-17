@@ -319,6 +319,15 @@ verify_jwt = false
 [functions.stripe-webhooks]
 verify_jwt = false
 
+[functions.imessage-inbound]
+verify_jwt = false
+
+[functions.imessage-connector]
+verify_jwt = false
+
+[functions.imessage-control]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 55327
