@@ -278,6 +278,7 @@ async function processMessage(
       imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
       message_sid: message.messageId,
       status,
+      created_at: message.date,
       status_updated_at: statusUpdatedAt,
       sent_at: message.isFromMe ? message.date : undefined,
       received_at: message.isFromMe ? undefined : message.date,
