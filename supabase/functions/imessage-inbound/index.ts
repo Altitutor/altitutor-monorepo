@@ -236,6 +236,8 @@ async function processMessage(
   event: ParsedIMessageEvent,
 ): Promise<void> {
   const message = normalizeMessage(event);
+  const isHistoricalImport =
+    event.sourceEventType === "reconciliation-message";
   const conversationId = await ensureMessageConversation(
     supabase,
     owned,
@@ -245,7 +247,9 @@ async function processMessage(
 
   const { data: byGuid, error: guidError } = await supabase
     .from("messages")
-    .select("id, status, imessage_guid, imessage_temp_guid")
+    .select(
+      "id, status, imessage_guid, imessage_temp_guid, is_historical_import",
+    )
     .eq("imessage_guid", message.guid)
     .maybeSingle();
   if (guidError) throw guidError;
@@ -254,7 +258,9 @@ async function processMessage(
   if (!existing && message.tempGuid) {
     const { data: byTempGuid, error: tempError } = await supabase
       .from("messages")
-      .select("id, status, imessage_guid, imessage_temp_guid")
+      .select(
+        "id, status, imessage_guid, imessage_temp_guid, is_historical_import",
+      )
       .eq("imessage_temp_guid", message.tempGuid)
       .maybeSingle();
     if (tempError) throw tempError;
@@ -279,6 +285,8 @@ async function processMessage(
       provider_error_at: status === "FAILED" ? message.date : undefined,
       error_message: status === "FAILED" ? "iMessage delivery failed" : null,
       provider_error_code: status === "FAILED" ? message.errorCode : null,
+      is_historical_import: isHistoricalImport ||
+        existing.is_historical_import === true,
     }).eq("id", messageId);
     if (error) throw error;
   } else {
@@ -309,6 +317,7 @@ async function processMessage(
       error_message: message.status === "FAILED"
         ? "iMessage delivery failed"
         : null,
+      is_historical_import: isHistoricalImport,
     }).select("id").single();
     if (error || !data) throw error ?? new Error("Message insert failed");
     messageId = String(data.id);
@@ -320,6 +329,21 @@ async function processMessage(
       last_message_at: message.date,
     }).eq("id", conversationId).lt("last_message_at", message.date);
   if (conversationError) throw conversationError;
+
+  if (
+    !message.isFromMe &&
+    (isHistoricalImport || event.sourceEventType === "new-message")
+  ) {
+    const { error: readStateError } = await supabase.rpc(
+      "sync_imessage_message_read_state",
+      {
+        p_conversation_id: conversationId,
+        p_message_id: messageId,
+        p_historical: isHistoricalImport,
+      },
+    );
+    if (readStateError) throw readStateError;
+  }
 }
 
 async function updateCorrelatedMessage(
@@ -499,7 +523,7 @@ async function saveInbox(
 ): Promise<{ id: string; processed: boolean }> {
   const { data, error } = await supabase.from("imessage_events").insert({
     event_key: event.eventKey,
-    event_type: event.eventType,
+    event_type: event.sourceEventType,
     connector_id: event.connectorId,
     imessage_guid: event.guid,
     temp_guid: event.tempGuid,

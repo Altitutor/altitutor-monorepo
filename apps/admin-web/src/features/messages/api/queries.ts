@@ -16,12 +16,15 @@ import type { Tables } from '@altitutor/shared';
 export type { Sender, AggregatedConversation } from '../types';
 
 const PAGE_SIZE = 30;
+/** Bound inbox list fetches; navbar badge uses a separate exact count RPC. */
+const CONVERSATION_LIST_LIMIT = 500;
 
 type ConversationRow = {
   id: string;
   status: string;
   last_message_at: string | null;
   last_message_id: string | null;
+  last_message_direction: string | null;
   assigned_staff_id: string | null;
   contact_id: string | null;
   owned_number_id: string;
@@ -53,10 +56,34 @@ type ConversationRow = {
   }>;
 };
 
-type MessageRow = {
+type LastMessageSummary = {
   id: string;
   direction: string;
 };
+
+function lastMessageFromConversation(conv: {
+  last_message_id: string | null;
+  last_message_direction: string | null;
+}): LastMessageSummary | null {
+  if (!conv.last_message_id || !conv.last_message_direction) return null;
+  return { id: conv.last_message_id, direction: conv.last_message_direction };
+}
+
+export async function fetchUnreadConversationCount(): Promise<number> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc('get_unread_contact_conversation_count');
+  if (error) throw error;
+  return data ?? 0;
+}
+
+export function useUnreadConversationCount() {
+  return useQuery({
+    queryKey: messagesKeys.unreadCount(),
+    queryFn: fetchUnreadConversationCount,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
+}
 
 export function useConversations() {
   return useQuery({
@@ -68,7 +95,7 @@ export function useConversations() {
       const { data, error } = await supabase
         .from('conversations')
         .select(`
-          id, status, last_message_at, last_message_id,
+          id, status, last_message_at, last_message_id, last_message_direction,
           assigned_staff_id, contact_id, owned_number_id,
           is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
@@ -85,27 +112,9 @@ export function useConversations() {
       
       if (error) throw error;
       
-      // Batch fetch last messages
-      const messageIds = (data || [])
-        .map((conv: ConversationRow) => conv.last_message_id)
-        .filter((id): id is string => Boolean(id));
-      
-      let messageMap = new Map<string, MessageRow>();
-      if (messageIds.length > 0) {
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('id, direction')
-          .in('id', messageIds);
-        
-        if (messages) {
-          messageMap = new Map(messages.map((m: MessageRow) => [m.id, m]));
-        }
-      }
-      
-      // Attach last message to each conversation
-      return (data || []).map((conv: ConversationRow) => ({
+      return ((data || []) as ConversationRow[]).map((conv) => ({
         ...conv,
-        messages: conv.last_message_id ? messageMap.get(conv.last_message_id) || null : null
+        messages: lastMessageFromConversation(conv),
       }));
     },
     staleTime: 1000 * 30, // 30 seconds
@@ -365,10 +374,6 @@ export function useAvailableSenders() {
  */
 type ConversationWithLastMessage = ConversationRow;
 
-type MessageWithCreatedAt = MessageRow & {
-  created_at: string;
-};
-
 export async function fetchConversationList(
   ownedNumberId?: string | null
 ): Promise<ConversationListItem[]> {
@@ -377,7 +382,7 @@ export async function fetchConversationList(
   let query = supabase
     .from('conversations')
     .select(`
-      id, status, last_message_at, last_message_id,
+      id, status, last_message_at, last_message_id, last_message_direction,
       assigned_staff_id, contact_id, owned_number_id,
       is_group_chat, group_chat_id, group_chat_name,
       needs_follow_up,
@@ -400,7 +405,8 @@ export async function fetchConversationList(
       conversation_reads(id, last_read_message_id, last_read_at)
     `)
     .in('status', ['OPEN', 'SNOOZED'])
-    .order('last_message_at', { ascending: false });
+    .order('last_message_at', { ascending: false })
+    .limit(CONVERSATION_LIST_LIMIT);
 
   if (ownedNumberId) {
     query = query.eq('owned_number_id', ownedNumberId);
@@ -411,28 +417,13 @@ export async function fetchConversationList(
   if (error) throw error;
 
   const typedConversations = (conversations || []) as ConversationWithLastMessage[];
-  const messageIds = typedConversations
-    .map((conv) => conv.last_message_id)
-    .filter((id): id is string => Boolean(id));
-
-  let messageMap = new Map<string, MessageWithCreatedAt>();
-  if (messageIds.length > 0) {
-    const { data: messages } = await supabase
-      .from('messages')
-      .select('id, direction, created_at')
-      .in('id', messageIds);
-
-    if (messages) {
-      messageMap = new Map((messages as MessageWithCreatedAt[]).map((m) => [m.id, m]));
-    }
-  }
 
   const byContact = new Map<string, AggregatedConversation>();
   const groups: GroupConversation[] = [];
 
   for (const conv of typedConversations) {
     const contactId = conv.contact_id;
-    const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
+    const lastMessage = lastMessageFromConversation(conv);
 
     if (conv.is_group_chat && conv.group_chat_id) {
       const participantNames = (conv.group_chat_participants ?? []).map((participant) => {
@@ -451,7 +442,7 @@ export async function fetchConversationList(
         participantNames,
         ownedNumberId: conv.owned_number_id,
         latestMessageAt: conv.last_message_at,
-        latestMessage: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
+        latestMessage: lastMessage,
         unreadCount: conv.conversation_reads?.length ? 0 : 1,
       });
       continue;
@@ -477,14 +468,14 @@ export async function fetchConversationList(
       owned_number: conv.owned_numbers,
       last_message_at: conv.last_message_at,
       last_message_id: conv.last_message_id,
-      last_message: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
+      last_message: lastMessage,
       status: conv.status,
       needs_follow_up: conv.needs_follow_up ?? false,
     });
 
     if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
       aggregated.latestMessageAt = conv.last_message_at;
-      aggregated.latestMessage = lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null;
+      aggregated.latestMessage = lastMessage;
     }
 
     if (!conv.conversation_reads || conv.conversation_reads.length === 0) {
@@ -511,21 +502,29 @@ export async function fetchConversationsByContact(
   return (await fetchConversationList(ownedNumberId)).filter(isContactConversation);
 }
 
-export function useConversationsByContact(ownedNumberId?: string | null) {
+export function useConversationsByContact(
+  ownedNumberId?: string | null,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: messagesKeys.conversationsByContact(ownedNumberId),
     queryFn: () => fetchConversationsByContact(ownedNumberId),
     staleTime: 1000 * 30, // 30 seconds
     refetchOnWindowFocus: false, // Realtime handles updates
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useConversationList(ownedNumberId?: string | null) {
+export function useConversationList(
+  ownedNumberId?: string | null,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [...messagesKeys.conversationsByContact(ownedNumberId), 'including-groups'],
     queryFn: () => fetchConversationList(ownedNumberId),
     staleTime: 1000 * 30,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 }
 

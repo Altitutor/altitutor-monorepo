@@ -1,6 +1,15 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
+const isSentrySourceMapUploadConfigured = Boolean(
+  process.env.SENTRY_AUTH_TOKEN &&
+    process.env.SENTRY_ORG &&
+    process.env.SENTRY_PROJECT,
+);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   trailingSlash: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   images: {
@@ -13,6 +22,11 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "student.altitutor.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
         pathname: "/**",
       },
     ],
@@ -39,7 +53,8 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400",
+            value:
+              "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -136,4 +151,19 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: {
+    disable: !isSentrySourceMapUploadConfigured,
+    deleteSourcemapsAfterUpload: true,
+  },
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});

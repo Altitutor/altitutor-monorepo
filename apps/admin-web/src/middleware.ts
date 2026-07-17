@@ -31,7 +31,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/invite') ||
-    pathname.startsWith('/auth');
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/sentry-example-page');
 
   if (isPublicPath) {
     return NextResponse.next({

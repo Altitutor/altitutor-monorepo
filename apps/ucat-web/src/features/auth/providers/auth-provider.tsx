@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -40,6 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id } : null);
+  }, [user]);
 
   const value: AuthContextValue = {
     user,

@@ -12,6 +12,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("https://altitutor.com/ucat/"), 308);
+  }
+
   // PKCE magic links: do not run Supabase session logic here. getUser() refreshes cookies and
   // can clear PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
   if (pathname === "/auth/callback") {
@@ -22,8 +26,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/subscribe", origin));
   }
 
-  const publicPaths = ["/", "/login", "/signup", "/forgot-password"];
-  const isPublicPath = publicPaths.includes(pathname);
+  const publicPaths = ["/login", "/signup", "/forgot-password"];
+  const isDevelopmentSentryExample =
+    process.env.NODE_ENV === "development" &&
+    pathname === "/sentry-example-page";
+  const isPublicPath =
+    publicPaths.includes(pathname) || isDevelopmentSentryExample;
   const isNoAuthPublicPath =
     pathname === "/reset-password" ||
     pathname.startsWith("/api/auth") ||

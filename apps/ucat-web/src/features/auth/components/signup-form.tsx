@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
 import type { UcatReferralOfferPreview } from "@/lib/ucat/referrals/capture-referral";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -189,6 +190,13 @@ export function SignupForm({
         void subscribeToNewsletter(normalizedEmail);
       }
 
+      captureUcatEvent("signup_started", {
+        intended_plan: planIntent?.tier ?? "free",
+        billing_interval: planIntent?.interval ?? null,
+        referral_present: Boolean(referralCode),
+        newsletter_opt_in: newsletter,
+      });
+
       const error = await sendConfirmationEmail(normalizedEmail);
 
       if (error) {
@@ -231,6 +239,11 @@ export function SignupForm({
         type: "email",
       });
       if (!error) {
+        captureUcatEvent("signup_completed", {
+          intended_plan: planIntent?.tier ?? "free",
+          billing_interval: planIntent?.interval ?? null,
+          referral_present: Boolean(referralCode),
+        });
         const next = planIntent
           ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
           : "/signup/complete";

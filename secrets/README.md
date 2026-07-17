@@ -102,6 +102,9 @@ Environment-specific values such as:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - Stripe keys (test in development, live in production)
 - `OPENROUTER_API_KEY` (tutor-web UCAT AI generation)
+- `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
+- `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
+  deployed web app, such as `UCAT_WEB_SENTRY_DSN`
 
 ## Where Secrets Go
 
@@ -119,12 +122,19 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 
 - Preview: `NEXT_PUBLIC_*` from `.env.development`
 - Production: `NEXT_PUBLIC_*` from `.env.production`
+- `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT apps
 - `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
 - `RESEND_API_KEY` to all web apps managed by the script
+- Per-app Sentry values are mapped to framework-standard target names:
+  `{APP}_SENTRY_DSN` → `NEXT_PUBLIC_SENTRY_DSN` and
+  `{APP}_SENTRY_PROJECT` → `SENTRY_PROJECT`
+- Shared `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` values are sent only to apps
+  whose per-app Sentry configuration is non-empty
 
 Projects currently deployed by the script:
 
 - `altitutor-admin-web` (`apps/admin-web`)
+- `altitutor-marketing-web` (`apps/marketing-web`)
 - `altitutor-student-web` (`apps/student-web`)
 - `altitutor-tutor-web` (`apps/tutor-web`)
 - `altitutor-ucat-web` (`apps/ucat-web`)
@@ -195,7 +205,7 @@ Excludes `NEXT_PUBLIC_*` (those go to Vercel).
 
 ### Vercel (`deploy-vercel.sh`)
 
-Deploys `NEXT_PUBLIC_*` to all configured web projects, `OPENROUTER_API_KEY` to tutor-web, and `RESEND_API_KEY` to all configured web projects.
+Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. Other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, and `RESEND_API_KEY` goes to all application web projects.
 
 ### EAS (`deploy-eas.sh`)
 
@@ -221,6 +231,7 @@ gh secret list --repo Altitutor/altitutor-monorepo --env production
 
 ```bash
 vercel env ls --project altitutor-admin-web
+vercel env ls --project altitutor-marketing-web
 vercel env ls --project altitutor-student-web
 vercel env ls --project altitutor-tutor-web
 vercel env ls --project altitutor-ucat-web

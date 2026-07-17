@@ -28,7 +28,9 @@ Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
     return json({ error: "method not allowed" }, 405);
   }
-  const secret = Deno.env.get("CONNECTOR_SECRET") ?? "";
+  const secret = Deno.env.get("CONNECTOR_SECRET") ??
+    Deno.env.get("IMESSAGE_WEBHOOK_SECRET") ??
+    "";
   if (!secret) {
     return json({ error: "connector authentication is not configured" }, 503);
   }

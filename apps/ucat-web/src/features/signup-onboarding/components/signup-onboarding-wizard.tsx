@@ -35,6 +35,7 @@ import type { SignupSuccessJourney } from "@/features/signup-onboarding/componen
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -306,6 +307,12 @@ export function SignupOnboardingWizard({
       try {
         await patchSignupProgress({ planComplete: true });
         await patchSignupProgress({ complete: true });
+
+        captureUcatEvent("subscription_activated", {
+          plan_tier: access.onlineTier,
+          activation_type: "new_subscription",
+          journey_context: "signup_onboarding",
+        });
 
         setSignupSuccessError(null);
         await navigateAfterSignupComplete();

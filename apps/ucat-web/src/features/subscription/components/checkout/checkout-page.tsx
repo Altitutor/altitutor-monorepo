@@ -33,6 +33,7 @@ import {
   isUcatPaidPlanTier,
   type UcatBillingInterval,
 } from "@altitutor/shared";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const stripePromise = stripeKey ? loadStripe(stripeKey) : Promise.resolve(null);
@@ -147,6 +148,12 @@ export function CheckoutPage() {
       referralGiftId,
     })
       .then((session) => {
+        captureUcatEvent("checkout_started", {
+          plan_tier: tier,
+          billing_interval: interval,
+          journey_context: context,
+          referral_gift_present: Boolean(referralGiftId),
+        });
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
         setReferralGiftApplied(session.referralGiftApplied);

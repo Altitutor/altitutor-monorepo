@@ -1695,11 +1695,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversation_reads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["conversation_id"]
+          },
+          {
             foreignKeyName: "conversation_reads_last_read_message_id_fkey"
             columns: ["last_read_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
           },
           {
             foreignKeyName: "conversation_reads_staff_id_fkey"
@@ -1743,6 +1757,7 @@ export type Database = {
           is_group_chat: boolean
           is_pinned: boolean
           last_message_at: string | null
+          last_message_direction: string | null
           last_message_id: string | null
           needs_follow_up: boolean
           owned_number_id: string
@@ -1760,6 +1775,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id: string
@@ -1777,6 +1793,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id?: string
@@ -3025,6 +3042,13 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "group_chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["conversation_id"]
+          },
         ]
       }
       imessage_commands: {
@@ -3103,11 +3127,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imessage_commands_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["conversation_id"]
+          },
+          {
             foreignKeyName: "imessage_commands_message_id_fkey"
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
           },
           {
             foreignKeyName: "imessage_commands_requested_by_staff_id_fkey"
@@ -3743,6 +3781,13 @@ export type Database = {
             referencedRelation: "messages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
         ]
       }
       message_templates: {
@@ -3827,6 +3872,7 @@ export type Database = {
           imessage_guid: string | null
           imessage_temp_guid: string | null
           is_announcement: boolean
+          is_historical_import: boolean
           is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
@@ -3857,6 +3903,7 @@ export type Database = {
           imessage_guid?: string | null
           imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
@@ -3887,6 +3934,7 @@ export type Database = {
           imessage_guid?: string | null
           imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
@@ -3908,6 +3956,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["conversation_id"]
           },
           {
             foreignKeyName: "messages_created_by_staff_id_fkey"
@@ -16134,6 +16189,136 @@ export type Database = {
           },
         ]
       }
+      vadmin_reconciliation_unreplied_messages: {
+        Row: {
+          assigned_staff_id: string | null
+          contact_id: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_type: string | null
+          conversation_id: string | null
+          conversation_status: string | null
+          created_at: string | null
+          hours_since_last_message: number | null
+          last_message_at: string | null
+          last_message_created_at: string | null
+          last_message_direction: string | null
+          last_message_id: string | null
+          last_message_id_detail: string | null
+          last_message_preview: string | null
+          parent_id: string | null
+          staff_id: string | null
+          student_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vadmin_reconciliation_void_invoice_sessions: {
         Row: {
           actual_attended: boolean | null
@@ -25462,6 +25647,7 @@ export type Database = {
         Returns: string
       }
       get_ucat_subject_id: { Args: never; Returns: string }
+      get_unread_contact_conversation_count: { Args: never; Returns: number }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
@@ -25854,6 +26040,14 @@ export type Database = {
       }
       sync_flashcard_review_cards: {
         Args: { p_flashcard_id: string }
+        Returns: undefined
+      }
+      sync_imessage_message_read_state: {
+        Args: {
+          p_conversation_id: string
+          p_historical: boolean
+          p_message_id: string
+        }
         Returns: undefined
       }
       try_acquire_billing_runner_lock: {
