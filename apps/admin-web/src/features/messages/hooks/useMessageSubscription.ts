@@ -18,18 +18,15 @@ export function useMessageSubscription() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const hasWindow = useChatStore(s => s.hasWindow);
-  const openWindow = useChatStore(s => s.openWindow);
   const incrementUnread = useChatStore(s => s.incrementUnread);
 
   // Extract function references using useRef to prevent re-subscriptions
   const hasWindowRef = useRef(hasWindow);
-  const openWindowRef = useRef(openWindow);
   const incrementUnreadRef = useRef(incrementUnread);
 
   // Update refs on every render to always have latest functions
   useEffect(() => {
     hasWindowRef.current = hasWindow;
-    openWindowRef.current = openWindow;
     incrementUnreadRef.current = incrementUnread;
   });
 
@@ -39,7 +36,7 @@ export function useMessageSubscription() {
       .channel('messages-inbound')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const row = payload.new as Database['public']['Tables']['messages']['Row'];
-        if (row?.direction === 'INBOUND') {
+        if (row?.direction === 'INBOUND' && !row.is_historical_import) {
           // Mark conversation as unread for all staff by deleting conversation_reads
           try {
             await supabase
@@ -50,6 +47,7 @@ export function useMessageSubscription() {
             // Invalidate conversations queries to update unread indicators
             queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
             queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+            queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
           } catch (error: unknown) {
             console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
           }
@@ -78,9 +76,7 @@ export function useMessageSubscription() {
             console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
           }
           
-          if (!hasWindowRef.current(row.conversation_id)) {
-            openWindowRef.current({ conversationId: row.conversation_id, title: 'New message' });
-          } else {
+          if (hasWindowRef.current(row.conversation_id)) {
             incrementUnreadRef.current(row.conversation_id);
           }
           toast({ title: `${senderName}: ${row.body}`, description: '' });

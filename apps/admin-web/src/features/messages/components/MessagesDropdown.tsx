@@ -15,10 +15,11 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMessageSubscription } from '../hooks/useMessageSubscription';
-import { useConversationsByContact, getContactIdFromConversation } from '../api/queries';
+import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation } from '../api/queries';
 import { useMarkRead, useMarkUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
 import { cn } from '@/shared/utils';
+import type { ConversationSelection } from '../types';
 
 export function MessagesDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -59,16 +60,16 @@ export function MessagesDropdown() {
   // Subscribe to new messages
   useMessageSubscription();
   
-  // Fetch conversations to calculate unread count
-  const { data: conversations } = useConversationsByContact();
+  // Lightweight badge count — do not load the full inbox on every page
+  const { data: unreadCount = 0 } = useUnreadConversationCount();
+  // Full contact aggregation only when the panel is open (thread header / mark read)
+  const needsConversationDetails = isOpen && (view === 'thread' || !!activeContactId);
+  const { data: conversations } = useConversationsByContact(undefined, {
+    enabled: needsConversationDetails,
+  });
   const markRead = useMarkRead();
   const markUnread = useMarkUnread();
   
-  // Calculate total unread count
-  const unreadCount = useMemo(() => {
-    if (!conversations) return 0;
-    return conversations.reduce((total, conv) => total + conv.unreadCount, 0);
-  }, [conversations]);
   const activeAggregated = useMemo(
     () => conversations?.find((c) => c.contactId === activeContactId) || null,
     [conversations, activeContactId]
@@ -231,8 +232,14 @@ export function MessagesDropdown() {
             {view === 'list' && (
               <div className="w-full h-full flex-shrink-0">
                 <ConversationList 
-                  activeContactId={activeContactId} 
-                  onSelect={handleConversationClick}
+                  activeSelection={activeContactId ? { kind: 'contact', contactId: activeContactId } : null}
+                  onSelect={(selection: ConversationSelection) => {
+                    if (selection.kind === 'contact') {
+                      handleConversationClick(selection.contactId);
+                    } else {
+                      window.location.assign(`/messages?group=${selection.conversationId}`);
+                    }
+                  }}
                   selectedOwnedNumberId={selectedOwnedNumberId}
                   onOwnedNumberFilterChange={setSelectedOwnedNumberId}
                 />

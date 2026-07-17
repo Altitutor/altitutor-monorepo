@@ -8,8 +8,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAvailableSenders, useConversationsByContact } from '@/features/messages/api/queries';
-import { useMarkRead, useMarkUnread } from '@/features/messages/api/mutations';
+import { useAvailableSenders, useConversationList } from '@/features/messages/api/queries';
+import { useMarkConversationRead, useMarkRead, useMarkUnread } from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -24,6 +24,14 @@ import { useToast } from '@altitutor/ui';
 import { messagesKeys } from '@/features/messages/api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isContactConversation,
+  isGroupConversation,
+  type ConversationListItem,
+  type ConversationSelection,
+} from '@/features/messages/types';
+import { useImessageControl } from '@/features/messages/imessage/hooks';
+import { GroupConversationActions } from '@/features/messages/imessage/GroupConversationActions';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -32,7 +40,9 @@ export default function MessagesPage() {
   const { toast } = useToast();
   const conversationParam = searchParams.get('conversation'); // For backward compatibility
   const contactParam = searchParams.get('contact');
+  const groupParam = searchParams.get('group');
   const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(groupParam);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,7 +62,7 @@ export default function MessagesPage() {
   const [prefillPhoneForModal, setPrefillPhoneForModal] = useState<string | null>(null);
   const [isLinkingPhone, setIsLinkingPhone] = useState(false);
   const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
-  const { data: conversationsByContact } = useConversationsByContact(selectedOwnedNumberId);
+  const { data: conversationsByContact } = useConversationList(selectedOwnedNumberId);
   const { data: availableSenders = [] } = useAvailableSenders();
   const { data: students = [] } = useStudents();
   const { data: staff = [] } = useStaff();
@@ -74,6 +84,8 @@ export default function MessagesPage() {
   const updateStaff = useUpdateStaff();
   const markRead = useMarkRead();
   const markUnread = useMarkUnread();
+  const markConversationRead = useMarkConversationRead();
+  const imessageControl = useImessageControl();
   
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
@@ -124,8 +136,13 @@ export default function MessagesPage() {
   // Sync from URL params
   useEffect(() => {
     const contactId = searchParams.get('contact');
+    const groupId = searchParams.get('group');
     if (contactId) {
       setActiveContactId(contactId);
+      setActiveGroupId(null);
+    } else if (groupId) {
+      setActiveGroupId(groupId);
+      setActiveContactId(null);
     } else if (!activeContactId && !conversationParam) {
       // Auto-select most recent contact when no URL param
       (async () => {
@@ -189,11 +206,34 @@ export default function MessagesPage() {
     }
   };
   
-  const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
-  const activeAggregated = conversationsByContact?.find((c) => c.contactId === activeContactId) || null;
+  const activeAggregated = conversationsByContact?.find(
+    (c): c is Extract<ConversationListItem, { kind: 'contact' }> =>
+      isContactConversation(c) && c.contactId === activeContactId
+  );
+  const activeGroup = conversationsByContact?.find(
+    (c): c is Extract<ConversationListItem, { kind: 'group' }> =>
+      isGroupConversation(c) && c.conversationId === activeGroupId
+  );
+  const conversationTitle = activeGroup
+    ? activeGroup.groupName || 'Group chat'
+    : activeContact
+      ? formatContactName({ contacts: activeContact })
+      : 'Messages';
   const isActiveUnread = !!activeAggregated && activeAggregated.unreadCount > 0;
+  const isActiveGroupUnread = !!activeGroup && activeGroup.unreadCount > 0;
 
   const handleToggleReadHeader = () => {
+    if (activeGroup) {
+      if (isActiveGroupUnread && activeGroup.latestMessage?.id) {
+        markConversationRead.mutate({
+          conversationId: activeGroup.conversationId,
+          lastMessageId: activeGroup.latestMessage.id,
+        });
+      } else {
+        markUnread.mutate(activeGroup.conversationId);
+      }
+      return;
+    }
     if (!activeContactId || !activeAggregated) return;
     if (isActiveUnread) {
       const lastMessageId = activeAggregated.latestMessage?.id;
@@ -207,12 +247,27 @@ export default function MessagesPage() {
     }
   };
   
-  const handleContactSelect = (contactId: string) => {
-    setActiveContactId(contactId);
+  const activeSelection: ConversationSelection | null = activeGroupId
+    ? { kind: 'group', conversationId: activeGroupId }
+    : activeContactId
+      ? { kind: 'contact', contactId: activeContactId }
+      : null;
+
+  const handleConversationSelect = (selection: ConversationSelection) => {
     setMobileView('thread');
     const params = new URLSearchParams(searchParams.toString());
-    params.delete('conversation'); // Remove old param
-    params.set('contact', contactId);
+    params.delete('conversation');
+    params.delete('contact');
+    params.delete('group');
+    if (selection.kind === 'contact') {
+      setActiveContactId(selection.contactId);
+      setActiveGroupId(null);
+      params.set('contact', selection.contactId);
+    } else {
+      setActiveGroupId(selection.conversationId);
+      setActiveContactId(null);
+      params.set('group', selection.conversationId);
+    }
     router.push(`/messages?${params.toString()}`);
   };
   
@@ -294,6 +349,23 @@ export default function MessagesPage() {
   const selectedFromNumberOption = fromNumberOptions.find(
     (option) => option.id === selectedOwnedNumberId
   ) ?? null;
+  const imessageSenderIds = new Set(
+    availableSenders.filter((sender) => sender.provider === 'IMESSAGE').map((sender) => sender.id)
+  );
+  const activeIMessageConversationId =
+    activeGroup?.conversationId ??
+    activeAggregated?.conversations.find((conversation) =>
+      imessageSenderIds.has(conversation.owned_number_id)
+    )?.id ??
+    null;
+
+  const handleMarkIMessageRead = () => {
+    if (!activeIMessageConversationId) return;
+    imessageControl.mutate({
+      commandType: 'mark_chat_read',
+      conversationId: activeIMessageConversationId,
+    });
+  };
 
   const linkConversationContact = async (
     entityType: 'student' | 'parent' | 'staff',
@@ -387,8 +459,8 @@ export default function MessagesPage() {
           md:w-[320px]
         `}>
           <ConversationList 
-            activeContactId={activeContactId} 
-            onSelect={handleContactSelect}
+            activeSelection={activeSelection}
+            onSelect={handleConversationSelect}
             selectedOwnedNumberId={selectedOwnedNumberId}
             onOwnedNumberFilterChange={setSelectedOwnedNumberId}
           />
@@ -408,7 +480,7 @@ export default function MessagesPage() {
             onTitleClick={activeContact ? handleTitleClick : undefined}
             onBack={handleBack}
             showBackButton={mobileView === 'thread'}
-            isUnread={mobileView === 'thread' ? isActiveUnread : undefined}
+            isUnread={mobileView === 'thread' ? (activeGroup ? isActiveGroupUnread : isActiveUnread) : undefined}
             onToggleRead={mobileView === 'thread' ? handleToggleReadHeader : undefined}
             contact={activeContact}
             showUnknownNumberActions={showUnknownNumberActions}
@@ -425,12 +497,23 @@ export default function MessagesPage() {
             fromNumberOptions={fromNumberOptions}
             selectedFromNumber={selectedFromNumberOption}
             onFromNumberChange={(option) => setSelectedOwnedNumberId(option?.id ?? null)}
+            onMarkIMessageRead={activeIMessageConversationId ? handleMarkIMessageRead : undefined}
+            isMarkingIMessageRead={imessageControl.isPending}
+            extraActions={
+              activeGroup ? (
+                <GroupConversationActions
+                  conversationId={activeGroup.conversationId}
+                  currentName={activeGroup.groupName}
+                />
+              ) : undefined
+            }
           />
           <div className="flex-1 flex flex-col min-h-0">
-            {activeContactId ? (
+            {activeContactId || activeGroup ? (
               <>
                 <MessageThread 
                   contactId={activeContactId} 
+                  conversationId={activeGroup?.conversationId}
                   ownedNumberId={selectedOwnedNumberId}
                   isSearching={isSearching}
                   searchTerm={searchTerm}
@@ -439,6 +522,9 @@ export default function MessagesPage() {
                 />
                 <Composer 
                   contactId={activeContactId} 
+                  conversationId={activeGroup?.conversationId}
+                  groupChatId={activeGroup?.groupChatId}
+                  initialSenderId={activeGroup?.ownedNumberId}
                   onTyping={() => setIsSearching(false)}
                   draft={currentDraft}
                   onDraftChange={handleDraftChange}

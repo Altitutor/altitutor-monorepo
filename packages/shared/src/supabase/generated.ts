@@ -1738,6 +1738,7 @@ export type Database = {
           is_group_chat: boolean
           is_pinned: boolean
           last_message_at: string | null
+          last_message_direction: string | null
           last_message_id: string | null
           needs_follow_up: boolean
           owned_number_id: string
@@ -1755,6 +1756,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id: string
@@ -1772,6 +1774,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id?: string
@@ -3022,6 +3025,199 @@ export type Database = {
           },
         ]
       }
+      imessage_commands: {
+        Row: {
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          command_type: string
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          destructive: boolean
+          error: string | null
+          id: string
+          idempotency_key: string
+          max_attempts: number
+          message_id: string | null
+          payload: Json
+          reason: string | null
+          requested_by_staff_id: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          command_type: string
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          destructive?: boolean
+          error?: string | null
+          id?: string
+          idempotency_key: string
+          max_attempts?: number
+          message_id?: string | null
+          payload?: Json
+          reason?: string | null
+          requested_by_staff_id?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          command_type?: string
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          destructive?: boolean
+          error?: string | null
+          id?: string
+          idempotency_key?: string
+          max_attempts?: number
+          message_id?: string | null
+          payload?: Json
+          reason?: string | null
+          requested_by_staff_id?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imessage_commands_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "imessage_commands_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imessage_connector_state: {
+        Row: {
+          app_version: string | null
+          capabilities: Json
+          connector_id: string
+          created_at: string
+          host_label: string | null
+          last_error_code: string | null
+          last_heartbeat_at: string
+          metrics: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          app_version?: string | null
+          capabilities?: Json
+          connector_id: string
+          created_at?: string
+          host_label?: string | null
+          last_error_code?: string | null
+          last_heartbeat_at?: string
+          metrics?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          app_version?: string | null
+          capabilities?: Json
+          connector_id?: string
+          created_at?: string
+          host_label?: string | null
+          last_error_code?: string | null
+          last_heartbeat_at?: string
+          metrics?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imessage_events: {
+        Row: {
+          connector_id: string | null
+          event_key: string
+          event_type: string
+          id: string
+          imessage_guid: string | null
+          payload: Json
+          processed_at: string | null
+          processing_attempts: number
+          processing_error: string | null
+          received_at: string
+          temp_guid: string | null
+        }
+        Insert: {
+          connector_id?: string | null
+          event_key: string
+          event_type: string
+          id?: string
+          imessage_guid?: string | null
+          payload: Json
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_error?: string | null
+          received_at?: string
+          temp_guid?: string | null
+        }
+        Update: {
+          connector_id?: string | null
+          event_key?: string
+          event_type?: string
+          id?: string
+          imessage_guid?: string | null
+          payload?: Json
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_error?: string | null
+          received_at?: string
+          temp_guid?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           amount_cents: number
@@ -3627,11 +3823,16 @@ export type Database = {
           from_number_e164: string | null
           id: string
           imessage_guid: string | null
+          imessage_temp_guid: string | null
           is_announcement: boolean
+          is_historical_import: boolean
           is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
+          provider_error_at: string | null
+          provider_error_code: string | null
           reaction_type: string | null
+          read_at: string | null
           received_at: string | null
           sent_at: string | null
           status: string
@@ -3653,11 +3854,16 @@ export type Database = {
           from_number_e164?: string | null
           id?: string
           imessage_guid?: string | null
+          imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          provider_error_at?: string | null
+          provider_error_code?: string | null
           reaction_type?: string | null
+          read_at?: string | null
           received_at?: string | null
           sent_at?: string | null
           status: string
@@ -3679,11 +3885,16 @@ export type Database = {
           from_number_e164?: string | null
           id?: string
           imessage_guid?: string | null
+          imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          provider_error_at?: string | null
+          provider_error_code?: string | null
           reaction_type?: string | null
+          read_at?: string | null
           received_at?: string | null
           sent_at?: string | null
           status?: string
@@ -24794,10 +25005,51 @@ export type Database = {
       }
       can_tutor_create_file: { Args: { file_path: string }; Returns: boolean }
       can_tutor_read_file: { Args: { file_path: string }; Returns: boolean }
+      claim_imessage_commands: {
+        Args: { p_connector_id: string; p_limit?: number }
+        Returns: Json[]
+      }
       cleanup_expired_reservations: { Args: never; Returns: number }
       cleanup_session_files: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      complete_imessage_command: {
+        Args: {
+          p_command_id: string
+          p_connector_id: string
+          p_error?: string
+          p_result?: Json
+          p_status: string
+        }
+        Returns: {
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          command_type: string
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          destructive: boolean
+          error: string | null
+          id: string
+          idempotency_key: string
+          max_attempts: number
+          message_id: string | null
+          payload: Json
+          reason: string | null
+          requested_by_staff_id: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "imessage_commands"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       complete_student_exit_request: {
         Args: {
@@ -24916,6 +25168,44 @@ export type Database = {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
       }
+      enqueue_imessage_command: {
+        Args: {
+          p_command_type: string
+          p_conversation_id?: string
+          p_idempotency_key?: string
+          p_message_id?: string
+          p_payload?: Json
+          p_reason?: string
+        }
+        Returns: {
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          command_type: string
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          destructive: boolean
+          error: string | null
+          id: string
+          idempotency_key: string
+          max_attempts: number
+          message_id: string | null
+          payload: Json
+          reason: string | null
+          requested_by_staff_id: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "imessage_commands"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       enroll_student_in_class: {
         Args: {
           p_class_id: string
@@ -24924,6 +25214,37 @@ export type Database = {
           p_student_id: string
         }
         Returns: string
+      }
+      ensure_imessage_send_command: {
+        Args: { p_message_id: string }
+        Returns: {
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          command_type: string
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          destructive: boolean
+          error: string | null
+          id: string
+          idempotency_key: string
+          max_attempts: number
+          message_id: string | null
+          payload: Json
+          reason: string | null
+          requested_by_staff_id: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "imessage_commands"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       expire_ucat_referral_gifts: { Args: never; Returns: number }
       extract_flashcard_cloze_indexes: {
@@ -25008,6 +25329,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_unread_contact_conversation_count: { Args: never; Returns: number }
       get_available_slots: {
         Args: {
           p_bypass_date_restrictions?: boolean
@@ -25145,6 +25467,48 @@ export type Database = {
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
+      }
+      heartbeat_imessage_connector: {
+        Args: {
+          p_app_version?: string
+          p_capabilities?: Json
+          p_connector_id: string
+          p_host_label?: string
+          p_last_error_code?: string
+          p_metrics?: Json
+          p_status: string
+        }
+        Returns: {
+          app_version: string | null
+          capabilities: Json
+          connector_id: string
+          created_at: string
+          host_label: string | null
+          last_error_code: string | null
+          last_heartbeat_at: string
+          metrics: Json
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "imessage_connector_state"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      imessage_is_destructive: {
+        Args: { p_command_type: string }
+        Returns: boolean
+      }
+      imessage_validate_command: {
+        Args: {
+          p_command_type: string
+          p_conversation_id: string
+          p_message_id: string
+          p_payload: Json
+        }
+        Returns: undefined
       }
       is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
@@ -25492,6 +25856,14 @@ export type Database = {
       }
       sync_flashcard_review_cards: {
         Args: { p_flashcard_id: string }
+        Returns: undefined
+      }
+      sync_imessage_message_read_state: {
+        Args: {
+          p_conversation_id: string
+          p_historical: boolean
+          p_message_id: string
+        }
         Returns: undefined
       }
       try_acquire_billing_runner_lock: {
