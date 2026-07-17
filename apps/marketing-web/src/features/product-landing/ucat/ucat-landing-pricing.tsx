@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Info } from "lucide-react";
+import { Check, Info, X } from "lucide-react";
 import {
   MARKETING_TOKENS,
   maxPracticeDayDiscountCents,
@@ -81,8 +81,7 @@ function checkoutHref(
   return `${PRODUCT_LINKS.ucatSignup}?redirect=${encodeURIComponent(checkout)}`;
 }
 
-function formatQuota(label: string, quota: FreeQuota | undefined) {
-  if (!quota || quota.limit <= 0) return `${label} — not included on Free`;
+function formatQuota(label: string, quota: FreeQuota) {
   return `${quota.limit} ${label.toLowerCase()} per ${quota.period}`;
 }
 
@@ -93,6 +92,15 @@ function CheckItem({ children, featured = false }: { children: React.ReactNode; 
       <span className={featured ? "text-marketing-cream/70" : "text-marketing-charcoal/70"}>
         {children}
       </span>
+    </li>
+  );
+}
+
+function ExcludedItem({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-marketing-charcoal/45">
+      <X className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>{children}</span>
     </li>
   );
 }
@@ -236,6 +244,12 @@ export function UcatLandingPricing() {
   };
 
   const ctaButtonClass = `w-full px-6 py-4 text-base font-semibold tracking-wide ${typo.headingSans}`;
+  const includedFreeQuotas = config
+    ? FREE_QUOTAS.filter(([key]) => (config.freeQuotas[key]?.limit ?? 0) > 0)
+    : FREE_QUOTAS;
+  const excludedFreeQuotas = config
+    ? FREE_QUOTAS.filter(([key]) => (config.freeQuotas[key]?.limit ?? 0) <= 0)
+    : [];
 
   return (
     <section id="pricing" className="relative flex min-h-dvh w-full flex-col justify-center overflow-hidden bg-marketing-cream py-24 md:py-32">
@@ -259,7 +273,7 @@ export function UcatLandingPricing() {
             }))}
             variant="light"
             aria-label="UCAT billing interval"
-            className="text-sm sm:text-base [&_button]:!px-5 [&_button]:!py-2.5 sm:[&_button]:!px-8 sm:[&_button]:!py-3"
+            className="!rounded-full text-sm [&>div]:!rounded-full sm:text-base [&_button]:!px-5 [&_button]:!py-2.5 sm:[&_button]:!px-8 sm:[&_button]:!py-3"
           />
         </div>
 
@@ -281,8 +295,11 @@ export function UcatLandingPricing() {
               </div>
               <p className={`mt-1 text-xs text-marketing-charcoal/50 ${typo.dataMono}`}>Quotas reset daily, weekly, or monthly</p>
               <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
-                {FREE_QUOTAS.map(([key, label]) => (
-                  <CheckItem key={key}>{config ? formatQuota(label, config.freeQuotas[key]) : label}</CheckItem>
+                {includedFreeQuotas.map(([key, label]) => (
+                  <CheckItem key={key}>{config ? formatQuota(label, config.freeQuotas[key]!) : label}</CheckItem>
+                ))}
+                {excludedFreeQuotas.map(([key, label]) => (
+                  <ExcludedItem key={key}>{label}</ExcludedItem>
                 ))}
               </ul>
             </div>
