@@ -137,6 +137,7 @@ export function useSendMessage() {
       // Invalidate conversations list (both old and new aggregated)
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
     },
   });
 }
@@ -181,6 +182,7 @@ export function useMarkRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
     },
   });
 }
@@ -198,6 +200,7 @@ export function useMarkUnread() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
     },
   });
 }
@@ -227,6 +230,7 @@ export function useMarkConversationRead() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
     },
   });
 }

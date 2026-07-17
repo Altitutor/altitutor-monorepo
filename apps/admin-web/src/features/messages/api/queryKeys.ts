@@ -5,6 +5,7 @@
 export const messagesKeys = {
   all: ['messages'] as const,
   conversations: () => [...messagesKeys.all, 'conversations'] as const,
+  unreadCount: () => [...messagesKeys.all, 'unread-count'] as const,
   conversationsByContactBase: () => [...messagesKeys.all, 'conversations-by-contact'] as const,
   conversationsByContact: (ownedNumberId?: string | null) =>
     [...messagesKeys.conversationsByContactBase(), ownedNumberId ?? 'all'] as const,

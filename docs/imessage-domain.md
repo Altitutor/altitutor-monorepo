@@ -81,7 +81,8 @@ Deploy in this order so the existing message path is not interrupted:
 1. CI applies `20260717075000_imessage_durable_connector.sql`.
 2. CI deploys `imessage-inbound`, `imessage-connector`, `imessage-control`, `send-message`, and the
    retired `sync-imessage-history` response.
-3. Configure `IMESSAGE_WEBHOOK_SECRET` and a separate `CONNECTOR_SECRET` as Edge Function secrets.
+3. Configure `IMESSAGE_WEBHOOK_SECRET`. Prefer a separate `CONNECTOR_SECRET`; during rollout the
+   connector falls back to `IMESSAGE_WEBHOOK_SECRET` when the dedicated secret is absent.
 4. Configure the dedicated Mac bridge with the matching secrets plus
    `CONNECTOR_URL=https://<project>.supabase.co/functions/v1/imessage-connector` and a stable
    `CONNECTOR_ID`, then rebuild and restart it.

@@ -69,9 +69,11 @@ export function ConversationList({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
         qc.invalidateQueries({ queryKey: messagesKeys.conversations() }); // Also invalidate old for backward compat
+        qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
         qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+        qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
       })
       .subscribe();
     return () => {
@@ -222,6 +224,7 @@ export function ConversationList({
     // Invalidate conversations to refresh the list
     qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
     qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+    qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
   };
 
   return (

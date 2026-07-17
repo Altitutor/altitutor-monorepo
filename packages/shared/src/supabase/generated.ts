@@ -1738,6 +1738,7 @@ export type Database = {
           is_group_chat: boolean
           is_pinned: boolean
           last_message_at: string | null
+          last_message_direction: string | null
           last_message_id: string | null
           needs_follow_up: boolean
           owned_number_id: string
@@ -1755,6 +1756,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id: string
@@ -1772,6 +1774,7 @@ export type Database = {
           is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
+          last_message_direction?: string | null
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id?: string
@@ -3822,6 +3825,7 @@ export type Database = {
           imessage_guid: string | null
           imessage_temp_guid: string | null
           is_announcement: boolean
+          is_historical_import: boolean
           is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
@@ -3852,6 +3856,7 @@ export type Database = {
           imessage_guid?: string | null
           imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
@@ -3882,6 +3887,7 @@ export type Database = {
           imessage_guid?: string | null
           imessage_temp_guid?: string | null
           is_announcement?: boolean
+          is_historical_import?: boolean
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
@@ -25323,6 +25329,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_unread_contact_conversation_count: { Args: never; Returns: number }
       get_available_slots: {
         Args: {
           p_bypass_date_restrictions?: boolean
@@ -25849,6 +25856,14 @@ export type Database = {
       }
       sync_flashcard_review_cards: {
         Args: { p_flashcard_id: string }
+        Returns: undefined
+      }
+      sync_imessage_message_read_state: {
+        Args: {
+          p_conversation_id: string
+          p_historical: boolean
+          p_message_id: string
+        }
         Returns: undefined
       }
       try_acquire_billing_runner_lock: {
