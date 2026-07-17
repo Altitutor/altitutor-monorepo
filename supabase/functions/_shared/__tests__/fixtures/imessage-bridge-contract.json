@@ -1,0 +1,93 @@
+{
+  "claimResponse": {
+    "commands": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "type": "send_message",
+        "payload": {
+          "text": "Hello from Supabase",
+          "to": "+61400000000",
+          "mediaUrls": ["https://storage.example/message/image.jpg"],
+          "replyToGuid": "p:0/original-guid",
+          "tempGuid": "11111111-1111-4111-8111-111111111111"
+        },
+        "attempts": 1
+      }
+    ]
+  },
+  "completionRequest": {
+    "action": "complete",
+    "connectorId": "dedicated-mac",
+    "commandId": "11111111-1111-4111-8111-111111111111",
+    "outcome": "succeeded",
+    "result": {
+      "sentAt": "2026-07-17T07:45:00.000Z",
+      "guid": "provider-guid",
+      "messageId": "12345",
+      "chatGuid": "iMessage;-;+61400000000",
+      "message": {
+        "guid": "provider-guid",
+        "id": 12345,
+        "tempGuid": "11111111-1111-4111-8111-111111111111",
+        "date": "2026-07-17T07:45:00.000Z",
+        "errorCode": null
+      }
+    }
+  },
+  "heartbeatRequest": {
+    "action": "heartbeat",
+    "connectorId": "dedicated-mac",
+    "status": {
+      "bluebubblesConnected": true,
+      "privateApiConnected": true,
+      "webhookRegistered": true,
+      "outbox": {
+        "pending": 2,
+        "delivering": 1,
+        "delivered": 30,
+        "dead": 0
+      },
+      "lastForwardedAt": 1784274300000,
+      "lastReconciledAt": 1784274000000
+    }
+  },
+  "updatedDelivered": {
+    "EventType": "updated-message",
+    "MessageGuid": "provider-guid",
+    "TempGuid": "11111111-1111-4111-8111-111111111111",
+    "ChatGuid": "iMessage;-;+61400000000",
+    "IsFromMe": true,
+    "DeliveryState": "delivered",
+    "Date": "2026-07-17T07:45:00.000Z",
+    "DateDelivered": "2026-07-17T07:45:03.000Z",
+    "DateRead": null,
+    "ErrorCode": 0,
+    "RawPayload": {
+      "type": "updated-message",
+      "data": {
+        "guid": "provider-guid",
+        "dateDelivered": 1784274303000
+      }
+    }
+  },
+  "updatedRead": {
+    "EventType": "updated-message",
+    "MessageGuid": "provider-guid",
+    "TempGuid": "11111111-1111-4111-8111-111111111111",
+    "ChatGuid": "iMessage;-;+61400000000",
+    "IsFromMe": true,
+    "DeliveryState": "read",
+    "Date": "2026-07-17T07:45:00.000Z",
+    "DateDelivered": "2026-07-17T07:45:03.000Z",
+    "DateRead": "2026-07-17T07:46:00.000Z",
+    "ErrorCode": 0,
+    "RawPayload": {
+      "type": "updated-message",
+      "data": {
+        "guid": "provider-guid",
+        "dateDelivered": 1784274303000,
+        "dateRead": 1784274360000
+      }
+    }
+  }
+}
