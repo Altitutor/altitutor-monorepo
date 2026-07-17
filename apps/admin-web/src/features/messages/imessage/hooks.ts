@@ -8,13 +8,49 @@ import {
   invokeImessageControl,
 } from './api';
 import { messagesKeys } from '../api/queryKeys';
-import { getCommandStatusLabel, type ImessageCommandRequest } from './types';
+import type { ImessageCommandRequest, ImessageCommandType } from './types';
 
 export const imessageKeys = {
   all: ['imessage'] as const,
   connector: () => [...imessageKeys.all, 'connector'] as const,
   commands: () => [...imessageKeys.all, 'commands'] as const,
 };
+
+function queuedActionLabel(commandType: ImessageCommandType): string | null {
+  switch (commandType) {
+    case 'react':
+      return 'Reaction queued';
+    case 'edit_message':
+      return 'Edit queued';
+    case 'unsend_message':
+      return 'Unsend queued';
+    case 'mark_chat_read':
+      return 'Mark read queued';
+    case 'mark_chat_unread':
+      return 'Mark unread queued';
+    case 'restart_messages_app':
+      return 'Messages.app restart queued';
+    case 'delete_chat':
+      return 'Delete chat queued';
+    case 'leave_chat':
+      return 'Leave chat queued';
+    case 'add_participant':
+      return 'Add participant queued';
+    case 'remove_participant':
+      return 'Remove participant queued';
+    case 'create_chat':
+    case 'update_chat':
+    case 'set_group_icon':
+    case 'remove_group_icon':
+    case 'delete_message':
+    case 'mark_alerts_read':
+      return 'iMessage action queued';
+    default: {
+      const exhaustive: never = commandType;
+      return exhaustive;
+    }
+  }
+}
 
 export function useImessageConnectorState() {
   return useQuery({
@@ -42,11 +78,11 @@ export function useImessageControl() {
         ...request,
         idempotencyKey: request.idempotencyKey ?? crypto.randomUUID(),
       }),
-    onSuccess: (result) => {
-      toast({
-        title: 'iMessage action queued',
-        description: `Command ${result.commandId} is ${getCommandStatusLabel(result.status).toLowerCase()}.`,
-      });
+    onSuccess: (_result, variables) => {
+      const title = queuedActionLabel(variables.commandType);
+      if (title) {
+        toast({ title });
+      }
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: imessageKeys.commands() }),
         queryClient.invalidateQueries({ queryKey: imessageKeys.connector() }),

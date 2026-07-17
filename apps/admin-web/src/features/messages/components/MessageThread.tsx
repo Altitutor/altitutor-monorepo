@@ -6,9 +6,8 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
-import { X, File, Download, Music, Play, Pause, AlertTriangle } from 'lucide-react';
-import { Input, Button, Badge, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, type JSONContent } from '@altitutor/ui';
-import { cn } from '@/shared/utils';
+import { X, File, Download, Music, Play, Pause } from 'lucide-react';
+import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -776,54 +775,6 @@ export function MessageThread({
                     )}
                     
                     <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
-                      {!hideAddIssueHover && (
-                        <div className={cn(
-                          "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-10",
-                          direction === 'OUTBOUND' ? "right-full mr-2" : "left-full ml-2"
-                        )}>
-                          {matchedIssues.length === 0 ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
-                              onClick={handleCreateIssue}
-                              title="Open issue"
-                              disabled={isIssueActionLoading}
-                            >
-                              <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
-                            </Button>
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
-                                  title="Open issue"
-                                  disabled={isIssueActionLoading}
-                                >
-                                  <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align={direction === 'OUTBOUND' ? 'end' : 'start'}>
-                                <DropdownMenuItem onClick={handleCreateIssue}>
-                                  Create new issue
-                                </DropdownMenuItem>
-                                {matchedIssues.map((issue) => (
-                                  <DropdownMenuItem
-                                    key={issue.id}
-                                    onClick={() => handleAddToIssue(issue)}
-                                  >
-                                    <span className="mr-1">Add to open issue:</span>
-                                    {issue.name ?? ''}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      )}
-
                       {/* Sender badge for outbound messages */}
                       {direction === 'OUTBOUND' && m.sender && (
                         <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
@@ -880,12 +831,18 @@ export function MessageThread({
                         {direction === 'OUTBOUND' && m.status && (
                           <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
                         )}
-                        {m.imessage_guid && !m.is_reaction && (
+                        {!m.is_reaction && (
                           <ImessageMessageActions
                             messageId={m.id}
+                            conversationId={m.conversation_id}
                             imessageGuid={m.imessage_guid}
                             body={m.body}
                             isOwnMessage={direction === 'OUTBOUND'}
+                            showCreateIssue={!hideAddIssueHover}
+                            matchedIssues={matchedIssues}
+                            issueActionLoading={isIssueActionLoading}
+                            onCreateIssue={handleCreateIssue}
+                            onAddToIssue={handleAddToIssue}
                           />
                         )}
                       </div>
