@@ -18,6 +18,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
+import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { computeMarketingPlanPricing } from "@/features/subscription/lib/marketing-plan-pricing";
@@ -34,6 +35,7 @@ import {
   type UcatBillingInterval,
 } from "@altitutor/shared";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { resolveExistingSubscriberDestination } from "@/features/subscription/lib/resolve-checkout-entry";
 
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const stripePromise = stripeKey ? loadStripe(stripeKey) : Promise.resolve(null);
@@ -121,6 +123,10 @@ export function CheckoutPage() {
     data: config = defaultPublicSubscriptionConfig,
     isPending: configLoading,
   } = usePublicSubscriptionConfig();
+  const {
+    data: billingData,
+    isPending: billingLoading,
+  } = useUcatSubscriptionBilling();
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
     null,
   );
@@ -139,6 +145,17 @@ export function CheckoutPage() {
       router.replace("/subscribe");
       return;
     }
+    if (billingLoading) return;
+
+    const existingSubscriberDestination = resolveExistingSubscriberDestination(
+      billingData?.subscriptions ?? [],
+      tier,
+    );
+    if (existingSubscriberDestination) {
+      router.replace(existingSubscriberDestination);
+      return;
+    }
+
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
     void createUcatCheckoutSession({
@@ -166,7 +183,15 @@ export function CheckoutPage() {
             : "Checkout could not be loaded",
         );
       });
-  }, [context, interval, referralGiftId, router, tier]);
+  }, [
+    billingData?.subscriptions,
+    billingLoading,
+    context,
+    interval,
+    referralGiftId,
+    router,
+    tier,
+  ]);
 
   if (!tier || !interval) {
     return null;
@@ -243,6 +268,8 @@ export function CheckoutPage() {
                 <p className="rounded-xl bg-amber-500/10 p-4 text-sm text-amber-200">
                   Stripe checkout is not configured in this environment.
                 </p>
+              ) : billingLoading ? (
+                <CheckoutFieldsSkeleton />
               ) : checkoutError ? (
                 <p className="rounded-xl bg-red-500/10 p-4 text-sm text-red-200">
                   {checkoutError}
