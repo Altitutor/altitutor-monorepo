@@ -2,20 +2,18 @@
 
 import { Gauge, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { getQuotaAreaForPathname } from "@/features/ucat-access/lib/quota-area-for-pathname";
-import {
-  formatQuotaUsageCompact,
-} from "@/features/ucat-access/lib/format-quota-period";
+import { formatQuotaUsageCompact } from "@/features/ucat-access/lib/format-quota-period";
 import { HeaderStatusPill } from "@/shared/components/header-status-pill";
 
 export function QuotaHeaderPill() {
   const pathname = usePathname();
   const area = getQuotaAreaForPathname(pathname);
   const { data, isLoading } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
   if (isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {

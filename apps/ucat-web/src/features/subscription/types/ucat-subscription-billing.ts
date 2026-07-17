@@ -9,6 +9,10 @@ export type UcatSubscriptionDetails = {
   stripe_price_id: string | null;
   plan_tier: string | null;
   billing_interval: string | null;
+  billing_recovery_invoice_id: string | null;
+  billing_recovery_started_at: string | null;
+  billing_recovery_next_attempt_at: string | null;
+  billing_recovery_requires_action: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -21,6 +25,7 @@ export type UcatSubscriptionInvoiceItem = {
 
 export type UcatSubscriptionInvoice = {
   id: string;
+  stripe_invoice_id: string | null;
   invoice_date: string | null;
   status: string | null;
   paid_at: string | null;

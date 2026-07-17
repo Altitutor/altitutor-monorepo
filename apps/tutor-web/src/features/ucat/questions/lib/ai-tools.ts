@@ -14,7 +14,7 @@ export const AiToolQuestionStemPayloadSchema = z.object({
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
   stemText: z.unknown(),
-  isPrivate: z.boolean().default(true),
+  accessScope: z.enum(['public', 'private']).default('public'),
   questions: z.array(
     z.object({
       questionText: z.unknown(),
@@ -225,14 +225,20 @@ export function writtenQuestionToFormValue(
 }
 
 export function findMissingExplanations(
-  stem: Pick<UcatQuestionStemFormValues, 'questions'>,
+  stem: {
+    questions: Array<{
+      questionType: 'multiple_choice' | 'syllogism'
+      answerExplanation?: unknown
+      options: Array<{ answerExplanation?: unknown }>
+    }>
+  },
   stemIndex?: number
 ): MissingExplanationTarget[] {
   const targets: MissingExplanationTarget[] = []
   stem.questions.forEach((question, questionIndex) => {
     if (question.questionType === 'syllogism') {
       question.options.forEach((option, optionIndex) => {
-        if (!hasRichTextContent(option.answerExplanation ?? null)) {
+        if (!hasRichTextContent((option.answerExplanation ?? null) as Json | null)) {
           targets.push({
             stemIndex,
             questionIndex,
@@ -244,7 +250,7 @@ export function findMissingExplanations(
       })
       return
     }
-    if (!hasRichTextContent(question.answerExplanation ?? null)) {
+    if (!hasRichTextContent((question.answerExplanation ?? null) as Json | null)) {
       targets.push({ stemIndex, questionIndex, questionNumber: questionIndex + 1, kind: 'question' })
     }
   })

@@ -11,6 +11,12 @@ const EVENT_TYPES = new Set([
   "checkout_failed",
   "change_plan_clicked",
   "continued_free",
+  "free_plan_selected",
+  "cancellation_dialog_opened",
+  "cancellation_abandoned",
+  "cancellation_confirmed",
+  "cancellation_accelerated",
+  "cancellation_reversed",
   "quota_upsell_shown",
   "quota_upsell_converted",
 ]);
@@ -20,6 +26,7 @@ const CONTEXTS = new Set([
   "subscribe",
   "practice_session",
   "quota_paywall",
+  "subscription_settings",
 ]);
 
 export async function POST(request: NextRequest) {
@@ -47,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   const { data: student } = await supabaseAdmin
     .from("students")
-    .select("id, ucat_unlimited_trial_consumed_at")
+    .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
   if (!student) {
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
       journey_variant: "baseline_v1",
       plan_tier: planTier,
       billing_interval: billingInterval,
-      trial_eligible: student.ucat_unlimited_trial_consumed_at == null,
+      trial_eligible: false,
       stripe_checkout_session_id:
         typeof body.checkoutSessionId === "string"
           ? body.checkoutSessionId.slice(0, 255)

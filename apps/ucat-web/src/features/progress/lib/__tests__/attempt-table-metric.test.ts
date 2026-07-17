@@ -67,7 +67,7 @@ describe("attempt-table-metric", () => {
       formatAttemptTableMetricValue("time_taken", attempt, "practice"),
     ).toBe("25:00");
     expect(formatAttemptTableMetricValue("exam_speed", attempt, "set")).toBe(
-      "120.0%",
+      "1.2x",
     );
   });
 

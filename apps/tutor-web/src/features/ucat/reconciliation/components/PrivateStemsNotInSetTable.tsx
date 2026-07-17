@@ -72,9 +72,7 @@ export function PrivateStemsNotInSetTable({
   const staffSets = useMemo(
     () =>
       (setsQuery.data ?? []).filter(
-        (s) =>
-          !(s as { is_student_generated?: boolean; deleted_at?: string | null }).is_student_generated &&
-          (s as { deleted_at?: string | null }).deleted_at == null
+        (s) => (s as { deleted_at?: string | null }).deleted_at == null
       ),
     [setsQuery.data]
   )

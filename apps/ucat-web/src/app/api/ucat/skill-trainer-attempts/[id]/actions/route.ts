@@ -24,7 +24,7 @@ export async function POST(
     return NextResponse.json({ attempt: state });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Action failed";
-    if (message === "ATTEMPT_NOT_FOUND") {
+    if (message === "ATTEMPT_NOT_FOUND" || message === "TRAINER_NOT_FOUND") {
       return NextResponse.json({ error: message }, { status: 404 });
     }
     return NextResponse.json({ error: message }, { status: 400 });

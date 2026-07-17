@@ -1,105 +1,83 @@
-# Bulletproof React Refactoring Priorities
+# Refactoring Priorities (Impact-First)
 
-Source: [Bulletproof React](https://github.com/alan2207/bulletproof-react) - project structure, project standards, components, API layer, state management, performance.
+Goal: turn AI-generated / messy React into maintainable feature-first code.  
+Rank by **pain and risk**, not Bulletproof purity. Apply the Impact Gate from `SKILL.md` before anything is P0/P1.
 
-## Priority Order
+Patterns how-to: `.cursor/skills/99-bulletproof-react-patterns/SKILL.md`
 
-### P0 - Critical (Fix Immediately)
+## P0 – Fix now
 
-These cause tight coupling, bugs, or significant performance problems.
+Only when it causes bugs, stale/incorrect data, build/runtime failures, or a clear footgun.
 
-| Antipattern | Why Critical | Refactor Action |
-|-------------|--------------|-----------------|
-| **Cross-feature imports** | Tight coupling, hard to test, circular deps risk | Move to `shared/` or compose at app level |
-| **Circular dependencies** | Runtime failures, hard to debug, build issues | Break cycle: extract shared code, invert dependency |
-| **Business logic in components** | Risks bugs, hard to test, duplication. Data transforms/calculations in render | Extract to hook or util |
-| **useEffect for data fetching** | No caching, no loading/error states, duplicate requests, stale data | Create React Query hook + api/ layer |
-| **Server state in local state** | Stale data, no cache, manual sync | Use React Query for server data |
+| Issue | Why | Action |
+|-------|-----|--------|
+| **Circular dependencies that break builds/runtime** | Real failures, hard to debug | Break cycle: extract shared, invert dep, or compose at app |
+| **`useEffect` + local state for server data** | No cache, duplicate requests, race/stale bugs | `api/` + TanStack Query hook |
+| **Server state treated as client store** (Zustand/`useState` mirroring API) | Manual sync, stale UI | React Query as source of truth |
+| **Incorrect data ownership / cache bugs** | Wrong UI, hard regressions | Fix query keys, invalidation, single owner |
 
-### P1 - High (Fix Soon)
+## P1 – High maintainability tax
 
-These hurt maintainability and developer experience significantly.
+Blocks shipping or safe change in an area you care about.
 
-| Antipattern | Why High | Refactor Action |
-|-------------|----------|-----------------|
-| **Large components (> 300 lines)** | Hard to understand, test, modify | Split into smaller components + hook |
-| **Missing React Query hooks** | Components fetching directly | Create `use[Resource]Query` in hooks/ |
-| **Type safety (`any` types)** | Runtime errors, poor DX | Replace with interfaces or `unknown` + guards |
-| **Prop drilling > 3 levels** | Brittle, hard to change | Context or composition |
+| Issue | Why | Action |
+|-------|-----|--------|
+| **God modules** (many responsibilities — not line count alone) | Hard to change without breakage | Split by responsibility: hook / UI pieces / pure utils |
+| **Critical domain logic untestable or buried in JSX** | Regressions when editing | Extract to hook/util; add tests only if behavior is non-obvious |
+| **`any` / untyped data on important boundaries** (API payloads, shared contracts) | Runtime surprises | Types, Zod where runtime validation matters |
+| **Accidental cross-feature coupling that blocks a change or creates a cycle** | Coupling tax | Compose at route/app, or move truly shared code — **not** every `@/features/X` import |
 
-### P2 - Medium (Fix When Convenient)
+## P2 – Opportunistic (when already in the file / approved)
 
-These improve structure, testability, and minor performance.
+| Issue | Why | Action |
+|-------|-----|--------|
+| Missing `api/` / `hooks/` / `types/` when the feature clearly needs them | Findability | Add only what’s needed |
+| SoC violations (API returning JSX, hooks with JSX, utils with side effects) | Confusion | Split layers |
+| Real duplicated **domain** logic (same rules/formatters copied) | Drift | Shared util / feature util / `packages/shared` |
+| AI slop (dead code, over-wrappers, pointless abstractions, noise comments) | Cognitive load | Delete |
+| Components that are hard to read **because of mixed concerns** | DX | Extract; ignore pure line-count thresholds |
 
-| Antipattern | Why Medium | Refactor Action |
-|-------------|------------|-----------------|
-| **Components 200-300 lines** | Borderline, consider splitting | Extract sub-components or logic |
-| **Barrel imports (internal)** | Worse tree-shaking, larger bundles | Use direct imports within feature |
-| **Missing feature structure** | Inconsistent, harder to find code | Add api/, hooks/, types/ as needed |
-| **Expensive computation in render** | Unnecessary re-renders | useMemo/useCallback or extract |
-| **Separation of concerns** | API with UI logic, hooks with rendering, utils with side effects | Split into api/, components/, hooks/, utils/ |
-| **Missing tests** | Untested components/hooks risk regressions | Add *.test.tsx for components, *.test.ts for hooks/utils |
-| **DRY violations** | Duplicated logic increases maintenance burden | Extract to shared util, hook, or component |
+## Usually skip (demote / omit from plans)
 
-### P3 - Low (Nice to Have)
+| Issue | Why skip |
+|-------|----------|
+| **Blanket cross-feature imports** in a CRM (sessions↔students↔tasks) | Often intentional; mass-decouple creates worse abstractions |
+| **Line-count-only splits** (>200 / >300) | Weak proxy; fragmentation ≠ clarity |
+| **Missing-test inventory** (“every component needs a test”) | Noise; prefer tests on critical paths you’re changing |
+| **Add `useMemo` / `useCallback` by default** | Conflicts with modern React / repo guidance; only for proven expensive work or eslint necessity |
+| **Internal barrel-import churn** | Tiny win vs Next bundling; not session-worthy |
+| **Docs / style-only** | P3; only if user asks |
 
-| Antipattern | Why Low | Refactor Action |
-|-------------|---------|-----------------|
-| **Documentation** | Helps onboarding | Add JSDoc, comments |
-| **Code organization** | Minor readability | Reorder, group related code |
-| **Code style** | Consistency | Linter/formatter |
+## Cross-feature imports — nuance
 
-## Bulletproof React Principles (Summary)
+Bulletproof recommends independent features. In this monorepo, many cross-feature imports are **intentional domain composition**.
 
-### Architecture
-- **Feature-first**: Code in `features/[name]/` with api/, components/, hooks/, types/
-- **No cross-feature imports**: Compose at app level or use shared/
-- **Unidirectional**: shared → features → app (features don't import from app)
+**Flag only when:**
+- Import creates or risks a **cycle**
+- Feature B is used as a junk drawer for Feature A’s internals
+- You’re about to change the boundary and coupling is the blocker
 
-### Components
-- **< 200 lines** ideally; extract nested render functions to separate components
-- **Colocate** as close as possible to usage
-- **Limit props**: Use composition (children/slots) if too many props
-- **Pure UI**: No business logic, no data fetching in components
+**Prefer:**
+- Compose at `app/` / route level when wiring UI from two features
+- Move **truly shared** UI/utils to `shared/` or `packages/shared` / `packages/ui`
+- Enforce **new** violations with ESLint `import/no-restricted-paths` rather than rewriting the world
 
-### Data Fetching
-- **React Query** for all server data (never useEffect for fetch)
-- **API layer**: Pure fetcher functions in api/, hooks wrap them with useQuery/useMutation
-- **Single API client** instance, predefined config
+**Do not:** open a campaign to eliminate every `@/features/...` import across admin-web.
 
-### State
-- **Server state**: React Query (cache)
-- **Form state**: React Hook Form
-- **Global client state**: Zustand (when needed across features)
-- **Local UI state**: useState
-- **URL state**: Route params / query params
+## Next.js App Router notes
 
-### Performance
-- **State location**: Keep state close to where it's used (fewer re-renders)
-- **Children optimization**: Use `children` prop to isolate re-renders
-- **Lazy init**: `useState(() => expensiveFn())` for expensive initial state
-- **Code splitting**: At route level, not excessive
-- **Zero-runtime styling**: Prefer Tailwind/CSS modules over styled-components at runtime
+- Prefer Server Components / route-level data where it fits; client components for interactivity
+- Don’t force “everything in a client `useXQuery`” if the page can load data on the server cleanly
+- Keep TanStack Query for client cache, mutations, and interactive refetch needs
 
-### Types
-- **No `any`**: Use proper types or `unknown` + type guards
-- **Absolute imports**: `@/` for src
-- **Validation**: Zod for runtime validation when needed
+## Principles (summary)
 
-### Separation of Concerns
-- **Components**: Pure UI only – no API calls, no business logic, no side effects
-- **API layer**: Pure data fetching – no UI, no React hooks
-- **Hooks**: Stateful logic and data fetching (React Query) – no JSX
-- **Utils**: Pure functions – no side effects, no state
-- **One responsibility per file**: Avoid mixing API + component, or util + component
+- Feature-first folders; only create subfolders you need
+- Components: UI + interaction; hooks: state/fetch orchestration; `api/`: pure fetchers; utils: pure
+- Server state → React Query (or RSC); local UI → `useState`; forms → RHF; rare global client → Zustand
+- Preserve behavior unless fixing a bug the user approved
+- Delete AI noise before adding structure
 
-### Testing
-- **Test components**: React Testing Library, test behavior not implementation
-- **Test hooks**: With QueryClient wrapper for React Query
-- **Test utils**: Unit tests for pure functions
-- **Colocate tests**: `*.test.tsx` next to component, or in `__tests__/`
+## P3 – Nice to have
 
-### DRY (Don't Repeat Yourself)
-- **Extract repeated logic**: Same filter/map/reduce across components → util
-- **Shared formatters**: Use `shared/utils` or feature utils for date/currency/name formatting
-- **Compose components**: Don't copy-paste UI blocks – extract reusable component
+Documentation, minor reordering, pure style — only on request.

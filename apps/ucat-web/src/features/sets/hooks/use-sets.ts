@@ -2,7 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  getAccessibleStudentSets,
   getAttemptedSetIds,
+  getStudentSet,
   getSetAttempts,
   getSetQuestionCount,
   getStudentSets,
@@ -12,6 +14,21 @@ export function useSets() {
   return useQuery({
     queryKey: ["ucat", "student-sets"],
     queryFn: getStudentSets,
+  });
+}
+
+export function useAccessibleSets() {
+  return useQuery({
+    queryKey: ["ucat", "accessible-student-sets"],
+    queryFn: getAccessibleStudentSets,
+  });
+}
+
+export function useSet(setId: string | null) {
+  return useQuery({
+    queryKey: ["ucat", "student-set", setId],
+    queryFn: () => (setId ? getStudentSet(setId) : Promise.resolve(null)),
+    enabled: !!setId,
   });
 }
 

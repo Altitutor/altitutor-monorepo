@@ -9,9 +9,12 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  navHoverStyles,
+  navItemTransitionStyles,
 } from '@altitutor/ui';
 import { Zap, Plus } from 'lucide-react';
 import { getBookingActions, getNonBookingActions } from '@/shared/constants/quickActions';
+import { cn } from '@/shared/utils';
 
 type QuickActionsMenuProps = {
   variant?: 'floating' | 'inline';
@@ -28,7 +31,11 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="h-9 w-9 rounded-md border bg-background hover:bg-accent/20 inline-flex items-center justify-center"
+            className={cn(
+              'h-9 w-9 rounded-md border bg-background inline-flex items-center justify-center',
+              navItemTransitionStyles,
+              navHoverStyles
+            )}
             title="Quick Notes"
             aria-label="Quick Notes"
           >

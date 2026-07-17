@@ -15,6 +15,11 @@ import {
   type QuestionEngineExam,
   type QuestionStemWithQuestions,
 } from "@/features/question-engine/model/types";
+import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
+import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
+import { useAttemptReviewTracking } from "../hooks/use-attempt-review-tracking";
+import { AttemptReviewProgress } from "./attempt-review-progress";
+import { buildAttemptOverallInsight } from "../lib/attempt-insights";
 
 type PracticeAttemptDetailPageProps = {
   attemptId: string;
@@ -67,10 +72,40 @@ export function PracticeAttemptDetailPage({
   backLabel = "Back to progress",
 }: PracticeAttemptDetailPageProps) {
   const { data, isLoading, error } = usePracticeAttemptDetail(attemptId);
+  useMarkFirstResultReviewed(Boolean(data));
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
+  const requiredQuestionIds = useMemo(
+    () =>
+      (data?.questionAttempts ?? [])
+        .filter((question) => question.result !== "correct")
+        .map((question) => question.questionId),
+    [data?.questionAttempts],
+  );
+  const reviewTracking = useAttemptReviewTracking({
+    attemptType: "practice_session",
+    attemptId,
+    requiredQuestionIds,
+    selectedQuestionId:
+      data?.questionAttempts[selectedQuestionIndex]?.questionId ?? null,
+    ready: Boolean(data),
+  });
+  useCompleteStudyPlanReview(Boolean(reviewTracking.review?.completedAt));
+  const reviewNextIncorrect = reviewTracking.nextUnviewedQuestionId
+    ? () => {
+        const index = data?.questionAttempts.findIndex(
+          (question) =>
+            question.questionId === reviewTracking.nextUnviewedQuestionId,
+        );
+        if (index == null || index < 0) return;
+        setSelectedQuestionIndex(index);
+        document
+          .getElementById("attempt-review-questions")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    : null;
 
   const categoryBreakdown = useMemo(
     () => computeCategoryBreakdown(data?.questionAttempts ?? []),
@@ -133,6 +168,12 @@ export function PracticeAttemptDetailPage({
 
   const total = data.totalPoints ?? 0;
   const points = data.scorePoints ?? 0;
+  const overallInsight = buildAttemptOverallInsight({
+    accuracyPercent: total > 0 ? (points / total) * 100 : null,
+    averageTimePerQuestionSeconds:
+      practiceTiming?.averageTimePerQuestionSeconds ?? null,
+    recentPerformance: data.recentPerformance,
+  });
 
   return (
     <motion.div
@@ -151,6 +192,17 @@ export function PracticeAttemptDetailPage({
       </motion.div>
 
       <motion.div variants={itemVariants}>
+        <AttemptReviewProgress
+          review={reviewTracking.review}
+          pending={reviewTracking.isPending}
+          error={reviewTracking.error}
+          onFinish={reviewTracking.completeManually}
+          onReviewNext={reviewNextIncorrect}
+          insight={overallInsight}
+        />
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
         <AttemptReviewSummaryGrid
           points={points}
           total={total}
@@ -162,7 +214,7 @@ export function PracticeAttemptDetailPage({
         />
       </motion.div>
 
-      <motion.div variants={itemVariants}>
+      <motion.div id="attempt-review-questions" variants={itemVariants}>
         <SetAnswersCard
           questionAttempts={data.questionAttempts}
           exam={examFromStems}

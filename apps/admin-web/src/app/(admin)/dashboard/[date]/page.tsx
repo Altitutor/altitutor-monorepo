@@ -13,7 +13,7 @@ import {
   CardTitle,
   SegmentedControl,
 } from '@altitutor/ui';
-import { Check, ChevronLeft, ChevronRight, CloudOff, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CloudOff, ExternalLink, Loader2, Plus } from 'lucide-react';
 import { TodaySessionsView } from '@/features/sessions/components/TodaySessionsView';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
@@ -22,9 +22,11 @@ import { IssuesList } from '@/features/issues/components/IssuesList';
 import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
 import { DashboardReconciliationCard } from '@/features/reconciliation/components/DashboardReconciliationCard';
+import { DashboardReportsCard } from '@/features/reports/components/DashboardReportsCard';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
 import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { clickableCardFocusRingCn, clickableCardHoverCn, cn } from '@/shared/utils';
 
 type ViewMode = 'calendar' | 'table';
@@ -221,6 +223,7 @@ function AdminMeetingItem({
 }
 
 function AdminMeetingsCard({ onOpenSession }: { onOpenSession: (sessionId: string) => void }) {
+  const { openCheckInModal } = useQuickActions();
   const { data, isLoading, error } = useSessionsWithDetails({
     includeInactive: false,
     types: ['ADMIN_MEETING'],
@@ -286,8 +289,17 @@ function AdminMeetingsCard({ onOpenSession }: { onOpenSession: (sessionId: strin
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-dashed px-3 py-3 text-sm text-muted-foreground">
-                  No upcoming admin meetings.
+                <div className="rounded-md border border-dashed px-3 py-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => openCheckInModal(null, 'ADMIN_MEETING')}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Schedule admin meeting
+                  </Button>
                 </div>
               )}
             </div>
@@ -394,39 +406,41 @@ export default function DashboardDatePage({ params }: { params: { date: string }
         </div>
       </div>
 
-      <Card className="flex flex-col overflow-hidden">
-        <DashboardCardHeader
-          title="Sessions"
-          href={sessionsPageHref}
-          linkLabel="Sessions"
-          action={
-            <SegmentedControl
-              value={sessionsViewMode}
-              onValueChange={(v) => setSessionsViewMode(v as ViewMode)}
-              options={[
-                { value: 'table', label: 'Table' },
-                { value: 'calendar', label: 'Calendar' },
-              ]}
-            />
-          }
-        />
-        <CardContent className="overflow-auto p-0">
-          <TodaySessionsView
-            date={dateStr}
-            viewMode={sessionsViewMode}
-            onOpenSession={handleSessionClick}
-            embedTable
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+        <Card className="flex flex-col overflow-hidden md:col-span-2">
+          <DashboardCardHeader
+            title="Sessions"
+            href={sessionsPageHref}
+            linkLabel="Sessions"
+            action={
+              <SegmentedControl
+                value={sessionsViewMode}
+                onValueChange={(v) => setSessionsViewMode(v as ViewMode)}
+                options={[
+                  { value: 'table', label: 'Table' },
+                  { value: 'calendar', label: 'Calendar' },
+                ]}
+              />
+            }
           />
-        </CardContent>
-      </Card>
+          <CardContent className="overflow-auto p-0">
+            <TodaySessionsView
+              date={dateStr}
+              viewMode={sessionsViewMode}
+              onOpenSession={handleSessionClick}
+              embedTable
+            />
+          </CardContent>
+        </Card>
+
+        <DashboardReportsCard />
+      </div>
 
       <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
         <DailyNoteCard date={dateStr} />
         <DashboardReconciliationCard />
         <AdminMeetingsCard onOpenSession={handleSessionClick} />
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         <Card className="flex max-h-[520px] flex-col overflow-hidden">
           <DashboardCardHeader title="Tasks" href="/tasks" />
           <CardContent className="min-h-0 flex-1 p-0">
@@ -451,6 +465,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
               defaultFilters={dashboardIssueFilters}
               hideToolbar
               embedView={{ sortBy: 'due_date', sortDirection: 'asc' }}
+              compact
             />
           </CardContent>
         </Card>
@@ -463,6 +478,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
               defaultFilters={dashboardProjectFilters}
               hideToolbar
               embedView={{ sortBy: 'priority', sortDirection: 'asc', secondarySortBy: 'target_date' }}
+              compact
             />
           </CardContent>
         </Card>

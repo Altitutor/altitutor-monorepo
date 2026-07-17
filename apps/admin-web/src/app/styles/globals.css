@@ -108,15 +108,35 @@
 
 }
 
-/* Temporary highlight when jumping to heading or search result in notes */
+/* Temporary highlight when jumping to heading or search result in notes.
+   Matches translucent nav selected fill (muted / white overlay), then fades out. */
 .note-jump-highlight {
-  @apply rounded px-0.5;
+  @apply rounded-md;
+  background-color: hsl(var(--muted));
   animation: note-highlight-fade 2s ease-out forwards;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.dark .note-jump-highlight {
+  background-color: rgb(255 255 255 / 0.11);
+  animation-name: note-highlight-fade-dark;
 }
 
 @keyframes note-highlight-fade {
-  0% {
-    background-color: hsl(var(--primary) / 0.35);
+  0%,
+  30% {
+    background-color: hsl(var(--muted));
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes note-highlight-fade-dark {
+  0%,
+  30% {
+    background-color: rgb(255 255 255 / 0.11);
   }
   100% {
     background-color: transparent;

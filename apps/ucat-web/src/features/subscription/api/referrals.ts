@@ -1,9 +1,11 @@
 export type UcatReferralSummary = {
   code: string;
   stats: {
-    signups: number;
-    freeQualified: number;
-    paidQualified: number;
+    friendsJoined: number;
+    giftsAccepted: number;
+    giftsPending: number;
+    availableFreePeriods: number;
+    usedFreePeriods: number;
     queuedFreeBills: number;
     redeemedFreeBills: number;
   };

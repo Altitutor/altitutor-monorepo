@@ -8,13 +8,17 @@ import { SkeletonTimeSlotGrid } from '@altitutor/ui';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
-import { cn } from '@/shared/utils';
+import { cn, navActiveStyles, navHoverStyles, navItemTransitionStyles } from '@/shared/utils';
 import { ContactUsDialog } from './ContactUsDialog';
+
+const DATE_JUMP_HIGHLIGHT_MS = 1600;
 
 interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   subjectId?: string;
   durationMinutes?: number;
+  /** Minimum advance booking days; should match booking_settings.min_advance_booking_days */
+  minAdvanceDays?: number;
   onSlotSelect: (startAt: string, endAt: string, availableStaffIds: string[]) => void;
   selectedSlot?: { startAt: string; endAt: string } | null;
   className?: string;
@@ -25,14 +29,13 @@ export function TimeSlotPicker({
   sessionType,
   subjectId,
   durationMinutes = 60,
+  minAdvanceDays = 1,
   onSlotSelect,
   selectedSlot,
   className,
   allowAnonymous: _allowAnonymous = false,
 }: TimeSlotPickerProps) {
-  // Calculate minimum booking date (today + 1 day minimum advance, can be configured)
-  // For now, we'll use 1 day minimum - this should match the database setting
-  const minAdvanceDays = 1;
+  // Minimum booking date matches get_available_slots / booking_settings.min_advance_booking_days
   const today = new Date();
   const minBookingDate = addDays(today, minAdvanceDays);
   const minBookingWeekStart = startOfWeek(minBookingDate, { weekStartsOn: 1 });
@@ -42,6 +45,9 @@ export function TimeSlotPicker({
     const todayWeekStart = startOfWeek(today, { weekStartsOn: 1 });
     return isBefore(minBookingWeekStart, todayWeekStart) ? todayWeekStart : minBookingWeekStart;
   });
+  // Keep the date picker on the date the user jumped to (not always the Monday).
+  const [pickerDate, setPickerDate] = useState(() => format(currentWeekStart, 'yyyy-MM-dd'));
+  const [highlightedDateKey, setHighlightedDateKey] = useState<string | null>(null);
   
   const weekDays = useMemo(() => {
     // Show all days of the week, don't filter out past dates
@@ -101,11 +107,20 @@ export function TimeSlotPicker({
         // Only jump if it's different from current week
         if (earliestWeekStart.getTime() !== currentWeekStart.getTime()) {
           setCurrentWeekStart(earliestWeekStart);
+          setPickerDate(format(earliestWeekStart, 'yyyy-MM-dd'));
         }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, allSlots]);
+
+  useEffect(() => {
+    if (!highlightedDateKey) return;
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedDateKey(null);
+    }, DATE_JUMP_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [highlightedDateKey]);
 
   // Group slots by date and filter out past slots
   const slotsByDate = useMemo(() => {
@@ -171,11 +186,30 @@ export function TimeSlotPicker({
     return selectedSlot?.startAt === slot.start_at && selectedSlot?.endAt === slot.end_at;
   };
 
+  const navigateToWeek = (nextWeekStart: Date, displayDate: Date) => {
+    const clampedWeekStart = isBefore(nextWeekStart, minBookingWeekStart)
+      ? minBookingWeekStart
+      : nextWeekStart;
+    setCurrentWeekStart(clampedWeekStart);
+    setPickerDate(format(displayDate, 'yyyy-MM-dd'));
+  };
+
   const handleDateJump = (value: string | null) => {
     if (!value) return;
     const selectedDate = parseISO(value);
     const selectedWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    setCurrentWeekStart(isBefore(selectedWeekStart, minBookingWeekStart) ? minBookingWeekStart : selectedWeekStart);
+    navigateToWeek(selectedWeekStart, selectedDate);
+    setHighlightedDateKey(format(selectedDate, 'yyyy-MM-dd'));
+  };
+
+  const handlePreviousWeek = () => {
+    const nextWeekStart = addDays(currentWeekStart, -7);
+    navigateToWeek(nextWeekStart, nextWeekStart);
+  };
+
+  const handleNextWeek = () => {
+    const nextWeekStart = addDays(currentWeekStart, 7);
+    navigateToWeek(nextWeekStart, nextWeekStart);
   };
 
   return (
@@ -186,7 +220,7 @@ export function TimeSlotPicker({
           variant="outline"
           size="sm"
           className={studentBtnOutline}
-          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
+          onClick={handlePreviousWeek}
           disabled={isBefore(currentWeekStart, minBookingWeekStart) || isSameDay(currentWeekStart, minBookingWeekStart)}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -194,9 +228,10 @@ export function TimeSlotPicker({
         </Button>
         
         <SmartDatePickerField
-          value={format(currentWeekStart, 'yyyy-MM-dd')}
+          value={pickerDate}
           onChange={handleDateJump}
           minDate={format(minBookingDate, 'yyyy-MM-dd')}
+          placeholder="Type a date"
           className="h-9 w-[13rem] text-center"
         />
         
@@ -204,7 +239,7 @@ export function TimeSlotPicker({
           variant="outline"
           size="sm"
           className={studentBtnOutline}
-          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
+          onClick={handleNextWeek}
         >
           Next Week
           <ChevronRight className="h-4 w-4" />
@@ -237,18 +272,22 @@ export function TimeSlotPicker({
             const daySlots = slotsByDate[dateKey] || [];
             const isToday = isSameDay(day, new Date());
             const isPastDate = isPast(day) && !isToday;
+            const isJumpHighlighted = highlightedDateKey === dateKey;
 
             return (
               <div key={dateKey} className="space-y-2">
                 {/* Day Header */}
                 <div className={cn(
-                  'text-center text-sm font-medium py-2',
-                  isToday && 'bg-primary text-primary-foreground rounded',
+                  'text-center text-sm font-medium py-2 rounded border border-transparent',
+                  navItemTransitionStyles,
+                  'transition-colors duration-500',
+                  (isToday || isJumpHighlighted) && navActiveStyles,
+                  isJumpHighlighted && 'ring-2 ring-border',
                   isPastDate && 'text-muted-foreground'
                 )}>
                   <div>{format(day, 'EEE')}</div>
-                  <div className={cn('text-xs', isToday && 'text-primary-foreground')}>
-                    {format(day, 'd')}
+                  <div className="text-xs">
+                    {format(day, 'd MMM')}
                   </div>
                 </div>
 
@@ -273,12 +312,13 @@ export function TimeSlotPicker({
                           onClick={() => handleSlotClick(slot)}
                           disabled={!isAvailable}
                           className={cn(
-                            'w-full text-xs py-2 px-2 rounded border transition-colors',
+                            'w-full text-xs py-2 px-2 rounded border border-border',
+                            navItemTransitionStyles,
                             isSelected
-                              ? 'bg-primary text-primary-foreground border-primary'
+                              ? navActiveStyles
                               : isAvailable
-                              ? 'bg-background hover:bg-muted border-border'
-                              : 'bg-muted text-muted-foreground border-border cursor-not-allowed opacity-50'
+                              ? cn('bg-background', navHoverStyles)
+                              : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
                           )}
                         >
                           {formatTime(slot.start_at)}

@@ -8,6 +8,29 @@ export type UcatStudentProgress = Tables<'vtutor_ucat_student_progress_summary'>
 
 export type RichTextJson = Json
 
+export type UcatContentStatus = 'draft' | 'in_review' | 'published'
+export type UcatAccessScope = 'public' | 'private'
+
+export const UCAT_CONTENT_STATUS_OPTIONS: Array<{ value: UcatContentStatus; label: string }> = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'published', label: 'Published' },
+]
+
+export function getUcatContentStatusTransitionOptions(
+  currentStatus: UcatContentStatus,
+): Array<{ value: UcatContentStatus; label: string }> {
+  if (currentStatus === 'draft') {
+    return UCAT_CONTENT_STATUS_OPTIONS.filter((option) => option.value === 'in_review')
+  }
+  return UCAT_CONTENT_STATUS_OPTIONS.filter((option) => option.value !== currentStatus)
+}
+
+export type UcatPublicationIssue = {
+  code: string
+  message: string
+}
+
 export type UcatQuestionFormOption = {
   id?: string
   answerText: RichTextJson
@@ -35,7 +58,7 @@ export type UcatQuestionStemBundlePayload = {
   sectionId: string
   categoryId?: string | null
   stemText: RichTextJson
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   tutorSourceNote?: string | null
   questions: UcatQuestionFormItem[]
@@ -46,15 +69,14 @@ export type UcatQuestionSetPayload = {
   name?: RichTextJson | null
   description: string | RichTextJson
   timeLimitSeconds?: number | null
-  isPrivate: boolean
-  isStudentGenerated: boolean
+  accessScope: UcatAccessScope
   stemIds: string[]
 }
 
 export type UcatMockPayload = {
   id?: string | null
   name: string
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   setIds: string[]
   instructionsText?: RichTextJson | null
 }

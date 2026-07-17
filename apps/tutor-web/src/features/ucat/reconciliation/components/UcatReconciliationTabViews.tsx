@@ -7,6 +7,7 @@ import { PendingGeneratedStemsTable } from '@/features/ucat/reconciliation/compo
 import { QuestionsWithNoExplanationTable } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationTable'
 import { UntaggedQuestionsTable } from '@/features/ucat/reconciliation/components/UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from '@/features/ucat/reconciliation/components/PrivateStemsNotInSetTable'
+import { PotentialDuplicatesTable } from '@/features/ucat/reconciliation/components/PotentialDuplicatesTable'
 import { SetsReconciliationTable } from '@/features/ucat/reconciliation/components/SetsReconciliationTable'
 import { MocksWithIncorrectSetsTable } from '@/features/ucat/reconciliation/components/MocksWithIncorrectSetsTable'
 import { useUcatReconciliationHandlers } from '@/features/ucat/reconciliation/components/UcatReconciliationContext'
@@ -15,6 +16,8 @@ import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useR
 function QuestionsTabSkeleton() {
   return (
     <div className="mt-6 space-y-6" aria-busy="true">
+      <SkeletonTable rows={3} columns={5} />
+      <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
@@ -58,7 +61,8 @@ function questionsTabCount(data: NonNullable<ReturnType<typeof useReconciliation
     data.pendingGeneratedStems.length +
     data.questionsWithNoExplanation.length +
     data.untaggedQuestions.length +
-    data.privateStemsNotInSet.length
+    data.privateStemsNotInSet.length +
+    data.potentialDuplicatePairs.length
   )
 }
 
@@ -87,6 +91,7 @@ export function UcatReconciliationQuestionsTab() {
       <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
       <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
       <PrivateStemsNotInSetTable onOpenStemDialog={onOpenStemDialog} onEditSet={onEditSet} />
+      <PotentialDuplicatesTable />
     </div>
   )
 }

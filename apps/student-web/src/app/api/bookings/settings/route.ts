@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       'trial_session_duration_minutes',
       'drafting_session_duration_minutes',
       'subsidy_interview_duration_minutes',
+      'min_advance_booking_days',
     ]);
 
     const isPublicKey = PUBLIC_BOOKING_KEYS.has(settingKey);

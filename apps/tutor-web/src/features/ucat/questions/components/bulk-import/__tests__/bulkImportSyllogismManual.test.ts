@@ -15,7 +15,7 @@ function buildSyllogismStemDraft(): BulkImportStemDraft {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Stem text' }] }],
     },
-    isPrivate: false,
+    accessScope: 'public',
     questions: [
       {
         questionText: {

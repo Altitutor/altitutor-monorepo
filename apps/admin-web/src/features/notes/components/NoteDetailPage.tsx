@@ -24,17 +24,15 @@ import {
   FormControl,
   FormField,
   FormItem,
-  ScrollArea,
   SegmentedControl,
-  SegmentedTabPanelContent,
   useToast,
   type JSONContent,
   type MentionClickDetail,
 } from '@altitutor/ui';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
-import { NotePropertiesPanel } from './NotePropertiesPanel';
+import { NoteDocumentSidebarPanel } from './NoteDocumentSidebarPanel';
 import { NotePropertyPills } from './NotePropertyPills';
-import { NoteTableOfContentsWithLiveTitle } from './NoteTableOfContents';
+import { NoteTableOfContents } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import type { NoteUpdate } from '../types';
@@ -94,10 +92,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const suppressLocalContentEditsUntilRef = useRef(0);
   const isUpdatingFromServerRef = useRef(false);
   const lastTakeoverLockTokenRef = useRef<string | null>(null);
+  const editModePromptClicksRef = useRef(0);
+  const lastEditModePromptAtRef = useRef(0);
+  const editModeToastVisibleRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('outline');
   const [acceptedServerVersion, setAcceptedServerVersion] = useState<string>('');
   const [mode, setMode] = useState<DocumentMode>('view');
   const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
@@ -142,6 +142,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       lastAppliedServerUpdatedAtRef.current = null;
       lastLocalContentEditAtRef.current = 0;
       suppressLocalContentEditsUntilRef.current = 0;
+      editModePromptClicksRef.current = 0;
+      lastEditModePromptAtRef.current = 0;
+      editModeToastVisibleRef.current = false;
       setAcceptedServerVersion('');
       currentNoteIdRef.current = noteId;
     }
@@ -325,10 +328,22 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   const showEditModeToast = useCallback(() => {
     if (isEditing) return;
+    const now = Date.now();
+    // Coalesce pointerdown + focus from the same gesture into one click
+    if (now - lastEditModePromptAtRef.current < 75) return;
+    lastEditModePromptAtRef.current = now;
+    editModePromptClicksRef.current += 1;
+    if (editModePromptClicksRef.current < 2) return;
+    if (editModeToastVisibleRef.current) return;
+    editModeToastVisibleRef.current = true;
     toast({
+      id: 'document-edit-mode-prompt',
       title: 'Switch to edit mode?',
       description: 'This document is currently open in view mode.',
       action: { label: 'Edit', onClick: () => void handleModeChange('edit') },
+      onDismiss: () => {
+        editModeToastVisibleRef.current = false;
+      },
     });
   }, [handleModeChange, isEditing, toast]);
 
@@ -472,8 +487,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               </div>
 
               <div className="md:hidden mb-6">
-                <NoteTableOfContentsWithLiveTitle
-                  control={form.control}
+                <NoteTableOfContents
                   editor={editorInstanceRef.current}
                   collapsible
                 />
@@ -528,49 +542,15 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       </div>
 
       <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-            <SegmentedControl
-              fullWidth
-              value={sidebarTab}
-              onValueChange={(v) => setSidebarTab(v as 'properties' | 'outline')}
-              options={[
-                { value: 'properties', label: 'Properties' },
-                { value: 'outline', label: 'Outline' },
-              ]}
-            />
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
-              <ScrollArea className="flex-1">
-                <div
-                  className="p-6"
-                  onPointerDownCapture={() => {
-                    if (!isEditing) showEditModeToast();
-                  }}
-                >
-                  <NotePropertiesPanel
-                    form={form}
-                    folders={foldersArray}
-                    editable={isEditing}
-                  />
-                </div>
-              </ScrollArea>
-            </SegmentedTabPanelContent>
-
-            <SegmentedTabPanelContent when="outline" activeTab={sidebarTab} className="h-full min-h-0 overflow-hidden flex flex-col">
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="p-6">
-                  <NoteTableOfContentsWithLiveTitle
-                    control={form.control}
-                    editor={editorInstanceRef.current}
-                  />
-                </div>
-              </ScrollArea>
-            </SegmentedTabPanelContent>
-          </div>
-        </div>
+        <NoteDocumentSidebarPanel
+          form={form}
+          folders={foldersArray}
+          editable={isEditing}
+          editor={editorInstanceRef.current}
+          onViewModeInteract={() => {
+            if (!isEditing) showEditModeToast();
+          }}
+        />
       </div>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}

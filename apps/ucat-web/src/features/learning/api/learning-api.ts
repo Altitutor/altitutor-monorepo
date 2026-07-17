@@ -32,6 +32,13 @@ export const learningApi = {
     return parseJson<LearningLessonDetail>(response);
   },
 
+  async startLesson(lessonId: string): Promise<void> {
+    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/start`, {
+      method: "POST",
+    });
+    await parseJson(response);
+  },
+
   async updateBlockProgress(
     blockId: string,
     payload: BlockProgressPayload,

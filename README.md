@@ -1,127 +1,118 @@
 # Altitutor Monorepo
 
-A pnpm-based Turborepo monorepo containing three Next.js applications for Altitutor's platform.
+pnpm + Turborepo workspace for Altitutor's web apps, native student app, and shared packages.
 
 ## Project Structure
 
-This monorepo contains:
-- **`apps/admin-web`**: Admin CRM system (port 3000)
-- **`apps/student-web`**: Student-facing portal (port 3001)
-- **`apps/tutor-web`**: Tutor-facing portal (port 3002)
-- **`packages/shared`**: Shared types and utilities
-- **`packages/ui`**: Shared UI components
+### Apps
+
+- `apps/admin-web`: Admin CRM (port 3000)
+- `apps/student-web`: Student portal (port 3001)
+- `apps/tutor-web`: Tutor portal (port 3002)
+- `apps/marketing-web`: Marketing site (port 3003)
+- `apps/ucat-web`: UCAT student product (port 3004)
+- `apps/student-app`: Expo native student app
+
+### Packages
+
+- `packages/shared`: Shared types and utilities
+- `packages/ui`: Shared UI components
+- `packages/ucat-marking`: UCAT marking logic
 
 ## Getting Started
 
 1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-3. Set up environment variables:
-   - Copy `.env.example` to `.env.local` in each app directory
-   - Fill in the required environment variables
+2. Install dependencies from the repo root:
 
-4. Run all development servers:
-   ```bash
-   pnpm dev
-   ```
+```bash
+pnpm install
+```
 
-   Or run a specific app:
-   ```bash
-   pnpm --filter admin-web dev
-   pnpm --filter student-web dev
-   pnpm --filter tutor-web dev
-   ```
+3. Copy each app's `.env.example` to `.env.local` (or the app's documented env file) and fill in values. See `apps/student-app/README.md` for native env setup, and `secrets/README.md` for deploying shared secrets.
 
-5. Open the apps in your browser:
-   - Admin: [http://localhost:3000](http://localhost:3000)
-   - Student: [http://localhost:3001](http://localhost:3001)
-   - Tutor: [http://localhost:3002](http://localhost:3002)
+4. Start local Supabase (optional but needed for most local API/DB work):
+
+```bash
+supabase start
+supabase db reset
+pnpm db:types
+```
+
+5. Run development servers:
+
+```bash
+pnpm dev
+```
+
+Or one app:
+
+```bash
+pnpm --filter admin-web dev
+pnpm --filter student-web dev
+pnpm --filter tutor-web dev
+pnpm --filter marketing-web dev
+pnpm --filter ucat-web dev
+pnpm --filter @altitutor/student-app start
+```
+
+6. Open in the browser:
+
+- Admin: http://localhost:3000
+- Student: http://localhost:3001
+- Tutor: http://localhost:3002
+- Marketing: http://localhost:3003
+- UCAT: http://localhost:3004
 
 ## Available Scripts
 
-### Root Level (Runs across all apps)
-- `pnpm dev` - Start all development servers
-- `pnpm build` - Build all apps for production
-- `pnpm lint` - Run ESLint across all apps
-- `pnpm lint:fix` - Fix linting errors across all apps
-- `pnpm test` - Run tests across all apps
-- `pnpm test:coverage` - Run tests with coverage
-- `pnpm typecheck` - Type check all apps
-- `pnpm checkall` - Run lint, typecheck, test, and build
-- `pnpm db:types` - Generate TypeScript types from local Supabase schema
-- `pnpm db:types:remote` - Generate TypeScript types from remote Supabase schema
+### Root
 
-### App-Specific Scripts
-Each app has its own scripts (run with `pnpm --filter <app-name> <script>`):
-- `dev` / `dev:local` / `dev:remote` - Start development server
-- `build` - Build for production
-- `start` - Start production server
-- `lint` / `lint:fix` - Run ESLint
-- `test` / `test:watch` / `test:coverage` / `test:e2e` - Run tests
-- `typecheck` - Type check
-- `storybook` - Start Storybook
+- `pnpm dev`: Start all development servers
+- `pnpm build`: Build all apps
+- `pnpm lint` / `pnpm lint:fix`: Lint (and autofix)
+- `pnpm test` / `pnpm test:coverage`: Tests
+- `pnpm typecheck`: TypeScript across the workspace
+- `pnpm checkall`: lint, typecheck, test, then build
+- `pnpm db:types`: Generate TypeScript types from local Supabase
+- `pnpm db:email-templates`: Render email templates
+- `pnpm db:committypes`: Reset local DB, lint schema, regenerate types, commit if changed
 
-## Documentation
+### App-specific
 
-- UI components are built using shadcn/ui - see [components.json](components.json) for configuration
+Run with `pnpm --filter <package-name> <script>`. Common scripts vary by app and may include `dev` / `dev:local` / `dev:remote`, `build`, `start`, `lint`, `test`, `typecheck`, and `storybook`.
 
 ## Row Level Security (RLS)
 
-This project uses Supabase Row Level Security policies based on roles stored in the `staff` table.
+Supabase RLS is based on roles in the `staff` table (and student identity for students).
 
-### User Roles
+### Roles
 
-The system has three user roles:
-- **`ADMINSTAFF`**: Admin users with full read/write access to all base tables
-- **`TUTOR`**: Tutors with read-only access through `vtutor_*` views and write access only through API endpoints
-- **`STUDENT`**: Students with read-only access through `vstudent_*` views and write access only through API endpoints
+- `ADMINSTAFF`: Full read/write on base tables
+- `TUTOR`: Read via `vtutor_*` views; write only through API endpoints
+- `STUDENT`: Read via `vstudent_*` views; write only through API endpoints
 
-### Access Control
+### Helper functions
 
-- **ADMINSTAFF**: Direct access to all base tables with full permissions
-- **TUTOR**: Must use `vtutor_*` views for reads and API endpoints for writes (no direct table access)
-- **STUDENT**: Must use `vstudent_*` views for reads and API endpoints for writes (no direct table access)
+Policies typically use:
 
-### Database Helper Functions
+- `public.is_adminstaff()`
+- `public.is_tutor()`
+- `public.is_staff()`
+- `public.current_staff_id()`
+- `public.current_student_id()`
 
-RLS policies use database functions to check roles:
-- `public.is_adminstaff()` - Checks if current user is ADMINSTAFF
-- `public.is_tutor()` - Checks if current user is TUTOR
-- `public.is_staff()` - Checks if current user is ADMINSTAFF or TUTOR
-- `public.current_staff_id()` - Returns the staff ID for the current user
-- `public.current_student_id()` - Returns the student ID for the current user
-
-These functions query the `staff` table based on `auth.uid()`.
+These resolve against `auth.uid()`.
 
 ## Database Management
 
-### Local Development
+### Local
 
-1. Start local Supabase:
-   ```bash
-   supabase start
-   ```
-
-2. Apply migrations:
-   ```bash
-   supabase db reset
-   ```
-
-3. Generate TypeScript types:
-   ```bash
-   pnpm db:types
-   ```
-
-### Remote Deployment
-
-Migrations are deployed through the CI/CD pipeline. Never apply migrations manually to dev/prod environments.
-
-For generating types from remote database:
 ```bash
-pnpm db:types:remote
+supabase start
+supabase db reset
+pnpm db:types
 ```
 
-Note: Requires `SUPABASE_PROJECT_ID` environment variable to be set.
- 
+### Remote
+
+Migrations go through CI/CD. Do not apply migrations manually to shared development or production databases.

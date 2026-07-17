@@ -24,13 +24,11 @@ import {
   FormItem,
   Button,
   SegmentedControl,
-  SegmentedTabPanelContent,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  ScrollArea,
   useToast,
   type JSONContent,
   type MentionClickDetail,
@@ -50,9 +48,8 @@ import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
-import { NotePropertiesPanel } from './NotePropertiesPanel';
+import { NoteDocumentSidebarPanel } from './NoteDocumentSidebarPanel';
 import { NotePropertyPills } from './NotePropertyPills';
-import { NoteTableOfContents } from './NoteTableOfContents';
 import type { NoteFormData, NoteUpdate } from '../types';
 import type { Resolver } from 'react-hook-form';
 import {
@@ -79,9 +76,16 @@ interface EditDocumentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   noteId: string | null;
+  /** When 'edit', acquire the edit lock and enter edit mode once the editor is ready. */
+  initialMode?: DocumentMode;
 }
 
-export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDialogProps) {
+export function EditDocumentDialog({
+  isOpen,
+  onClose,
+  noteId,
+  initialMode = 'view',
+}: EditDocumentDialogProps) {
   const router = useRouter();
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +96,10 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const suppressLocalContentEditsUntilRef = useRef(0);
   const isUpdatingFromServerRef = useRef(false);
   const lastTakeoverLockTokenRef = useRef<string | null>(null);
+  const didAutoEnterEditRef = useRef<string | null>(null);
+  const editModePromptClicksRef = useRef(0);
+  const lastEditModePromptAtRef = useRef(0);
+  const editModeToastVisibleRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [acceptedServerVersion, setAcceptedServerVersion] = useState<string>('');
@@ -100,19 +108,26 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
   const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
-  const [sidebarTab, setSidebarTab] = useState<'properties' | 'outline'>('properties');
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isOpen) {
       setExpanded(false);
       setLinkedDocumentId(null);
+      didAutoEnterEditRef.current = null;
+      editModePromptClicksRef.current = 0;
+      lastEditModePromptAtRef.current = 0;
+      editModeToastVisibleRef.current = false;
     }
   }, [isOpen]);
 
   useEffect(() => {
     setLinkedDocumentId(null);
     setMode('view');
+    didAutoEnterEditRef.current = null;
+    editModePromptClicksRef.current = 0;
+    lastEditModePromptAtRef.current = 0;
+    editModeToastVisibleRef.current = false;
   }, [noteId]);
 
   /** Until reset runs, RHF can still hold the previous note — never paint that into the editor. */
@@ -288,6 +303,24 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     setMode('edit');
   }, [editLock]);
 
+  useEffect(() => {
+    if (!isOpen || !noteId || initialMode !== 'edit') return;
+    if (didAutoEnterEditRef.current === noteId) return;
+    if (isLoading || !note || note.id !== noteId || !isInitialized) return;
+    if (lastResetNoteIdRef.current !== noteId) return;
+
+    didAutoEnterEditRef.current = noteId;
+    void enterEditMode();
+  }, [
+    enterEditMode,
+    initialMode,
+    isInitialized,
+    isLoading,
+    isOpen,
+    note,
+    noteId,
+  ]);
+
   const handleModeChange = useCallback(
     async (nextMode: DocumentMode) => {
       if (nextMode === mode) return;
@@ -320,10 +353,22 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
 
   const showEditModeToast = useCallback(() => {
     if (isEditing) return;
+    const now = Date.now();
+    // Coalesce pointerdown + focus from the same gesture into one click
+    if (now - lastEditModePromptAtRef.current < 75) return;
+    lastEditModePromptAtRef.current = now;
+    editModePromptClicksRef.current += 1;
+    if (editModePromptClicksRef.current < 2) return;
+    if (editModeToastVisibleRef.current) return;
+    editModeToastVisibleRef.current = true;
     toast({
+      id: 'document-edit-mode-prompt',
       title: 'Switch to edit mode?',
       description: 'This document is currently open in view mode.',
       action: { label: 'Edit', onClick: () => void handleModeChange('edit') },
+      onDismiss: () => {
+        editModeToastVisibleRef.current = false;
+      },
     });
   }, [handleModeChange, isEditing, toast]);
 
@@ -505,46 +550,15 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                 </div>
 
                 <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-                  <div className="flex-1 flex flex-col min-h-0">
-                    <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-                      <SegmentedControl
-                        fullWidth
-                        value={sidebarTab}
-                        onValueChange={(v) => setSidebarTab(v as 'properties' | 'outline')}
-                        options={[
-                          { value: 'properties', label: 'Properties' },
-                          { value: 'outline', label: 'Outline' },
-                        ]}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                      <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
-                        <ScrollArea className="flex-1">
-                          <div
-                            className="p-6"
-                            onPointerDownCapture={() => {
-                              if (!isEditing) showEditModeToast();
-                            }}
-                          >
-                            <NotePropertiesPanel
-                              form={form}
-                              folders={folders || []}
-                              editable={isEditing}
-                            />
-                          </div>
-                        </ScrollArea>
-                      </SegmentedTabPanelContent>
-
-                      <SegmentedTabPanelContent when="outline" activeTab={sidebarTab} className="h-full min-h-0 overflow-hidden flex flex-col">
-                        <ScrollArea className="flex-1 min-h-0">
-                          <div className="p-6">
-                            <NoteTableOfContents editor={editorInstance} />
-                          </div>
-                        </ScrollArea>
-                      </SegmentedTabPanelContent>
-                    </div>
-                  </div>
+                  <NoteDocumentSidebarPanel
+                    form={form}
+                    folders={folders || []}
+                    editable={isEditing}
+                    editor={editorInstance}
+                    onViewModeInteract={() => {
+                      if (!isEditing) showEditModeToast();
+                    }}
+                  />
                 </div>
               </form>
             </Form>

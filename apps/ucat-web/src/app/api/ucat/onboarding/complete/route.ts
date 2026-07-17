@@ -2,19 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-type OnboardingChoice = "free" | "unlimited_trial";
+type OnboardingChoice = "free";
 
 function parseOnboardingChoice(value: string | undefined): OnboardingChoice | null {
-  if (value === "free" || value === "unlimited_trial") return value;
-  // Legacy client payload
-  if (value === "pro_trial") return "unlimited_trial";
-  return null;
+  return value === "free" ? value : null;
 }
 
 /**
  * POST /api/ucat/onboarding/complete
- * Records required onboarding choice. Unlimited trial choice does not start checkout —
- * client redirects to Stripe separately.
+ * Records the explicit decision to continue with UCAT Free. Paid plan choices
+ * complete through Stripe Checkout instead.
  */
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -52,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, ucat_onboarding_completed_at, ucat_unlimited_trial_consumed_at")
+    .select("id, ucat_onboarding_completed_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -76,16 +73,6 @@ export async function POST(request: NextRequest) {
 
   if (student.ucat_onboarding_completed_at) {
     return NextResponse.json({ ok: true, alreadyCompleted: true });
-  }
-
-  if (
-    choice === "unlimited_trial" &&
-    student.ucat_unlimited_trial_consumed_at
-  ) {
-    return NextResponse.json(
-      { error: "Unlimited trial is no longer available for this account" },
-      { status: 400 },
-    );
   }
 
   const { error: updateError } = await supabaseAdmin

@@ -20,8 +20,11 @@ export interface ActivityMessageContext {
   sessionName?: string;
   parentName?: string;
   taskTitle?: string;
+  issueName?: string;
+  projectName?: string;
   subjectName?: string;
   noteContent?: string;
+  formName?: string;
   fieldLabels?: Record<string, string>;
   oldValue?: string;
   newValue?: string;
@@ -67,6 +70,18 @@ export function getActivityTemplate(
           icon: 'flag',
           color: 'blue',
           messageTemplate: (event, ctx) => `${ctx.performedByName} created the task ${ctx.taskTitle || ''}`,
+        };
+      case 'issues':
+        return {
+          icon: 'flag',
+          color: 'blue',
+          messageTemplate: (_event, ctx) => `${ctx.performedByName} created the issue ${ctx.issueName || ''}`,
+        };
+      case 'projects':
+        return {
+          icon: 'flag',
+          color: 'blue',
+          messageTemplate: (_event, ctx) => `${ctx.performedByName} created the project ${ctx.projectName || ''}`,
         };
       case 'parents':
         return {
@@ -123,7 +138,60 @@ export function getActivityTemplate(
         return {
           icon: 'user-plus',
           color: 'green',
-          messageTemplate: (event, ctx) => `${ctx.performedByName} added ${ctx.subjectName || 'subject'} to ${ctx.studentName || 'student'}`,
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} added ${ctx.subjectName || 'subject'} to ${ctx.studentName || 'student'}`,
+        };
+      case 'tutor_logs':
+        return {
+          icon: 'check',
+          color: 'green',
+          messageTemplate: (event, ctx) =>
+            `${ctx.performedByName} submitted a tutor log for ${ctx.sessionName || 'session'}`,
+        };
+      case 'tutor_logs_staff_attendance':
+        return {
+          icon: 'user-plus',
+          color: 'green',
+          messageTemplate: (event, ctx) =>
+            `${ctx.performedByName} logged staff attendance for ${ctx.staffName || 'staff'} on ${ctx.sessionName || 'session'}`,
+        };
+      case 'tutor_logs_student_attendance':
+        return {
+          icon: 'user-plus',
+          color: 'green',
+          messageTemplate: (event, ctx) =>
+            `${ctx.performedByName} logged student attendance for ${ctx.studentName || 'student'} on ${ctx.sessionName || 'session'}`,
+        };
+      case 'tutor_logs_topics':
+      case 'tutor_logs_topics_students':
+      case 'tutor_logs_topics_files':
+      case 'tutor_logs_topics_files_students':
+        return {
+          icon: 'flag',
+          color: 'blue',
+          messageTemplate: (event, ctx) =>
+            `${ctx.performedByName} logged topics for ${ctx.sessionName || 'session'}`,
+        };
+      case 'form_responses':
+        return {
+          icon: 'check',
+          color: 'green',
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} recorded a response${ctx.formName ? ` to ${ctx.formName}` : ''}`,
+        };
+      case 'invoices':
+        return {
+          icon: 'default',
+          color: 'gray',
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} created an invoice${ctx.studentName ? ` for ${ctx.studentName}` : ''}`,
+        };
+      case 'invoice_items':
+        return {
+          icon: 'default',
+          color: 'gray',
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} added an invoice item${ctx.studentName ? ` for ${ctx.studentName}` : ''}`,
         };
       default:
         return {
@@ -167,6 +235,18 @@ export function getActivityTemplate(
           color: 'red',
           messageTemplate: (event, ctx) => `${ctx.performedByName} deleted the task`,
         };
+      case 'issues':
+        return {
+          icon: 'x',
+          color: 'red',
+          messageTemplate: (_event, ctx) => `${ctx.performedByName} deleted the issue ${ctx.issueName || ''}`.trim(),
+        };
+      case 'projects':
+        return {
+          icon: 'x',
+          color: 'red',
+          messageTemplate: (_event, ctx) => `${ctx.performedByName} deleted the project ${ctx.projectName || ''}`.trim(),
+        };
       case 'classes_students':
         return {
           icon: 'user-minus',
@@ -191,6 +271,13 @@ export function getActivityTemplate(
           color: 'red',
           messageTemplate: (event, ctx) => `${ctx.performedByName} removed ${ctx.staffName || 'staff'} from ${ctx.sessionName || 'session'}`,
         };
+      case 'students_subjects':
+        return {
+          icon: 'user-minus',
+          color: 'red',
+          messageTemplate: (_event, ctx) =>
+            `${ctx.performedByName} removed ${ctx.subjectName || 'subject'} from ${ctx.studentName || 'student'}`,
+        };
       default:
         return {
           icon: 'x',
@@ -201,6 +288,15 @@ export function getActivityTemplate(
   }
 
   // Handle UPDATED events
+  if (eventType === 'UPDATED' && entityType === 'form_responses') {
+    return {
+      icon: 'check',
+      color: 'green',
+      messageTemplate: (_event, ctx) =>
+        `${ctx.performedByName} updated a response${ctx.formName ? ` to ${ctx.formName}` : ''}`,
+    };
+  }
+
   if (eventType === 'UPDATED' && changedFields) {
     const changedFieldsObj = typeof changedFields === 'object' && changedFields !== null && !Array.isArray(changedFields)
       ? changedFields as Record<string, unknown>
@@ -232,7 +328,21 @@ export function getActivityTemplate(
             icon: 'arrow-right',
             color: 'green',
             messageTemplate: (event, ctx) => 
-              `${ctx.performedByName} moved task from ${ctx.oldValue || statusChange.old} to ${ctx.newValue || statusChange.new}`,
+              `${ctx.performedByName} moved task ${ctx.taskTitle || ''} from ${ctx.oldValue || statusChange.old} to ${ctx.newValue || statusChange.new}`.replace(/\s+/g, ' ').trim(),
+          };
+        case 'issues':
+          return {
+            icon: 'arrow-right',
+            color: 'green',
+            messageTemplate: (_event, ctx) =>
+              `${ctx.performedByName} moved issue ${ctx.issueName || ''} from ${ctx.oldValue || statusChange.old} to ${ctx.newValue || statusChange.new}`.replace(/\s+/g, ' ').trim(),
+          };
+        case 'projects':
+          return {
+            icon: 'arrow-right',
+            color: 'green',
+            messageTemplate: (_event, ctx) =>
+              `${ctx.performedByName} moved project ${ctx.projectName || ''} from ${ctx.oldValue || statusChange.old} to ${ctx.newValue || statusChange.new}`.replace(/\s+/g, ' ').trim(),
           };
         case 'students':
           return {
@@ -257,13 +367,41 @@ export function getActivityTemplate(
         icon: 'user-edit',
         color: 'blue',
         messageTemplate: (event, ctx) => {
+          const entityLabel =
+            entityType === 'issues' ? 'issue' : entityType === 'projects' ? 'project' : 'task';
+          const entityName =
+            entityType === 'issues'
+              ? ctx.issueName
+              : entityType === 'projects'
+                ? ctx.projectName
+                : ctx.taskTitle;
+          const prefix = entityName
+            ? `${ctx.performedByName} reassigned ${entityLabel} ${entityName}`
+            : `${ctx.performedByName} reassigned ${entityLabel}`;
           if (ctx.newValue && ctx.oldValue) {
-            return `${ctx.performedByName} reassigned task from ${ctx.oldValue} to ${ctx.newValue}`;
+            return `${prefix} from ${ctx.oldValue} to ${ctx.newValue}`;
           } else if (ctx.newValue) {
-            return `${ctx.performedByName} assigned task to ${ctx.newValue}`;
+            return `${ctx.performedByName} assigned ${entityLabel}${entityName ? ` ${entityName}` : ''} to ${ctx.newValue}`;
           } else {
-            return `${ctx.performedByName} unassigned task`;
+            return `${ctx.performedByName} unassigned ${entityLabel}${entityName ? ` ${entityName}` : ''}`;
           }
+        },
+      };
+    }
+
+    if (changedFieldNames.includes('project_lead_id')) {
+      return {
+        icon: 'user-edit',
+        color: 'blue',
+        messageTemplate: (_event, ctx) => {
+          const name = ctx.projectName ? ` ${ctx.projectName}` : '';
+          if (ctx.newValue && ctx.oldValue) {
+            return `${ctx.performedByName} changed project lead${name} from ${ctx.oldValue} to ${ctx.newValue}`;
+          }
+          if (ctx.newValue) {
+            return `${ctx.performedByName} set project lead${name} to ${ctx.newValue}`;
+          }
+          return `${ctx.performedByName} cleared project lead${name}`;
         },
       };
     }
@@ -308,6 +446,7 @@ export function getActivityTemplate(
  * Field labels for common fields
  */
 export const FIELD_LABELS: Record<string, string> = {
+  project_lead_id: 'project lead',
   status: 'status',
   assigned_to: 'assignee',
   first_name: 'first name',
@@ -326,6 +465,22 @@ export const FIELD_LABELS: Record<string, string> = {
   student_email: 'student email',
   parent_first_name: 'parent first name',
   parent_last_name: 'parent last name',
+  is_credited: 'credited',
+  credited_at: 'credited at',
+  credited_by: 'credited by',
+  is_rescheduled: 'rescheduled',
+  rescheduled_at: 'rescheduled at',
+  rescheduled_sessions_students_id: 'rescheduled session',
+  planned_absence: 'planned absence',
+  planned_absence_logged_at: 'planned absence logged at',
+  planned_absence_logged_by: 'planned absence logged by',
+  is_swapped: 'swapped',
+  swapped_at: 'swapped at',
+  swapped_sessions_staff_id: 'swap replacement',
+  unenrolled_at: 'unenrolled at',
+  unenrolled_by: 'unenrolled by',
+  unassigned_at: 'unassigned at',
+  unassigned_by: 'unassigned by',
 };
 
 /**
@@ -389,4 +544,3 @@ export function getGroupedActivityTemplate(
   // Fallback
   return `${performedByName} performed ${count} similar actions`;
 }
-

@@ -7,6 +7,8 @@ import {
   fetchAttemptReviewQuestionMetadata,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
+import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
+import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -18,6 +20,7 @@ export type PracticeAttemptDetailResponse = {
   attemptedAt: string;
   completedAt: string | null;
   stemsSnapshot: unknown;
+  recentPerformance: AttemptRecentPerformance;
   questionAttempts: {
     questionNumber: number;
     questionId: string;
@@ -100,7 +103,7 @@ export async function GET(
   )
     .from("vstudent_ucat_my_practice_sessions")
     .select(
-      "id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
+      "id, ucat_section_id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
     )
     .eq("id", sessionId)
     .maybeSingle();
@@ -126,6 +129,7 @@ export async function GET(
     started_at?: string | null;
     completed_at?: string | null;
     stems_snapshot?: unknown;
+    ucat_section_id?: string | null;
   };
   const s = session as SessionRaw;
   const stemsSnapshot = s.stems_snapshot ?? [];
@@ -227,6 +231,13 @@ export async function GET(
     },
   );
 
+  const recentPerformance = await fetchRecentAttemptPerformance(supabase, {
+    source: "practice",
+    attemptId: sessionId,
+    attemptedAt: s.started_at ?? "",
+    sectionId: s.ucat_section_id ?? null,
+  });
+
   const response: PracticeAttemptDetailResponse = {
     id: s.id ?? "",
     sectionName: s.section_name ?? null,
@@ -237,6 +248,7 @@ export async function GET(
     attemptedAt: s.started_at ?? "",
     completedAt: s.completed_at ?? null,
     stemsSnapshot,
+    recentPerformance,
     questionAttempts,
   };
 

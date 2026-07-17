@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import {
-  progressPointsForQuestion,
-  toProgressQuestionRef,
-  type SectionProgress,
-} from "@altitutor/shared";
+import type { SectionProgress } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProgressSummaryResponse } from "@/features/progress/types/progress-summary";
 
 type PublicCountRow = {
   section_id: string;
   total_questions: number;
+};
+
+type QuestionProgressRow = {
+  section_id: string;
+  correct_score: number;
+  max_score: number;
 };
 
 export async function GET() {
@@ -26,14 +28,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [questionAttemptsRes, sectionsRes, publicCountsRes] = await Promise.all(
+  const [questionProgressRes, sectionsRes, publicCountsRes] = await Promise.all(
     [
-      supabase
-        .from("vstudent_ucat_my_question_attempts")
-        .select(
-          "id, question_id, question_stem_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type",
-        )
-        .eq("is_submitted", true),
+      (
+        supabase as unknown as {
+          from: (relation: string) => {
+            select: (columns: string) => Promise<{
+              data: QuestionProgressRow[] | null;
+              error: Error | null;
+            }>;
+          };
+        }
+      )
+        .from("vstudent_ucat_my_question_progress")
+        .select("section_id, correct_score, max_score"),
       supabase
         .from("vstudent_ucat_sections")
         .select("id, name, section_number")
@@ -53,9 +61,9 @@ export async function GET() {
     ],
   );
 
-  if (questionAttemptsRes.error) {
+  if (questionProgressRes.error) {
     return NextResponse.json(
-      { error: questionAttemptsRes.error.message },
+      { error: questionProgressRes.error.message },
       { status: 500 },
     );
   }
@@ -72,45 +80,18 @@ export async function GET() {
     );
   }
 
-  const bestByQuestion = new Map<
-    string,
-    NonNullable<typeof questionAttemptsRes.data>[number]
-  >();
-  for (const attempt of questionAttemptsRes.data ?? []) {
-    const questionId = attempt.question_id ?? attempt.id;
-    if (!questionId) continue;
-    const existing = bestByQuestion.get(questionId);
-    if (
-      !existing ||
-      (attempt.score ?? 0) > (existing.score ?? 0) ||
-      ((attempt.score ?? 0) === (existing.score ?? 0) &&
-        (attempt.attempted_at ?? "") > (existing.attempted_at ?? ""))
-    ) {
-      bestByQuestion.set(questionId, attempt);
-    }
-  }
-
   const sectionTotals = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number }
   >();
-  for (const attempt of bestByQuestion.values()) {
-    if (!attempt.ucat_section_id) continue;
-    const totals = sectionTotals.get(attempt.ucat_section_id) ?? {
+  for (const row of questionProgressRes.data ?? []) {
+    const totals = sectionTotals.get(row.section_id) ?? {
       correct: 0,
       max: 0,
-      syllogismStems: new Set<string>(),
     };
-    totals.correct += attempt.score ?? 0;
-    totals.max += progressPointsForQuestion(
-      toProgressQuestionRef({
-        questionId: attempt.question_id ?? attempt.id ?? "",
-        questionStemId: attempt.question_stem_id,
-        questionType: attempt.question_type,
-      }),
-      totals.syllogismStems,
-    );
-    sectionTotals.set(attempt.ucat_section_id, totals);
+    totals.correct += row.correct_score;
+    totals.max += row.max_score;
+    sectionTotals.set(row.section_id, totals);
   }
 
   const publicQuestionsBySection = new Map<string, number>();

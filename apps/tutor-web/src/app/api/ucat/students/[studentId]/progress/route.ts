@@ -240,7 +240,7 @@ export async function GET(
     setIds.length > 0
       ? await supabase
           .from('vtutor_ucat_question_sets')
-          .select('id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections, is_student_generated')
+          .select('id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections')
           .in('id', setIds)
       : { data: [] }
 
@@ -253,7 +253,7 @@ export async function GET(
         timeLimitExam: s.time_limit_at_exam_speed_seconds,
         name: s.name,
         sections: s.sections as Array<{ section_number?: number }> | null,
-        isStudentGenerated: s.is_student_generated ?? false,
+        isStudentGenerated: false,
       },
     ])
   )
@@ -716,8 +716,7 @@ export async function GET(
   // Fetch total public non-student-generated sets per section
   const { data: publicSetsRaw } = await supabase
     .from('vtutor_ucat_question_sets')
-    .select('id, sections, is_student_generated, time_limit_seconds')
-    .eq('is_student_generated', false)
+    .select('id, sections, time_limit_seconds')
 
   const totalPublicSetsBySection: Record<string, number> = {}
   const totalPublicUntimedSetsBySection: Record<string, number> = {}
@@ -732,7 +731,6 @@ export async function GET(
   )
   const publicSetsTyped = (publicSetsRaw ?? []) as QuestionSetRow[]
   for (const row of publicSetsTyped) {
-    if (row.is_student_generated) continue
     const sectionsArr = row.sections as Array<{ section_number?: number }> | null
     const firstSectionNum =
       Array.isArray(sectionsArr) && sectionsArr.length > 0

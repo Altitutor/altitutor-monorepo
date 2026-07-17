@@ -23,6 +23,11 @@ export function OnboardingGateRedirect() {
   useEffect(() => {
     if (access.isLoading) return;
 
+    // An access lookup failure is not evidence that signup is incomplete.
+    // Fail open so a transient Supabase/network error cannot create a
+    // /dashboard ↔ /signup/complete redirect loop.
+    if (access.accessLoadFailed) return;
+
     if (access.signupCompleted) {
       clearSignupJustCompleted();
       return;
@@ -36,7 +41,13 @@ export function OnboardingGateRedirect() {
     if (allowed) return;
 
     router.replace("/signup/complete");
-  }, [access.isLoading, access.signupCompleted, pathname, router]);
+  }, [
+    access.accessLoadFailed,
+    access.isLoading,
+    access.signupCompleted,
+    pathname,
+    router,
+  ]);
 
   return null;
 }

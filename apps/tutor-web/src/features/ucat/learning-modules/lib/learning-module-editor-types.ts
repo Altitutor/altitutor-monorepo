@@ -47,6 +47,13 @@ export function snapshotSettings(input: {
   parentId: string | null
   index: number
   isPrivate: boolean
+  studyPlanPriority: string
+  studyPlanCategoryIds: string[]
+  studyPlanTagIds: string[]
 }): string {
-  return JSON.stringify(input)
+  return JSON.stringify({
+    ...input,
+    studyPlanCategoryIds: [...input.studyPlanCategoryIds].sort(),
+    studyPlanTagIds: [...input.studyPlanTagIds].sort(),
+  })
 }

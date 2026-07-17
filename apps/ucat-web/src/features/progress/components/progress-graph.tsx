@@ -5,8 +5,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,7 +17,9 @@ import {
 import { format } from "date-fns";
 import { SearchableSelect } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { formatTimeSeconds } from "../lib/format-time";
+import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import type { GraphXAxisMode } from "../lib/progress-data-utils";
 import {
   GRAPH_DATE_RANGE_OPTIONS,
@@ -33,11 +37,11 @@ function formatXAxisDate(dateStr: string): string {
 
 function getXAxisTickLabel(
   data: { date: string; label?: string }[],
-  index: number,
+  date: string,
 ): string {
-  const point = data[index];
+  const point = data.find((candidate) => candidate.date === date);
   if (point?.label) return point.label;
-  return formatXAxisDate(point?.date ?? "");
+  return formatXAxisDate(point?.date ?? date);
 }
 
 export type GraphDataType =
@@ -74,11 +78,14 @@ export type ProgressGraphProps = {
     value: number | null;
     label?: string;
     tooltipLabel?: string;
+    isSpacer?: boolean;
   }[];
   type: "line" | "bar";
   dataType: GraphDataType;
   dateRangeLabel?: string;
   className?: string;
+  /** Shorter chart for embedding beside summary stats. */
+  compact?: boolean;
   /** When true, scaled_score uses dynamic max from data. Pass yAxisMax for mock context. */
   isMockContext?: boolean;
   /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
@@ -100,14 +107,23 @@ export type ProgressGraphProps = {
     realistic: { date: string; value: number }[];
     optimistic: { date: string; value: number }[];
   };
+  selectedDate?: string | null;
+  onPointSelect?: (point: {
+    date: string;
+    value: number | null;
+    label?: string;
+    tooltipLabel?: string;
+  }) => void;
+  /** Adds blank plot columns so the latest real point sits before an overlay card. */
+  trailingSpace?: boolean;
 };
 
 const dataTypeLabels: Record<GraphDataType, string> = {
   scaled_score: "Scaled score",
   percentage: "Percentage (%)",
   time_taken: "Time taken",
-  exam_speed: "Exam speed (%)",
-  question_speed: "Question speed (%)",
+  exam_speed: "Exam speed",
+  question_speed: "Question speed",
   attempt_count: "Number of attempts",
 };
 
@@ -157,12 +173,49 @@ function AxisLabelSelect<T extends { value: string; label: string }>({
   );
 }
 
+const PROJECTION_SERIES_LABELS: Record<string, string> = {
+  value: "Estimate",
+  projectionRealistic: "Projected",
+  projectionPessimistic: "Low",
+  projectionOptimistic: "High",
+};
+
+function GraphColumnCursor({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}) {
+  if (x == null || y == null || width == null || height == null) return null;
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={4}
+      fill="var(--graph-column-highlight)"
+      focusable="false"
+      pointerEvents="none"
+      aria-hidden="true"
+      style={{ outline: "none" }}
+    />
+  );
+}
+
 export function ProgressGraph({
   data,
   type,
   dataType,
   dateRangeLabel,
   className,
+  compact = false,
   isMockContext = false,
   yAxisMax,
   yAxisDomain,
@@ -176,7 +229,11 @@ export function ProgressGraph({
   dateRangeOptions,
   onDateRangeChange,
   projection,
+  selectedDate = null,
+  onPointSelect,
+  trailingSpace = false,
 }: ProgressGraphProps) {
+  const hasOverlayCard = useMediaQuery("(min-width: 1024px)");
   type GraphLinePoint = {
     date: string;
     value: number | null;
@@ -185,8 +242,27 @@ export function ProgressGraph({
     projectionPessimistic?: number;
     projectionRealistic?: number;
     projectionOptimistic?: number;
+    /** Fill-only copy of optimistic; keeps Area out of the line tooltip. */
+    projectionBandHigh?: number;
   };
 
+  const trailingSpacerCount =
+    trailingSpace && hasOverlayCard && data.length > 0
+      ? Math.max(2, Math.ceil(data.length * 0.9))
+      : 0;
+  const displayData =
+    trailingSpacerCount === 0
+      ? data
+      : [
+          ...data,
+          ...Array.from({ length: trailingSpacerCount }, (_, index) => ({
+            date: `__trailing-space-${index}`,
+            value: null,
+            label: "",
+            tooltipLabel: "",
+            isSpacer: true,
+          })),
+        ];
   const hasCustomTickLabels = data.some((d) => d.label);
   const selectedMetricOption =
     metricOptions?.find((option) => option.value === dataType) ?? null;
@@ -204,8 +280,9 @@ export function ProgressGraph({
   const resolvedDateRangeOptions = dateRangeOptions ?? GRAPH_DATE_RANGE_OPTIONS;
   const selectedDateRangeOption =
     dateRange != null
-      ? (resolvedDateRangeOptions.find((option) => option.value === dateRange) ??
-        null)
+      ? (resolvedDateRangeOptions.find(
+          (option) => option.value === dateRange,
+        ) ?? null)
       : null;
   const canSelectDateRange =
     dateRange != null &&
@@ -248,6 +325,7 @@ export function ProgressGraph({
             value: null,
           };
           current.projectionOptimistic = point.value;
+          current.projectionBandHigh = point.value;
           byDate.set(point.date, current);
         }
         return [...byDate.values()].sort((a, b) =>
@@ -267,11 +345,10 @@ export function ProgressGraph({
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return "—";
     if (dataType === "time_taken") return formatTimeSeconds(value); // value is in seconds
-    if (
-      dataType === "percentage" ||
-      dataType === "exam_speed" ||
-      dataType === "question_speed"
-    ) {
+    if (dataType === "exam_speed" || dataType === "question_speed") {
+      return formatSpeedPercentAsMultiplier(value);
+    }
+    if (dataType === "percentage") {
       return String(Math.round(value));
     }
     if (dataType === "scaled_score") return String(Math.round(value));
@@ -295,13 +372,108 @@ export function ProgressGraph({
     return `Date: ${displayLabel}`;
   };
 
-  const needsAngledTicks =
-    (hasCustomTickLabels && xAxisMode === "date") || data.length > 14;
+  const pointCount = showProjection
+    ? mergedLineData.length
+    : displayData.length;
+  // Keep labels horizontal and sparse — never tilt ticks.
+  const maxXTicks = compact ? 5 : 6;
   const xTickInterval =
-    data.length > 24 ? Math.max(0, Math.ceil(data.length / 12) - 1) : 0;
-  // Keep only enough room for tick labels; the X-axis mode label sits outside the chart.
-  const chartBottomMargin = needsAngledTicks ? 42 : 4;
-  const chartTopMargin = 16;
+    pointCount > maxXTicks
+      ? Math.max(0, Math.ceil(pointCount / maxXTicks) - 1)
+      : 0;
+  // Room for tick labels; the X-axis mode label sits outside the chart.
+  const chartBottomMargin = compact ? 12 : 20;
+  const chartTopMargin = compact ? 8 : 16;
+  const tickFontSize = compact || pointCount > maxXTicks ? 10 : 12;
+
+  const tooltipContent = ({
+    active,
+    label: rawLabel,
+    payload,
+  }: {
+    active?: boolean;
+    label?: string | number;
+    payload?: ReadonlyArray<{
+      dataKey?: string | number;
+      name?: string;
+      value?: number | string | null;
+      color?: string;
+      payload?: {
+        date: string;
+        label?: string;
+        tooltipLabel?: string;
+        value?: number | null;
+        isSpacer?: boolean;
+      };
+    }>;
+  }) => {
+    if (!active || payload == null || payload.length === 0) return null;
+
+    const point = payload[0]?.payload;
+    if (point?.isSpacer) return null;
+    const hasEstimate = point?.value != null;
+    const seenKeys = new Set<string>();
+    const rows = payload.filter((entry) => {
+      const key = String(entry.dataKey ?? entry.name ?? "");
+      if (key === "projectionBandHigh") return false;
+      if (
+        hasEstimate &&
+        (key === "projectionRealistic" ||
+          key === "projectionPessimistic" ||
+          key === "projectionOptimistic")
+      ) {
+        return false;
+      }
+      if (entry.value == null || entry.value === "") return false;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
+
+    if (rows.length === 0) return null;
+
+    const dateLabel =
+      typeof rawLabel === "string" || typeof rawLabel === "number"
+        ? String(rawLabel)
+        : "";
+
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-sm">
+        <p className="mb-1 font-medium text-foreground">
+          {formatTooltipLabel(dateLabel, point)}
+        </p>
+        <ul className="space-y-0.5">
+          {rows.map((entry) => {
+            const key = String(entry.dataKey ?? entry.name ?? "value");
+            const rowLabel = PROJECTION_SERIES_LABELS[key] ?? label;
+            const numericValue =
+              typeof entry.value === "number"
+                ? entry.value
+                : Number(entry.value);
+            return (
+              <li
+                key={key}
+                className="flex items-center gap-2 text-muted-foreground"
+              >
+                <span
+                  className="inline-block size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span>
+                  {rowLabel}:{" "}
+                  <span className="font-medium text-foreground">
+                    {formatTooltipValue(
+                      Number.isFinite(numericValue) ? numericValue : null,
+                    )}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
 
   const chartContent =
     type === "line" ? (
@@ -309,85 +481,90 @@ export function ProgressGraph({
         data={mergedLineData}
         margin={{
           top: chartTopMargin,
-          right: 5,
-          left: 5,
+          right: compact ? 4 : 5,
+          left: compact ? 0 : 5,
           bottom: chartBottomMargin,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        {compact ? null : (
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        )}
         <XAxis
           dataKey="date"
-          angle={needsAngledTicks ? -45 : 0}
           tick={{
-            fontSize: data.length > 14 ? 10 : 12,
-            textAnchor: needsAngledTicks ? "end" : "middle",
+            fontSize: tickFontSize,
+            textAnchor: "middle",
           }}
-          tickFormatter={(_value, index) =>
-            getXAxisTickLabel(mergedLineData, index)
+          tickFormatter={(value) =>
+            getXAxisTickLabel(mergedLineData, String(value))
           }
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
+          minTickGap={compact ? 48 : 40}
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: tickFontSize }}
           stroke="currentColor"
           className="text-muted-foreground"
+          width={compact ? 36 : undefined}
           tickFormatter={
-            dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
+            dataType === "time_taken"
+              ? (value) => formatTimeSeconds(value)
+              : dataType === "exam_speed" || dataType === "question_speed"
+                ? (value) => formatSpeedPercentAsMultiplier(value)
+                : undefined
           }
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-          }}
-          formatter={(value: number | undefined) => [
-            formatTooltipValue(value),
-            label,
-          ]}
-          labelFormatter={(l, payload) => {
-            const raw = payload?.[0]?.payload as
-              | { date: string; label?: string; tooltipLabel?: string }
-              | undefined;
-            return formatTooltipLabel(l, raw);
-          }}
-        />
+        <Tooltip content={tooltipContent} />
         {showProjection ? (
           <>
             <Area
               type="monotone"
-              dataKey="projectionOptimistic"
+              dataKey="projectionBandHigh"
               baseLine={projectionBaseLine}
               stroke="none"
               fill="hsl(var(--accent))"
               fillOpacity={0.12}
               connectNulls
+              tooltipType="none"
+              legendType="none"
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="projectionOptimistic"
+              name="projectionOptimistic"
+              stroke="hsl(var(--muted-foreground))"
+              strokeDasharray="2 4"
+              strokeWidth={1.25}
+              strokeOpacity={0.7}
+              dot={false}
+              activeDot={false}
+              connectNulls
             />
             <Line
               type="monotone"
               dataKey="projectionPessimistic"
+              name="projectionPessimistic"
               stroke="hsl(var(--muted-foreground))"
-              strokeDasharray="6 4"
+              strokeDasharray="2 4"
+              strokeWidth={1.25}
+              strokeOpacity={0.7}
               dot={false}
+              activeDot={false}
               connectNulls
             />
             <Line
               type="monotone"
               dataKey="projectionRealistic"
-              stroke="hsl(var(--accent))"
+              name="projectionRealistic"
+              stroke="hsl(var(--muted-foreground))"
               strokeDasharray="6 4"
+              strokeWidth={1.5}
               dot={false}
-              connectNulls
-            />
-            <Line
-              type="monotone"
-              dataKey="projectionOptimistic"
-              stroke="hsl(var(--primary))"
-              strokeDasharray="6 4"
-              dot={false}
+              activeDot={false}
               connectNulls
             />
           </>
@@ -395,19 +572,62 @@ export function ProgressGraph({
         <Line
           type="monotone"
           dataKey="value"
+          name="value"
           stroke="hsl(var(--accent))"
           strokeWidth={2}
-          dot={{ fill: "hsl(var(--accent))", r: 4 }}
-          activeDot={{ r: 6 }}
+          dot={{ fill: "hsl(var(--accent))", r: compact ? 3 : 4 }}
+          activeDot={{ r: compact ? 5 : 6 }}
           connectNulls={true}
-          isAnimationActive
-          animationDuration={800}
-          animationEasing="ease-out"
+          isAnimationActive={false}
         />
       </LineChart>
     ) : (
       <BarChart
-        data={data}
+        data={displayData}
+        className={onPointSelect ? "cursor-pointer" : undefined}
+        onClick={(state) => {
+          if (!onPointSelect) return;
+          const chartState = state as unknown as {
+            activeLabel?: string | number;
+            activeTooltipIndex?: string | number;
+            activePayload?: Array<{
+              payload?: {
+                date?: string;
+                value?: number | null;
+                label?: string;
+                tooltipLabel?: string;
+                isSpacer?: boolean;
+              };
+            }>;
+          };
+          const payloadPoint = (
+            chartState as {
+              activePayload?: Array<{
+                payload?: {
+                  date?: string;
+                  value?: number | null;
+                  label?: string;
+                  tooltipLabel?: string;
+                  isSpacer?: boolean;
+                };
+              }>;
+            }
+          ).activePayload?.[0]?.payload;
+          const activePoint =
+            payloadPoint ??
+            displayData.find(
+              (point, index) =>
+                point.date === String(chartState.activeLabel ?? "") ||
+                index === Number(chartState.activeTooltipIndex),
+            );
+          if (!activePoint?.date || activePoint.isSpacer) return;
+          onPointSelect({
+            date: activePoint.date,
+            value: activePoint.value ?? null,
+            label: activePoint.label,
+            tooltipLabel: activePoint.tooltipLabel,
+          });
+        }}
         margin={{
           top: chartTopMargin,
           right: 5,
@@ -418,50 +638,62 @@ export function ProgressGraph({
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          angle={needsAngledTicks ? -45 : 0}
           tick={{
-            fontSize: data.length > 14 ? 10 : 12,
-            textAnchor: needsAngledTicks ? "end" : "middle",
+            fontSize: tickFontSize,
+            textAnchor: "middle",
           }}
-          tickFormatter={(_value, index) => getXAxisTickLabel(data, index)}
+          tickFormatter={(value) =>
+            String(value).startsWith("__trailing-space-")
+              ? ""
+              : getXAxisTickLabel(displayData, String(value))
+          }
           interval={xTickInterval}
           stroke="currentColor"
           className="text-muted-foreground"
+          minTickGap={40}
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: tickFontSize }}
           stroke="currentColor"
           className="text-muted-foreground"
           tickFormatter={
-            dataType === "time_taken" ? (v) => formatTimeSeconds(v) : undefined
+            dataType === "time_taken"
+              ? (value) => formatTimeSeconds(value)
+              : dataType === "exam_speed" || dataType === "question_speed"
+                ? (value) => formatSpeedPercentAsMultiplier(value)
+                : undefined
           }
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-          }}
-          formatter={(value: number | undefined) => [
-            formatTooltipValue(value),
-            label,
-          ]}
-          labelFormatter={(l, payload) => {
-            const raw = payload?.[0]?.payload as
-              | { date: string; label?: string; tooltipLabel?: string }
-              | undefined;
-            return formatTooltipLabel(l, raw);
-          }}
-        />
+        <Tooltip content={tooltipContent} cursor={<GraphColumnCursor />} />
+        {selectedDate ? (
+          <ReferenceLine
+            x={selectedDate}
+            stroke="var(--graph-column-highlight)"
+            strokeOpacity={1}
+            strokeWidth={24}
+          />
+        ) : null}
         <Bar
           dataKey="value"
           fill="hsl(var(--accent))"
           radius={[4, 4, 0, 0]}
-          isAnimationActive
-          animationDuration={800}
-          animationEasing="ease-out"
-        />
+          isAnimationActive={false}
+        >
+          {displayData.map((point) => (
+            <Cell
+              key={point.date}
+              fill="hsl(var(--accent))"
+              fillOpacity={
+                point.isSpacer
+                  ? 0
+                  : selectedDate == null || selectedDate === point.date
+                    ? 0.95
+                    : 0.28
+              }
+            />
+          ))}
+        </Bar>
       </BarChart>
     );
 
@@ -506,7 +738,7 @@ export function ProgressGraph({
           {dateRangeNode}
         </div>
       ) : null}
-      <div className="h-[280px] w-full">
+      <div className={cn("w-full", compact ? "h-[168px]" : "h-[280px]")}>
         <ResponsiveContainer width="100%" height="100%">
           {chartContent}
         </ResponsiveContainer>

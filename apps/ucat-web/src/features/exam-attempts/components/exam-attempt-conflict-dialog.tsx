@@ -7,8 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import {
   buildQuestionEngineTutorialHref,

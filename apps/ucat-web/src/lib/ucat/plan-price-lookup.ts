@@ -10,6 +10,9 @@ import {
 
 type AdminClient = SupabaseClient<Database>;
 
+const STRIPE_PRICE_VALIDATION_TTL_MS = 5 * 60 * 1000;
+const validatedStripePrices = new Map<string, number>();
+
 export type UcatPlanPriceRow = {
   plan_tier: UcatPaidPlanTier;
   billing_interval: UcatBillingInterval;
@@ -56,14 +59,29 @@ export async function stripePriceMatchesUcatPlan(
   const priceId = planPrice.stripe_price_id?.trim();
   if (!priceId) return false;
 
+  const cacheKey = [
+    priceId,
+    planPrice.base_price_cents,
+    planPrice.billing_interval,
+  ].join(":");
+  const validatedUntil = validatedStripePrices.get(cacheKey) ?? 0;
+  if (validatedUntil > Date.now()) return true;
+
   const price = await stripe.prices.retrieve(priceId);
-  return (
+  const matches =
     price.active &&
     price.currency.toLowerCase() === "aud" &&
     price.unit_amount === planPrice.base_price_cents &&
     price.recurring?.interval === planPrice.billing_interval &&
-    (price.recurring.interval_count ?? 1) === 1
-  );
+    (price.recurring.interval_count ?? 1) === 1;
+
+  if (matches) {
+    validatedStripePrices.set(
+      cacheKey,
+      Date.now() + STRIPE_PRICE_VALIDATION_TTL_MS,
+    );
+  }
+  return matches;
 }
 
 export async function resolveUcatPlanFromStripePriceId(

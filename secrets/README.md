@@ -1,334 +1,233 @@
 # Secrets Management
 
-Centralized secrets management for the Altitutor monorepo. This directory contains environment-specific secrets and deployment scripts to sync them across GitHub Actions, Vercel, Supabase, and EAS (Expo).
+Environment-specific secrets and scripts to sync them to GitHub Actions, Vercel, Supabase, and EAS (Expo).
 
-## 🔐 Security Notice
+The `.env.*` files in this directory are gitignored and must never be committed. Keep production secrets in a password manager as well, use separate credentials for development and production, and rotate them regularly.
 
-**⚠️ IMPORTANT:** The `.env.*` files in this directory are **gitignored** and contain sensitive credentials. Never commit them to version control.
-
-- Only store production secrets locally or in a secure password manager
-- Use separate credentials for development and production
-- Rotate secrets regularly
-- Limit access to production secrets to senior team members only
-
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 secrets/
-├── .gitignore                   # Protects .env files from being committed
-├── README.md                    # This file
-├── env.shared.example           # Template for shared secrets
-├── env.development.example      # Template for development secrets
-├── env.production.example       # Template for production secrets
-├── .env.shared                  # Actual shared secrets (gitignored)
-├── .env.development             # Actual development secrets (gitignored)
-├── .env.production              # Actual production secrets (gitignored)
+├── .gitignore
+├── README.md
+├── .env.shared.example
+├── .env.development.example
+├── .env.production.example
+├── .env.shared                  # gitignored
+├── .env.development             # gitignored
+├── .env.production              # gitignored
 └── scripts/
-    ├── common.sh                # Shared utility functions
-    ├── deploy-all.sh            # Master deployment script (runs all below)
-    ├── deploy-github.sh         # Deploy to GitHub Actions
-    ├── deploy-vercel.sh         # Deploy to Vercel projects
-    ├── deploy-eas.sh            # Deploy to EAS (student-app)
-    └── deploy-supabase.sh       # Deploy to Supabase edge functions
+    ├── common.sh
+    ├── configure-smtp.sh
+    ├── deploy-all.sh
+    ├── deploy-github.sh
+    ├── deploy-vercel.sh
+    ├── deploy-eas.sh
+    └── deploy-supabase.sh
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. Initial Setup
+### 1. Create secret files
 
 ```bash
-# Navigate to secrets directory
 cd secrets
-
-# Copy example files to create your secret files
-cp env.shared.example .env.shared
-cp env.development.example .env.development
-cp env.production.example .env.production
-
-# Edit files and fill in your actual secrets
-# Use your preferred editor (vim, nano, vscode, etc.)
-vim .env.shared
-vim .env.development
-vim .env.production
+cp .env.shared.example .env.shared
+cp .env.development.example .env.development
+cp .env.production.example .env.production
 ```
 
-### 2. Install Prerequisites
+Fill in the values in each file.
+
+### 2. Install prerequisites
 
 ```bash
-# GitHub CLI (for GitHub Actions secrets)
-brew install gh
-gh auth login
-
-# Vercel CLI (for Vercel environment variables)
-npm install -g vercel
-vercel login
-
-# Supabase CLI (for Edge Function secrets)
+brew install gh jq
 brew install supabase/tap/supabase
+npm install -g vercel eas-cli
+
+gh auth login
+vercel login
 supabase login
-
-# EAS CLI (for Expo student-app environment variables)
-npm install -g eas-cli
 eas login
-
-# jq (JSON processor, required by Vercel script)
-brew install jq
 ```
 
-### 3. Configure Scripts
+### 3. Configure scripts
 
-Before running deployment scripts, update the configuration values:
+In `scripts/deploy-github.sh`, confirm:
 
-**`scripts/deploy-github.sh`:**
 ```bash
-GITHUB_REPO="your-org/altitutor-monorepo"  # Line 16
+GITHUB_REPO="Altitutor/altitutor-monorepo"
 ```
 
-**`scripts/deploy-vercel.sh`:**
-```bash
-VERCEL_TEAM_ID=""  # Line 22 (optional, leave empty for personal account)
-```
+In `scripts/deploy-vercel.sh`, set `VERCEL_TEAM_ID` if you deploy under a Vercel team (leave empty for a personal account). Run `vercel teams list` to find the ID.
 
-Run `vercel teams list` to get your team ID if needed.
-
-### 4. Deploy Secrets
+### 4. Deploy
 
 ```bash
-# Deploy to all platforms at once (recommended)
 cd secrets/scripts
 ./deploy-all.sh
-
-# Or deploy individually:
-./deploy-github.sh     # GitHub Actions only
-./deploy-vercel.sh     # Vercel only
-./deploy-eas.sh        # EAS (Expo student-app) only
-./deploy-supabase.sh   # Supabase only
 ```
 
-## 📋 Environment Files Guide
+Or individually:
+
+```bash
+./deploy-github.sh
+./deploy-vercel.sh
+./deploy-eas.sh
+./deploy-supabase.sh
+```
+
+## Environment Files
 
 ### `.env.shared`
-Secrets used across **all environments** (dev and prod). Use sparingly.
 
-**Examples:**
-- Third-party API keys that are the same in dev/prod
-- Service credentials shared across environments
-- Non-environment-specific configuration
-- `VERCEL_TOKEN` - Vercel API token for deployment scripts (optional, can also be set as environment variable)
-- `EXPO_TOKEN` - Expo access token for EAS deployment scripts (optional, can also use `eas login`)
-- `SUPABASE_ACCESS_TOKEN` - Supabase Management API access token
-- `RESEND_API_KEY` - Resend API key for SMTP email sending (required for Supabase Auth SMTP)
+Secrets used across environments. Keep this small.
 
-### `.env.development`
-Secrets for **development/preview environments**.
+Examples:
 
-**Examples:**
-- `SUPABASE_PROJECT_REF` (dev project)
-- `SUPABASE_SERVICE_ROLE_KEY` (dev)
-- `NEXT_PUBLIC_SUPABASE_URL` (dev)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (dev)
-- `STRIPE_SECRET_KEY` (test mode: `sk_test_...`)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (test mode: `pk_test_...`)
-- `OPENROUTER_API_KEY` (dev key for tutor-web UCAT AI generation)
+- Shared third-party credentials
+- `VERCEL_TOKEN` (optional; can also be set in the shell)
+- `EXPO_TOKEN` (optional; can also use `eas login`)
+- `SUPABASE_ACCESS_TOKEN`
+- `RESEND_API_KEY` (Supabase Auth SMTP and feedback email routes)
 
-### `.env.production`
-Secrets for **production environment**.
+### `.env.development` / `.env.production`
 
-**⚠️ Handle with extreme care!**
+Environment-specific values such as:
 
-**Examples:**
-- `SUPABASE_PROJECT_REF` (prod project)
-- `SUPABASE_SERVICE_ROLE_KEY` (prod)
-- `NEXT_PUBLIC_SUPABASE_URL` (prod)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (prod)
-- `STRIPE_SECRET_KEY` (live mode: `sk_live_...`)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live mode: `pk_live_...`)
-- `OPENROUTER_API_KEY` (prod key for tutor-web UCAT AI generation)
+- `SUPABASE_PROJECT_REF`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Stripe keys (test in development, live in production)
+- `OPENROUTER_API_KEY` (tutor-web UCAT AI generation)
 
-## 🎯 Where Secrets Go
+## Where Secrets Go
 
 ### GitHub Actions
-- **Repository secrets**: Shared secrets from `.env.shared` (e.g., `SUPABASE_ACCESS_TOKEN` if same for both environments)
-- **Environment: development**: Secrets from `.env.development` (excluding `NEXT_PUBLIC_*`)
-  - `SUPABASE_PROJECT_ID` (dev project)
-  - `SUPABASE_DB_PASSWORD` (dev database password)
-  - `SUPABASE_ACCESS_TOKEN` (if different from shared)
-- **Environment: production**: Secrets from `.env.production` (excluding `NEXT_PUBLIC_*`)
-  - `SUPABASE_PROJECT_ID` (prod project)
-  - `SUPABASE_DB_PASSWORD` (prod database password)
-  - `SUPABASE_ACCESS_TOKEN` (if different from shared)
 
-**Why:** GitHub Actions uses these for CI/CD workflows, database migrations, and automated tasks. The workflow automatically selects the correct environment based on the branch (develop → development, main → production).
-Vercel runtime-only secrets such as `OPENROUTER_API_KEY` are intentionally skipped here.
+- Repository secrets from `.env.shared`
+- Environment `development` from `.env.development` (excluding `NEXT_PUBLIC_*`)
+- Environment `production` from `.env.production` (excluding `NEXT_PUBLIC_*`)
+
+Typical values include `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN` when it differs by environment. Branch mapping: `develop` → development, `main` → production.
+
+Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 
 ### Vercel
-- **Preview environment**: Client-side vars from `.env.development` (`NEXT_PUBLIC_*`)
-- **Production environment**: Client-side vars from `.env.production` (`NEXT_PUBLIC_*`)
-- **Tutor-web server routes**: `OPENROUTER_API_KEY` from the matching environment file, deployed only to `altitutor-tutor-web`
-- **Feedback email API routes**: `RESEND_API_KEY` from `.env.shared`, deployed to all web apps
 
-**Apps deployed:**
-- `altitutor-admin-web` (apps/admin-web)
-- `altitutor-student-web` (apps/student-web)
-- `altitutor-tutor-web` (apps/tutor-web)
-- `altitutor-ucat-web` (apps/ucat-web)
+- Preview: `NEXT_PUBLIC_*` from `.env.development`
+- Production: `NEXT_PUBLIC_*` from `.env.production`
+- `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
+- `RESEND_API_KEY` to all web apps managed by the script
 
-**Why:** Vercel needs client-side environment variables at build time. Only `NEXT_PUBLIC_*` variables are exposed to the browser.
-Server-side API routes also need selected encrypted secrets, such as `OPENROUTER_API_KEY` for tutor-web UCAT AI generation and `RESEND_API_KEY` for feedback emails.
+Projects currently deployed by the script:
 
-### EAS (Expo student-app)
-- **Development + preview environments**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.development`
-- **Production environment**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.production`
+- `altitutor-admin-web` (`apps/admin-web`)
+- `altitutor-student-web` (`apps/student-web`)
+- `altitutor-tutor-web` (`apps/tutor-web`)
+- `altitutor-ucat-web` (`apps/ucat-web`)
 
-**App deployed:**
-- `student-app` (apps/student-app)
+### EAS (`apps/student-app`)
 
-**Variables deployed:**
-- `EXPO_PUBLIC_SUPABASE_URL` (derived from `SUPABASE_PROJECT_REF`)
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY` (derived from `SUPABASE_PUBLISHABLE_KEY`)
+- Development + preview: `EXPO_PUBLIC_*` derived from `.env.development`
+- Production: `EXPO_PUBLIC_*` derived from `.env.production`
+
+Variables:
+
+- `EXPO_PUBLIC_SUPABASE_URL` (from `SUPABASE_PROJECT_REF`)
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` (from `SUPABASE_PUBLISHABLE_KEY`)
 - `EXPO_PUBLIC_STUDENT_WEB_URL` (from `NEXT_PUBLIC_STUDENT_URL` / `EXPO_PUBLIC_STUDENT_WEB_URL`, or defaults)
 
-**EAS environment mapping:**
-- `.env.development` → EAS `development` + `preview` (matches `eas.json` development/preview build profiles)
-- `.env.production` → EAS `production` (matches `eas.json` production build profile)
+Mapping:
 
-**Not deployed via this script (managed in EAS dashboard):**
-- iOS distribution certificates and provisioning profiles
-- App Store Connect API key (`.p8`)
+- `.env.development` to EAS `development` and `preview`
+- `.env.production` to EAS `production`
 
-**Why:** EAS needs client-side environment variables at native build time. These mirror the values used by `student-web` on Vercel.
+Certificates, provisioning profiles, and App Store Connect API keys are managed in the EAS dashboard, not by this script.
 
 ### Supabase Edge Functions
-- **Development**: Secrets needed by edge functions from `.env.shared` and `.env.development`
-- **Production**: Secrets needed by edge functions from `.env.shared` and `.env.production`
 
-**Auto-provided by Supabase (no need to set):**
-- `SUPABASE_URL` - Automatically available to edge functions
-- `SUPABASE_ANON_KEY` - Automatically available to edge functions
-- `SUPABASE_SERVICE_ROLE_KEY` - Automatically available to edge functions
+From `.env.shared` plus the matching environment file. Deployed keys include:
 
-**Not used by edge functions:**
-- `SUPABASE_DB_URL` - Edge functions use `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` instead
-
-**Secrets actually deployed to edge functions:**
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_API_KEY_SID`
-- `TWILIO_API_KEY_SECRET`
-- `TWILIO_VERIFY_SIGNATURE`
-- `TWILIO_PUBLIC_URL_INBOUND`
-- `TWILIO_PUBLIC_URL_STATUS` (or `TWILIO_PUBLIC_URL` as fallback)
+- `TWILIO_*`
+- `IMESSAGE_*`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
 
-**Why:** Edge functions need access to third-party APIs (Stripe, Twilio, etc.) to process payments, send SMS, etc.
+Supabase already provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to edge functions. Do not set `SUPABASE_DB_URL` for edge functions.
 
-### Supabase Auth SMTP Configuration
+### Supabase Auth SMTP
 
-**Local Development:**
-- SMTP is **disabled** (`enabled = false`) in `config.toml`
-- Emails are captured by **Inbucket** at `http://localhost:55324`
-- No Resend API key needed locally
+Local:
 
-**Remote Development & Production:**
-- Configuration is deployed via `supabase/scripts/deploy-config.sh`
-- The script:
-  1. Substitutes `RESEND_API_KEY` from environment variables
-  2. Enables SMTP (`enabled = true`) for production
-  3. Pushes config via `supabase config push`
+- SMTP is disabled in `config.toml`
+- Emails are captured by Inbucket at http://localhost:55324
 
-**Setup:**
-1. Add `RESEND_API_KEY` to `secrets/.env.shared`
-2. The secret is automatically deployed via `deploy-supabase.sh`
-3. CI/CD workflows run `deploy-config.sh` which configures SMTP automatically
+Remote development and production:
 
-**SMTP Settings:**
-- **Host:** `smtp.resend.com`
-- **Port:** `587`
-- **Username:** `resend`
-- **Password:** Your Resend API key
-- **Sender email:** `noreply@altitutor.com` (configured in `config.toml`)
-- **Sender name:** `Altitutor`
+1. Put `RESEND_API_KEY` in `.env.shared`
+2. Deploy secrets with `deploy-supabase.sh`
+3. CI/CD runs `supabase/scripts/deploy-config.sh`, which enables SMTP and pushes config
 
-**Auth email rate limits** (via `supabase/config.toml`, deployed by `deploy-config.sh`):
-- **Development:** 200 auth emails/hour (with Resend SMTP enabled)
-- **Production:** 100 auth emails/hour
-- Without custom SMTP, Supabase built-in email stays at ~2/hour regardless of this setting
+SMTP settings (via `config.toml`):
 
-## 🔧 Customizing Secret Filters
+- Host: `smtp.resend.com`
+- Port: `587`
+- Username: `resend`
+- Password: Resend API key
+- Sender: `noreply@altitutor.com` / `Altitutor`
 
-By default, the scripts use patterns to determine which secrets go where:
+Auth email rate limits (deployed by `deploy-config.sh`):
+
+- Development: 200/hour (with Resend SMTP)
+- Production: 100/hour
+
+Without custom SMTP, Supabase built-in email stays around 2/hour regardless of those limits.
+
+## Secret Filters
 
 ### GitHub (`deploy-github.sh`)
-```bash
-# Excludes NEXT_PUBLIC_* (Vercel-only)
-if should_deploy_github_environment_secret "$key"; then
-    deploy_github_secret "$key" "$value" "development"
-fi
-```
+
+Excludes `NEXT_PUBLIC_*` (those go to Vercel).
 
 ### Vercel (`deploy-vercel.sh`)
-```bash
-# Only includes NEXT_PUBLIC_* variables (client-side/build-time vars)
-if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
-    deploy_vercel_secret "$key" "$value" "$project" "preview"
-fi
 
-# Tutor-web-only server secrets
-if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
-    deploy_tutor_web_server_secret "$key" "$value" "preview"
-fi
-
-# Web app server email secrets
-if [[ "$key" == "RESEND_API_KEY" ]]; then
-    deploy_all_web_server_secret "$key" "$value" "preview"
-fi
-```
+Deploys `NEXT_PUBLIC_*` to all configured web projects, `OPENROUTER_API_KEY` to tutor-web, and `RESEND_API_KEY` to all configured web projects.
 
 ### EAS (`deploy-eas.sh`)
-```bash
-# Only includes EXPO_PUBLIC_* variables (client-side/build-time vars for native app)
-# Derived from SUPABASE_PROJECT_REF, SUPABASE_PUBLISHABLE_KEY, and student web URL
-if [[ "$key" =~ ^EXPO_PUBLIC_ ]]; then
-    deploy_eas_environment "$eas_environment" "$source_env"
-fi
-```
+
+Deploys derived `EXPO_PUBLIC_*` values only.
 
 ### Supabase (`deploy-supabase.sh`)
-```bash
-# Only includes API keys/secrets actually used by edge functions
-# Deploys: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
-if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]]; then
-    deploy_supabase_secret "$key" "$value" "$project_ref" "development"
-fi
-```
 
-**To customize:** Edit the regex patterns in each deployment script to match your naming conventions.
+Deploys `TWILIO_*`, `IMESSAGE_*`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`.
 
-## 🔍 Verification
+Edit the patterns in each script if naming conventions change.
 
-After deployment, verify secrets are set:
+## Verification
 
 ### GitHub Actions
-```bash
-# List repository-level secrets
-gh secret list --repo matthewchua/altitutor-monorepo
 
-# List environment-specific secrets
-gh secret list --repo matthewchua/altitutor-monorepo --env development
-gh secret list --repo matthewchua/altitutor-monorepo --env production
+```bash
+gh secret list --repo Altitutor/altitutor-monorepo
+gh secret list --repo Altitutor/altitutor-monorepo --env development
+gh secret list --repo Altitutor/altitutor-monorepo --env production
 ```
 
 ### Vercel
+
 ```bash
-# List environment variables for each project
 vercel env ls --project altitutor-admin-web
 vercel env ls --project altitutor-student-web
 vercel env ls --project altitutor-tutor-web
+vercel env ls --project altitutor-ucat-web
 ```
 
 ### EAS
+
 ```bash
 cd apps/student-app
 eas env:list --environment development
@@ -337,80 +236,30 @@ eas env:list --environment production
 ```
 
 ### Supabase
+
 ```bash
-supabase secrets list --project-ref <your-dev-project-ref>
-supabase secrets list --project-ref <your-prod-project-ref>
+supabase secrets list --project-ref <dev-project-ref>
+supabase secrets list --project-ref <prod-project-ref>
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### "Command not found" errors
-Install the missing CLI tool:
-- `gh`: `brew install gh`
-- `vercel`: `npm install -g vercel`
-- `eas`: `npm install -g eas-cli`
-- `supabase`: `brew install supabase/tap/supabase`
-- `jq`: `brew install jq`
+### Command not found
 
-### "Not authenticated" errors
-Log in to each service:
-- `gh auth login`
-- `vercel login`
-- `eas login`
-- `supabase login`
+Install the missing CLI (`gh`, `vercel`, `eas`, `supabase`, or `jq`) as listed in Quick Start.
 
-### "Project not found" (Vercel)
-- Ensure project names in `deploy-vercel.sh` match your actual Vercel projects
-- Check if you need to set `VERCEL_TEAM_ID` for team accounts
-- Run `vercel projects ls` to see available projects
+### Not authenticated
 
-### "No auth token" (Vercel)
-- Run `vercel login` and authenticate (if CLI auth is working)
-- Alternatively, set `VERCEL_TOKEN` environment variable with your token
-- Or add `VERCEL_TOKEN=your_token_here` to `.env.shared` (recommended for deployment scripts)
+Run `gh auth login`, `vercel login`, `eas login`, or `supabase login`.
 
-### "No auth token" (EAS)
-- Run `eas login` and authenticate
-- Or add `EXPO_TOKEN=your_token_here` to `.env.shared` (create at expo.dev → Account Settings → Access Tokens)
+### Vercel project not found
+
+Confirm project names in `deploy-vercel.sh`, set `VERCEL_TEAM_ID` if needed, and run `vercel projects ls`.
+
+### Missing Vercel or EAS token
+
+Use CLI login, or set `VERCEL_TOKEN` / `EXPO_TOKEN` in `.env.shared`.
 
 ### Secrets not updating
-- Vercel and GitHub cache secrets. Redeploy or restart to see changes.
-- For Vercel: Trigger a new deployment
-- For GitHub Actions: Re-run the workflow
 
-## 🎓 Best Practices
-
-1. **Development First:** Always test secret deployment in development before production
-2. **Backup:** Keep production secrets in a secure password manager (1Password, LastPass, etc.)
-3. **Rotation:** Rotate production secrets periodically (every 90 days)
-4. **Access Control:** Limit who has access to `.env.production`
-5. **Never Commit:** Double-check `.gitignore` includes all `.env.*` files
-6. **Document:** Keep notes of what each secret is used for in the example files
-7. **Review:** Before deploying, review what secrets will be deployed with `git diff`
-
-## 🚀 Future: Migration to Production Pattern (Doppler/1Password)
-
-This is a **Quick Path** implementation. For production-grade secret management:
-
-### Option 1: Doppler (Recommended)
-- Encrypted secret storage with audit logs
-- RBAC (role-based access control)
-- Native GitHub Actions, Vercel, and Supabase integrations
-- Secret versioning and rollback
-- CLI for local development
-
-### Option 2: 1Password CLI
-- Uses your existing 1Password account
-- Secret references in scripts
-- Encrypted vaults
-- Good for small teams already using 1Password
-
-**When ready to upgrade:** Your existing scripts can stay mostly the same - just change the source from `.env.*` files to Doppler/1Password CLI commands.
-
-## 📚 Additional Resources
-
-- [GitHub Actions Encrypted Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
-- [Vercel Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables)
-- [Supabase Edge Functions Secrets](https://supabase.com/docs/guides/functions/secrets)
-- [Doppler Documentation](https://docs.doppler.com/)
-- [1Password CLI](https://developer.1password.com/docs/cli/)
+Redeploy the Vercel app or re-run the GitHub Actions workflow after changing secrets.

@@ -12,24 +12,6 @@ export function planPickerTierRank(tier: PlanPickerTier): number {
   return 0;
 }
 
-/** Tiers above the user's current plan for inline upsell cards. */
-export function upgradePlanPickerTiers(
-  onlineTier: string | null | undefined,
-  subscriptionPlanTier?: string | null,
-): PlanPickerTier[] {
-  const rank = Math.max(
-    onlineTierRank(onlineTier),
-    subscriptionPlanTier === "pro"
-      ? 2
-      : subscriptionPlanTier === "unlimited"
-        ? 1
-        : 0,
-  );
-  if (rank >= 2) return [];
-  if (rank === 1) return ["pro"];
-  return ["unlimited", "pro"];
-}
-
 export function canDowngradeToTier(
   onlineTier: string | null | undefined,
   target: PlanPickerTier,

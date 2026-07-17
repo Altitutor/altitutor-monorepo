@@ -1,11 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@altitutor/ui";
-import { ExternalLink, Loader2 } from "lucide-react";
-import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import {
+  Badge,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CircleDollarSign,
+  CreditCard,
+  ExternalLink,
+  Info,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
+import {
+  createBillingPortalSession,
+  type BillingPortalAction,
+} from "@/features/subscription/api/create-billing-portal-session";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { SubscriptionInvoicesTable } from "@/features/subscription/components/subscription-invoices-table";
 import {
@@ -14,7 +35,10 @@ import {
 } from "@/features/subscription/lib/invoice-display";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { fetchPracticeDiscountProgress } from "@/features/subscription/api/fetch-practice-discount-progress";
-import { computePracticeDiscountPricing } from "@/features/subscription/lib/pricing";
+import {
+  computePracticeDiscountBillSnapshot,
+  computePracticeDiscountPricing,
+} from "@/features/subscription/lib/pricing";
 import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
 import {
   getSubscriptionEndDateIso,
@@ -28,14 +52,37 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  cancelUcatSubscriptionImmediately,
+  resumeUcatSubscription,
+} from "@/features/subscription/api/change-subscription-cancellation";
+import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
+import { ImmediatePlanCancellationDialog } from "@/features/subscription/components/immediate-plan-cancellation-dialog";
+import { UcatPaymentMethodDialog } from "@/features/subscription/components/ucat-payment-method-dialog";
+import { applyUcatPaymentMethod } from "@/features/subscription/api/ucat-payment-method";
+import {
+  UCAT_PAYMENT_METHOD_QUERY_KEY,
+  useUcatPaymentMethod,
+} from "@/features/subscription/hooks/use-ucat-payment-method";
 import type { UcatSubscriptionDetails } from "@/features/subscription/types/ucat-subscription-billing";
+import {
+  hasPaidUcatSubscriptionAccess,
+  isUcatBillingRecoveryStatus,
+  isUcatBillingTerminalStatus,
+} from "@/lib/ucat/subscription-status";
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
-  "active",
-  "trialing",
-  "past_due",
-  "unpaid",
-]);
+function formatRetryDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toLocaleString("en-AU", {
+    timeZone: "Australia/Adelaide",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function formatSubscriptionPeriod(subscription: UcatSubscriptionDetails) {
   const start = subscription.current_period_start
@@ -57,69 +104,127 @@ function formatSubscriptionPlan(subscription: UcatSubscriptionDetails) {
   );
 }
 
+function formatCardBrand(brand: string): string {
+  const labels: Record<string, string> = {
+    amex: "American Express",
+    diners: "Diners Club",
+    discover: "Discover",
+    jcb: "JCB",
+    mastercard: "Mastercard",
+    unionpay: "UnionPay",
+    visa: "Visa",
+  };
+  return labels[brand.toLowerCase()] ?? "Card";
+}
+
+function MetricInfoTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={label}
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-[290px] text-sm leading-relaxed"
+        >
+          {children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function PastSubscriptionsSection({
   subscriptions,
 }: {
   subscriptions: UcatSubscriptionDetails[];
 }) {
+  if (subscriptions.length === 0) {
+    return null;
+  }
+
   return (
     <section className="space-y-4">
       <h2 className="text-2xl font-semibold tracking-tight">
         Past subscriptions
       </h2>
       <div className="space-y-3">
-        {subscriptions.length === 0 ? (
+        {subscriptions.map((subscription) => (
           <div
+            key={subscription.id}
             className={cn(
-              "rounded-ucatShell p-4 text-sm text-muted-foreground",
+              "rounded-ucatShell flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between",
               UCAT_SURFACE_CARD,
             )}
           >
-            No past subscriptions yet.
-          </div>
-        ) : (
-          subscriptions.map((subscription) => (
-            <div
-              key={subscription.id}
-              className={cn(
-                "rounded-ucatShell flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between",
-                UCAT_SURFACE_CARD,
-              )}
-            >
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">
-                    {formatSubscriptionPlan(subscription)}
-                  </p>
-                  <Badge variant="secondary">
-                    {formatSubscriptionStatus(subscription.status)}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatSubscriptionPeriod(subscription)}
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-medium">
+                  {formatSubscriptionPlan(subscription)}
                 </p>
+                <Badge variant="secondary">
+                  {formatSubscriptionStatus(subscription.status)}
+                </Badge>
               </div>
-              {subscription.billing_interval ? (
-                <p className="text-sm text-muted-foreground">
-                  {subscription.billing_interval}
-                </p>
-              ) : null}
+              <p className="text-sm text-muted-foreground">
+                {formatSubscriptionPeriod(subscription)}
+              </p>
             </div>
-          ))
-        )}
+            {subscription.billing_interval ? (
+              <p className="text-sm text-muted-foreground">
+                {subscription.billing_interval}
+              </p>
+            ) : null}
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
 export function SubscriptionBillingSection() {
-  const { data, isLoading, error } = useUcatSubscriptionBilling();
+  const queryClient = useQueryClient();
+  const { data, isLoading, error, refetch } = useUcatSubscriptionBilling();
+  const {
+    data: paymentMethodData,
+    isLoading: paymentMethodLoading,
+    error: paymentMethodLoadError,
+  } = useUcatPaymentMethod();
   const { openPlanPicker } = useUpsellDialog();
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [portalError, setPortalError] = useState<string | null>(null);
-  const [pricingConfig, setPricingConfig] = useState(
-    defaultPublicSubscriptionConfig,
+  const [portalAction, setPortalAction] = useState<BillingPortalAction | null>(
+    null,
   );
+  const [portalError, setPortalError] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [immediateCancelOpen, setImmediateCancelOpen] = useState(false);
+  const [immediateCancelLoading, setImmediateCancelLoading] = useState(false);
+  const [immediateCancelError, setImmediateCancelError] = useState<
+    string | null
+  >(null);
+  const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  const [paymentMethodStatus, setPaymentMethodStatus] = useState<string | null>(
+    null,
+  );
+  const [paymentMethodError, setPaymentMethodError] = useState<string | null>(
+    null,
+  );
+  const handledPaymentMethodReturn = useRef(false);
+  const { data: pricingConfig = defaultPublicSubscriptionConfig } =
+    usePublicSubscriptionConfig();
   const [discountProgress, setDiscountProgress] = useState<{
     earned: number;
     cap: number;
@@ -128,12 +233,8 @@ export function SubscriptionBillingSection() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [cfg, progress] = await Promise.all([
-        fetchPublicSubscriptionConfig(),
-        fetchPracticeDiscountProgress(),
-      ]);
+      const progress = await fetchPracticeDiscountProgress();
       if (!cancelled) {
-        setPricingConfig(cfg);
         if (progress && progress.cap > 0) {
           setDiscountProgress({ earned: progress.earned, cap: progress.cap });
         } else {
@@ -146,15 +247,67 @@ export function SubscriptionBillingSection() {
     };
   }, []);
 
+  useEffect(() => {
+    if (handledPaymentMethodReturn.current) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("payment_method") !== "return") return;
+
+    handledPaymentMethodReturn.current = true;
+    const setupIntentId = url.searchParams.get("setup_intent");
+    const cleanReturnUrl = () => {
+      url.searchParams.delete("payment_method");
+      url.searchParams.delete("setup_intent");
+      url.searchParams.delete("setup_intent_client_secret");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+    };
+
+    setPaymentMethodStatus(null);
+    setPaymentMethodError(null);
+    if (!setupIntentId) {
+      setPaymentMethodError("Stripe returned without a completed card update.");
+      cleanReturnUrl();
+      return;
+    }
+
+    void applyUcatPaymentMethod(setupIntentId)
+      .then((result) => {
+        queryClient.setQueryData(UCAT_PAYMENT_METHOD_QUERY_KEY, result);
+        setPaymentMethodStatus("Your UCAT payment card has been updated.");
+      })
+      .catch((applyError: unknown) => {
+        setPaymentMethodError(
+          applyError instanceof Error
+            ? applyError.message
+            : "Failed to finish updating your card",
+        );
+      })
+      .finally(cleanReturnUrl);
+  }, [queryClient]);
+
   const subscription = data?.subscription ?? null;
   const subscriptions = data?.subscriptions ?? [];
   const invoices = data?.invoices ?? [];
-  const isActive =
-    subscription != null &&
-    ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
+  const hasPaidAccess =
+    subscription != null && hasPaidUcatSubscriptionAccess(subscription.status);
   const pastSubscriptions = subscriptions.filter(
-    (row) => row.id !== subscription?.id || !isActive,
+    (row) => row.id !== subscription?.id,
   );
+  const isPaymentRecovery = subscription
+    ? isUcatBillingRecoveryStatus(subscription.status)
+    : false;
+  const isTerminalBillingState = subscription
+    ? isUcatBillingTerminalStatus(subscription.status)
+    : false;
+  const retryAt = formatRetryDate(
+    subscription?.billing_recovery_next_attempt_at ?? null,
+  );
+  const recoveryInvoice = subscription?.billing_recovery_invoice_id
+    ? (invoices.find(
+        (invoice) =>
+          invoice.stripe_invoice_id ===
+          subscription.billing_recovery_invoice_id,
+      ) ?? null)
+    : null;
 
   const cancelEndDate = subscription
     ? getSubscriptionEndDateIso(subscription)
@@ -167,26 +320,107 @@ export function SubscriptionBillingSection() {
     if (!subscription) return null;
     return computePracticeDiscountPricing(pricingConfig, subscription);
   }, [pricingConfig, subscription]);
+  const billSnapshot = useMemo(
+    () =>
+      pricing
+        ? computePracticeDiscountBillSnapshot(pricing, discountProgress)
+        : null,
+    [discountProgress, pricing],
+  );
 
-  const handleManageOnStripe = async () => {
-    setPortalLoading(true);
+  const handlePortalAction = async (action: BillingPortalAction) => {
+    setPortalAction(action);
     setPortalError(null);
     try {
-      const { url } = await createBillingPortalSession();
-      window.open(url, "_blank", "noopener,noreferrer");
-      setPortalLoading(false);
+      const { url } = await createBillingPortalSession(action);
+      window.location.assign(url);
     } catch (e) {
       setPortalError(
         e instanceof Error ? e.message : "Failed to open billing portal",
       );
-      setPortalLoading(false);
+      setPortalAction(null);
+    }
+  };
+
+  const handleFixPayment = async () => {
+    if (recoveryInvoice?.hosted_invoice_url) {
+      window.open(
+        recoveryInvoice.hosted_invoice_url,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      return;
+    }
+    await handlePortalAction("payment_method_update");
+  };
+
+  const handleChangePlan = () => {
+    openPlanPicker({
+      title: "Change your plan",
+      description: "Compare UCAT Free, Unlimited and Pro.",
+    });
+  };
+
+  const handleKeepPaidPlan = async () => {
+    setResumeLoading(true);
+    setResumeError(null);
+    try {
+      await resumeUcatSubscription();
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_reversed",
+        journeyContext: "subscription_settings",
+        metadata: { current_plan: subscription?.plan_tier ?? null },
+      });
+      await refetch();
+    } catch (e) {
+      setResumeError(
+        e instanceof Error ? e.message : "Failed to keep your paid plan",
+      );
+    } finally {
+      setResumeLoading(false);
+    }
+  };
+
+  const handleCancelImmediately = async () => {
+    setImmediateCancelLoading(true);
+    setImmediateCancelError(null);
+    try {
+      await cancelUcatSubscriptionImmediately();
+      trackSubscriptionJourneyEvent({
+        eventType: "cancellation_accelerated",
+        journeyContext: "subscription_settings",
+        metadata: { previous_plan: subscription?.plan_tier ?? null },
+      });
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["ucat-access"] }),
+      ]);
+      setImmediateCancelOpen(false);
+    } catch (e) {
+      setImmediateCancelError(
+        e instanceof Error ? e.message : "Failed to switch to UCAT Free now",
+      );
+    } finally {
+      setImmediateCancelLoading(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div
+        className="space-y-6"
+        aria-busy="true"
+        aria-label="Loading subscription"
+      >
+        <Skeleton className="h-48 w-full rounded-ucatShell" />
+        <div className="space-y-4">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-24 w-full rounded-ucatShell" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-56 w-full rounded-ucatShell" />
+        </div>
       </div>
     );
   }
@@ -233,119 +467,327 @@ export function SubscriptionBillingSection() {
 
   return (
     <div className="space-y-6">
-      {isCancelScheduled && cancelEndDate ? (
-        <div className="rounded-ucatShell border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
-          Your subscription is scheduled to cancel on{" "}
-          <span className="font-semibold">
-            {formatInvoiceDate(cancelEndDate)}
-          </span>
-          . You&apos;ll keep access until then. You can undo this in Stripe via
-          Manage.
-        </div>
-      ) : null}
-
-      <div
-        className={cn(
-          "rounded-ucatShell p-6",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
-      >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight">
-                My subscription
-              </h2>
-              <Badge variant={isActive ? "default" : "secondary"}>
-                {isCancelScheduled
-                  ? "Canceling"
-                  : formatSubscriptionStatus(subscription.status)}
-              </Badge>
-            </div>
-
-            {pricing ? (
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  <span className="font-medium text-foreground">
-                    Standard price:{" "}
-                  </span>
-                  {formatMoneyFromMinorUnits(
-                    pricing.standardPriceCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  / {pricing.billingIntervalNoun}
+      {isPaymentRecovery ? (
+        <div
+          role="alert"
+          className="rounded-ucatShell border border-amber-500/40 bg-amber-500/10 p-4 text-amber-950 dark:text-amber-100"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold">
+                  {subscription.billing_recovery_requires_action
+                    ? "Please confirm your payment"
+                    : "Your payment didn’t go through"}
                 </p>
-                <p>
-                  <span className="font-medium text-foreground">
-                    Practice discount:{" "}
-                  </span>
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  off per day you answer {pricing.minQuestionsPerDay}+ questions
+                <p className="text-sm">
+                  Your paid UCAT access continues temporarily while Stripe
+                  retries. Fix the payment to avoid moving to Free.
                 </p>
-                <p>
-                  <span className="font-medium text-foreground">
-                    Best case this period:{" "}
-                  </span>
-                  {formatMoneyFromMinorUnits(
-                    pricing.minimumPriceCents,
-                    pricingConfig.currency,
-                  )}{" "}
-                  / {pricing.billingIntervalNoun} if you earn the maximum{" "}
-                  {pricing.maxDiscountsPerPeriod} practice discounts (
-                  {pricing.maxDiscountsPerPeriod} ×{" "}
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
-                  )}
-                  )
-                </p>
-                {discountProgress ? (
-                  <p>
-                    <span className="font-medium text-foreground">
-                      This billing period:{" "}
-                    </span>
-                    {discountProgress.earned} / {discountProgress.cap} practice
-                    discounts earned
+                {retryAt ? (
+                  <p className="text-sm font-medium">
+                    Next automatic attempt: {retryAt}
                   </p>
                 ) : null}
               </div>
-            ) : null}
-
-            {isActive &&
-            subscription.current_period_end &&
-            !isCancelScheduled ? (
-              <p className="text-sm text-muted-foreground">
-                Next billing date:{" "}
-                {formatInvoiceDate(
-                  subscription.current_period_end.slice(0, 10),
-                )}
-              </p>
-            ) : null}
+            </div>
+            <Button
+              type="button"
+              className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
+              disabled={portalAction !== null}
+              onClick={() => void handleFixPayment()}
+            >
+              {portalAction === "payment_method_update" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              )}
+              {subscription.billing_recovery_requires_action
+                ? "Confirm payment"
+                : "Update payment method"}
+            </Button>
           </div>
+        </div>
+      ) : null}
 
+      {isTerminalBillingState ? (
+        <div
+          role="alert"
+          className="rounded-ucatShell flex flex-col gap-4 border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-semibold">Your paid UCAT access has ended</p>
+            <p className="mt-1">
+              We couldn’t recover the payment, so you’ve moved to Free. Your
+              account, practice history and results are safe.
+            </p>
+          </div>
           <Button
             type="button"
-            className={UCAT_PRIMARY_ACTION_BUTTON}
-            disabled={portalLoading}
-            onClick={() => void handleManageOnStripe()}
+            className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
+            disabled={portalAction !== null}
+            onClick={() => void handlePortalAction("payment_method_update")}
           >
-            {portalLoading ? (
+            {portalAction === "payment_method_update" ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <ExternalLink className="mr-2 h-4 w-4" />
             )}
-            Manage
+            Review billing
           </Button>
         </div>
+      ) : null}
 
-        {portalError ? (
-          <p className="mt-4 text-sm text-destructive">{portalError}</p>
+      {portalError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {portalError}
+        </p>
+      ) : null}
+
+      {isCancelScheduled && cancelEndDate ? (
+        <div
+          role="alert"
+          className="rounded-ucatShell flex flex-col gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:text-amber-100"
+        >
+          <div>
+            <p>
+              You&apos;re switching to UCAT Free on{" "}
+              <span className="font-semibold">
+                {formatInvoiceDate(cancelEndDate)}
+              </span>
+              . You&apos;ll keep paid access until then.
+            </p>
+            {resumeError ? (
+              <p className="mt-1 text-destructive">{resumeError}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="shrink-0 text-amber-950 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100 dark:hover:text-amber-100"
+              disabled={resumeLoading}
+              onClick={() => {
+                setImmediateCancelError(null);
+                setImmediateCancelOpen(true);
+              }}
+            >
+              Switch now
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              disabled={resumeLoading}
+              onClick={() => void handleKeepPaidPlan()}
+            >
+              {resumeLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Keep paid plan
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <section
+        className={cn(
+          "rounded-ucatShell overflow-hidden",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
+        <div className="relative overflow-hidden border-b border-border/60 bg-gradient-to-br from-primary/[0.09] via-background to-accent/[0.08] p-6 sm:p-8">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                My subscription
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {formatSubscriptionPlan(subscription)}
+                </h2>
+                <Badge variant={hasPaidAccess ? "default" : "secondary"}>
+                  {isCancelScheduled
+                    ? "Switching to Free"
+                    : formatSubscriptionStatus(subscription.status)}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isCancelScheduled
+                  ? cancelEndDate
+                    ? `Paid access until ${formatInvoiceDate(cancelEndDate)}`
+                    : "Your subscription will switch to UCAT Free."
+                  : "Your plan, renewal and practice rewards at a glance."}
+              </p>
+            </div>
+            {pricing && billSnapshot ? (
+              <div className="sm:text-right">
+                {billSnapshot.earnedDiscountCents > 0 ? (
+                  <p className="text-sm text-muted-foreground line-through decoration-muted-foreground/70">
+                    {formatMoneyFromMinorUnits(
+                      pricing.standardPriceCents,
+                      pricingConfig.currency,
+                    )}
+                  </p>
+                ) : null}
+                <p className="text-3xl font-semibold tracking-tight tabular-nums">
+                  {formatMoneyFromMinorUnits(
+                    billSnapshot.projectedBillCents,
+                    pricingConfig.currency,
+                  )}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  estimated next bill / {pricing.billingIntervalNoun}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {pricing && billSnapshot ? (
+          <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  {isCancelScheduled ? "Paid access until" : "Next renewal"}
+                </p>
+              </div>
+              <p className="mt-2 font-semibold">
+                {subscription.current_period_end
+                  ? formatInvoiceDate(
+                      subscription.current_period_end.slice(0, 10),
+                    )
+                  : "Not scheduled"}
+              </p>
+            </div>
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  Card ending
+                </p>
+              </div>
+              {paymentMethodLoading ? (
+                <Skeleton className="mt-2 h-5 w-32" />
+              ) : (
+                <p className="mt-2 font-semibold">
+                  {paymentMethodData?.paymentMethod
+                    ? `${formatCardBrand(paymentMethodData.paymentMethod.brand)} ending in ${paymentMethodData.paymentMethod.last4}`
+                    : paymentMethodLoadError
+                      ? "Card unavailable"
+                      : "No card saved"}
+                </p>
+              )}
+            </div>
+            <div className="bg-background p-5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wide">
+                  Discount still available
+                </p>
+                <MetricInfoTooltip label="How much more discount you can earn">
+                  This is the additional amount you can still take off your next
+                  bill before this billing cycle ends. Each qualifying practice
+                  day reduces it by{" "}
+                  {formatMoneyFromMinorUnits(
+                    pricing.discountPerDayCents,
+                    pricingConfig.currency,
+                  )}
+                  .
+                </MetricInfoTooltip>
+              </div>
+              <p className="mt-2 font-semibold tabular-nums">
+                {formatMoneyFromMinorUnits(
+                  billSnapshot.remainingDiscountCents,
+                  pricingConfig.currency,
+                )}{" "}
+                left to earn
+              </p>
+            </div>
+          </div>
         ) : null}
-      </div>
+
+        {!isPaymentRecovery && !isTerminalBillingState ? (
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Manage your UCAT plan and billing card here.
+              </p>
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={portalAction !== null || isCancelScheduled}
+                  onClick={() => void handleChangePlan()}
+                >
+                  {portalAction === "subscription_update" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Change plan
+                </Button>
+                <Button
+                  type="button"
+                  className={UCAT_PRIMARY_ACTION_BUTTON}
+                  onClick={() => {
+                    setPaymentMethodStatus(null);
+                    setPaymentMethodError(null);
+                    setPaymentMethodDialogOpen(true);
+                  }}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Change card
+                </Button>
+              </div>
+            </div>
+            {paymentMethodStatus ? (
+              <p
+                role="status"
+                className="mt-3 text-sm text-emerald-700 dark:text-emerald-300"
+              >
+                {paymentMethodStatus}
+              </p>
+            ) : null}
+            {paymentMethodError ? (
+              <p role="alert" className="mt-3 text-sm text-destructive">
+                {paymentMethodError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <UcatPaymentMethodDialog
+        open={paymentMethodDialogOpen}
+        onOpenChange={setPaymentMethodDialogOpen}
+        onSuccess={() => {
+          setPaymentMethodError(null);
+          setPaymentMethodStatus("Your UCAT payment card has been updated.");
+          void queryClient.invalidateQueries({
+            queryKey: UCAT_PAYMENT_METHOD_QUERY_KEY,
+          });
+        }}
+      />
+
+      {cancelEndDate ? (
+        <ImmediatePlanCancellationDialog
+          open={immediateCancelOpen}
+          onOpenChange={(open) => {
+            if (!immediateCancelLoading) {
+              setImmediateCancelOpen(open);
+            }
+          }}
+          scheduledEndDate={formatInvoiceDate(cancelEndDate)}
+          confirming={immediateCancelLoading}
+          error={immediateCancelError}
+          onConfirm={() => void handleCancelImmediately()}
+        />
+      ) : null}
 
       <PastSubscriptionsSection subscriptions={pastSubscriptions} />
 

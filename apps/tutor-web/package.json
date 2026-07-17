@@ -67,6 +67,7 @@
     "@tiptap/pm": "3.22.5",
     "@tiptap/react": "3.22.5",
     "@types/react-big-calendar": "^1.16.1",
+    "@vercel/queue": "^0.4.0",
     "ai": "^7.0.9",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

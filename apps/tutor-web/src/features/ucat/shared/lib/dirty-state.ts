@@ -5,8 +5,7 @@ export function snapshotSetDetail(value: {
   name: string
   description: string | Json | null
   time: number | null
-  isPrivate: boolean
-  isStudentGenerated: boolean
+  accessScope: 'public' | 'private'
   stemIds: string[]
 }) {
   return JSON.stringify({
@@ -16,8 +15,7 @@ export function snapshotSetDetail(value: {
         ? value.description
         : jsonToPlainText(value.description),
     time: value.time,
-    isPrivate: value.isPrivate,
-    isStudentGenerated: value.isStudentGenerated,
+    accessScope: value.accessScope,
     stemIds: value.stemIds,
   })
 }
@@ -40,8 +38,8 @@ export function snapshotQuestionStemFormValues(values: {
   sectionId: string
   categoryId?: string | null
   stemText: Json
-  isPrivate: boolean
-  approvalStatus?: 'approved' | 'pending' | 'rejected' | null
+  accessScope: 'public' | 'private'
+  status?: 'draft' | 'in_review' | 'published' | null
   questions: Array<{
     questionText: Json
     questionType: string
@@ -63,8 +61,8 @@ export function snapshotQuestionStemFormValues(values: {
     sectionId: values.sectionId,
     categoryId: values.categoryId ?? null,
     stemText: jsonToPlainText(values.stemText),
-    isPrivate: values.isPrivate,
-    approvalStatus: values.approvalStatus ?? null,
+    accessScope: values.accessScope,
+    status: values.status ?? null,
     questions: questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
       questionType: q.questionType,
@@ -88,7 +86,7 @@ export function snapshotQuestionStemFormValues(values: {
  */
 export function snapshotMockDraft(value: {
   name: string | Json
-  isPrivate: boolean
+  accessScope: 'public' | 'private'
   setIds: string[]
   instructionsText: Json | null
 }): string {
@@ -96,7 +94,7 @@ export function snapshotMockDraft(value: {
     typeof value.name === 'string' ? value.name : jsonToPlainText(value.name)
   return JSON.stringify({
     name: namePlain,
-    isPrivate: value.isPrivate,
+    accessScope: value.accessScope,
     setIds: value.setIds,
     instructionsText: jsonToPlainText(value.instructionsText),
   })

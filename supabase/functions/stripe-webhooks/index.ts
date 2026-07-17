@@ -23,6 +23,23 @@ import {
   requeueReferralReward,
   resolveCustomerCardFingerprint,
 } from "./shared/ucat-referral-rewards.ts";
+import {
+  notifyUcatBillingAccessEnded,
+  notifyUcatInvoiceFinalizationFailed,
+  notifyUcatInvoicePaymentFailed,
+  markUcatBillingAccessEndedEmailSent,
+  resolveUcatBillingAccessEndedNotificationsForStudent,
+  resolveUcatBillingRecoveryNotificationsForStudent,
+  resolveUcatInvoiceFinalizationFailedNotification,
+  resolveUcatInvoicePaymentFailedNotification,
+} from "./shared/ucat-notifications.ts";
+import {
+  clearSubscriptionBillingRecovery,
+  recordSubscriptionBillingRecovery,
+  stripeTimestampToIso,
+  updateSubscriptionBillingRetryTime,
+} from "./shared/billing-recovery.ts";
+import { sendUcatBillingAccessEndedEmail } from "./shared/ucat-billing-email.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -46,8 +63,49 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "active",
   "trialing",
   "past_due",
-  "unpaid",
 ]);
+
+async function handleUcatFailedBillingTerminalState(
+  supabase: SupabaseClient,
+  stripe: Stripe,
+  input: {
+    studentId: string;
+    subjectId: string;
+    stripeSubscriptionId: string;
+    planTier: string | null;
+    wasInRecovery: boolean;
+  },
+): Promise<void> {
+  if (!input.wasInRecovery) return;
+
+  const ucatSubjectId = await getUcatSubjectId(supabase);
+  if (!ucatSubjectId || input.subjectId !== ucatSubjectId) return;
+
+  await forfeitPracticeDayCreditsForStudent(supabase, stripe, input.studentId);
+
+  await resolveUcatBillingRecoveryNotificationsForStudent(
+    supabase,
+    input.studentId,
+  );
+
+  const terminalNotification = await notifyUcatBillingAccessEnded(supabase, {
+    studentId: input.studentId,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+  });
+
+  if (!terminalNotification || terminalNotification.emailSentAt) return;
+  const emailSent = await sendUcatBillingAccessEndedEmail(supabase, {
+    studentId: input.studentId,
+    planTier: input.planTier,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+  });
+  if (emailSent) {
+    await markUcatBillingAccessEndedEmailSent(supabase, {
+      notificationId: terminalNotification.notificationId,
+      metadata: terminalNotification.metadata,
+    });
+  }
+}
 
 function subscriptionPeriodFields(subscription: {
   current_period_start?: number;
@@ -305,7 +363,6 @@ Deno.serve(async (req: Request) => {
             .update({
               processed: true,
               processed_at: new Date().toISOString(),
-              error_message: "Missing student_id in metadata",
             })
             .eq("stripe_event_id", event.id);
           return json({ received: true });
@@ -643,6 +700,11 @@ Deno.serve(async (req: Request) => {
           .eq("stripe_invoice_id", invoice.id)
           .is("deleted_at", null);
 
+        await resolveUcatInvoiceFinalizationFailedNotification(
+          supabase,
+          invoice.id,
+        );
+
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -802,7 +864,91 @@ Deno.serve(async (req: Request) => {
 
         if (payErr) console.error("[webhook] invoices update error", payErr);
 
+        await resolveUcatInvoicePaymentFailedNotification(supabase, invoice.id);
+        await resolveUcatInvoiceFinalizationFailedNotification(
+          supabase,
+          invoice.id,
+        );
+        await clearSubscriptionBillingRecovery(supabase, invoice.id);
+
         await markReferralRewardRedeemed(supabase, invoice.id);
+
+        await supabase
+          .from("stripe_webhook_events")
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq("stripe_event_id", event.id);
+        return json({ received: true });
+      }
+
+      case "invoice.payment_action_required": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const actionSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          invoice.id,
+        );
+        if (
+          !actionSync.ok &&
+          !("skipped" in actionSync && actionSync.skipped)
+        ) {
+          console.error(
+            "[webhook] subscription invoice sync (payment_action_required):",
+            actionSync,
+          );
+        }
+
+        let fullInvoice = invoice;
+        try {
+          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id);
+        } catch (error: unknown) {
+          console.warn(
+            "[webhook] Could not refresh action-required invoice:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+
+        await recordSubscriptionBillingRecovery(supabase, fullInvoice, {
+          failureCode: "authentication_required",
+          requiresAction: true,
+        });
+        await notifyUcatInvoicePaymentFailed(supabase, {
+          stripeInvoiceId: invoice.id,
+          failureCode: "authentication_required",
+          nextPaymentAttemptAt: stripeTimestampToIso(
+            fullInvoice.next_payment_attempt,
+          ),
+          requiresAction: true,
+        });
+
+        await supabase
+          .from("stripe_webhook_events")
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq("stripe_event_id", event.id);
+        return json({ received: true });
+      }
+
+      case "invoice.finalization_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const finalizationSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          invoice,
+        );
+        if (
+          !finalizationSync.ok &&
+          !("skipped" in finalizationSync && finalizationSync.skipped)
+        ) {
+          console.error(
+            "[webhook] subscription invoice sync (finalization_failed):",
+            finalizationSync,
+          );
+        }
+
+        await notifyUcatInvoiceFinalizationFailed(supabase, {
+          stripeInvoiceId: invoice.id,
+          failureCode:
+            invoice.last_finalization_error?.code ?? "finalization_failed",
+        });
 
         await supabase
           .from("stripe_webhook_events")
@@ -829,9 +975,22 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        const lastError = invoice.last_payment_error;
+        let fullInvoice = invoice;
+        try {
+          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id);
+        } catch (error: unknown) {
+          console.warn(
+            "[webhook] Could not refresh failed invoice:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+
+        const lastError = fullInvoice.last_payment_error;
         const failure_code = lastError?.code || "unknown_error";
         const failure_message = lastError?.message || "payment_failed";
+        const requiresAction =
+          failure_code === "authentication_required" ||
+          failure_code === "invoice_payment_intent_requires_action";
 
         const { data: prevInv } = await supabase
           .from("invoices")
@@ -869,6 +1028,20 @@ Deno.serve(async (req: Request) => {
         if (updErr)
           console.error("[webhook] invoices fail update error", updErr);
 
+        await recordSubscriptionBillingRecovery(supabase, fullInvoice, {
+          failureCode: failure_code,
+          requiresAction,
+        });
+
+        await notifyUcatInvoicePaymentFailed(supabase, {
+          stripeInvoiceId: invoice.id,
+          failureCode: failure_code,
+          nextPaymentAttemptAt: stripeTimestampToIso(
+            fullInvoice.next_payment_attempt,
+          ),
+          requiresAction,
+        });
+
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -878,12 +1051,7 @@ Deno.serve(async (req: Request) => {
 
       case "invoice.updated": {
         // MEDIUM: Handle status changes, updates to amounts, etc.
-        const invoice = event.data.object as {
-          id: string;
-          status?: string;
-          hosted_invoice_url?: string;
-          invoice_pdf?: string;
-        };
+        const invoice = event.data.object as Stripe.Invoice;
 
         // Check current invoice status before updating
         // Don't downgrade status from 'paid' to lower statuses (e.g., 'open')
@@ -959,6 +1127,11 @@ Deno.serve(async (req: Request) => {
           .eq("stripe_invoice_id", invoice.id)
           .is("deleted_at", null);
 
+        await updateSubscriptionBillingRetryTime(
+          supabase,
+          fullInvoice ?? invoice,
+        );
+
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -1015,6 +1188,10 @@ Deno.serve(async (req: Request) => {
             ucat_plan_tier?: string;
             ucat_billing_interval?: string;
             ucat_checkout_context?: string;
+            ucat_acquisition_benefit?: string;
+            ucat_standard_trial_days?: string;
+            ucat_referral_gift_id?: string;
+            ucat_referral_gift_kind?: string;
           };
         };
 
@@ -1108,7 +1285,21 @@ Deno.serve(async (req: Request) => {
               { onConflict: "student_id,subject_id" },
             );
 
-            if (subscription.status === "trialing" && customerId) {
+            if (ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+              await resolveUcatBillingAccessEndedNotificationsForStudent(
+                supabase,
+                studentId,
+              );
+            }
+
+            const referralGiftKind =
+              session.metadata?.ucat_referral_gift_kind ??
+              subscription.metadata?.ucat_referral_gift_kind;
+            const referralGiftId =
+              session.metadata?.ucat_referral_gift_id ??
+              subscription.metadata?.ucat_referral_gift_id;
+
+            if (referralGiftKind === "recipient" && customerId) {
               const defaultPaymentMethod = subscription.default_payment_method;
               const paymentMethodId =
                 typeof defaultPaymentMethod === "string"
@@ -1129,11 +1320,43 @@ Deno.serve(async (req: Request) => {
                 currentFingerprint: fingerprint,
               });
               console.log(
-                "[webhook] UCAT paid referral result",
+                "[webhook] UCAT referral gift result",
                 referralResult,
                 "for student",
                 studentId,
               );
+              if (referralResult === "rejected") {
+                await stripe.subscriptions.cancel(subscription.id, {
+                  prorate: false,
+                });
+              }
+            } else if (
+              referralGiftKind === "earned_referrer" &&
+              referralGiftId
+            ) {
+              const now = new Date().toISOString();
+              const { error: giftUseError } = await supabase
+                .from("ucat_referral_access_gifts")
+                .update({
+                  status: "used",
+                  stripe_checkout_session_id: session.id,
+                  stripe_subscription_id: subscription.id,
+                  used_at: now,
+                  updated_at: now,
+                })
+                .eq("id", referralGiftId)
+                .eq("student_id", studentId)
+                .eq("status", "checkout_pending");
+              if (giftUseError) throw giftUseError;
+
+              await supabase
+                .from("notifications")
+                .update({ resolved_at: now, updated_at: now })
+                .eq(
+                  "dedupe_key",
+                  `ucat:referral:access-gift:${referralGiftId}`,
+                )
+                .is("resolved_at", null);
             }
             console.log(
               "[webhook] UCAT subscription provisioned for student",
@@ -1141,7 +1364,9 @@ Deno.serve(async (req: Request) => {
             );
             const rawContext = session.metadata?.ucat_checkout_context;
             const journeyContext =
-              rawContext === "signup_onboarding" ||
+              rawContext === "referral_gift"
+                ? "subscribe"
+                : rawContext === "signup_onboarding" ||
               rawContext === "practice_session" ||
               rawContext === "subscribe"
                 ? rawContext
@@ -1154,6 +1379,18 @@ Deno.serve(async (req: Request) => {
               billing_interval: planFields.billing_interval,
               trial_eligible: subscription.status === "trialing",
               stripe_checkout_session_id: session.id,
+              metadata: {
+                acquisition_benefit:
+                  session.metadata?.ucat_acquisition_benefit ??
+                  subscription.metadata?.ucat_acquisition_benefit ??
+                  (subscription.status === "trialing"
+                    ? "standard_trial"
+                    : "none"),
+                trial_days:
+                  session.metadata?.ucat_standard_trial_days ??
+                  subscription.metadata?.ucat_standard_trial_days ??
+                  null,
+              },
             });
           }
         } catch (e: unknown) {
@@ -1176,14 +1413,9 @@ Deno.serve(async (req: Request) => {
           id: string;
           trial_end?: number | null;
         };
-        try {
-          await sendUcatTrialReminder(supabase, subscription);
-        } catch (error: unknown) {
-          console.error(
-            "[webhook] UCAT trial reminder failed:",
-            error instanceof Error ? error.message : String(error),
-          );
-        }
+        // Let delivery errors reach the outer handler. Returning a non-2xx
+        // response keeps the event unprocessed so Stripe can retry it.
+        await sendUcatTrialReminder(supabase, subscription);
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -1210,7 +1442,9 @@ Deno.serve(async (req: Request) => {
 
         const { data: existing } = await supabase
           .from("student_subscriptions")
-          .select("id")
+          .select(
+            "id, student_id, subject_id, status, plan_tier, billing_recovery_invoice_id",
+          )
           .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
 
@@ -1254,9 +1488,34 @@ Deno.serve(async (req: Request) => {
             billing_interval: planFields.billing_interval,
             ...subscriptionPeriodFields(subscription),
             ...subscriptionCancelFields(subscription),
+            ...(subscription.status === "unpaid"
+              ? {
+                  billing_recovery_invoice_id: null,
+                  billing_recovery_started_at: null,
+                  billing_recovery_next_attempt_at: null,
+                  billing_recovery_failure_code: null,
+                  billing_recovery_requires_action: false,
+                }
+              : {}),
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id);
+
+        if (
+          subscription.status === "unpaid" &&
+          (existing.status !== "unpaid" ||
+            Boolean(existing.billing_recovery_invoice_id))
+        ) {
+          await handleUcatFailedBillingTerminalState(supabase, stripe, {
+            studentId: existing.student_id,
+            subjectId: existing.subject_id,
+            stripeSubscriptionId: subscription.id,
+            planTier: planFields.plan_tier ?? existing.plan_tier,
+            wasInRecovery:
+              existing.status === "past_due" ||
+              Boolean(existing.billing_recovery_invoice_id),
+          });
+        }
 
         await supabase
           .from("stripe_webhook_events")
@@ -1266,22 +1525,43 @@ Deno.serve(async (req: Request) => {
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as { id: string };
+        const subscription = event.data.object as {
+          id: string;
+          cancellation_details?: { reason?: string | null } | null;
+        };
 
         const { data: endedSub } = await supabase
           .from("student_subscriptions")
-          .select("student_id, subject_id")
+          .select(
+            "student_id, subject_id, status, plan_tier, billing_recovery_invoice_id",
+          )
           .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
 
         if (endedSub?.student_id) {
           const ucatSubjectId = await getUcatSubjectId(supabase);
           if (ucatSubjectId && endedSub.subject_id === ucatSubjectId) {
-            await forfeitPracticeDayCreditsForStudent(
-              supabase,
-              stripe,
-              endedSub.student_id,
-            );
+            const failedBillingCancellation =
+              subscription.cancellation_details?.reason === "payment_failed" ||
+              endedSub.status === "past_due" ||
+              endedSub.status === "unpaid" ||
+              Boolean(endedSub.billing_recovery_invoice_id);
+
+            if (failedBillingCancellation) {
+              await handleUcatFailedBillingTerminalState(supabase, stripe, {
+                studentId: endedSub.student_id,
+                subjectId: endedSub.subject_id,
+                stripeSubscriptionId: subscription.id,
+                planTier: endedSub.plan_tier,
+                wasInRecovery: true,
+              });
+            } else {
+              await forfeitPracticeDayCreditsForStudent(
+                supabase,
+                stripe,
+                endedSub.student_id,
+              );
+            }
           }
         }
 
@@ -1291,6 +1571,11 @@ Deno.serve(async (req: Request) => {
             status: "canceled",
             cancel_at_period_end: false,
             cancel_at: new Date().toISOString(),
+            billing_recovery_invoice_id: null,
+            billing_recovery_started_at: null,
+            billing_recovery_next_attempt_at: null,
+            billing_recovery_failure_code: null,
+            billing_recovery_requires_action: false,
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id);

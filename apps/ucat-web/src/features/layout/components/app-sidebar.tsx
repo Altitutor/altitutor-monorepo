@@ -20,7 +20,6 @@ import {
   hasAccessForPath,
 } from "@/features/ucat-access/lib/route-access";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
-import { isSetGeneratorEnabled } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 
 const LOGO_SRC = "/images/logo-banner-dark.svg";
@@ -214,12 +213,9 @@ function SidebarNavContent({
                 if (item.expandable && item.href === "/sets") {
                   const accessConfig = getUpsellConfigForPath(item.href);
                   const blocked = !hasAccessForPath(item.href, access);
-                  const setGeneratorEnabled = isSetGeneratorEnabled();
                   const isSetsActive =
                     pathname === "/sets" ||
-                    pathname.startsWith("/sets/sections/") ||
-                    (setGeneratorEnabled &&
-                      pathname.startsWith("/sets/set-generator"));
+                    pathname.startsWith("/sets/sections/");
                   const setsSections = [1, 2, 3, 4] as const;
 
                   if (blocked) {
@@ -316,20 +312,6 @@ function SidebarNavContent({
                               </Link>
                             );
                           })}
-                          {setGeneratorEnabled ? (
-                            <Link
-                              href="/sets/set-generator"
-                              className={cn(
-                                "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
-                                pathname === "/sets/set-generator"
-                                  ? "bg-sidebar-foreground/15 text-sidebar-foreground font-medium"
-                                  : "text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground",
-                              )}
-                              onClick={onCloseMobile}
-                            >
-                              Set Generator
-                            </Link>
-                          ) : null}
                         </div>
                       </SidebarExpandablePanel>
                     </div>

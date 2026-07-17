@@ -32,7 +32,6 @@ import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } f
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
@@ -86,15 +85,14 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
     setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
     setDraftTimeLimitSpeed(1)
-    setDraftPrivate(!!current.is_private)
+    setDraftPrivate(current.access_scope === 'private')
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
         name: proseMirrorToPlainText(current.name ?? null),
         description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
-        isPrivate: !!current.is_private,
-        isStudentGenerated: false,
+        accessScope: current.access_scope ?? 'public',
         stemIds,
       })
     )
@@ -162,8 +160,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       name: draftName,
       description: draftDescription,
       time: timeLimitSeconds,
-      isPrivate: draftPrivate,
-      isStudentGenerated: false,
+      accessScope: draftPrivate ? 'private' : 'public',
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
@@ -172,9 +169,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const filterDefinitions = useMemo(
     () => {
       const setsList = (setsQuery.data ?? []).filter(
-        (set) =>
-          !(set as { deleted_at?: string | null }).deleted_at &&
-          !(set as { is_student_generated?: boolean }).is_student_generated,
+        (set) => !(set as { deleted_at?: string | null }).deleted_at,
       )
       return buildStemCatalogFilterDefinitions(
         sectionsQuery.data ?? [],
@@ -200,8 +195,9 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
+      accessScope: payload.accessScope,
       questions: payload.questions.map((question, index) => ({
+        id: question.id,
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
@@ -209,6 +205,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
         options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+          id: option.id,
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
@@ -249,8 +246,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           name: plainTextToProseMirror(draftName),
           description: draftDescription,
           timeLimitSeconds,
-          isPrivate: draftPrivate,
-          isStudentGenerated: false,
+          accessScope: draftPrivate ? 'private' : 'public',
           stemIds: draftStemIds,
         },
       })
@@ -273,13 +269,6 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       })
     }
   }
-
-  const stemsThatWillBecomePublicCount = useMemo(() => {
-    if (draftPrivate) return 0
-    return draftStemIds.filter(
-      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.isPrivate
-    ).length
-  }, [draftPrivate, draftStemIds, stemCatalog])
 
   const isLoading =
     access.isLoading ||
@@ -312,9 +301,6 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         }
       />
 
-      {stemsThatWillBecomePublicCount > 0 && (
-        <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
-      )}
       <div className={cn('relative mt-4 flex h-[70vh] min-h-0 flex-col', tutorTableShell)}>
         <UcatSetEditorContent
           draftName={draftName}
@@ -386,4 +372,3 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     </div>
   )
 }
-

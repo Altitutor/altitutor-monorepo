@@ -5,7 +5,7 @@ import React, {
   useState,
   useMemo,
 } from 'react';
-import { Badge, Skeleton } from '@altitutor/ui';
+import { Badge, Skeleton, commandPaletteItemActiveStyles, commandPaletteItemInactiveStyles } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
@@ -307,8 +307,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
                     <button
                       key={`${item.type}-${item.id}`}
                       className={cn(
-                        'w-full flex items-start gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
-                        isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
+                        'w-full flex items-start gap-2 px-2 py-1.5 rounded-sm text-left',
+                        isSelected
+                          ? commandPaletteItemActiveStyles
+                          : commandPaletteItemInactiveStyles
                       )}
                       onMouseDown={(e) => {
                         e.preventDefault();

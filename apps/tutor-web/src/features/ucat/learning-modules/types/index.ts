@@ -1,6 +1,7 @@
 import type { Json } from '@altitutor/shared'
 
 export type UcatLearningModuleKind = 'folder' | 'lesson'
+export type UcatLearningModuleStudyPlanPriority = 'essential' | 'recommended' | 'optional' | 'excluded'
 
 export type UcatLearningModuleBlockType =
   | 'text'
@@ -24,6 +25,9 @@ export type UcatLearningModuleRow = {
   child_count: number
   block_count: number
   updated_at: string
+  study_plan_priority: UcatLearningModuleStudyPlanPriority
+  study_plan_category_ids: string[]
+  study_plan_tag_ids: string[]
 }
 
 export type UcatLearningModuleBlockRow = {
@@ -60,4 +64,7 @@ export type UcatLearningModuleUpsertPayload = {
   parentId?: string | null
   index?: number
   isPrivate?: boolean
+  studyPlanPriority?: UcatLearningModuleStudyPlanPriority
+  studyPlanCategoryIds?: string[]
+  studyPlanTagIds?: string[]
 }

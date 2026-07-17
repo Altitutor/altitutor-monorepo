@@ -873,7 +873,6 @@ export function CalculatorMathsTrainer({
           <EmbeddedCalculator
             display={calcDisplay}
             onKey={onCalcKey}
-            onBackspace={() => onCalcKey("Backspace")}
             captureKeyboardAlways
             active={!answerFocused && !disabled}
           />

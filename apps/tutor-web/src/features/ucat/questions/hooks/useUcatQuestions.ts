@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatAccessScope, UcatContentStatus, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatApprovalStatus, UcatQuestionListMode } from '@/features/ucat/questions/api/questions'
 import type { Json } from '@altitutor/shared'
 
 function parseStemCatalogSetIds(value: unknown): string[] {
@@ -20,13 +19,13 @@ function parseStemCatalogSetNames(value: unknown): string {
 }
 
 export function useUcatQuestions(options?: {
-  mode?: UcatQuestionListMode
+  status?: UcatContentStatus | null
+  sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   sectionId?: string | null
   categoryId?: string | null
-  approvalStatus?: UcatApprovalStatus | null
 }) {
   return useQuery({
-    queryKey: ucatKeys.questions(options?.mode ?? 'default'),
+    queryKey: [...ucatKeys.questions('all'), options ?? {}],
     queryFn: () => ucatQuestionsApi.list(options),
   })
 }
@@ -81,8 +80,9 @@ export type UcatStemCatalogItem = {
   sectionId: string | null
   categoryId: string | null
   categoryName: string | null
-  isPrivate: boolean
-  isAiGenerated: boolean
+  accessScope: UcatAccessScope
+  status: UcatContentStatus
+  sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
   questionTypes: ('multiple_choice' | 'syllogism')[]
   tagIds: string[]
   createdAt: string | null
@@ -106,7 +106,7 @@ export function useUcatQuestionCatalog(enabled: boolean) {
   return useQuery({
     queryKey: ucatKeys.questionCatalog(),
     queryFn: async () => {
-      const rows = await ucatQuestionsApi.getStemCatalog()
+      const rows = await ucatQuestionsApi.getStemCatalog({ publishedOnly: true })
       const items: UcatQuestionCatalogItem[] = []
 
       for (const row of rows) {
@@ -142,11 +142,11 @@ export function useUcatQuestionCatalog(enabled: boolean) {
   })
 }
 
-export function useUcatStemCatalog(enabled: boolean) {
+export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?: boolean }) {
   return useQuery({
-    queryKey: ucatKeys.stemCatalog(),
+    queryKey: [...ucatKeys.stemCatalog(), options?.publishedOnly ? 'published' : 'all'],
     queryFn: async () => {
-      const rows = await ucatQuestionsApi.getStemCatalog()
+      const rows = await ucatQuestionsApi.getStemCatalog(options)
       return rows.map((row) => {
         const activeQuestions = Array.isArray(row.questions)
           ? (row.questions as Array<{
@@ -198,8 +198,9 @@ export function useUcatStemCatalog(enabled: boolean) {
           sectionId: row.section_id ?? null,
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
-          isPrivate: !!row.is_private,
-          isAiGenerated: !!row.is_ai_generated,
+          accessScope: row.access_scope,
+          status: row.status,
+          sourceChannel: row.source_channel,
           questionTypes,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
@@ -250,6 +251,8 @@ export function useDeleteUcatQuestionStem() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
 }
@@ -279,7 +282,8 @@ export function useBulkImportUcatQuestionStems() {
   })
 }
 
-export function useGenerateUcatQuestionDrafts() {
+export function useStartUcatQuestionGeneration() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (args: {
       sectionId: string
@@ -294,8 +298,10 @@ export function useGenerateUcatQuestionDrafts() {
       timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
       targetTagIds: string[]
       runInstructions?: string | null
-      onProgress?: Parameters<typeof ucatQuestionsApi.generateDrafts>[0]['onProgress']
-    }) => ucatQuestionsApi.generateDrafts(args),
+    }) => ucatQuestionsApi.startGeneration(args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions(), 'generation-runs'] })
+    },
   })
 }
 
@@ -304,6 +310,26 @@ export function useUcatGenerationModelProfiles(enabled: boolean) {
     queryKey: [...ucatKeys.questions(), 'generation-model-profiles'],
     queryFn: () => ucatQuestionsApi.getGenerationModelProfiles(),
     enabled,
+  })
+}
+
+export function useUcatGenerationRuns(enabled = true) {
+  return useQuery({
+    queryKey: [...ucatKeys.questions(), 'generation-runs'],
+    queryFn: () => ucatQuestionsApi.getGenerationRuns(),
+    enabled,
+    refetchInterval: (query) =>
+      query.state.data?.some((run) => run.status === 'running') ? 1_500 : 10_000,
+  })
+}
+
+export function useDismissUcatGenerationRun() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (runId: string) => ucatQuestionsApi.dismissGenerationRun(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions(), 'generation-runs'] })
+    },
   })
 }
 
@@ -321,11 +347,11 @@ export function useImportGeneratedUcatQuestionStems() {
   })
 }
 
-export function useSetUcatQuestionStemApprovalStatus() {
+export function useSetUcatQuestionStemStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ stemId, status }: { stemId: string; status: UcatApprovalStatus }) =>
-      ucatQuestionsApi.setApprovalStatus(stemId, status),
+    mutationFn: ({ stemId, status }: { stemId: string; status: UcatContentStatus }) =>
+      ucatQuestionsApi.setStatus(stemId, status),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })

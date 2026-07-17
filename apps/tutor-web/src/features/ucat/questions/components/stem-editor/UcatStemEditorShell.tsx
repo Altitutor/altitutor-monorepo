@@ -60,6 +60,9 @@ type UcatStemEditorShellProps = {
   aiGenerationMetadata?: Json | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  statusChangedByFirstName?: string | null
+  statusChangedByLastName?: string | null
+  statusChangedAt?: string | null
   metadataRecommendation?: ManualStemMetadataRecommendation | null
   onDeleteStem?: () => void
 }
@@ -87,6 +90,9 @@ export function UcatStemEditorShell({
   aiGenerationMetadata = null,
   createdByFirstName = null,
   createdByLastName = null,
+  statusChangedByFirstName = null,
+  statusChangedByLastName = null,
+  statusChangedAt = null,
   metadataRecommendation = null,
   onDeleteStem,
 }: UcatStemEditorShellProps) {
@@ -229,6 +235,9 @@ export function UcatStemEditorShell({
         aiGenerationMetadata={aiGenerationMetadata}
         createdByFirstName={createdByFirstName}
         createdByLastName={createdByLastName}
+        statusChangedByFirstName={statusChangedByFirstName}
+        statusChangedByLastName={statusChangedByLastName}
+        statusChangedAt={statusChangedAt}
         metadataRecommendation={metadataRecommendation}
         onDeleteStem={onDeleteStem}
         activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}

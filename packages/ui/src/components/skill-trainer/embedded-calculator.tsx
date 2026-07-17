@@ -110,8 +110,10 @@ export function EmbeddedCalculator({
             label = "-";
             break;
           case "*":
-          case "x":
             label = "×";
+            break;
+          case "x":
+            label = "sqrt";
             break;
           case "/":
             label = "÷";
@@ -124,9 +126,15 @@ export function EmbeddedCalculator({
             label = "=";
             break;
           case "backspace":
-            event.preventDefault();
-            onBackspace?.();
-            return;
+          case "delete":
+            // Official UCAT: Backspace = ON/C. Sequence trainers may override via onBackspace.
+            if (onBackspace) {
+              event.preventDefault();
+              onBackspace();
+              return;
+            }
+            label = "ON/C";
+            break;
           default:
             break;
         }

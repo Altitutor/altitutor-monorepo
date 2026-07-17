@@ -38,7 +38,9 @@ export type ActivityEntityType =
   | 'tutor_logs_topics_students'
   | 'admin_shifts'
   | 'admin_shifts_staff'
-  | 'issues';
+  | 'issues'
+  | 'projects'
+  | 'form_responses';
 
 /**
  * Event type
@@ -118,6 +120,8 @@ export interface ActivityEventDisplay {
     session?: RelatedEntity;
     parent?: RelatedEntity;
     task?: RelatedEntity;
+    issue?: RelatedEntity;
+    project?: RelatedEntity;
   };
   metadata?: Record<string, unknown>;
   // Grouping metadata
@@ -139,6 +143,9 @@ export interface ActivityEventDisplay {
   newValue?: string;
   // The entity ID from the original event (useful for grouping)
   entityId?: string;
+  // Raw entity/event type from activity_events (used by coalesce patterns)
+  entityType?: ActivityEntityType | string;
+  eventType?: ActivityEventType | string;
   // For note CREATED events: the full note content (TipTap JSON or plain text for rich display)
   noteContent?: Record<string, unknown> | string;
 }
@@ -149,15 +156,26 @@ export interface ActivityEventDisplay {
 export interface ActivityEventsParams {
   entityType?: ActivityEntityType;
   entityId?: string;
+  entityTypes?: ActivityEntityType[];
   studentId?: string | string[];
   staffId?: string | string[];
   classId?: string | string[];
   sessionId?: string | string[];
   parentId?: string | string[];
   issueId?: string | string[];
+  performedByIds?: string[];
+  performedAtGte?: string;
+  performedAtLte?: string;
   or?: string;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Session activity response — includes meeting live-mode hint for polling.
+ */
+export interface SessionActivityResponse extends ActivityEventsResponse {
+  isAdminMeetingLive?: boolean;
 }
 
 /**
@@ -173,10 +191,16 @@ export interface ActivityEventsResponse {
     parents?: Record<string, Tables<'parents'>>;
     tasks?: Record<string, Tables<'tasks'>>;
     issues?: Record<string, Tables<'issues'>>;
+    projects?: Record<string, Tables<'projects'>>;
     subjects?: Record<string, Tables<'subjects'>>;
     notes?: Record<string, Tables<'notes'>>;
   };
-  // Mapping of students_subjects entity_id to subject_id for CREATED events
+  // Mapping of students_subjects entity_id to subject_id (live row and/or activity metadata)
   studentsSubjectsToSubjectId?: Record<string, string>;
+  // Mapping of tutor_logs_topics entity_id → topic display name (for tutor-log coalesce messages)
+  tutorLogTopicNamesByEntityId?: Record<string, string>;
+  /** @deprecated Prefer hasMore — exact totals are no longer queried */
   total: number;
+  /** True when this page returned a full limit (more rows may exist) */
+  hasMore: boolean;
 }

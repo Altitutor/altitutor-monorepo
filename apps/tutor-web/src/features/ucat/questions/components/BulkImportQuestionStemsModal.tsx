@@ -923,7 +923,8 @@ export function BulkImportQuestionStemsModal({
       >
         <DialogContent
           className={cn(
-            'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-5xl [&>button]:hidden',
+            // Lock shell height/overflow so only step bodies scroll (not header/footer).
+            'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[90vh] md:max-w-5xl [&>button]:hidden',
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}

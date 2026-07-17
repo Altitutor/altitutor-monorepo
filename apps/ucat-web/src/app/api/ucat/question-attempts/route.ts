@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
   if (existing) {
     const updatePayload: {
       question_answer_option_id: string | null;
-      answer_snapshot: Json | null;
+      answer_snapshot?: Json | null;
       is_submitted?: boolean;
       is_flagged?: boolean;
       was_timed?: boolean;
@@ -164,8 +164,11 @@ export async function POST(request: NextRequest) {
       learning_module_block_id?: string | null;
     } = {
       question_answer_option_id: body.questionAnswerOptionId,
-      answer_snapshot: body.answerSnapshot ?? null,
     };
+
+    if (Object.prototype.hasOwnProperty.call(body, "answerSnapshot")) {
+      updatePayload.answer_snapshot = body.answerSnapshot ?? null;
+    }
 
     if (isSubmitted) {
       updatePayload.is_submitted = true;

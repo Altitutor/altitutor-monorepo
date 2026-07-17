@@ -12,7 +12,6 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
@@ -26,7 +25,7 @@ export type SetOption = {
   firstSectionNumber: number | null
   question_count: number | null
   time_limit_seconds: number | null
-  is_private?: boolean | null
+  access_scope?: 'public' | 'private' | null
   stem_count?: number | null
 }
 
@@ -86,11 +85,7 @@ export function UcatMockEditorDialog({
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
-      .filter(
-        (set) =>
-          (set as { deleted_at?: string | null }).deleted_at == null &&
-          !(set as { is_student_generated?: boolean }).is_student_generated
-      )
+      .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
       .map((set) => {
         const parsed = parseSetSections(set.sections ?? null)
         return {
@@ -101,16 +96,11 @@ export function UcatMockEditorDialog({
           firstSectionNumber: parsed.firstSectionNumber,
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
-          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          access_scope: set.access_scope ?? null,
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
   }, [sets.data])
-
-  const setsThatWillBecomePublicCount = useMemo(() => {
-    if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
-  }, [draftSetIds, isPrivate, setCatalog])
 
   function handleRequestClose() {
     if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -197,9 +187,6 @@ export function UcatMockEditorDialog({
         hideCancel
         defaultExpanded
       >
-        {setsThatWillBecomePublicCount > 0 && (
-          <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
-        )}
         <div className="flex min-h-0 flex-1 flex-col">
           <UcatMockEditorContent
         name={name}

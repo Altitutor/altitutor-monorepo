@@ -382,25 +382,12 @@ const useAuthStore = create((set) => ({
 
 ### Refactoring Priorities
 
-**P0 - Critical:**
-- Cross-feature imports (tight coupling)
-- Business logic bugs
-- Performance issues
+For cleanup/refactor runs, use `.cursor/skills/refactor-bulletproof-react/` (impact-first). Short version:
 
-**P1 - High:**
-- Large components (> 300 lines)
-- Missing React Query hooks
-- Type safety issues
-
-**P2 - Medium:**
-- Components 200-300 lines
-- Import pattern improvements
-- Code organization
-
-**P3 - Low:**
-- Documentation
-- Minor improvements
-- Code style
+**P0:** Circular deps that break builds; `useEffect`/local state for server data; cache/ownership bugs  
+**P1:** God modules (many jobs, not line count); critical untyped boundaries; accidental coupling that blocks change  
+**P2:** Structure/SoC/DRY/AI-slop when already in the file  
+**Usually skip:** Mass cross-feature untangling, line-count-only splits, missing-test inventory, default `useMemo`/`useCallback`
 
 ## References
 

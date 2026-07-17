@@ -33,7 +33,6 @@ import { Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
@@ -94,15 +93,14 @@ export function UcatSetEditorDialog({
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
     setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
     setDraftTimeLimitSpeed(1)
-    setDraftPrivate(!!current.is_private)
+    setDraftPrivate(current.access_scope === 'private')
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
         name: proseMirrorToPlainText(current.name ?? null),
         description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
-        isPrivate: !!current.is_private,
-        isStudentGenerated: false,
+        accessScope: current.access_scope ?? 'public',
         stemIds,
       })
     )
@@ -174,8 +172,7 @@ export function UcatSetEditorDialog({
       name: draftName,
       description: draftDescription,
       time: timeLimitSeconds,
-      isPrivate: draftPrivate,
-      isStudentGenerated: false,
+      accessScope: draftPrivate ? 'private' : 'public',
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
@@ -184,9 +181,7 @@ export function UcatSetEditorDialog({
   const filterDefinitions = useMemo(
     () => {
       const setsList = (setsQuery.data ?? []).filter(
-        (set) =>
-          !(set as { deleted_at?: string | null }).deleted_at &&
-          !(set as { is_student_generated?: boolean }).is_student_generated,
+        (set) => !(set as { deleted_at?: string | null }).deleted_at,
       )
       return buildStemCatalogFilterDefinitions(
         sectionsQuery.data ?? [],
@@ -204,13 +199,6 @@ export function UcatSetEditorDialog({
     [categoriesQuery.data],
   )
 
-  const stemsThatWillBecomePublicCount = useMemo(() => {
-    if (draftPrivate) return 0
-    return draftStemIds.filter(
-      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.isPrivate
-    ).length
-  }, [draftPrivate, draftStemIds, stemCatalog])
-
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
@@ -219,8 +207,9 @@ export function UcatSetEditorDialog({
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
+      accessScope: payload.accessScope,
       questions: payload.questions.map((question, index) => ({
+        id: question.id,
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
@@ -228,6 +217,7 @@ export function UcatSetEditorDialog({
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
         options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+          id: option.id,
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
@@ -269,8 +259,7 @@ export function UcatSetEditorDialog({
           name: plainTextToProseMirror(draftName),
           description: draftDescription,
           timeLimitSeconds,
-          isPrivate: draftPrivate,
-          isStudentGenerated: false,
+          accessScope: draftPrivate ? 'private' : 'public',
           stemIds: draftStemIds,
         },
       })
@@ -357,9 +346,6 @@ export function UcatSetEditorDialog({
         defaultExpanded
         richTextToolbarEditor={activeTextEditor}
       >
-        {stemsThatWillBecomePublicCount > 0 && (
-          <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
-        )}
         <div className="flex min-h-0 flex-1 flex-col">
           <UcatSetEditorContent
           draftName={draftName}

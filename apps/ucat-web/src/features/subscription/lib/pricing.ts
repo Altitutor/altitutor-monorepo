@@ -19,6 +19,45 @@ export type PracticeDiscountPricing = {
   billingIntervalNoun: string;
 };
 
+export type PracticeDiscountBillSnapshot = {
+  earnedDays: number;
+  availableDays: number;
+  earnedDiscountCents: number;
+  remainingDiscountCents: number;
+  projectedBillCents: number;
+};
+
+export function computePracticeDiscountBillSnapshot(
+  pricing: PracticeDiscountPricing,
+  progress: { earned: number; cap: number } | null,
+): PracticeDiscountBillSnapshot {
+  const availableDays = Math.max(
+    0,
+    Math.min(
+      progress?.cap ?? pricing.maxDiscountsPerPeriod,
+      pricing.maxDiscountsPerPeriod,
+    ),
+  );
+  const earnedDays = Math.min(
+    availableDays,
+    Math.max(0, progress?.earned ?? 0),
+  );
+  const earnedDiscountCents = earnedDays * pricing.discountPerDayCents;
+  const remainingDiscountCents =
+    (availableDays - earnedDays) * pricing.discountPerDayCents;
+
+  return {
+    earnedDays,
+    availableDays,
+    earnedDiscountCents,
+    remainingDiscountCents,
+    projectedBillCents: Math.max(
+      pricing.minimumPriceCents,
+      pricing.standardPriceCents - earnedDiscountCents,
+    ),
+  };
+}
+
 export function parseBillingInterval(
   value: string | null | undefined,
 ): UcatBillingInterval | null {

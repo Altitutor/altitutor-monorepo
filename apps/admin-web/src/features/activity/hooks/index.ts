@@ -9,5 +9,6 @@ export {
   useIssueActivity,
   useAdminShiftActivity,
   activityKeys,
+  ACTIVITY_PAGE_SIZE,
 } from './useActivityEvents';
 

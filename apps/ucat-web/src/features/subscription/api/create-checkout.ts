@@ -9,6 +9,7 @@ export async function createUcatCheckoutSession(
 ): Promise<{
   clientSecret: string;
   checkoutSessionId: string;
+  referralGiftApplied: boolean;
   trialEligible: boolean;
   trialDays: number;
 }> {
@@ -27,6 +28,7 @@ export async function createUcatCheckoutSession(
   const data = (await res.json()) as {
     clientSecret?: string;
     checkoutSessionId?: string;
+    referralGiftApplied?: boolean;
     trialEligible?: boolean;
     trialDays?: number;
   };
@@ -37,7 +39,11 @@ export async function createUcatCheckoutSession(
   return {
     clientSecret: data.clientSecret,
     checkoutSessionId: data.checkoutSessionId,
+    referralGiftApplied: data.referralGiftApplied === true,
     trialEligible: data.trialEligible === true,
-    trialDays: data.trialDays ?? 0,
+    trialDays:
+      data.trialEligible === true && typeof data.trialDays === "number"
+        ? data.trialDays
+        : 0,
   };
 }

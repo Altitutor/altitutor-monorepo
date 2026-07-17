@@ -46,6 +46,9 @@
     --sidebar: var(--primary);
     --sidebar-foreground: var(--primary-foreground);
 
+    /* Matches the selected item treatment used by navigation and menus. */
+    --graph-column-highlight: hsl(var(--muted));
+
     --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
     --motion-duration-snappy: 150ms;
     --motion-duration-subtle: 220ms;
@@ -90,6 +93,9 @@
      */
     --sidebar: 0 0% 13%;
     --sidebar-foreground: 0 0% 96%;
+
+    /* `dark:bg-white/[0.11]`, expressed as an SVG-compatible paint token. */
+    --graph-column-highlight: hsl(0 0% 100% / 0.11);
 
     --secondary: 0 0% 17%;
     --secondary-foreground: 0 0% 96%;
@@ -143,6 +149,45 @@
         stroke, box-shadow, filter, opacity, transform;
       transition-duration: var(--motion-duration-subtle);
       transition-timing-function: var(--motion-ease-standard);
+    }
+
+    /*
+     * Global press micro-interaction (header icon buttons language).
+     * Opt out with `data-motion-static`. Stronger presses (e.g. `active:scale-95`)
+     * still win via Tailwind utilities layer.
+     */
+    :where(
+        button,
+        summary,
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        [role="button"],
+        [role="tab"]
+      ):not(:disabled):not([aria-disabled="true"]):not(
+        [data-motion-static]
+      ):active {
+      transform: scale(0.98);
+    }
+
+    /*
+     * Clickable cards / list rows that also lift on hover — compose lift + press
+     * so `transform` does not fight (Tailwind utilities cannot combine transforms).
+     */
+    .ucat-pressable-lift:not([data-motion-static]):hover {
+      transform: translateY(-0.125rem);
+    }
+
+    .ucat-pressable-lift:not([data-motion-static]):active:not(:disabled):not(
+        [aria-disabled="true"]
+      ) {
+      transform: scale(0.98);
+    }
+
+    .ucat-pressable-lift:not([data-motion-static]):hover:active:not(
+        :disabled
+      ):not([aria-disabled="true"]) {
+      transform: translateY(-0.125rem) scale(0.98);
     }
   }
 }

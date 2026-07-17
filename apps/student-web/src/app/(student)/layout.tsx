@@ -15,6 +15,12 @@ import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from 
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { WelcomeModalGate } from '@/features/welcome';
+import {
+  OnboardingAutoStart,
+  OnboardingProvider,
+  STUDENT_NEXTSTEP_FIXED_VIEWPORT_ID,
+  getNavTourAttr,
+} from '@/features/onboarding';
 import { useResourceSubjectNavItems } from '@/features/resources';
 import type { LucideIcon } from 'lucide-react';
 import { STUDENT_CONTENT_MAX, STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
@@ -97,12 +103,23 @@ function renderDropdownChild(
   );
 }
 
-function renderSettingsLink(item: NavLinkItem, pathname: string, collapsed: boolean) {
+function renderSettingsLink(
+  item: NavLinkItem,
+  pathname: string,
+  collapsed: boolean,
+  /**
+   * Only the desktop sidebar should expose tour anchors. MobileMenu is always
+   * mounted (off-screen when closed), and nextstepjs uses `querySelector`, so
+   * duplicate `data-tour` attrs make the card latch onto the wrong target.
+   */
+  includeTourAttr: boolean,
+) {
   const Icon = item.icon;
   const active = isNavLinkActive(pathname, item.href);
   return (
     <Link
       href={item.href}
+      {...(includeTourAttr ? { 'data-tour': getNavTourAttr(item.href) } : {})}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
         active ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -122,18 +139,23 @@ function renderNavItem(
   openDropdowns: Record<string, boolean>,
   onToggleDropdown: (title: string) => void,
   getChildLinkClass: (parentHref: string) => (href: string) => string,
+  includeTourAttr: boolean,
 ) {
   if (item.type === 'dropdown') {
     const open = openDropdowns[item.title] ?? false;
     const isActive = isDropdownParentActive(pathname, item.href);
     const Icon = item.icon;
     const childLinkClass = getChildLinkClass(item.href);
+    const tourAttr = includeTourAttr
+      ? { 'data-tour': getNavTourAttr(item.href) }
+      : {};
 
     if (collapsed) {
       return (
         <Link
           key={item.href}
           href={item.href}
+          {...tourAttr}
           className={cn(
             'flex items-center justify-center rounded-xl px-0 py-2 text-sm',
             isActive ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -147,6 +169,7 @@ function renderNavItem(
     return (
       <div key={item.href} className="flex flex-col gap-0">
         <div
+          {...tourAttr}
           className={cn(
             'flex items-center gap-1 rounded-xl px-2 py-2 text-sm',
             isActive ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -188,6 +211,7 @@ function renderNavItem(
     <Link
       key={item.href}
       href={item.href}
+      {...(includeTourAttr ? { 'data-tour': getNavTourAttr(item.href) } : {})}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
         active ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -349,13 +373,21 @@ function MobileMenu({
         <ScrollArea className="min-h-0 flex-1">
           <nav className="flex flex-col gap-1 p-2">
             {primaryItems.map((item) =>
-              renderNavItem(item, pathname, false, openDropdowns, toggleDropdown, getChildLinkClass),
+              renderNavItem(
+                item,
+                pathname,
+                false,
+                openDropdowns,
+                toggleDropdown,
+                getChildLinkClass,
+                false,
+              ),
             )}
           </nav>
         </ScrollArea>
 
         <nav className="shrink-0 p-2">
-          {renderSettingsLink(settingsNavItem, pathname, false)}
+          {renderSettingsLink(settingsNavItem, pathname, false, false)}
         </nav>
       </div>
     </>
@@ -427,13 +459,21 @@ function SidebarNav({
       <ScrollArea className="min-h-0 flex-1">
         <nav className="flex flex-col gap-1 p-2">
           {primaryItems.map((item) =>
-            renderNavItem(item, pathname, collapsed, openDropdowns, toggleDropdown, getChildLinkClass),
+            renderNavItem(
+              item,
+              pathname,
+              collapsed,
+              openDropdowns,
+              toggleDropdown,
+              getChildLinkClass,
+              true,
+            ),
           )}
         </nav>
       </ScrollArea>
 
       <nav className="mt-auto shrink-0 p-2">
-        {renderSettingsLink(settingsNavItem, pathname, collapsed)}
+        {renderSettingsLink(settingsNavItem, pathname, collapsed, true)}
       </nav>
     </div>
   );
@@ -453,7 +493,8 @@ export default function StudentLayout({
   };
 
   return (
-    <>
+    <OnboardingProvider>
+      <OnboardingAutoStart />
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} primaryItems={primaryItems} />
       <div className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 overflow-hidden bg-background md:gap-3 md:p-3">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} primaryItems={primaryItems} />
@@ -469,7 +510,11 @@ export default function StudentLayout({
           </div>
         </div>
       </div>
+      <div
+        id={STUDENT_NEXTSTEP_FIXED_VIEWPORT_ID}
+        className="pointer-events-none fixed inset-0 z-[1100]"
+      />
       <WelcomeModalGate />
-    </>
+    </OnboardingProvider>
   );
 }

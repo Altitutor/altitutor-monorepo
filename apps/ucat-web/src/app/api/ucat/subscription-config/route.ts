@@ -107,7 +107,7 @@ export async function GET() {
   });
 
   const body: PublicUcatSubscriptionConfig = {
-    trialDays: data.trial_days ?? 7,
+    trialDays: data.trial_days ?? 5,
     minQuestionsPerDay: data.min_questions_per_day ?? 20,
     currency: (data.currency ?? "aud").toLowerCase(),
     freeQuotas: mapQuotaConfigRow(data),

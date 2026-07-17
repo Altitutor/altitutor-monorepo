@@ -1,7 +1,26 @@
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 
 export const PRACTICE_SESSION_KEY = "practice-session";
+export const PENDING_PRACTICE_START_KEY = "pending-practice-start";
+
+export type PracticeReviewTiming = "afterEachStem" | "atEnd";
+
+export type StudyPlanPracticeLink = {
+  taskId: string;
+  title: string;
+  targetUnits: number | null;
+};
+
+export type PendingPracticeStart = {
+  payload: PracticeSelectionInput & {
+    unlimited?: boolean;
+    reviewTiming: PracticeReviewTiming;
+  };
+  ucatSectionId: string;
+  filterMeta?: PracticeSessionFilterMeta;
+  studyPlan?: StudyPlanPracticeLink;
+};
 
 export type PracticeSessionFilterMeta = {
   sectionLabel?: string;
@@ -14,19 +33,23 @@ export type PracticeSessionData =
       mode: "set";
       sessionId: string;
       stems: QuestionStemWithQuestions[];
-      filters?: SetGeneratorInput;
+      filters?: PracticeSelectionInput;
       filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;
       startedAtMs?: number;
+      reviewTiming?: PracticeReviewTiming;
+      studyPlan?: StudyPlanPracticeLink;
     }
   | {
       mode: "unlimited";
       sessionId: string;
-      filters: SetGeneratorInput;
+      filters: PracticeSelectionInput;
       stems?: QuestionStemWithQuestions[];
       filterMeta?: PracticeSessionFilterMeta;
       timePerQuestionSeconds: number | null;
       startedAtMs?: number;
+      reviewTiming?: PracticeReviewTiming;
+      studyPlan?: StudyPlanPracticeLink;
     };
 
 export function getPracticeSession(): PracticeSessionData | null {
@@ -69,6 +92,37 @@ export function clearPracticeSession(): void {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.removeItem(PRACTICE_SESSION_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+export function getPendingPracticeStart(): PendingPracticeStart | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_PRACTICE_START_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingPracticeStart;
+    if (!parsed.ucatSectionId || !parsed.payload?.section) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function setPendingPracticeStart(data: PendingPracticeStart): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PENDING_PRACTICE_START_KEY, JSON.stringify(data));
+  } catch {
+    // Ignore quota or other storage errors
+  }
+}
+
+export function clearPendingPracticeStart(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(PENDING_PRACTICE_START_KEY);
   } catch {
     // Ignore
   }

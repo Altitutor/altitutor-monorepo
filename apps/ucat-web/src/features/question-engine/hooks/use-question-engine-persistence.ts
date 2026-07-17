@@ -8,7 +8,7 @@ import type {
   QuestionEngineState,
   QuestionItem,
 } from "@/features/question-engine/model/types";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import {
@@ -136,7 +136,7 @@ export function useQuestionEnginePersistence({
   } | null;
 }) {
   const isStudentEngine = true;
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
 
   const handleQuotaError = useCallback(
     (error: unknown) => {
@@ -157,6 +157,9 @@ export function useQuestionEnginePersistence({
     Error,
     UpsertQuestionAttemptInput
   >({
+    // Preserve the order of rapid syllogism snapshot updates. Final submission
+    // is queued behind them, so an older response cannot overwrite newer state.
+    scope: { id: "question-attempt-upserts" },
     mutationFn: async (input) => {
       const response = await fetch("/api/ucat/question-attempts", {
         method: "POST",
@@ -307,6 +310,52 @@ export function useQuestionEnginePersistence({
       ...inputBase,
       studentQuestionSetAttemptId: setAttemptId,
       wasTimed,
+      mode: toDbMode(mode),
+    });
+  }
+
+  function recordSyllogismSnapshot(
+    questionId: string,
+    snapshot: Record<string, boolean>,
+    isFlagged: boolean,
+  ) {
+    if (!isStudentEngine || disableQuestionAttemptLogging || !exam) return;
+    const question = findQuestion(exam, questionId);
+    if (question?.questionType !== "syllogism") return;
+
+    const input: UpsertQuestionAttemptInput = withLearnContext({
+      studentQuestionSetAttemptId: practiceSessionId ? null : null,
+      studentPracticeSessionId: practiceSessionId ?? undefined,
+      questionId,
+      questionAnswerOptionId: null,
+      answerSnapshot: {
+        type: "syllogism_v1",
+        answers: Object.entries(snapshot).map(([optionId, value]) => ({
+          question_answer_option_id: optionId,
+          answer: value,
+        })),
+      },
+      isFlagged,
+    });
+
+    if (mode === "questionStem" || mode === "questions") {
+      upsertQuestionAttempt.mutate({
+        ...input,
+        wasTimed: false,
+        mode: toDbMode(mode),
+      });
+      return;
+    }
+
+    const setAttemptId =
+      attemptStateRef.current.setAttemptIdsBySetId.get(
+        question.questionSetId,
+      ) ?? null;
+    if (!setAttemptId) return;
+    upsertQuestionAttempt.mutate({
+      ...input,
+      studentQuestionSetAttemptId: setAttemptId,
+      wasTimed: getWasTimedForSet(mode, exam, question),
       mode: toDbMode(mode),
     });
   }
@@ -551,6 +600,7 @@ export function useQuestionEnginePersistence({
 
   return {
     recordAnswer,
+    recordSyllogismSnapshot,
     recordAnswersForUnit,
     handleExamCompleted,
     completePracticeSession,

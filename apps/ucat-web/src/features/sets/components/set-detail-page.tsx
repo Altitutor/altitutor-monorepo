@@ -1,13 +1,13 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -20,7 +20,7 @@ import {
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
-import { useSetAttempts, useSetQuestionCount, useSets } from "@/features/sets";
+import { useSet, useSetAttempts, useSetQuestionCount } from "@/features/sets";
 import {
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
@@ -65,23 +65,19 @@ export function SetDetailPage({
   sessionEntryContext,
 }: SetDetailPageProps) {
   const router = useRouter();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
   const {
     isLoading: questionEngineTourLoading,
     isBlocked: questionEngineTourBlocked,
   } = useQuestionEngineTutorialGate();
-  const { data: sets, isLoading, error } = useSets();
+  const { data: set, isLoading, error } = useSet(setId);
   const { data: attempts = [] } = useSetAttempts(setId);
   const { data: questionCount } = useSetQuestionCount(setId);
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
 
-  const set = useMemo(
-    () => (sets ?? []).find((item) => item.id === setId),
-    [sets, setId],
-  );
   const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
 
   const backHref =
@@ -148,25 +144,6 @@ export function SetDetailPage({
     );
   }
 
-  if (!sets || sets.length === 0) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Set"
-          description="Practice question set details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Set",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">No sets available.</p>
-      </div>
-    );
-  }
-
   if (!set) {
     return (
       <div className="space-y-6">
@@ -195,10 +172,7 @@ export function SetDetailPage({
 
   const infoRows: Array<[string, string]> = [
     ["Time limit", formatExamDurationSeconds(set.time_limit_seconds)],
-    [
-      "Questions",
-      questionCount != null ? String(questionCount) : "—",
-    ],
+    ["Questions", questionCount != null ? String(questionCount) : "—"],
   ];
 
   const setAttemptHref = (attemptId: string) =>
@@ -216,7 +190,9 @@ export function SetDetailPage({
       <motion.div variants={itemVariants}>
         <UcatPageHeader
           title={title}
-          description={description ?? "Review this practice set before starting."}
+          description={
+            description ?? "Review this practice set before starting."
+          }
           backHref={backHref}
           backLabel={backLabel}
           breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(

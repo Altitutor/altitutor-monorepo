@@ -34,7 +34,8 @@ import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { toStoredExamTiming } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
 import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
 import { isExamAttemptAtResults } from "@/lib/ucat/exam-attempt/finalize-attempt";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 
 function toExamEngineSnapshot(
@@ -119,7 +120,7 @@ export function useExamAttemptLifecycle({
   const { active, refresh, setLocal, updateLocal, clearLocal } =
     useActiveExamAttempt();
   const router = useRouter();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const attemptIdRef = useRef<string | null>(null);
   const [serverSegmentEndsAt, setServerSegmentEndsAt] = useState<string | null>(
     null,
@@ -369,11 +370,7 @@ export function useExamAttemptLifecycle({
         beginBlockedRef.current = true;
         syncBlockedRef.current = true;
         openQuotaLimit(error.payload, {
-          dismissAction: {
-            label: "Back to dashboard",
-            onDismiss: () => router.replace("/dashboard"),
-            variant: "dashboard",
-          },
+          dismissAction: quotaRouteFallback(error.payload.area),
         });
         return;
       }

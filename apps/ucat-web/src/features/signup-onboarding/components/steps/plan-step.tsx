@@ -1,21 +1,48 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@altitutor/ui";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
+import { ReferralGiftCard } from "@/features/subscription/components/referral-gift-card";
+import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 
 type SignupCompletePlanStepProps = {
   onComplete: () => void;
 };
 
 export function SignupCompletePlanStep({ onComplete }: SignupCompletePlanStepProps) {
-  return (
-    <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur-sm md:p-8">
-      <PlanPicker
-        variant="onboarding"
-        surfaceTheme="app"
-        selectorTheme="app"
-        checkoutReturnContext="signup_onboarding"
-        onContinueFree={onComplete}
+  const queryClient = useQueryClient();
+  const giftQuery = useQuery({
+    queryKey: ["ucat-referral-gifts"],
+    queryFn: fetchReferralGifts,
+  });
+
+  if (giftQuery.isLoading) {
+    return <Skeleton className="h-72 w-full rounded-3xl" />;
+  }
+
+  if (giftQuery.data?.pendingGift) {
+    return (
+      <ReferralGiftCard
+        gift={giftQuery.data.pendingGift}
+        checkoutContext="signup_onboarding"
+        onRejected={async () => {
+          await queryClient.invalidateQueries({
+            queryKey: ["ucat-referral-gifts"],
+          });
+          onComplete();
+        }}
       />
-    </div>
+    );
+  }
+
+  return (
+    <PlanPicker
+      variant="onboarding"
+      surfaceTheme="app"
+      selectorTheme="app"
+      checkoutReturnContext="signup_onboarding"
+      onContinueFree={onComplete}
+    />
   );
 }

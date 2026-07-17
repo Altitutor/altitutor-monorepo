@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import type { DataTableState, Json } from '@altitutor/shared'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 import { buildStemSourceDisplay, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
 import {
   applyBooleanTextFilter,
   applyCategoryFilter,
   applyMultiSelectFilter,
-  applySingleSelectFilter,
   applySort,
   applyTagFilter,
   getFilterValues,
@@ -16,7 +16,11 @@ import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-a
 import { resolveCategoryPathLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
-export type QuestionSearchScope = 'stem_text' | 'question_text' | 'answer_option_text'
+export type QuestionSearchScope =
+  | 'stem_text'
+  | 'question_text'
+  | 'answer_option_text'
+  | 'tutor_source_note'
 
 export type QuestionRow = {
   id: string
@@ -25,7 +29,7 @@ export type QuestionRow = {
   category_name: string | null
   question_stem_category_id: string | null
   question_count: number
-  is_private: boolean
+  access_scope: UcatAccessScope
   created_at: string | null
   updated_at: string | null
   created_by: string | null
@@ -35,13 +39,15 @@ export type QuestionRow = {
   stem_text: string
   question_text: string
   answer_option_text: string
+  tutor_source_note: string
   set_names: string
   sets: Array<{ id: string; name: string }>
   set_ids: string[]
   deleted_at: string | null
-  approval_status: 'approved' | 'pending' | 'rejected'
+  status: UcatContentStatus
   source_channel: UcatQuestionSourceChannel | null
   source: StemSourceDisplay
+  is_available_in_question_pool: boolean
 }
 
 type QuestionListRowInput = {
@@ -51,7 +57,7 @@ type QuestionListRowInput = {
   category_name?: string | null
   question_stem_category_id?: string | null
   question_count?: number | null
-  is_private?: boolean | null
+  access_scope?: UcatAccessScope | null
   created_at?: string | null
   updated_at?: string | null
   created_by?: string | null
@@ -59,12 +65,16 @@ type QuestionListRowInput = {
   set_names?: unknown
   set_ids?: unknown
   deleted_at?: string | null
-  approval_status?: 'approved' | 'pending' | 'rejected' | null
+  status?: UcatContentStatus | null
+  is_available_in_question_pool?: boolean | null
   source_channel?: UcatQuestionSourceChannel | null
   ai_generation_metadata?: unknown
   tutor_source_note?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
+  status_changed_at?: string | null
+  status_changed_by_first_name?: string | null
+  status_changed_by_last_name?: string | null
 }
 
 function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
@@ -81,25 +91,25 @@ export function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number
 
 type UseUcatQuestionsTableParams<T extends QuestionListRowInput> = {
   data: T[] | undefined
-  mode: 'default' | 'generated'
   stemTypes: Record<string, Iterable<string>>
   stemTagIds: Record<string, string[]>
   questionSearchTexts: Record<string, { questionText: string; answerOptionText: string }> | undefined
   categoryPathLookup: Map<string, string>
   tableState: DataTableState
   showDeleted: boolean
+  status: UcatContentStatus
   searchScopes: QuestionSearchScope[]
 }
 
 export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   data,
-  mode,
   stemTypes,
   stemTagIds,
   questionSearchTexts,
   categoryPathLookup,
   tableState,
   showDeleted,
+  status,
   searchScopes,
 }: UseUcatQuestionsTableParams<T>) {
   const rows = useMemo(
@@ -120,7 +130,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           category_name: row.category_name ?? null,
           question_stem_category_id: row.question_stem_category_id ?? null,
           question_count: row.question_count ?? 0,
-          is_private: !!row.is_private,
+          access_scope: row.access_scope ?? 'public',
           created_at: row.created_at ?? null,
           updated_at: row.updated_at ?? null,
           created_by: row.created_by ?? null,
@@ -130,11 +140,12 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as Json) : '',
           question_text: searchTexts?.questionText ?? '',
           answer_option_text: searchTexts?.answerOptionText ?? '',
+          tutor_source_note: (row.tutor_source_note ?? '').trim(),
           set_names: setsDisplay,
           sets,
           set_ids: setIds,
           deleted_at: row.deleted_at ?? null,
-          approval_status: (row.approval_status ?? 'approved') as 'approved' | 'pending' | 'rejected',
+          status: row.status ?? 'draft',
           source_channel: row.source_channel ?? 'individual',
           source: buildStemSourceDisplay({
             sourceChannel: row.source_channel,
@@ -142,7 +153,11 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
             tutorSourceNote: row.tutor_source_note,
             createdByFirstName: row.created_by_first_name,
             createdByLastName: row.created_by_last_name,
+            statusChangedByFirstName: row.status_changed_by_first_name,
+            statusChangedByLastName: row.status_changed_by_last_name,
+            statusChangedAt: row.status_changed_at,
           }),
+          is_available_in_question_pool: row.is_available_in_question_pool ?? false,
         }
       }),
     [data, stemTypes, stemTagIds, questionSearchTexts],
@@ -151,7 +166,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   const filteredRows = useMemo(() => {
     const byDeleted = showDeleted
       ? rows.filter((row) => row.deleted_at != null)
-      : rows.filter((row) => row.deleted_at == null)
+      : rows.filter((row) => row.deleted_at == null && row.status === status)
     const search = tableState.search.trim().toLowerCase()
 
     return byDeleted.filter((row) => {
@@ -165,9 +180,11 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         UCAT_FILTER_NO_CATEGORY,
       )
       const tagHit = applyTagFilter(tableState, row.tag_ids)
-      const visibilityHit = applyBooleanTextFilter(tableState, 'visibility', row.is_private)
-      const approvalHit =
-        mode !== 'generated' || applySingleSelectFilter(tableState, 'approval_status', row.approval_status)
+      const visibilityHit = applyBooleanTextFilter(
+        tableState,
+        'visibility',
+        row.access_scope === 'private',
+      )
 
       const sourceHit = applyMultiSelectFilter(tableState, 'source_channel', row.source_channel)
       const createdByHit = applyMultiSelectFilter(tableState, 'created_by', row.created_by)
@@ -193,13 +210,12 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         tagHit &&
         visibilityHit &&
         typeHit &&
-        approvalHit &&
         setHit &&
         sourceHit &&
         createdByHit
       )
     })
-  }, [rows, tableState, showDeleted, mode, searchScopes])
+  }, [rows, tableState, showDeleted, status, searchScopes])
 
   const sortedRows = useMemo(
     () =>
@@ -211,10 +227,10 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         question_count: (row) => row.question_count,
         sets: (row) => row.set_names,
         type_summary: (row) => row.type_summary,
-        visibility: (row) => (row.is_private ? 'Private' : 'Public'),
+        visibility: (row) => (row.access_scope === 'private' ? 'Private' : 'Public'),
         source: (row) => row.source.channelLabel,
         created_at: (row) => row.created_at,
-        approval_status: (row) => row.approval_status,
+        status: (row) => row.status,
       }),
     [filteredRows, tableState.sortBy, tableState.sortDirection, categoryPathLookup],
   )

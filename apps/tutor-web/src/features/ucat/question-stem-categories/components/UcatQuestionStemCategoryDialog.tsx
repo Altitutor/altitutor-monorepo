@@ -204,9 +204,7 @@ export function UcatQuestionStemCategoryDialog({
 
   const filterDefinitions = useMemo(() => {
     const setsList = (setsQuery.data ?? []).filter(
-      (set) =>
-        !(set as { deleted_at?: string | null }).deleted_at &&
-        !(set as { is_student_generated?: boolean }).is_student_generated,
+      (set) => !(set as { deleted_at?: string | null }).deleted_at,
     )
     return buildStemCatalogFilterDefinitions(
       sectionsQuery.data ?? [],

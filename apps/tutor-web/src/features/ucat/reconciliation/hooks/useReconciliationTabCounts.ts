@@ -19,7 +19,8 @@ export function useReconciliationTabCounts() {
         data.stemsWithNoCategory.length +
         data.questionsWithNoExplanation.length +
         data.untaggedQuestions.length +
-        data.privateStemsNotInSet.length,
+        data.privateStemsNotInSet.length +
+        data.potentialDuplicatePairs.length,
       sets:
         data.setsWithIncorrectQuestionCount.length +
         data.setsWithIncorrectTiming.length +

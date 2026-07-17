@@ -10,6 +10,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import {
+  CellSelection,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+} from '@tiptap/pm/tables';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { CollapsibleHeading } from '../extensions/collapsible-heading';
@@ -20,6 +26,7 @@ import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
+import { shouldPreferMarkdownPaste } from '../lib/markdown-paste';
 import { transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
 import '../styles/prosemirror-tables.css';
 
@@ -703,6 +710,33 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       handleKeyDown: (view, event) => {
         const { state } = view;
         const { selection } = state;
+
+        // Full row/column cell selections: Delete/Backspace removes the row/column
+        // (default table editing only clears cell contents).
+        if (
+          (event.key === 'Backspace' || event.key === 'Delete') &&
+          selection instanceof CellSelection
+        ) {
+          const isRow = selection.isRowSelection();
+          const isCol = selection.isColSelection();
+          if (isRow && isCol) {
+            if (deleteTable(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          } else if (isRow) {
+            if (deleteRow(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          } else if (isCol) {
+            if (deleteColumn(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          }
+        }
+
         if (!(selection instanceof NodeSelection)) return false;
         if (selection.node.type.name !== 'image') return false;
 
@@ -822,6 +856,31 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       handlePaste: (view, event) => {
         let pastedText = event.clipboardData?.getData('text/plain') ?? '';
         let pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+
+        // Markdown source paste (e.g. from Cursor/VS Code `.md` files): TipTap's Markdown
+        // extension does not parse clipboard text unless contentType is 'markdown'. Without
+        // this, `#` / `**` land as literal characters (often with syntax-highlight spans).
+        const hasSpecialPasteMode =
+          Boolean(pasteTableBehavior) || pastePlainTextAsParagraphs || pasteStripFormatting;
+        if (
+          editor &&
+          !hasSpecialPasteMode &&
+          pastedText &&
+          shouldPreferMarkdownPaste(pastedText, pastedHtml)
+        ) {
+          const imageFiles = collectClipboardImageFiles(event);
+          if (imageFiles.length === 0) {
+            event.preventDefault();
+            editor
+              .chain()
+              .focus()
+              .deleteSelection()
+              .insertContent(pastedText, { contentType: 'markdown' })
+              .run();
+            return true;
+          }
+        }
+
         if (pastedText === '' && pastedHtml === '' && clipboardCaptureRef.current) {
           const captured = clipboardCaptureRef.current;
           clipboardCaptureRef.current = null;

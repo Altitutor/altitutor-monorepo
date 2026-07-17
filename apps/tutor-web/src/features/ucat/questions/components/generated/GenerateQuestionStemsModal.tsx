@@ -16,7 +16,7 @@ import {
 } from '@altitutor/ui'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import {
-  useGenerateUcatQuestionDrafts,
+  useStartUcatQuestionGeneration,
   useImportGeneratedUcatQuestionStems,
   useUcatCategories,
   useUcatGenerationModelProfiles,
@@ -26,10 +26,9 @@ import {
   useUcatTags,
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import {
-  UcatGenerationApiError,
-  type UcatGenerationDebugInfo,
-  type UcatGenerationProgress,
+import type {
+  UcatGenerationDebugInfo,
+  UcatGenerationProgress,
 } from '@/features/ucat/questions/api/questions'
 import {
   UcatQuestionStemDialog,
@@ -38,9 +37,7 @@ import {
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
-import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
-import { inferQuestionTagIdsForFormValues } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import {
   UcatStemCatalogAddPanel,
@@ -53,6 +50,7 @@ import { cn } from '@/shared/utils'
 type GenerateQuestionStemsModalProps = {
   open: boolean
   onClose: () => void
+  onStarted?: (runId: string) => void
 }
 
 type DraftWithMetadata = BulkImportStemDraft & {
@@ -95,49 +93,6 @@ const IMAGE_GENERATION_MODE_OPTIONS: Array<SelectOption<ImageGenerationMode>> = 
   { id: 'ai', label: 'AI-generated stem image' },
 ]
 
-function toFormValues(stem: {
-  sectionId: string
-  categoryId: string | null
-  stemText: Json
-  isPrivate: boolean
-  aiGenerationMetadata: Json | null
-  questions: Array<{
-    questionText: Json
-    answerExplanation: Json | null
-    difficulty: number | null
-    timeBurdenSeconds: number | null
-    questionType: 'multiple_choice' | 'syllogism'
-    tagIds: string[]
-    options: Array<{
-      answerText: Json
-      answerExplanation: Json | null
-      isAnswer: boolean
-    }>
-  }>
-}): UcatQuestionStemFormValues {
-  return {
-    sectionId: stem.sectionId,
-    categoryId: stem.categoryId,
-    stemText: stem.stemText,
-    isPrivate: true,
-    questions: stem.questions.map((question) => ({
-      questionText: question.questionText,
-      questionType: question.questionType,
-      answerExplanation: question.answerExplanation,
-      difficulty: question.difficulty,
-      timeBurdenSeconds: question.timeBurdenSeconds != null ? String(question.timeBurdenSeconds) : '',
-      tagIds: question.tagIds ?? [],
-      sourceChannel: 'ai_generation',
-      aiGenerationMetadata: stem.aiGenerationMetadata,
-      options: question.options.map((option) => ({
-        answerText: option.answerText,
-        answerExplanation: option.answerExplanation,
-        isAnswer: option.isAnswer,
-      })),
-    })),
-  }
-}
-
 function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
   const values = draft.values
   return {
@@ -165,30 +120,6 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
       })),
     })),
     aiGenerationMetadata: draft.aiGenerationMetadata,
-  }
-}
-
-function mergeInferredQuestionTags(args: {
-  values: UcatQuestionStemFormValues
-  sectionId: string
-  sectionName?: string | null
-  tags: Parameters<typeof inferQuestionTagIdsForFormValues>[0]['tags']
-}): UcatQuestionStemFormValues {
-  const inferredTagIds = inferQuestionTagIdsForFormValues(args)
-  if (Object.keys(inferredTagIds).length === 0) return args.values
-
-  return {
-    ...args.values,
-    questions: args.values.questions.map((question, questionIndex) => {
-      const mergedTagIds = Array.from(new Set([
-        ...(question.tagIds ?? []),
-        ...(inferredTagIds[questionIndex] ?? []),
-      ]))
-      return {
-        ...question,
-        tagIds: mergedTagIds,
-      }
-    }),
   }
 }
 
@@ -364,14 +295,14 @@ function GenerationProgressPanel({
   )
 }
 
-export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionStemsModalProps) {
+export function GenerateQuestionStemsModal({ open, onClose, onStarted }: GenerateQuestionStemsModalProps) {
   const { toast } = useToast()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const modelProfilesQuery = useUcatGenerationModelProfiles(open)
   const stemCatalogQuery = useUcatStemCatalog(open)
-  const generateMutation = useGenerateUcatQuestionDrafts()
+  const generateMutation = useStartUcatQuestionGeneration()
   const importMutation = useImportGeneratedUcatQuestionStems()
 
   const [step, setStep] = useState<'config' | 'generating' | 'review'>('config')
@@ -417,7 +348,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return all.filter((stem) => {
       if (!stem.sectionId || stem.sectionId !== sectionId) return false
       if (categoryId && stem.categoryId !== categoryId) return false
-      if (!includeAiSourceStems && stem.isAiGenerated) return false
+      if (!includeAiSourceStems && stem.sourceChannel === 'ai_generation') return false
       return true
     })
   }, [stemCatalogQuery.data, sectionId, categoryId, includeAiSourceStems])
@@ -615,6 +546,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
       totalStems: stemCount,
     })
     setStep('generating')
+    window.dispatchEvent(new CustomEvent('ucat-generation-starting', { detail: { totalStems: stemCount } }))
+    onClose()
     try {
       const result = await generateMutation.mutateAsync({
         sectionId,
@@ -629,43 +562,17 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
         timeBurdenTarget,
         targetTagIds,
         runInstructions: runInstructions.trim() || null,
-        onProgress: setGenerationProgress,
       })
-      const nextDrafts: DraftWithMetadata[] = result.stems.map((stem, index) => {
-        const values = toFormValues(stem)
-        return {
-          id:
-            typeof crypto !== 'undefined' && 'randomUUID' in crypto
-              ? crypto.randomUUID()
-              : `generated-${index + 1}`,
-          values: mergeInferredQuestionTags({
-            values,
-            sectionId,
-            sectionName: selectedSection?.name ?? null,
-            tags,
-          }),
-          aiGenerationMetadata: stem.aiGenerationMetadata,
-        }
+      onStarted?.(result.runId)
+      window.dispatchEvent(new CustomEvent('ucat-generation-started', { detail: { runId: result.runId } }))
+      toast({
+        title: 'Generation started',
+        description: 'You can keep working while the task companion tracks progress.',
       })
-      setGenerationDebug(result.debug ?? null)
-      setGenerationProgress({
-        step: 'drafts',
-        message: 'Generation complete',
-        completedStems: result.stems.length,
-        totalStems: stemCount,
-        runId: result.debug?.runId ?? result.debugRunId ?? null,
-      })
-      setDrafts(nextDrafts)
-      setStep('review')
-      if (result.discardedCount && result.discardedCount > 0) {
-        toast({
-          title: 'Some candidates were discarded',
-          description: `${result.discardedCount} internal candidate${result.discardedCount === 1 ? '' : 's'} failed blocking gates.`,
-        })
-      }
+      resetState()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to generate question stems'
-      if (error instanceof UcatGenerationApiError) setGenerationDebug(error.debug)
+      window.dispatchEvent(new CustomEvent('ucat-generation-start-failed', { detail: { message } }))
       setGenerationError(message)
       setStep('config')
       toast({

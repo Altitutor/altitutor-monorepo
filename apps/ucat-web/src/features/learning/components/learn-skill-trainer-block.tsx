@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";

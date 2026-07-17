@@ -13,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Badge,
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -21,7 +20,8 @@ import {
   Skeleton,
   useToast,
 } from "@altitutor/ui";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { Button } from "@/components/ui/button";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";
 import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-card";
@@ -35,6 +35,7 @@ import {
 } from "@/features/subscription/lib/plan-tier-display";
 import {
   UCAT_CARD_CHROME,
+  UCAT_DIALOG_PRIMARY_ACTION,
   UCAT_PRESSABLE_LIFT_HOVER,
   UCAT_PRIMARY_ACTION_BUTTON_SM,
   UCAT_SURFACE_MOTION,
@@ -44,7 +45,7 @@ import { cn } from "@/lib/utils";
 export function DashboardFreeQuotaCard() {
   const access = useUcatAccess();
   const { data, isLoading, isError } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -52,9 +53,7 @@ export function DashboardFreeQuotaCard() {
   const [usingReset, setUsingReset] = useState(false);
 
   const accessIndicatesFree =
-    !access.isLoading &&
-    access.onlineTier === "free" &&
-    !access.isQuotaExempt;
+    !access.isLoading && access.onlineTier === "free" && !access.isQuotaExempt;
   const quotaIndicatesFree =
     !isLoading &&
     !isError &&
@@ -62,8 +61,7 @@ export function DashboardFreeQuotaCard() {
     !data.isQuotaExempt;
   const isFreeTier = accessIndicatesFree || quotaIndicatesFree;
 
-  const enabledAreas =
-    data?.areas.filter((entry) => !entry.disabled) ?? [];
+  const enabledAreas = data?.areas.filter((entry) => !entry.disabled) ?? [];
 
   if (!access.isLoading && !isLoading && !isFreeTier) {
     return null;
@@ -173,7 +171,10 @@ export function DashboardFreeQuotaCard() {
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
                     <span className="truncate">{entry.label}</span>
-                    <QuotaAreaInfoButton area={entry.area} label={entry.label} />
+                    <QuotaAreaInfoButton
+                      area={entry.area}
+                      label={entry.label}
+                    />
                   </span>
                   <span
                     className={cn(
@@ -181,7 +182,11 @@ export function DashboardFreeQuotaCard() {
                       entry.atLimit && "font-medium text-destructive",
                     )}
                   >
-                    {formatQuotaUsageLabel(entry.used, entry.limit, entry.period)}
+                    {formatQuotaUsageLabel(
+                      entry.used,
+                      entry.limit,
+                      entry.period,
+                    )}
                   </span>
                 </div>
                 <QuotaProgressBar
@@ -197,7 +202,8 @@ export function DashboardFreeQuotaCard() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">
-                    {availableResetCount} quota reset{availableResetCount === 1 ? "" : "s"} available
+                    {availableResetCount} quota reset
+                    {availableResetCount === 1 ? "" : "s"} available
                   </p>
                   {nextResetExpiry ? (
                     <p className="text-xs text-muted-foreground">
@@ -242,7 +248,11 @@ export function DashboardFreeQuotaCard() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={usingReset}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUseReset} disabled={usingReset}>
+            <AlertDialogAction
+              className={UCAT_DIALOG_PRIMARY_ACTION}
+              onClick={handleUseReset}
+              disabled={usingReset}
+            >
               {usingReset ? "Using reset..." : "Use reset"}
             </AlertDialogAction>
           </AlertDialogFooter>

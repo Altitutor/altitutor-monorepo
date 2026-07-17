@@ -39,17 +39,17 @@ export async function GET(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Query session first - only allow meeting types (exclude CLASS)
+    // Public booking confirmation: trial / subsidy interview only
     const { data: sessionData, error: sessionError } = await serviceRoleSupabase
       .from('sessions')
-      .select('id, start_at, end_at, type, subject_id')
+      .select('id, start_at, end_at, type, subject_id, status')
       .eq('id', sessionId)
-      .neq('type', 'CLASS') // Exclude CLASS sessions
+      .in('type', ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'])
       .single();
 
     if (sessionError || !sessionData) {
       return NextResponse.json(
-        { error: 'Session not found or is not a meeting type' },
+        { error: 'Session not found or is not a public booking type' },
         { status: 404 }
       );
     }
@@ -113,6 +113,7 @@ export async function GET(
     const bookingData = {
       session_id: sessionData.id,
       session_type: sessionData.type,
+      status: sessionData.status,
       start_at: sessionData.start_at,
       end_at: sessionData.end_at,
       student_first_name: studentData.first_name,

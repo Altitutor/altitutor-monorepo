@@ -5,17 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarCheck,
   Check,
   LockKeyhole,
   Mail,
   Sparkles,
 } from "lucide-react";
+import { addDays, addMonths, addWeeks, subDays } from "date-fns";
 import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { computeMarketingPlanPricing } from "@/features/subscription/lib/marketing-plan-pricing";
@@ -24,7 +26,6 @@ import {
   getPublicPlanPrice,
   getPublicPracticeDayDiscount,
   isPlanCheckoutAvailable,
-  type PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import { CheckoutPaymentForm } from "@/features/subscription/components/checkout/checkout-payment-form";
 import {
@@ -48,18 +49,39 @@ const PRO_FEATURES = [
   "On-demand help from Altitutor tutors",
 ] as const;
 
-type JourneyContext = "signup_onboarding" | "subscribe" | "practice_session";
+type JourneyContext =
+  | "signup_onboarding"
+  | "subscribe"
+  | "practice_session"
+  | "referral_gift";
 
 function isJourneyContext(value: string | null): value is JourneyContext {
   return (
     value === "signup_onboarding" ||
     value === "subscribe" ||
-    value === "practice_session"
+    value === "practice_session" ||
+    value === "referral_gift"
   );
 }
 
 function intervalNoun(interval: UcatBillingInterval) {
   return interval === "week" ? "week" : interval === "month" ? "month" : "year";
+}
+
+function addBillingInterval(date: Date, interval: UcatBillingInterval) {
+  return interval === "week"
+    ? addWeeks(date, 1)
+    : interval === "month"
+      ? addMonths(date, 1)
+      : addMonths(date, 12);
+}
+
+function formatTimelineDate(date: Date) {
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function CheckoutFieldsSkeleton() {
@@ -90,23 +112,26 @@ export function CheckoutPage() {
   const tierParam = searchParams.get("tier");
   const intervalParam = searchParams.get("interval");
   const contextParam = searchParams.get("context");
+  const referralGiftId = searchParams.get("gift") ?? undefined;
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
   const interval = isUcatBillingInterval(intervalParam) ? intervalParam : null;
   const context = isJourneyContext(contextParam) ? contextParam : "subscribe";
-  const [config, setConfig] = useState<PublicUcatSubscriptionConfig>(
-    defaultPublicSubscriptionConfig,
-  );
+  const {
+    data: config = defaultPublicSubscriptionConfig,
+    isPending: configLoading,
+  } = usePublicSubscriptionConfig();
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
     null,
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
-  const [sessionTrial, setSessionTrial] = useState({
-    eligible: false,
-    days: 0,
-  });
+  const [referralGiftApplied, setReferralGiftApplied] = useState(false);
+  const [standardTrialDays, setStandardTrialDays] = useState<number | null>(
+    null,
+  );
   const sessionStartedRef = useRef(false);
+  const checkoutStartedAtRef = useRef(new Date());
 
   useEffect(() => {
     if (!tier || !interval) {
@@ -115,18 +140,17 @@ export function CheckoutPage() {
     }
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
-    void Promise.all([
-      fetchPublicSubscriptionConfig(),
-      createUcatCheckoutSession({ tier, interval, returnContext: context }),
-    ])
-      .then(([nextConfig, session]) => {
-        setConfig(nextConfig);
+    void createUcatCheckoutSession({
+      tier,
+      interval,
+      returnContext: context,
+      referralGiftId,
+    })
+      .then((session) => {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
-        setSessionTrial({
-          eligible: session.trialEligible,
-          days: session.trialDays,
-        });
+        setReferralGiftApplied(session.referralGiftApplied);
+        setStandardTrialDays(session.trialEligible ? session.trialDays : 0);
       })
       .catch((error: unknown) => {
         setCheckoutError(
@@ -135,7 +159,7 @@ export function CheckoutPage() {
             : "Checkout could not be loaded",
         );
       });
-  }, [context, interval, router, tier]);
+  }, [context, interval, referralGiftId, router, tier]);
 
   if (!tier || !interval) {
     return null;
@@ -153,13 +177,20 @@ export function CheckoutPage() {
           discount.maxDiscountsPerPeriod,
         )
       : null;
-  const trialEligible = sessionTrial.eligible && sessionTrial.days > 0;
-  const trialDays = sessionTrial.days;
-  const trialEnd = new Date();
-  trialEnd.setDate(trialEnd.getDate() + trialDays);
-  const reminderDate = new Date();
-  reminderDate.setDate(reminderDate.getDate() + Math.max(1, trialDays - 3));
   const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
+  const hasStandardTrial = (standardTrialDays ?? 0) > 0;
+  const freePeriodEndsAt = referralGiftApplied
+    ? addBillingInterval(checkoutStartedAtRef.current, interval)
+    : hasStandardTrial
+      ? addDays(checkoutStartedAtRef.current, standardTrialDays ?? 0)
+      : null;
+  const firstChargeAt =
+    freePeriodEndsAt ?? addBillingInterval(checkoutStartedAtRef.current, interval);
+  const standardTrialReminderAt = hasStandardTrial
+    ? (standardTrialDays ?? 0) <= 3
+      ? checkoutStartedAtRef.current
+      : subDays(firstChargeAt, 3)
+    : null;
 
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
@@ -175,7 +206,9 @@ export function CheckoutPage() {
               checkoutSessionId: checkoutSessionId ?? undefined,
             });
             if (context === "signup_onboarding") {
-              router.push("/signup/complete");
+              // Bust the App Router client cache for /signup/complete (plan step
+              // is client-only until remount) and land on plan via existing handler.
+              router.push("/signup/complete?checkout=canceled");
             } else if (window.history.length > 1) {
               router.back();
             } else {
@@ -339,53 +372,102 @@ export function CheckoutPage() {
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Due today</span>
                   <span className="font-semibold">
-                    {trialEligible
-                      ? formatMoneyFromMinorUnits(0, config.currency)
-                      : formatMoneyFromMinorUnits(
-                          pricing.standardPeriodCents,
-                          config.currency,
-                        )}
+                    {standardTrialDays === null
+                      ? "—"
+                      : referralGiftApplied || hasStandardTrial
+                        ? formatMoneyFromMinorUnits(0, config.currency)
+                        : formatMoneyFromMinorUnits(
+                            pricing.standardPeriodCents,
+                            config.currency,
+                          )}
                   </span>
                 </div>
               </div>
             ) : null}
 
-            {trialEligible ? (
+            {pricing ? (
               <div className="mt-6">
-                <p className="font-semibold">Your {trialDays}-day trial</p>
-                <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Today
-                    </span>
-                    <p className="mt-1 font-medium">Access unlocked</p>
+                <p className="text-lg font-semibold">
+                  {referralGiftApplied
+                    ? `Your free ${intervalNoun(interval)}`
+                    : hasStandardTrial
+                      ? `Your ${standardTrialDays}-day free trial`
+                      : "What happens next"}
+                </p>
+                <ol className="mt-4 space-y-3 text-sm">
+                  <li className="rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                          <Sparkles className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <p className="font-semibold">Full access unlocks</p>
+                      </div>
+                      <span className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-primary">
+                        Today
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                      {referralGiftApplied || hasStandardTrial
+                        ? "You pay nothing today and unlock the entire UCAT system. Start earning practice discounts towards your first bill straight away."
+                        : `You’re charged ${formatMoneyFromMinorUnits(pricing.standardPeriodCents, config.currency)} today and unlock the entire UCAT system. Start earning practice discounts towards your next bill straight away.`}
+                    </p>
                   </li>
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Mail className="h-3 w-3" />{" "}
-                      {reminderDate.toLocaleDateString("en-AU", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                    <p className="mt-1 font-medium">Reminder emailed</p>
-                  </li>
-                  <li className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {trialEnd.toLocaleDateString("en-AU", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                    <p className="mt-1 font-medium">Paid plan begins</p>
+
+                  {standardTrialReminderAt ? (
+                    <li className="rounded-2xl border border-border bg-muted/20 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                            <Mail className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <p className="font-semibold">Reminder email</p>
+                        </div>
+                        <time
+                          dateTime={standardTrialReminderAt.toISOString()}
+                          className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {formatTimelineDate(standardTrialReminderAt)}
+                        </time>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        We’ll email you before the trial ends with your current
+                        estimated first bill and the practice discount you’ve
+                        earned so far.
+                      </p>
+                    </li>
+                  ) : null}
+
+                  <li className="rounded-2xl border border-border bg-muted/30 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                          <CalendarCheck
+                            className="h-4 w-4"
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <p className="font-semibold">
+                          {freePeriodEndsAt ? "First bill" : "Next bill"}
+                        </p>
+                      </div>
+                      <time
+                        dateTime={firstChargeAt.toISOString()}
+                        className="shrink-0 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                      >
+                        {formatTimelineDate(firstChargeAt)}
+                      </time>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                      You’ll be charged{" "}
+                      {formatMoneyFromMinorUnits(
+                        pricing.standardPeriodCents,
+                        config.currency,
+                      )}{" "}
+                      minus any practice discount you earn before this bill.
+                    </p>
                   </li>
                 </ol>
-                {tier === "pro" ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Pro workshops, tutor help, and performance reviews begin
-                    with the paid subscription.
-                  </p>
-                ) : null}
               </div>
             ) : null}
 
@@ -399,15 +481,20 @@ export function CheckoutPage() {
               type="submit"
               form="ucat-checkout-payment-form"
               disabled={
-                !clientSecret || Boolean(checkoutError) || checkoutSubmitting
+                configLoading ||
+                !clientSecret ||
+                Boolean(checkoutError) ||
+                checkoutSubmitting
               }
               className="mt-6 h-14 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
             >
               {checkoutSubmitting
                 ? "Confirming…"
-                : trialEligible
-                  ? `Start my ${trialDays}-day trial`
-                  : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
+                : referralGiftApplied
+                  ? `Start my free ${intervalNoun(interval)}`
+                  : hasStandardTrial
+                    ? `Start my ${standardTrialDays}-day free trial`
+                    : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
               {!checkoutSubmitting ? (
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}

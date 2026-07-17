@@ -2,7 +2,7 @@
 
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import {
   defaultPublicSubscriptionConfig,
   getPublicPracticeDayDiscount,
@@ -12,7 +12,6 @@ import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-
 import { PlanPickerCheckIcon } from "@/features/subscription/components/plan-picker/plan-picker-check-icon";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -26,20 +25,9 @@ const ONLINE_FEATURES = [
 
 export function SubscribePage() {
   const access = useUcatAccess();
-  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
+  const { data: cfg = defaultPublicSubscriptionConfig } =
+    usePublicSubscriptionConfig();
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const next = await fetchPublicSubscriptionConfig();
-      if (!cancelled) setCfg(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
     access.onlineTier === "free" && !access.isLoading && access.signupCompleted;
   const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
@@ -87,9 +75,6 @@ export function SubscribePage() {
           >
             Start with UCAT Free, or unlock unlimited online access with UCAT
             Unlimited and UCAT Pro.
-            {unlimitedTrialEligible
-              ? ` Try Unlimited free for ${cfg.trialDays} days.`
-              : null}
           </p>
 
           <div
@@ -154,7 +139,7 @@ export function SubscribePage() {
                 {
                   icon: "◎",
                   title: "Cancel anytime",
-                  desc: "No lock-in. Cancel before your trial ends and you won't be charged a cent.",
+                  desc: "No lock-in. You can schedule cancellation from your subscription settings at any time.",
                   accent: false,
                 },
               ].map(({ icon, title, desc, accent }) => (
@@ -212,8 +197,8 @@ export function SubscribePage() {
             className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}
           >
             All prices in AUD and include GST where applicable. Cancel anytime
-            before trial ends. Practice-day discounts are earned when daily
-            question targets are met.
+            from subscription settings. Practice-day discounts are earned when
+            daily question targets are met.
           </p>
         </div>
       </section>

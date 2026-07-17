@@ -32,6 +32,8 @@ const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date'] 
 export interface ProjectsListProps {
   /** Initial filter values (e.g. dashboard: projects where current user is lead) */
   defaultFilters?: Record<string, unknown[]>;
+  /** Force collapsed pill layout (e.g. dashboard cards) */
+  compact?: boolean;
   hideToolbar?: boolean;
   embedView?: {
     groupBy?: string | null;
@@ -41,7 +43,12 @@ export interface ProjectsListProps {
   };
 }
 
-export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }: ProjectsListProps = {}) {
+export function ProjectsList({
+  defaultFilters,
+  compact = false,
+  hideToolbar = false,
+  embedView,
+}: ProjectsListProps = {}) {
   const embedLocked = hideToolbar && embedView != null;
 
   const {
@@ -332,6 +339,7 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
         isLoading={isLoading}
         noPadding={true}
         hideToolbar={hideToolbar}
+        compact={compact}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
         searchValue={search}

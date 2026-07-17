@@ -16,6 +16,7 @@ export async function PATCH(
   { params }: { params: { notificationId: string } }
 ) {
   try {
+    const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
     const userClient = createServerClient();
     
@@ -100,18 +101,43 @@ export async function PATCH(
       },
     });
     
+    const now = new Date().toISOString();
     const { error } = await serviceClient
       .from('notifications')
-      .update({ read_at: new Date().toISOString() })
+      .update(
+        body.dismiss
+          ? {
+              dismissed_at: now,
+              updated_at: now,
+            }
+          : { read_at: now, updated_at: now },
+      )
       .eq('id', params.notificationId)
       .eq('student_id', studentId);
-    
+
     if (error) {
       console.error('Error updating notification:', error);
       return NextResponse.json(
-        { error: 'Failed to mark notification as read' },
+        { error: body.dismiss ? 'Failed to dismiss notification' : 'Failed to mark notification as read' },
         { status: 500 }
       );
+    }
+
+    if (body.dismiss) {
+      const { error: readError } = await serviceClient
+        .from('notifications')
+        .update({ read_at: now, updated_at: now })
+        .eq('id', params.notificationId)
+        .eq('student_id', studentId)
+        .is('read_at', null);
+
+      if (readError) {
+        console.error('Error marking dismissed notification as read:', readError);
+        return NextResponse.json(
+          { error: 'Failed to dismiss notification' },
+          { status: 500 }
+        );
+      }
     }
     
     return NextResponse.json({ success: true });

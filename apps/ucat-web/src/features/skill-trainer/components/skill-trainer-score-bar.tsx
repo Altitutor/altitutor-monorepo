@@ -3,7 +3,7 @@
 import type { ComponentType, ReactNode } from "react";
 import { Clock, Flame, LogOut, Trophy } from "lucide-react";
 import { motion } from "motion/react";
-import { Button } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { ScoreDeltaFeedback } from "@/features/skill-trainer/components/score-bar-feedback";
 import { cn } from "@/lib/utils";
 

@@ -13,6 +13,7 @@ import {
   formatDate,
   formatDateTime,
   formatClassName,
+  getActivityEventVariables,
 } from '../utils.ts';
 
 describe('evaluateConditions', () => {
@@ -366,6 +367,70 @@ describe('evaluateConditions', () => {
       const result = evaluateConditions(conditions, createdEvent, entityData);
       expect(result).toBe(false);
     });
+  });
+
+  describe('activity metadata conditions', () => {
+    const condition = {
+      field: 'activity.metadata.assignment_source',
+      operator: 'not_equals',
+      value: 'class_staff_sync',
+    };
+
+    it('matches a direct session assignment with no cascade marker', () => {
+      expect(evaluateConditions(condition, {
+        event_type: 'CREATED',
+        metadata: { operation: 'INSERT', table: 'sessions_staff' },
+      }, {})).toBe(true);
+    });
+
+    it('suppresses a session assignment produced by class synchronisation', () => {
+      expect(evaluateConditions(condition, {
+        event_type: 'CREATED',
+        metadata: {
+          operation: 'INSERT',
+          table: 'sessions_staff',
+          assignment_source: 'class_staff_sync',
+        },
+      }, {})).toBe(false);
+    });
+  });
+});
+
+describe('getActivityEventVariables', () => {
+  it('exposes entity IDs and display-name snapshots to notification templates', () => {
+    expect(getActivityEventVariables({
+      event_type: 'UPDATED',
+      entity_type: 'sessions_students',
+      entity_id: 'assignment-id',
+      student_id: 'student-id',
+      staff_id: 'staff-id',
+      class_id: 'class-id',
+      session_id: 'session-id',
+      metadata: {
+        display: {
+          student_name: 'Alex Student',
+          session_name: 'Maths Tue 4:00 PM',
+        },
+      },
+    })).toEqual({
+      event_type: 'UPDATED',
+      entity_type: 'sessions_students',
+      entity_id: 'assignment-id',
+      student_id: 'student-id',
+      staff_id: 'staff-id',
+      class_id: 'class-id',
+      session_id: 'session-id',
+      student_name: 'Alex Student',
+      session_name: 'Maths Tue 4:00 PM',
+    });
+  });
+
+  it('uses a delete-safe label stored directly in activity metadata', () => {
+    expect(getActivityEventVariables({
+      event_type: 'DELETED',
+      entity_type: 'sessions_staff',
+      metadata: { session_name: 'Maths Tue 4:00 PM' },
+    }).session_name).toBe('Maths Tue 4:00 PM');
   });
 });
 

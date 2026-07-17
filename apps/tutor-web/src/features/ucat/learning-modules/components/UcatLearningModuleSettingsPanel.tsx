@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
@@ -19,7 +20,9 @@ import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 import type { UcatSectionOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
-import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleKind, UcatLearningModuleStudyPlanPriority } from '@/features/ucat/learning-modules/types'
+import { useUcatQuestionStemCategories } from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
+import { useUcatQuestionTags } from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
 import { UcatLearningModuleOrderEditor } from '@/features/ucat/learning-modules/components/UcatLearningModuleOrderEditor'
 import {
   isDescendantOf,
@@ -36,11 +39,17 @@ type UcatLearningModuleSettingsPanelProps = {
   sectionId: string | null
   parentId: string | null
   isPrivate: boolean
+  studyPlanPriority: UcatLearningModuleStudyPlanPriority
+  studyPlanCategoryIds: string[]
+  studyPlanTagIds: string[]
   onTitleChange: (title: string) => void
   onDescriptionChange: (description: string) => void
   onSectionIdChange: (sectionId: string | null) => void
   onParentIdChange: (parentId: string | null) => void
   onIsPrivateChange: (isPrivate: boolean) => void
+  onStudyPlanPriorityChange: (priority: UcatLearningModuleStudyPlanPriority) => void
+  onStudyPlanCategoryIdsChange: (ids: string[]) => void
+  onStudyPlanTagIdsChange: (ids: string[]) => void
   sections: UcatSectionOption[]
   modules: UcatLearningModuleRow[]
   folderOptions: UcatLearningModuleRow[]
@@ -70,11 +79,17 @@ export function UcatLearningModuleSettingsPanel({
   sectionId,
   parentId,
   isPrivate,
+  studyPlanPriority,
+  studyPlanCategoryIds,
+  studyPlanTagIds,
   onTitleChange,
   onDescriptionChange,
   onSectionIdChange,
   onParentIdChange,
   onIsPrivateChange,
+  onStudyPlanPriorityChange,
+  onStudyPlanCategoryIdsChange,
+  onStudyPlanTagIdsChange,
   sections,
   modules,
   folderOptions,
@@ -86,6 +101,8 @@ export function UcatLearningModuleSettingsPanel({
   onActiveTabChange,
   className,
 }: UcatLearningModuleSettingsPanelProps) {
+  const categoriesQuery = useUcatQuestionStemCategories()
+  const tagsQuery = useUcatQuestionTags()
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
 
@@ -148,6 +165,19 @@ export function UcatLearningModuleSettingsPanel({
     { value: 'public' as const, label: 'Public' },
     { value: 'private' as const, label: 'Private' },
   ]
+  const priorityItems: Array<{ value: UcatLearningModuleStudyPlanPriority; label: string }> = [
+    { value: 'essential', label: 'Essential' },
+    { value: 'recommended', label: 'Recommended' },
+    { value: 'optional', label: 'Optional' },
+    { value: 'excluded', label: 'Excluded' },
+  ]
+  const selectedPriority = priorityItems.find((item) => item.value === studyPlanPriority) ?? priorityItems[1]
+  const categoryOptions = (categoriesQuery.data ?? [])
+    .filter((category) => category.id && (!sectionId || category.ucat_section_id === sectionId))
+    .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
+  const tagOptions = (tagsQuery.data ?? [])
+    .filter((tag) => tag.id && (!sectionId || tag.ucat_section_id === sectionId))
+    .map((tag) => ({ id: tag.id as string, name: tag.name ?? 'Untitled tag' }))
 
   return (
     <aside className={cn('flex h-full w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-72 lg:border-l lg:p-4', className)}>
@@ -243,6 +273,71 @@ export function UcatLearningModuleSettingsPanel({
             <p className="px-1 text-xs text-muted-foreground">
               Folders organise lessons. Add child lessons by setting their parent folder.
             </p>
+          ) : null}
+
+          {kind === 'lesson' ? (
+            <AccordionItem value="study-plan" className="border-0">
+              <div className={tutorCardCn('overflow-hidden')}>
+                <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+                  <span className="text-sm font-semibold">Study plan</span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3 border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
+                  <PropertyRow label="Priority">
+                    <SearchableSelect<{ value: UcatLearningModuleStudyPlanPriority; label: string }>
+                      items={priorityItems}
+                      value={selectedPriority}
+                      onValueChange={(item) => item && onStudyPlanPriorityChange(item.value)}
+                      getItemLabel={(item) => item.label}
+                      getItemId={(item) => item.value}
+                      disabled={editorMode === 'view'}
+                    />
+                  </PropertyRow>
+                  <p className="text-xs text-muted-foreground">
+                    Essential and recommended lessons are placed near the start. Excluded lessons are never prescribed.
+                  </p>
+                  <div className="space-y-2">
+                    <span className="text-sm text-muted-foreground">Question categories</span>
+                    <SearchableSelect<{ id: string; name: string }>
+                      items={categoryOptions.filter((item) => !studyPlanCategoryIds.includes(item.id))}
+                      value={null}
+                      onValueChange={(item) => item && onStudyPlanCategoryIdsChange([...studyPlanCategoryIds, item.id])}
+                      getItemLabel={(item) => item.name}
+                      getItemId={(item) => item.id}
+                      placeholder="Add category"
+                      disabled={editorMode === 'view'}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {studyPlanCategoryIds.map((id) => (
+                        <button key={id} type="button" disabled={editorMode === 'view'} onClick={() => onStudyPlanCategoryIdsChange(studyPlanCategoryIds.filter((value) => value !== id))} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs">
+                          {categoryOptions.find((item) => item.id === id)?.name ?? 'Unknown category'}
+                          {editorMode === 'edit' ? <X className="h-3 w-3" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-sm text-muted-foreground">Question tags</span>
+                    <SearchableSelect<{ id: string; name: string }>
+                      items={tagOptions.filter((item) => !studyPlanTagIds.includes(item.id))}
+                      value={null}
+                      onValueChange={(item) => item && onStudyPlanTagIdsChange([...studyPlanTagIds, item.id])}
+                      getItemLabel={(item) => item.name}
+                      getItemId={(item) => item.id}
+                      placeholder="Add tag"
+                      disabled={editorMode === 'view'}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {studyPlanTagIds.map((id) => (
+                        <button key={id} type="button" disabled={editorMode === 'view'} onClick={() => onStudyPlanTagIdsChange(studyPlanTagIds.filter((value) => value !== id))} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs">
+                          {tagOptions.find((item) => item.id === id)?.name ?? 'Unknown tag'}
+                          {editorMode === 'edit' ? <X className="h-3 w-3" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </AccordionContent>
+              </div>
+            </AccordionItem>
           ) : null}
 
           <AccordionItem value="section-order" className="border-0">

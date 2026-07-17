@@ -8,6 +8,7 @@ import type {
   UcatSubscriptionInvoice,
   UcatSubscriptionInvoiceItem,
 } from "@/features/subscription/types/ucat-subscription-billing";
+import { isManageableUcatSubscriptionStatus } from "@/lib/ucat/subscription-status";
 
 type InvoiceRow = Database["public"]["Views"]["vstudent_invoices"]["Row"];
 type SubscriptionRow =
@@ -24,16 +25,13 @@ type SelectedSubscriptionRow = Pick<
   | "stripe_price_id"
   | "plan_tier"
   | "billing_interval"
+  | "billing_recovery_invoice_id"
+  | "billing_recovery_started_at"
+  | "billing_recovery_next_attempt_at"
+  | "billing_recovery_requires_action"
   | "created_at"
   | "updated_at"
 >;
-
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
-  "trialing",
-  "active",
-  "past_due",
-  "unpaid",
-]);
 
 async function getUcatSubjectId(
   supabase: SupabaseClient<Database>,
@@ -57,7 +55,7 @@ async function fetchUcatSubscription(
   const { data, error } = await supabase
     .from("vstudent_subscriptions")
     .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at",
     )
     .eq("subject_id", ucatSubjectId)
     .in("status", [...MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES])
@@ -79,6 +77,12 @@ async function fetchUcatSubscription(
     stripe_price_id: data.stripe_price_id,
     plan_tier: data.plan_tier ?? null,
     billing_interval: data.billing_interval ?? null,
+    billing_recovery_invoice_id: data.billing_recovery_invoice_id ?? null,
+    billing_recovery_started_at: data.billing_recovery_started_at ?? null,
+    billing_recovery_next_attempt_at:
+      data.billing_recovery_next_attempt_at ?? null,
+    billing_recovery_requires_action:
+      data.billing_recovery_requires_action ?? false,
     created_at: data.created_at ?? new Date().toISOString(),
     updated_at: data.updated_at ?? new Date().toISOString(),
   };
@@ -106,6 +110,14 @@ function toSubscriptionRow(
     stripe_price_id: subscription.stripe_price_id,
     plan_tier: subscription.plan_tier ?? null,
     billing_interval: subscription.billing_interval ?? null,
+    billing_recovery_invoice_id:
+      subscription.billing_recovery_invoice_id ?? null,
+    billing_recovery_started_at:
+      subscription.billing_recovery_started_at ?? null,
+    billing_recovery_next_attempt_at:
+      subscription.billing_recovery_next_attempt_at ?? null,
+    billing_recovery_requires_action:
+      subscription.billing_recovery_requires_action ?? false,
     created_at: subscription.created_at ?? new Date().toISOString(),
     updated_at: subscription.updated_at ?? new Date().toISOString(),
   };
@@ -120,7 +132,7 @@ async function fetchUcatSubscriptions(
   const { data, error } = await supabase
     .from("vstudent_subscriptions")
     .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at",
     )
     .eq("subject_id", ucatSubjectId)
     .order("updated_at", { ascending: false });
@@ -134,14 +146,14 @@ async function fetchUcatSubscriptions(
     });
 }
 
-function pickCurrentSubscription(
+export function pickCurrentSubscription(
   subscriptions: UcatSubscriptionRow[],
 ): UcatSubscriptionRow | null {
-  return (
-    subscriptions.find((subscription) =>
-      ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status),
-    ) ?? null
+  const manageable = subscriptions.filter((subscription) =>
+    isManageableUcatSubscriptionStatus(subscription.status),
   );
+
+  return manageable[0] ?? null;
 }
 
 async function fetchInvoiceItems(
@@ -171,6 +183,7 @@ function toSubscriptionInvoice(
 
   return {
     id: invoice.id,
+    stripe_invoice_id: invoice.stripe_invoice_id,
     invoice_date: invoice.invoice_date,
     status: invoice.status,
     paid_at: invoice.paid_at,

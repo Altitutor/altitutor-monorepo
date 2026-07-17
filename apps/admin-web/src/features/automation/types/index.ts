@@ -52,6 +52,7 @@ export type NotificationRecipientType =
   | 'session_all'
   | 'all_admin_staff'
   | 'all_staff'
+  | 'all_ucat_students'
   | 'admin_staff_on_day'
   | 'tutor_log_staff';
 
@@ -89,6 +90,7 @@ export interface CreateTaskActionConfig {
 
 export interface CreateNotificationActionConfig {
   notification_type: string;
+  app_scope?: 'student_web' | 'ucat_web' | 'staff_web';
   title: string;
   body?: string;
   action_url?: string;
@@ -132,4 +134,3 @@ export type ActivityEntityType =
   | 'parents_students';
 
 export type ActivityEventType = 'CREATED' | 'UPDATED' | 'DELETED' | 'FIELD_CHANGED';
-

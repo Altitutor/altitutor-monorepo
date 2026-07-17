@@ -40,7 +40,7 @@ type CalculatorKey =
 
 type Calculations = Array<number | Operation>;
 
-type CalculatorState = {
+export type CalculatorState = {
   textValue: string;
   priorTextValue: string;
   numberValue: number;
@@ -72,8 +72,8 @@ const INITIAL_STATE: CalculatorState = {
   negative: false,
   hasError: false,
 
-  // Match original behaviour: follow order of operations (MDAS) by default
-  followOrderOfOperations: true,
+  // Real UCAT TI-108 calculator is strictly left-to-right (no BODMAS/MDAS).
+  followOrderOfOperations: false,
   calculations: [],
   priorCalculations: [],
   runningTotal: undefined,
@@ -586,6 +586,26 @@ function formatDisplay(state: CalculatorState): string {
   return `${base}${suffix}`;
 }
 
+/** Pure key application for tests and non-React callers. */
+export function applyCalculatorKey(
+  state: CalculatorState,
+  rawKey: string,
+): CalculatorState {
+  return computeNextState(state, rawKey);
+}
+
+export function formatCalculatorDisplay(state: CalculatorState): string {
+  return formatDisplay(state);
+}
+
+export function createInitialCalculatorState(): CalculatorState {
+  return {
+    ...INITIAL_STATE,
+    calculations: [],
+    priorCalculations: [],
+  };
+}
+
 export function useUcatCalculator() {
   const [state, setState] = useState<CalculatorState>(INITIAL_STATE);
 
@@ -593,8 +613,13 @@ export function useUcatCalculator() {
     setState((current) => computeNextState(current, label));
   }, []);
 
+  const reset = useCallback(() => {
+    setState(createInitialCalculatorState());
+  }, []);
+
   return {
     display: formatDisplay(state),
     onKey,
+    reset,
   };
 }

@@ -6,7 +6,7 @@ import { Badge, Button, Checkbox, SearchableSelect } from '@altitutor/ui';
 import { Plus, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { useTutorLogStep4Data } from '../../hooks/useTutorLogStep4Data';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
-import { cn } from '@/shared/utils/index';
+import { cn, navHoverStyles, navItemTransitionStyles } from '@/shared/utils/index';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
@@ -95,7 +95,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
               <button
                 type="button"
                 onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-accent rounded"
+                className={cn('p-1 rounded', navItemTransitionStyles, navHoverStyles)}
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />

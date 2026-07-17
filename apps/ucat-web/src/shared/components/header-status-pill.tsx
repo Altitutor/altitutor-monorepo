@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
+import { UCAT_CONTROL_PRESS } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export type HeaderStatusPillVariant = "amber" | "emerald" | "sky" | "rose";
@@ -90,7 +91,8 @@ export function HeaderStatusPill({
             href={action.href}
             prefetch={false}
             className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 font-medium transition-colors",
+              "shrink-0 rounded-full px-2 py-0.5 font-medium",
+              UCAT_CONTROL_PRESS,
               styles.action,
             )}
           >
@@ -101,7 +103,8 @@ export function HeaderStatusPill({
             type="button"
             onClick={action.onClick}
             className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 font-medium transition-colors",
+              "shrink-0 rounded-full px-2 py-0.5 font-medium",
+              UCAT_CONTROL_PRESS,
               styles.action,
             )}
           >
@@ -117,7 +120,8 @@ export function HeaderStatusPill({
             onDismiss();
           }}
           className={cn(
-            "shrink-0 rounded-full p-0.5 transition-colors",
+            "shrink-0 rounded-full p-0.5",
+            UCAT_CONTROL_PRESS,
             styles.dismiss,
           )}
           aria-label={dismissLabel}

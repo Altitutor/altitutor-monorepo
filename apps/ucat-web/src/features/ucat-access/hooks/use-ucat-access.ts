@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { isUcatOnlineTier, type UcatOnlineTier } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -12,13 +12,15 @@ export type UcatAccessFlags = {
   hasUcatAccess: boolean;
   onlineTier: UcatOnlineTier | null;
   isQuotaExempt: boolean;
-  /** Plan choice recorded (step 3). */
+  /** Plan or referral-gift choice recorded (step 4). */
   onboardingCompleted: boolean;
   /** Full signup wizard finished. */
   signupCompleted: boolean;
   signupStep: number;
   unlimitedTrialEligible: boolean;
   isLoading: boolean;
+  /** The access lookup failed, so route guards must not infer missing access. */
+  accessLoadFailed: boolean;
 };
 
 type VstudentUcatMyAccessRow = {
@@ -35,7 +37,7 @@ type VstudentUcatMyAccessRow = {
   pro_trial_eligible?: boolean | null;
 };
 
-const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading"> = {
+const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed"> = {
   hasOnlineAccess: false,
   hasInPersonAccess: false,
   hasUcatAccess: false,
@@ -53,7 +55,7 @@ function parseOnlineTier(value: string | null): UcatOnlineTier | null {
 
 function mapAccessRow(
   data: VstudentUcatMyAccessRow,
-): Omit<UcatAccessFlags, "isLoading"> {
+): Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed"> {
   return {
     hasOnlineAccess: Boolean(data.has_online_access),
     hasInPersonAccess: Boolean(data.has_in_person_access),
@@ -69,7 +71,9 @@ function mapAccessRow(
   };
 }
 
-async function fetchUcatAccess(): Promise<Omit<UcatAccessFlags, "isLoading">> {
+async function fetchUcatAccess(): Promise<
+  Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed">
+> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_my_access")
@@ -101,16 +105,33 @@ export function useUcatAccess(): UcatAccessFlags {
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    if (query.error) {
+      console.error("[ucat access] Failed to load access state", query.error);
+    }
+  }, [query.error]);
+
   return useMemo(() => {
     if (!user || authLoading) {
-      return { ...EMPTY_FLAGS, isLoading: true };
+      return { ...EMPTY_FLAGS, isLoading: true, accessLoadFailed: false };
     }
     if (query.isLoading || query.isPending) {
-      return { ...EMPTY_FLAGS, isLoading: true };
+      return { ...EMPTY_FLAGS, isLoading: true, accessLoadFailed: false };
     }
     if (query.data) {
-      return { ...query.data, isLoading: false };
+      return { ...query.data, isLoading: false, accessLoadFailed: false };
     }
-    return { ...EMPTY_FLAGS, isLoading: false };
-  }, [user, authLoading, query.isLoading, query.isPending, query.data]);
+    return {
+      ...EMPTY_FLAGS,
+      isLoading: false,
+      accessLoadFailed: query.isError,
+    };
+  }, [
+    user,
+    authLoading,
+    query.isLoading,
+    query.isPending,
+    query.isError,
+    query.data,
+  ]);
 }

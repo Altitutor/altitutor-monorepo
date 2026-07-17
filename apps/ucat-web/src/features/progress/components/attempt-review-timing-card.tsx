@@ -14,6 +14,7 @@ import {
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { formatTimeSeconds } from "../lib/format-time";
+import { formatSpeedMultiplier } from "../lib/format-speed-multiplier";
 
 export type AttemptReviewExamTimingMetrics = {
   timeTakenSeconds: number | null;
@@ -47,11 +48,6 @@ type PracticeTimingCardProps = {
 export type AttemptReviewTimingCardProps =
   | ExamTimingCardProps
   | PracticeTimingCardProps;
-
-function formatSpeed(speed: number | null): string {
-  if (speed == null) return "—";
-  return `${(speed * 100).toFixed(1)}%`;
-}
 
 function MetricRow({
   label,
@@ -135,21 +131,21 @@ function ExamTimingCardContent({
       />
       <MetricRow
         label={speedLabel}
-        value={formatSpeed(timing.studentSetSpeed)}
+        value={formatSpeedMultiplier(timing.studentSetSpeed)}
         tooltip={
           scopeLabel === "mock"
-            ? "How fast you completed this mock vs its time limit. >100% means you finished early."
-            : "How fast you completed this set vs its time limit. >100% means you finished early."
+            ? "How fast you completed this mock vs its time limit. 1x uses the full limit; above 1x means you finished early."
+            : "How fast you completed this set vs its time limit. 1x uses the full limit; above 1x means you finished early."
         }
       />
       {showExamSpeed ? (
         <MetricRow
           label="Exam speed"
-          value={formatSpeed(timing.studentExamSpeed)}
+          value={formatSpeedMultiplier(timing.studentExamSpeed)}
           tooltip={
             scopeLabel === "mock"
-              ? "How fast you completed this mock vs exam-pace time. >100% means you finished faster than exam pace."
-              : "How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace."
+              ? "How fast you completed this mock vs exam pace. 1x matches exam pace; above 1x is faster."
+              : "How fast you completed this set vs exam pace. 1x matches exam pace; above 1x is faster."
           }
         />
       ) : null}

@@ -15,7 +15,7 @@ import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
-import { useSets } from "@/features/sets";
+import { useAccessibleSets } from "@/features/sets";
 import type { StudentSetRow } from "@/features/sets/api/sets-api";
 import { useMocks } from "@/features/mocks";
 import type { StudentMockRow } from "@/features/mocks/api/mocks-api";
@@ -62,7 +62,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
     isLoading,
     error,
   } = useStudentUcatSessionResources(sessionId);
-  const { data: sets, isLoading: setsLoading } = useSets();
+  const { data: sets, isLoading: setsLoading } = useAccessibleSets();
   const { data: mocks, isLoading: mocksLoading } = useMocks();
   const { data: learningModules, isLoading: lessonsLoading } = useLearningModules();
 

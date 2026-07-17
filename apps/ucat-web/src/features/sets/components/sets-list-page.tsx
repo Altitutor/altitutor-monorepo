@@ -17,7 +17,6 @@ import { recordToSetsFilters } from "@/features/sets/lib/filter-adapters";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
-import { isSetGeneratorEnabled } from "@/lib/feature-flags";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import {
@@ -28,11 +27,6 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 const TIMED_OPTIONS: DataTableFilterDefinition["options"] = [
   { value: "timed", label: "Timed" },
   { value: "untimed", label: "Untimed" },
-];
-
-const SOURCE_OPTIONS: DataTableFilterDefinition["options"] = [
-  { value: "my", label: "My sets" },
-  { value: "public", label: "Public sets" },
 ];
 
 const SECTION_OPTIONS: DataTableFilterDefinition["options"] = [
@@ -105,15 +99,10 @@ export function SetsListPage({
     setSearch(value);
   }, []);
 
-  const setGeneratorEnabled = isSetGeneratorEnabled();
-
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
     const defs: DataTableFilterDefinition[] = [
       { key: "timed", label: "Timing", options: TIMED_OPTIONS },
     ];
-    if (setGeneratorEnabled) {
-      defs.push({ key: "source", label: "Source", options: SOURCE_OPTIONS });
-    }
     if (sectionNumberProp == null) {
       defs.push({
         key: "sectionNumber",
@@ -128,7 +117,7 @@ export function SetsListPage({
       });
     }
     return defs;
-  }, [sectionNumberProp, setGeneratorEnabled]);
+  }, [sectionNumberProp]);
 
   const sectionTitle =
     sectionNumberProp != null

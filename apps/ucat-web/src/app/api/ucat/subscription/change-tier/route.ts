@@ -100,6 +100,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (subscription.status === "past_due" || subscription.status === "unpaid") {
+    return NextResponse.json(
+      {
+        error: "Resolve your current payment before changing plans.",
+        code: "payment_recovery_required",
+      },
+      { status: 409 },
+    );
+  }
+
   const billingInterval = parseBillingInterval(subscription.billing_interval);
   if (!billingInterval || !isUcatBillingInterval(billingInterval)) {
     return NextResponse.json(

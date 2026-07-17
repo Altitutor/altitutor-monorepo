@@ -16,6 +16,7 @@ import {
   type FeedbackKind,
 } from "@altitutor/ui";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
+import { UCAT_DIALOG_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export function UcatFloatingToolbar() {
@@ -159,7 +160,10 @@ export function UcatFloatingToolbar() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmLeave}>
+            <AlertDialogAction
+              className={UCAT_DIALOG_PRIMARY_ACTION}
+              onClick={handleConfirmLeave}
+            >
               Go home
             </AlertDialogAction>
           </AlertDialogFooter>

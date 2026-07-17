@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
 const SerializedAnswerOptionSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
   index: z.number().int().positive(),
   // Allow full JSON structures (ProseMirror, etc.) for answer text/explanation.
   answer_text: z.unknown(),
@@ -11,6 +12,7 @@ const SerializedAnswerOptionSchema = z.object({
 })
 
 const SerializedQuestionSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
   index: z.number().int().positive(),
   // Question text and explanation are rich-text JSON blobs in practice.
   question_text: z.unknown(),
@@ -30,7 +32,7 @@ const SerializedStemSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   // Stem text is also rich-text JSON.
   stemText: z.unknown(),
-  isPrivate: z.boolean(),
+  accessScope: z.enum(['public', 'private']).default('public'),
   sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   tutorSourceNote: z.string().nullable().optional(),
   questions: z.array(SerializedQuestionSchema),

@@ -582,6 +582,7 @@ export function ViewStudentModal({
           onOpenChange={setIsDiscontinueDialogOpen}
           studentId={student.id}
           studentName={`${student.first_name} ${student.last_name}`}
+          studentPhone={student.phone}
           workflowKey="student_discontinuation"
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
         />

@@ -15,9 +15,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
   useToast,
 } from '@altitutor/ui'
-import { Loader2, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { QuestionWithNoExplanation } from '../api/reconciliation'
 import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { useUcatCategories, useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -165,7 +166,7 @@ export function QuestionsWithNoExplanationReconciliationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          'flex h-[92vh] w-full flex-col gap-0 p-0 md:max-w-7xl [&>button]:hidden',
+          'flex !h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[92vh] md:max-w-7xl [&>button]:hidden',
           tutorDialogContentClass,
         )}
       >
@@ -209,9 +210,11 @@ export function QuestionsWithNoExplanationReconciliationDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {isLoading ? (
-            <div className="flex h-full min-h-[24rem] items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading questions...
+            <div className="flex h-full min-h-0 flex-col gap-4" aria-busy="true" aria-label="Loading questions">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
             </div>
           ) : drafts.length === 0 ? (
             <div className="flex h-full min-h-[24rem] items-center justify-center text-muted-foreground">

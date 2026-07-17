@@ -95,9 +95,11 @@ export function SkillTrainerAttemptHeaderPill() {
 
   if (!trainerKey) return null;
 
+  const trainer = trainers?.find((item) => item.key === trainerKey);
+  if (trainers && !trainer) return null;
+
   const trainerName =
-    trainers?.find((trainer) => trainer.key === trainerKey)?.name ??
-    formatTrainerName(trainerKey);
+    trainer?.name ?? formatTrainerName(trainerKey);
   const skillTrainerHref = `/skill-trainer/${trainerKeyToSlug(trainerKey)}`;
   const href = `${skillTrainerHref}/play?attemptId=${active.attempt.id}`;
 

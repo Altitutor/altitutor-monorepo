@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { trainerKeyToSlug, type UcatSkillTrainerKey } from "@altitutor/shared";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
@@ -26,10 +26,12 @@ export function SkillTrainerCompleteScreen({
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { setLocal } = useActiveSkillTrainerAttempt();
 
-  const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  const skillTrainerQuota = quota?.areas.find(
+    (a) => a.area === "skill_trainer",
+  );
   const quotaDialogOptions = {
     dismissAction: { label: "Dismiss", variant: "dismiss" as const },
   };
@@ -39,13 +41,16 @@ export function SkillTrainerCompleteScreen({
       skillTrainerQuota &&
       (skillTrainerQuota.atLimit || skillTrainerQuota.disabled)
     ) {
-      openQuotaLimit({
-        code: "QUOTA_EXCEEDED",
-        area: "skill_trainer",
-        used: skillTrainerQuota.used,
-        limit: skillTrainerQuota.limit,
-        period: skillTrainerQuota.period,
-      }, quotaDialogOptions);
+      openQuotaLimit(
+        {
+          code: "QUOTA_EXCEEDED",
+          area: "skill_trainer",
+          used: skillTrainerQuota.used,
+          limit: skillTrainerQuota.limit,
+          period: skillTrainerQuota.period,
+        },
+        quotaDialogOptions,
+      );
       return;
     }
 
@@ -55,19 +60,26 @@ export function SkillTrainerCompleteScreen({
       onLeave();
       const state = await skillTrainerApi.startAttempt(trainerKey);
       setLocal(state);
-      const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
-      router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
+      const activeSlug = trainerKeyToSlug(
+        state.attempt.config_snapshot.trainer_key,
+      );
+      router.push(
+        `/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {
         if (skillTrainerQuota) {
-          openQuotaLimit({
-            code: "QUOTA_EXCEEDED",
-            area: "skill_trainer",
-            used: skillTrainerQuota.used,
-            limit: skillTrainerQuota.limit,
-            period: skillTrainerQuota.period,
-          }, quotaDialogOptions);
+          openQuotaLimit(
+            {
+              code: "QUOTA_EXCEEDED",
+              area: "skill_trainer",
+              used: skillTrainerQuota.used,
+              limit: skillTrainerQuota.limit,
+              period: skillTrainerQuota.period,
+            },
+            quotaDialogOptions,
+          );
         }
       } else {
         setError(message);
@@ -86,7 +98,10 @@ export function SkillTrainerCompleteScreen({
       </div>
 
       <section aria-labelledby="leaderboard-heading" className="space-y-4">
-        <h2 id="leaderboard-heading" className="text-2xl font-semibold tracking-tight">
+        <h2
+          id="leaderboard-heading"
+          className="text-2xl font-semibold tracking-tight"
+        >
           Leaderboard
         </h2>
         <SkillTrainerLeaderboard trainerKey={trainerKey} />

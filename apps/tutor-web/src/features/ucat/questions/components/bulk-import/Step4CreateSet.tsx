@@ -32,7 +32,7 @@ type SetOption = {
   sectionDisplay: string
   question_count: number | null
   time_limit_seconds: number | null
-  is_private?: boolean | null
+  access_scope?: 'public' | 'private' | null
   stem_count?: number | null
 }
 
@@ -82,6 +82,7 @@ const SET_FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
     type: 'number-range',
     minKey: 'time_limit_min',
     maxKey: 'time_limit_max',
+    nullOptionLabel: 'Untimed',
   },
   {
     key: 'stem_count',
@@ -120,18 +121,14 @@ export function Step4CreateSet({
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (setsQuery.data ?? [])
-      .filter(
-        (set) =>
-          (set as { deleted_at?: string | null }).deleted_at == null &&
-          !(set as { is_student_generated?: boolean }).is_student_generated
-      )
+        .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
       .map((set) => ({
         id: set.id ?? '',
         name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
         sectionDisplay: formatSectionsDisplay(set.sections ?? null),
         question_count: set.question_count ?? null,
         time_limit_seconds: set.time_limit_seconds ?? null,
-        is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+        access_scope: (set as { access_scope?: 'public' | 'private' | null }).access_scope ?? null,
         stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
       }))
   }, [setsQuery.data])
@@ -156,12 +153,20 @@ export function Step4CreateSet({
         !search.trim() ||
         applyCoreStringFilter(set.name, search) ||
         applyCoreStringFilter(set.sectionDisplay, search)
-      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', !!set.is_private)
+      const visibilityHit = applyBooleanTextFilter(
+        setsTableState,
+        'visibility',
+        set.access_scope === 'private',
+      )
       const timeLimitHit = applyRangeFilter(
         setsTableState,
         'time_limit_min',
         'time_limit_max',
-        set.time_limit_seconds ?? null
+        set.time_limit_seconds ?? null,
+        {
+          nullFilterKey: 'time_limit',
+          treatNonPositiveAsNull: true,
+        }
       )
       const stemCountHit = applyRangeFilter(
         setsTableState,

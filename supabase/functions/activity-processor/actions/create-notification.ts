@@ -4,13 +4,14 @@ import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts'
 
 export async function executeCreateNotification(
   supabase: SupabaseClient,
-  action: { action_config?: unknown },
+  action: { id?: string; action_config?: unknown },
   activityEvent: Record<string, unknown>,
   rule: Record<string, unknown>,
   entityData?: Record<string, unknown> | null
 ): Promise<void> {
   const config = action.action_config as {
     notification_type: string;
+    app_scope?: 'student_web' | 'ucat_web' | 'staff_web';
     title: string;
     body?: string;
     action_url?: string;
@@ -19,7 +20,7 @@ export async function executeCreateNotification(
     recipients?: {
       type: 'class_students' | 'class_staff' | 'class_all' | 
             'session_students' | 'session_staff' | 'session_all' | 
-            'single' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day';
+            'single' | 'all_admin_staff' | 'all_staff' | 'all_ucat_students' | 'admin_staff_on_day';
     };
     variables?: Record<string, unknown>;
   };
@@ -77,28 +78,59 @@ export async function executeCreateNotification(
     return; // Skip if no recipients (don't fail)
   }
 
-  // Create notifications for each recipient
-  const notificationsToInsert = recipients.map((recipient) => ({
+  const scopedRecipients = recipients.filter((recipient) => {
+    if (config.app_scope === 'ucat_web' || config.app_scope === 'student_web') {
+      return Boolean(recipient.student_id);
+    }
+    if (config.app_scope === 'staff_web') {
+      return Boolean(recipient.staff_id);
+    }
+    return true;
+  });
+
+  if (scopedRecipients.length === 0) {
+    console.warn('[activity-processor] App destination excludes all recipients', {
+      ruleId: rule.id,
+      actionId: action.id,
+      appScope: config.app_scope,
+    });
+    return;
+  }
+
+  // Create notifications for each compatible recipient
+  const notificationsToInsert = scopedRecipients.map((recipient) => ({
     staff_id: recipient.staff_id || null,
     student_id: recipient.student_id || null,
     activity_event_id: activityEvent.id,
     notification_type: config.notification_type,
+    app_scope: config.app_scope || (recipient.student_id ? 'student_web' : 'staff_web'),
     title,
     body,
     action_url: actionUrl,
+    dedupe_key:
+      activityEvent.id && action.id
+        ? `automation:${action.id}:${String(activityEvent.id)}:${recipient.student_id || recipient.staff_id}`
+        : null,
   }));
 
-  const { data: createdNotifications, error: notifErr } = await supabase
-    .from('notifications')
-    .insert(notificationsToInsert)
-    .select('id');
+  const createdNotificationIds: string[] = [];
+  for (let offset = 0; offset < notificationsToInsert.length; offset += 500) {
+    const batch = notificationsToInsert.slice(offset, offset + 500);
+    const { data: createdNotifications, error: notifErr } = await supabase
+      .from('notifications')
+      .upsert(batch, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+      .select('id');
 
-  if (notifErr) {
-    throw notifErr;
+    if (notifErr) {
+      throw notifErr;
+    }
+    createdNotificationIds.push(
+      ...(createdNotifications?.map((notification: { id: string }) => notification.id) || [])
+    );
   }
 
   console.log('[activity-processor] Notifications created', {
-    count: createdNotifications?.length || 0,
-    notificationIds: createdNotifications?.map((n: { id: string }) => n.id) || [],
+    count: createdNotificationIds.length,
+    notificationIds: createdNotificationIds,
   });
 }

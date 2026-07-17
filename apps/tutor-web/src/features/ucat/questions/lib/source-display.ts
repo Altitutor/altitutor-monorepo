@@ -40,6 +40,9 @@ export type StemSourceDisplay = {
   generatedAt: string | null
   generatedAtLabel: string | null
   generatedByName: string | null
+  statusChangedByName: string | null
+  statusChangedAt: string | null
+  statusChangedAtLabel: string | null
   tutorSourceNote: string | null
 }
 
@@ -49,9 +52,13 @@ export function buildStemSourceDisplay(input: {
   tutorSourceNote?: string | null
   createdByFirstName?: string | null
   createdByLastName?: string | null
+  statusChangedByFirstName?: string | null
+  statusChangedByLastName?: string | null
+  statusChangedAt?: string | null
 }): StemSourceDisplay {
   const sourceChannel = input.sourceChannel ?? 'individual'
   const generatedAt = metadataString(input.aiGenerationMetadata ?? null, 'generatedAt')
+  const statusChangedAt = input.statusChangedAt?.trim() ? input.statusChangedAt.trim() : null
   return {
     sourceChannel,
     channelLabel: formatSourceChannel(sourceChannel),
@@ -59,6 +66,9 @@ export function buildStemSourceDisplay(input: {
     generatedAt,
     generatedAtLabel: formatGeneratedTimestamp(generatedAt),
     generatedByName: formatStaffDisplayName(input.createdByFirstName, input.createdByLastName),
+    statusChangedByName: formatStaffDisplayName(input.statusChangedByFirstName, input.statusChangedByLastName),
+    statusChangedAt,
+    statusChangedAtLabel: formatGeneratedTimestamp(statusChangedAt),
     tutorSourceNote:
       typeof input.tutorSourceNote === 'string' && input.tutorSourceNote.trim()
         ? input.tutorSourceNote.trim()
@@ -74,6 +84,12 @@ export function stemSourceTooltip(source: StemSourceDisplay): string {
   if (source.sourceChannel === 'ai_generation') {
     lines.push(`Model: ${source.aiModel ?? 'Unknown'}`)
     lines.push(`Generated: ${source.generatedAtLabel ?? source.generatedAt ?? 'Unknown'}`)
+  }
+  if (source.statusChangedByName) {
+    lines.push(`Approved by: ${source.statusChangedByName}`)
+  }
+  if (source.statusChangedAtLabel) {
+    lines.push(`Approved at: ${source.statusChangedAtLabel}`)
   }
   if (source.tutorSourceNote) {
     lines.push(`Note: ${source.tutorSourceNote}`)

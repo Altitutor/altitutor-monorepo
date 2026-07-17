@@ -30,8 +30,7 @@ export function isSkillTrainerPlayRoute(pathname: string): boolean {
   return /\/skill-trainer\/[^/]+\/play$/.test(path);
 }
 
-function matchesPracticeBrowsingRoutes(path: string): boolean {
-  if (isPracticeEngineRoute(path)) return false;
+function matchesPracticeRoutes(path: string): boolean {
   return (
     path === "/practice" ||
     path.startsWith("/practice/") ||
@@ -68,12 +67,14 @@ function matchesSkillTrainerBrowsingRoutes(path: string): boolean {
 
 /**
  * Maps the current app route to the UCAT Free quota area shown in the header pill.
- * Covers feature subpages and related progress/session routes, but not active engines.
+ * Covers feature subpages, related progress/session routes, and the live practice
+ * engine so free-plan students can see remaining practice questions while answering.
+ * Active set/mock/skill-trainer engines stay excluded (those use attempt pills).
  */
 export function getQuotaAreaForPathname(pathname: string): UcatQuotaArea | null {
   const path = normalizePathname(pathname);
 
-  if (matchesPracticeBrowsingRoutes(path)) return "practice";
+  if (matchesPracticeRoutes(path)) return "practice";
   if (matchesSetsBrowsingRoutes(path)) return "sets";
   if (matchesMocksBrowsingRoutes(path)) return "mocks";
   if (matchesLearnBrowsingRoutes(path)) return "learn";

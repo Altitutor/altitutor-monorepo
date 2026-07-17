@@ -8,13 +8,16 @@ export default function ResourcesPage() {
 
   return (
     <StudentPageContainer className="space-y-8">
-      <div>
+      <div id="tour-resources-header">
         <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
         <p className="mt-1 text-muted-foreground">Browse your subjects and learning materials.</p>
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div
+          id="tour-resources-subjects"
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
           {Array.from({ length: 6 }).map((_, idx) => (
             <div
               key={idx}
@@ -23,7 +26,10 @@ export default function ResourcesPage() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div
+          id="tour-resources-subjects"
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
           {(subjects ?? []).map((subject) => (
             <SubjectCard
               key={subject.id}

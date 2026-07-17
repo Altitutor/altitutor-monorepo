@@ -8,9 +8,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
   Skeleton,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import type { UcatUpgradePreview } from "@/features/subscription/api/fetch-upgrade-preview";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
@@ -78,8 +78,8 @@ export function PlanUpgradeConfirmDialog({
                     </p>
                     {preview.isTrialing ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        You&apos;re still in your free trial — you won&apos;t be
-                        charged until the trial ends.
+                        Your existing complimentary period remains free. Pro
+                        billing begins at its scheduled renewal.
                       </p>
                     ) : (
                       <p className="mt-1 text-xs text-muted-foreground">

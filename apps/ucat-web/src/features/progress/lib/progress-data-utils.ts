@@ -4,6 +4,14 @@ import {
   sumProgressPointsFromAttempts,
   toProgressQuestionRef,
 } from "@altitutor/shared";
+import type {
+  SectionProgress,
+  QuestionAttemptRow,
+  SetAttemptRow,
+  SectionCategoryProgress,
+  MockAttemptRow,
+  ProgressResponse,
+} from "@altitutor/shared";
 import {
   getTimeFrameRange,
   getGraphBucketDays,
@@ -12,14 +20,6 @@ import {
   formatWeekRangeLabel,
   formatWeekStartLabel,
 } from "./progress-mode";
-import type {
-  SectionProgress,
-  QuestionAttemptRow,
-  SetAttemptRow,
-  SectionCategoryProgress,
-  MockAttemptRow,
-  ProgressResponse,
-} from "@/app/api/ucat/progress/route";
 import type {
   ProgressMode,
   TimeFrameDays,

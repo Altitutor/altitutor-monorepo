@@ -25,11 +25,41 @@ export const UCAT_SURFACE_CARD = cn(
 
 /** Hover wash + shadow + ring (dashboard tiles, list rows, pressable cards). */
 export const UCAT_PRESSABLE_SURFACE_HOVER = cn(
-  "hover:bg-muted/40 hover:shadow-md hover:!ring-black/[0.1] dark:hover:!ring-white/[0.12]",
+  "hover:bg-muted/50 hover:shadow-md hover:!ring-black/[0.12]",
+  "dark:hover:bg-muted/80 dark:hover:!ring-white/[0.22]",
 );
 
-/** Subtle lift on hover; disabled when `prefers-reduced-motion: reduce`. */
-export const UCAT_PRESSABLE_LIFT_HOVER = "motion-safe:hover:-translate-y-0.5";
+/**
+ * Subtle lift on hover + press scale on active.
+ * Uses `.ucat-pressable-lift` in `globals.css` so hover translate + active scale compose.
+ * Disabled when `prefers-reduced-motion: reduce` (rules live inside that media query).
+ */
+export const UCAT_PRESSABLE_LIFT_HOVER = "ucat-pressable-lift";
+
+/** Press squash for controls that do not use lift (icon buttons use stronger `scale-95`). */
+export const UCAT_PRESS_ACTIVE = "active:scale-[0.98]";
+
+/**
+ * Link / control chrome that should feel like a button press.
+ * Use on `Link`, `Button asChild` targets, and other non-`<button>` hit targets
+ * (global press CSS only covers real buttons).
+ */
+export const UCAT_CONTROL_PRESS = cn(UCAT_SURFACE_MOTION, UCAT_PRESS_ACTIVE);
+/**
+ * Selected / pressed chooser state — same neutral treatment as hover, held on.
+ */
+export const UCAT_CLICKABLE_CARD_SELECTED = cn(
+  "!bg-muted/50 shadow-md !ring-black/[0.12]",
+  "dark:!bg-muted/80 dark:!ring-white/[0.22]",
+);
+
+/** Quiet completion state for checklist and task rows. */
+export const UCAT_COMPLETED_ITEM_SURFACE =
+  "border-border/40 bg-muted/30 text-muted-foreground";
+
+/** Secondary controls use the same neutral hover wash as app surfaces. */
+export const UCAT_NEUTRAL_ACTION_HOVER =
+  "hover:!bg-muted/70 hover:!text-foreground dark:hover:!bg-muted";
 
 /** Focus ring for `Link` / `button` surfaces that use `UCAT_SURFACE_CARD`. */
 export const UCAT_FOCUS_RING_INSET = cn(
@@ -44,9 +74,11 @@ export function ucatDashboardNavTileClassName() {
 /** Shared surface for settings-style nav cards and list rows. */
 export function ucatClickableCardClassName(options?: {
   interactive?: boolean;
+  /** Toggle / chooser selected state (practice wizard, option cards). */
+  selected?: boolean;
   className?: string;
 }) {
-  const { interactive = true, className } = options ?? {};
+  const { interactive = true, selected = false, className } = options ?? {};
   return cn(
     "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
     UCAT_SURFACE_CARD,
@@ -54,6 +86,7 @@ export function ucatClickableCardClassName(options?: {
     interactive && UCAT_PRESSABLE_LIFT_HOVER,
     interactive && UCAT_PRESSABLE_SURFACE_HOVER,
     interactive && UCAT_FOCUS_RING_INSET,
+    selected && UCAT_CLICKABLE_CARD_SELECTED,
     className,
   );
 }
@@ -156,6 +189,14 @@ export const UCAT_LIST_ROW_LINK = cn(
 export const UCAT_ACCENT_FILL_RISE = "ucat-btn-accent-fill-rise" as const;
 
 /**
+ * Primary `AlertDialogAction` chrome (raw `@altitutor/ui` action skips the Button wrapper).
+ */
+export const UCAT_DIALOG_PRIMARY_ACTION = cn(
+  UCAT_ACCENT_FILL_RISE,
+  UCAT_CONTROL_PRESS,
+);
+
+/**
  * Primary CTA: light = navy (`--primary`) + light text; dark = light blue (`--accent`) + dark text (`--primary-foreground`).
  * Hover: marketing-style “fill up” wash (`UCAT_ACCENT_FILL_RISE`).
  */
@@ -164,7 +205,7 @@ export const UCAT_PRIMARY_ACTION_BUTTON = cn(
   "relative z-0 inline-flex h-10 items-center justify-center rounded-ucatControl bg-primary px-4 text-sm font-medium text-primary-foreground dark:bg-accent dark:text-primary-foreground",
   "hover:bg-primary hover:shadow-md dark:hover:bg-accent",
   "motion-safe:hover:scale-[1.02]",
-  "active:scale-[0.98]",
+  UCAT_PRESS_ACTIVE,
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   "disabled:pointer-events-none disabled:opacity-60 disabled:active:scale-100",
 );

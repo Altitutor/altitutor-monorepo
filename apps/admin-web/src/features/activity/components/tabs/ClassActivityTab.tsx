@@ -21,7 +21,8 @@ interface ClassActivityTabProps {
 }
 
 export function ClassActivityTab({ classId, isOpen = true }: ClassActivityTabProps) {
-  const { data, isLoading, error } = useClassActivity(classId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useClassActivity(classId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -55,7 +56,14 @@ export function ClassActivityTab({ classId, isOpen = true }: ClassActivityTabPro
         canPost={Boolean(currentStaff)}
       />
 
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
     </div>
   );
 }

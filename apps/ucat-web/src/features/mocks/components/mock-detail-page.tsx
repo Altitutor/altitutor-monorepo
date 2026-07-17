@@ -10,13 +10,17 @@ import type {
   MockAttemptSectionScore,
   MockAttemptWithBreakdown,
 } from "@/features/mocks/api/mocks-api";
-import { useMockAttemptsWithBreakdown, useMockQuestionCount, useMocks } from "@/features/mocks";
+import {
+  useMockAttemptsWithBreakdown,
+  useMockQuestionCount,
+  useMocks,
+} from "@/features/mocks";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
 } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import {
@@ -57,7 +61,7 @@ export function MockDetailPage({
   sessionEntryContext,
 }: MockDetailPageProps) {
   const router = useRouter();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
   const {
@@ -188,14 +192,8 @@ export function MockDetailPage({
         ? `${mock.set_count} set${mock.set_count === 1 ? "" : "s"}`
         : "—",
     ],
-    [
-      "Total time",
-      formatExamDurationSeconds(mock.totalTimeLimitSeconds),
-    ],
-    [
-      "Questions",
-      questionCount != null ? String(questionCount) : "—",
-    ],
+    ["Total time", formatExamDurationSeconds(mock.totalTimeLimitSeconds)],
+    ["Questions", questionCount != null ? String(questionCount) : "—"],
   ];
 
   return (
@@ -227,10 +225,7 @@ export function MockDetailPage({
         })}
       >
         {infoRows.map(([label, value], index) => (
-          <div
-            key={`${label}-${index}`}
-            className="py-3 first:pt-0 last:pb-0"
-          >
+          <div key={`${label}-${index}`} className="py-3 first:pt-0 last:pb-0">
             <div className="flex w-full items-center justify-between gap-6">
               <span className="text-sm text-muted-foreground">{label}</span>
               <span className="text-right text-sm font-medium">{value}</span>

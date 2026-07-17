@@ -27,6 +27,50 @@ interface ConditionInput {
 interface ActivityEventLike {
   event_type?: string;
   changed_fields?: Record<string, { old: unknown; new: unknown }>;
+  metadata?: unknown;
+  entity_type?: string;
+  entity_id?: string;
+  student_id?: string;
+  staff_id?: string;
+  class_id?: string;
+  session_id?: string;
+}
+
+function getNestedValue(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
+export function getActivityEventVariables(activityEvent: ActivityEventLike): Record<string, unknown> {
+  const variables: Record<string, unknown> = {
+    event_type: activityEvent.event_type || '',
+    entity_type: activityEvent.entity_type || '',
+    entity_id: activityEvent.entity_id || '',
+    student_id: activityEvent.student_id || '',
+    staff_id: activityEvent.staff_id || '',
+    class_id: activityEvent.class_id || '',
+    session_id: activityEvent.session_id || '',
+  };
+
+  const display = getNestedValue(activityEvent.metadata, 'display');
+  if (display && typeof display === 'object' && !Array.isArray(display)) {
+    for (const [key, value] of Object.entries(display as Record<string, unknown>)) {
+      variables[key] = value ?? '';
+    }
+  }
+
+  // Delete-safe activity writers keep labels in metadata when the related FK
+  // must be null to avoid cascade-delete failures.
+  for (const key of ['student_name', 'staff_name', 'class_name', 'session_name']) {
+    const metadataValue = getNestedValue(activityEvent.metadata, key);
+    if (metadataValue != null && !Object.prototype.hasOwnProperty.call(variables, key)) {
+      variables[key] = metadataValue;
+    }
+  }
+
+  return variables;
 }
 
 export function evaluateConditions(conditions: ConditionInput | null | undefined, activityEvent: ActivityEventLike, entityData: Record<string, unknown> | null | undefined): boolean {
@@ -88,7 +132,9 @@ export function evaluateConditions(conditions: ConditionInput | null | undefined
   }
 
   // Standard condition evaluation (for CREATED events or current state checks)
-  const fieldValue = entityData?.[fieldName];
+  const fieldValue = fieldName.startsWith('activity.')
+    ? getNestedValue(activityEvent, fieldName.slice('activity.'.length))
+    : entityData?.[fieldName];
   
   switch (operator) {
     case 'equals':
@@ -588,7 +634,7 @@ export async function extractTemplateVariables(
   activityEvent: ActivityEventLike & { performed_by?: string; student_id?: string; staff_id?: string; class_id?: string; session_id?: string; entity_type?: string },
   entityData: Record<string, unknown> | null | undefined
 ): Promise<Record<string, unknown>> {
-  const variables: Record<string, unknown> = {};
+  const variables: Record<string, unknown> = getActivityEventVariables(activityEvent);
   
   // Load sender name from performed_by staff
   if (activityEvent.performed_by) {
@@ -883,9 +929,6 @@ export async function extractTemplateVariables(
   }
   
   // Extract common entity fields (always available from activity event)
-  variables['entity_type'] = activityEvent.entity_type || '';
-  variables['entity_id'] = activityEvent.entity_id || '';
-  
   // Extract entity data fields (if entityData is provided)
   if (entityData) {
     // Add specific fields based on entity type

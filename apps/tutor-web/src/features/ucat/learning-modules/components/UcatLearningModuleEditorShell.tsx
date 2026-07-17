@@ -74,7 +74,7 @@ export function UcatLearningModuleEditorShell({
   )
 
   const { data: sections } = useUcatSections()
-  const stemCatalog = useUcatStemCatalog(hasUcatAccess)
+  const stemCatalog = useUcatStemCatalog(hasUcatAccess, { publishedOnly: true })
   const questionCatalog = useUcatQuestionCatalog(hasUcatAccess)
   const { data: skillTrainers } = useUcatSkillTrainersCatalog()
 
@@ -505,11 +505,17 @@ export function UcatLearningModuleEditorShell({
           sectionId={editor.sectionId}
           parentId={editor.parentId}
           isPrivate={editor.isPrivate}
+          studyPlanPriority={editor.studyPlanPriority}
+          studyPlanCategoryIds={editor.studyPlanCategoryIds}
+          studyPlanTagIds={editor.studyPlanTagIds}
           onTitleChange={editor.setTitle}
           onDescriptionChange={editor.setDescription}
           onSectionIdChange={editor.setSectionId}
           onParentIdChange={editor.setParentId}
           onIsPrivateChange={editor.setIsPrivate}
+          onStudyPlanPriorityChange={editor.setStudyPlanPriority}
+          onStudyPlanCategoryIdsChange={editor.setStudyPlanCategoryIds}
+          onStudyPlanTagIdsChange={editor.setStudyPlanTagIds}
           sections={sectionOptions}
           modules={editor.allModules}
           folderOptions={editor.folderOptions}

@@ -72,19 +72,7 @@ export function createCalculatorEngine(): {
       return snapshot();
     }
 
-    if (label === "Backspace") {
-      if (state.fresh || state.display.length <= 1 || state.display === "Error") {
-        state.display = "0";
-        state.fresh = true;
-      } else if (state.display.length === 2 && state.display.startsWith("-")) {
-        state.display = "0";
-      } else {
-        state.display = state.display.slice(0, -1);
-      }
-      return snapshot();
-    }
-
-    if (label === "ON/C") {
+    if (label === "Backspace" || label === "ON/C") {
       state = { display: "0", memory: state.memory, accumulator: null, pendingOp: null, fresh: true };
       return snapshot();
     }

@@ -16,8 +16,8 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
   const message = activity.message;
   const performedByName = activity.performedBy.name;
   
-  // For grouped activities, just display the simple message directly (with tags parsed)
-  if (activity.isGrouped) {
+  // Grouped/coalesced activities already have a complete logical message
+  if (activity.isGrouped || activity.isCoalesced) {
     return <>{renderTextWithTagsAsPlainText(message)}</>;
   }
   
@@ -30,18 +30,27 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
   
   // Helper function to get entity name/type
   const getEntityDisplay = () => {
+    if (activity.entityType === 'invoices' || activity.entityType === 'invoice_items') {
+      return activity.relatedEntities?.student?.name
+        ? `invoice for ${activity.relatedEntities.student.name}`
+        : 'invoice';
+    }
     return (
       activity.relatedEntities?.session?.name ||
       activity.relatedEntities?.class?.name ||
       activity.relatedEntities?.student?.name ||
       activity.relatedEntities?.staff?.name ||
       activity.relatedEntities?.task?.name ||
+      activity.relatedEntities?.issue?.name ||
+      activity.relatedEntities?.project?.name ||
       activity.relatedEntities?.parent?.name ||
       (activity.relatedEntities?.session ? 'session' :
        activity.relatedEntities?.class ? 'class' :
        activity.relatedEntities?.student ? 'student' :
        activity.relatedEntities?.staff ? 'staff' :
        activity.relatedEntities?.task ? 'task' :
+       activity.relatedEntities?.issue ? 'issue' :
+       activity.relatedEntities?.project ? 'project' :
        activity.relatedEntities?.parent ? 'parent' :
        'item')
     );

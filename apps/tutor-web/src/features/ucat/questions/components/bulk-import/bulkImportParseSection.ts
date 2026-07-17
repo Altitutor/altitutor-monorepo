@@ -171,7 +171,7 @@ export function mapParsedStemsToFormValues(
     case 'verbal_reasoning':
       return mapParsedVerbalReasoningToFormValues(stems, {
         sectionId,
-        isPrivate: false,
+        accessScope: 'public',
         getCategoryIdForStem: (stem) =>
           inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
         getTagIdsForQuestion: ({ stem, question }) =>
@@ -190,7 +190,7 @@ export function mapParsedStemsToFormValues(
         })),
         {
           sectionId,
-          isPrivate: false,
+          accessScope: 'public',
           getCategoryIdForStem: (stem) =>
             inferBulkImportCategoryIdForParsedStem({ stem: stem as ParsedStem, section, sectionId, categories }),
           getTagIdsForQuestion: ({ stem, question }) =>
@@ -208,7 +208,7 @@ export function mapParsedStemsToFormValues(
         toQuantitativeReasoningResult(parsed, stems),
         {
           sectionId,
-          isPrivate: false,
+          accessScope: 'public',
           getCategoryIdForStem: (stem) =>
             inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
           getTagIdsForQuestion: ({ stem, question }) =>
@@ -218,7 +218,7 @@ export function mapParsedStemsToFormValues(
     case 'situational_judgement':
       return mapParsedSituationalJudgementToFormValues(stems, {
         sectionId,
-        isPrivate: false,
+        accessScope: 'public',
         getCategoryIdForStem: (stem) =>
           inferBulkImportCategoryIdForParsedStem({ stem, section, sectionId, categories }),
         getTagIdsForQuestion: ({ stem, question }) =>

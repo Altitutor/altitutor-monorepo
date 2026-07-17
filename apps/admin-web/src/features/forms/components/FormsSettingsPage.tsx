@@ -30,17 +30,23 @@ import type {
   FormButtonStyle,
   FormContentBlock,
   FormQuestion,
+  FormChoiceOption,
+  FormModelOptionSource,
   FormSubmissionLimit,
 } from '@altitutor/shared';
 import {
   FORM_PURPOSE_OPTIONS,
+  FORM_MODEL_OPTION_SOURCE_OPTIONS,
   FORM_WORKFLOW_KEY_OPTIONS,
   createDefaultContentBlock,
   createDefaultQuestion,
   createId,
+  getChangedFormQuestionIds,
+  getFormModelOptionSources,
+  hydrateFormModelOptions,
 } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
-import { ArrowDown, ArrowUp, Copy, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, FileDown, Plus, Send, Trash2 } from 'lucide-react';
 import {
   AdminDialogShell,
   AdminPageActionButton,
@@ -105,7 +111,15 @@ const NUMBER_DISPLAY_OPTIONS = [
   { value: 'rating', label: 'Rating' },
 ] as const satisfies Array<{ value: NumberDisplay; label: string }>;
 
+const CHOICE_SOURCE_OPTIONS = [
+  { value: 'static', label: 'Custom options' },
+  ...FORM_MODEL_OPTION_SOURCE_OPTIONS,
+] as const;
+
 type FormDialogTab = 'properties' | 'questions' | 'preview';
+type FormAudience = 'student' | 'tutor';
+type FormLinks = Record<FormAudience, string>;
+type FormSaveIntent = 'save' | 'publish';
 
 function questionTypeLabel(type: FormBlock['type']) {
   return BLOCK_TYPES.find((item) => item.value === type)?.label ?? type;
@@ -121,6 +135,14 @@ function accessLabel(value: FormAccessType) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(value));
+}
+
+function formUrl(audience: FormAudience, token: string) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const baseUrl = audience === 'student'
+    ? (isDevelopment ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com'))
+    : (isDevelopment ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com'));
+  return `${baseUrl.replace(/\/$/, '')}/form/${token}`;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -179,9 +201,9 @@ export function FormsSettingsPage() {
   const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingSaveIntent, setPendingSaveIntent] = useState<FormSaveIntent | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [publishedToken, setPublishedToken] = useState<string | null>(null);
-  const [formLinks, setFormLinks] = useState<Record<string, string>>({});
+  const [formLinks, setFormLinks] = useState<Record<string, FormLinks>>({});
   const isCreating = editingId === NEW_FORM_ID;
 
   const loadForms = async () => {
@@ -209,7 +231,6 @@ export function FormsSettingsPage() {
 
   const openForm = async (id: string) => {
     setError(null);
-    setPublishedToken(null);
     setActiveTab('properties');
     setEditingId(id);
     await loadSelected(id).catch((err) => setError(err instanceof Error ? err.message : 'Failed to load form'));
@@ -220,14 +241,13 @@ export function FormsSettingsPage() {
     setSelected(null);
     setVersions([]);
     setTokens([]);
-    setPublishedToken(null);
     setDeleteConfirmOpen(false);
+    setPendingSaveIntent(null);
     setActiveTab('properties');
   };
 
   const openNewForm = () => {
     setError(null);
-    setPublishedToken(null);
     setActiveTab('properties');
     setVersions([]);
     setTokens([]);
@@ -298,6 +318,22 @@ export function FormsSettingsPage() {
     }
   };
 
+  const changedPublishedQuestionIds = useMemo(() => {
+    if (!selected?.latest_published_version_id) return [];
+    const latestVersion = versions.find((version) => version.id === selected.latest_published_version_id);
+    if (!latestVersion) return [];
+    return getChangedFormQuestionIds(latestVersion.blocks, selected.draft_blocks);
+  }, [selected, versions]);
+
+  const requestSave = (intent: FormSaveIntent) => {
+    if (changedPublishedQuestionIds.length) {
+      setPendingSaveIntent(intent);
+      return;
+    }
+    if (intent === 'publish') void publish();
+    else void save();
+  };
+
   const deleteForm = async () => {
     if (!selected || isCreating) return;
     setDeleting(true);
@@ -318,16 +354,21 @@ export function FormsSettingsPage() {
     if (!selected || isCreating) return;
     setPublishing(true);
     setError(null);
-    setPublishedToken(null);
     try {
       const saved = await save();
       if (!saved) return;
-      const data = await fetchJson<{ token: AdminFormTokenRow & { token: string } }>(
+      const data = await fetchJson<{ token: string }>(
         `/api/forms/${saved.id}/publish`,
         { method: 'POST', body: JSON.stringify({}) },
       );
-      setPublishedToken(data.token.token);
-      setFormLinks((current) => ({ ...current, [saved.id]: `/form/${data.token.token}` }));
+      if (!data.token) throw new Error('Could not create a published form link.');
+      setFormLinks((current) => ({
+        ...current,
+        [saved.id]: {
+          student: formUrl('student', data.token),
+          tutor: formUrl('tutor', data.token),
+        },
+      }));
       await loadSelected(saved.id);
       await loadForms();
     } catch (err) {
@@ -384,12 +425,22 @@ export function FormsSettingsPage() {
     [],
   );
 
-  const latestTokenUrl = publishedToken ? `/form/${publishedToken}` : null;
-
-  const copyFormLink = async (form: AdminFormRow) => {
-    const link = formLinks[form.id];
-    if (!link) return;
-    await navigator.clipboard.writeText(`${window.location.origin}${link}`);
+  const copyFormLink = async (form: AdminFormRow, audience: FormAudience) => {
+    let link = formLinks[form.id]?.[audience];
+    if (!link) {
+      const data = await fetchJson<{ token: string }>(`/api/forms/${form.id}/share-link`, { method: 'POST' });
+      const token = data.token;
+      if (!token) throw new Error('Could not create a form link.');
+      setFormLinks((current) => ({
+        ...current,
+        [form.id]: {
+          student: current[form.id]?.student ?? formUrl('student', token),
+          tutor: current[form.id]?.tutor ?? formUrl('tutor', token),
+        },
+      }));
+      link = formUrl(audience, token);
+    }
+    await navigator.clipboard.writeText(link);
   };
 
   return (
@@ -448,12 +499,28 @@ export function FormsSettingsPage() {
             onSelect: () => void openForm(form.id),
           },
           {
-            id: 'copy-link',
-            label: 'Copy link',
-            description: formLinks[form.id] ? 'Copy the latest link created in this session' : 'Publish this form to generate a copyable link',
-            disabled: !formLinks[form.id],
+            id: 'copy-student-link',
+            label: 'Copy student link',
+            description: 'Copy a link that opens in student-web',
+            disabled: !form.latest_published_version_id,
             icon: Copy,
-            onSelect: () => void copyFormLink(form),
+            onSelect: () => void copyFormLink(form, 'student'),
+          },
+          {
+            id: 'copy-tutor-link',
+            label: 'Copy tutor link',
+            description: 'Copy a link that opens in tutor-web',
+            disabled: !form.latest_published_version_id,
+            icon: Copy,
+            onSelect: () => void copyFormLink(form, 'tutor'),
+          },
+          {
+            id: 'download-pdf',
+            label: 'Download PDF',
+            description: form.latest_published_version_id ? 'Download the latest published version' : 'Publish this form before downloading it',
+            disabled: !form.latest_published_version_id,
+            icon: FileDown,
+            onSelect: () => window.open(`/api/forms/${form.id}/pdf`, '_blank', 'noopener,noreferrer'),
           },
         ]}
       />
@@ -492,10 +559,10 @@ export function FormsSettingsPage() {
               </Button>
             ) : activeTab !== 'preview' ? (
               <>
-                <Button type="button" variant="outline" onClick={() => void save()} disabled={!selected || saving}>
+                <Button type="button" variant="outline" onClick={() => requestSave('save')} disabled={!selected || saving}>
                   {saving ? 'Saving...' : 'Save draft'}
                 </Button>
-                <Button type="button" onClick={() => void publish()} disabled={!selected || publishing}>
+                <Button type="button" onClick={() => requestSave('publish')} disabled={!selected || publishing}>
                   <Send className="mr-2 h-4 w-4" />
                   {publishing ? 'Publishing...' : 'Publish'}
                 </Button>
@@ -524,7 +591,14 @@ export function FormsSettingsPage() {
                 selected={selected}
                 versions={versions}
                 tokens={tokens}
-                latestTokenUrl={latestTokenUrl}
+                assignedWorkflows={new Set(
+                  forms
+                    .filter((form) => form.id !== selected.id)
+                    .map((form) => form.workflow_key)
+                    .filter((workflow): workflow is NonNullable<typeof workflow> => workflow !== null),
+                )}
+                publishedLinks={selected ? formLinks[selected.id] ?? null : null}
+                onCopyLink={(audience) => void copyFormLink(selected, audience)}
                 updateSelected={updateSelected}
               />
             ) : null}
@@ -539,12 +613,7 @@ export function FormsSettingsPage() {
 
             {activeTab === 'preview' ? (
               <div>
-                <FormAnswerer
-                  title={selected.name}
-                  blocks={selected.draft_blocks}
-                  thankYouMessage={selected.draft_thank_you_message}
-                  onSubmit={() => undefined}
-                />
+                <FormPreview form={selected} />
               </div>
             ) : null}
           </div>
@@ -582,6 +651,83 @@ export function FormsSettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={pendingSaveIntent !== null}
+        onOpenChange={(open) => {
+          if (!open && !saving && !publishing) setPendingSaveIntent(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Create {changedPublishedQuestionIds.length === 1 ? 'a new reportable question' : 'new reportable questions'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This change alters how {changedPublishedQuestionIds.length === 1 ? 'a question is answered' : 'these questions are answered'}.
+              Existing responses will remain under the previous {changedPublishedQuestionIds.length === 1 ? 'question' : 'questions'}, and future responses will be reported separately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving || publishing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving || publishing}
+              onClick={(event) => {
+                event.preventDefault();
+                const intent = pendingSaveIntent;
+                setPendingSaveIntent(null);
+                if (intent === 'publish') void publish();
+                else if (intent === 'save') void save();
+              }}
+            >
+              {pendingSaveIntent === 'publish' ? 'Create and publish' : 'Create and save'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function FormPreview({ form }: { form: AdminFormRow }) {
+  const [blocks, setBlocks] = useState(form.draft_blocks);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sources = getFormModelOptionSources(form.draft_blocks);
+    if (!sources.length) {
+      setBlocks(form.draft_blocks);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      sources.map(async (source) => {
+        const data = await fetchJson<{ options: FormChoiceOption[] }>(`/api/forms/model-options?source=${source}`);
+        return [source, data.options] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!cancelled) {
+          setBlocks(hydrateFormModelOptions(form.draft_blocks, Object.fromEntries(entries)));
+          setError(null);
+        }
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load model options.');
+      });
+    return () => { cancelled = true; };
+  }, [form.draft_blocks]);
+
+  return (
+    <div>
+      {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+      <FormAnswerer
+        title={form.name}
+        blocks={blocks}
+        thankYouMessage={form.draft_thank_you_message}
+        onSubmit={() => undefined}
+      />
     </div>
   );
 }
@@ -590,13 +736,17 @@ function FormPropertiesEditor({
   selected,
   versions,
   tokens,
-  latestTokenUrl,
+  assignedWorkflows,
+  publishedLinks,
+  onCopyLink,
   updateSelected,
 }: {
   selected: AdminFormRow;
   versions: AdminFormVersionRow[];
   tokens: AdminFormTokenRow[];
-  latestTokenUrl: string | null;
+  assignedWorkflows: Set<string>;
+  publishedLinks: FormLinks | null;
+  onCopyLink: (audience: FormAudience) => void;
   updateSelected: (patch: Partial<AdminFormRow>) => void;
 }) {
   return (
@@ -618,7 +768,12 @@ function FormPropertiesEditor({
           <div className="space-y-2">
             <Label>Workflow</Label>
             <OptionSelect
-              items={[{ value: '', label: 'Not assigned' }, ...FORM_WORKFLOW_KEY_OPTIONS]}
+              items={[
+                { value: '', label: 'Not assigned' },
+                ...FORM_WORKFLOW_KEY_OPTIONS.filter(
+                  (option) => option.value === selected.workflow_key || !assignedWorkflows.has(option.value),
+                ),
+              ]}
               value={selected.workflow_key ?? ''}
               onValueChange={(workflow_key) => updateSelected({ workflow_key: workflow_key ? workflow_key as AdminFormRow['workflow_key'] : null })}
               placeholder="Not assigned"
@@ -663,19 +818,19 @@ function FormPropertiesEditor({
             onChange={(event) => updateSelected({ draft_thank_you_message: event.target.value })}
           />
         </div>
-        {latestTokenUrl ? (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm">
-            <span className="font-medium">Published link:</span>
-            <code>{latestTokenUrl}</code>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => navigator.clipboard.writeText(`${window.location.origin}${latestTokenUrl}`)}
-            >
-              <Copy className="mr-2 h-3.5 w-3.5" />
-              Copy
-            </Button>
+        {selected.latest_published_version_id ? (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <span className="font-medium">Published links</span>
+            {(['student', 'tutor'] as const).map((audience) => (
+              <div key={audience} className="flex items-center gap-2">
+                <span className="w-14 capitalize text-muted-foreground">{audience}</span>
+                <code className="min-w-0 flex-1 truncate">{publishedLinks?.[audience] ?? `Create a ${audience} link to copy it`}</code>
+                <Button type="button" variant="outline" size="sm" onClick={() => onCopyLink(audience)}>
+                  <Copy className="mr-2 h-3.5 w-3.5" />
+                  Copy
+                </Button>
+              </div>
+            ))}
           </div>
         ) : null}
         {tokens.length ? (
@@ -920,6 +1075,11 @@ function QuestionEditor({
   block: FormQuestion;
   onChange: (block: FormBlock) => void;
 }) {
+  const modelOptionSource =
+    (block.type === 'single_choice' || block.type === 'multi_select') && block.optionSource?.kind === 'model'
+      ? block.optionSource.source
+      : null;
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
@@ -944,6 +1104,37 @@ function QuestionEditor({
       </div>
       {(block.type === 'single_choice' || block.type === 'multi_select') && (
         <div className="space-y-2">
+          <div className="space-y-2">
+            <Label>Option source</Label>
+            <OptionSelect
+              items={CHOICE_SOURCE_OPTIONS}
+              value={block.optionSource?.kind === 'model' ? block.optionSource.source : 'static'}
+              onValueChange={(source) => {
+                if (source === 'static') {
+                  onChange({
+                    ...block,
+                    optionSource: { kind: 'static' },
+                    options: block.options.length ? block.options : [
+                      { id: createId('option'), label: 'Option 1', value: 'option_1' },
+                    ],
+                  });
+                  return;
+                }
+                onChange({
+                  ...block,
+                  optionSource: { kind: 'model', source: source as FormModelOptionSource },
+                  options: [],
+                });
+              }}
+              placeholder="Select option source"
+            />
+          </div>
+          {block.optionSource?.kind === 'model' ? (
+            <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              Options are loaded from {FORM_MODEL_OPTION_SOURCE_OPTIONS.find((item) => item.value === modelOptionSource)?.label.toLowerCase()} when the form is opened.
+            </p>
+          ) : (
+          <>
           <div className="flex items-center justify-between">
             <Label>Options</Label>
             <Button
@@ -990,6 +1181,8 @@ function QuestionEditor({
               </Button>
             </div>
           ))}
+          </>
+          )}
         </div>
       )}
       {block.type === 'number' && (

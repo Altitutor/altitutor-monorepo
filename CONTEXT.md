@@ -96,6 +96,9 @@
   _Avoid_: Session storage only, client-only state
 
 - **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done** or chooses **finalize** from the in-progress dialog. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits.
+
+- **Practice review timing** — The student's choice to see feedback after each question stem or only after the practice session is submitted. Review-at-end practice does not use the question engine's pre-submission review screen; finishing submits the entered stems and opens the completed practice-attempt page.
+  _Avoid_: Practice mode, set mode
   _Avoid_: Per-stem session, practice attempt per question
 
 - **UCAT Free quota reset entitlement** — A student-held entitlement that a student may explicitly use before its expiry date to make all UCAT Free quota areas count usage from the reset moment rather than from the normal quota-period start. The expiry date lasts until the end of that calendar day in the student's timezone. A student may hold multiple reset entitlements; when they use one, the entitlement expiring soonest is consumed first. It is visible with the student's Free quota status even before they hit a quota wall, is never used silently, and does not delete exam, practice, learn, or trainer history.
@@ -141,7 +144,7 @@
 - **Learning module skill trainer block** — A learning module block that references one skill trainer type. The student runs a timed embedded skill trainer session using a random queue from approved active items in that trainer's bank. Block completion when that learn-context session completes (time expiry or current run finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
   _Avoid_: Embedded trainer game, inline drill
 
-- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references an approved question stem; the student works through all questions on that stem. **Question block:** references one approved question; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its approved referenced assessment content without making that content part of the general question bank. Tutors may place a pending generated stem in a private lesson draft to preserve intended lesson structure, but pending, rejected, or deleted assessment content is not valid in a student-visible lesson. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+- **Learning module question block** — A learning module block that embeds published UCAT assessment content. **Stem block:** references a published question stem; the student works through all questions on that stem. **Question block:** references one question on a published stem; stem context is shown when the question belongs to a stem. An accessible lesson grants access to its referenced private assessment content without placing that content in the public question pool. Draft, in-review, or deleted assessment content cannot be attached to a learning module. Answers submitted from learn blocks do not consume UCAT Free practice quota.
   _Avoid_: Practice embed, inline quiz
 
 - **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
@@ -209,8 +212,23 @@
 - **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
   _Avoid_: Stem point, question attempt count
 
-- **Accessible question bank** — The set of non-deleted questions on approved, accessible question stems that define the denominator for a student's UCAT progress totals.
-  _Avoid_: Public question bank (ambiguous with `is_private` stems), stem catalog
+- **Accessible question bank** — The set of non-deleted questions on published question stems that the student may access, either publicly or through an explicit learning-module or session link. It defines the denominator for the student's UCAT progress totals.
+  _Avoid_: All published questions, tutor question list, stem catalog
+
+- **UCAT content status** — The authoring lifecycle shared by question stems, question sets, and mock exams: **draft**, **in review**, or **published**. Draft and in-review content is tutor-only. Published content may be student-accessible according to its access scope. AI generation creates question stems in review; tutor authoring creates drafts. Published content may be edited in place, and may be moved back to in review or draft to withdraw it from student access.
+  _Avoid_: Approval status, visibility, active status
+
+- **UCAT content access scope** — The access rule for published question stems, question sets, and mock exams: **public** content may appear in the relevant student pool, while **private** content is accessible only through an explicit learning-module or session link. Access scope has no student-facing effect until the content is published. A public parent cannot contain a private child.
+  _Avoid_: Publication status, approval, visibility
+
+- **Deleted UCAT content** — A soft-deleted question stem, question set, or mock exam. Deleted content is hidden from students and normal tutor lists and appears in the tutor Deleted view. Restoring deleted content always returns it to draft.
+  _Avoid_: Archived content, unpublished content
+
+- **UCAT publication readiness** — The hard validation required before a question stem, set, or mock can become published. A stem requires a category, question tags, valid answer structure, and complete student-facing explanations. A published parent may contain only published children, and a public parent may contain only public children.
+  _Avoid_: Generation gate, review status, quality score
+
+- **UCAT attempt content snapshot** — The immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw.
+  _Avoid_: Content version, live question lookup, resume snapshot
 
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
   _Avoid_: Question type, answer mode, category
@@ -218,25 +236,25 @@
 - **Tutor source note** — Optional free-text provenance entered by a tutor to describe where source-derived UCAT content came from. It complements the question source channel and is not shown to students.
   _Avoid_: Citation, student explanation, generation metadata
 
-- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so automatically built sets may approximate a requested question total rather than match it exactly. Automatically built sets only use approved, categorized stems, with stem visibility chosen separately from set visibility.
+- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so tutor auto-selection may approximate a requested question total rather than match it exactly. Students cannot generate or persist their own sets.
   _Avoid_: Individual question playlist
 
 - **UCAT set instruction section** — The UCAT section whose instructions are shown before a question set. For a multi-section set, this is the section represented by the largest number of stems in that set; ties use the earliest canonical UCAT section order. Its instruction content and instruction timing define the set's instructions segment.
   _Avoid_: First stem section, arbitrary section
 
-- **Stem not in another set** — A question stem that is not included in any other non-deleted, staff-authored UCAT question set. Student-generated sets do not count; private staff-authored sets do count.
-  _Avoid_: Unused question, not attempted, public-only set membership
+- **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
+  _Avoid_: Unused question, not attempted, not in any set
 
-- **Question stem visibility** — Whether a UCAT question stem is included in the general question bank. Public stems are available for normal bank selection; private stems are excluded from the general bank and may still be used in deliberate contexts such as system-generated sets or session-linked content.
-  _Avoid_: Approval status, published status
+- **Set available in the sets pool** — A published public question set that is not included in any published, non-deleted mock exam. Draft and in-review mocks do not reserve their sets from the pool.
+  _Avoid_: Unused set, not attempted, not in any mock
 
-- **Question stem approval queue** — A tutor workflow for reviewing a filtered sequence of question stems, applying small edits or reconciliation fixes, then advancing to the next stem. For AI-generated question stems, approval makes the stem available for student-facing use; for reconciliation, saving advances the tutor through unresolved content gaps without necessarily changing approval status.
-  _Avoid_: Bulk approval, generation gate, question list
+- **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying edits, and either publishing or returning each stem to draft. AI-generated stems enter this queue automatically; tutor-authored stems enter only when a tutor sends them for review.
+  _Avoid_: AI approval queue, bulk approval, generated questions tab
 
 - **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
   _Avoid_: Approval status, generation warning, validation error
 
-- **AI-generated question stem** — A tutor-reviewed UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable, but remains unavailable to students until a tutor reviews and approves it.
+- **AI-generated question stem** — A UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable and enters the in-review lifecycle stage automatically, but remains unavailable to students until published by a tutor.
   _Avoid_: Auto-published question, synthetic question
 
 - **AI lesson text drafting** — A tutor-requested draft or rewrite of a learning module text block. It uses the surrounding lesson, the tutor's teaching intent, and the block's intended lesson position as context; may produce rich-text teaching structure such as headings, lists, emphasis, and tables; updates only the tutor's unsaved lesson draft until the tutor accepts and saves; and does not itself approve or publish learning content.
@@ -369,25 +387,25 @@
 - **UCAT Free** — The default online entitlement for a signed-up UCAT student. Grants access to online product areas within configurable, independent usage quotas per area. Does not require a Stripe subscription. A quota of zero for an area means UCAT Free students cannot start that activity.
   _Avoid_: Free trial, free plan
 
-- **UCAT Unlimited** — Unlimited online access to all UCAT product areas while an active paid Stripe subscription (or equivalent entitlement) is in place. Includes practice-day billing discounts. The middle paid tier on the subscribe page.
+- **UCAT Unlimited** — Unlimited online access to all UCAT product areas while a paid Stripe subscription is active or temporarily `past_due` during failed-billing recovery (or an equivalent entitlement is in place). Includes practice-day billing discounts. The middle paid tier on the subscribe page.
   _Avoid_: UCAT Pro (former name for this tier), online tier
 
 - **UCAT Pro** — Everything in UCAT Unlimited, plus human support entitlements: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. The top paid tier on the subscribe page; requires its own Stripe product.
   _Avoid_: Premium, coaching tier
 
-- **Unlimited trial** — A one-time, seven-day trial of unlimited online access. Eligible only if the student has never consumed a trial before. Requires entering payment details at start. May be started from either the UCAT Unlimited or UCAT Pro card on the subscribe page; both share one trial allowance per account. The trial window is fixed at seven days from first start — canceling or converting early does not reset or extend it. During the trial, the student receives UCAT Unlimited entitlements only — UCAT Pro human-support entitlements begin when the subscription becomes paid (`active`), not during `trialing`. The student may cancel or let the trial convert to paid at any point within those seven days. On conversion, the student is billed for whichever paid tier they chose at checkout (Unlimited or Pro). When a trial ends without payment, the student returns to UCAT Free — they are not locked out of the product.
-  _Avoid_: Pro trial (ambiguous — trial of Pro card is still online-only until paid), free trial (ambiguous with UCAT Free), 7-day trial
-
-- **Unlimited trial eligibility** — Whether a student may start an Unlimited trial. False once a trial has ever been started on that account, regardless of which card was used or outcome (converted, cancelled, or lapsed). Consumed when a Stripe subscription is created with `trialing` status. Admin comp overrides do not consume trial eligibility.
-  _Avoid_: Pro trial eligibility, trial available, can trial
-
-- **Signup onboarding** — The required first-time wizard at `/signup/complete` for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) choose a plan (UCAT Free, Unlimited trial, or paid subscribe). `/subscribe` remains for returning students managing or changing plans, not first-time gating.
+- **Signup onboarding** — The required first-time sequence for newly signed-up UCAT students. Steps: (1) student details, (2) set password, (3) complete or explicitly skip the Guided UCAT sampler, and (4) choose UCAT Free or a paid subscription. A student with clear paid intent may complete checkout before the sampler and return to it afterward. A student with a pending referral gift sees that it is waiting before the sampler and may accept it immediately, while the full gift or plan decision remains the final signup step. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
   _Avoid_: Onboarding flow, signup wizard
 
 - **Signup onboarding gate** — While signup onboarding is incomplete, the student may only reach `/signup/complete` (and auth/API paths required for the wizard). All other app routes redirect to `/signup/complete` at their persisted step. `/subscribe` is not part of first-time gating. Legacy accounts with plan choice recorded but no new completion flag are treated as fully onboarded.
   _Avoid_: Onboarding redirect, subscribe gate
 
 - **Signup onboarding transitions** — Step changes use horizontal slide + fade (~250ms) via `framer-motion`, with the step card as the animated unit. Respects `prefers-reduced-motion`.
+
+- **Guided UCAT sampler** — The short, sequential first experience of Verbal Reasoning, Decision Making, Quantitative Reasoning, and Situational Judgement during Signup onboarding. It uses authentic question controls, adapts the amount of guidance to the student's stated familiarity, and teaches controls in the section where they are useful. It is unscored, consumes no quota, creates no Attempt evidence, and must not be described as a diagnostic.
+  _Avoid_: Diagnostic test, scored attempt, question-engine tour
+
+- **UCAT activation checklist** — The temporary dashboard checklist that follows Signup onboarding and leads a new student through exploring every UCAT section, building a Study plan, completing their first Study plan task, and reviewing their first real result. It supports the Study plan's next recommendation rather than acting as a second plan, and disappears after completion.
+  _Avoid_: Product tour, permanent task list, second Study plan
 
 - **Section score estimate** — The app's current estimate of a student’s latent UCAT cognitive-section score on the 300-900 scale at a point in time. It is derived from attempt evidence and should be treated as uncertain, not as a known score.
   _Avoid_: Predicted section score, known section score
@@ -407,19 +425,85 @@
 - **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
   _Avoid_: Study planner, goal tracker, target prediction
 
+- **Score projection snapshot** — The trusted total score estimate actually shown to a student on a calendar day, stored at most once per day in the student's timezone. Snapshot history must not be reconstructed later using a newer model.
+  _Avoid_: Recomputed historical prediction, attempt average
+
+- **Dashboard trajectory** — The dashboard presentation that overlays a Study plan target, scheduled mocks, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
+  _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
+
+- **Study plan** — A personalised calendar of UCAT study tasks generated through the student's test date from their target score, score projection, available study days, per-day time limits, and preferred mock day. It may use less than the student's available capacity when that is appropriate and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed.
+  _Avoid_: Score projection, fixed timetable, target guarantee
+
+- **Study plan companion** — The persistent, compact guide to today's Study plan progress and next prescribed task. It preserves continuity while the student moves between activities and the full Study plan, but is not a second plan or an alternative task list.
+  _Avoid_: Study plan widget, floating task list, plan bubble
+
+- **Study plan activation setup** — The strongly encouraged but optional post-plan step that asks for the minimum inputs needed to build the first Study plan: overall cognitive target, test year or exact date, available study days, and maximum time per day. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
+  _Avoid_: Required signup step, diagnostic, full settings form
+
+- **Available study day** — A weekday the student explicitly permits the Study plan to schedule. The student sets a maximum study duration for each available day; the plan may use fewer available days or less than the maximum duration, especially when the test is distant. A flexible student may instead ask the plan to choose days automatically.
+  _Avoid_: Required study day, booked session, tutoring availability
+
+- **Study capacity** — The maximum time the student permits the Study plan to schedule across their available study days. It is a ceiling rather than a commitment: the plan may schedule less and ramp toward it as the test approaches. When capacity is below the plan's recommended workload, the student still receives the best plan possible within that capacity together with a non-blocking target-risk warning and actions to change availability, target score, or test date. Only zero capacity prevents plan generation.
+  _Avoid_: Required workload, guaranteed improvement threshold, minimum subscription usage
+
+- **Study plan test timing** — The student's exact UCAT test date when booked, or their test year while no exact date is available. Year-only planning is the normal pre-booking state: the plan uses the midpoint of that year's admin-configured testing window as a clearly labelled provisional planning date and does not ask the student to predict an early, middle, or late sitting. When bookings open, the app prompts for the booked date and recalculates all future Study plan work after it is supplied.
+  _Avoid_: Required exact date, hidden assumed date, student-predicted test window
+
+- **Study plan target** — The student's single target for the overall cognitive UCAT score. The Study plan dynamically distributes the required improvement across Verbal Reasoning, Decision Making, and Quantitative Reasoning using current Section score estimates and realistic improvement potential; students do not enter target section scores. Situational Judgement is excluded from this total and managed through a separate automatic goal.
+  _Avoid_: Target section inputs, Situational Judgement in total, guaranteed target score
+
+- **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
+  _Avoid_: Overall-score contribution, student-entered SJT target, ignored section
+
+- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or push a later day beyond its Study capacity. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Near-term tasks may be reconciled when the student next opens the plan, while the full future calendar follows the normal weekly or event-driven recalculation schedule.
+  _Avoid_: Backlog rollover, catch-up workload, plan failure
+
+- **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.
+  _Avoid_: Any activity counts, plan-only activity, duplicate required practice
+
+- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The completed work contributes to progress evidence and plan recalculation, but the task remains visibly partial and its remainder does not automatically become next-day study debt. A mock or benchmark is complete only when its required attempt is finalized.
+  _Avoid_: Failed task, automatic completion, remaining-work rollover
+
+- **Study plan task controls** — The intentionally limited actions available on a generated study task: start the prescribed activity or skip it for automatic Study plan rebalancing. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks. This preserves the student-facing promise that the plan decides what to do next.
+  _Avoid_: Timetable editor, drag-and-drop plan, task swap
+
+- **Study plan quota handling** — The Study plan prescribes the same academically appropriate work regardless of Online access tier; it is not weakened to fit UCAT Free quotas. A Free student can see the complete plan and complete tasks while quota remains. A task blocked by quota remains visibly locked with its reset or upgrade action, is not counted as missed, and may contribute to an access-risk warning when the target workload cannot be executed.
+  _Avoid_: Paid-only hidden plan, quota-sized academic plan, locked task as non-adherence
+
+- **Study plan calibration phase** — The opening phase used when a student has insufficient Attempt evidence for confident personalisation. It begins immediately and emphasises learning modules, short representative practice, and frequent review rather than requiring a diagnostic mock. Existing history may shorten or bypass calibration. A first mock is scheduled only after the student demonstrates reasonable familiarity with the question types, not merely because their preferred mock day arrives.
+  _Avoid_: Mandatory diagnostic mock, first-week mock, unpersonalised permanent plan
+
+- **Study feedback progression** — The Study plan's normal movement from learning and short-loop practice with feedback after each stem, through longer mini practice, into full-section benchmarks and finally mocks. Longer feedback intervals are prescribed only as familiarity grows. This is an adaptive progression rather than a compulsory sequence: credible historical or out-of-plan attempt evidence may place an experienced student directly into a later stage, and learning is prescribed only where evidence indicates it is useful.
+  _Avoid_: Fixed course sequence, mocks from day one, mandatory Learn completion
+
+- **Full-section benchmark** — A completed section-length UCAT set or equivalent exam-like section attempt whose feedback is received after the uninterrupted attempt. It provides stronger section readiness evidence than short-loop practice. Before the first prescribed mock, the Study plan normally requires at least one Full-section benchmark in every section and adaptively repeats a section benchmark after targeted remediation when the earlier result reveals fundamental gaps.
+  _Avoid_: Any question set, mini-set, mandatory fixed benchmark count
+
+- **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
+  _Avoid_: Minimum accuracy gate, mandatory lesson sequence, preferred mock day alone
+
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Incomplete Essential lessons are prioritised early; Recommended lessons are included when capacity permits; Optional lessons are selected for relevant weaknesses or longer timelines; Excluded lessons are never prescribed. Selection uses this metadata and stable lesson references rather than hard-coded lesson IDs or titles.
+  _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
+
+- **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
+  _Avoid_: Study-plan tags, category arrays, polymorphic taxonomy link
+
+- **Estimated lesson duration** — An automatically calculated planning estimate derived from a learning module lesson's current blocks. Text uses reading-time estimation; video uses stored provider duration when available and a fallback otherwise; question and stem blocks use question volume and section timing; skill-trainer blocks use their configured time limit; file blocks add no duration. It is recalculated when lesson content changes and is used for scheduling rather than presented as a completion guarantee.
+  _Avoid_: Tutor-entered required duration, fixed time per lesson, exact completion time
+
 - **Score projection settings** — The admin-web settings for score projection assumptions, such as evidence weighting, recency, minimum evidence threshold, effective-practice pace, and trajectory curve constants.
   _Avoid_: UCAT model config, study planner settings
 
 - **UCAT scoring authority** — The shared scoring package used to convert UCAT raw performance into scaled section scores. Score projection consumes scaled scores from this authority and should not define its own raw-to-scaled conversion.
   _Avoid_: Projection-local scoring formula, duplicate score conversion
 
-- **UCAT plan choice** — Step 3 of signup onboarding: start an Unlimited trial, subscribe to a paid tier, or explicitly continue on UCAT Free. Shown as plan cards and billing interval selector only (not the full `/subscribe` marketing page). Free proceeds immediately; paid routes through Stripe checkout and returns to signup onboarding step 4 on success (`/signup/complete?checkout=success`). Checkout abandoned mid-flow resumes step 3 on next login. Unlimited trial can still be started later from `/subscribe` or upsell CTAs if still eligible.
+- **UCAT plan choice** — Step 3 of signup onboarding: subscribe to a paid tier or explicitly continue on UCAT Free. Shown as plan cards and billing interval selector only (not the full `/subscribe` marketing page). Free proceeds immediately; paid routes through Stripe checkout and returns to signup onboarding on success (`/signup/complete?checkout=success`). Checkout abandoned mid-flow resumes the plan choice on next login.
   _Avoid_: UCAT onboarding choice (former name), signup tier selection, onboarding modal
 
-- **In-person UCAT access** — An add-on entitlement for tutor-led UCAT class workflows (e.g. assigned sessions and session content). Independent of UCAT Free, Unlimited trial, UCAT Unlimited, and UCAT Pro — a student may hold any combination (e.g. in-person + Free, in-person + Pro).
+- **In-person UCAT access** — An add-on entitlement for tutor-led UCAT class workflows (e.g. assigned sessions and session content). Independent of UCAT Free, UCAT Unlimited, and UCAT Pro — a student may hold any combination (e.g. in-person + Free, in-person + Pro).
   _Avoid_: Class subscription, in-person tier
 
-- **Manual online access override** — An admin-granted setting on a student that overrides their Stripe-derived online tier. Values: **Default** (follow Stripe), **Force Free** (UCAT Free even if subscribed), **Force Unlimited** (UCAT Unlimited without a subscription), **Force Pro** (paid UCAT Pro entitlements including human-support, without a subscription). Unlimited trial cannot be forced. Independent of in-person access. No legacy subscriber migration is required — UCAT paid subscriptions are greenfield.
+- **Manual online access override** — An admin-granted setting on a student that overrides their Stripe-derived online tier. Values: **Default** (follow Stripe), **Force Free** (UCAT Free even if subscribed), **Force Unlimited** (UCAT Unlimited without a subscription), **Force Pro** (paid UCAT Pro entitlements including human-support, without a subscription). Independent of in-person access. No legacy subscriber migration is required — UCAT paid subscriptions are greenfield.
   _Avoid_: Manual grant, comp access
 
 - **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions on submitted practice stems), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (attempts started). A quota of zero disables that area for UCAT Free students.
@@ -435,6 +519,9 @@
   _Avoid_: Truncated practice, partial practice set
 
 - **Delivered practice stem** — A question stem that Altitutor has already presented to the student inside a practice session. In unlimited practice, the student may finish all questions on a delivered practice stem even if their UCAT Free practice allowance becomes exhausted before the stem is complete.
+
+- **Prefetched practice stem** — A one-stem lookahead fetched while the student works on the current unlimited-practice stem, but not yet presented or delivered. It does not reserve UCAT Free quota entitlement and is excluded from resume, completion, and review until the student advances into it.
+  _Avoid_: Delivered stem, queued practice set
   _Avoid_: Current stem (ambiguous without session context), loaded stem
 
 - **UCAT Free quota period** — The rolling window for a UCAT Free quota. Configured independently per area (day, week, or month) in admin settings. Boundaries use the student's timezone: calendar day, ISO week (Monday start), or calendar month.
@@ -442,6 +529,12 @@
 
 - **Quota usage card** — A reusable student-facing component showing UCAT Free quota usage per area (e.g. "12 / 20 questions today") and an upsell action to UCAT Unlimited. Shown on each online product area's entry point and on the subscription settings page.
   _Avoid_: Usage widget, limit banner
+
+- **App-scoped notification** — A durable inbox item addressed to exactly one student or staff member and owned by one Altitutor application surface. UCAT notifications appear only in the UCAT app even when the same student also uses the student portal.
+  _Avoid_: Announcement, activity event, toast
+
+- **Notification resolution** — The underlying condition represented by an actionable notification is no longer active, independently of whether the recipient read it. For example, a failed-payment notification is resolved when that invoice is paid.
+  _Avoid_: Read notification, dismissed notification
 
 - **Subscribe page** — The authenticated pricing page at `/subscribe` where students compare UCAT Free, UCAT Unlimited, and UCAT Pro. A selector shows only billing intervals currently available for checkout and sets the cadence for both paid tiers; yearly is unavailable at launch. Unauthenticated visitors are redirected to signup first. UCAT Free is the implicit default tier — the Free card is informational (lists quotas) and shows "Current plan" for Free students; it is not a separate signup action.
   _Avoid_: Pricing page, plans page
@@ -452,19 +545,25 @@
 - **UCAT plan price** — Admin-configured list price for one paid tier at one billing interval (Unlimited or Pro × weekly, monthly, or yearly), including the linked Stripe price ID. UCAT Free has no plan prices. Two Stripe products (Unlimited, Pro); each interval is a separate price on the same product. Fortnight billing is not offered.
   _Avoid_: Stripe price, marketing tier
 
-- **Quota limit modal** — The in-context upsell shown when a UCAT Free student hits an area's quota or tries to start a disabled area (quota of zero). Replaces the former all-or-nothing "Unlock online UCAT access" gate. Message is area-specific; primary action leads to Unlimited trial or subscribe to UCAT Unlimited.
+- **Quota limit modal** — The in-context upsell shown when a UCAT Free student hits an area's quota or tries to start a disabled area (quota of zero). Replaces the former all-or-nothing "Unlock online UCAT access" gate. Message is area-specific; primary action leads to subscribe to UCAT Unlimited.
   _Avoid_: Paywall, access gate
 
 - **Practice quota reached dialog** — The active-practice dialog shown when an unlimited practice session cannot fetch another stem because the student's UCAT Free practice allowance is exhausted. The student may upgrade and return to the same active practice session, or finish the session and review the completed practice attempt.
   _Avoid_: Go back dialog, generic quota modal
 
-- **Quota enforcement** — UCAT Free limits are normally applied when a student performs a quota-consuming action. Practice also has entry and continuation checkpoints: an exhausted student cannot enter an active practice session unless they have already delivered practice work to finish, fixed practice is capped before start, and unlimited practice is checked before fetching the next stem. UCAT Unlimited, UCAT Pro, Unlimited trial, and admin-granted unlimited overrides are exempt.
+- **Quota enforcement** — UCAT Free limits are normally applied when a student performs a quota-consuming action. Practice also has entry and continuation checkpoints: an exhausted student cannot enter an active practice session unless they have already delivered practice work to finish, fixed practice is capped before start, and unlimited practice is checked before fetching the next stem. UCAT Unlimited, UCAT Pro, and admin-granted unlimited overrides are exempt.
   _Avoid_: Route gate, middleware check
 
-- **Online access tier** — A student's current online entitlement: `free`, `unlimited_trial`, `unlimited`, or `pro`. Derived in order: admin override (if not Default), then active subscription, otherwise UCAT Free. `unlimited_trial` applies while Stripe status is `trialing`, regardless of whether checkout was for Unlimited or Pro — human-support entitlements are not included. `pro` (paid) implies all UCAT Unlimited entitlements plus UCAT Pro human-support entitlements. Independent of in-person access.
+- **Online access tier** — A student's current online entitlement: `free`, `unlimited`, or `pro`. Derived in order: admin override (if not Default), then an active subscription or failed-billing recovery (`past_due`), otherwise UCAT Free. `pro` implies all UCAT Unlimited entitlements plus UCAT Pro human-support entitlements. `unpaid`, `canceled`, and `incomplete_expired` do not grant paid access. Independent of in-person access.
   _Avoid_: Plan, subscription tier, marketing tier name
 
-- **UCAT Pro human-support entitlements** — The tutor-led benefits included in paid UCAT Pro only: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. Not active during Unlimited trial, including trial checkout via the Pro card. In-product fulfillment (booking, metering) is out of scope until a later release; paid Pro is distinguished in access tier only.
+- **Failed-billing recovery** — The temporary Stripe-controlled period after a recurring UCAT payment fails. The subscription is `past_due`; paid access and practice-day discount earning continue while Stripe retries, and the student receives a persistent recovery action plus app/Stripe communications. Stripe owns retry timing; Altitutor does not run a second cancellation clock. At launch, configure a maximum five-day recovery window with approximately three Smart Retries, ending in subscription cancellation.
+  _Avoid_: Immediate lockout, Altitutor grace-period job
+
+- **Failed-billing termination** — Exhaustion of Stripe's recovery attempts, represented by `canceled` (preferred Stripe configuration) or `unpaid` (defensive fallback). Paid access ends, the student moves to UCAT Free without losing their account, practice history, or results, pending practice-day discounts are forfeited, and one terminal in-app notice plus email is sent.
+  _Avoid_: Account lockout, account cancellation
+
+- **UCAT Pro human-support entitlements** — The tutor-led benefits included in paid UCAT Pro only: one online training workshop per month, on-demand help from tutors, and one 1-1 performance review per month. Referral gifts grant UCAT Unlimited and never include these entitlements. In-product fulfillment (booking, metering) is out of scope until a later release; paid Pro is distinguished in access tier only.
   _Avoid_: Coaching add-on, premium support
 
 - **Plan availability** — A paid tier or billing interval is offered on the subscribe page only when admin has configured the corresponding Stripe product and plan price. Unconfigured tiers show a student-facing "Coming soon" state instead of checkout. UCAT Free is always available.
@@ -473,7 +572,7 @@
 - **Accountability Pricing** — The customer-facing proposition in which consistent UCAT practice earns reductions from the standard subscription price through practice-day discounts.
   _Avoid_: Penalty pricing, penalty fee
 
-- **Practice-day discount** — A paid-tier billing perk: answer the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the standard bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. Applies to UCAT Unlimited and UCAT Pro subscribers, including during Unlimited trial (`trialing`); credits earned during trial reduce the first paid invoice when the trial converts. UCAT Free practice does not contribute.
+- **Practice-day discount** — A paid-tier billing perk: answer the globally configured minimum questions in a calendar day (student timezone) to earn a fixed discount amount off the student's bill. The discount amount and earning cap are configured per billing interval (weekly / monthly / yearly), shared across UCAT Unlimited and UCAT Pro — tier affects only the standard bill, not the discount rules. Each qualifying day earns that interval's configured amount, up to the practice-day discount cap. UCAT Free practice does not contribute. A free referral-gift invoice does not consume or erase earned practice-day discounts; they carry to the next payable renewal.
   _Avoid_: Daily discount, practice credit
 
 - **Practice-day discount cap** — The maximum number of practice-day discounts a student can earn in one Stripe billing period (`current_period_start` through `current_period_end`) for their current billing interval. Configured per billing interval; admin may set any value from 1 up to that interval's canonical period day count (7 for weekly, 30 for monthly, 365 for yearly). Once the cap is reached, further qualifying practice days in that period earn no additional discount until the next period. A student may earn at most one practice-day discount per calendar day (student timezone), regardless of how many qualifying sessions they complete that day.
@@ -491,22 +590,31 @@
 - **Practice-day discount progress** — A student-facing count of how many practice-day discounts they have earned in the current Stripe billing period versus the practice-day discount cap for their billing interval (e.g. `8 / 20`). Shown on the subscription management page. Pending invoice items from prior periods are not re-counted toward the current period's cap.
   _Avoid_: Discount tracker, credits earned
 
-- **Practice-day discount forfeiture** — When a paid UCAT subscription ends (cancel completes, trial lapses without payment, or payment failure terminates access), any unused practice-day discount credits that have not yet been applied to an invoice are voided. A student who later resubscribes — on any interval — starts with no banked credits from the prior subscription. While a subscription remains active — including during a cancel-at-period-end window — the student may still earn practice-day discounts and those credits apply to that subscription's remaining invoices; forfeiture applies only to what is still pending when access actually ends.
+- **Practice-day discount forfeiture** — When a paid UCAT subscription ends (cancel completes or payment failure terminates access), any unused practice-day discount credits that have not yet been applied to an invoice are voided. A student who later resubscribes — on any interval — starts with no banked credits from the prior subscription. While a subscription remains active — including during a cancel-at-period-end window — the student may still earn practice-day discounts and those credits apply to that subscription's remaining invoices; forfeiture applies only to what is still pending when access actually ends.
   _Avoid_: Credit expiry, lose discounts
 
-- **UCAT referral** — Immutable attribution of one new UCAT student to one existing student through the existing student's referral link. A referred student may have only one referrer; using the same Stripe customer or card fingerprint rejects the paid reward as a self-referral.
+- **UCAT referral** — Immutable attribution of one UCAT student to one existing student through the existing student's referral link. A referred student may have only one referrer and one acquisition gift; using the same Stripe customer or card fingerprint rejects the gift acceptance as a self-referral.
   _Avoid_: Affiliate, ambassador sale
 
-- **Free referral qualification** — The referred UCAT Free student answers at least ten questions on two separate days within 14 days of joining. Both students then receive one explicit-use UCAT Free quota reset entitlement that expires after 30 days.
-  _Avoid_: Free signup reward, instant reset
+- **Referral gift** — A seven-day offer from one student to another for the recipient's first week or month of UCAT Unlimited at no charge. The gift is always UCAT Unlimited, never UCAT Pro; its access duration is snapshotted from the referrer's status and billing interval when the referral is captured.
+  _Avoid_: Free trial, Pro gift, free bill
 
-- **Paid referral qualification** — The referred student starts their one-time eligible Unlimited trial on either UCAT Unlimited or UCAT Pro after supplying a distinct Stripe payment method. Both students immediately earn one referral free-bill reward; the trial itself does not activate Pro human-support entitlements.
-  _Avoid_: Referral commission, paid conversion
+- **Pending referral gift** — A referral gift that has not been accepted, rejected, or expired. It remains as a persistent actionable notification for seven days and cannot be dismissed; reading the notification does not resolve it.
+  _Avoid_: Leaving gift pending, unread gift, dismissible offer
 
-- **Referral free-bill reward** — One queued entitlement to make the student's next weekly or monthly subscription invoice free, including UCAT Pro's fixed premium when the student is on Pro. One reward is consumed per billing cycle, multiple referrals queue as multiple future free bills, and a reward earned while on UCAT Free waits until the student subscribes.
-  _Avoid_: Referral cash, referral credit, free-access extension
+- **Referral gift acceptance** — The recipient explicitly accepts a pending referral gift and starts a UCAT Unlimited subscription through checkout, with the gifted first week or month free. Acceptance requires a distinct Stripe customer and payment method from the referrer; the gift replaces the former trial offer.
+  _Avoid_: Start trial, redeem Pro gift, automatic acceptance
 
-- **Billing interval lock** — A student's billing interval (weekly / monthly / yearly) is chosen at first paid checkout (or Unlimited trial start) and cannot be changed afterward. Interval is not a plan-change dimension — only tier (UCAT Unlimited ↔ UCAT Pro) may change on an existing subscription. Prevents practice-day discount credits earned under one interval's economics from being applied after switching to a shorter interval.
+- **Referral gift rejection** — The recipient explicitly declines a pending referral gift. Rejection is final and resolves its notification; the recipient receives one UCAT Free quota reset, and a Free referrer also receives one quota reset.
+  _Avoid_: Dismiss gift, ignore gift, save for later
+
+- **Earned referral gift** — A week or month of UCAT Unlimited earned by a UCAT Free referrer after the recipient accepts their referral gift. It remains available until the referrer explicitly starts it through checkout and is distinct from a paid referrer's billing reward.
+  _Avoid_: Pro gift, trial, automatic upgrade
+
+- **Paid referrer billing reward** — One queued entitlement earned when a recipient accepts a paid student's referral gift. It makes the referrer's next subscription renewal free on their existing tier; it is a billing reward and not a gift of UCAT Pro.
+  _Avoid_: Pro gift, referral cash, referral credit
+
+- **Billing interval lock** — A student's billing interval (weekly / monthly / yearly) is chosen at first paid checkout and cannot be changed afterward. Interval is not a plan-change dimension — only tier (UCAT Unlimited ↔ UCAT Pro) may change on an existing subscription. Prevents practice-day discount credits earned under one interval's economics from being applied after switching to a shorter interval.
   _Avoid_: Billing cadence change, switch to monthly
 
 - **Checkout availability** — Whether a specific paid tier and billing interval combination is intentionally offered for new checkout (for example, UCAT Unlimited monthly). Independent of its base price and Stripe Price configuration; an interval is offered when at least one tier at that interval has checkout availability and complete payment configuration.

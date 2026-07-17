@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
@@ -10,6 +11,11 @@ import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempt
 import { MockAttemptScoreTimingRow } from "./mock-attempt-score-timing-row";
 import { MockAttemptSetCards } from "./mock-attempt-set-cards";
 import { SetAnswersCard } from "./set-answers-card";
+import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
+import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
+import { useAttemptReviewTracking } from "../hooks/use-attempt-review-tracking";
+import { AttemptReviewProgress } from "./attempt-review-progress";
+import { buildAttemptOverallInsight } from "../lib/attempt-insights";
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;
@@ -23,10 +29,40 @@ export function MockAttemptDetailPage({
   backLabel = "Back to mocks",
 }: MockAttemptDetailPageProps) {
   const { data, isLoading, error } = useMockAttemptDetail(mockAttemptId);
+  useMarkFirstResultReviewed(Boolean(data));
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const questionCount = data?.questionAttempts.length ?? 0;
   const { selectedQuestionIndex, setSelectedQuestionIndex } =
     useAttemptReviewQuestionIndex(questionCount);
+  const requiredQuestionIds = useMemo(
+    () =>
+      (data?.questionAttempts ?? [])
+        .filter((question) => question.result !== "correct")
+        .map((question) => question.questionId),
+    [data?.questionAttempts],
+  );
+  const reviewTracking = useAttemptReviewTracking({
+    attemptType: "mock_attempt",
+    attemptId: mockAttemptId,
+    requiredQuestionIds,
+    selectedQuestionId:
+      data?.questionAttempts[selectedQuestionIndex]?.questionId ?? null,
+    ready: Boolean(data),
+  });
+  useCompleteStudyPlanReview(Boolean(reviewTracking.review?.completedAt));
+  const reviewNextIncorrect = reviewTracking.nextUnviewedQuestionId
+    ? () => {
+        const index = data?.questionAttempts.findIndex(
+          (question) =>
+            question.questionId === reviewTracking.nextUnviewedQuestionId,
+        );
+        if (index == null || index < 0) return;
+        setSelectedQuestionIndex(index);
+        document
+          .getElementById("attempt-review-questions")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    : null;
 
   if (isLoading) {
     return <AppPageSkeleton variant="detail" />;
@@ -60,6 +96,20 @@ export function MockAttemptDetailPage({
   }
 
   const attemptedDate = new Date(data.attemptedAt).toLocaleDateString();
+  const totalPoints = data.sets.reduce(
+    (sum, set) => sum + (set.totalPoints ?? 0),
+    0,
+  );
+  const scorePoints = data.sets.reduce(
+    (sum, set) => sum + (set.scorePoints ?? 0),
+    0,
+  );
+  const overallInsight = buildAttemptOverallInsight({
+    accuracyPercent: totalPoints > 0 ? (scorePoints / totalPoints) * 100 : null,
+    examPacePercent:
+      data.studentExamSpeed != null ? data.studentExamSpeed * 100 : null,
+    recentPerformance: data.recentPerformance,
+  });
 
   const chartData = data.questionAttempts.map((q) => ({
     questionNumber: q.questionNumber,
@@ -98,9 +148,21 @@ export function MockAttemptDetailPage({
         />
       </motion.div>
 
+      <motion.div variants={itemVariants}>
+        <AttemptReviewProgress
+          review={reviewTracking.review}
+          pending={reviewTracking.isPending}
+          error={reviewTracking.error}
+          onFinish={reviewTracking.completeManually}
+          onReviewNext={reviewNextIncorrect}
+          insight={overallInsight}
+        />
+      </motion.div>
+
       <motion.div className="flex flex-col gap-4" variants={itemVariants}>
         <MockAttemptScoreTimingRow
           scaledScore={data.scaledScore}
+          percentile={data.percentile}
           timing={{
             timeTakenSeconds: data.timeTakenSeconds,
             setTimeLimitSeconds: data.mockTimeLimitSeconds,
@@ -131,8 +193,8 @@ export function MockAttemptDetailPage({
 
       <motion.div id="attempt-review-questions" variants={itemVariants}>
         <SetAnswersCard
-          mockId={data.ucatMockId}
           questionAttempts={data.questionAttempts}
+          exam={data.exam}
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview

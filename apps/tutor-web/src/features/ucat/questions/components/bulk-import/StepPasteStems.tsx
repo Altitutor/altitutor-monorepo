@@ -25,9 +25,9 @@ import {
 import type { PasteTableBehavior } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 
 const STEM_SPLIT_MODE_OPTIONS: { value: StemSplitMode; label: string }[] = [
+  { value: 'keyword', label: 'Keyword prefix' },
   { value: 'line_breaks', label: 'Line breaks' },
   { value: 'stem_numbers', label: 'Stem numbers' },
-  { value: 'keyword', label: 'Keyword prefix' },
 ]
 
 const STEM_NUMBER_INDICATOR_OPTIONS: {

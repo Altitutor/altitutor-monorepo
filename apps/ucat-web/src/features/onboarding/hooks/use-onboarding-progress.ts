@@ -38,7 +38,9 @@ type StudentProfileView =
 
 const ONBOARDING_QUERY_KEY = ["ucat", "onboarding-progress"] as const;
 
-function toProgress(value: StudentProfileView["onboarding_progress"]): OnboardingProgress {
+function toProgress(
+  value: StudentProfileView["onboarding_progress"],
+): OnboardingProgress {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
@@ -90,6 +92,7 @@ export function useOnboardingProgress() {
     isLoading: !enabled || query.isLoading,
     isFetching: query.isFetching,
     isCompleted,
+    refetch: query.refetch,
   };
 }
 
@@ -136,9 +139,7 @@ export function useResetAllOnboardingTours() {
   return useMutation({
     mutationFn: async () => {
       const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.rpc(
-        "student_reset_onboarding_progress",
-      );
+      const { error } = await supabase.rpc("student_reset_onboarding_progress");
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {

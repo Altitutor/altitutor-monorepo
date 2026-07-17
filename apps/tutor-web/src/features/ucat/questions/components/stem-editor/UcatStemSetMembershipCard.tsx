@@ -100,7 +100,7 @@ export function UcatStemSetMembershipCard({
   const staffSets = useMemo(
     () =>
       (setsQuery.data ?? [])
-        .filter((set) => set.id && !set.deleted_at && !set.is_student_generated)
+        .filter((set) => set.id && !set.deleted_at)
         .map((set) => {
           const parsed = parseSetSections(set.sections ?? null)
           return {

@@ -18,7 +18,7 @@ import {
   useResetLessonProgress,
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
@@ -30,6 +30,7 @@ import { LearningLessonPageSkeleton } from "@/features/learning/components/learn
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { cn } from "@/lib/utils";
@@ -57,7 +58,10 @@ const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
 function getVideoEmbedUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.includes("youtube.com") || parsed.hostname.includes("youtu.be")) {
+    if (
+      parsed.hostname.includes("youtube.com") ||
+      parsed.hostname.includes("youtu.be")
+    ) {
       const videoId = parsed.hostname.includes("youtu.be")
         ? parsed.pathname.slice(1)
         : parsed.searchParams.get("v");
@@ -126,7 +130,9 @@ function VideoBlock({
   }, [block.id]);
 
   if (!embedUrl) {
-    return <p className="text-sm text-muted-foreground">Video URL not configured.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">Video URL not configured.</p>
+    );
   }
 
   return (
@@ -226,22 +232,29 @@ function LessonBlockContent({
         <VideoBlock
           block={block}
           onWatchProgress={(percent) =>
-            onBlockProgress(block.id!, percent >= 50, { videoWatchPercent: percent })
+            onBlockProgress(block.id!, percent >= 50, {
+              videoWatchPercent: percent,
+            })
           }
         />
       ) : null}
       {block.block_type === "file" && block.id ? (
         <FileBlock
           block={block}
-          onViewed={() => onBlockProgress(block.id!, true, { fileViewed: true })}
+          onViewed={() =>
+            onBlockProgress(block.id!, true, { fileViewed: true })
+          }
         />
       ) : null}
-      {block.block_type === "question_stem" || block.block_type === "question" ? (
+      {block.block_type === "question_stem" ||
+      block.block_type === "question" ? (
         <LearnQuestionBlock
           block={block}
           onProgressChange={() => {
             if (!block.id) return;
-            onBlockProgress(block.id, true, { completedFromQuestionEngine: true });
+            onBlockProgress(block.id, true, {
+              completedFromQuestionEngine: true,
+            });
           }}
         />
       ) : null}
@@ -268,7 +281,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
 
   useEffect(() => {
     setActiveIndex(0);
@@ -277,7 +290,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   useEffect(() => {
     if (!(error instanceof QuotaExceededError)) return;
     openQuotaLimit(error.payload, {
-      dismissAction: { label: "Dismiss", variant: "dismiss" },
+      dismissAction: quotaRouteFallback("learn"),
     });
   }, [error, openQuotaLimit]);
 
@@ -366,7 +379,9 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   );
 
   const refreshLessonProgress = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+    void queryClient.invalidateQueries({
+      queryKey: learningKeys.lesson(lessonId),
+    });
     void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
   }, [queryClient, lessonId]);
 
@@ -399,13 +414,16 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
     [markBlockComplete, refreshLessonProgress],
   );
 
-  const setBlockRef = useCallback((blockId: string, element: HTMLDivElement | null) => {
-    if (element) {
-      blockRefs.current.set(blockId, element);
-      return;
-    }
-    blockRefs.current.delete(blockId);
-  }, []);
+  const setBlockRef = useCallback(
+    (blockId: string, element: HTMLDivElement | null) => {
+      if (element) {
+        blockRefs.current.set(blockId, element);
+        return;
+      }
+      blockRefs.current.delete(blockId);
+    },
+    [],
+  );
 
   const handleConfirmMarkComplete = useCallback(() => {
     markLessonComplete.mutate(undefined, {
@@ -429,7 +447,11 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
     return <LearningLessonPageSkeleton />;
   }
   if (error instanceof QuotaExceededError) {
-    return <p className="text-sm text-muted-foreground">Learning module limit reached.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        Learning module limit reached.
+      </p>
+    );
   }
   if (error || !lesson) {
     return <p className="text-sm text-destructive">Lesson not found.</p>;

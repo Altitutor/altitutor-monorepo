@@ -8,7 +8,11 @@ const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/auth'];
 
 // Helper function to check if a path is public
 const isPublicPath = (pathname: string): boolean => {
-  return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) || pathname.startsWith('/invite/');
+  return (
+    PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
+    pathname.startsWith('/invite/') ||
+    pathname.startsWith('/form/')
+  );
 };
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {

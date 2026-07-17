@@ -17,7 +17,7 @@ import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
 import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
 import { SkillTrainerDemoCard } from "@/features/skill-trainer/components/skill-trainer-demo-card";
@@ -45,7 +45,7 @@ export function SkillTrainerDetailPage({
   const [conflictAttempt, setConflictAttempt] =
     useState<SkillTrainerAttemptState | null>(null);
   const [submittingConflict, setSubmittingConflict] = useState(false);
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { active, setLocal } = useActiveSkillTrainerAttempt();
   const refreshedCompletedAttemptRef = useRef<string | null>(null);
 

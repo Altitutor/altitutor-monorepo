@@ -126,6 +126,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
   }, [isOpen]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
+  const [documentInitialMode, setDocumentInitialMode] = useState<'view' | 'edit'>('view');
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
@@ -238,6 +239,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
           project_id: projectId,
         });
         setNewDocumentTitle('');
+        setDocumentInitialMode('edit');
         setSelectedDocumentId(created.id);
         setIsDocumentDialogOpen(true);
       } catch (error) {
@@ -392,6 +394,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                                 key={doc.id}
                                 className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 text-left text-sm"
                                 onClick={() => {
+                                  setDocumentInitialMode('view');
                                   setSelectedDocumentId(doc.id);
                                   setIsDocumentDialogOpen(true);
                                 }}
@@ -468,6 +471,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                                   key={doc.id}
                                   className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 text-left text-sm"
                                   onClick={() => {
+                                    setDocumentInitialMode('view');
                                     setSelectedDocumentId(doc.id);
                                     setIsDocumentDialogOpen(true);
                                   }}
@@ -560,8 +564,10 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
         onClose={() => {
           setIsDocumentDialogOpen(false);
           setSelectedDocumentId(null);
+          setDocumentInitialMode('view');
         }}
         noteId={selectedDocumentId}
+        initialMode={documentInitialMode}
       />
     </>
   );

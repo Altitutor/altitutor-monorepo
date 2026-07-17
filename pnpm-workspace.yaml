@@ -3,7 +3,9 @@ packages:
   - 'packages/*'
 
 allowBuilds:
+  '@sentry/cli': true
   '@swc/core': true
+  cbor-extract: true
   core-js-pure: true
   esbuild: true
   msgpackr-extract: true
@@ -37,6 +39,9 @@ patchedDependencies:
   "react-big-calendar@1.19.4": "patches/react-big-calendar@1.19.4.patch"
 
 packageExtensions:
+  "@hookform/resolvers@5.2.2":
+    peerDependencies:
+      zod: ">=3.25.0"
   "@storybook/addon-docs@8.6.17":
     peerDependencies:
       react: "^18.3.1"

@@ -12,6 +12,10 @@ const weeklyPlan: UcatPlanPriceRow = {
   checkout_enabled: true,
 };
 
+function planWithPriceId(stripePriceId: string): UcatPlanPriceRow {
+  return { ...weeklyPlan, stripe_price_id: stripePriceId };
+}
+
 function stripeWithPrice(price: Partial<Stripe.Price>): Stripe {
   return {
     prices: {
@@ -37,7 +41,7 @@ describe("stripePriceMatchesUcatPlan", () => {
     await expect(
       stripePriceMatchesUcatPlan(
         stripeWithPrice({ unit_amount: 2800 }),
-        weeklyPlan,
+        planWithPriceId("price_stale_amount"),
       ),
     ).resolves.toBe(false);
   });
@@ -51,8 +55,18 @@ describe("stripePriceMatchesUcatPlan", () => {
             interval_count: 1,
           } as Stripe.Price.Recurring,
         }),
-        weeklyPlan,
+        planWithPriceId("price_wrong_interval"),
       ),
     ).resolves.toBe(false);
+  });
+
+  it("reuses a recent successful validation", async () => {
+    const stripe = stripeWithPrice({});
+    const plan = planWithPriceId("price_cached");
+
+    await stripePriceMatchesUcatPlan(stripe, plan);
+    await stripePriceMatchesUcatPlan(stripe, plan);
+
+    expect(stripe.prices.retrieve).toHaveBeenCalledTimes(1);
   });
 });

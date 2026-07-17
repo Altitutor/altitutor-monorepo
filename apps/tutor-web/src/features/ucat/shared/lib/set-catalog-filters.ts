@@ -49,6 +49,7 @@ const baseSetCatalogFilterDefinitions: DataTableFilterDefinition[] = [
     type: 'number-range',
     minKey: 'time_limit_min',
     maxKey: 'time_limit_max',
+    nullOptionLabel: 'Untimed',
   },
   {
     key: 'stem_count',
@@ -123,12 +124,16 @@ export function filterSetCatalogItems({
         return value.toLowerCase().includes(query)
       })
 
-    const visibilityHit = applyBooleanTextFilter(tableState, 'visibility', !!set.is_private)
+    const visibilityHit = applyBooleanTextFilter(tableState, 'visibility', set.access_scope === 'private')
     const timeLimitHit = applyRangeFilter(
       tableState,
       'time_limit_min',
       'time_limit_max',
       set.time_limit_seconds ?? null,
+      {
+        nullFilterKey: 'time_limit',
+        treatNonPositiveAsNull: true,
+      },
     )
     const stemCountHit = applyRangeFilter(
       tableState,
@@ -168,7 +173,7 @@ export function sortSetCatalogItems(
     time_limit_seconds: (set) => set.time_limit_seconds,
     stem_count: (set) => set.stem_count,
     question_count: (set) => set.question_count,
-    visibility: (set) => (set.is_private ? 'Private' : 'Public'),
+    visibility: (set) => (set.access_scope === 'private' ? 'Private' : 'Public'),
   })
 }
 

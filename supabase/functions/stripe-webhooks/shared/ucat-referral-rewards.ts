@@ -64,13 +64,30 @@ export async function maybeQualifyPaidUcatReferral(args: {
 
   const { data: referral } = await supabase
     .from("ucat_referrals")
-    .select("id, referrer_student_id, paid_qualified_at, rejected_at")
+    .select(
+      "id, referrer_student_id, paid_qualified_at, rejected_at, gift_status, gift_expires_at",
+    )
     .eq("referred_student_id", referredStudentId)
     .maybeSingle();
 
   if (!referral) return "not_referred";
-  if (referral.rejected_at) return "rejected";
-  if (referral.paid_qualified_at) return "qualified";
+  if (
+    referral.rejected_at ||
+    referral.gift_status === "rejected" ||
+    referral.gift_status === "invalid" ||
+    referral.gift_status === "expired"
+  ) {
+    return "rejected";
+  }
+  if (referral.gift_status === "accepted" || referral.paid_qualified_at) {
+    return "qualified";
+  }
+  if (
+    referral.gift_status !== "checkout_pending" ||
+    new Date(referral.gift_expires_at).getTime() <= Date.now()
+  ) {
+    return "pending";
+  }
 
   let fingerprint = args.currentFingerprint ?? null;
   if (!fingerprint) {
@@ -132,6 +149,7 @@ async function rejectReferral(
   const { error } = await supabase
     .from("ucat_referrals")
     .update({
+      gift_status: "invalid",
       rejected_at: new Date().toISOString(),
       rejection_reason: reason,
       updated_at: new Date().toISOString(),
@@ -140,13 +158,35 @@ async function rejectReferral(
     .is("paid_qualified_at", null)
     .is("rejected_at", null);
   if (error) throw error;
+
+  const { error: notificationError } = await supabase
+    .from("notifications")
+    .update({
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("dedupe_key", `ucat:referral:gift:${referralId}:recipient`)
+    .is("resolved_at", null);
+  if (notificationError) throw notificationError;
 }
 
 async function getOrCreateReferralCoupon(
   stripe: Stripe,
+  reward: {
+    id: string;
+    reward_type?: string | null;
+    amount_off_cents?: number | null;
+  },
+  currency: string,
 ): Promise<Stripe.Coupon> {
+  const fixedCredit =
+    reward.reward_type === "fixed_credit" &&
+    typeof reward.amount_off_cents === "number";
+  const couponId = fixedCredit
+    ? `ucat-referral-credit-${reward.id}`
+    : REFERRAL_COUPON_ID;
   try {
-    return await stripe.coupons.retrieve(REFERRAL_COUPON_ID);
+    return await stripe.coupons.retrieve(couponId);
   } catch (error: unknown) {
     const stripeError = error as { code?: string; statusCode?: number };
     if (
@@ -159,17 +199,21 @@ async function getOrCreateReferralCoupon(
 
   try {
     return await stripe.coupons.create({
-      id: REFERRAL_COUPON_ID,
-      name: "Referral reward — next bill free",
-      percent_off: 100,
+      id: couponId,
+      name: fixedCredit
+        ? "Referral reward — annual billing credit"
+        : "Referral reward — next bill free",
+      ...(fixedCredit
+        ? { amount_off: reward.amount_off_cents!, currency }
+        : { percent_off: 100 }),
       duration: "once",
-      metadata: { source: "ucat_referral" },
+      metadata: { source: "ucat_referral", reward_id: reward.id },
     });
   } catch (error: unknown) {
     // Concurrent webhook deliveries can both try to create the stable coupon.
     const stripeError = error as { code?: string };
     if (stripeError.code === "resource_already_exists") {
-      return stripe.coupons.retrieve(REFERRAL_COUPON_ID);
+      return stripe.coupons.retrieve(couponId);
     }
     throw error;
   }
@@ -219,7 +263,7 @@ export async function applyQueuedReferralRewardToInvoice(args: {
 
   const { data: reward } = await supabase
     .from("ucat_referral_bill_rewards")
-    .select("id")
+    .select("id, reward_type, amount_off_cents")
     .eq("student_id", subscription.student_id)
     .eq("status", "queued")
     .order("created_at", { ascending: true })
@@ -251,7 +295,11 @@ export async function applyQueuedReferralRewardToInvoice(args: {
   if (!claimedReward) return false;
 
   try {
-    const coupon = await getOrCreateReferralCoupon(stripe);
+    const coupon = await getOrCreateReferralCoupon(
+      stripe,
+      reward,
+      invoice.currency,
+    );
     const existingDiscounts = (
       (
         invoice as Stripe.Invoice & {

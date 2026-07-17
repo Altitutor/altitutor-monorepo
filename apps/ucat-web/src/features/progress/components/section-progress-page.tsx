@@ -1,110 +1,70 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSectionProgress } from "../hooks/use-progress";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
-import { SetAttemptsCard } from "./set-attempts-card";
-import { PracticeAttemptsCard } from "./practice-attempts-card";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@altitutor/ui";
-import {
-  UCAT_CARD_CHROME,
-  UCAT_CARD_CONTENT_AFTER_HEADER,
-  UCAT_DIVIDER_TOP,
-} from "@/lib/ucat-surface-motion";
+import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import { todayIso } from "@/features/study-plan/lib/dates";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { Card, CardContent } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  sumCorrectScoreFromAttempts,
-  sumProgressPointsFromAttempts,
-} from "@altitutor/shared";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
-import {
-  getBestAttemptPerQuestion,
-  getSectionProgressPercentage,
-} from "../lib/progress-data-utils";
+import { getSectionProgressPercentage } from "../lib/progress-data-utils";
 import {
   AnimatedFraction,
   AnimatedInteger,
   ProgressCircular,
 } from "./progress-animated-display";
-import { PercentileCard } from "./percentile-card";
-import { ProgressGraph } from "./progress-graph";
-import type {
-  ProgressResponse,
-  SectionCategoryProgress,
-  QuestionAttemptRow,
-  SetAttemptRow,
-} from "@/app/api/ucat/progress/route";
+import type { SectionCategoryProgress } from "@altitutor/shared";
+import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
+import { SectionTimingCanvas } from "./section-timing-canvas";
+import {
+  AttemptHistoryExplorer,
+  type AttemptHistoryPreviewData,
+} from "./attempt-history-explorer";
+import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
+import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
+import { SegmentedControl } from "./segmented-control";
 
 type SectionProgressPageProps = {
   sectionNumber: number;
 };
+
+const PRACTICE_METRICS = [
+  { value: "percentage" as const, label: "Accuracy" },
+  { value: "time_taken" as const, label: "Time taken" },
+  { value: "attempt_count" as const, label: "Number of attempts" },
+];
+
+const SET_AND_MOCK_METRICS = [
+  { value: "scaled_score" as const, label: "Scaled score" },
+  { value: "percentage" as const, label: "Accuracy" },
+  { value: "exam_speed" as const, label: "Exam speed" },
+  { value: "time_taken" as const, label: "Time taken" },
+];
+
+const TRAJECTORY_VIEW_OPTIONS = [
+  { value: "score" as const, label: "Score" },
+  { value: "timing" as const, label: "Timing" },
+];
 
 export function SectionProgressPage({
   sectionNumber,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useSectionProgress(sectionNumber);
   const projectionQuery = useScoreProjection();
+  const planQuery = useStudyPlan();
+  const setSeriesQuery = useProgressSeries("set", sectionNumber);
   const backHref = "/progress";
   const backLabel = "Back to progress";
 
-  const sectionId = useMemo(() => {
-    if (!data) return null;
-    const section = data.sectionProgress.find(
-      (s) => s.sectionNumber === sectionNumber,
-    );
-    return section?.sectionId ?? null;
-  }, [data, sectionNumber]);
-
-  const {
-    section,
-    categoryProgress,
-    filteredQuestionAttempts,
-    filteredSetAttempts,
-  } = useMemo(() => {
-    if (!data || sectionId == null) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: [] as QuestionAttemptRow[],
-        filteredSetAttempts: [] as SetAttemptRow[],
-      };
-    }
-    const filteredQA = data.questionAttempts.filter(
-      (a) => a.ucatSectionId === sectionId,
-    );
-    const filteredSA = data.setAttempts.filter(
-      (a) => a.sectionId === sectionId,
-    );
-    const section =
-      data.sectionProgress.find((s) => s.sectionId === sectionId) ?? null;
-    if (!section) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: filteredQA,
-        filteredSetAttempts: filteredSA,
-      };
-    }
-
-    const categoryProgress = data.sectionCategoryProgress?.[sectionId] ?? [];
-
-    return {
-      section,
-      categoryProgress,
-      filteredQuestionAttempts: filteredQA,
-      filteredSetAttempts: filteredSA,
-    };
-  }, [data, sectionId]);
+  const section = data?.section ?? null;
+  const categoryProgress = data?.categoryProgress ?? [];
 
   if (isLoading) {
     return <AppPageSkeleton />;
@@ -158,31 +118,72 @@ export function SectionProgressPage({
   const score = projectionQuery.data
     ? (sectionProjection?.currentEstimate ?? null)
     : null;
+  const examSpeedTotals = (setSeriesQuery.data?.points ?? []).reduce(
+    (totals, point) => ({
+      sum: totals.sum + point.examSpeedPercentSum,
+      count: totals.count + point.examSpeedCount,
+    }),
+    { sum: 0, count: 0 },
+  );
+  const averageExamSpeed =
+    examSpeedTotals.count > 0
+      ? examSpeedTotals.sum / examSpeedTotals.count
+      : null;
   return (
     <SectionProgressContent
       section={section}
       score={score}
       percentage={getSectionProgressPercentage(section, "all_time")}
       totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={data.totalPublicSetsBySection?.[section.sectionId]}
-      totalPublicUntimedSets={
-        data.totalPublicUntimedSetsBySection?.[section.sectionId]
-      }
-      totalPublicTimedSets={
-        data.totalPublicTimedSetsBySection?.[section.sectionId]
-      }
-      filteredQuestionAttempts={filteredQuestionAttempts}
-      filteredSetAttempts={filteredSetAttempts}
-      practiceAttempts={data.practiceAttempts ?? []}
+      totalPublicSets={data.totalPublicSets}
+      totalPublicUntimedSets={data.totalPublicUntimedSets}
+      totalPublicTimedSets={data.totalPublicTimedSets}
+      setsCompleted={data.setsCompleted}
+      untimedSetsCompleted={data.untimedSetsCompleted}
+      timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
       scoreProjection={sectionProjection}
-      backHref={backHref}
-      backLabel={backLabel}
+      targetScore={
+        planQuery.data?.generation?.sectionTargets[section.sectionId] ?? null
+      }
+      testDate={planQuery.data?.profile?.testDate ?? null}
+      today={planQuery.data?.today ?? todayIso()}
+      averageExamSpeed={averageExamSpeed}
+      timingSeries={setSeriesQuery.data?.points ?? []}
     />
   );
 }
 
-function SectionProgressContent({
+export type SectionProgressContentProps = {
+  section: {
+    sectionId: string;
+    sectionName: string;
+    sectionNumber: number;
+    correctScore: number;
+    maxScore: number;
+  };
+  score: number | null;
+  percentage: number;
+  totalPublicQuestions?: number;
+  totalPublicSets?: number;
+  totalPublicUntimedSets?: number;
+  totalPublicTimedSets?: number;
+  setsCompleted: number;
+  untimedSetsCompleted: number;
+  timedSetsCompleted: number;
+  categoryProgress: SectionCategoryProgress[];
+  scoreProjection: SectionScoreProjection | null;
+  targetScore: number | null;
+  testDate: string | null;
+  today: string;
+  averageExamSpeed: number | null;
+  timingSeries?: DailyProgressSeriesPoint[];
+  attemptHistoryPreviewData?: Partial<
+    Record<"practice" | "set" | "mock", AttemptHistoryPreviewData>
+  >;
+};
+
+export function SectionProgressContent({
   section,
   score,
   percentage,
@@ -190,62 +191,66 @@ function SectionProgressContent({
   totalPublicSets,
   totalPublicUntimedSets,
   totalPublicTimedSets,
-  filteredQuestionAttempts,
-  filteredSetAttempts,
-  practiceAttempts,
+  setsCompleted,
+  untimedSetsCompleted,
+  timedSetsCompleted,
   categoryProgress,
   scoreProjection,
-  backHref,
-  backLabel,
-}: {
-  section: { sectionId: string; sectionName: string; sectionNumber: number };
-  score: number | null;
-  percentage: number;
-  totalPublicQuestions?: number;
-  totalPublicSets?: number;
-  totalPublicUntimedSets?: number;
-  totalPublicTimedSets?: number;
-  filteredQuestionAttempts: QuestionAttemptRow[];
-  filteredSetAttempts: SetAttemptRow[];
-  practiceAttempts: NonNullable<ProgressResponse["practiceAttempts"]>;
-  categoryProgress: SectionCategoryProgress[];
-  scoreProjection: SectionScoreProjection | null;
-  backHref: string;
-  backLabel: string;
-}) {
-  const stats = useMemo(() => {
-    const unique = getBestAttemptPerQuestion(filteredQuestionAttempts);
-    const completed = sumProgressPointsFromAttempts(unique);
-    const correct = sumCorrectScoreFromAttempts(unique);
-    return {
-      completed,
-      correct,
-      incorrect: completed - correct,
-    };
-  }, [filteredQuestionAttempts]);
+  targetScore,
+  testDate,
+  today,
+  averageExamSpeed,
+  timingSeries,
+  attemptHistoryPreviewData,
+}: SectionProgressContentProps) {
+  const [trajectoryView, setTrajectoryView] = useState<"score" | "timing">(
+    "score",
+  );
+  const stats = {
+    completed: section.maxScore,
+    correct: section.correctScore,
+    incorrect: section.maxScore - section.correctScore,
+  };
 
-  const setsStats = useMemo(() => {
-    const nonStudentGenerated = filteredSetAttempts.filter(
-      (a) => !a.isStudentGenerated,
-    );
-    const uniqueSetIds = new Set(
-      nonStudentGenerated.map((a) => a.questionSetId),
-    );
-    const untimedCompleted = new Set(
-      nonStudentGenerated
-        .filter((a) => !a.wasTimed)
-        .map((a) => a.questionSetId),
-    );
-    const timedCompleted = new Set(
-      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId),
-    );
-    return {
-      totalCompleted: uniqueSetIds.size,
-      untimedCompleted: untimedCompleted.size,
-      timedCompleted: timedCompleted.size,
-    };
-  }, [filteredSetAttempts]);
+  const setsStats = {
+    totalCompleted: setsCompleted,
+    untimedCompleted: untimedSetsCompleted,
+    timedCompleted: timedSetsCompleted,
+  };
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const weakestCategory = categoryProgress
+    .filter((category) => category.maxScore > 0)
+    .sort((left, right) => left.percentage - right.percentage)[0];
+  const projectedGain =
+    score != null && scoreProjection?.projection.length
+      ? Math.round(scoreProjection.projection.at(-1)!.realistic - score)
+      : null;
+  const insightTitle = weakestCategory
+    ? `${weakestCategory.categoryName} is the clearest opportunity`
+    : score == null
+      ? "Build a timed baseline for this section"
+      : projectedGain != null && projectedGain > 0
+        ? `The current path adds about ${projectedGain} points`
+        : "Keep the evidence representative";
+  const insightBody = weakestCategory
+    ? `${Math.round(weakestCategory.percentage)}% accuracy makes this your weakest attempted category.${
+        averageExamSpeed == null
+          ? " Complete more timed sets to add a reliable timing insight."
+          : averageExamSpeed > 105
+            ? ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`
+            : ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so timing and accuracy should improve together.`
+      }`
+    : "Timed sets and mock sections will reveal which category and timing pattern is holding the estimate back.";
+  const resolvedTimingSeries =
+    timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
+  const trajectoryToggle = (
+    <SegmentedControl
+      value={trajectoryView}
+      onValueChange={setTrajectoryView}
+      options={TRAJECTORY_VIEW_OPTIONS}
+      aria-label="Section progress view"
+    />
+  );
 
   return (
     <motion.div
@@ -254,45 +259,80 @@ function SectionProgressContent({
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={itemVariants}>
-        <UcatPageHeader
-          title={section.sectionName}
-          description={`Progress for ${section.sectionName}`}
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={{ 1: section.sectionName }}
-        />
-      </motion.div>
-
-      <motion.div className="flex flex-col gap-4" variants={itemVariants}>
-        <div
-          id="tour-section-predicted-score"
-          className="grid gap-4 lg:grid-cols-2"
-        >
-          <Card className={UCAT_CARD_CHROME}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                Predicted section score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "text-4xl font-bold tabular-nums text-center",
-                  score == null && "text-muted-foreground",
-                )}
-              >
-                {score != null ? (
-                  <AnimatedInteger value={Math.round(score)} />
-                ) : (
-                  "—"
-                )}
+      {trajectoryView === "score" ? (
+        <ProgressTrajectoryCanvas
+          title={`${section.sectionName} progress`}
+          description={
+            targetScore == null
+              ? `Current estimate ${score ?? "—"}`
+              : `Current estimate ${score ?? "—"} · Target ${targetScore}`
+          }
+          statusLabel={
+            score == null
+              ? "Building baseline"
+              : scoreProjection?.confidence === "high"
+                ? "Strong evidence"
+                : scoreProjection?.confidence === "medium"
+                  ? "Estimate forming"
+                  : "Early estimate"
+          }
+          projection={scoreProjection}
+          today={today}
+          targetScore={targetScore}
+          testDate={testDate}
+          targetBreakdown={
+            targetScore == null
+              ? []
+              : [
+                  {
+                    sectionName: section.sectionName,
+                    target: targetScore,
+                    currentEstimate: score,
+                  },
+                ]
+          }
+          scoreMinimum={300}
+          scoreMaximum={900}
+          insightTitle={insightTitle}
+          insightBody={insightBody}
+          headerControl={trajectoryToggle}
+          insightMeta={
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Current estimate</span>
+                <span className="font-medium tabular-nums">{score ?? "—"}</span>
               </div>
-            </CardContent>
-          </Card>
-          <PercentileCard scaledScore={score} scope="section" />
-        </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Target</span>
+                <span className="font-medium tabular-nums">
+                  {targetScore ?? "Not set"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Gap</span>
+                <span className="font-medium tabular-nums">
+                  {score == null || targetScore == null
+                    ? "—"
+                    : targetScore <= score
+                      ? `${score - targetScore} ahead`
+                      : `${targetScore - score} points`}
+                </span>
+              </div>
+            </div>
+          }
+        />
+      ) : (
+        <SectionTimingCanvas
+          sectionName={section.sectionName}
+          points={resolvedTimingSeries}
+          headerControl={trajectoryToggle}
+        />
+      )}
 
+      <motion.div
+        className="mx-auto w-full max-w-[1400px] px-5 sm:px-6"
+        variants={itemVariants}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
@@ -513,149 +553,28 @@ function SectionProgressContent({
         </div>
       </motion.div>
 
-      <motion.div id="tour-section-score-projection" variants={itemVariants}>
-        <ScoreProjectionCard projection={scoreProjection} />
-      </motion.div>
-
       <motion.div id="tour-section-practice-attempts" variants={itemVariants}>
-        <PracticeAttemptsCard attempts={practiceAttempts} />
+        <AttemptHistoryExplorer
+          source="practice"
+          title="Practice sessions"
+          description="Accuracy and activity by day. Select a bar to inspect the attempts behind it."
+          sectionNumber={section.sectionNumber}
+          defaultMetric="percentage"
+          metricOptions={PRACTICE_METRICS}
+          previewData={attemptHistoryPreviewData?.practice}
+        />
       </motion.div>
       <motion.div id="tour-section-set-attempts" variants={itemVariants}>
-        <SetAttemptsCard
-          attempts={filteredSetAttempts}
+        <AttemptHistoryExplorer
+          source="set"
+          title="Set attempts"
+          description="Scaled-score history with the attempts for any selected day floating beside it."
           sectionNumber={section.sectionNumber}
+          defaultMetric="scaled_score"
+          metricOptions={SET_AND_MOCK_METRICS}
+          previewData={attemptHistoryPreviewData?.set}
         />
       </motion.div>
     </motion.div>
-  );
-}
-
-function ScoreProjectionCard({
-  projection,
-}: {
-  projection: SectionScoreProjection | null;
-}) {
-  if (!projection) {
-    return (
-      <Card className={UCAT_CARD_CHROME}>
-        <CardHeader>
-          <CardTitle>Score projection</CardTitle>
-          <CardDescription>
-            Projection will appear after your score estimate has loaded.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[280px] rounded-lg bg-muted/40" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (projection.currentEstimate == null) {
-    return (
-      <Card className={UCAT_CARD_CHROME}>
-        <CardHeader>
-          <CardTitle>Score projection</CardTitle>
-          <CardDescription>
-            Complete more timed sets or mocks before showing a predicted section
-            score.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
-            <div className="text-2xl font-bold">Not enough evidence yet</div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Current effective evidence weight is{" "}
-              {projection.effectiveEvidenceWeight.toFixed(2)}. Once it reaches
-              the configured threshold, this section will show a prediction and
-              trajectory.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const currentPoint = projection.projection.find((point) => point.day === 0);
-  const currentDate =
-    currentPoint?.date ?? new Date().toISOString().slice(0, 10);
-  const historyData = projection.history.map((point) => ({
-    date: point.date,
-    value: point.value,
-  }));
-  const graphData = historyData.some((point) => point.date === currentDate)
-    ? historyData
-    : [
-        ...historyData,
-        {
-          date: currentDate,
-          value: projection.currentEstimate,
-        },
-      ];
-  const graphProjection = {
-    pessimistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.pessimistic,
-    })),
-    realistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.realistic,
-    })),
-    optimistic: projection.projection.map((point) => ({
-      date: point.date,
-      value: point.optimistic,
-    })),
-  };
-
-  return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardHeader>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Score projection</CardTitle>
-            <CardDescription>
-              Estimate of your current and projected improvement, based on your
-              historical performance and practice consistency.
-            </CardDescription>
-          </div>
-          <div className="text-left sm:text-right">
-            <div className="text-2xl font-bold tabular-nums">
-              <AnimatedInteger value={projection.currentEstimate} />
-            </div>
-            <div className="text-xs font-medium text-muted-foreground">
-              {projection.confidence} confidence +/- {projection.uncertainty}
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className={cn("space-y-5", UCAT_CARD_CONTENT_AFTER_HEADER)}>
-        <ProgressGraph
-          data={graphData}
-          type="line"
-          dataType="scaled_score"
-          dateRangeLabel={`${projection.effectivePracticePerWeek} effective questions/week`}
-          projection={graphProjection}
-        />
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {projection.horizons.map((horizon) => (
-            <div
-              key={horizon.day}
-              className="rounded-lg border border-border bg-card/50 p-3"
-            >
-              <div className="text-xs font-medium text-muted-foreground">
-                {horizon.day} days
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums">
-                {horizon.realistic}
-              </div>
-              <div className="text-xs text-muted-foreground tabular-nums">
-                {horizon.pessimistic} - {horizon.optimistic}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }

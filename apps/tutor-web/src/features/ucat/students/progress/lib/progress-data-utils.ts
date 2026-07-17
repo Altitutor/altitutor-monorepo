@@ -40,8 +40,7 @@ export function applyAttemptFilter(
   for (const s of setAttempts) {
     if (filter === 'untimed' && !s.wasTimed) filteredSetIds.add(s.id)
     if (filter === 'timed' && s.wasTimed) filteredSetIds.add(s.id)
-    if (filter === 'altitutor' && s.wasTimed && !s.isStudentGenerated)
-      filteredSetIds.add(s.id)
+    if (filter === 'altitutor' && s.wasTimed) filteredSetIds.add(s.id)
   }
 
   const filteredSetAttempts = setAttempts.filter((s) =>
@@ -66,9 +65,7 @@ export function applyAttemptFilter(
     if (filter === 'timed')
       return childSets.every((s) => s.wasTimed)
     if (filter === 'altitutor')
-      return childSets.every(
-        (s) => s.wasTimed && !s.isStudentGenerated
-      )
+      return childSets.every((s) => s.wasTimed)
     return true
   })
 

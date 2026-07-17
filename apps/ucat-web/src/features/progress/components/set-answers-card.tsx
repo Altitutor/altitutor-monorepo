@@ -40,6 +40,8 @@ import type {
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import { formatTimeSeconds } from "../lib/format-time";
+import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
+import { AttemptInsightCard } from "./attempt-insight-card";
 
 type QuestionAttemptForCard = {
   questionNumber?: number;
@@ -87,6 +89,9 @@ function isQuestionNotAnswered(
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
   if (question.questionType === "syllogism") {
+    if (attempt.result === "correct" || attempt.result === "partial") {
+      return false;
+    }
     return (
       !attempt.answerSnapshot ||
       Object.keys(attempt.answerSnapshot).length === 0
@@ -310,6 +315,13 @@ export function SetAnswersCard({
     ? isQuestionNotAnswered(currentQuestion, currentAttempt)
     : false;
   const resultBadge = getAttemptResultBadge(currentAttempt, notAnswered);
+  const questionInsight = buildQuestionAttemptInsight({
+    result: currentAttempt?.result ?? "not_attempted",
+    timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
+    averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
+    averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
+    wasFlagged: currentAttempt?.isFlagged ?? false,
+  });
   const markingResult = useMemo(
     () =>
       questions.length > 0
@@ -541,6 +553,13 @@ export function SetAnswersCard({
       </div>
 
       <div id="tour-attempt-explanation" className="min-w-0 space-y-4">
+        {questionInsight ? (
+          <AttemptInsightCard
+            label="Question insight"
+            insight={questionInsight}
+          />
+        ) : null}
+
         <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-3">
             <CardTitle className="text-base font-medium">

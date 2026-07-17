@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import {
   isMockEngineRoute,
@@ -12,6 +12,7 @@ import {
   isSkillTrainerPlayRoute,
 } from "@/features/ucat-access/lib/quota-area-for-pathname";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 
 type BlockedQuotaRoute = {
@@ -29,7 +30,6 @@ function getSearchValue(searchParams: URLSearchParams, names: string[]) {
 export function QuotaRouteGuard() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
   const { active: activeExamAttempt, isLoading: activeExamLoading } =
     useActiveExamAttempt();
@@ -37,7 +37,7 @@ export function QuotaRouteGuard() {
     active: activeSkillTrainerAttempt,
     isLoading: activeSkillTrainerLoading,
   } = useActiveSkillTrainerAttempt();
-  const { open, openQuotaLimit } = useQuotaLimitModal();
+  const { open, openQuotaLimit } = useQuotaLimitDialog();
   const lastOpenedKeyRef = useRef<string | null>(null);
 
   const route = useMemo<BlockedQuotaRoute | null>(() => {
@@ -100,11 +100,7 @@ export function QuotaRouteGuard() {
     lastOpenedKeyRef.current = openedKey;
 
     openQuotaLimit(quotaPayloadFromUsage(areaUsage), {
-      dismissAction: {
-        label: "Back to dashboard",
-        onDismiss: () => router.replace("/dashboard"),
-        variant: "dashboard",
-      },
+      dismissAction: quotaRouteFallback(route.area),
     });
   }, [
     open,
@@ -113,7 +109,6 @@ export function QuotaRouteGuard() {
     quota,
     quotaLoading,
     route,
-    router,
     searchParams,
   ]);
 

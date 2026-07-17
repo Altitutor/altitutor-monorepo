@@ -1,4 +1,4 @@
-const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due", "unpaid"]);
+import { hasPaidUcatSubscriptionAccess } from "@/lib/ucat/subscription-status";
 
 export type StripeSubscriptionSnapshot = {
   status?: string;
@@ -12,9 +12,20 @@ export type StripeSubscriptionSnapshot = {
       current_period_end?: number;
     }>;
   };
+  latest_invoice?:
+    | string
+    | {
+        id?: string;
+        status?: string | null;
+        next_payment_attempt?: number | null;
+        payment_intent?: string | { status?: string | null } | null;
+      }
+    | null;
 };
 
-export function subscriptionPeriodFields(subscription: StripeSubscriptionSnapshot): {
+export function subscriptionPeriodFields(
+  subscription: StripeSubscriptionSnapshot,
+): {
   current_period_start: string | null;
   current_period_end: string | null;
 } {
@@ -27,18 +38,19 @@ export function subscriptionPeriodFields(subscription: StripeSubscriptionSnapsho
   return {
     current_period_start:
       start != null ? new Date(start * 1000).toISOString() : null,
-    current_period_end:
-      end != null ? new Date(end * 1000).toISOString() : null,
+    current_period_end: end != null ? new Date(end * 1000).toISOString() : null,
   };
 }
 
-export function subscriptionCancelFields(subscription: StripeSubscriptionSnapshot): {
+export function subscriptionCancelFields(
+  subscription: StripeSubscriptionSnapshot,
+): {
   cancel_at_period_end: boolean;
   cancel_at: string | null;
 } {
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
   const status = subscription.status ?? "active";
-  const stillActive = ACTIVE_STATUSES.has(status);
+  const stillActive = hasPaidUcatSubscriptionAccess(status);
 
   if (subscription.cancel_at) {
     const cancelAtMs = subscription.cancel_at * 1000;
@@ -70,7 +82,10 @@ export function isSubscriptionCancelScheduled(subscription: {
   cancel_at: string | null;
 }): boolean {
   if (subscription.cancel_at_period_end) return true;
-  if (!subscription.cancel_at || !ACTIVE_STATUSES.has(subscription.status)) {
+  if (
+    !subscription.cancel_at ||
+    !hasPaidUcatSubscriptionAccess(subscription.status)
+  ) {
     return false;
   }
   return new Date(subscription.cancel_at).getTime() > Date.now();

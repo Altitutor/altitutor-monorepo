@@ -365,13 +365,12 @@ function SectionProgressContent({
             progressMode.timeFrameDays
           )
         : filteredSetAttempts
-    const nonStudentGenerated = timeFiltered.filter((a) => !a.isStudentGenerated)
-    const uniqueSetIds = new Set(nonStudentGenerated.map((a) => a.questionSetId))
+    const uniqueSetIds = new Set(timeFiltered.map((a) => a.questionSetId))
     const untimedCompleted = new Set(
-      nonStudentGenerated.filter((a) => !a.wasTimed).map((a) => a.questionSetId)
+      timeFiltered.filter((a) => !a.wasTimed).map((a) => a.questionSetId)
     )
     const timedCompleted = new Set(
-      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId)
+      timeFiltered.filter((a) => a.wasTimed).map((a) => a.questionSetId)
     )
     return {
       totalCompleted: uniqueSetIds.size,

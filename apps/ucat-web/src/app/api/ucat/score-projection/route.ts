@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { scaleTo300_900 } from "@altitutor/ucat-marking";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   DEFAULT_HORIZONS,
   defaultSettings,
@@ -12,11 +13,15 @@ import {
 } from "@/features/score-projection/lib/model";
 import type {
   HistoricalProjectionPoint,
+  ProjectionConfidence,
   ScoreProjectionResponse,
+  ScoreProjectionSnapshot,
 } from "@/features/score-projection/types/score-projection";
+import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
 
 const HISTORY_LOOKBACK_DAYS = 84;
 const HISTORY_STEP_DAYS = 7;
+const SNAPSHOT_LOOKBACK_DAYS = 365;
 
 type SectionRow = {
   id: string | null;
@@ -30,29 +35,15 @@ type ResolvedSection = {
   sectionNumber: number;
 };
 
-type SetAttemptRow = {
-  attempted_at: string | null;
+type ProjectionEvidenceRow = {
+  source: "set" | "mock" | "practice";
+  section_id: string | null;
   completed_at: string | null;
-  question_set_id: string | null;
   score_points: number | null;
   total_points: number | null;
   scaled_score: number | null;
-  student_ucat_mock_attempt_id: string | null;
   was_timed: boolean | null;
   student_exam_speed: number | null;
-};
-
-type PracticeSessionRow = {
-  completed_at: string | null;
-  started_at: string | null;
-  ucat_section_id: string | null;
-  score_points: number | null;
-  total_points: number | null;
-};
-
-type SetMetaRow = {
-  id: string;
-  sections: Array<{ section_number?: number }> | null;
 };
 
 type SettingsRow = {
@@ -85,6 +76,44 @@ type SettingsRow = {
   optimistic_effort_half_saturation: number | null;
 };
 
+type SnapshotRow = {
+  student_id: string;
+  snapshot_date: string;
+  current_estimate: number;
+  confidence: ProjectionConfidence;
+  uncertainty: number;
+  effective_evidence_weight: number;
+  section_estimates: unknown;
+  generated_at: string;
+};
+
+type SnapshotWrite = SnapshotRow;
+
+type SnapshotStore = {
+  from: (relation: "ucat_score_projection_snapshots") => {
+    select: (columns: string) => {
+      eq: (
+        column: "student_id",
+        value: string,
+      ) => {
+        gte: (
+          column: "snapshot_date",
+          value: string,
+        ) => {
+          order: (
+            column: "snapshot_date",
+            options: { ascending: boolean },
+          ) => Promise<{ data: SnapshotRow[] | null; error: Error | null }>;
+        };
+      };
+    };
+    upsert: (
+      row: SnapshotWrite,
+      options: { onConflict: "student_id,snapshot_date" },
+    ) => Promise<{ error: Error | null }>;
+  };
+};
+
 function timestamp(value: string | null): number | null {
   if (!value) return null;
   const parsed = new Date(value).getTime();
@@ -93,6 +122,139 @@ function timestamp(value: string | null): number | null {
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function dateInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function readSectionEstimates(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([sectionId, estimate]) =>
+      typeof estimate === "number" ? [[sectionId, estimate]] : [],
+    ),
+  );
+}
+
+function toSnapshot(row: SnapshotRow): ScoreProjectionSnapshot {
+  return {
+    date: row.snapshot_date,
+    currentEstimate: row.current_estimate,
+    confidence: row.confidence,
+    uncertainty: row.uncertainty,
+    effectiveEvidenceWeight: row.effective_evidence_weight,
+    sectionEstimates: readSectionEstimates(row.section_estimates),
+  };
+}
+
+function snapshotsDiffer(left: SnapshotRow | undefined, right: SnapshotWrite) {
+  if (!left) return true;
+  return (
+    left.current_estimate !== right.current_estimate ||
+    left.confidence !== right.confidence ||
+    left.uncertainty !== right.uncertainty ||
+    left.effective_evidence_weight !== right.effective_evidence_weight ||
+    JSON.stringify(readSectionEstimates(left.section_estimates)) !==
+      JSON.stringify(right.section_estimates)
+  );
+}
+
+async function captureDailySnapshot(
+  userId: string,
+  payload: ScoreProjectionResponse,
+  generatedAt: Date,
+): Promise<ScoreProjectionSnapshot[]> {
+  if (!supabaseAdmin) return [];
+
+  const { data: student, error: studentError } = await supabaseAdmin
+    .from("students")
+    .select("id, timezone")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (studentError || !student) {
+    console.warn(
+      "[score-projection] Snapshot student lookup failed",
+      studentError,
+    );
+    return [];
+  }
+
+  const snapshotStore = supabaseAdmin as unknown as SnapshotStore;
+  const lookback = new Date(generatedAt);
+  lookback.setUTCDate(lookback.getUTCDate() - SNAPSHOT_LOOKBACK_DAYS);
+  const { data, error } = await snapshotStore
+    .from("ucat_score_projection_snapshots")
+    .select(
+      "student_id, snapshot_date, current_estimate, confidence, uncertainty, effective_evidence_weight, section_estimates, generated_at",
+    )
+    .eq("student_id", student.id)
+    .gte("snapshot_date", isoDate(lookback))
+    .order("snapshot_date", { ascending: true });
+  if (error) {
+    // The dashboard still works during a migration rollout; it simply starts
+    // building trusted history once the snapshot table is available.
+    console.warn("[score-projection] Snapshot history unavailable", error);
+    return [];
+  }
+
+  const rows = data ?? [];
+  const total = deriveTotalScoreProjection(payload.sections);
+  if (
+    total.currentEstimate == null ||
+    total.confidence == null ||
+    total.uncertainty == null
+  ) {
+    return rows.map(toSnapshot);
+  }
+
+  const snapshotDate = dateInTimeZone(
+    generatedAt,
+    student.timezone ?? "Australia/Adelaide",
+  );
+  const sectionEstimates = Object.fromEntries(
+    payload.sections.flatMap((section) =>
+      section.sectionNumber <= 3 && section.currentEstimate != null
+        ? [[section.sectionId, section.currentEstimate]]
+        : [],
+    ),
+  );
+  const nextRow: SnapshotWrite = {
+    student_id: student.id,
+    snapshot_date: snapshotDate,
+    current_estimate: total.currentEstimate,
+    confidence: total.confidence,
+    uncertainty: total.uncertainty,
+    effective_evidence_weight:
+      Math.round(total.effectiveEvidenceWeight * 100) / 100,
+    section_estimates: sectionEstimates,
+    generated_at: payload.generatedAt,
+  };
+  const currentRow = rows.find((row) => row.snapshot_date === snapshotDate);
+
+  if (snapshotsDiffer(currentRow, nextRow)) {
+    const { error: writeError } = await snapshotStore
+      .from("ucat_score_projection_snapshots")
+      .upsert(nextRow, { onConflict: "student_id,snapshot_date" });
+    if (writeError) {
+      console.warn("[score-projection] Snapshot write failed", writeError);
+      return rows.map(toSnapshot);
+    }
+  }
+
+  return [
+    ...rows.filter((row) => row.snapshot_date !== snapshotDate).map(toSnapshot),
+    toSnapshot(nextRow),
+  ].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function historicalCheckpoints(generatedAt: Date): Date[] {
@@ -205,26 +367,27 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [sectionsRes, setAttemptsRes, practiceRes, settingsRes] =
-    await Promise.all([
-      supabase
-        .from("vstudent_ucat_sections")
-        .select("id, name, section_number")
-        .order("section_number"),
-      supabase
-        .from("vstudent_ucat_my_set_attempts")
-        .select(
-          "attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, student_ucat_mock_attempt_id, was_timed, student_exam_speed",
-        )
-        .not("completed_at", "is", null),
-      supabase
-        .from("vstudent_ucat_my_practice_sessions")
-        .select(
-          "started_at, completed_at, ucat_section_id, score_points, total_points",
-        )
-        .not("completed_at", "is", null),
-      supabase.from("ucat_score_projection_settings").select("*"),
-    ]);
+  const [sectionsRes, evidenceRes, settingsRes] = await Promise.all([
+    supabase
+      .from("vstudent_ucat_sections")
+      .select("id, name, section_number")
+      .order("section_number"),
+    (
+      supabase as unknown as {
+        from: (relation: string) => {
+          select: (columns: string) => Promise<{
+            data: ProjectionEvidenceRow[] | null;
+            error: Error | null;
+          }>;
+        };
+      }
+    )
+      .from("vstudent_ucat_score_projection_evidence")
+      .select(
+        "source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed",
+      ),
+    supabase.from("ucat_score_projection_settings").select("*"),
+  ]);
 
   if (sectionsRes.error) {
     return NextResponse.json(
@@ -232,15 +395,9 @@ export async function GET() {
       { status: 500 },
     );
   }
-  if (setAttemptsRes.error) {
+  if (evidenceRes.error) {
     return NextResponse.json(
-      { error: setAttemptsRes.error.message },
-      { status: 500 },
-    );
-  }
-  if (practiceRes.error) {
-    return NextResponse.json(
-      { error: practiceRes.error.message },
+      { error: evidenceRes.error.message },
       { status: 500 },
     );
   }
@@ -272,64 +429,9 @@ export async function GET() {
     })
     .sort((a, b) => a.sectionNumber - b.sectionNumber);
 
-  const sectionByNumber = new Map<number, string>(
-    sections.map((section) => [section.sectionNumber, section.id]),
-  );
   const evidenceBySection = new Map<string, AttemptEvidence[]>(
     sections.map((section) => [section.id, [] as AttemptEvidence[]]),
   );
-
-  const setRows = (setAttemptsRes.data ?? []) as SetAttemptRow[];
-  const setIds = [
-    ...new Set(
-      setRows
-        .map((row) => row.question_set_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const setMetaRes =
-    setIds.length > 0
-      ? await supabase
-          .from("vstudent_ucat_question_sets")
-          .select("id, sections")
-          .in("id", setIds)
-      : { data: [], error: null };
-
-  if (setMetaRes.error) {
-    return NextResponse.json(
-      { error: setMetaRes.error.message },
-      { status: 500 },
-    );
-  }
-
-  const sectionBySetId = new Map<string, string>();
-  for (const meta of (setMetaRes.data ?? []) as SetMetaRow[]) {
-    const sectionNumber = Array.isArray(meta.sections)
-      ? meta.sections[0]?.section_number
-      : null;
-    const sectionId =
-      sectionNumber != null ? sectionByNumber.get(sectionNumber) : null;
-    if (sectionId) sectionBySetId.set(meta.id, sectionId);
-  }
-
-  for (const row of setRows) {
-    if (row.scaled_score == null || row.total_points == null) continue;
-    const sectionId = row.question_set_id
-      ? sectionBySetId.get(row.question_set_id)
-      : null;
-    if (!sectionId) continue;
-    const completedAt = timestamp(row.completed_at ?? row.attempted_at);
-    if (completedAt == null) continue;
-    evidenceBySection.get(sectionId)?.push({
-      source: row.student_ucat_mock_attempt_id ? "mock" : "set",
-      score: row.scaled_score,
-      scoredPoints: row.score_points ?? 0,
-      totalPoints: row.total_points,
-      timestamp: completedAt,
-      wasTimed: row.was_timed ?? false,
-      examSpeedRatio: row.student_exam_speed,
-    });
-  }
 
   const settingsBySection = new Map(
     ((settingsRes.data ?? []) as SettingsRow[])
@@ -337,26 +439,29 @@ export async function GET() {
       .map((row) => [row.section_id!, row]),
   );
 
-  for (const row of (practiceRes.data ?? []) as PracticeSessionRow[]) {
-    if (
-      !row.ucat_section_id ||
-      row.score_points == null ||
-      row.total_points == null
-    ) {
+  for (const row of evidenceRes.data ?? []) {
+    if (!row.section_id || row.score_points == null || row.total_points == null)
       continue;
-    }
-    const settings = withDefaults(settingsBySection.get(row.ucat_section_id));
-    if (row.total_points < settings.minPracticeScoredPoints) continue;
-    const completedAt = timestamp(row.completed_at ?? row.started_at);
+    const settings = withDefaults(settingsBySection.get(row.section_id));
+    if (
+      row.source === "practice" &&
+      row.total_points < settings.minPracticeScoredPoints
+    )
+      continue;
+    if (row.source !== "practice" && row.scaled_score == null) continue;
+    const completedAt = timestamp(row.completed_at);
     if (completedAt == null) continue;
-    evidenceBySection.get(row.ucat_section_id)?.push({
-      source: "practice",
-      score: scaleTo300_900(row.score_points, row.total_points),
+    evidenceBySection.get(row.section_id)?.push({
+      source: row.source,
+      score:
+        row.source === "practice"
+          ? scaleTo300_900(row.score_points, row.total_points)
+          : row.scaled_score!,
       scoredPoints: row.score_points,
       totalPoints: row.total_points,
       timestamp: completedAt,
-      wasTimed: false,
-      examSpeedRatio: null,
+      wasTimed: row.was_timed ?? false,
+      examSpeedRatio: row.student_exam_speed,
     });
   }
 
@@ -364,6 +469,7 @@ export async function GET() {
   const payload: ScoreProjectionResponse = {
     generatedAt: generatedAt.toISOString(),
     horizons: [...DEFAULT_HORIZONS],
+    snapshots: [],
     sections: sections.map((section) => {
       const settings = withDefaults(settingsBySection.get(section.id));
       const evidence = evidenceBySection.get(section.id) ?? [];
@@ -410,6 +516,8 @@ export async function GET() {
       };
     }),
   };
+
+  payload.snapshots = await captureDailySnapshot(user.id, payload, generatedAt);
 
   return NextResponse.json(payload);
 }

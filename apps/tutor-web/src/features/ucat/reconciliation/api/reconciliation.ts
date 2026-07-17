@@ -69,12 +69,41 @@ export type MockWithIncorrectSets = {
   sets: Array<{ id: string; name: string }>
 }
 
+export type PotentialDuplicateStemSide = {
+  id: string
+  sectionId: string
+  sectionName: string
+  categoryId: string | null
+  categoryName: string | null
+  stemText: unknown
+  isPrivate: boolean
+  setNames: string[]
+  questions: Array<{
+    id: string
+    question_text: unknown
+    index: number
+    answer_options?: Array<{ answer_text?: unknown; is_answer?: boolean | null }>
+  }>
+}
+
+export type PotentialDuplicatePair = {
+  id: string
+  sectionId: string
+  sectionName: string
+  stemA: PotentialDuplicateStemSide
+  stemB: PotentialDuplicateStemSide
+  tokenRatio: number
+  trigramRatio: number
+  sharedTokenPreview: string[]
+}
+
 export type ReconciliationData = {
   pendingGeneratedStems: PendingGeneratedStem[]
   stemsWithNoCategory: StemWithNoCategory[]
   questionsWithNoExplanation: QuestionWithNoExplanation[]
   untaggedQuestions: UntaggedQuestion[]
   privateStemsNotInSet: PrivateStemNotInSet[]
+  potentialDuplicatePairs: PotentialDuplicatePair[]
   setsWithIncorrectQuestionCount: SetReconciliationRow[]
   setsWithIncorrectTiming: SetReconciliationRow[]
   setsWithMultipleSections: SetReconciliationRow[]

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
-import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 
 export function useUcatSets() {
   return useQuery({ queryKey: ucatKeys.sets(), queryFn: ucatSetsApi.list })
@@ -31,6 +31,19 @@ export function useUpdateUcatSet() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.set(variables.setId) })
+    },
+  })
+}
+
+export function useSetUcatSetStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ setId, status }: { setId: string; status: UcatContentStatus }) =>
+      ucatSetsApi.setStatus(setId, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.set(variables.setId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
   })
 }

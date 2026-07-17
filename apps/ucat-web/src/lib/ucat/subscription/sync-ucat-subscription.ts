@@ -49,10 +49,48 @@ export async function syncUcatSubscriptionForUser(
   try {
     const stripeSub = (await stripe.subscriptions.retrieve(
       subscription.stripe_subscription_id,
-      { expand: ["items.data"] },
+      { expand: ["items.data", "latest_invoice.payment_intent"] },
     )) as unknown as StripeSubscriptionSnapshot;
     const cancelFields = subscriptionCancelFields(stripeSub);
     const periodFields = subscriptionPeriodFields(stripeSub);
+    const latestInvoice =
+      stripeSub.latest_invoice && typeof stripeSub.latest_invoice === "object"
+        ? stripeSub.latest_invoice
+        : null;
+    const latestPaymentIntent =
+      latestInvoice?.payment_intent &&
+      typeof latestInvoice.payment_intent === "object"
+        ? latestInvoice.payment_intent
+        : null;
+    const recovering = stripeSub.status === "past_due" && latestInvoice?.id;
+    const recoveredCurrentInvoice =
+      latestInvoice?.status === "paid" &&
+      latestInvoice.id === subscription.billing_recovery_invoice_id;
+    const recoveryFields = recoveredCurrentInvoice
+      ? {
+          billing_recovery_invoice_id: null,
+          billing_recovery_started_at: null,
+          billing_recovery_next_attempt_at: null,
+          billing_recovery_failure_code: null,
+          billing_recovery_requires_action: false,
+        }
+      : recovering
+        ? {
+            billing_recovery_invoice_id: latestInvoice.id,
+            billing_recovery_started_at:
+              subscription.billing_recovery_invoice_id === latestInvoice.id
+                ? subscription.billing_recovery_started_at
+                : new Date().toISOString(),
+            billing_recovery_next_attempt_at:
+              latestInvoice.next_payment_attempt == null
+                ? null
+                : new Date(
+                    latestInvoice.next_payment_attempt * 1000,
+                  ).toISOString(),
+            billing_recovery_requires_action:
+              latestPaymentIntent?.status === "requires_action",
+          }
+        : {};
 
     const { error: updateError } = await supabaseAdmin
       .from("student_subscriptions")
@@ -60,6 +98,7 @@ export async function syncUcatSubscriptionForUser(
         status: stripeSub.status ?? subscription.status,
         ...periodFields,
         ...cancelFields,
+        ...recoveryFields,
         updated_at: new Date().toISOString(),
       })
       .eq("id", subscription.id);

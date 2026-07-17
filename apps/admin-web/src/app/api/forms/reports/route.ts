@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
-import type { Json } from '@altitutor/shared';
+import {
+  getFormQuestionReportingSignature,
+  isQuestionBlock,
+  type FormBlock,
+  type Json,
+} from '@altitutor/shared';
 
 type ReportAnswer = {
   id: string;
@@ -16,8 +21,13 @@ type ReportAnswer = {
 };
 
 type ReportResponse = {
+  form_version_id: string;
   form_response_answers?: ReportAnswer[] | null;
 };
+
+function asFormBlocks(value: unknown): FormBlock[] {
+  return Array.isArray(value) ? (value as FormBlock[]) : [];
+}
 
 export async function GET(request: Request) {
   const auth = await requireAdminStaff();
@@ -40,21 +50,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: formError?.message ?? 'Form not found' }, { status: 404 });
   }
 
-  const selectedVersionId = versionId ?? form.latest_published_version_id;
-  if (!selectedVersionId) {
-    return NextResponse.json({ report: null });
-  }
-
-  const [{ data: version }, { data: responses }, { count }] = await Promise.all([
-    admin.from('form_versions').select('*').eq('id', selectedVersionId).single(),
-    admin
+  const responseQuery = admin
       .from('form_responses')
       .select(`
         id,
+        form_version_id,
         session_id,
         respondent_type,
         subject_type,
         submitted_at,
+        sessions ( id, start_at, short_name, long_name ),
+        recorded_by_staff:staff!form_responses_recorded_by_staff_id_fkey ( id, first_name, last_name ),
         respondent_student:students!form_responses_respondent_student_id_fkey ( id, first_name, last_name ),
         respondent_staff:staff!form_responses_respondent_staff_id_fkey ( id, first_name, last_name ),
         respondent_parent:parents!form_responses_respondent_parent_id_fkey ( id, first_name, last_name ),
@@ -63,17 +69,41 @@ export async function GET(request: Request) {
         subject_parent:parents!form_responses_subject_parent_id_fkey ( id, first_name, last_name ),
         form_response_answers ( id, question_id, question_label_snapshot, question_type, choice_value, choice_label_snapshot, choice_values, text_value, number_value, created_at )
       `)
-      .eq('form_version_id', selectedVersionId)
+      .eq('form_id', formId)
       .is('deleted_at', null)
-      .order('submitted_at', { ascending: false }),
-    admin
+      .order('submitted_at', { ascending: false });
+  const countQuery = admin
       .from('form_responses')
       .select('id', { count: 'exact', head: true })
-      .eq('form_version_id', selectedVersionId)
-      .is('deleted_at', null),
+      .eq('form_id', formId)
+      .is('deleted_at', null);
+
+  if (versionId) {
+    responseQuery.eq('form_version_id', versionId);
+    countQuery.eq('form_version_id', versionId);
+  }
+
+  const [{ data: version }, { data: responses }, { count }, { data: definitionVersions }] = await Promise.all([
+    versionId
+      ? admin.from('form_versions').select('*').eq('id', versionId).eq('form_id', formId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    responseQuery,
+    countQuery,
+    admin.from('form_versions').select('id, blocks').eq('form_id', formId),
   ]);
 
   const responseRows = (responses ?? []) as unknown as ReportResponse[];
+  const signatures = new Map<string, string>();
+  for (const definitionVersion of definitionVersions ?? []) {
+    for (const block of asFormBlocks(definitionVersion.blocks)) {
+      if (isQuestionBlock(block)) {
+        signatures.set(
+          `${definitionVersion.id}:${block.id}`,
+          getFormQuestionReportingSignature(block),
+        );
+      }
+    }
+  }
 
   return NextResponse.json({
     report: {
@@ -85,6 +115,7 @@ export async function GET(request: Request) {
         (response.form_response_answers ?? []).map((answer) => ({
           ...answer,
           response,
+          reporting_question_id: `${answer.question_id}:${signatures.get(`${response.form_version_id}:${answer.question_id}`) ?? answer.question_type}`,
         }))
       ),
     },

@@ -106,7 +106,7 @@ export function QuestionEngineTutorialInteractions() {
           !event.ctrlKey &&
           !event.metaKey &&
           (/^[0-9]$/.test(calculatorKey) ||
-            [".", "+", "-", "*", "x", "/", "%", "enter", "=", "c", "p", "m"].includes(
+            [".", "+", "-", "*", "x", "/", "%", "enter", "=", "c", "p", "m", "backspace", "delete"].includes(
               calculatorKey,
             ));
         if (isCalculatorKey) return;

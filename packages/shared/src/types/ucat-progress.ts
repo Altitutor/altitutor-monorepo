@@ -26,7 +26,6 @@ export type SetAttemptRow = {
   completedAt: string | null
   questionSetId: string
   questionSetName: string | null
-  isStudentGenerated: boolean
   studentUcatMockAttemptId: string | null
   scorePoints: number | null
   totalPoints: number | null

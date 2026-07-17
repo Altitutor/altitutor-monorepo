@@ -56,7 +56,12 @@ function TrainerConfigFields({
     <div className="grid gap-4 md:grid-cols-2">
       <div className="flex items-center gap-2 md:col-span-2">
         <Switch checked={enabled} onCheckedChange={onEnabledChange} id={`enabled-${trainer.id}`} />
-        <Label htmlFor={`enabled-${trainer.id}`}>Enabled for students</Label>
+        <div className="space-y-0.5">
+          <Label htmlFor={`enabled-${trainer.id}`}>Enabled for students</Label>
+          <p className="text-xs text-muted-foreground">
+            Disabled trainers are hidden throughout ucat-web, but remain available to tutors for question management.
+          </p>
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor={`time-limit-${trainer.id}`}>Time limit (seconds)</Label>

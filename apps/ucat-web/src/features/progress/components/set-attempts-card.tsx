@@ -16,7 +16,6 @@ import {
 import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
-import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
@@ -24,14 +23,7 @@ import {
   getAttemptTableMetricColumn,
   resolveAttemptTableMetric,
 } from "../lib/attempt-table-metric";
-import {
-  aggregateForGraph,
-  buildAttemptAxisGraphData,
-  filterByTimeFrame,
-  filterItemsByGraphDateRange,
-  type GraphXAxisMode,
-} from "../lib/progress-data-utils";
-import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
+import type { SetAttemptRow } from "@altitutor/shared";
 import {
   UCAT_CARD_CHROME,
   UCAT_CARD_CONTENT_AFTER_HEADER,
@@ -41,14 +33,13 @@ import {
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
-import {
-  resolveGraphDateRange,
-  type GraphDateRange,
-} from "../lib/progress-mode";
+import type { GraphDateRange } from "../lib/progress-mode";
 import { ProgressClearFilterButton } from "./progress-clear-filter-button";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
+import { useProgressAttempts } from "../hooks/use-progress-attempts";
 
 type SetAttemptsCardProps = {
-  attempts: SetAttemptRow[];
   /** When set, links go to /progress/sections/{sectionNumber}/set-attempts/{id} so back returns to section. */
   sectionNumber?: number;
 };
@@ -63,55 +54,23 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-function getSetAttemptMetricValue(
-  attempt: SetAttemptRow,
-  graphDataType: GraphDataType,
-): number {
-  if (graphDataType === "scaled_score") return attempt.scaledScore ?? 0;
-  if (graphDataType === "percentage") {
-    const total = attempt.totalPoints ?? 0;
-    return total > 0 ? ((attempt.scorePoints ?? 0) / total) * 100 : 0;
-  }
-  if (graphDataType === "time_taken")
-    return Math.round(attempt.timeTakenSeconds ?? 0);
-  if (graphDataType === "attempt_count") return 1;
-  return (attempt.studentExamSpeed ?? 0) * 100;
-}
-
-export function SetAttemptsCard({
-  attempts,
-  sectionNumber,
-}: SetAttemptsCardProps) {
+export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
-  const [graphType, setGraphType] = useState<"line" | "bar">("line");
-  const [xAxisMode, setXAxisMode] = useState<GraphXAxisMode>("date");
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  const { mode, timeFrameDays } = resolveGraphDateRange(dateRange);
-
-  const standaloneAttempts = useMemo(() => {
-    const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
-    return filterByTimeFrame(result, mode, timeFrameDays);
-  }, [attempts, mode, timeFrameDays]);
-
-  const metricOptions = useMemo(() => {
-    if (xAxisMode === "attempt") {
-      return GRAPH_DATA_TYPES.filter(
-        (option) => option.value !== "attempt_count",
-      );
-    }
-    return GRAPH_DATA_TYPES;
-  }, [xAxisMode]);
-
-  const handleXAxisModeChange = (nextMode: GraphXAxisMode) => {
-    setXAxisMode(nextMode);
-    if (nextMode === "attempt" && graphDataType === "attempt_count") {
-      setGraphDataType("scaled_score");
-    }
-  };
+  const seriesQuery = useProgressSeries("set", sectionNumber);
+  const attemptsQuery = useProgressAttempts({
+    source: "set",
+    page,
+    pageSize,
+    dateRange,
+    sectionNumber,
+  });
+  const standaloneAttempts = (attemptsQuery.data?.attempts ??
+    []) as SetAttemptRow[];
+  const metricOptions = GRAPH_DATA_TYPES;
 
   const handleDateRangeChange = (nextRange: GraphDateRange) => {
     setDateRange(nextRange);
@@ -119,51 +78,12 @@ export function SetAttemptsCard({
   };
 
   const graphData = useMemo(() => {
-    const isCountMetric = graphDataType === "attempt_count";
-    const getValue = (a: SetAttemptRow) =>
-      getSetAttemptMetricValue(a, graphDataType);
-
-    if (xAxisMode === "attempt") {
-      return buildAttemptAxisGraphData(
-        filterItemsByGraphDateRange(
-          standaloneAttempts,
-          (a) => a.completedAt ?? a.attemptedAt,
-          mode,
-          timeFrameDays,
-        ),
-        (a) => a.completedAt ?? a.attemptedAt,
-        getValue,
-        (a) => a.id,
-        (_a, index) => String(index + 1),
-        (a, index) => {
-          const name = a.questionSetName?.trim();
-          return name
-            ? `Attempt #${index + 1} · ${name}`
-            : `Attempt #${index + 1}`;
-        },
-      );
-    }
-
-    return aggregateForGraph(
-      standaloneAttempts,
-      (a) => a.completedAt ?? a.attemptedAt,
-      getValue,
-      mode,
-      timeFrameDays,
-      isCountMetric,
+    return buildDailyProgressGraphData(
+      seriesQuery.data?.points ?? [],
+      graphDataType,
+      dateRange,
     );
-  }, [
-    standaloneAttempts,
-    graphDataType,
-    mode,
-    timeFrameDays,
-    xAxisMode,
-  ]);
-
-  const paginatedAttempts = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return standaloneAttempts.slice(start, start + pageSize);
-  }, [standaloneAttempts, page, pageSize]);
+  }, [graphDataType, dateRange, seriesQuery.data?.points]);
 
   const setAttemptHref = (attemptId: string) =>
     sectionNumber != null
@@ -175,23 +95,20 @@ export function SetAttemptsCard({
   const metricColumn = getAttemptTableMetricColumn(tableMetric, "set");
 
   return (
-    <>
+    <div className="space-y-6">
       <Card className={UCAT_CARD_CHROME}>
         <CardHeader className={UCAT_CARD_HEADER_ROW}>
           <CardTitle>Set attempts</CardTitle>
-          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </CardHeader>
         <CardContent className={UCAT_CARD_CONTENT_AFTER_HEADER}>
           <ProgressGraph
             data={graphData}
-            type={graphType}
+            type="bar"
             dataType={graphDataType}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeChange}
             metricOptions={metricOptions}
             onDataTypeChange={setGraphDataType}
-            xAxisMode={xAxisMode}
-            onXAxisModeChange={handleXAxisModeChange}
           />
         </CardContent>
       </Card>
@@ -235,7 +152,7 @@ export function SetAttemptsCard({
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedAttempts.map((a) => {
+                standaloneAttempts.map((a) => {
                   const dateStr = a.completedAt
                     ? format(new Date(a.completedAt), "dd MMM yyyy")
                     : format(new Date(a.attemptedAt), "dd MMM yyyy");
@@ -274,7 +191,7 @@ export function SetAttemptsCard({
           </Table>
         </div>
         <ProgressTablePagination
-          total={standaloneAttempts.length}
+          total={attemptsQuery.data?.total ?? 0}
           page={page}
           pageSize={pageSize}
           pageSizeOptions={PAGE_SIZE_OPTIONS}
@@ -283,8 +200,9 @@ export function SetAttemptsCard({
             setPageSize(size);
             setPage(1);
           }}
+          isFetching={attemptsQuery.isFetching}
         />
       </section>
-    </>
+    </div>
   );
 }

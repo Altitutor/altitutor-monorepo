@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
-import { maybeQualifyFreeUcatReferral } from "@/lib/ucat/referrals/maybe-qualify-free-referral";
 
 export async function GET(
   _request: NextRequest,
@@ -182,7 +181,7 @@ export async function PATCH(
       id: qa.id,
       question_id: qa.question_id,
       student_id: qa.student_id,
-      score: scoreByQuestionId.get(qa.question_id) ?? 0,
+      score: qa.question_id ? (scoreByQuestionId.get(qa.question_id) ?? 0) : 0,
       is_submitted: true,
     }));
 
@@ -217,7 +216,6 @@ export async function PATCH(
     supabaseAdmin,
     student.id,
   );
-  await maybeQualifyFreeUcatReferral(supabaseAdmin, student.id);
   return NextResponse.json({
     success: true,
     earnedDiscount: discount.earnedDiscount,

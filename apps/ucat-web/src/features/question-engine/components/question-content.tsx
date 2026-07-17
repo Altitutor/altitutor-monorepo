@@ -1,4 +1,5 @@
 import { useMemo, useState, type DragEventHandler } from "react";
+import { Check } from "lucide-react";
 import type {
   AnswerOption,
   QuestionItem,
@@ -9,6 +10,7 @@ import {
 } from "@altitutor/ui/components/ucat/ucat-theme";
 import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { cn } from "@/lib/utils";
 
 export function hasAnswerExplanation(item: {
   answerExplanation?: string;
@@ -138,6 +140,7 @@ export function OptionText({ option }: { option: AnswerOption }) {
 
 type QuestionContentProps = {
   question: QuestionItem;
+  readOnly?: boolean;
   selectedOptionId?: string;
   onSelectOption: (optionId: string) => void;
   syllogismSnapshot?: Record<string, boolean>;
@@ -146,16 +149,35 @@ type QuestionContentProps = {
   preloadedContent?: CachedContent | null;
   /** When true (e.g. in-exam review), show explanations when the question/options include them. */
   showAnswerExplanations?: boolean;
+  highlightText?: string;
+  syllogismDragOnly?: boolean;
+  syllogismLockedOptionIds?: readonly string[];
+  syllogismCorrectOptionIds?: readonly string[];
+  onSyllogismClickAttempt?: () => void;
 };
 
 function SyllogismQuestionContent({
   question,
+  readOnly = false,
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
   preloadedContent,
   showAnswerExplanations,
+  highlightText,
+  syllogismDragOnly = false,
+  syllogismLockedOptionIds = [],
+  syllogismCorrectOptionIds = [],
+  onSyllogismClickAttempt,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
+  const lockedOptionIds = useMemo(
+    () => new Set(syllogismLockedOptionIds),
+    [syllogismLockedOptionIds],
+  );
+  const correctOptionIds = useMemo(
+    () => new Set(syllogismCorrectOptionIds),
+    [syllogismCorrectOptionIds],
+  );
 
   const [answers, setAnswers] = useState<Record<string, "yes" | "no">>(() => {
     const initial: Record<string, "yes" | "no"> = {};
@@ -177,6 +199,7 @@ function SyllogismQuestionContent({
   };
 
   const handleAssign = (optionId: string, choice: "yes" | "no") => {
+    if (readOnly || lockedOptionIds.has(optionId)) return;
     setAnswers((prev) => {
       const next = { ...prev, [optionId]: choice };
       syncSnapshot(next);
@@ -188,6 +211,7 @@ function SyllogismQuestionContent({
     (optionId: string): DragEventHandler<HTMLDivElement> =>
     (event) => {
       event.preventDefault();
+      if (readOnly || lockedOptionIds.has(optionId)) return;
       const choice = event.dataTransfer.getData("ucat-syllogism-choice") as
         | "yes"
         | "no"
@@ -214,9 +238,11 @@ function SyllogismQuestionContent({
 
   const handleTokenAreaDrop: DragEventHandler<HTMLDivElement> = (event) => {
     event.preventDefault();
+    if (readOnly) return;
     const fromOptionId =
       event.dataTransfer.getData("ucat-syllogism-source") || null;
     if (!fromOptionId) return;
+    if (lockedOptionIds.has(fromOptionId)) return;
 
     setAnswers((prev) => {
       if (!prev[fromOptionId]) return prev;
@@ -234,37 +260,70 @@ function SyllogismQuestionContent({
           json={question.questionJson}
           plainText={question.questionText}
           preloadedContent={preloadedContent?.question}
+          highlightText={highlightText}
         />
       </div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
             const choice = answers[option.id] ?? null;
+            const locked = readOnly || lockedOptionIds.has(option.id);
+            const markedCorrect = correctOptionIds.has(option.id);
             return (
-              <div key={option.id} className="space-y-1">
+              <div
+                key={option.id}
+                data-syllogism-option-id={option.id}
+                className="space-y-1"
+              >
                 <div className="flex flex-row items-stretch gap-4">
                   <div className="flex-1">
-                    <div className="flex min-h-[50px] items-center justify-center rounded border border-[#000000] bg-white px-4 text-center">
+                    <div
+                      className={cn(
+                        "flex min-h-[50px] items-center justify-center rounded border bg-white px-4 text-center",
+                        markedCorrect
+                          ? "border-emerald-600 ring-2 ring-emerald-500/20"
+                          : "border-[#000000]",
+                      )}
+                    >
                       <span className="whitespace-pre-wrap">
                         <OptionText option={option} />
                       </span>
                     </div>
                   </div>
                   <div
-                    className="flex h-12 w-24 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50 text-[11pt]"
+                    className={cn(
+                      "flex h-12 w-24 items-center justify-center rounded border border-dashed text-[11pt] transition-colors",
+                      markedCorrect
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                        : "border-[#4b5563] bg-slate-50",
+                    )}
                     onDrop={makeHandleDrop(option.id)}
                     onDragOver={handleDragOver}
                     role="button"
                     tabIndex={0}
+                    aria-disabled={locked}
                     aria-label="Drop Yes or No here"
-                    onClick={() =>
-                      handleAssign(option.id, choice === "yes" ? "no" : "yes")
+                    onClick={
+                      locked
+                        ? undefined
+                        : syllogismDragOnly
+                          ? onSyllogismClickAttempt
+                          : () =>
+                              handleAssign(
+                                option.id,
+                                choice === "yes" ? "no" : "yes",
+                              )
                     }
                   >
                     {choice ? (
                       <div
-                        className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
-                        draggable
+                        className={cn(
+                          "flex h-9 w-20 items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
+                          markedCorrect
+                            ? "border-emerald-600 text-emerald-800"
+                            : "border-black",
+                        )}
+                        draggable={!locked}
                         onDragStart={(event) => {
                           event.dataTransfer.setData(
                             "ucat-syllogism-choice",
@@ -278,6 +337,9 @@ function SyllogismQuestionContent({
                         }}
                       >
                         {choice === "yes" ? "Yes" : "No"}
+                        {markedCorrect ? (
+                          <Check className="h-3.5 w-3.5" aria-hidden />
+                        ) : null}
                       </div>
                     ) : (
                       <span className="text-[9pt] text-transparent">_</span>
@@ -303,7 +365,9 @@ function SyllogismQuestionContent({
           >
             <button
               type="button"
-              draggable
+              draggable={!readOnly}
+              disabled={readOnly}
+              onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
                 event.dataTransfer.setData("ucat-syllogism-choice", "yes");
                 event.dataTransfer.setData("ucat-syllogism-source", "");
@@ -315,7 +379,9 @@ function SyllogismQuestionContent({
             </button>
             <button
               type="button"
-              draggable
+              draggable={!readOnly}
+              disabled={readOnly}
+              onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
                 event.dataTransfer.setData("ucat-syllogism-choice", "no");
                 event.dataTransfer.setData("ucat-syllogism-source", "");
@@ -354,6 +420,7 @@ function SyllogismQuestionContent({
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
               paragraphSpacing
+              highlightText={highlightText}
             />
           </div>
         </article>
@@ -388,12 +455,18 @@ function SyllogismQuestionContent({
 
 export function QuestionContent({
   question,
+  readOnly = false,
   selectedOptionId,
   onSelectOption,
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
   preloadedContent,
   showAnswerExplanations = false,
+  highlightText,
+  syllogismDragOnly,
+  syllogismLockedOptionIds,
+  syllogismCorrectOptionIds,
+  onSyllogismClickAttempt,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
@@ -401,12 +474,18 @@ export function QuestionContent({
     return (
       <SyllogismQuestionContent
         question={question}
+        readOnly={readOnly}
         selectedOptionId={selectedOptionId}
         onSelectOption={onSelectOption}
         syllogismSnapshot={syllogismSnapshot}
         onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
         preloadedContent={preloadedContent}
         showAnswerExplanations={showAnswerExplanations}
+        highlightText={highlightText}
+        syllogismDragOnly={syllogismDragOnly}
+        syllogismLockedOptionIds={syllogismLockedOptionIds}
+        syllogismCorrectOptionIds={syllogismCorrectOptionIds}
+        onSyllogismClickAttempt={onSyllogismClickAttempt}
       />
     );
   }
@@ -427,6 +506,7 @@ export function QuestionContent({
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
               paragraphSpacing
+              highlightText={highlightText}
             />
           </div>
         </article>
@@ -447,11 +527,15 @@ export function QuestionContent({
                 const letter = String.fromCharCode(65 + index);
                 return (
                   <div key={option.id} className="space-y-0.5">
-                    <label className="flex items-start gap-2">
+                    <label
+                      data-question-option-id={option.id}
+                      className="flex items-start gap-2"
+                    >
                       <input
                         type="radio"
                         name={question.id}
                         checked={selectedOptionId === option.id}
+                        disabled={readOnly}
                         onChange={() => onSelectOption(option.id)}
                         className="mt-1 h-4 w-4"
                       />
@@ -495,8 +579,9 @@ export function QuestionContent({
           <RichContentBlock
             json={question.stemJson}
             plainText={question.stemText}
-            preloadedContent={preloadedContent?.stem}
-            paragraphSpacing
+          preloadedContent={preloadedContent?.stem}
+          paragraphSpacing
+          highlightText={highlightText}
           />
         </article>
         <section data-tour="question-engine-question" className="space-y-3">
@@ -512,11 +597,15 @@ export function QuestionContent({
               const letter = String.fromCharCode(65 + index);
               return (
                 <div key={option.id} className="space-y-0.5">
-                  <label className="flex items-start gap-2">
+                  <label
+                    data-question-option-id={option.id}
+                    className="flex items-start gap-2"
+                  >
                     <input
                       type="radio"
                       name={question.id}
                       checked={selectedOptionId === option.id}
+                      disabled={readOnly}
                       onChange={() => onSelectOption(option.id)}
                       className="mt-1 h-4 w-4"
                     />

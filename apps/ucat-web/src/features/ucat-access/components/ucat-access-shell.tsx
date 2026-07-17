@@ -6,10 +6,8 @@ import { ActiveSkillTrainerAttemptProvider } from "@/features/skill-trainer/cont
 import { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 import { InPersonUpsellDialog } from "@/features/ucat-access/components/in-person-upsell-dialog";
 import { PlanPickerDialog } from "@/features/ucat-access/components/plan-picker-dialog";
-import { QuotaLimitModal } from "@/features/ucat-access/components/quota-limit-modal";
 import { QuotaRouteGuard } from "@/features/ucat-access/components/quota-route-guard";
 import { UpsellQueryParamSync } from "@/features/ucat-access/components/upsell-query-param-sync";
-import { QuotaLimitProvider } from "@/features/ucat-access/context/quota-limit-context";
 import { UpsellDialogProvider } from "@/features/ucat-access/context/upsell-dialog-context";
 
 type UcatAccessShellProps = {
@@ -18,24 +16,21 @@ type UcatAccessShellProps = {
 
 export function UcatAccessShell({ children }: UcatAccessShellProps) {
   return (
-    <QuotaLimitProvider>
-      <UpsellDialogProvider>
-        <ActiveExamAttemptProvider>
-          <ActiveSkillTrainerAttemptProvider>
-            <OnboardingGateRedirect />
-            <Suspense fallback={null}>
-              <UpsellQueryParamSync />
-            </Suspense>
-            <Suspense fallback={null}>
-              <QuotaRouteGuard />
-            </Suspense>
-            {children}
-            <QuotaLimitModal />
-            <PlanPickerDialog />
-            <InPersonUpsellDialog />
-          </ActiveSkillTrainerAttemptProvider>
-        </ActiveExamAttemptProvider>
-      </UpsellDialogProvider>
-    </QuotaLimitProvider>
+    <UpsellDialogProvider>
+      <ActiveExamAttemptProvider>
+        <ActiveSkillTrainerAttemptProvider>
+          <OnboardingGateRedirect />
+          <Suspense fallback={null}>
+            <UpsellQueryParamSync />
+          </Suspense>
+          <Suspense fallback={null}>
+            <QuotaRouteGuard />
+          </Suspense>
+          {children}
+          <PlanPickerDialog />
+          <InPersonUpsellDialog />
+        </ActiveSkillTrainerAttemptProvider>
+      </ActiveExamAttemptProvider>
+    </UpsellDialogProvider>
   );
 }

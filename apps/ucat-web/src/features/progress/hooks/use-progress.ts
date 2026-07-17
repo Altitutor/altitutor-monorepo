@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ProgressResponse } from "@/app/api/ucat/progress/route";
 import type { ProgressSummaryResponse } from "@/features/progress/types/progress-summary";
+import type { SectionProgressResponse } from "@/features/progress/types/section-progress";
+import type { MockProgressResponse } from "@/features/progress/types/mock-progress";
 
 async function fetchProgressSummary(): Promise<ProgressSummaryResponse> {
   const res = await fetch("/api/ucat/progress/summary");
@@ -11,8 +12,8 @@ async function fetchProgressSummary(): Promise<ProgressSummaryResponse> {
   return res.json();
 }
 
-async function fetchProgress(): Promise<ProgressResponse> {
-  const res = await fetch("/api/ucat/progress");
+async function fetchMockProgress(): Promise<MockProgressResponse> {
+  const res = await fetch("/api/ucat/progress/mocks/summary");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error ?? "Failed to fetch progress");
@@ -20,12 +21,8 @@ async function fetchProgress(): Promise<ProgressResponse> {
   return res.json();
 }
 
-async function fetchSectionProgress(
-  sectionNumber: number,
-): Promise<ProgressResponse> {
-  const res = await fetch(
-    `/api/ucat/progress?sectionNumber=${encodeURIComponent(sectionNumber)}`,
-  );
+async function fetchSectionProgress(sectionNumber: number): Promise<SectionProgressResponse> {
+  const res = await fetch(`/api/ucat/progress/sections/${encodeURIComponent(sectionNumber)}/summary`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error ?? "Failed to fetch section progress");
@@ -33,10 +30,10 @@ async function fetchSectionProgress(
   return res.json();
 }
 
-export function useProgress() {
+export function useMockProgress() {
   return useQuery({
-    queryKey: ["ucat", "progress"],
-    queryFn: fetchProgress,
+    queryKey: ["ucat", "progress", "mocks", "summary"],
+    queryFn: fetchMockProgress,
   });
 }
 

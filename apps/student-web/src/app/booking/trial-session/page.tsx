@@ -15,7 +15,7 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { VENUE_ADDRESS } from '@/shared/constants';
-import { useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
+import { useSessionDurationMinutes, useMinAdvanceBookingDays } from '@/features/bookings/hooks/useBookingSettings';
 
 export default function BookTrialPage() {
   const router = useRouter();
@@ -24,6 +24,7 @@ export default function BookTrialPage() {
   
   // Get default trial session duration from booking settings
   const { data: defaultDurationMinutes = 45 } = useSessionDurationMinutes('TRIAL_SESSION');
+  const { data: minAdvanceDays = 1 } = useMinAdvanceBookingDays();
   
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
@@ -251,6 +252,7 @@ export default function BookTrialPage() {
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
             durationMinutes={defaultDurationMinutes}
+            minAdvanceDays={minAdvanceDays}
             onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
             allowAnonymous={true}

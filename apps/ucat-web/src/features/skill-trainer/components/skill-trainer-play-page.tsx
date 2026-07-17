@@ -11,8 +11,9 @@ import {
   MentalMathsTrainer,
   NumpadTrainer,
   QuickSyllogismTrainer,
+  Skeleton,
 } from "@altitutor/ui";
-import { Button, Skeleton } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 import {
   extractSkillTrainerPlainText,
@@ -692,12 +693,13 @@ export function SkillTrainerPlayPage({
       completionNotifiedRef.current = completedAttemptId;
       if (!localMode) {
         void refresh();
+        void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       }
       if (embedded || localMode) {
         onComplete?.();
       }
     }
-  }, [completedAttemptId, refresh, embedded, localMode, onComplete]);
+  }, [completedAttemptId, refresh, embedded, localMode, onComplete, queryClient]);
 
   useEffect(() => {
     if (!state || !trainerMismatch || embedded || !activeTrainerKey) return;

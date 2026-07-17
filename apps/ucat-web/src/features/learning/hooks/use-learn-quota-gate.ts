@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import type { MouseEvent } from "react";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 
 type LearnQuotaLesson = {
@@ -13,13 +13,14 @@ type LearnQuotaLesson = {
 
 export function useLearnQuotaGate() {
   const { data: quota } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
 
   const isBlocked = useCallback(
     (lesson: LearnQuotaLesson | null | undefined) => {
       if (!lesson || lesson.kind !== "lesson") return false;
       if (lesson.started_at || lesson.completed_at) return false;
-      if (!quota || quota.onlineTier !== "free" || quota.isQuotaExempt) return false;
+      if (!quota || quota.onlineTier !== "free" || quota.isQuotaExempt)
+        return false;
       const learnQuota = quota.areas.find((area) => area.area === "learn");
       return Boolean(
         learnQuota &&

@@ -14,7 +14,7 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
     sectionId: 'vr-section',
     categoryId: null,
     stemText: text(''),
-    isPrivate: false,
+    accessScope: 'public',
     tutorSourceNote: '',
     questions: [
       {

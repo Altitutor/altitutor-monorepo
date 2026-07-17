@@ -10,12 +10,25 @@ import { EditProjectDialog } from '@/features/projects/components/EditProjectDia
 import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
 import { useUrlQueryParam } from '@/shared/hooks/useUrlQueryParam';
 
+type DocumentMode = 'view' | 'edit';
+
 export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useUrlQueryParam('search');
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
+  const [documentInitialMode, setDocumentInitialMode] = useState<DocumentMode>('view');
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 
   const createNote = useCreateNote();
+
+  const openDocument = useCallback((noteId: string, mode: DocumentMode = 'view') => {
+    setDocumentInitialMode(mode);
+    setEditNoteId(noteId);
+  }, []);
+
+  const closeDocument = useCallback(() => {
+    setEditNoteId(null);
+    setDocumentInitialMode('view');
+  }, []);
 
   const handleNewDocument = useCallback(async () => {
     if (createNote.isPending) return;
@@ -25,11 +38,11 @@ export default function DocumentsPage() {
         content: '',
         folder_id: null,
       });
-      setEditNoteId(note.id);
+      openDocument(note.id, 'edit');
     } catch {
       // mutation surfaces errors
     }
-  }, [createNote]);
+  }, [createNote, openDocument]);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-4rem)] p-6">
@@ -57,15 +70,17 @@ export default function DocumentsPage() {
       <div className="flex-1 overflow-y-auto">
         <FolderTree
           searchQuery={searchQuery.trim()}
-          onNoteClick={(noteId) => setEditNoteId(noteId)}
+          onNoteClick={(noteId) => openDocument(noteId, 'view')}
+          onNoteCreated={(noteId) => openDocument(noteId, 'edit')}
           onProjectClick={(projectId) => setEditProjectId(projectId)}
         />
       </div>
 
       <EditDocumentDialog
         isOpen={!!editNoteId}
-        onClose={() => setEditNoteId(null)}
+        onClose={closeDocument}
         noteId={editNoteId}
+        initialMode={documentInitialMode}
       />
       <EditProjectDialog
         isOpen={!!editProjectId}

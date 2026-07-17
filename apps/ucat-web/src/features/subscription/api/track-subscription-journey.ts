@@ -4,7 +4,9 @@ export type SubscriptionJourneyContext =
   | "signup_onboarding"
   | "subscribe"
   | "practice_session"
-  | "quota_paywall";
+  | "referral_gift"
+  | "quota_paywall"
+  | "subscription_settings";
 
 export type SubscriptionJourneyEventType =
   | "plan_selection_viewed"
@@ -13,6 +15,12 @@ export type SubscriptionJourneyEventType =
   | "checkout_failed"
   | "change_plan_clicked"
   | "continued_free"
+  | "free_plan_selected"
+  | "cancellation_dialog_opened"
+  | "cancellation_abandoned"
+  | "cancellation_confirmed"
+  | "cancellation_accelerated"
+  | "cancellation_reversed"
   | "quota_upsell_shown"
   | "quota_upsell_converted";
 

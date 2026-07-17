@@ -33,9 +33,10 @@ export async function GET(
     );
     return NextResponse.json({ entries, window });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load leaderboard";
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load leaderboard" },
-      { status: 500 },
+      { error: message },
+      { status: message === "TRAINER_NOT_FOUND" ? 404 : 500 },
     );
   }
 }

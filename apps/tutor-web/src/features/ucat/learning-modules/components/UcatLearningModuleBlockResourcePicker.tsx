@@ -161,7 +161,7 @@ function QuestionPickerList({
       if (!applyMultiSelectFilter(state, 'section_id', stem?.sectionId ?? null)) return false
       if (!applyCategoryFilter(state, stem?.categoryId ?? null, UCAT_FILTER_NO_CATEGORY)) return false
       if (!applyTagFilter(state, stem?.tagIds ?? [])) return false
-      if (!applyBooleanTextFilter(state, 'visibility', stem?.isPrivate ?? false)) return false
+      if (!applyBooleanTextFilter(state, 'visibility', stem?.accessScope === 'private')) return false
       if (!applyMultiSelectFilter(state, 'question_type', row.question.questionType)) return false
 
       const selectedSetIds = getFilterValues(state, 'question_set_id').map(String)
@@ -234,9 +234,9 @@ function QuestionPickerList({
                   {stem.categoryId ? <span>· {categoryPathLookup.get(stem.categoryId) ?? stem.categoryName}</span> : null}
                   <Badge
                     variant="outline"
-                    className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
+                    className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.accessScope === 'private'))}
                   >
-                    {stem.isPrivate ? 'Private' : 'Public'}
+                    {stem.accessScope === 'private' ? 'Private' : 'Public'}
                   </Badge>
                 </p>
               </>
@@ -371,7 +371,7 @@ export function LearningModuleQuestionResourcePicker({
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
+      accessScope: payload.accessScope,
       questions: payload.questions.map((question, index) => ({
         index: index + 1,
         questionText: question.questionText,
@@ -380,6 +380,7 @@ export function LearningModuleQuestionResourcePicker({
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
         options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+          id: option.id,
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,

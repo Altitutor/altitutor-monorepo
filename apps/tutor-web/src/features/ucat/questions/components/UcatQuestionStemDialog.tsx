@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import Link from 'next/link'
 import type { UseFormReturn } from 'react-hook-form'
@@ -23,10 +23,12 @@ import {
 import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow, UcatApprovalStatus } from '@/features/ucat/questions/api/questions'
+import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
-import { buildEmptyStemFormValues, parseApprovalStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
-import { useSetUcatQuestionStemApprovalStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { useManualStemMetadataAutoApply } from '@/features/ucat/questions/hooks/useManualStemMetadataAutoApply'
+import { useSetUcatQuestionStemStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -37,11 +39,7 @@ import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-e
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import {
-  inferManualStemMetadataRecommendation,
-  type ManualStemMetadataRecommendation,
-} from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -120,14 +118,10 @@ export function UcatQuestionStemDialog({
 }) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
+  const statusMutation = useSetUcatQuestionStemStatus()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
-  const [metadataRecommendation, setMetadataRecommendation] =
-    useState<ManualStemMetadataRecommendation | null>(null)
-  const lastAutoAppliedMetadataSignatureRef = useRef<string | null>(null)
-  const lastMetadataRecommendationSnapshotRef = useRef<string | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -171,9 +165,6 @@ export function UcatQuestionStemDialog({
       lastResetStemIdRef.current = null
       setActiveTextEditor(null)
       setCreateMore(false)
-      setMetadataRecommendation(null)
-      lastAutoAppliedMetadataSignatureRef.current = null
-      lastMetadataRecommendationSnapshotRef.current = null
       createResetOpenRef.current = false
     }
   }, [open])
@@ -186,7 +177,7 @@ export function UcatQuestionStemDialog({
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
         stemText: EMPTY_DOC,
-        isPrivate: false,
+        accessScope: 'public',
         tutorSourceNote: '',
         questions: [
           {
@@ -238,95 +229,11 @@ export function UcatQuestionStemDialog({
     return {
       ...nextValues,
       categoryId: values.categoryId ?? null,
-      isPrivate: values.isPrivate,
+      accessScope: values.accessScope,
       tutorSourceNote: values.tutorSourceNote ?? '',
       questions: nextQuestions,
     }
   }
-
-  function buildMetadataDetectionSignature(values: UcatQuestionStemFormValues): string {
-    return JSON.stringify({
-      stemText: proseMirrorToPlainText(values.stemText) ?? '',
-      questions: (values.questions ?? []).map((question) => ({
-        questionText: proseMirrorToPlainText(question.questionText) ?? '',
-        options: (question.options ?? []).map((option) => proseMirrorToPlainText(option.answerText) ?? ''),
-      })),
-    })
-  }
-
-  const sameIds = useCallback((left: string[], right: string[]): boolean => {
-    if (left.length !== right.length) return false
-    const leftSorted = [...left].sort()
-    const rightSorted = [...right].sort()
-    return leftSorted.every((id, index) => id === rightSorted[index])
-  }, [])
-
-  const applyMetadataRecommendation = useCallback(
-    (
-      recommendation: ManualStemMetadataRecommendation,
-      values: UcatQuestionStemFormValues
-    ): boolean => {
-      const previous = {
-        sectionId: values.sectionId,
-        categoryId: values.categoryId ?? null,
-        questionTypes: (values.questions ?? []).map((question) => question.questionType),
-        tagIdsByQuestionIndex: Object.fromEntries(
-          (values.questions ?? []).map((question, index) => [index, [...(question.tagIds ?? [])]])
-        ) as Record<number, string[]>,
-      }
-      let changed = false
-
-      if (recommendation.sectionId && recommendation.sectionId !== values.sectionId) {
-        form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
-        changed = true
-      }
-      if (recommendation.categoryId && recommendation.categoryId !== (values.categoryId ?? null)) {
-        form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
-        changed = true
-      }
-      if (recommendation.questionType) {
-        const questionType = recommendation.questionType
-        ;(values.questions ?? []).forEach((question, index) => {
-          if (question.questionType !== questionType) {
-            form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
-            changed = true
-          }
-        })
-      }
-      Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-        const index = Number(indexText)
-        const current = values.questions?.[index]?.tagIds ?? []
-        if (!sameIds(current, tagIds)) {
-          form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-          changed = true
-        }
-      })
-
-      if (!changed) return false
-
-      toast({
-        title: 'Detected UCAT metadata',
-        description: 'Section, category, question type, or question tags were updated from the parser suggestion.',
-        duration: 10_000,
-        action: {
-          label: 'Undo',
-          onClick: () => {
-            form.setValue('sectionId', previous.sectionId, { shouldDirty: true })
-            form.setValue('categoryId', previous.categoryId, { shouldDirty: true })
-            previous.questionTypes.forEach((questionType, index) => {
-              form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
-            })
-            Object.entries(previous.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-              const index = Number(indexText)
-              form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-            })
-          },
-        },
-      })
-      return true
-    },
-    [form, sameIds, toast]
-  )
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -339,13 +246,29 @@ export function UcatQuestionStemDialog({
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
           await onSubmit(valuesCopy, { createMore: !initial && createMore })
-          if (stemId && valuesCopy.approvalStatus) {
-            const baselineApproval = parseApprovalStatusFromSnapshot(baseline)
-            if (valuesCopy.approvalStatus !== baselineApproval) {
-              await approvalMutation.mutateAsync({
+          if (stemId && valuesCopy.status) {
+            const baselineStatus = parseContentStatusFromSnapshot(baseline)
+            if (valuesCopy.status !== baselineStatus) {
+              const nextStatus = valuesCopy.status as UcatContentStatus
+              const previousStatus = baselineStatus ?? 'draft'
+              await statusMutation.mutateAsync({
                 stemId,
-                status: valuesCopy.approvalStatus as UcatApprovalStatus,
+                status: nextStatus,
               })
+              toast(lifecycleStatusSuccessToast({
+                contentLabel: 'Question',
+                count: 1,
+                status: nextStatus,
+                onUndo: () => {
+                  void ucatQuestionsApi.bulkRestoreStatus([stemId], nextStatus, previousStatus)
+                    .then(() => toast({ title: 'Question status restored' }))
+                    .catch((error) => toast({
+                      title: 'Could not undo status change',
+                      description: error instanceof Error ? error.message : 'The previous status could not be restored.',
+                      variant: 'destructive',
+                    }))
+                },
+              }))
             }
           }
           setNewImageFileIds(new Set())
@@ -385,31 +308,21 @@ export function UcatQuestionStemDialog({
   }
 
   const watchedValues = form.watch()
-  useEffect(() => {
-    if (!open || initial) return
-    const signature = buildMetadataDetectionSignature(watchedValues)
-    const recommendation = inferManualStemMetadataRecommendation({
-      values: watchedValues,
-      sections,
-      categories,
-      tags,
-    })
-    const recommendationSnapshot = JSON.stringify(recommendation)
-    if (lastMetadataRecommendationSnapshotRef.current !== recommendationSnapshot) {
-      lastMetadataRecommendationSnapshotRef.current = recommendationSnapshot
-      setMetadataRecommendation(recommendation)
-    }
-    if (!recommendation) return
-    if (lastAutoAppliedMetadataSignatureRef.current === signature) return
-    lastAutoAppliedMetadataSignatureRef.current = signature
-    applyMetadataRecommendation(recommendation, watchedValues)
-  }, [open, initial, watchedValues, sections, categories, tags, applyMetadataRecommendation])
+  const showCreateMore = !initial && !readOnly
+  const metadataRecommendation = useManualStemMetadataAutoApply({
+    enabled: open && showCreateMore,
+    resetKey: open ? 'create' : null,
+    form,
+    values: watchedValues,
+    sections,
+    categories,
+    tags,
+  })
 
   const hasUnsavedChanges =
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
-  const showCreateMore = !initial && !readOnly
 
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
@@ -501,6 +414,9 @@ export function UcatQuestionStemDialog({
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}
           createdByLastName={initial?.created_by_last_name ?? null}
+          statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
+          statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
+          statusChangedAt={initial?.status_changed_at ?? null}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)

@@ -10,7 +10,6 @@ import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
@@ -74,16 +73,11 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           firstSectionNumber: parsed.firstSectionNumber,
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
-          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          access_scope: set.access_scope ?? null,
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
   }, [sets.data])
-
-  const setsThatWillBecomePublicCount = useMemo(() => {
-    if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
-  }, [draftSetIds, isPrivate, setCatalog])
 
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
@@ -132,9 +126,6 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
         }
       />
 
-      {setsThatWillBecomePublicCount > 0 && (
-        <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
-      )}
       <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
         <UcatMockEditorContent
           name={name}
@@ -158,4 +149,3 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     </div>
   )
 }
-

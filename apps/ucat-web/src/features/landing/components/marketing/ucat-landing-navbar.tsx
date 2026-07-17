@@ -70,7 +70,7 @@ export function UcatLandingNavbar() {
                 : "bg-white/10 text-marketing-cream backdrop-blur-md"
             }`}
           >
-            Free Trial
+            Start Free
           </MagneticButton>
         </Link>
       </div>

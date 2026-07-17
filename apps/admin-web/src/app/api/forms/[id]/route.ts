@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import {
+  forkChangedFormQuestions,
   validateFormDefinition,
   type FormBlock,
   type Json,
@@ -63,14 +64,32 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   ) {
     patch.submission_limit = body.submissionLimit;
   }
+  let forkedQuestionIds: string[] = [];
   if (Array.isArray(body.blocks)) {
-    const blocks = asFormBlocks(body.blocks);
+    let blocks = asFormBlocks(body.blocks);
     const errors = validateFormDefinition({
       blocks,
       thankYouMessage: typeof body.thankYouMessage === 'string' ? body.thankYouMessage : 'Thanks for your response.',
     });
     if (errors.some((message) => message.includes('button link'))) {
       return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
+    }
+    const { data: form } = await auth.admin
+      .from('forms')
+      .select('latest_published_version_id')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (form?.latest_published_version_id) {
+      const { data: latestVersion } = await auth.admin
+        .from('form_versions')
+        .select('blocks')
+        .eq('id', form.latest_published_version_id)
+        .maybeSingle();
+      if (latestVersion) {
+        const forked = forkChangedFormQuestions(asFormBlocks(latestVersion.blocks), blocks);
+        blocks = forked.blocks;
+        forkedQuestionIds = forked.changedQuestionIds;
+      }
     }
     patch.draft_blocks = asJson(blocks);
   }
@@ -87,7 +106,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ form: data });
+  return NextResponse.json({ form: data, forkedQuestionIds });
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {

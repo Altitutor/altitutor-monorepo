@@ -21,7 +21,8 @@ interface AdminShiftActivityTabProps {
 }
 
 export function AdminShiftActivityTab({ adminShiftId, isOpen = true }: AdminShiftActivityTabProps) {
-  const { data, isLoading, error } = useAdminShiftActivity(adminShiftId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useAdminShiftActivity(adminShiftId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -55,7 +56,14 @@ export function AdminShiftActivityTab({ adminShiftId, isOpen = true }: AdminShif
         canPost={Boolean(currentStaff)}
       />
 
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
+      <ActivityFeed
+        data={data}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={fetchNextPage}
+      />
     </div>
   );
 }

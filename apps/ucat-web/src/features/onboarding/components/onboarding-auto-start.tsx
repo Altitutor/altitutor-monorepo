@@ -7,22 +7,14 @@ import { useAuth } from "@/features/auth";
 import {
   getFirstSelectorForTour,
   getTourForPathname,
-  UCAT_ONBOARDING_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
 } from "@/features/onboarding/config/tour-steps";
 import { consumeOnboardingAutoStartSuppression } from "@/features/onboarding/lib/suppress-next-auto-tour";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
-import { consumeSignupOnboardingTourPending } from "@/features/signup-onboarding/lib/signup-tour-flag";
 
 /**
- * Mounts inside `OnboardingProvider` and auto-starts the appropriate tour
- * for the current pathname (see `getTourForPathname`). Tour completion is
- * persisted per-tour in `students.onboarding_progress`, so each feature's
- * intro shows at most once across all devices.
- *
- * Mobile users are skipped because some tour anchors (the sidebar nav, in
- * particular) are hidden behind a hamburger menu; they can replay any tour
- * manually from Settings.
+ * Starts only the explicit question-engine tutorial route. Page and dashboard
+ * tours are replayable from Settings but never launch automatically.
  */
 export function OnboardingAutoStart() {
   const { startNextStep, isNextStepVisible } = useNextStep();
@@ -39,29 +31,13 @@ export function OnboardingAutoStart() {
     if (isNextStepVisible) return;
 
     const tourId = getTourForPathname(pathname);
-    if (!tourId) return;
-    if (
-      tourId === UCAT_ONBOARDING_TOUR &&
-      consumeSignupOnboardingTourPending()
-    ) {
-      lastStartedRef.current = tourId;
-      const timer = window.setTimeout(() => {
-        startNextStep(tourId);
-      }, 600);
-      return () => window.clearTimeout(timer);
-    }
+    if (tourId !== UCAT_QUESTION_ENGINE_TOUR) return;
     if (consumeOnboardingAutoStartSuppression(tourId)) {
       lastStartedRef.current = tourId;
       return;
     }
     if (lastStartedRef.current === tourId) return;
     if (isCompleted(tourId)) return;
-    if (
-      tourId !== UCAT_QUESTION_ENGINE_TOUR &&
-      window.matchMedia("(max-width: 767px)").matches
-    )
-      return;
-
     lastStartedRef.current = tourId;
     const firstSelector = getFirstSelectorForTour(tourId);
     let attempts = 0;

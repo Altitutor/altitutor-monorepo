@@ -442,7 +442,7 @@ export type DecisionMakingToFormOptions = {
     stem: ParsedDecisionMakingStem
     question: ParsedDecisionMakingQuestion
   }) => string[]
-  isPrivate?: boolean
+  accessScope?: 'public' | 'private'
 }
 
 function normalizedText(text: string): string {
@@ -896,7 +896,7 @@ export function mapParsedDecisionMakingToFormValues(
     categoryId = null,
     getCategoryIdForStem,
     getTagIdsForQuestion,
-    isPrivate = false,
+    accessScope = 'public',
   } = options
 
   return stems
@@ -929,7 +929,7 @@ export function mapParsedDecisionMakingToFormValues(
         sectionId,
         categoryId: resolvedCategoryId ?? null,
         stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
-        isPrivate,
+        accessScope,
         questions,
       }
     })

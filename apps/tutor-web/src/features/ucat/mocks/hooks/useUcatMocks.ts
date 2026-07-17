@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
-import type { UcatMockPayload } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/types'
 
 export function useUcatMocks() {
   return useQuery({ queryKey: ucatKeys.mocks(), queryFn: ucatMocksApi.list })
@@ -31,6 +31,19 @@ export function useUpdateUcatMock() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mock(variables.mockId) })
+    },
+  })
+}
+
+export function useSetUcatMockStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ mockId, status }: { mockId: string; status: UcatContentStatus }) =>
+      ucatMocksApi.setStatus(mockId, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mock(variables.mockId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
   })
 }

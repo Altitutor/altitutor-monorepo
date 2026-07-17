@@ -39,20 +39,13 @@ export function OnboardingCard({
 }: CardComponentProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
-  const isFirst = currentStep === 0;
-  const isLast = currentStep === totalSteps - 1;
-  const hideBack = step.title === "Keyboard shortcuts";
-  const isQuestionEngineStep =
-    step.title === "Keyboard shortcuts" ||
-    step.selector?.includes("question-engine-");
-  const progressPct = Math.round(((currentStep + 1) / totalSteps) * 100);
-
-  const isSidebarTopOrBottom =
-    !!step.selector &&
-    SIDEBAR_NAV_SELECTOR_PATTERN.test(step.selector) &&
-    (step.side === "top" || step.side === "bottom");
+  // nextstepjs types `step` as always defined, but it passes
+  // `currentTourSteps?.[currentStep]`, which is undefined during tour
+  // close/route races (stale overlay with a missing step index).
+  const safeStep = step as CardComponentProps["step"] | undefined;
 
   useEffect(() => {
+    if (!safeStep) return;
     setViewportOffset({ x: 0, y: 0 });
     const timer = window.setTimeout(() => {
       const card = cardRef.current;
@@ -75,19 +68,34 @@ export function OnboardingCard({
     }, 280);
 
     return () => window.clearTimeout(timer);
-  }, [currentStep, step.selector, step.side]);
+  }, [currentStep, safeStep]);
+
+  if (!safeStep) return null;
+
+  const isFirst = currentStep === 0;
+  const isLast = currentStep === totalSteps - 1;
+  const hideBack = safeStep.title === "Keyboard shortcuts";
+  const isQuestionEngineStep =
+    safeStep.title === "Keyboard shortcuts" ||
+    safeStep.selector?.includes("question-engine-");
+  const progressPct = Math.round(((currentStep + 1) / totalSteps) * 100);
+
+  const isSidebarTopOrBottom =
+    !!safeStep.selector &&
+    SIDEBAR_NAV_SELECTOR_PATTERN.test(safeStep.selector) &&
+    (safeStep.side === "top" || safeStep.side === "bottom");
 
   const adjustedArrow = isValidElement<{ style?: React.CSSProperties }>(arrow)
     ? cloneElement(arrow, {
         style: {
           ...arrow.props.style,
-          ...(step.side === "top" || step.side === "bottom"
+          ...(safeStep.side === "top" || safeStep.side === "bottom"
             ? {
                 left: `calc(50% - ${viewportOffset.x}px)`,
                 right: "auto",
               }
             : {}),
-          ...(step.side === "left" || step.side === "right"
+          ...(safeStep.side === "left" || safeStep.side === "right"
             ? {
                 top: `calc(50% - ${viewportOffset.y}px)`,
                 bottom: "auto",
@@ -107,14 +115,14 @@ export function OnboardingCard({
       } as React.CSSProperties}
       className={cn(
         "relative rounded-ucatShell p-5 text-card-foreground shadow-xl",
-        (step.side === "top" || step.side === "bottom") &&
+        (safeStep.side === "top" || safeStep.side === "bottom") &&
           "[&_[data-name='nextstep-arrow']]:!left-[var(--tour-arrow-left)] [&_[data-name='nextstep-arrow']]:!right-auto",
-        (step.side === "left" || step.side === "right") &&
+        (safeStep.side === "left" || safeStep.side === "right") &&
           "[&_[data-name='nextstep-arrow']]:!top-[var(--tour-arrow-top)] [&_[data-name='nextstep-arrow']]:!bottom-auto",
         UCAT_SURFACE_CARD,
         isSidebarTopOrBottom
           ? "w-[min(14rem,calc(100vw-2rem))] max-w-none"
-          : !step.selector
+          : !safeStep.selector
             ? "w-[min(32rem,calc(100vw-2rem))] max-w-none"
           : "w-[min(20rem,calc(100vw-2rem))] max-w-sm",
       )}
@@ -124,12 +132,12 @@ export function OnboardingCard({
       {adjustedArrow}
 
       <div className="flex items-start gap-3">
-        {step.icon ? (
+        {safeStep.icon ? (
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
             aria-hidden
           >
-            {step.icon}
+            {safeStep.icon}
           </span>
         ) : null}
         <div className="min-w-0 flex-1">
@@ -140,10 +148,10 @@ export function OnboardingCard({
             id="ucat-onboarding-title"
             className="mt-0.5 text-base font-semibold leading-snug"
           >
-            {step.title}
+            {safeStep.title}
           </h3>
         </div>
-        {step.showSkip && skipTour ? (
+        {safeStep.showSkip && skipTour ? (
           <button
             type="button"
             onClick={() => {
@@ -174,7 +182,7 @@ export function OnboardingCard({
       </div>
 
       <div className="mt-3 text-sm leading-relaxed text-card-foreground/90">
-        {step.content}
+        {safeStep.content}
       </div>
 
       <div
@@ -190,7 +198,7 @@ export function OnboardingCard({
         />
       </div>
 
-      {step.showControls ? (
+      {safeStep.showControls ? (
         <div className="mt-4 flex items-center justify-between gap-2">
           {hideBack ? <span /> : (
             <Button

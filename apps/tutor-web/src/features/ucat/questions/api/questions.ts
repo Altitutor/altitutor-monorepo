@@ -1,12 +1,19 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { UcatQuestionStem, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type {
+  UcatAccessScope,
+  UcatContentStatus,
+  UcatPublicationIssue,
+  UcatQuestionStem,
+  UcatQuestionStemBundlePayload,
+} from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supabase-rows'
-
-export type UcatQuestionListMode = 'default' | 'generated' | 'all'
-export type UcatApprovalStatus = 'approved' | 'pending' | 'rejected'
+import {
+  readUcatBulkStatusResponse,
+  throwFirstUcatBulkStatusFailure,
+} from '@/features/ucat/shared/lifecycle-errors'
 
 export type UcatGenerationDebugCall = {
   stemIndex: number
@@ -63,6 +70,22 @@ export type UcatGenerationProgress = {
   runId?: string | null
 }
 
+export type UcatGenerationRun = {
+  id: string
+  status: 'running' | 'completed' | 'failed'
+  requested_stem_count: number
+  accepted_stem_count: number
+  discarded_stem_count: number
+  processed_stem_count: number
+  progress_step: UcatGenerationProgress['step'] | null
+  progress_message: string | null
+  error_message: string | null
+  generated_stem_ids: string[]
+  created_at: string
+  completed_at: string | null
+  dismissed_at: string | null
+}
+
 export class UcatGenerationApiError extends Error {
   debug: UcatGenerationDebugInfo | null
 
@@ -77,7 +100,7 @@ export type UcatGeneratedDraftStem = {
   sectionId: string
   categoryId: string | null
   stemText: Json
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   questions: Array<{
     index: number
     questionText: Json
@@ -103,20 +126,17 @@ export type UcatGenerateDraftsResult = {
   stems: UcatGeneratedDraftStem[]
 }
 
-type UcatGenerationStreamFinal = UcatGenerateDraftsResult & {
-  type?: string
-  status?: number
-  error?: string
-}
-
 export type UcatQuestionStemRow = UcatQuestionStem & {
-  is_ai_generated?: boolean | null
   ai_generation_metadata?: Json | null
   source_channel?: UcatQuestionSourceChannel | null
   tutor_source_note?: string | null
-  approval_status?: UcatApprovalStatus | null
-  approved_by?: string | null
-  approved_at?: string | null
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
+  publication_issues?: UcatPublicationIssue[] | null
+  status_changed_at?: string | null
+  status_changed_by?: string | null
+  status_changed_by_first_name?: string | null
+  status_changed_by_last_name?: string | null
 }
 
 export type UcatQuestionSourceChannel = 'individual' | 'bulk_import' | 'ai_generation'
@@ -151,14 +171,16 @@ export type StemDetailRow = {
   display_columns: number
   question_stem_category_id: string | null
   category_name: string | null
-  is_private: boolean
-  is_ai_generated?: boolean | null
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
+  publication_issues?: UcatPublicationIssue[] | null
   ai_generation_metadata?: Json | null
   source_channel?: UcatQuestionSourceChannel | null
   tutor_source_note?: string | null
-  approval_status?: UcatApprovalStatus | null
-  approved_by?: string | null
-  approved_at?: string | null
+  status_changed_at?: string | null
+  status_changed_by?: string | null
+  status_changed_by_first_name?: string | null
+  status_changed_by_last_name?: string | null
   created_by?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
@@ -169,24 +191,17 @@ export type StemDetailRow = {
 
 export const ucatQuestionsApi = {
   async list(options?: {
-    mode?: UcatQuestionListMode
+    status?: UcatContentStatus | null
+    sourceChannel?: UcatQuestionSourceChannel | null
     sectionId?: string | null
     categoryId?: string | null
-    approvalStatus?: UcatApprovalStatus | null
   }) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const mode = options?.mode ?? 'default'
     let query = supabase
       .from('vtutor_ucat_question_stems')
       .select('*')
       .order('updated_at', { ascending: false })
       .order('id')
-
-    if (mode === 'default') {
-      query = query.filter('approval_status', 'eq', 'approved')
-    } else if (mode === 'generated') {
-      query = query.filter('is_ai_generated', 'eq', 'true')
-    }
 
     if (options?.sectionId) {
       query = query.eq('section_id', options.sectionId)
@@ -194,8 +209,11 @@ export const ucatQuestionsApi = {
     if (options?.categoryId) {
       query = query.eq('question_stem_category_id', options.categoryId)
     }
-    if (options?.approvalStatus) {
-      query = query.filter('approval_status', 'eq', options.approvalStatus)
+    if (options?.status) {
+      query = query.eq('status', options.status)
+    }
+    if (options?.sourceChannel) {
+      query = query.eq('source_channel', options.sourceChannel)
     }
 
     const data = await fetchAllSupabaseRows((from, to) => query.range(from, to))
@@ -229,7 +247,9 @@ export const ucatQuestionsApi = {
       supabase.from('vtutor_ucat_question_stem_detail').select('*').eq('id', stemId).maybeSingle(),
       supabase
         .from('vtutor_ucat_question_stems')
-        .select('created_by, created_by_first_name, created_by_last_name, created_at')
+        .select(
+          'created_by, created_by_first_name, created_by_last_name, created_at, status_changed_by, status_changed_at, status_changed_by_first_name, status_changed_by_last_name',
+        )
         .eq('id', stemId)
         .maybeSingle(),
     ])
@@ -243,6 +263,10 @@ export const ucatQuestionsApi = {
       created_by_first_name?: string | null
       created_by_last_name?: string | null
       created_at?: string | null
+      status_changed_by?: string | null
+      status_changed_at?: string | null
+      status_changed_by_first_name?: string | null
+      status_changed_by_last_name?: string | null
     } | null
 
     return {
@@ -251,6 +275,10 @@ export const ucatQuestionsApi = {
       created_by_first_name: meta?.created_by_first_name ?? null,
       created_by_last_name: meta?.created_by_last_name ?? null,
       created_at: meta?.created_at ?? null,
+      status_changed_by: meta?.status_changed_by ?? null,
+      status_changed_at: meta?.status_changed_at ?? null,
+      status_changed_by_first_name: meta?.status_changed_by_first_name ?? null,
+      status_changed_by_last_name: meta?.status_changed_by_last_name ?? null,
     } as StemDetailRow
   },
 
@@ -366,31 +394,40 @@ export const ucatQuestionsApi = {
     return map
   },
 
-  async getStemCatalog() {
+  async getStemCatalog(options?: { publishedOnly?: boolean }) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const [detailData, approvedData] = await Promise.all([
+    const publishedOnly = options?.publishedOnly ?? false
+    const [detailData, listData] = await Promise.all([
       fetchAllSupabaseRows((from, to) =>
-        supabase
+        (publishedOnly
+          ? supabase
+              .from('vtutor_ucat_question_stem_detail')
+              .select(
+                'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at'
+              )
+              .is('deleted_at', null)
+              .eq('status', 'published')
+          : supabase
           .from('vtutor_ucat_question_stem_detail')
           .select(
-            'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,is_ai_generated,created_at,deleted_at'
+              'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at'
           )
-          .is('deleted_at', null)
-          .filter('approval_status', 'eq', 'approved')
+              .is('deleted_at', null))
           .order('id')
           .range(from, to)
       ),
       fetchAllSupabaseRows((from, to) =>
         supabase
-          .from('vtutor_ucat_question_stems_approved')
+          .from('vtutor_ucat_question_stems')
           .select('id,set_names,set_ids')
+          .is('deleted_at', null)
           .order('id')
           .range(from, to)
       ),
     ])
 
     const setInfoById = new Map(
-      approvedData.map((row) => [
+      listData.map((row) => [
         row.id ?? '',
         {
           setNames: row.set_names,
@@ -408,8 +445,9 @@ export const ucatQuestionsApi = {
       section_id: string | null
       question_stem_category_id: string | null
       category_name: string | null
-      is_private: boolean | null
-      is_ai_generated: boolean | null
+      status: UcatContentStatus
+      access_scope: UcatAccessScope
+      source_channel: UcatQuestionSourceChannel | null
       created_at: string | null
       set_names?: unknown
       set_ids?: unknown
@@ -503,7 +541,7 @@ export const ucatQuestionsApi = {
 
   async bulkUpdateMetadata(
     stemIds: string[],
-    updates: { categoryId?: string | null; isPrivate?: boolean }
+    updates: { categoryId?: string | null; accessScope?: UcatAccessScope }
   ) {
     const response = await fetch('/api/ucat/question-stems/bulk-update', {
       method: 'PATCH',
@@ -511,7 +549,7 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         stemIds,
         categoryId: updates.categoryId ?? null,
-        isPrivate: updates.isPrivate ?? null,
+        accessScope: updates.accessScope ?? null,
       }),
     })
 
@@ -541,7 +579,7 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ ids: string[] }>
   },
 
-  async generateDrafts(input: {
+  async startGeneration(input: {
     sectionId: string
     categoryId?: string | null
     modelProfileId?: string | null
@@ -554,102 +592,47 @@ export const ucatQuestionsApi = {
     timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
     targetTagIds: string[]
     runInstructions?: string | null
-    onProgress?: (progress: UcatGenerationProgress) => void
-  }): Promise<UcatGenerateDraftsResult> {
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 600_000)
-    let response: Response
-    try {
-      response = await fetch('/api/ucat/question-stems/generated/generate', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
-        body: JSON.stringify({
-          sectionId: input.sectionId,
-          categoryId: input.categoryId,
-          modelProfileId: input.modelProfileId,
-          sourceMode: input.sourceMode,
-          includeAiSourceStems: input.includeAiSourceStems ?? false,
-          imageGenerationMode: input.imageGenerationMode ?? 'auto',
-          sourceStemIds: input.sourceStemIds,
-          stemCount: input.stemCount,
-          difficultyTarget: input.difficultyTarget,
-          timeBurdenTarget: input.timeBurdenTarget,
-          targetTagIds: input.targetTagIds,
-          runInstructions: input.runInstructions,
-        }),
-      })
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Generation timed out after 600 seconds. Try fewer stems or a faster model.')
-      }
-      throw error
-    } finally {
-      window.clearTimeout(timeout)
-    }
-
-    if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('Generation stream did not include a response body')
-      const decoder = new TextDecoder()
-      let buffer = ''
-      const finalRef: { current: UcatGenerationStreamFinal | null } = { current: null }
-
-      const consumeLine = (line: string) => {
-        if (!line.trim()) return
-        const event = JSON.parse(line) as {
-          type?: string
-          step?: UcatGenerationProgress['step']
-          message?: string
-          completedStems?: number
-          totalStems?: number
-          runId?: string | null
-        }
-        if (event.type === 'progress' && event.step && event.message) {
-          input.onProgress?.({
-            step: event.step,
-            message: event.message,
-            completedStems: event.completedStems,
-            totalStems: event.totalStems,
-            runId: event.runId,
-          })
-          return
-        }
-        if (event.type === 'complete' || event.type === 'error') {
-          finalRef.current = event as UcatGenerationStreamFinal
-        }
-      }
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) consumeLine(line)
-      }
-      buffer += decoder.decode()
-      consumeLine(buffer)
-
-      const finalBody = finalRef.current
-      if (!finalBody) throw new Error('Generation stream ended without a final response')
-      if (finalBody.type === 'error' || (finalBody.status && finalBody.status >= 400)) {
-        throw new UcatGenerationApiError(finalBody.error ?? 'Failed to generate question drafts', finalBody.debug ?? null)
-      }
-      if (!finalBody.stems) throw new Error('Generation response did not include generated stems')
-      return {
-        discardedCount: finalBody.discardedCount,
-        debug: finalBody.debug,
-        debugRunId: finalBody.debugRunId,
-        stems: finalBody.stems,
-      }
-    }
-
+  }): Promise<{ runId: string }> {
+    const response = await fetch('/api/ucat/question-stems/generated/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sectionId: input.sectionId,
+        categoryId: input.categoryId,
+        modelProfileId: input.modelProfileId,
+        sourceMode: input.sourceMode,
+        includeAiSourceStems: input.includeAiSourceStems ?? false,
+        imageGenerationMode: input.imageGenerationMode ?? 'auto',
+        sourceStemIds: input.sourceStemIds,
+        stemCount: input.stemCount,
+        difficultyTarget: input.difficultyTarget,
+        timeBurdenTarget: input.timeBurdenTarget,
+        targetTagIds: input.targetTagIds,
+        runInstructions: input.runInstructions,
+      }),
+    })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { error?: string; debug?: UcatGenerationDebugInfo | null }
-      throw new UcatGenerationApiError(body.error ?? 'Failed to generate question drafts', body.debug ?? null)
+      const body = await response.json().catch(() => ({})) as { error?: string }
+      throw new Error(body.error ?? 'Failed to start question generation')
     }
-    return response.json() as Promise<UcatGenerateDraftsResult>
+    return response.json() as Promise<{ runId: string }>
+  },
+
+  async getGenerationRuns(): Promise<UcatGenerationRun[]> {
+    const response = await fetch('/api/ucat/question-stems/generated/runs')
+    if (response.status === 403) return []
+    if (!response.ok) throw new Error('Failed to load generation tasks')
+    const body = await response.json() as { runs: UcatGenerationRun[] }
+    return body.runs
+  },
+
+  async dismissGenerationRun(runId: string): Promise<void> {
+    const response = await fetch(`/api/ucat/question-stems/generated/runs/${runId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dismissed: true }),
+    })
+    if (!response.ok) throw new Error('Failed to dismiss generation task')
   },
 
   async getGenerationModelProfiles() {
@@ -671,6 +654,70 @@ export const ucatQuestionsApi = {
     }>
   },
 
+  async generateExplanations(input: {
+    modelProfileId?: string | null
+    concurrency?: number
+    stems: Array<{
+      id?: string
+      sectionId: string
+      sectionName?: string | null
+      categoryId?: string | null
+      categoryName?: string | null
+      stemText: unknown
+      isPrivate?: boolean
+      questions: Array<{
+        questionText: unknown
+        questionType: 'multiple_choice' | 'syllogism'
+        answerExplanation?: unknown
+        difficulty?: number | null
+        timeBurdenSeconds?: string | null
+        tagIds?: string[]
+        options: Array<{
+          answerText: unknown
+          answerExplanation?: unknown
+          isAnswer: boolean
+        }>
+      }>
+      questionIndices?: number[]
+    }>
+  }) {
+    const response = await fetch('/api/ucat/question-stems/explanations/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modelProfileId: input.modelProfileId ?? null,
+        concurrency: input.concurrency,
+        stems: input.stems,
+      }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error((body as { error?: string }).error ?? 'Failed to generate explanations')
+    }
+    return response.json() as Promise<{
+      results: Array<{
+        stemIndex: number
+        id: string | null
+        updates: Array<{
+          questionIndex: number
+          answerExplanation?: string | null
+          optionExplanations?: Array<string | null>
+          confidence?: number
+          unresolved?: boolean
+          rationale?: string | null
+          reviewRequired?: boolean
+          reviewMessage?: string | null
+          suggestedCorrectOptionIndex?: number | null
+          suggestedAnswerExplanation?: string | null
+          suggestedChanges?: string | null
+        }>
+        error: string | null
+      }>
+      appliedStemCount: number
+      errorCount: number
+    }>
+  },
+
   async importGenerated(sectionId: string, stems: Array<Record<string, unknown>>) {
     const response = await fetch('/api/ucat/question-stems/generated/import', {
       method: 'POST',
@@ -684,17 +731,28 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ ids: string[] }>
   },
 
-  async setApprovalStatus(stemId: string, status: UcatApprovalStatus) {
-    const response = await fetch(`/api/ucat/question-stems/${stemId}/approval`, {
+  async setStatus(stemId: string, status: UcatContentStatus) {
+    const result = await this.bulkSetStatus([stemId], status)
+    throwFirstUcatBulkStatusFailure(result)
+    return result
+  },
+
+  async bulkSetStatus(stemIds: string[], status: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvalStatus: status }),
+      body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update approval status')
-    }
-    return response.json() as Promise<{ ok: true }>
+    return readUcatBulkStatusResponse(response, 'Failed to update question status')
+  },
+
+  async bulkRestoreStatus(stemIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
+    const response = await fetch('/api/ucat/content-status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentType: 'stem', contentIds: stemIds, status: currentStatus, previousStatus }),
+    })
+    return readUcatBulkStatusResponse(response, 'Failed to restore question status')
   },
 }
 
@@ -715,7 +773,7 @@ function stemDetailToBundlePayload(
     sectionId: detail.section_id,
     categoryId: detail.question_stem_category_id ?? null,
     stemText: detail.stem_text ?? {},
-    isPrivate: !!detail.is_private,
+    accessScope: detail.access_scope,
     sourceChannel: detail.source_channel ?? null,
     tutorSourceNote: detail.tutor_source_note ?? null,
     questions: questions.map((q, i) => ({
@@ -730,6 +788,7 @@ function stemDetailToBundlePayload(
       aiGenerationMetadata: q.ai_generation_metadata ?? null,
       tagIds: getTagIds(q, i),
       options: (q.answer_options ?? []).map((opt) => ({
+        id: opt.id,
         index: opt.index,
         answerText: opt.answer_text ?? {},
         answerExplanation: toJsonOrNull(opt.answer_explanation),
@@ -745,7 +804,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     sectionId: payload.sectionId,
     categoryId: payload.categoryId ?? null,
     stemText: payload.stemText,
-    isPrivate: payload.isPrivate,
+    accessScope: payload.accessScope,
     sourceChannel: payload.sourceChannel ?? null,
     tutorSourceNote: payload.tutorSourceNote ?? null,
     questions: payload.questions.map((question) => ({
@@ -760,6 +819,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
       ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
       answer_options: question.options.map((option) => ({
+        id: option.id ?? null,
         index: option.index,
         answer_text: option.answerText,
         answer_explanation: toJsonOrNull(option.answerExplanation),
