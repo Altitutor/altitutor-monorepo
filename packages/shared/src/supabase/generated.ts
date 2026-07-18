@@ -8598,8 +8598,8 @@ export type Database = {
           student_practice_session_id: string | null
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
-          time_spent_seconds: number | null
           time_spent_milliseconds: number | null
+          time_spent_seconds: number | null
           was_timed: boolean
         }
         Insert: {
@@ -8619,8 +8619,8 @@ export type Database = {
           student_practice_session_id?: string | null
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
-          time_spent_seconds?: number | null
           time_spent_milliseconds?: number | null
+          time_spent_seconds?: number | null
           was_timed?: boolean
         }
         Update: {
@@ -8640,8 +8640,8 @@ export type Database = {
           student_practice_session_id?: string | null
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
-          time_spent_seconds?: number | null
           time_spent_milliseconds?: number | null
+          time_spent_seconds?: number | null
           was_timed?: boolean
         }
         Relationships: [
@@ -8940,6 +8940,68 @@ export type Database = {
           },
         ]
       }
+      student_skill_trainer_action_receipts: {
+        Row: {
+          action_id: string
+          applied_version: number
+          created_at: string
+          item_completed: boolean
+          result: Json
+          score_delta: number
+          skill_trainer_attempt_id: string
+          skill_trainer_item_id: string
+        }
+        Insert: {
+          action_id: string
+          applied_version: number
+          created_at?: string
+          item_completed: boolean
+          result?: Json
+          score_delta: number
+          skill_trainer_attempt_id: string
+          skill_trainer_item_id: string
+        }
+        Update: {
+          action_id?: string
+          applied_version?: number
+          created_at?: string
+          item_completed?: boolean
+          result?: Json
+          score_delta?: number
+          skill_trainer_attempt_id?: string
+          skill_trainer_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_skill_trainer_action_rece_skill_trainer_attempt_id_fkey"
+            columns: ["skill_trainer_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "student_skill_trainer_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_action_rece_skill_trainer_attempt_id_fkey"
+            columns: ["skill_trainer_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_skill_trainer_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_action_receipt_skill_trainer_item_id_fkey"
+            columns: ["skill_trainer_item_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_skill_trainer_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_action_receipt_skill_trainer_item_id_fkey"
+            columns: ["skill_trainer_item_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainer_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_skill_trainer_attempt_items: {
         Row: {
           completed_at: string
@@ -9012,6 +9074,7 @@ export type Database = {
           started_at: string
           streak_count: number
           student_id: string
+          version: number
         }
         Insert: {
           completed_at?: string | null
@@ -9028,6 +9091,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id: string
+          version?: number
         }
         Update: {
           completed_at?: string | null
@@ -9044,6 +9108,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id?: string
+          version?: number
         }
         Relationships: [
           {
@@ -11600,6 +11665,63 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tutor_logs_topics"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_active_exam_attempts: {
+        Row: {
+          attempt_id: string
+          attempt_kind: string
+          last_activity_at: string
+          student_id: string
+        }
+        Insert: {
+          attempt_id: string
+          attempt_kind: string
+          last_activity_at?: string
+          student_id: string
+        }
+        Update: {
+          attempt_id?: string
+          attempt_kind?: string
+          last_activity_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_active_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_active_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_active_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_active_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_active_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -25616,6 +25738,25 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      commit_student_skill_trainer_action: {
+        Args: {
+          p_action_id: string
+          p_attempt_id: string
+          p_current_item_index: number
+          p_current_item_started_at: string
+          p_expected_item_id: string
+          p_expected_version: number
+          p_item_completed: boolean
+          p_item_queue_snapshot: Json
+          p_progress: Json
+          p_result: Json
+          p_score: number
+          p_score_delta: number
+          p_streak_count: number
+          p_student_id: string
+        }
+        Returns: Json
+      }
       complete_imessage_command: {
         Args: {
           p_command_id: string
@@ -25763,9 +25904,31 @@ export type Database = {
         }
         Returns: Json
       }
+      create_ucat_exam_attempt_records: {
+        Args: {
+          p_attempt_id: string
+          p_attempt_kind: string
+          p_current_segment_ends_at: string
+          p_engine_snapshot: Json
+          p_first_set_attempt_id?: string
+          p_first_set_id?: string
+          p_resource_id: string
+          p_student_id: string
+          p_was_timed: boolean
+        }
+        Returns: undefined
+      }
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_tutor_id: { Args: never; Returns: string }
+      discard_ucat_exam_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_attempt_kind: string
+          p_student_id: string
+        }
+        Returns: boolean
+      }
       discontinue_student: {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
@@ -25847,6 +26010,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      expire_stale_ucat_exam_attempts: {
+        Args: { p_student_id: string }
+        Returns: number
       }
       expire_ucat_referral_gifts: { Args: never; Returns: number }
       extract_flashcard_cloze_indexes: {
@@ -25979,6 +26146,10 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_skill_trainer_item_queue: {
+        Args: { p_limit?: number; p_skill_trainer_id: string }
+        Returns: string[]
+      }
       get_staff_id_from_storage_path: {
         Args: { file_path: string }
         Returns: string
@@ -26039,6 +26210,13 @@ export type Database = {
       get_topic_id_from_flashcard_image_path: {
         Args: { file_path: string }
         Returns: string
+      }
+      get_ucat_active_exam_attempt_slot: {
+        Args: { p_student_id: string }
+        Returns: {
+          attempt_id: string
+          attempt_kind: string
+        }[]
       }
       get_ucat_free_quota_reset_boundary: {
         Args: { p_quota_area: string; p_student_id: string }
@@ -26113,6 +26291,18 @@ export type Database = {
           p_conversation_id: string
           p_message_id: string
           p_payload: Json
+        }
+        Returns: undefined
+      }
+      increment_ucat_question_active_time: {
+        Args: {
+          p_elapsed_milliseconds: number
+          p_mode: string
+          p_practice_session_id: string
+          p_question_id: string
+          p_set_attempt_id: string
+          p_student_id: string
+          p_was_timed: boolean
         }
         Returns: undefined
       }
@@ -27023,3 +27213,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -82,7 +82,7 @@ export function MockAttemptQuestionAttemptsCard({
   onBarClick,
 }: MockAttemptQuestionAttemptsCardProps) {
   const [navigatorView, setNavigatorView] = useState<"simple" | "timing">(
-    "timing",
+    "simple",
   );
 
   const sectionGroups = useMemo(

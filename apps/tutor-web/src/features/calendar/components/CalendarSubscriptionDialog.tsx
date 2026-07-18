@@ -10,7 +10,22 @@ import {
   DialogTitle,
   Input,
 } from "@altitutor/ui";
-import { CalendarDays, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  Copy,
+  ExternalLink,
+  Loader2,
+  X,
+} from "lucide-react";
+import { cn } from "@/shared/utils";
+import {
+  tutorBtnIconOutline,
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogHeaderStrip,
+} from "@/shared/lib/tutor-visual";
 
 interface CalendarSubscriptionDialogProps {
   open: boolean;
@@ -96,103 +111,102 @@ export function CalendarSubscriptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add Altitutor timetable to calendar</DialogTitle>
-          <DialogDescription>
-            Subscribe once. Your calendar provider will periodically pick up
-            new, changed, and cancelled sessions.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        hideCloseButton
+        className={cn(
+          "flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
+          tutorDialogContentClass,
+        )}
+      >
+        <div className={cn("shrink-0", tutorDialogHeaderStrip)}>
+          <DialogHeader className="px-6 py-4">
+            <div className="flex items-start gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                className={tutorBtnIconOutline}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <DialogTitle>Add Altitutor timetable to calendar</DialogTitle>
+                <DialogDescription>
+                  Subscribe once. Your calendar provider will periodically pick
+                  up new, changed, and cancelled sessions.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
 
-        {isLoading ? (
-          <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Preparing your private calendar link…
-          </div>
-        ) : error ? (
-          <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            <p className="text-sm text-destructive">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setError("");
-                setSubscriptionUrl("");
-                setLoadVersion((version) => version + 1);
-              }}
-            >
-              Try again
-            </Button>
-          </div>
-        ) : subscriptionUrl ? (
-          <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button asChild className="justify-between">
-                <a href={webcalUrl}>
-                  <span className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" /> Apple Calendar
-                  </span>
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          {isLoading ? (
+            <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Preparing your private calendar link…
+            </div>
+          ) : error ? (
+            <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm text-destructive">{error}</p>
               <Button
                 variant="outline"
-                className="justify-between"
-                onClick={() =>
-                  copyAndOpen(
-                    "https://calendar.google.com/calendar/u/0/r/settings/addbyurl",
-                  )
-                }
+                size="sm"
+                className={tutorBtnOutline}
+                onClick={() => {
+                  setError("");
+                  setSubscriptionUrl("");
+                  setLoadVersion((version) => version + 1);
+                }}
               >
-                Google Calendar
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-between"
-                onClick={() =>
-                  copyAndOpen("https://outlook.live.com/calendar/0/addcalendar")
-                }
-              >
-                Outlook
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-between"
-                onClick={copyUrl}
-              >
-                Other calendar
-                {copied ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
+                Try again
               </Button>
             </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="calendar-subscription-url"
-                className="text-sm font-medium"
-              >
-                Private subscription URL
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  id="calendar-subscription-url"
-                  value={subscriptionUrl}
-                  readOnly
-                  onFocus={(event) => event.currentTarget.select()}
-                  className="font-mono text-xs"
-                />
+          ) : subscriptionUrl ? (
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  asChild
+                  className={cn("justify-between", tutorBtnPrimary)}
+                >
+                  <a href={webcalUrl}>
+                    <span className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Apple Calendar
+                    </span>
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
                 <Button
                   variant="outline"
-                  size="icon"
-                  onClick={copyUrl}
-                  aria-label="Copy URL"
+                  className={cn("justify-between", tutorBtnOutline)}
+                  onClick={() =>
+                    copyAndOpen(
+                      "https://calendar.google.com/calendar/u/0/r/settings/addbyurl",
+                    )
+                  }
                 >
+                  Google Calendar
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn("justify-between", tutorBtnOutline)}
+                  onClick={() =>
+                    copyAndOpen(
+                      "https://outlook.live.com/calendar/0/addcalendar",
+                    )
+                  }
+                >
+                  Outlook
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn("justify-between", tutorBtnOutline)}
+                  onClick={copyUrl}
+                >
+                  Other calendar
                   {copied ? (
                     <Check className="h-4 w-4" />
                   ) : (
@@ -200,14 +214,45 @@ export function CalendarSubscriptionDialog({
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Google and Outlook: the URL is copied automatically; paste it
-                into the provider’s subscription URL field. Keep this link
-                private—anyone with it can view your timetable.
-              </p>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="calendar-subscription-url"
+                  className="text-sm font-medium"
+                >
+                  Private subscription URL
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="calendar-subscription-url"
+                    value={subscriptionUrl}
+                    readOnly
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={tutorBtnIconOutline}
+                    onClick={copyUrl}
+                    aria-label="Copy URL"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Google and Outlook: the URL is copied automatically; paste it
+                  into the provider’s subscription URL field. Keep this link
+                  private—anyone with it can view your timetable.
+                </p>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );
