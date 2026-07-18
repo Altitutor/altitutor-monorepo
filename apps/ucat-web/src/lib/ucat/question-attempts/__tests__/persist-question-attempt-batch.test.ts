@@ -20,13 +20,13 @@ describe("persistQuestionAttemptBatch", () => {
       data: [{ id: "attempt-1", question_id: "question-1" }],
       error: null,
     });
-    const upsert = jest.fn().mockResolvedValue({ error: null });
-    const insert = jest.fn().mockResolvedValue({ error: null });
+    const updateUpsert = jest.fn().mockResolvedValue({ error: null });
+    const insertUpsert = jest.fn().mockResolvedValue({ error: null });
     const from = jest
       .fn()
       .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce({ upsert })
-      .mockReturnValueOnce({ insert });
+      .mockReturnValueOnce({ upsert: updateUpsert })
+      .mockReturnValueOnce({ upsert: insertUpsert });
 
     await persistQuestionAttemptBatch(
       { from } as never,
@@ -55,7 +55,7 @@ describe("persistQuestionAttemptBatch", () => {
     );
 
     expect(from).toHaveBeenCalledTimes(3);
-    expect(upsert).toHaveBeenCalledWith(
+    expect(updateUpsert).toHaveBeenCalledWith(
       [
         expect.objectContaining({
           id: "attempt-1",
@@ -67,26 +67,29 @@ describe("persistQuestionAttemptBatch", () => {
       ],
       { onConflict: "id" },
     );
-    expect(insert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        student_id: "student-1",
-        student_question_set_attempt_id: null,
-        student_practice_session_id: "session-1",
-        question_id: "question-2",
-        is_flagged: true,
-        is_submitted: true,
-        score: 0,
-      }),
-    ]);
+    expect(insertUpsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          student_id: "student-1",
+          student_question_set_attempt_id: null,
+          student_practice_session_id: "session-1",
+          question_id: "question-2",
+          is_flagged: true,
+          is_submitted: true,
+          score: 0,
+        }),
+      ],
+      { onConflict: "student_practice_session_id,question_id" },
+    );
   });
 
   it("keeps only the latest value for duplicate question inputs", async () => {
     const selectQuery = thenableQuery({ data: [], error: null });
-    const insert = jest.fn().mockResolvedValue({ error: null });
+    const upsert = jest.fn().mockResolvedValue({ error: null });
     const from = jest
       .fn()
       .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce({ insert });
+      .mockReturnValueOnce({ upsert });
 
     await persistQuestionAttemptBatch(
       { from } as never,
@@ -102,11 +105,14 @@ describe("persistQuestionAttemptBatch", () => {
       ],
     );
 
-    expect(insert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        question_id: "question-1",
-        question_answer_option_id: "new",
-      }),
-    ]);
+    expect(upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          question_id: "question-1",
+          question_answer_option_id: "new",
+        }),
+      ],
+      { onConflict: "id" },
+    );
   });
 });

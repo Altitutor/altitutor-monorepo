@@ -17,6 +17,7 @@ import { useIssues } from '@/features/issues/api/queries';
 import { issuesApi } from '@/features/issues/api/issues';
 import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
 import { extractMentions } from '@/shared/utils/extractMentions';
+import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
 import {
