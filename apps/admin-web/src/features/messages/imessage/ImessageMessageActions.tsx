@@ -31,12 +31,12 @@ interface ImessageMessageActionsProps {
 type DestructiveAction = 'unsend_message' | 'delete_message';
 
 const TAPBACKS = [
-  ['love', 'Love'],
-  ['like', 'Like'],
-  ['dislike', 'Dislike'],
-  ['laugh', 'Laugh'],
-  ['emphasize', 'Emphasize'],
-  ['question', 'Question'],
+  ['love', 'Love', '❤️'],
+  ['like', 'Like', '👍'],
+  ['dislike', 'Dislike', '👎'],
+  ['laugh', 'Laugh', '😂'],
+  ['emphasize', 'Emphasize', '‼️'],
+  ['question', 'Question', '❓'],
 ] as const;
 
 export function ImessageMessageActions({
@@ -82,7 +82,7 @@ export function ImessageMessageActions({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>React / Tapback</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {TAPBACKS.map(([reaction, label]) => (
+              {TAPBACKS.map(([reaction, label, emoji]) => (
                 <DropdownMenuItem
                   key={reaction}
                   onClick={() => control.mutate({
@@ -91,6 +91,7 @@ export function ImessageMessageActions({
                     payload: { imessageGuid, reaction },
                   })}
                 >
+                  <span className="mr-2" aria-hidden>{emoji}</span>
                   {label}
                 </DropdownMenuItem>
               ))}

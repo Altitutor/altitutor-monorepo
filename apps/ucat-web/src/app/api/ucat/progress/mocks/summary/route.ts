@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { MockProgressResponse } from "@/features/progress/types/mock-progress";
@@ -54,7 +55,7 @@ export async function GET() {
     totalRes.error ??
     reviewedRes.error;
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return captureApiErrorResponse(error, "/api/ucat/progress/mocks/summary", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const summary = summaryRes.data as unknown as SummaryRow | null;
   const scores = new Map(

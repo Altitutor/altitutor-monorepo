@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(blockError, "/api/ucat/learning-modules/blocks/[blockId]/file");
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (!block?.file_id) {
@@ -45,6 +47,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (fileError) {
+    captureApiError(fileError, "/api/ucat/learning-modules/blocks/[blockId]/file");
     return NextResponse.json({ error: fileError.message }, { status: 500 });
   }
   if (!file?.bucket || !file.storage_path) {
@@ -61,6 +64,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
 
   if (signedError || !signed?.signedUrl) {
+    captureApiError(signedError, "/api/ucat/learning-modules/blocks/[blockId]/file");
     return NextResponse.json(
       { error: signedError?.message ?? "Failed to sign file" },
       { status: 500 },

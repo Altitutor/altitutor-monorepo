@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -36,7 +37,12 @@ export async function POST(request: NextRequest) {
     resumeOnly?: boolean;
   };
 
-  if (!body.kind || !body.resourceId || !body.engineSnapshot || !body.examMeta) {
+  if (
+    !body.kind ||
+    !body.resourceId ||
+    !body.engineSnapshot ||
+    !body.examMeta
+  ) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 },
@@ -50,6 +56,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/exam-attempts/begin");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -92,24 +99,25 @@ export async function POST(request: NextRequest) {
       body.examMeta,
       body.examTiming,
     );
-    return NextResponse.json({ attempt: result.attempt, resumed: result.resumed });
+    return NextResponse.json({
+      attempt: result.attempt,
+      resumed: result.resumed,
+    });
   } catch (error) {
+    captureApiError(error, "/api/ucat/exam-attempts/begin");
     const message = error instanceof Error ? error.message : "Failed to begin";
     if (message.startsWith("QUOTA_EXCEEDED:")) {
       const payload = JSON.parse(message.slice("QUOTA_EXCEEDED:".length));
       return quotaExceededResponse(payload);
     }
-    if (message === "EXAM_ATTEMPT_IN_PROGRESS") {
+    if (message.includes("EXAM_ATTEMPT_IN_PROGRESS")) {
       const active = await checkExamAttemptConflict(
         supabaseAdmin,
         student.id,
         body.kind,
         body.resourceId,
       );
-      return NextResponse.json(
-        { error: message, active },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: message, active }, { status: 409 });
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }

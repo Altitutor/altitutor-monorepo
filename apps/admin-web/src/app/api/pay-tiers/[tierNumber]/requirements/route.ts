@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import type { Json } from '@altitutor/shared';
@@ -26,7 +27,7 @@ export async function GET(
     .select('*')
     .eq('tier_number', tierNumber)
     .order('sort_order');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ requirements: data ?? [] });
 }
 
@@ -53,6 +54,7 @@ export async function POST(
       .eq('tier_number', tierNumber)
       .in('requirement_kind', TENURE_KINDS);
     if (tenureCheckError) {
+      captureApiError(tenureCheckError, "/api/pay-tiers/[tierNumber]/requirements");
       return NextResponse.json({ error: tenureCheckError.message }, { status: 500 });
     }
     if (existingTenure && existingTenure.length > 0) {
@@ -70,6 +72,7 @@ export async function POST(
       .eq('tier_number', tierNumber)
       .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION');
     if (timeSinceCheckError) {
+      captureApiError(timeSinceCheckError, "/api/pay-tiers/[tierNumber]/requirements");
       return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
     }
     if (existingTimeSince && existingTimeSince.length > 0) {
@@ -90,7 +93,7 @@ export async function POST(
     })
     .select()
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ requirement: data });
 }
 
@@ -121,6 +124,7 @@ export async function PATCH(
       .in('requirement_kind', TENURE_KINDS)
       .neq('id', body.id);
     if (tenureCheckError) {
+      captureApiError(tenureCheckError, "/api/pay-tiers/[tierNumber]/requirements");
       return NextResponse.json({ error: tenureCheckError.message }, { status: 500 });
     }
     if (otherTenure && otherTenure.length > 0) {
@@ -139,6 +143,7 @@ export async function PATCH(
       .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION')
       .neq('id', body.id);
     if (timeSinceCheckError) {
+      captureApiError(timeSinceCheckError, "/api/pay-tiers/[tierNumber]/requirements");
       return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
     }
     if (otherTimeSince && otherTimeSince.length > 0) {
@@ -163,7 +168,7 @@ export async function PATCH(
     .eq('tier_number', tierNumber)
     .select()
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ requirement: data });
 }
 
@@ -184,6 +189,6 @@ export async function DELETE(
     .delete()
     .eq('id', requirementId)
     .eq('tier_number', tierNumber);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ success: true });
 }

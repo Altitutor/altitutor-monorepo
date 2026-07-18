@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[subscription journey]", error.message);
+    captureApiError(error, "/api/ucat/subscription-journey");
     return NextResponse.json(
       { error: "Failed to record event" },
       { status: 500 },

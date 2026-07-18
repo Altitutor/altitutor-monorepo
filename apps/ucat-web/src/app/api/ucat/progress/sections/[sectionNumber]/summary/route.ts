@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { SectionProgressResponse } from "@/features/progress/types/section-progress";
@@ -40,7 +41,7 @@ export async function GET(
     supabase.from("vstudent_ucat_question_sets").select("sections, time_limit_seconds"),
   ]);
   const error = progressRes.error ?? countsRes.error ?? categoriesRes.error ?? setProgressRes.error ?? publicSetsRes.error;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/ucat/progress/sections/[sectionNumber]/summary", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const progressByCategory = new Map<string, { correct: number; max: number }>();
   let correctScore = 0;

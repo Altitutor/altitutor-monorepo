@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
@@ -91,6 +92,7 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -109,6 +111,7 @@ export async function GET(
     .maybeSingle();
 
   if (sessionError) {
+    captureApiError(sessionError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
 
@@ -154,6 +157,7 @@ export async function GET(
   const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
 

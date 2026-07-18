@@ -22,7 +22,7 @@ import {
   DialogTitle,
   useToast,
 } from '@altitutor/ui'
-import { X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
@@ -61,6 +61,14 @@ import {
   tutorDialogFooterStrip,
   tutorDialogHeaderStrip,
 } from '@/shared/lib/tutor-visual'
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 
 export type UcatApprovalQueueEntry =
   | {
@@ -89,11 +97,13 @@ export function UcatQuestionStemApprovalQueueDialog({
   onClose: () => void
 }) {
   const [snapshotEntries, setSnapshotEntries] = useState<UcatApprovalQueueEntry[]>([])
+  const [expanded, setExpanded] = useState(true)
   const wasOpenRef = useRef(false)
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setSnapshotEntries(entries)
+      setExpanded(true)
     }
     if (!open) {
       setSnapshotEntries([])
@@ -108,9 +118,17 @@ export function UcatQuestionStemApprovalQueueDialog({
           // Force height: DialogContent base uses sm:h-auto, which collapses during load.
           'flex !h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[92vh] md:max-w-6xl [&>button]:hidden',
           tutorDialogContentClass,
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS,
         )}
       >
-        <UcatQuestionStemApprovalQueue title={title} entries={snapshotEntries} onExit={onClose} />
+        <UcatQuestionStemApprovalQueue
+          title={title}
+          entries={snapshotEntries}
+          onExit={onClose}
+          expanded={expanded}
+          onToggleExpanded={() => setExpanded((current) => !current)}
+        />
       </DialogContent>
     </Dialog>
   )
@@ -136,12 +154,17 @@ function UcatQuestionStemApprovalQueue({
   title,
   entries,
   onExit,
+  expanded,
+  onToggleExpanded,
 }: {
   title: string
   entries: UcatApprovalQueueEntry[]
   onExit: () => void
+  expanded?: boolean
+  onToggleExpanded?: () => void
 }) {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
   const [skipDialogOpen, setSkipDialogOpen] = useState(false)
@@ -213,6 +236,9 @@ function UcatQuestionStemApprovalQueue({
   const aiPrimaryLabel = isLastAiQuestion ? 'Publish' : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
+  const copyIdAction = detailQuery.data
+    ? buildCopyIdRowAction(buildStemCopyIdEntries(detailQuery.data), copyId)
+    : null
 
   function goNext() {
     setActiveTextEditor(null)
@@ -423,6 +449,28 @@ function UcatQuestionStemApprovalQueue({
               </p>
             </div>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {onToggleExpanded && expanded != null ? (
+              <ExpandButton expanded={expanded} onToggle={onToggleExpanded} />
+            ) : null}
+            {currentEntry ? (
+              <UcatRowActions
+                actions={[
+                  ...(copyIdAction ? [copyIdAction] : []),
+                  {
+                    label: 'Open in page',
+                    href: `/ucat/questions/${currentEntry.stemId}`,
+                  },
+                  {
+                    label: 'Delete',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: () => setDeleteDialogOpen(true),
+                    destructive: true,
+                  },
+                ]}
+              />
+            ) : null}
+          </div>
         </div>
       </DialogHeader>
 
@@ -463,7 +511,6 @@ function UcatQuestionStemApprovalQueue({
             statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
             statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
             statusChangedAt={detailQuery.data?.status_changed_at ?? null}
-            onDeleteStem={() => setDeleteDialogOpen(true)}
             metadataRecommendation={isAiMode ? metadataRecommendation : null}
           />
         )}

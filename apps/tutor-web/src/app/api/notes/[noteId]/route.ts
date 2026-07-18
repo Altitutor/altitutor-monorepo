@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -59,6 +60,7 @@ export async function PATCH(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -77,6 +79,7 @@ export async function PATCH(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -92,6 +95,7 @@ export async function PATCH(
     
     if (noteError) {
       console.error('Error checking note:', noteError);
+      captureApiError(noteError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to verify note' },
         { status: 500 }
@@ -125,6 +129,7 @@ export async function PATCH(
     
     if (error) {
       console.error('Error updating note:', error);
+      captureApiError(error, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to update note' },
         { status: 500 }
@@ -134,6 +139,7 @@ export async function PATCH(
     return NextResponse.json(data);
     
   } catch (error) {
+    captureApiError(error, "/api/notes/[noteId]");
     console.error('Error in PATCH /api/notes/[noteId]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -163,6 +169,7 @@ export async function DELETE(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -181,6 +188,7 @@ export async function DELETE(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -196,6 +204,7 @@ export async function DELETE(
     
     if (noteError) {
       console.error('Error checking note:', noteError);
+      captureApiError(noteError, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to verify note' },
         { status: 500 }
@@ -227,6 +236,7 @@ export async function DELETE(
     
     if (error) {
       console.error('Error deleting note:', error);
+      captureApiError(error, "/api/notes/[noteId]");
       return NextResponse.json(
         { error: 'Failed to delete note' },
         { status: 500 }
@@ -236,6 +246,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
     
   } catch (error) {
+    captureApiError(error, "/api/notes/[noteId]");
     console.error('Error in DELETE /api/notes/[noteId]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

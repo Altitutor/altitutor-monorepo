@@ -103,3 +103,15 @@ export async function finalizeExamAttempt(input: {
   }
   return response.json();
 }
+
+export async function discardExamAttempt(input: {
+  kind: ExamAttemptKind;
+  attemptId: string;
+}): Promise<void> {
+  const response = await fetch("/api/ucat/exam-attempts/discard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("Failed to discard exam attempt");
+}

@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -59,6 +60,10 @@ export async function GET(
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(
+      studentError,
+      "/api/ucat/practice-sessions/[id]/question-timing",
+    );
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -70,15 +75,24 @@ export async function GET(
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("student_practice_sessions")
-    .select("id, engine_snapshot")
+    .select("id, engine_snapshot, completed_at, discarded_at, expired_at")
     .eq("id", params.id)
     .eq("student_id", student.id)
     .maybeSingle();
 
   if (sessionError) {
+    captureApiError(
+      sessionError,
+      "/api/ucat/practice-sessions/[id]/question-timing",
+    );
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
-  if (!session) {
+  if (
+    !session ||
+    session.completed_at ||
+    session.discarded_at ||
+    session.expired_at
+  ) {
     return NextResponse.json(
       { error: "Practice session not found" },
       { status: 404 },
@@ -95,6 +109,10 @@ export async function GET(
     .is("student_question_set_attempt_id", null);
 
   if (attemptsError) {
+    captureApiError(
+      attemptsError,
+      "/api/ucat/practice-sessions/[id]/question-timing",
+    );
     return NextResponse.json({ error: attemptsError.message }, { status: 500 });
   }
 

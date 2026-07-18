@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { buildRatingPreviews, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/review-cards", NextResponse.json({ error: error.message }, { status: 500 }));
   const now = new Date();
   const rows = ((data ?? []) as FlashcardReviewCard[]).map((row) => ({
     ...row,

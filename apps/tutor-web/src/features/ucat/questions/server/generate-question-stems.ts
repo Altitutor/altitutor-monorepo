@@ -36,6 +36,7 @@ import {
   type GenerationComparisonSource,
   type GenerationGateIssue,
 } from '@/features/ucat/questions/lib/ai-generation/gates'
+import { sampleWithoutReplacement } from '@/features/ucat/questions/lib/ai-generation/sample-without-replacement'
 import {
   openAiImageToBuffer,
   resolveImageApiConfig,
@@ -45,6 +46,8 @@ import {
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rpc: (fn: string, args?: Record<string, unknown>) => any
 }
 
 export const GenerateBodySchema = z.object({
@@ -71,8 +74,12 @@ const GENERATION_TIMEOUT_MS = {
 } as const
 
 const RANDOM_SOURCE_STEM_LIMIT = 300
+/** Initial writer call + same-category regenerations after blocking gate / write failure. */
+const SAME_CATEGORY_ATTEMPTS = 2
 const MAX_SOURCE_IMAGES_FOR_WRITER = 8
 const SOURCE_IMAGE_DETAIL: Extract<UcatAiUserContentPart, { type: 'image' }>['detail'] = 'high'
+const SOURCE_STEM_DETAIL_SELECT =
+  'id,source_channel,question_stem_category_id,category_name,stem_text,questions' as const
 
 export type SourceStem = {
   id: string
@@ -447,6 +454,33 @@ function plannedCategoryName(plan: unknown): string | null {
   if (!firstPlan || typeof firstPlan !== 'object') return null
   const categoryName = (firstPlan as { categoryName?: unknown }).categoryName
   return typeof categoryName === 'string' && categoryName.trim() ? categoryName : null
+}
+
+function withSameCategoryRegenNote(
+  plan: Record<string, unknown>,
+  attempt: number,
+): Record<string, unknown> {
+  if (attempt <= 0) return plan
+  const plans = Array.isArray(plan.plans) ? plan.plans : []
+  const firstPlan = plans[0]
+  if (!firstPlan || typeof firstPlan !== 'object') return plan
+  const existingNotes = (firstPlan as { notes?: unknown }).notes
+  const baseNotes = typeof existingNotes === 'string' ? existingNotes.trim() : ''
+  return {
+    ...plan,
+    plans: [
+      {
+        ...(firstPlan as Record<string, unknown>),
+        regenerationAttempt: attempt + 1,
+        notes: [
+          baseNotes,
+          'Previous attempt failed blocking quality gates or schema validation.',
+          'Produce a fresh, distinct item in the same planned category that satisfies structural UCAT rules.',
+        ].filter(Boolean).join(' '),
+      },
+      ...plans.slice(1),
+    ],
+  }
 }
 
 function promptExampleCategory(example: Record<string, unknown>): string | null {
@@ -934,42 +968,83 @@ export async function updateGenerationRun(params: {
     .eq('id', params.runId)
 }
 
+function applySourceStemFilters(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: any,
+  body: z.infer<typeof GenerateBodySchema>,
+) {
+  let next = query
+    .eq('section_id', body.sectionId)
+    .filter('status', 'eq', 'published')
+    .is('deleted_at', null)
+
+  if (body.categoryId) next = next.eq('question_stem_category_id', body.categoryId)
+  if (!body.includeAiSourceStems) next = next.neq('source_channel', 'ai_generation')
+  return next
+}
+
 async function fetchSourceStems(
   client: SupabaseClient<Database>,
   body: z.infer<typeof GenerateBodySchema>
 ): Promise<SourceStem[]> {
   if (body.sourceMode === 'none') return []
 
-  let query = asAny(client)
-    .from('vtutor_ucat_question_stem_detail')
-    .select('id,source_channel,question_stem_category_id,category_name,stem_text,questions')
-    .eq('section_id', body.sectionId)
-    .filter('status', 'eq', 'published')
-    .is('deleted_at', null)
-
-  if (body.categoryId) query = query.eq('question_stem_category_id', body.categoryId)
-  if (!body.includeAiSourceStems) query = query.neq('source_channel', 'ai_generation')
-
   if (body.sourceMode === 'selected') {
     if (!body.sourceStemIds || body.sourceStemIds.length === 0) {
       throw new Error('Please select at least one source stem, or choose no source examples.')
     }
-    query = query.in('id', body.sourceStemIds)
-  } else {
-    query = query.limit(RANDOM_SOURCE_STEM_LIMIT)
+
+    const { data, error } = await applySourceStemFilters(
+      asAny(client)
+        .from('vtutor_ucat_question_stem_detail')
+        .select(SOURCE_STEM_DETAIL_SELECT)
+        .in('id', body.sourceStemIds),
+      body,
+    )
+    if (error) throw new Error(error.message)
+
+    const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
+    return prioritizeTagMatches(
+      sampleWithoutReplacement(source, source.length),
+      body.targetTagIds,
+    ).slice(0, 8)
   }
 
-  const { data, error } = await query
+  // Random mode: DB-side uniform sample of IDs (scales past PostgREST max_rows),
+  // then load stem details for the sample only.
+  const { data: sampledIdData, error: idError } = await asAny(client).rpc(
+    'tutor_ucat_sample_question_stem_ids',
+    {
+      p_section_id: body.sectionId,
+      p_limit: RANDOM_SOURCE_STEM_LIMIT,
+      p_category_id: body.categoryId ?? null,
+      p_include_ai_source_stems: body.includeAiSourceStems,
+    },
+  )
+  if (idError) throw new Error(idError.message)
+
+  const sampledIds = (Array.isArray(sampledIdData) ? sampledIdData : [])
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  if (sampledIds.length === 0) return []
+
+  const { data, error } = await asAny(client)
+    .from('vtutor_ucat_question_stem_detail')
+    .select(SOURCE_STEM_DETAIL_SELECT)
+    .in('id', sampledIds)
   if (error) throw new Error(error.message)
 
-  const source = ((data ?? []) as unknown as SourceStem[]).filter((row) => row.id)
-  const shuffled = [...source].sort(() => Math.random() - 0.5)
-  const sorted = prioritizeTagMatches(shuffled, body.targetTagIds)
-  if (body.sourceMode === 'selected') return sorted.slice(0, 8)
+  const byId = new Map(
+    ((data ?? []) as unknown as SourceStem[])
+      .filter((row) => row.id)
+      .map((row) => [row.id, row]),
+  )
+  // Preserve the sampled order (and therefore empirical category frequency).
+  const source = sampledIds
+    .map((id) => byId.get(id))
+    .filter((row): row is SourceStem => !!row)
 
-  // Keep the random database sample's natural category frequency. Individual
-  // writer calls still select a small rotating calibration subset downstream.
-  return sorted
+  // Tag prioritization reorders for calibration; category multiset is unchanged.
+  return prioritizeTagMatches(source, body.targetTagIds)
 }
 
 function sourceStemTagMatchCount(stem: SourceStem, targetTagIds: string[]): number {
@@ -1307,185 +1382,6 @@ export async function executeGeneration(
       gateIssues: [],
     }
     const activeDebug = debug
-
-    let completedStemCalls = 0
-    await emitProgress({
-      type: 'progress',
-      step: 'generating',
-      message: `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`,
-      completedStems: completedStemCalls,
-      totalStems: body.stemCount,
-      runId,
-    })
-
-    const generatedResults = await runWithConcurrency(
-      Array.from({ length: body.stemCount }, (_, stemIndex) => async () => {
-        const plan = buildLocalPlan(brief, stemIndex)
-        const planCategoryName = plannedCategoryName(plan)
-        const singleBrief = briefForSingleStem(brief, stemIndex, plan)
-        const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
-        const singleExampleIds = new Set(singleBrief.examples
-          .map((example) => typeof example.id === 'string' ? example.id : null)
-          .filter((id): id is string => !!id)
-        )
-        const writerSourceImages = await imagesForExampleIds(singleExampleIds)
-        const writerBrief = {
-          ...singleBrief,
-          sourceImagesForCalibration: sourceImagePromptSummary(writerSourceImages),
-        }
-        const userPrompt = buildWriterPrompt({ ...writerBrief, plan })
-        const writerContentParts = buildWriterUserContentParts({ userPrompt, images: writerSourceImages })
-        const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
-          ? 10_000
-          : GENERATION_TOKEN_LIMITS.writer
-        const maxCompletionTokens = Math.max(
-          sectionMinimumTokens,
-          config.modelProfile.max_completion_tokens
-        )
-        const startedAt = Date.now()
-        const baseDebug = {
-          stemIndex,
-          categoryName: singleBrief.categoryName ?? planCategoryName,
-          operation: 'generation_write',
-          request: {
-            systemPrompt,
-            userPrompt,
-            userContentPartCount: writerContentParts?.length ?? 1,
-            sourceImageCount: writerSourceImages.length,
-            sourceImagesForWriter: sourceImagePromptSummary(writerSourceImages),
-            maxCompletionTokens,
-            timeoutMs: GENERATION_TIMEOUT_MS.writer,
-            providerSort: 'throughput' as const,
-          },
-        }
-
-        let writer
-        let retriedWithoutImages = false
-        try {
-          try {
-            writer = await callUcatAiJson({
-              client,
-              operation: 'generation_write',
-              modelProfileId: body.modelProfileId,
-              systemPrompt,
-              userPrompt,
-              userContentParts: writerContentParts,
-              temperature: Number(config.modelProfile.temperature),
-              maxCompletionTokens,
-              timeoutMs: GENERATION_TIMEOUT_MS.writer,
-              providerSort: 'throughput',
-              metadata: {
-                section: singleBrief.sectionName,
-                category: singleBrief.categoryName ?? planCategoryName,
-                sourceImageCount: writerSourceImages.length,
-              } as Json,
-            })
-          } catch (error) {
-            if (!writerContentParts || !isImageInputUnsupportedError(error)) throw error
-            retriedWithoutImages = true
-            writer = await callUcatAiJson({
-              client,
-              operation: 'generation_write',
-              modelProfileId: body.modelProfileId,
-              systemPrompt,
-              userPrompt,
-              temperature: Number(config.modelProfile.temperature),
-              maxCompletionTokens,
-              timeoutMs: GENERATION_TIMEOUT_MS.writer,
-              providerSort: 'throughput',
-              metadata: {
-                section: singleBrief.sectionName,
-                category: singleBrief.categoryName ?? planCategoryName,
-                sourceImageCount: writerSourceImages.length,
-                sourceImageFallback: 'model_rejected_image_input',
-              } as Json,
-            })
-          }
-        } catch (error) {
-          activeDebug.calls.push({
-            ...baseDebug,
-            model: isCapturedAiResponseError(error) ? error.model : config.modelProfile.model,
-            durationMs: Date.now() - startedAt,
-            status: 'error',
-            error: errorMessage(error),
-            response:
-              isCapturedAiResponseError(error)
-                ? {
-                    content: error.content,
-                    finishReason: error.finishReason,
-                    usage: error.usage,
-                    contentLength: error.content.length,
-                  }
-                : undefined,
-          })
-          completedStemCalls += 1
-          await emitProgress({
-            type: 'progress',
-            step: 'generating',
-            message: `Stem ${stemIndex + 1} failed during model generation`,
-            completedStems: completedStemCalls,
-            totalStems: body.stemCount,
-            runId,
-          })
-          return null
-        }
-
-        const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
-        activeDebug.calls.push({
-          ...baseDebug,
-          model: writer.model,
-          durationMs: Date.now() - startedAt,
-          status: parsedWriter.success ? 'ok' : 'error',
-          error: parsedWriter.success ? undefined : 'Generated JSON did not match the expected stem schema.',
-          response: {
-            content: writer.content,
-            finishReason: writer.finishReason,
-            usage: writer.usage,
-            contentLength: writer.content.length,
-            ...(retriedWithoutImages ? { sourceImageFallback: 'model_rejected_image_input' } : {}),
-          },
-          parsedSummary: parsedWriter.success
-            ? {
-                stemCount: parsedWriter.data.stems.length,
-                categories: parsedWriter.data.stems.map((stem) => stem.categoryName ?? null),
-                questionCounts: parsedWriter.data.stems.map((stem) => stem.questions.length),
-              }
-            : undefined,
-        })
-        completedStemCalls += 1
-        await emitProgress({
-          type: 'progress',
-          step: 'generating',
-          message: parsedWriter.success
-            ? `Stem ${stemIndex + 1} returned and matched the schema`
-            : `Stem ${stemIndex + 1} returned but did not match the schema`,
-          completedStems: completedStemCalls,
-          totalStems: body.stemCount,
-          runId,
-        })
-        if (!parsedWriter.success) {
-          return null
-        }
-        const stem = parsedWriter.data.stems[0] ?? null
-        if (!stem) return null
-        return normalizeVrParagraphs(stem, singleBrief.sectionName)
-      }),
-      body.stemCount
-    )
-    sourceImageSummary = sourceImagePromptSummary(Array.from(usedSourceImages.values()))
-    activeDebug.sourceImageCount = sourceImageSummary.length
-    activeDebug.sourceImagesForWriter = sourceImageSummary
-    const generatedStems = generatedResults.filter((stem): stem is GeneratedStem => !!stem)
-    const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length
-
-    await emitProgress({
-      type: 'progress',
-      step: 'gates',
-      message: 'Running deterministic quality and structure gates',
-      completedStems: generatedStems.length,
-      totalStems: body.stemCount,
-      runId,
-    })
     const sourceComparisonSources: GenerationComparisonSource[] = [
       ...sourceSamples.map((source) => ({ id: source.id, text: sourcePlainText(source) })),
       ...prepared.comparisonSources,
@@ -1493,23 +1389,258 @@ export async function executeGeneration(
     const accepted: Array<{ stem: GeneratedStem; issues: GenerationGateIssue[]; rewritten: boolean }> = []
     const discarded: Array<{ issues: GenerationGateIssue[]; rewritten: boolean }> = []
 
-    const assessCandidate = (candidate: GeneratedStem, candidateIndex: number) => {
-      const issues = validateGeneratedStemCandidate(candidate, candidateIndex, {
-        sectionName: brief.sectionName,
-        categoryName,
-        sourceComparisonSources,
-      })
+    let completedStemSlots = 0
+    await emitProgress({
+      type: 'progress',
+      step: 'generating',
+      message: `Generating ${body.stemCount} stem${body.stemCount === 1 ? '' : 's'} in parallel`,
+      completedStems: completedStemSlots,
+      totalStems: body.stemCount,
+      runId,
+    })
 
-      activeDebug.gateIssues.push(...issues)
+    type SlotResult = { stem: GeneratedStem; issues: GenerationGateIssue[] } | null
 
-      if (hasBlockingIssues(issues)) discarded.push({ issues, rewritten: false })
-      else accepted.push({ stem: candidate, issues, rewritten: false })
+    const slotResults = await runWithConcurrency(
+      Array.from({ length: body.stemCount }, (_, stemIndex) => async (): Promise<SlotResult> => {
+        const basePlan = buildLocalPlan(brief, stemIndex) as Record<string, unknown>
+        const planCategoryName = plannedCategoryName(basePlan)
+
+        for (let attempt = 0; attempt < SAME_CATEGORY_ATTEMPTS; attempt += 1) {
+          const plan = withSameCategoryRegenNote(basePlan, attempt)
+          const singleBrief = briefForSingleStem(brief, stemIndex, plan)
+          const systemPrompt = `${config.systemPrompts.base_system_prompt}\n\n${config.systemPrompts.writer_prompt}`
+          const singleExampleIds = new Set(singleBrief.examples
+            .map((example) => typeof example.id === 'string' ? example.id : null)
+            .filter((id): id is string => !!id)
+          )
+          const writerSourceImages = await imagesForExampleIds(singleExampleIds)
+          const writerBrief = {
+            ...singleBrief,
+            sourceImagesForCalibration: sourceImagePromptSummary(writerSourceImages),
+          }
+          const userPrompt = buildWriterPrompt({ ...writerBrief, plan })
+          const writerContentParts = buildWriterUserContentParts({ userPrompt, images: writerSourceImages })
+          const sectionMinimumTokens = singleBrief.sectionName === 'Decision Making'
+            ? 10_000
+            : GENERATION_TOKEN_LIMITS.writer
+          const maxCompletionTokens = Math.max(
+            sectionMinimumTokens,
+            config.modelProfile.max_completion_tokens
+          )
+          const startedAt = Date.now()
+          const categoryLabel = singleBrief.categoryName ?? planCategoryName
+          const baseDebug = {
+            stemIndex,
+            categoryName: categoryLabel,
+            operation: attempt > 0 ? 'generation_write_regen' : 'generation_write',
+            request: {
+              systemPrompt,
+              userPrompt,
+              userContentPartCount: writerContentParts?.length ?? 1,
+              sourceImageCount: writerSourceImages.length,
+              sourceImagesForWriter: sourceImagePromptSummary(writerSourceImages),
+              maxCompletionTokens,
+              timeoutMs: GENERATION_TIMEOUT_MS.writer,
+              providerSort: 'throughput' as const,
+            },
+          }
+
+          if (attempt > 0) {
+            await emitProgress({
+              type: 'progress',
+              step: 'generating',
+              message: categoryLabel
+                ? `Stem ${stemIndex + 1}: regenerating ${categoryLabel} (attempt ${attempt + 1}/${SAME_CATEGORY_ATTEMPTS})`
+                : `Stem ${stemIndex + 1}: regenerating same plan (attempt ${attempt + 1}/${SAME_CATEGORY_ATTEMPTS})`,
+              completedStems: completedStemSlots,
+              totalStems: body.stemCount,
+              runId,
+            })
+          }
+
+          let writer
+          let retriedWithoutImages = false
+          try {
+            try {
+              writer = await callUcatAiJson({
+                client,
+                operation: 'generation_write',
+                modelProfileId: body.modelProfileId,
+                systemPrompt,
+                userPrompt,
+                userContentParts: writerContentParts,
+                temperature: Number(config.modelProfile.temperature),
+                maxCompletionTokens,
+                timeoutMs: GENERATION_TIMEOUT_MS.writer,
+                providerSort: 'throughput',
+                metadata: {
+                  section: singleBrief.sectionName,
+                  category: categoryLabel,
+                  sourceImageCount: writerSourceImages.length,
+                  attempt: attempt + 1,
+                } as Json,
+              })
+            } catch (error) {
+              if (!writerContentParts || !isImageInputUnsupportedError(error)) throw error
+              retriedWithoutImages = true
+              writer = await callUcatAiJson({
+                client,
+                operation: 'generation_write',
+                modelProfileId: body.modelProfileId,
+                systemPrompt,
+                userPrompt,
+                temperature: Number(config.modelProfile.temperature),
+                maxCompletionTokens,
+                timeoutMs: GENERATION_TIMEOUT_MS.writer,
+                providerSort: 'throughput',
+                metadata: {
+                  section: singleBrief.sectionName,
+                  category: categoryLabel,
+                  sourceImageCount: writerSourceImages.length,
+                  sourceImageFallback: 'model_rejected_image_input',
+                  attempt: attempt + 1,
+                } as Json,
+              })
+            }
+          } catch (error) {
+            activeDebug.calls.push({
+              ...baseDebug,
+              model: isCapturedAiResponseError(error) ? error.model : config.modelProfile.model,
+              durationMs: Date.now() - startedAt,
+              status: 'error',
+              error: errorMessage(error),
+              response:
+                isCapturedAiResponseError(error)
+                  ? {
+                      content: error.content,
+                      finishReason: error.finishReason,
+                      usage: error.usage,
+                      contentLength: error.content.length,
+                    }
+                  : undefined,
+            })
+            if (attempt + 1 < SAME_CATEGORY_ATTEMPTS) continue
+            completedStemSlots += 1
+            await emitProgress({
+              type: 'progress',
+              step: 'generating',
+              message: `Stem ${stemIndex + 1} failed during model generation`,
+              completedStems: completedStemSlots,
+              totalStems: body.stemCount,
+              runId,
+            })
+            return null
+          }
+
+          const parsedWriter = GeneratedCandidateResponseSchema.safeParse(writer.parsed)
+          activeDebug.calls.push({
+            ...baseDebug,
+            model: writer.model,
+            durationMs: Date.now() - startedAt,
+            status: parsedWriter.success ? 'ok' : 'error',
+            error: parsedWriter.success ? undefined : 'Generated JSON did not match the expected stem schema.',
+            response: {
+              content: writer.content,
+              finishReason: writer.finishReason,
+              usage: writer.usage,
+              contentLength: writer.content.length,
+              ...(retriedWithoutImages ? { sourceImageFallback: 'model_rejected_image_input' } : {}),
+            },
+            parsedSummary: parsedWriter.success
+              ? {
+                  stemCount: parsedWriter.data.stems.length,
+                  categories: parsedWriter.data.stems.map((stem) => stem.categoryName ?? null),
+                  questionCounts: parsedWriter.data.stems.map((stem) => stem.questions.length),
+                }
+              : undefined,
+          })
+
+          if (!parsedWriter.success) {
+            if (attempt + 1 < SAME_CATEGORY_ATTEMPTS) continue
+            completedStemSlots += 1
+            await emitProgress({
+              type: 'progress',
+              step: 'generating',
+              message: `Stem ${stemIndex + 1} returned but did not match the schema`,
+              completedStems: completedStemSlots,
+              totalStems: body.stemCount,
+              runId,
+            })
+            return null
+          }
+
+          const rawStem = parsedWriter.data.stems[0] ?? null
+          if (!rawStem) {
+            if (attempt + 1 < SAME_CATEGORY_ATTEMPTS) continue
+            completedStemSlots += 1
+            return null
+          }
+
+          const candidate = normalizeVrParagraphs(rawStem, singleBrief.sectionName)
+          const issues = validateGeneratedStemCandidate(candidate, stemIndex, {
+            sectionName: brief.sectionName,
+            categoryName,
+            sourceComparisonSources,
+          })
+          activeDebug.gateIssues.push(...issues)
+
+          if (hasBlockingIssues(issues)) {
+            discarded.push({ issues, rewritten: false })
+            if (attempt + 1 < SAME_CATEGORY_ATTEMPTS) {
+              await emitProgress({
+                type: 'progress',
+                step: 'gates',
+                message: categoryLabel
+                  ? `Stem ${stemIndex + 1} failed gates for ${categoryLabel}; will regenerate same category`
+                  : `Stem ${stemIndex + 1} failed gates; will regenerate same plan`,
+                completedStems: completedStemSlots,
+                totalStems: body.stemCount,
+                runId,
+              })
+              continue
+            }
+            completedStemSlots += 1
+            await emitProgress({
+              type: 'progress',
+              step: 'gates',
+              message: `Stem ${stemIndex + 1} failed blocking gates after ${SAME_CATEGORY_ATTEMPTS} attempts`,
+              completedStems: completedStemSlots,
+              totalStems: body.stemCount,
+              runId,
+            })
+            return null
+          }
+
+          completedStemSlots += 1
+          await emitProgress({
+            type: 'progress',
+            step: 'generating',
+            message: attempt > 0
+              ? `Stem ${stemIndex + 1} passed gates after regeneration`
+              : `Stem ${stemIndex + 1} returned and passed gates`,
+            completedStems: completedStemSlots,
+            totalStems: body.stemCount,
+            runId,
+          })
+          return { stem: candidate, issues }
+        }
+
+        completedStemSlots += 1
+        return null
+      }),
+      body.stemCount
+    )
+
+    for (const result of slotResults) {
+      if (!result) continue
+      accepted.push({ stem: result.stem, issues: result.issues, rewritten: false })
     }
 
-    for (const [candidateIndex, candidate] of generatedStems.entries()) {
-      assessCandidate(candidate, candidateIndex)
-      if (accepted.length >= body.stemCount) break
-    }
+    sourceImageSummary = sourceImagePromptSummary(Array.from(usedSourceImages.values()))
+    activeDebug.sourceImageCount = sourceImageSummary.length
+    activeDebug.sourceImagesForWriter = sourceImageSummary
+    const failedCallCount = activeDebug.calls.filter((call) => call.status === 'error').length
 
     if (accepted.length === 0) {
       const issues = discarded.flatMap((item) => item.issues).slice(0, 10)

@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     .select('id')
     .in('id', topicIds);
 
-  if (topicError) return NextResponse.json({ error: topicError.message }, { status: 500 });
+  if (topicError) return captureApiErrorResponse(topicError, "/api/flashcards/images/signed-urls", NextResponse.json({ error: topicError.message }, { status: 500 }));
 
   const accessibleTopicIds = new Set(
     ((accessibleTopics ?? []) as unknown as Array<{ id: string | null }>)
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
 
     if (error || !data?.signedUrl) {
+      captureApiError(error, "/api/flashcards/images/signed-urls");
       return NextResponse.json(
         { error: error?.message ?? 'No signed URL returned', path },
         { status: error?.message === 'Object not found' ? 404 : 500 },

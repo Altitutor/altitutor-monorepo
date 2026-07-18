@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -22,6 +23,6 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return captureApiErrorResponse(error, "/api/ucat/question-stems/generated/runs", NextResponse.json({ error: error.message }, { status: 500 }))
   return NextResponse.json({ runs: data ?? [] })
 }

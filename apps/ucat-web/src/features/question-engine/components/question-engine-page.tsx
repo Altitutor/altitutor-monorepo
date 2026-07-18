@@ -68,6 +68,7 @@ import { getTimedSegmentKey } from "@/features/question-engine/lib/timed-segment
 import type {
   QuestionEngineMode,
   QuestionEngineQuestion,
+  QuestionEngineState,
   QuestionStemWithQuestions,
 } from "@/features/question-engine/model/types";
 import {
@@ -93,8 +94,19 @@ import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-
 import { useExamAttemptLaunchGate } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-gate";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
+import {
+  fetchPracticeAttemptDetail,
+  practiceAttemptDetailQueryKey,
+} from "@/features/progress/hooks/use-practice-attempt-detail";
+import {
+  fetchSetAttemptDetail,
+  setAttemptDetailQueryKey,
+} from "@/features/progress/hooks/use-set-attempt-detail";
+import {
+  fetchMockAttemptDetail,
+  mockAttemptDetailQueryKey,
+} from "@/features/progress/hooks/use-mock-attempt-detail";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
-import { useHydratedQuestionStems } from "@/features/practice/hooks/use-hydrated-question-stems";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
 import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
@@ -262,9 +274,17 @@ function QuestionEngineLoadingSkeleton({
 }
 
 function QuestionEngineFinalizingOverlay({ label }: { label: string }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    overlayRef.current?.focus();
+  }, []);
+
   return (
     <div
-      className="absolute inset-0 z-50 grid place-items-center bg-black/25 p-6"
+      ref={overlayRef}
+      tabIndex={-1}
+      className="absolute inset-0 z-50 grid cursor-wait place-items-center bg-black/25 p-6 outline-none"
       aria-busy="true"
       aria-live="polite"
       role="status"
@@ -461,13 +481,9 @@ export function QuestionEnginePage({
     (mode === "set" || mode === "mock") && sourceId ? mode : null;
   const launchGate = useExamAttemptLaunchGate(launchGateKind, sourceId);
 
-  const { stems: hydratedQuestionStems, isLoading: isHydratingQuestionStems } =
-    useHydratedQuestionStems(
-      mode === "questionStem" ? questionStems : undefined,
-    );
-
-  const questionStemsForExam =
-    mode === "questionStem" ? hydratedQuestionStems : questionStems;
+  // Practice-session creation already returns complete stem/question payloads.
+  // Re-fetching each stem here added an avoidable loading waterfall.
+  const questionStemsForExam = questionStems;
 
   const exam = useMemo(
     () =>
@@ -519,7 +535,6 @@ export function QuestionEnginePage({
     reviewListRows,
     goNext,
     goPrevious,
-    handlePracticeSubmit,
     setQuestionByIndex,
     toggleFlagCurrent,
     toggleFlagById,
@@ -610,11 +625,8 @@ export function QuestionEnginePage({
   }, [tutorialMode, currentTour, currentStep, exam, setState]);
   const router = useRouter();
   const { toast } = useToast();
-  const {
-    active: activeExamAttempt,
-    refresh: refreshActiveExamAttempt,
-    clearLocal: clearActiveExamAttempt,
-  } = useActiveExamAttempt();
+  const { active: activeExamAttempt, clearLocal: clearActiveExamAttempt } =
+    useActiveExamAttempt();
   const { isLagging, runWithLag } = useUcatLag();
   const {
     display: calculatorDisplay,
@@ -630,9 +642,12 @@ export function QuestionEnginePage({
   const [showSubmitSetDialog, setShowSubmitSetDialog] = useState(false);
   const [isFinalizingExam, setIsFinalizingExam] = useState(false);
   const [isFinishingPractice, setIsFinishingPractice] = useState(false);
+  const [isSavingPracticeUnit, setIsSavingPracticeUnit] = useState(false);
   const [submittedPracticeQuestionIds, setSubmittedPracticeQuestionIds] =
     useState<Set<string>>(() => new Set());
   const timeExpiredFiredRef = useRef<string | null>(null);
+  const suppressQuestionTimingSyncRef = useRef(false);
+  const practiceUnitSavePromiseRef = useRef<Promise<void> | null>(null);
 
   const tutorialSnapshot = useMemo<QuestionEngineTutorialSnapshot>(
     () => ({
@@ -781,6 +796,78 @@ export function QuestionEnginePage({
     managedExamAttempt,
   });
 
+  const finalPracticeAnswers = useMemo(() => {
+    if (!exam || !practiceSessionId) return [];
+    const dbMode =
+      mode === "questionStem"
+        ? ("question_stem" as const)
+        : ("question" as const);
+    return exam.questions.map((question) => {
+      const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+      return {
+        studentQuestionSetAttemptId: null,
+        studentPracticeSessionId: practiceSessionId,
+        questionId: question.id,
+        questionAnswerOptionId:
+          question.questionType === "syllogism"
+            ? null
+            : (state.selectedAnswers[question.id] ?? null),
+        answerSnapshot:
+          question.questionType === "syllogism" && syllogismSnapshot
+            ? {
+                type: "syllogism_v1",
+                answers: Object.entries(syllogismSnapshot).map(
+                  ([optionId, value]) => ({
+                    question_answer_option_id: optionId,
+                    answer: value,
+                  }),
+                ),
+              }
+            : undefined,
+        isFlagged: state.flaggedIds.includes(question.id),
+        wasTimed: false,
+        mode: dbMode,
+        submittedByStem: true,
+      };
+    });
+  }, [
+    exam,
+    mode,
+    practiceSessionId,
+    state.flaggedIds,
+    state.selectedAnswers,
+    state.syllogismSnapshots,
+  ]);
+
+  const prefetchAttemptResults = useCallback(() => {
+    if (practiceSessionId) {
+      return queryClient.prefetchQuery({
+        queryKey: practiceAttemptDetailQueryKey(practiceSessionId),
+        queryFn: () => fetchPracticeAttemptDetail(practiceSessionId),
+      });
+    }
+    if (attemptIds.setAttemptId) {
+      const attemptId = attemptIds.setAttemptId;
+      return queryClient.prefetchQuery({
+        queryKey: setAttemptDetailQueryKey(attemptId),
+        queryFn: () => fetchSetAttemptDetail(attemptId),
+      });
+    }
+    if (attemptIds.mockAttemptId) {
+      const attemptId = attemptIds.mockAttemptId;
+      return queryClient.prefetchQuery({
+        queryKey: mockAttemptDetailQueryKey(attemptId),
+        queryFn: () => fetchMockAttemptDetail(attemptId),
+      });
+    }
+    return Promise.resolve();
+  }, [
+    attemptIds.mockAttemptId,
+    attemptIds.setAttemptId,
+    practiceSessionId,
+    queryClient,
+  ]);
+
   const examAttemptLifecycleEnabled = examAttemptManaged;
 
   const {
@@ -795,6 +882,7 @@ export function QuestionEnginePage({
     practice,
     practiceSessionId,
     attemptStateRef,
+    suppressQuestionTimingSyncRef,
   });
 
   useEffect(() => {
@@ -1037,9 +1125,15 @@ export function QuestionEnginePage({
       }
       clearActiveExamAttempt();
       skipBeforeUnloadRef.current = true;
+      void prefetchAttemptResults();
       router.push(href);
     },
-    [managedExamAttempt, clearActiveExamAttempt, router],
+    [
+      managedExamAttempt,
+      clearActiveExamAttempt,
+      prefetchAttemptResults,
+      router,
+    ],
   );
 
   const completeExamAndMaybeRedirect = useCallback(async () => {
@@ -1051,7 +1145,6 @@ export function QuestionEnginePage({
         redirectHref: string | null;
       };
       if (practice && practiceSessionId && exam) {
-        await recordAnswersForUnit(0, Math.max(exam.questions.length - 1, 0));
         await flushQuestionTiming();
         const result = computeMarkingResult(
           exam.questions,
@@ -1068,6 +1161,7 @@ export function QuestionEnginePage({
             questionId: row.question.id,
             score: row.points,
           })),
+          answers: finalPracticeAnswers,
         });
         completion = {
           earnedDiscount: response.earnedDiscount ?? false,
@@ -1078,10 +1172,9 @@ export function QuestionEnginePage({
         completion = await handleExamCompleted();
       }
       const { earnedDiscount, discountCents, redirectHref } = completion;
-      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+      void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       if (examAttemptManaged) {
         clearActiveExamAttempt();
-        await refreshActiveExamAttempt();
       }
       if (earnedDiscount && discountCents > 0) {
         toast({
@@ -1092,6 +1185,7 @@ export function QuestionEnginePage({
       if (redirectHref) {
         skipBeforeUnloadRef.current = true;
         clearActiveExamAttempt();
+        void prefetchAttemptResults();
         router.push(redirectHref);
         return true;
       }
@@ -1108,14 +1202,14 @@ export function QuestionEnginePage({
     state.selectedAnswers,
     state.syllogismSnapshots,
     completePracticeSession,
-    recordAnswersForUnit,
+    finalPracticeAnswers,
     questionStemsForExam,
     questionStems,
     flushQuestionTiming,
     examAttemptManaged,
     clearActiveExamAttempt,
-    refreshActiveExamAttempt,
     queryClient,
+    prefetchAttemptResults,
     toast,
     router,
   ]);
@@ -1290,13 +1384,19 @@ export function QuestionEnginePage({
     setIsFinishingPractice(true);
     const qs = exam.questions;
     try {
+      await practiceUnitSavePromiseRef.current;
+
       if (state.phase === "question") {
         const { startIndex, endIndex } = getStemBoundaries(
           qs,
           state.currentIndex,
           mode as "questions" | "questionStem",
         );
-        await recordAnswersForUnit(startIndex, endIndex);
+        // Session completion writes every final answer in one server batch.
+        // Non-session practice retains the normal stem submission path.
+        if (!practiceSessionId) {
+          await recordAnswersForUnit(startIndex, endIndex);
+        }
         if (learningModuleBlockId && disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
@@ -1316,35 +1416,32 @@ export function QuestionEnginePage({
           questionId: r.question.id,
           score: r.points,
         }));
-        try {
-          const res = await completePracticeSession.mutateAsync({
-            sessionId: practiceSessionId,
-            scorePoints: practiceMarkingResult.totalRawScore,
-            totalPoints: practiceMarkingResult.maxRawScore,
-            questionCount: qs.length,
-            stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
-            questionScores,
+        const res = await completePracticeSession.mutateAsync({
+          sessionId: practiceSessionId,
+          scorePoints: practiceMarkingResult.totalRawScore,
+          totalPoints: practiceMarkingResult.maxRawScore,
+          questionCount: qs.length,
+          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
+          questionScores,
+          answers: finalPracticeAnswers,
+        });
+        if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
+          toast({
+            title: "Practice day discount earned!",
+            description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
           });
-          if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
-            toast({
-              title: "Practice day discount earned!",
-              description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
-            });
-          }
-          void Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
-            queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
-            queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] }),
-          ]);
-        } catch {
-          // Session complete may fail; still navigate to session when we have an id.
         }
-        await refreshActiveExamAttempt();
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+          queryClient.invalidateQueries({ queryKey: practiceTimingQueryKey }),
+          queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] }),
+        ]);
       }
 
       if (practiceSessionId) {
         clearActiveExamAttempt();
         skipBeforeUnloadRef.current = true;
+        void prefetchAttemptResults();
         router.push(`/progress/practice-sessions/${practiceSessionId}`);
         return;
       }
@@ -1369,6 +1466,7 @@ export function QuestionEnginePage({
     state.currentIndex,
     mode,
     recordAnswersForUnit,
+    finalPracticeAnswers,
     learningModuleBlockId,
     disableQuestionAttemptLogging,
     onLearnProgress,
@@ -1380,9 +1478,9 @@ export function QuestionEnginePage({
     setState,
     toast,
     queryClient,
+    prefetchAttemptResults,
     practiceTimingQueryKey,
     router,
-    refreshActiveExamAttempt,
     clearActiveExamAttempt,
     flushQuestionTiming,
   ]);
@@ -1404,46 +1502,100 @@ export function QuestionEnginePage({
     state.phase,
   ]);
 
-  const submitCurrentPracticeUnit = useCallback(async () => {
-    if (!exam) return;
-    const { startIndex, endIndex } = getStemBoundaries(
-      questions,
-      state.currentIndex,
-      mode as "questions" | "questionStem",
-    );
-    await recordAnswersForUnit(startIndex, endIndex);
-    if (learningModuleBlockId && disableQuestionAttemptLogging) {
-      onLearnProgress?.();
-    }
-    clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
-      clientPracticeTimingRef.current,
-    );
-    await flushQuestionTiming();
-    await refreshPracticeStemTimingFromServer();
-    await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
-    setSubmittedPracticeQuestionIds((current) => {
-      const next = new Set(current);
-      for (let index = startIndex; index <= endIndex; index++) {
-        const questionId = questions[index]?.id;
-        if (questionId) next.add(questionId);
+  const submitCurrentPracticeUnit = useCallback(
+    (options?: { dismissTimeExpiredDialog?: boolean }) => {
+      if (!exam || isSavingPracticeUnit) return;
+      const { startIndex, endIndex } = getStemBoundaries(
+        questions,
+        state.currentIndex,
+        mode as "questions" | "questionStem",
+      );
+
+      const practiceAnswerState: QuestionEngineState = {
+        ...state,
+        phase: "practiceAnswer",
+        practiceAnswerUnitStartIndex: startIndex,
+        practiceAnswerUnitEndIndex: endIndex,
+        viewingQuestionIndex: startIndex,
+        showNavigator: false,
+        showTimeExpiredDialog: options?.dismissTimeExpiredDialog
+          ? false
+          : state.showTimeExpiredDialog,
+      };
+
+      // Reveal marking immediately. Persistence remains ordered in the
+      // background, and navigation stays disabled until the durable writes
+      // finish so a late timing snapshot cannot overwrite the next stem.
+      suppressQuestionTimingSyncRef.current = true;
+      setIsSavingPracticeUnit(true);
+      clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
+        clientPracticeTimingRef.current,
+      );
+      setSubmittedPracticeQuestionIds((current) => {
+        const next = new Set(current);
+        for (let index = startIndex; index <= endIndex; index++) {
+          const questionId = questions[index]?.id;
+          if (questionId) next.add(questionId);
+        }
+        return next;
+      });
+      setState(practiceAnswerState);
+
+      if (learningModuleBlockId && disableQuestionAttemptLogging) {
+        onLearnProgress?.();
       }
-      return next;
-    });
-    handlePracticeSubmit();
-  }, [
-    exam,
-    questions,
-    state.currentIndex,
-    mode,
-    recordAnswersForUnit,
-    learningModuleBlockId,
-    disableQuestionAttemptLogging,
-    onLearnProgress,
-    queryClient,
-    flushQuestionTiming,
-    refreshPracticeStemTimingFromServer,
-    handlePracticeSubmit,
-  ]);
+
+      const savePromise = (async () => {
+        try {
+          // Keep this ordering: the timing flush updates the attempt row that
+          // the answer batch creates when an autosave has not reached the
+          // server yet.
+          await recordAnswersForUnit(startIndex, endIndex);
+          await flushQuestionTiming(practiceAnswerState);
+          void Promise.all([
+            refreshPracticeStemTimingFromServer(),
+            queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] }),
+          ]).catch(() => {
+            // Answer persistence is already durable. Timing/quota display can
+            // reconcile on the next normal refresh.
+          });
+        } catch {
+          void flushQuestionTiming(practiceAnswerState);
+          toast({
+            title: "Unable to save this stem",
+            description:
+              "Your answers are still shown here. You can continue reviewing them.",
+            variant: "destructive",
+          });
+        } finally {
+          suppressQuestionTimingSyncRef.current = false;
+          setIsSavingPracticeUnit(false);
+        }
+      })();
+      practiceUnitSavePromiseRef.current = savePromise;
+      void savePromise.finally(() => {
+        if (practiceUnitSavePromiseRef.current === savePromise) {
+          practiceUnitSavePromiseRef.current = null;
+        }
+      });
+    },
+    [
+      exam,
+      isSavingPracticeUnit,
+      questions,
+      state,
+      mode,
+      learningModuleBlockId,
+      disableQuestionAttemptLogging,
+      onLearnProgress,
+      setState,
+      recordAnswersForUnit,
+      flushQuestionTiming,
+      refreshPracticeStemTimingFromServer,
+      queryClient,
+      toast,
+    ],
+  );
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
@@ -1479,6 +1631,11 @@ export function QuestionEnginePage({
         return;
       }
 
+      if (isSavingPracticeUnit) {
+        event.preventDefault();
+        return;
+      }
+
       if (isEditable) {
         return;
       }
@@ -1495,7 +1652,9 @@ export function QuestionEnginePage({
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
         showConfirmFinishPracticeDialog ||
-        showSubmitSetDialog;
+        showSubmitSetDialog ||
+        isFinalizingExam ||
+        isFinishingPractice;
       const isQuestionView =
         (state.phase === "question" ||
           (state.phase === "review" && state.reviewFilter)) &&
@@ -1812,7 +1971,6 @@ export function QuestionEnginePage({
     toggleFlagCurrent,
     goToReviewScreen,
     startReviewFilter,
-    handlePracticeSubmit,
     submitCurrentPracticeUnit,
     isPracticeMode,
     practice,
@@ -1842,6 +2000,9 @@ export function QuestionEnginePage({
     tutorialHidePrimaryAction,
     tutorialMode,
     tutorialQuestionLocked,
+    isSavingPracticeUnit,
+    isFinalizingExam,
+    isFinishingPractice,
   ]);
 
   useEffect(() => {
@@ -1984,9 +2145,9 @@ export function QuestionEnginePage({
         open={Boolean(launchGate.conflictActive)}
         active={launchGate.conflictActive}
         pendingLabel={mode === "mock" ? "this mock exam" : "this question set"}
-        isFinalizing={launchGate.isFinalizingConflict}
-        onFinalizeAndContinue={() =>
-          void launchGate.finalizeConflictAndContinue()
+        isDiscarding={launchGate.isDiscardingConflict}
+        onDiscardAndContinue={() =>
+          void launchGate.discardConflictAndContinue()
         }
         onCancel={() => router.back()}
       />
@@ -2008,17 +2169,6 @@ export function QuestionEnginePage({
     return (
       <QuestionEngineLoadingSkeleton
         label="Resuming attempt"
-        isPracticeMode={isPracticeMode}
-        embeddedInLesson={embeddedInLesson}
-        fillAvailableHeight={fillAvailableHeight}
-      />
-    );
-  }
-
-  if (mode === "questionStem" && isHydratingQuestionStems) {
-    return (
-      <QuestionEngineLoadingSkeleton
-        label="Loading questions"
         isPracticeMode={isPracticeMode}
         embeddedInLesson={embeddedInLesson}
         fillAvailableHeight={fillAvailableHeight}
@@ -2123,7 +2273,9 @@ export function QuestionEnginePage({
     showConfirmSubmitDialog ||
     showConfirmNextStemDialog ||
     showConfirmFinishPracticeDialog ||
-    showSubmitSetDialog;
+    showSubmitSetDialog ||
+    isFinalizingExam ||
+    isFinishingPractice;
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
@@ -2216,41 +2368,9 @@ export function QuestionEnginePage({
 
     // Practice mode (questions/questionStem): transition to answer view
     if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
-      void runWithLag(async () => {
-        const { startIndex, endIndex } = getStemBoundaries(
-          questions,
-          state.currentIndex,
-          exam.sourceType as "questions" | "questionStem",
-        );
-        await recordAnswersForUnit(startIndex, endIndex);
-        if (learningModuleBlockId && disableQuestionAttemptLogging) {
-          onLearnProgress?.();
-        }
-        clientPracticeTimingRef.current =
-          flushActiveClientPracticeQuestionTiming(
-            clientPracticeTimingRef.current,
-          );
-        await flushQuestionTiming();
-        await refreshPracticeStemTimingFromServer();
-        await queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
-        setSubmittedPracticeQuestionIds((current) => {
-          const next = new Set(current);
-          for (let index = startIndex; index <= endIndex; index++) {
-            const questionId = questions[index]?.id;
-            if (questionId) next.add(questionId);
-          }
-          return next;
-        });
-        setState((current) => ({
-          ...current,
-          showTimeExpiredDialog: false,
-          phase: "practiceAnswer",
-          practiceAnswerUnitStartIndex: startIndex,
-          practiceAnswerUnitEndIndex: endIndex,
-          viewingQuestionIndex: startIndex,
-          showNavigator: false,
-        }));
-      });
+      void runWithLag(() =>
+        submitCurrentPracticeUnit({ dismissTimeExpiredDialog: true }),
+      );
       return;
     }
 
@@ -2794,6 +2914,7 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) >
                 (state.practiceAnswerUnitStartIndex ?? 0) ? (
                   <UcatExamActionButton
+                    disabled={isSavingPracticeUnit}
                     onClick={() => void runWithLag(() => goPrevious())}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >
@@ -2805,6 +2926,7 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) === questions.length - 1 &&
                 !onNeedMoreStems ? (
                   <UcatExamActionButton
+                    disabled={isSavingPracticeUnit}
                     data-tour="question-engine-finish-practice"
                     onClick={() =>
                       void runWithLag(() => {
@@ -2812,13 +2934,22 @@ export function QuestionEnginePage({
                       })
                     }
                     variant="highlight"
-                    icon={<ArrowRight className="h-4 w-4" />}
+                    icon={
+                      isSavingPracticeUnit ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="h-4 w-4" />
+                      )
+                    }
                     iconRight
                   >
-                    <span className="text-[14pt]">Finish</span>
+                    <span className="text-[14pt]">
+                      {isSavingPracticeUnit ? "Saving..." : "Finish"}
+                    </span>
                   </UcatExamActionButton>
                 ) : (
                   <UcatExamActionButton
+                    disabled={isSavingPracticeUnit}
                     onClick={() =>
                       void runWithLag(() => {
                         const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
@@ -2832,12 +2963,20 @@ export function QuestionEnginePage({
                       })
                     }
                     variant="highlight"
-                    icon={<ArrowRight className="h-4 w-4" />}
+                    icon={
+                      isSavingPracticeUnit ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="h-4 w-4" />
+                      )
+                    }
                     iconRight
                   >
                     <span className="text-[14pt]">
-                      {(state.viewingQuestionIndex ?? 0) >=
-                      (state.practiceAnswerUnitEndIndex ?? 0) ? (
+                      {isSavingPracticeUnit ? (
+                        "Saving..."
+                      ) : (state.viewingQuestionIndex ?? 0) >=
+                        (state.practiceAnswerUnitEndIndex ?? 0) ? (
                         <>
                           <span className="underline">N</span>ext question
                         </>
@@ -3038,58 +3177,58 @@ export function QuestionEnginePage({
                   </UcatExamActionButton>
                 ) : null}
                 {tutorialMode && tutorialHidePrimaryAction ? null : (
-                <UcatExamActionButton
-                  data-tour="question-engine-next"
-                  onClick={() =>
-                    void runWithLag(() => {
-                      if (isPracticeMode && isLastQuestionOfCurrentUnit) {
-                        if (confirmPracticeTransitions) {
-                          setShowConfirmSubmitDialog(true);
+                  <UcatExamActionButton
+                    data-tour="question-engine-next"
+                    onClick={() =>
+                      void runWithLag(() => {
+                        if (isPracticeMode && isLastQuestionOfCurrentUnit) {
+                          if (confirmPracticeTransitions) {
+                            setShowConfirmSubmitDialog(true);
+                          } else {
+                            submitCurrentPracticeUnit();
+                          }
+                        } else if (
+                          practice &&
+                          reviewTiming === "atEnd" &&
+                          isLastQuestion &&
+                          !onNeedMoreStems
+                        ) {
+                          setShowConfirmFinishPracticeDialog(true);
+                        } else if (tutorialMode) {
+                          advanceTutorialQuestion();
                         } else {
-                          submitCurrentPracticeUnit();
+                          goNext();
                         }
-                      } else if (
-                        practice &&
-                        reviewTiming === "atEnd" &&
-                        isLastQuestion &&
-                        !onNeedMoreStems
-                      ) {
-                        setShowConfirmFinishPracticeDialog(true);
-                      } else if (tutorialMode) {
-                        advanceTutorialQuestion();
-                      } else {
-                        goNext();
-                      }
-                    })
-                  }
-                  variant="highlight"
-                  icon={<ArrowRight className="h-4 w-4" />}
-                  iconRight
-                >
-                  {tutorialMode && tutorialPrimaryActionLabel ? (
-                    <span className="text-[14pt]">
-                      {tutorialPrimaryActionLabel}
-                    </span>
-                  ) : isPracticeMode && isLastQuestionOfCurrentUnit ? (
-                    <span className="text-[14pt]">
-                      <span className="underline">S</span>ubmit
-                    </span>
-                  ) : practice &&
-                    reviewTiming === "atEnd" &&
-                    isLastQuestion &&
-                    !onNeedMoreStems ? (
-                    <span className="text-[14pt]">Finish</span>
-                  ) : isLastQuestion &&
-                    !isPracticeMode &&
-                    !onNeedMoreStems &&
-                    !tutorialSequential ? (
-                    <span className="text-[14pt]">Submit</span>
-                  ) : (
-                    <span className="text-[14pt]">
-                      <span className="underline">N</span>ext
-                    </span>
-                  )}
-                </UcatExamActionButton>
+                      })
+                    }
+                    variant="highlight"
+                    icon={<ArrowRight className="h-4 w-4" />}
+                    iconRight
+                  >
+                    {tutorialMode && tutorialPrimaryActionLabel ? (
+                      <span className="text-[14pt]">
+                        {tutorialPrimaryActionLabel}
+                      </span>
+                    ) : isPracticeMode && isLastQuestionOfCurrentUnit ? (
+                      <span className="text-[14pt]">
+                        <span className="underline">S</span>ubmit
+                      </span>
+                    ) : practice &&
+                      reviewTiming === "atEnd" &&
+                      isLastQuestion &&
+                      !onNeedMoreStems ? (
+                      <span className="text-[14pt]">Finish</span>
+                    ) : isLastQuestion &&
+                      !isPracticeMode &&
+                      !onNeedMoreStems &&
+                      !tutorialSequential ? (
+                      <span className="text-[14pt]">Submit</span>
+                    ) : (
+                      <span className="text-[14pt]">
+                        <span className="underline">N</span>ext
+                      </span>
+                    )}
+                  </UcatExamActionButton>
                 )}
               </>
             )

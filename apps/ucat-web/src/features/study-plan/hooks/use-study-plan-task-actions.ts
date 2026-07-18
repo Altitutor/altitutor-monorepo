@@ -11,7 +11,10 @@ import {
   selectCurrentStudyPlanTasks,
   selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
-import type { StudyPlanTask } from "@/features/study-plan/model/types";
+import type {
+  StudyPlanResponse,
+  StudyPlanTask,
+} from "@/features/study-plan/model/types";
 
 type PendingAction = "start" | "skip" | "unskip" | null;
 
@@ -65,17 +68,19 @@ function practiceStartInput(task: StudyPlanTask) {
 export function useStudyPlanTaskActions(
   task: StudyPlanTask | null,
   enabled = true,
+  planOverride?: StudyPlanResponse | null,
 ) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const planQuery = useStudyPlan(enabled);
+  const planQuery = useStudyPlan(enabled && planOverride === undefined);
+  const plan = planOverride === undefined ? planQuery.data : planOverride;
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [futureStartPromptOpen, setFutureStartPromptOpen] = useState(false);
 
-  const currentRecommendedTask = planQuery.data
+  const currentRecommendedTask = plan
     ? selectNextStudyPlanTask(
-        selectCurrentStudyPlanTasks(planQuery.data.tasks, planQuery.data.today),
+        selectCurrentStudyPlanTasks(plan.tasks, plan.today),
       )
     : null;
 
@@ -111,9 +116,7 @@ export function useStudyPlanTaskActions(
 
   async function startTask() {
     if (!task) return;
-    const isFutureTask = Boolean(
-      planQuery.data && task.scheduledDate > planQuery.data.today,
-    );
+    const isFutureTask = Boolean(plan && task.scheduledDate > plan.today);
     if (
       isFutureTask &&
       currentRecommendedTask &&

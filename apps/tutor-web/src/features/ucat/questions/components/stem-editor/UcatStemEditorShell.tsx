@@ -51,6 +51,11 @@ type UcatStemEditorShellProps = {
   showQuestionNavigator?: boolean
   /** Initial edit vs preview mode (resets when stemId changes). */
   initialEditorMode?: StemEditorMode
+  editorMode?: StemEditorMode
+  onEditorModeChange?: (mode: StemEditorMode) => void
+  showAnswer?: boolean
+  onShowAnswerChange?: (show: boolean) => void
+  showModeControls?: boolean
   /** Reports the focused TipTap editor for dialog footer or floating toolbar placement. */
   onActiveTextEditorChange?: (editor: Editor | null) => void
   onCurrentQuestionIndexChange?: (index: number) => void
@@ -64,7 +69,6 @@ type UcatStemEditorShellProps = {
   statusChangedByLastName?: string | null
   statusChangedAt?: string | null
   metadataRecommendation?: ManualStemMetadataRecommendation | null
-  onDeleteStem?: () => void
 }
 
 export function UcatStemEditorShell({
@@ -82,6 +86,11 @@ export function UcatStemEditorShell({
   initialQuestionIndex,
   showQuestionNavigator = false,
   initialEditorMode = 'edit',
+  editorMode: controlledEditorMode,
+  onEditorModeChange,
+  showAnswer: controlledShowAnswer,
+  onShowAnswerChange,
+  showModeControls = true,
   onActiveTextEditorChange,
   onCurrentQuestionIndexChange,
   focusTarget = null,
@@ -94,12 +103,23 @@ export function UcatStemEditorShell({
   statusChangedByLastName = null,
   statusChangedAt = null,
   metadataRecommendation = null,
-  onDeleteStem,
 }: UcatStemEditorShellProps) {
-  const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
-  const [showAnswer, setShowAnswer] = useState(false)
+  const [localEditorMode, setLocalEditorMode] = useState<StemEditorMode>(initialEditorMode)
+  const [localShowAnswer, setLocalShowAnswer] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex ?? 0)
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
+  const editorMode = controlledEditorMode ?? localEditorMode
+  const showAnswer = controlledShowAnswer ?? localShowAnswer
+
+  const handleEditorModeChange = useCallback((mode: StemEditorMode) => {
+    setLocalEditorMode(mode)
+    onEditorModeChange?.(mode)
+  }, [onEditorModeChange])
+
+  const handleShowAnswerChange = useCallback((show: boolean) => {
+    setLocalShowAnswer(show)
+    onShowAnswerChange?.(show)
+  }, [onShowAnswerChange])
 
   const handleTextEditorActive = useCallback(
     (textEditor: Editor | null) => {
@@ -163,7 +183,7 @@ export function UcatStemEditorShell({
   }, [initialQuestionIndex, questionCount, onCurrentQuestionIndexChange])
 
   useEffect(() => {
-    setEditorMode(initialEditorMode)
+    setLocalEditorMode(initialEditorMode)
   }, [initialEditorMode, stemId])
 
   useEffect(() => {
@@ -226,9 +246,10 @@ export function UcatStemEditorShell({
         currentQuestionIndex={safeQuestionIndex}
         onQuestionIndexChange={handleQuestionIndexChange}
         editorMode={editorMode}
-        onEditorModeChange={setEditorMode}
+        onEditorModeChange={handleEditorModeChange}
         showAnswer={showAnswer}
-        onShowAnswerChange={setShowAnswer}
+        onShowAnswerChange={handleShowAnswerChange}
+        showModeControls={showModeControls}
         focusTarget={focusTarget}
         focusMessage={focusMessage}
         sourceChannel={sourceChannel}
@@ -239,7 +260,6 @@ export function UcatStemEditorShell({
         statusChangedByLastName={statusChangedByLastName}
         statusChangedAt={statusChangedAt}
         metadataRecommendation={metadataRecommendation}
-        onDeleteStem={onDeleteStem}
         activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
         onActiveTabChange={setActiveWorkspace}
         className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}

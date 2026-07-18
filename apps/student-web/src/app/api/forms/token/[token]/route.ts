@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
@@ -245,7 +246,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
     .select('*')
     .single();
 
-  if (responseError) return NextResponse.json({ error: responseError.message }, { status: 500 });
+  if (responseError) return captureApiErrorResponse(responseError, "/api/forms/token/[token]", NextResponse.json({ error: responseError.message }, { status: 500 }));
 
   const responseAnswers = normalized.map((answer) => ({
     form_response_id: response.id,
@@ -262,7 +263,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
   }));
   if (responseAnswers.length) {
     const { error: answersError } = await admin.from('form_response_answers').insert(responseAnswers);
-    if (answersError) return NextResponse.json({ error: answersError.message }, { status: 500 });
+    if (answersError) return captureApiErrorResponse(answersError, "/api/forms/token/[token]", NextResponse.json({ error: answersError.message }, { status: 500 }));
   }
 
   if (sessionContext) {

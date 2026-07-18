@@ -128,6 +128,9 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 - Per-app Sentry values are mapped to framework-standard target names:
   `{APP}_SENTRY_DSN` → `NEXT_PUBLIC_SENTRY_DSN` and
   `{APP}_SENTRY_PROJECT` → `SENTRY_PROJECT`
+- Sentry events are tagged automatically as `preview` or `production` through
+  `NEXT_PUBLIC_SENTRY_ENVIRONMENT` and `SENTRY_ENVIRONMENT`; local Next.js
+  development falls back to `development`
 - Shared `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` values are sent only to apps
   whose per-app Sentry configuration is non-empty
 

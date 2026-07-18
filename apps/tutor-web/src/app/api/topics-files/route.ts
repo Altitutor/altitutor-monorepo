@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/topics-files");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/topics-files");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -59,6 +62,7 @@ export async function POST(request: NextRequest) {
     
     if (topicError) {
       console.error('Error checking topic access:', topicError);
+      captureApiError(topicError, "/api/topics-files");
       return NextResponse.json(
         { error: 'Failed to verify topic access' },
         { status: 500 }
@@ -113,6 +117,7 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('Error creating topics_file:', error);
+      captureApiError(error, "/api/topics-files");
       return NextResponse.json(
         { error: 'Failed to create topics_file' },
         { status: 500 }
@@ -126,6 +131,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/topics-files");
     console.error('Error in POST /api/topics-files:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

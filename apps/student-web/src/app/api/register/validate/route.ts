@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (studentError) {
       console.error('Error fetching student:', studentError);
+      captureApiError(studentError, "/api/register/validate");
       return NextResponse.json(
         { error: 'Failed to validate token', details: studentError.message },
         { status: 500 }
@@ -138,6 +140,7 @@ export async function GET(request: NextRequest) {
       }),
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/register/validate");
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }

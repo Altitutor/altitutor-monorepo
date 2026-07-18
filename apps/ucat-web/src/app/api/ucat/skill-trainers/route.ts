@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 
@@ -22,6 +23,7 @@ export async function GET() {
   const error = trainersResult.error ?? sectionsResult.error ?? configResult.error;
 
   if (error) {
+    captureApiError(error, "/api/ucat/skill-trainers");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

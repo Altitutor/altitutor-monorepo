@@ -182,10 +182,17 @@ export async function completeStudentSetAttempt(
   studentId: string,
   attemptId: string,
   finalAnswers?: FinalQuestionAttemptInput[],
-): Promise<{ earnedDiscount: boolean; discountCents: number }> {
+  options: { grantDiscount?: boolean } = {},
+): Promise<{
+  earnedDiscount: boolean;
+  discountCents: number;
+  newlyCompleted: boolean;
+}> {
   const { data: attempt, error: attemptError } = await admin
     .from("student_question_set_attempts")
-    .select("attempted_at, question_set_id, completed_at")
+    .select(
+      "attempted_at, question_set_id, completed_at, discarded_at, expired_at",
+    )
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
@@ -197,7 +204,14 @@ export async function completeStudentSetAttempt(
     throw new Error("Set attempt not found");
   }
   if (attempt.completed_at) {
-    return { earnedDiscount: false, discountCents: 0 };
+    return {
+      earnedDiscount: false,
+      discountCents: 0,
+      newlyCompleted: false,
+    };
+  }
+  if (attempt.discarded_at || attempt.expired_at) {
+    throw new Error("Attempt is no longer active");
   }
 
   const attemptedAt = new Date(attempt.attempted_at);
@@ -212,7 +226,19 @@ export async function completeStudentSetAttempt(
     throw new Error("Set attempt has no question set");
   }
 
-  await persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers);
+  const [, setStemsResult] = await Promise.all([
+    persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers),
+    admin
+      .from("question_stems_question_sets")
+      .select("question_stem_id")
+      .eq("question_set_id", questionSetId)
+      .order("index"),
+  ]);
+  const { data: setStems, error: setStemsError } = setStemsResult;
+
+  if (setStemsError) {
+    throw new Error(setStemsError.message);
+  }
 
   const { data: questionAttempts, error: questionAttemptsError } = await admin
     .from("student_question_attempts")
@@ -226,16 +252,6 @@ export async function completeStudentSetAttempt(
     throw new Error(questionAttemptsError.message);
   }
 
-  const { data: setStems, error: setStemsError } = await admin
-    .from("question_stems_question_sets")
-    .select("question_stem_id")
-    .eq("question_set_id", questionSetId)
-    .order("index");
-
-  if (setStemsError) {
-    throw new Error(setStemsError.message);
-  }
-
   const stemIds = [
     ...new Set((setStems ?? []).map((s) => s.question_stem_id).filter(Boolean)),
   ];
@@ -245,11 +261,15 @@ export async function completeStudentSetAttempt(
   let scaledScore: number | null = null;
 
   if (stemIds.length > 0) {
-    const { data: questions, error: questionsError } = await admin
-      .from("ucat_questions")
-      .select("id, question_stem_id, question_type")
-      .in("question_stem_id", stemIds)
-      .is("deleted_at", null);
+    const [questionsResult, stemsResult] = await Promise.all([
+      admin
+        .from("ucat_questions")
+        .select("id, question_stem_id, question_type")
+        .in("question_stem_id", stemIds)
+        .is("deleted_at", null),
+      admin.from("question_stems").select("id, section_id").in("id", stemIds),
+    ]);
+    const { data: questions, error: questionsError } = questionsResult;
 
     if (questionsError) {
       throw new Error(questionsError.message);
@@ -258,10 +278,7 @@ export async function completeStudentSetAttempt(
     const allQuestionIds = (questions ?? []).map((q) => q.id);
     totalQuestions = allQuestionIds.length;
 
-    const { data: stems, error: stemsError } = await admin
-      .from("question_stems")
-      .select("id, section_id")
-      .in("id", stemIds);
+    const { data: stems, error: stemsError } = stemsResult;
 
     if (stemsError) {
       throw new Error(stemsError.message);
@@ -269,10 +286,14 @@ export async function completeStudentSetAttempt(
 
     const sectionIds = [...new Set((stems ?? []).map((s) => s.section_id))];
 
-    const { data: sections, error: sectionsError } = await admin
-      .from("ucat_sections")
-      .select("id, name")
-      .in("id", sectionIds);
+    const [sectionsResult, optionsResult] = await Promise.all([
+      admin.from("ucat_sections").select("id, name").in("id", sectionIds),
+      admin
+        .from("question_answer_options")
+        .select("id, question_id, index, is_answer")
+        .in("question_id", allQuestionIds),
+    ]);
+    const { data: sections, error: sectionsError } = sectionsResult;
 
     if (sectionsError) {
       throw new Error(sectionsError.message);
@@ -283,10 +304,7 @@ export async function completeStudentSetAttempt(
       (stems ?? []).map((s) => [s.id, sectionById.get(s.section_id) ?? ""]),
     );
 
-    const { data: options, error: optionsError } = await admin
-      .from("question_answer_options")
-      .select("id, question_id, index, is_answer")
-      .in("question_id", allQuestionIds);
+    const { data: options, error: optionsError } = optionsResult;
 
     if (optionsError) {
       throw new Error(optionsError.message);
@@ -388,7 +406,7 @@ export async function completeStudentSetAttempt(
     }
   }
 
-  const { error: updateSetError } = await admin
+  const { data: updatedSet, error: updateSetError } = await admin
     .from("student_question_set_attempts")
     .update({
       time_taken_seconds: timeTakenSeconds,
@@ -400,15 +418,30 @@ export async function completeStudentSetAttempt(
       current_segment_ends_at: null,
     })
     .eq("id", attemptId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateSetError) {
     throw new Error(updateSetError.message);
+  }
+  if (!updatedSet) throw new Error("Attempt is no longer active");
+
+  if (options.grantDiscount === false) {
+    return {
+      earnedDiscount: false,
+      discountCents: 0,
+      newlyCompleted: true,
+    };
   }
 
   const discount = await maybeGrantPracticeDayDiscount(admin, studentId);
   return {
     earnedDiscount: discount.earnedDiscount,
     discountCents: discount.discountCents,
+    newlyCompleted: true,
   };
 }

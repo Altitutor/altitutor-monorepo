@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -39,6 +40,7 @@ export async function PATCH(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -57,6 +59,7 @@ export async function PATCH(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -126,6 +129,7 @@ export async function PATCH(request: NextRequest) {
     
     if (error) {
       console.error('Error updating profile:', error);
+      captureApiError(error, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
@@ -159,6 +163,7 @@ export async function PATCH(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/profile");
     console.error('Error in PATCH /api/profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -181,6 +186,7 @@ export async function GET() {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -202,6 +208,7 @@ export async function GET() {
     
     if (error) {
       console.error('Error fetching profile:', error);
+      captureApiError(error, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to fetch profile' },
         { status: 500 }
@@ -221,6 +228,7 @@ export async function GET() {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/profile");
     console.error('Error in GET /api/profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -108,6 +109,7 @@ export async function PATCH(
 
         if (authError) {
           console.error('Auth update error:', authError);
+          captureApiError(authError, "/api/students/[id]");
           return NextResponse.json(
             { error: `Failed to update auth user: ${authError.message}` },
             { status: 500 }
@@ -146,6 +148,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
+      captureApiError(updateError, "/api/students/[id]");
       return NextResponse.json(
         { error: `Failed to update student: ${updateError.message}` },
         { status: 500 }
@@ -163,6 +166,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: updatedStudent }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/students/[id]");
     console.error('Unexpected error updating student:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

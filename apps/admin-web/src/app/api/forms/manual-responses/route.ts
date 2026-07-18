@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import {
   normalizeFormAnswers,
@@ -38,7 +39,7 @@ export async function GET() {
     .is('workflow_key', null)
     .not('latest_published_version_id', 'is', null)
     .order('name');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/manual-responses", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const forms = await Promise.all(((data ?? []) as unknown as LatestForm[]).map(async (form) => ({
     ...form,
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
     response_json: { answers } as Json,
   };
   const { data: response, error: responseError } = await auth.admin.from('form_responses').insert(insert).select('id').single();
-  if (responseError) return NextResponse.json({ error: responseError.message }, { status: 500 });
+  if (responseError) return captureApiErrorResponse(responseError, "/api/forms/manual-responses", NextResponse.json({ error: responseError.message }, { status: 500 }));
 
   const normalized = normalizeFormAnswers(blocks, answers).map((answer) => ({
     form_response_id: response.id,
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
     const { error } = await auth.admin.from('form_response_answers').insert(normalized);
     if (error) {
       await auth.admin.from('form_responses').delete().eq('id', response.id);
+      captureApiError(error, "/api/forms/manual-responses");
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }

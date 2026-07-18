@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       p_order_by: 'first_name',
       p_ascending: true,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/forms/respondents", NextResponse.json({ error: error.message }, { status: 500 }));
     const result = data as { students?: PersonRow[] } | null;
     return NextResponse.json({ people: result?.students ?? [] });
   }
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
       p_order_by: 'first_name',
       p_ascending: true,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/forms/respondents", NextResponse.json({ error: error.message }, { status: 500 }));
     const result = data as { staff?: PersonRow[] } | null;
     return NextResponse.json({ people: result?.staff ?? [] });
   }
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
     p_order_by: 'first_name',
     p_ascending: true,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/respondents", NextResponse.json({ error: error.message }, { status: 500 }));
   const result = data as { parents?: PersonRow[] } | null;
   return NextResponse.json({ people: result?.parents ?? [] });
 }

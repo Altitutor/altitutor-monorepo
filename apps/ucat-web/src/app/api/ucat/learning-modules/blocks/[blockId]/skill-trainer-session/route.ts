@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { isUcatSkillTrainerKey, type SkillTrainerConfigSnapshot } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(blockError, "/api/ucat/learning-modules/blocks/[blockId]/skill-trainer-session");
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (
@@ -142,6 +144,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       trainerName: trainer.name,
     });
   } catch (error) {
+    captureApiError(error, "/api/ucat/learning-modules/blocks/[blockId]/skill-trainer-session");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load session" },
       { status: 500 },

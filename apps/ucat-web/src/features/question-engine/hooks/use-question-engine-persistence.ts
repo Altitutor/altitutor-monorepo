@@ -50,6 +50,7 @@ type CompletePracticeSessionInput = {
   questionCount: number;
   stemsSnapshot: unknown;
   questionScores: Array<{ questionId: string; score: number }>;
+  answers: UpsertQuestionAttemptInput[];
 };
 
 type SetAttemptState = {
@@ -191,8 +192,47 @@ export function useQuestionEnginePersistence({
       answers: FinalExamQuestionAttemptInput[];
     }
   >({
+    scope: { id: "question-attempt-upserts" },
     mutationFn: async (input) =>
       (await finalizeExamAttempt(input)) as FinalizeAttemptResponse,
+  });
+
+  const upsertQuestionAttemptBatch = useMutation<
+    unknown,
+    Error,
+    UpsertQuestionAttemptInput[]
+  >({
+    // Share the autosave scope so completion cannot be overtaken by an older
+    // queued snapshot, while still using one HTTP/database batch.
+    scope: { id: "question-attempt-upserts" },
+    mutationFn: async (attempts) => {
+      if (attempts.length === 0) return { success: true, count: 0 };
+      const first = attempts[0];
+      const response = await fetch("/api/ucat/question-attempts/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentQuestionSetAttemptId:
+            first.studentQuestionSetAttemptId ?? null,
+          studentPracticeSessionId: first.studentPracticeSessionId ?? null,
+          learningModuleBlockId: first.learningModuleBlockId ?? null,
+          attempts: attempts.map(
+            ({
+              studentQuestionSetAttemptId: _setAttemptId,
+              studentPracticeSessionId: _practiceSessionId,
+              learningModuleBlockId: _learningModuleBlockId,
+              ...attempt
+            }) => attempt,
+          ),
+        }),
+      });
+      if (!response.ok) {
+        await assertOkOrQuotaExceeded(response);
+        throw new Error("Failed to save question attempts");
+      }
+      return response.json();
+    },
+    onError: handleQuotaError,
   });
 
   type PracticeSessionResponse = {
@@ -205,6 +245,9 @@ export function useQuestionEnginePersistence({
     Error,
     CompletePracticeSessionInput
   >({
+    // Completion includes the final answer batch and must run behind any
+    // already queued autosaves for the same engine.
+    scope: { id: "question-attempt-upserts" },
     mutationFn: async (input) => {
       const response = await fetch(
         `/api/ucat/practice-sessions/${input.sessionId}`,
@@ -220,6 +263,14 @@ export function useQuestionEnginePersistence({
             questionCount: input.questionCount,
             stemsSnapshot: input.stemsSnapshot,
             questionScores: input.questionScores,
+            answers: input.answers.map(
+              ({
+                studentQuestionSetAttemptId: _setAttemptId,
+                studentPracticeSessionId: _practiceSessionId,
+                learningModuleBlockId: _learningModuleBlockId,
+                ...answer
+              }) => answer,
+            ),
           }),
         },
       );
@@ -556,9 +607,7 @@ export function useQuestionEnginePersistence({
       inputs.push(base);
     }
 
-    await Promise.all(
-      inputs.map((input) => upsertQuestionAttempt.mutateAsync(input)),
-    );
+    await upsertQuestionAttemptBatch.mutateAsync(inputs);
   }
 
   const attemptIds = useMemo(() => {

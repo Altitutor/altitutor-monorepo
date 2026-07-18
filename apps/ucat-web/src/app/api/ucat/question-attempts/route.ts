@@ -1,9 +1,11 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
+import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
+import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -79,36 +81,50 @@ export async function POST(request: NextRequest) {
   if (isPracticeAttempt) {
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("student_practice_sessions")
-      .select("id, stems_snapshot, unlimited, completed_at")
+      .select(
+        "id, stems_snapshot, unlimited, completed_at, discarded_at, expired_at",
+      )
       .eq("id", body.studentPracticeSessionId!)
       .eq("student_id", student.id)
       .maybeSingle();
 
     if (sessionError) {
+      captureApiError(sessionError, "/api/ucat/question-attempts");
       return NextResponse.json(
         { error: sessionError.message },
         { status: 500 },
       );
     }
 
-    const deliveredStems = Array.isArray(session?.stems_snapshot)
-      ? (session.stems_snapshot as QuestionStemWithQuestions[])
-      : [];
-    const deliveredQuestionIds = new Set(
-      deliveredStems.flatMap((stem) =>
-        Array.isArray(stem.questions)
-          ? stem.questions.map((question) => question.id)
-          : [],
-      ),
-    );
     if (
       !session ||
       session.completed_at ||
-      !deliveredQuestionIds.has(body.questionId)
+      session.discarded_at ||
+      session.expired_at
     ) {
       return NextResponse.json(
         { error: "Question is not part of this practice session" },
         { status: 403 },
+      );
+    }
+
+    try {
+      const undeliveredQuestionIds = await findUndeliveredPracticeQuestionIds(
+        supabaseAdmin,
+        session.stems_snapshot,
+        [body.questionId],
+      );
+      if (undeliveredQuestionIds.length > 0) {
+        return NextResponse.json(
+          { error: "Question is not part of this practice session" },
+          { status: 403 },
+        );
+      }
+    } catch (error) {
+      captureApiError(error, "/api/ucat/question-attempts");
+      return NextResponse.json(
+        { error: "Failed to validate practice question" },
+        { status: 500 },
       );
     }
   }
@@ -147,6 +163,7 @@ export async function POST(request: NextRequest) {
     existingError.code !== "PGRST116" &&
     existingError.code !== "PGRST123"
   ) {
+    captureApiError(existingError, "/api/ucat/question-attempts");
     return NextResponse.json({ error: existingError.message }, { status: 500 });
   }
 
@@ -192,6 +209,7 @@ export async function POST(request: NextRequest) {
       .eq("student_id", student.id);
 
     if (updateError) {
+      captureApiError(updateError, "/api/ucat/question-attempts");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
@@ -199,11 +217,19 @@ export async function POST(request: NextRequest) {
       body.questionAnswerOptionId != null || body.answerSnapshot != null;
     if (isLearnAttempt && hasAnswer) {
       try {
-        await maybeAutoCompleteQuestionBlock(
+        const progress = await maybeAutoCompleteQuestionBlock(
           supabaseAdmin,
           student.id,
           body.learningModuleBlockId!,
         );
+        if (progress.lessonNewlyCompleted && progress.lessonId) {
+          await captureUcatLearningActivityCompleted({
+            userId: user.id,
+            activityType: "lesson",
+            activityId: progress.lessonId,
+            properties: { completion_source: "lesson_question_auto" },
+          });
+        }
       } catch {
         // Progress update is best-effort; attempt is already saved.
       }
@@ -231,6 +257,7 @@ export async function POST(request: NextRequest) {
     is_flagged: boolean;
     is_submitted: boolean;
     time_spent_seconds: number | null;
+    first_seen_at?: string;
     was_timed: boolean;
     mode: "question" | "question_stem" | "set" | "mock" | "learn" | null;
     learning_module_block_id: string | null;
@@ -247,17 +274,25 @@ export async function POST(request: NextRequest) {
     is_flagged: hasFlag ? (body.isFlagged ?? false) : false,
     is_submitted: isSubmitted,
     time_spent_seconds: null,
+    ...(practiceSessionId ? { first_seen_at: new Date().toISOString() } : {}),
     was_timed: body.wasTimed ?? false,
     mode: body.mode ?? null,
   };
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("student_question_attempts")
-    .insert(insertPayload)
+    .upsert(insertPayload, {
+      onConflict: practiceSessionId
+        ? "student_practice_session_id,question_id"
+        : setAttemptId
+          ? "student_question_set_attempt_id,question_id"
+          : "id",
+    })
     .select("id")
     .maybeSingle();
 
   if (insertError || !inserted) {
+    captureApiError(insertError, "/api/ucat/question-attempts");
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to insert question attempt" },
       { status: 500 },
@@ -270,11 +305,19 @@ export async function POST(request: NextRequest) {
     body.answerSnapshot != null;
   if (isLearnAttempt && hasAnswer) {
     try {
-      await maybeAutoCompleteQuestionBlock(
+      const progress = await maybeAutoCompleteQuestionBlock(
         supabaseAdmin,
         student.id,
         body.learningModuleBlockId!,
       );
+      if (progress.lessonNewlyCompleted && progress.lessonId) {
+        await captureUcatLearningActivityCompleted({
+          userId: user.id,
+          activityType: "lesson",
+          activityId: progress.lessonId,
+          properties: { completion_source: "lesson_question_auto" },
+        });
+      }
     } catch {
       // Progress update is best-effort; attempt is already saved.
     }

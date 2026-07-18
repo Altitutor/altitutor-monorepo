@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Failed to manually reset password:', error);
+        captureApiError(error, "/api/password-reset");
         return NextResponse.json(
           { error: `Failed to reset password: ${error.message}` },
           { status: 500 }
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Failed to send password reset email:', error);
+        captureApiError(error, "/api/password-reset");
         return NextResponse.json(
           { error: `Failed to send password reset email: ${error.message}` },
           { status: 500 }
@@ -147,6 +150,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Failed to generate password reset link:', error);
+      captureApiError(error, "/api/password-reset");
       return NextResponse.json(
         { error: `Failed to generate password reset link: ${error.message}` },
         { status: 500 }
@@ -165,6 +169,7 @@ export async function POST(request: NextRequest) {
       link: buildRecoveryCallbackUrl(userType, tokenHash),
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/password-reset");
     console.error('Unexpected password reset error:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

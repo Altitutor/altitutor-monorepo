@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -370,6 +371,7 @@ export async function POST(request: NextRequest) {
       message: shouldSendEmail || shouldSendSms ? 'Booking confirmation sent successfully' : 'Booking confirmation link generated',
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/sessions/send-booking-confirmation");
     console.error('Unexpected error sending booking confirmation:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

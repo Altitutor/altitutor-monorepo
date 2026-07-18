@@ -14,8 +14,6 @@ import {
   SearchableSelect,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -71,6 +69,7 @@ type UcatStemEditorPropertiesPanelProps = {
   onEditorModeChange: (mode: StemEditorMode) => void
   showAnswer: boolean
   onShowAnswerChange: (show: boolean) => void
+  showModeControls?: boolean
   stemId?: string | null
   focusTarget?: StemEditorFocusTarget | null
   focusMessage?: string | null
@@ -85,7 +84,6 @@ type UcatStemEditorPropertiesPanelProps = {
   activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
   onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
   className?: string
-  onDeleteStem?: () => void
 }
 
 function trimTextParagraphs(text: string): string {
@@ -205,6 +203,7 @@ export function UcatStemEditorPropertiesPanel({
   onEditorModeChange,
   showAnswer,
   onShowAnswerChange,
+  showModeControls = true,
   stemId,
   focusTarget,
   focusMessage,
@@ -219,7 +218,6 @@ export function UcatStemEditorPropertiesPanel({
   activeTab: controlledActiveTab,
   onActiveTabChange,
   className,
-  onDeleteStem,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -800,48 +798,57 @@ export function UcatStemEditorPropertiesPanel({
   return (
     <aside className={cn('flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-80 lg:border-l lg:p-4', className)}>
       <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex h-full min-h-0 flex-1 flex-col">
-        <TabsList className="hidden w-full grid-cols-2 lg:grid">
-          <TabsTrigger value="properties">Properties</TabsTrigger>
-          <TabsTrigger value="ai">AI Tools</TabsTrigger>
-        </TabsList>
+        <div className="hidden lg:block">
+          <SegmentedControl
+            fullWidth
+            value={activeTab}
+            onValueChange={(value) => handleActiveTabChange(value)}
+            options={[
+              { value: 'properties', label: 'Properties' },
+              { value: 'ai', label: 'AI tools' },
+            ]}
+          />
+        </div>
         <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-4">
-        <div className={tutorCardCn('space-y-4 p-3')}>
-          <PropertyRow label="Mode">
-            <SegmentedControl
-              fullWidth
-              value={editorMode}
-              onValueChange={onEditorModeChange}
-              options={[
-                { value: 'edit', label: 'Edit' },
-                { value: 'view', label: 'View' },
-              ]}
-            />
-          </PropertyRow>
-          {editorMode === 'view' ? (
-            <PropertyRow label="Answer">
-              <Button
-                type="button"
-                variant={showAnswer ? 'secondary' : 'outline'}
-                size="sm"
-                className="w-full gap-1.5"
-                onClick={() => onShowAnswerChange(!showAnswer)}
-              >
-                {showAnswer ? (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Hide
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Show
-                  </>
-                )}
-              </Button>
+        {showModeControls ? (
+          <div className={tutorCardCn('space-y-4 p-3')}>
+            <PropertyRow label="Mode">
+              <SegmentedControl
+                fullWidth
+                value={editorMode}
+                onValueChange={onEditorModeChange}
+                options={[
+                  { value: 'edit', label: 'Edit' },
+                  { value: 'view', label: 'View' },
+                ]}
+              />
             </PropertyRow>
-          ) : null}
-        </div>
+            {editorMode === 'view' ? (
+              <PropertyRow label="Answer">
+                <Button
+                  type="button"
+                  variant={showAnswer ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={() => onShowAnswerChange(!showAnswer)}
+                >
+                  {showAnswer ? (
+                    <>
+                      <EyeOff className="h-4 w-4" />
+                      Hide
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      Show
+                    </>
+                  )}
+                </Button>
+              </PropertyRow>
+            ) : null}
+          </div>
+        ) : null}
 
         {focusMessage ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
@@ -1135,17 +1142,6 @@ export function UcatStemEditorPropertiesPanel({
             </div>
           </PropertiesCard>
         </Accordion>
-        {onDeleteStem ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-destructive/30 text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-            onClick={onDeleteStem}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete question stem
-          </Button>
-        ) : null}
       </div>
         </TabsContent>
         <TabsContent

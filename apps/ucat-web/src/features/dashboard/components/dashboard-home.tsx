@@ -53,7 +53,7 @@ import type {
   ScoreProjectionSnapshot,
   SectionScoreProjection,
 } from "@/features/score-projection/types/score-projection";
-import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import { useDashboardStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
@@ -925,7 +925,7 @@ function dashboardMockAnnotations(
 
 export function DashboardHome() {
   const profileQuery = useUcatProfile();
-  const planQuery = useStudyPlan();
+  const planQuery = useDashboardStudyPlan();
   const scoreProjectionQuery = useScoreProjection(
     Boolean(planQuery.data?.profile),
   );
@@ -966,7 +966,11 @@ export function DashboardHome() {
     ],
   );
   const nextTask = action.kind === "task" ? action.task : null;
-  const taskActions = useStudyPlanTaskActions(nextTask);
+  const taskActions = useStudyPlanTaskActions(
+    nextTask,
+    true,
+    planQuery.data ?? null,
+  );
   const week = useMemo(
     () =>
       planQuery.data?.profile ? summarizeDashboardWeek(planQuery.data) : null,
@@ -1016,7 +1020,10 @@ export function DashboardHome() {
     [planQuery.data],
   );
 
-  if (planQuery.isLoading || onboarding.isLoading) {
+  if (
+    planQuery.isLoading ||
+    (onboarding.isLoading && !planQuery.data?.profile)
+  ) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-[650px] w-full" />

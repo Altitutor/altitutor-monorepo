@@ -8442,9 +8442,12 @@ export type Database = {
         Row: {
           completed_at: string | null
           current_segment_ends_at: string | null
+          discarded_at: string | null
           engine_snapshot: Json | null
+          expired_at: string | null
           filters_snapshot: Json | null
           id: string
+          last_activity_at: string | null
           prefetched_stem_snapshot: Json | null
           question_count: number | null
           score_points: number | null
@@ -8455,13 +8458,17 @@ export type Database = {
           total_points: number | null
           ucat_section_id: string
           unlimited: boolean
+          was_timed: boolean
         }
         Insert: {
           completed_at?: string | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           filters_snapshot?: Json | null
           id?: string
+          last_activity_at?: string | null
           prefetched_stem_snapshot?: Json | null
           question_count?: number | null
           score_points?: number | null
@@ -8472,13 +8479,17 @@ export type Database = {
           total_points?: number | null
           ucat_section_id: string
           unlimited?: boolean
+          was_timed?: boolean
         }
         Update: {
           completed_at?: string | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           filters_snapshot?: Json | null
           id?: string
+          last_activity_at?: string | null
           prefetched_stem_snapshot?: Json | null
           question_count?: number | null
           score_points?: number | null
@@ -8489,6 +8500,7 @@ export type Database = {
           total_points?: number | null
           ucat_section_id?: string
           unlimited?: boolean
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -8568,6 +8580,7 @@ export type Database = {
           answer_snapshot: Json | null
           attempted_at: string
           content_snapshot: Json | null
+          first_seen_at: string | null
           id: string
           is_flagged: boolean
           is_submitted: boolean
@@ -8581,12 +8594,14 @@ export type Database = {
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
           time_spent_seconds: number | null
+          time_spent_milliseconds: number | null
           was_timed: boolean
         }
         Insert: {
           answer_snapshot?: Json | null
           attempted_at?: string
           content_snapshot?: Json | null
+          first_seen_at?: string | null
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
@@ -8600,12 +8615,14 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          time_spent_milliseconds?: number | null
           was_timed?: boolean
         }
         Update: {
           answer_snapshot?: Json | null
           attempted_at?: string
           content_snapshot?: Json | null
+          first_seen_at?: string | null
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
@@ -8619,6 +8636,7 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          time_spent_milliseconds?: number | null
           was_timed?: boolean
         }
         Relationships: [
@@ -8742,8 +8760,11 @@ export type Database = {
           completed_at: string | null
           content_snapshot: Json | null
           current_segment_ends_at: string | null
+          discarded_at: string | null
           engine_snapshot: Json | null
+          expired_at: string | null
           id: string
+          last_activity_at: string | null
           question_set_id: string
           scaled_score: number | null
           score_points: number | null
@@ -8763,8 +8784,11 @@ export type Database = {
           completed_at?: string | null
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           id?: string
+          last_activity_at?: string | null
           question_set_id: string
           scaled_score?: number | null
           score_points?: number | null
@@ -8784,8 +8808,11 @@ export type Database = {
           completed_at?: string | null
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           id?: string
+          last_activity_at?: string | null
           question_set_id?: string
           scaled_score?: number | null
           score_points?: number | null
@@ -9430,8 +9457,11 @@ export type Database = {
           completed_at: string | null
           content_snapshot: Json | null
           current_segment_ends_at: string | null
+          discarded_at: string | null
           engine_snapshot: Json | null
+          expired_at: string | null
           id: string
+          last_activity_at: string | null
           mock_time_limit_at_exam_speed_seconds: number | null
           mock_time_limit_seconds: number | null
           scaled_score: number | null
@@ -9441,14 +9471,18 @@ export type Database = {
           time_taken: number | null
           total_points: number | null
           ucat_mock_id: string
+          was_timed: boolean
         }
         Insert: {
           attempted_at?: string
           completed_at?: string | null
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           id?: string
+          last_activity_at?: string | null
           mock_time_limit_at_exam_speed_seconds?: number | null
           mock_time_limit_seconds?: number | null
           scaled_score?: number | null
@@ -9458,14 +9492,18 @@ export type Database = {
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id: string
+          was_timed?: boolean
         }
         Update: {
           attempted_at?: string
           completed_at?: string | null
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
+          discarded_at?: string | null
           engine_snapshot?: Json | null
+          expired_at?: string | null
           id?: string
+          last_activity_at?: string | null
           mock_time_limit_at_exam_speed_seconds?: number | null
           mock_time_limit_seconds?: number | null
           scaled_score?: number | null
@@ -9475,6 +9513,7 @@ export type Database = {
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id?: string
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -10689,6 +10728,59 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutor_calendar_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          staff_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          staff_id: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          staff_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_calendar_subscriptions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_calendar_subscriptions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_calendar_subscriptions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_calendar_subscriptions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -26926,4 +27018,3 @@ export const Constants = {
     },
   },
 } as const
-

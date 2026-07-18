@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
     const { data: result, error } = await supabase.rpc('create_tutor_log', rpcParams);
 
     if (error) {
+      captureApiError(error, "/api/tutor-logs/create");
       return NextResponse.json(
         { error: error.message || 'Failed to create tutor log' },
         { status: 500 }
@@ -114,6 +116,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    captureApiError(error, "/api/tutor-logs/create");
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

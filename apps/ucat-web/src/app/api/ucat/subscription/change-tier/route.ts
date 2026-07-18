@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
@@ -214,6 +215,7 @@ export async function POST(request: NextRequest) {
       billingInterval,
     });
   } catch (err) {
+    captureApiError(err, "/api/ucat/subscription/change-tier");
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ucat change-tier] Stripe error:", msg);
     return NextResponse.json(

@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
 
   if (studentError) {
     console.error("[onboarding/complete] student lookup failed:", studentError);
+    captureApiError(studentError, "/api/ucat/onboarding/complete");
     return NextResponse.json(
       { error: "Failed to resolve student" },
       { status: 500 },
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
     .eq("id", student.id);
 
   if (updateError) {
+    captureApiError(updateError, "/api/ucat/onboarding/complete");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

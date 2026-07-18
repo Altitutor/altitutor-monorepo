@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createServiceRoleClient,
@@ -133,6 +134,7 @@ export async function POST(
       status: updatedSession?.status ?? 'ACTIVE',
     });
   } catch (error) {
+    captureApiError(error, "/api/bookings/trial/[sessionId]/reschedule");
     console.error('Public booking reschedule error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

@@ -1,6 +1,8 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { expireStaleExamAttempts } from "@/lib/ucat/exam-attempt/service";
 
 const MAX_NOTIFICATIONS = 50;
 
@@ -59,6 +61,7 @@ export async function GET() {
   if ("response" in resolved) return resolved.response;
 
   await supabaseAdmin!.rpc("expire_ucat_referral_gifts");
+  await expireStaleExamAttempts(supabaseAdmin!, resolved.studentId);
   const now = new Date().toISOString();
   const [{ data, error }, { count, error: countError }] = await Promise.all([
     supabaseAdmin!
@@ -89,6 +92,7 @@ export async function GET() {
       error,
       countError,
     });
+    captureApiError(error ?? countError, "/api/ucat/notifications");
     return NextResponse.json(
       { error: "Failed to load notifications" },
       { status: 500 },
@@ -148,7 +152,11 @@ export async function PATCH(request: NextRequest) {
       .is("dismissed_at", null);
 
     if (dismissError) {
-      console.error("[ucat notifications] Failed to dismiss inbox items", dismissError);
+      console.error(
+        "[ucat notifications] Failed to dismiss inbox items",
+        dismissError,
+      );
+      captureApiError(dismissError, "/api/ucat/notifications");
       return NextResponse.json(
         { error: "Failed to update notifications" },
         { status: 500 },
@@ -164,7 +172,11 @@ export async function PATCH(request: NextRequest) {
       .is("read_at", null);
 
     if (readError) {
-      console.error("[ucat notifications] Failed to mark dismissed items read", readError);
+      console.error(
+        "[ucat notifications] Failed to mark dismissed items read",
+        readError,
+      );
+      captureApiError(readError, "/api/ucat/notifications");
       return NextResponse.json(
         { error: "Failed to update notifications" },
         { status: 500 },
@@ -193,6 +205,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await update;
   if (error) {
     console.error("[ucat notifications] Failed to mark inbox read", error);
+    captureApiError(error, "/api/ucat/notifications");
     return NextResponse.json(
       { error: "Failed to update notifications" },
       { status: 500 },

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -46,6 +47,7 @@ export async function GET() {
     .order('updated_at', { ascending: false });
 
   if (error) {
+    captureApiError(error, "/api/ucat-generation/codex-oauth/accounts");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

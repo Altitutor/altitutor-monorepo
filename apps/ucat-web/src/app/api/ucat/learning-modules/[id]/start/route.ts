@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import {
@@ -21,6 +22,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (lessonError) {
+    captureApiError(lessonError, "/api/ucat/learning-modules/[id]/start");
     return NextResponse.json({ error: lessonError.message }, { status: 500 });
   }
   if (!lesson || lesson.kind !== "lesson") {
@@ -41,6 +43,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const result = await ensureLessonStarted(auth.admin, auth.studentId, id);
     return NextResponse.json(result);
   } catch (error) {
+    captureApiError(error, "/api/ucat/learning-modules/[id]/start");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to start lesson" },
       { status: 500 },

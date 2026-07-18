@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -107,6 +108,7 @@ export async function GET(
       last_transaction_id: transactions.length > 0 ? transactions[transactions.length - 1].id : null,
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/students/[id]/customer-balance/history");
     console.error('[api/students/customer-balance/history] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },

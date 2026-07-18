@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .neq('id', params.id)
       .order('index', { ascending: true });
 
-    if (siblingsError) return NextResponse.json({ error: siblingsError.message }, { status: 500 });
+    if (siblingsError) return captureApiErrorResponse(siblingsError, "/api/flashcards/cards/[id]", NextResponse.json({ error: siblingsError.message }, { status: 500 }));
 
     const targetIndex = clampIndex(body.index ?? current.index, (siblings?.length ?? 0) + 1);
     const orderedTargetIds = insertIdAtIndex((siblings ?? []).map((card) => card.id), params.id, targetIndex);
@@ -95,6 +96,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
       await persistTopicFlashcardOrder(supabaseAdmin, targetTopicId, orderedTargetIds);
     } catch (orderError) {
+      captureApiError(orderError, "/api/flashcards/cards/[id]");
       const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -105,7 +107,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         .update(updates)
         .eq('id', params.id);
 
-      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      if (updateError) return captureApiErrorResponse(updateError, "/api/flashcards/cards/[id]", NextResponse.json({ error: updateError.message }, { status: 500 }));
     }
 
     const { data, error } = await supabaseAdmin
@@ -114,7 +116,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .eq('id', params.id)
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ data });
   }
 
@@ -125,7 +127,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ data });
 }
 
@@ -140,6 +142,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', params.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ success: true });
 }

@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -180,6 +181,7 @@ export async function GET() {
 
     return NextResponse.json({ paymentMethod: safeCardSummary(method) });
   } catch (error: unknown) {
+    captureApiError(error, "/api/ucat/payment-method");
     console.error(
       "[ucat payment method] Failed to retrieve payment method:",
       error instanceof Error ? error.message : String(error),
@@ -215,6 +217,7 @@ export async function POST() {
 
     return NextResponse.json({ clientSecret: setupIntent.client_secret });
   } catch (error: unknown) {
+    captureApiError(error, "/api/ucat/payment-method");
     console.error(
       "[ucat payment method] Failed to create SetupIntent:",
       error instanceof Error ? error.message : String(error),
@@ -285,6 +288,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ paymentMethod: safeCardSummary(method) });
   } catch (error: unknown) {
+    captureApiError(error, "/api/ucat/payment-method");
     console.error(
       "[ucat payment method] Failed to apply payment method:",
       error instanceof Error ? error.message : String(error),

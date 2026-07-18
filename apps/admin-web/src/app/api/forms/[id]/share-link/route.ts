@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
@@ -17,7 +18,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     .eq('status', 'published')
     .is('archived_at', null)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/[id]/share-link", NextResponse.json({ error: error.message }, { status: 500 }));
   if (!form?.latest_published_version_id) {
     return NextResponse.json({ error: 'Publish this form before creating a share link.' }, { status: 409 });
   }
@@ -31,7 +32,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     submission_limit: form.submission_limit,
     created_by: auth.staffId,
   });
-  if (tokenError) return NextResponse.json({ error: tokenError.message }, { status: 500 });
+  if (tokenError) return captureApiErrorResponse(tokenError, "/api/forms/[id]/share-link", NextResponse.json({ error: tokenError.message }, { status: 500 }));
 
   return NextResponse.json({ token });
 }

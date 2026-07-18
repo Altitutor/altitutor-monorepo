@@ -443,7 +443,11 @@ export async function fetchConversationList(
         ownedNumberId: conv.owned_number_id,
         latestMessageAt: conv.last_message_at,
         latestMessage: lastMessage,
-        unreadCount: conv.conversation_reads?.length ? 0 : 1,
+        // Match navbar badge: unread only when tip is inbound and unread.
+        unreadCount:
+          !conv.conversation_reads?.length && lastMessage?.direction === 'INBOUND'
+            ? 1
+            : 0,
       });
       continue;
     }
@@ -478,7 +482,11 @@ export async function fetchConversationList(
       aggregated.latestMessage = lastMessage;
     }
 
-    if (!conv.conversation_reads || conv.conversation_reads.length === 0) {
+    // Outbound tip / history-only threads are not unread (badge uses the same rule).
+    if (
+      (!conv.conversation_reads || conv.conversation_reads.length === 0) &&
+      lastMessage?.direction === 'INBOUND'
+    ) {
       aggregated.unreadCount++;
     }
   }

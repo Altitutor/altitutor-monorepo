@@ -7,6 +7,7 @@ import { ChevronLeft, Clock3, Eye, Gauge, Infinity as InfinityIcon, ListChecks, 
 import { Button } from "@/components/ui/button";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
+import { formatSpeedPercentAsMultiplier } from "@/features/progress/lib/format-speed-multiplier";
 import type { CategoryRow, PerformanceFilter } from "@/features/practice/hooks/use-practice-filters";
 import type { SectionKey, PracticeSelectionInput, TimeMode } from "@/features/practice/model/types";
 import {
@@ -530,7 +531,7 @@ export function StemFiltersPanel({
                       value={pacingPercent}
                       onChange={(event) => setPacing(Number(event.target.value))}
                       className="w-full accent-primary"
-                      aria-label="UCAT exam pacing percentage"
+                      aria-label="UCAT exam pacing multiplier"
                     />
                     <div className="mt-2 grid grid-cols-8">
                       {pacingSteps.map((pace) => (
@@ -549,13 +550,13 @@ export function StemFiltersPanel({
                               pace === pacingPercent && "h-3 bg-primary",
                             )}
                           />
-                          {pace}%
+                          {formatSpeedPercentAsMultiplier(pace)}
                         </button>
                       ))}
                     </div>
                     <p className="mt-4 text-sm">
-                      Questions will be paced at {pacingPercent}% of the UCAT exam
-                      speed.
+                      Questions will be paced at{" "}
+                      {formatSpeedPercentAsMultiplier(pacingPercent)} exam speed.
                     </p>
                     </motion.div>
                   ) : null}

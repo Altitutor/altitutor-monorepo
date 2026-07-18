@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
       });
       body.stemsSnapshot = prepared.stems;
     } catch (error) {
+      captureApiError(error, "/api/ucat/practice-sessions");
       if (error instanceof QuotaExceededError) {
         return quotaExceededResponse(error.payload);
       }
@@ -166,6 +168,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (insertError || !inserted) {
+    captureApiError(insertError, "/api/ucat/practice-sessions");
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to create practice session" },
       { status: 500 },

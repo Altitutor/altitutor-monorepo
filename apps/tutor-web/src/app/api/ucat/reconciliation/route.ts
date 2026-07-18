@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import {
@@ -115,7 +116,7 @@ export async function GET() {
     .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,source_channel,status,deleted_at,questions')
     .is('deleted_at', null)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return captureApiErrorResponse(error, "/api/ucat/reconciliation", NextResponse.json({ error: error.message }, { status: 500 }))
 
   const rows = (stems ?? []) as StemDetailRow[]
 
@@ -124,7 +125,7 @@ export async function GET() {
     .select('id,access_scope,set_names')
     .is('deleted_at', null)
 
-  if (stemsListError) return NextResponse.json({ error: stemsListError.message }, { status: 500 })
+  if (stemsListError) return captureApiErrorResponse(stemsListError, "/api/ucat/reconciliation", NextResponse.json({ error: stemsListError.message }, { status: 500 }))
 
   const stemMetaById = new Map<string, StemListMeta>()
   const privateStemIdsNotInSet = new Set<string>()
@@ -336,7 +337,7 @@ export async function GET() {
     .from('vtutor_ucat_sections')
     .select('id,section_number,name,number_of_questions,time_limit_seconds')
 
-  if (sectionsError) return NextResponse.json({ error: sectionsError.message }, { status: 500 })
+  if (sectionsError) return captureApiErrorResponse(sectionsError, "/api/ucat/reconciliation", NextResponse.json({ error: sectionsError.message }, { status: 500 }))
   const sections: UcatSectionForStatus[] = (sectionsData ?? []).map((s) => {
     const row = s as { id?: string; section_number?: number; name?: unknown; number_of_questions?: number; time_limit_seconds?: number }
     const nameVal = row.name
@@ -356,7 +357,7 @@ export async function GET() {
     .select('id,name,sections,stem_count,question_count,time_limit_seconds')
     .is('deleted_at', null)
 
-  if (setsError) return NextResponse.json({ error: setsError.message }, { status: 500 })
+  if (setsError) return captureApiErrorResponse(setsError, "/api/ucat/reconciliation", NextResponse.json({ error: setsError.message }, { status: 500 }))
   const allSets = (setsData ?? []) as Array<{
     id: string
     name: unknown
@@ -425,7 +426,7 @@ export async function GET() {
     .select('id,name,set_count')
     .is('deleted_at', null)
 
-  if (mocksError) return NextResponse.json({ error: mocksError.message }, { status: 500 })
+  if (mocksError) return captureApiErrorResponse(mocksError, "/api/ucat/reconciliation", NextResponse.json({ error: mocksError.message }, { status: 500 }))
   const mocksList = (mocksData ?? []) as Array<{ id: string; name: unknown; set_count: number }>
 
   const mocksWithIncorrectSets: Array<{ id: string; name: string; setCount: number; sets: Array<{ id: string; name: string }> }> = []

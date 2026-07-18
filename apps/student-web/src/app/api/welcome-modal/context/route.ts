@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Database } from '@altitutor/shared';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
@@ -48,6 +49,7 @@ export async function GET(_request: NextRequest) {
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
     if (studentCheckError) {
       console.error('Error checking student status:', studentCheckError);
+      captureApiError(studentCheckError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to verify student status' },
         { status: 500 }
@@ -64,6 +66,7 @@ export async function GET(_request: NextRequest) {
     const { data: studentId, error: studentIdError } = await userClient.rpc('current_student_id');
     if (studentIdError || !studentId) {
       console.error('Error getting student ID:', studentIdError);
+      captureApiError(studentIdError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to get student ID' },
         { status: 500 }
@@ -79,6 +82,7 @@ export async function GET(_request: NextRequest) {
 
     if (subjectsError) {
       console.error('Error fetching student subjects:', subjectsError);
+      captureApiError(subjectsError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch student subjects' },
         { status: 500 }
@@ -110,6 +114,7 @@ export async function GET(_request: NextRequest) {
 
     if (defaultPricingError) {
       console.error('Error fetching default CLASS pricing:', defaultPricingError);
+      captureApiError(defaultPricingError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch class pricing' },
         { status: 500 }
@@ -126,6 +131,7 @@ export async function GET(_request: NextRequest) {
 
     if (overridesError) {
       console.error('Error fetching class pricing overrides:', overridesError);
+      captureApiError(overridesError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch class pricing overrides' },
         { status: 500 }
@@ -166,6 +172,7 @@ export async function GET(_request: NextRequest) {
 
     if (homeworkHelpError) {
       console.error('Error fetching homework help class:', homeworkHelpError);
+      captureApiError(homeworkHelpError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch homework help session time' },
         { status: 500 }
@@ -182,6 +189,7 @@ export async function GET(_request: NextRequest) {
       },
     });
   } catch (error) {
+    captureApiError(error, "/api/welcome-modal/context");
     console.error('Error in GET /api/welcome-modal/context:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

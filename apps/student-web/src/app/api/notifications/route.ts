@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -37,6 +38,7 @@ async function resolveStudentContext() {
 
   if (studentCheckError) {
     console.error('Error checking student status:', studentCheckError);
+    captureApiError(studentCheckError, "/api/notifications");
     return {
       response: NextResponse.json({ error: 'Failed to verify student status' }, { status: 500 }),
     } as const;
@@ -52,6 +54,7 @@ async function resolveStudentContext() {
 
   if (studentIdError || !studentId) {
     console.error('Error getting student ID:', studentIdError);
+    captureApiError(studentIdError, "/api/notifications");
     return {
       response: NextResponse.json({ error: 'Failed to get student ID' }, { status: 500 }),
     } as const;
@@ -71,6 +74,7 @@ async function verifyNotificationIds(
 
   if (noteError) {
     console.error('Error checking notifications:', noteError);
+    captureApiError(noteError, "/api/notifications");
     return {
       response: NextResponse.json({ error: 'Failed to verify notifications' }, { status: 500 }),
     } as const;
@@ -125,6 +129,7 @@ export async function PATCH(request: Request) {
 
       if (dismissError) {
         console.error('Error dismissing notifications:', dismissError);
+        captureApiError(dismissError, "/api/notifications");
         return NextResponse.json({ error: 'Failed to dismiss notifications' }, { status: 500 });
       }
 
@@ -137,6 +142,7 @@ export async function PATCH(request: Request) {
 
       if (readError) {
         console.error('Error marking dismissed notifications as read:', readError);
+        captureApiError(readError, "/api/notifications");
         return NextResponse.json({ error: 'Failed to dismiss notifications' }, { status: 500 });
       }
 
@@ -160,11 +166,13 @@ export async function PATCH(request: Request) {
     const { error } = await update;
     if (error) {
       console.error('Error updating notifications:', error);
+      captureApiError(error, "/api/notifications");
       return NextResponse.json({ error: 'Failed to mark notifications as read' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    captureApiError(error, "/api/notifications");
     console.error('Error in PATCH /api/notifications:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

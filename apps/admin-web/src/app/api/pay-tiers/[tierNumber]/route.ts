@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 
@@ -28,9 +29,10 @@ export async function PATCH(
       .eq('tier_number', tierNumber)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ tier: data });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers/[tierNumber]");
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to update tier' },
       { status: 500 }
@@ -59,6 +61,6 @@ export async function DELETE(
     );
   }
   const { error } = await auth.admin.from('staff_pay_tiers').delete().eq('tier_number', tierNumber);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ success: true });
 }

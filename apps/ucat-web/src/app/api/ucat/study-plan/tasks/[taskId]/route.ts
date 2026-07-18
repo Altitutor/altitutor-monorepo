@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { updateStudyPlanTask } from "@/features/study-plan/server/study-plan-service";
@@ -28,6 +29,7 @@ export async function PATCH(
     await updateStudyPlanTask(user.id, taskId, body.action);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    captureApiError(error, "/api/ucat/study-plan/tasks/[taskId]");
     return NextResponse.json(
       {
         error:

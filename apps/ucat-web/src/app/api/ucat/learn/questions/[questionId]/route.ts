@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(blockError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (!block || block.block_type !== "question" || block.question_id !== questionId) {
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (questionMetaError) {
+    captureApiError(questionMetaError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: questionMetaError.message }, { status: 500 });
   }
   if (!questionMeta?.question_stem_id) {
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (stemError) {
+    captureApiError(stemError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: stemError.message }, { status: 500 });
   }
   if (!stemRow) {

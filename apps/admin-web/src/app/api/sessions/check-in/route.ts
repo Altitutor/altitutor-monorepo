@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
 
     if (sessionError || !session) {
       console.error('Failed to create meeting session:', sessionError);
+      captureApiError(sessionError, "/api/sessions/check-in");
       return NextResponse.json(
         { error: sessionError?.message ?? 'Failed to create session' },
         { status: 500 }
@@ -159,6 +161,7 @@ export async function POST(request: NextRequest) {
       const { error } = await admin.from('sessions_staff').insert(row);
       if (error) {
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link staff' }, { status: 500 });
       }
     }
@@ -174,6 +177,7 @@ export async function POST(request: NextRequest) {
       if (error) {
         await admin.from('sessions_staff').delete().eq('session_id', sessionId);
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link student' }, { status: 500 });
       }
     }
@@ -190,12 +194,14 @@ export async function POST(request: NextRequest) {
         await admin.from('sessions_students').delete().eq('session_id', sessionId);
         await admin.from('sessions_staff').delete().eq('session_id', sessionId);
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link parent' }, { status: 500 });
       }
     }
 
     return NextResponse.json({ session_id: sessionId });
   } catch (error) {
+    captureApiError(error, "/api/sessions/check-in");
     console.error('Meeting session creation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

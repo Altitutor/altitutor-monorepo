@@ -23,7 +23,7 @@ import {
   setPendingPracticeStart,
   type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
-import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -60,7 +60,7 @@ export function PracticePage() {
     useState<PracticeReviewTiming>("afterEachStem");
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
-  const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
+  const [isDiscardingConflict, setIsDiscardingConflict] = useState(false);
   const pendingStartRef = useRef<PracticeSessionStartInput | null>(null);
   const [reducedStart, setReducedStart] = useState<{
     input: PracticeSessionStartInput;
@@ -210,11 +210,11 @@ export function PracticePage() {
     startWithQuotaPreflight(startInput);
   }
 
-  async function handleFinalizeConflictAndStart() {
+  async function handleDiscardConflictAndStart() {
     if (!conflictActive || !pendingStartRef.current) return;
-    setIsFinalizingConflict(true);
+    setIsDiscardingConflict(true);
     try {
-      await finalizeExamAttempt({
+      await discardExamAttempt({
         kind: conflictActive.kind,
         attemptId: conflictActive.attemptId,
       });
@@ -226,7 +226,7 @@ export function PracticePage() {
       startWithQuotaPreflight(pendingStartRef.current);
       pendingStartRef.current = null;
     } finally {
-      setIsFinalizingConflict(false);
+      setIsDiscardingConflict(false);
     }
   }
 
@@ -308,8 +308,8 @@ export function PracticePage() {
         open={conflictActive != null}
         active={conflictActive}
         pendingLabel="new practice session"
-        isFinalizing={isFinalizingConflict}
-        onFinalizeAndContinue={() => void handleFinalizeConflictAndStart()}
+        isDiscarding={isDiscardingConflict}
+        onDiscardAndContinue={() => void handleDiscardConflictAndStart()}
         onCancel={() => {
           setConflictActive(null);
           pendingStartRef.current = null;

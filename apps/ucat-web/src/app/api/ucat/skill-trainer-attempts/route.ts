@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkQuotaForAction,
@@ -20,6 +21,7 @@ export async function GET() {
     const state = await buildAttemptState(auth.admin, active);
     return NextResponse.json({ attempt: state });
   } catch (error) {
+    captureApiError(error, "/api/ucat/skill-trainer-attempts");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load attempt" },
       { status: 500 },
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ attempt: state });
   } catch (error) {
+    captureApiError(error, "/api/ucat/skill-trainer-attempts");
     const message = error instanceof Error ? error.message : "Failed to start attempt";
     if (message === "ANOTHER_ATTEMPT_IN_PROGRESS") {
       return NextResponse.json({ error: message }, { status: 409 });

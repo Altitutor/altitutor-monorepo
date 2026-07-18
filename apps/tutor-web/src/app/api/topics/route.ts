@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/topics");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -42,6 +44,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/topics");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
     
     if (subjectError) {
       console.error('Error checking subject access:', subjectError);
+      captureApiError(subjectError, "/api/topics");
       return NextResponse.json(
         { error: 'Failed to verify subject access' },
         { status: 500 }
@@ -80,6 +84,7 @@ export async function POST(request: NextRequest) {
       
       if (parentError) {
         console.error('Error checking parent topic access:', parentError);
+        captureApiError(parentError, "/api/topics");
         return NextResponse.json(
           { error: 'Failed to verify parent topic access' },
           { status: 500 }
@@ -143,6 +148,7 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('Error creating topic:', error);
+      captureApiError(error, "/api/topics");
       return NextResponse.json(
         { error: 'Failed to create topic' },
         { status: 500 }
@@ -156,6 +162,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/topics");
     console.error('Error in POST /api/topics:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

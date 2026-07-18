@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
@@ -125,6 +126,7 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json({ customers: customersWithPaymentMethods });
   } catch (error: unknown) {
+    captureApiError(error, "/api/stripe/customers");
     const errorMessage = getErrorMessage(error);
     const stripeDetails = getStripeErrorDetails(error);
     console.error('[stripe/customers] Error fetching Stripe customers:', error);

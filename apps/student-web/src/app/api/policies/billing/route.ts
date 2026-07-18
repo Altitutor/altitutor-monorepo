@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
@@ -22,6 +23,7 @@ export async function GET() {
 
     if (error) {
       console.error('[policies/billing] Error fetching policy:', error);
+      captureApiError(error, "/api/policies/billing");
       return NextResponse.json(
         { error: 'Failed to load billing policy' },
         { status: 500 }
@@ -32,6 +34,7 @@ export async function GET() {
       content: data?.content ?? null,
     });
   } catch (err) {
+    captureApiError(err, "/api/policies/billing");
     console.error('[policies/billing] Unexpected error:', err);
     return NextResponse.json(
       { error: 'Failed to load billing policy' },

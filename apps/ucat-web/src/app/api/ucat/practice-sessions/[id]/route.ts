@@ -1,8 +1,15 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import type { Json } from "@altitutor/shared";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import {
+  persistQuestionAttemptBatch,
+  type QuestionAttemptBatchInput,
+} from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
+import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
 
 export async function GET(
   _request: NextRequest,
@@ -35,6 +42,7 @@ export async function GET(
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -46,15 +54,18 @@ export async function GET(
 
   const { data: session, error } = await supabaseAdmin
     .from("student_practice_sessions")
-    .select("id, stems_snapshot, filters_snapshot, unlimited, completed_at")
+    .select(
+      "id, stems_snapshot, filters_snapshot, unlimited, completed_at, discarded_at, expired_at",
+    )
     .eq("id", params.id)
     .eq("student_id", student.id)
     .maybeSingle();
 
   if (error) {
+    captureApiError(error, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!session) {
+  if (!session || session.discarded_at || session.expired_at) {
     return NextResponse.json(
       { error: "Practice session not found" },
       { status: 404 },
@@ -103,11 +114,18 @@ export async function PATCH(
     questionCount?: number;
     stemsSnapshot?: unknown;
     questionScores?: Array<{ questionId: string; score: number }>;
+    answers?: QuestionAttemptBatchInput[];
   };
 
   if (!body.complete) {
     return NextResponse.json(
       { error: "Unsupported operation" },
+      { status: 400 },
+    );
+  }
+  if (body.answers && body.answers.length > 500) {
+    return NextResponse.json(
+      { error: "Too many question attempts" },
       { status: 400 },
     );
   }
@@ -119,6 +137,7 @@ export async function PATCH(
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
 
@@ -133,12 +152,15 @@ export async function PATCH(
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("student_practice_sessions")
-    .select("id, student_id, completed_at")
+    .select(
+      "id, student_id, completed_at, discarded_at, expired_at, stems_snapshot",
+    )
     .eq("id", sessionId)
     .eq("student_id", student.id)
     .maybeSingle();
 
   if (sessionError) {
+    captureApiError(sessionError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
 
@@ -150,9 +172,19 @@ export async function PATCH(
   }
 
   if (session.completed_at) {
+    // Treat retries after a lost response as success. The final write is
+    // intentionally idempotent so students are never stranded in the engine.
+    return NextResponse.json({
+      success: true,
+      alreadyCompleted: true,
+      earnedDiscount: false,
+      discountCents: 0,
+    });
+  }
+  if (session.discarded_at || session.expired_at) {
     return NextResponse.json(
-      { error: "Practice session already completed" },
-      { status: 400 },
+      { error: "Practice session is no longer active" },
+      { status: 409 },
     );
   }
 
@@ -162,13 +194,69 @@ export async function PATCH(
   const stemsSnapshot = (body.stemsSnapshot ?? null) as Json | null;
   const questionScores = body.questionScores ?? [];
 
-  const { data: attempts, error: attemptsError } = await supabaseAdmin
-    .from("student_question_attempts")
-    .select("id, question_id, student_id")
-    .eq("student_practice_session_id", sessionId)
-    .eq("student_id", student.id);
+  if (body.answers) {
+    try {
+      const undeliveredQuestionIds = await findUndeliveredPracticeQuestionIds(
+        supabaseAdmin,
+        session.stems_snapshot,
+        body.answers.map((answer) => answer.questionId),
+      );
+      if (undeliveredQuestionIds.length > 0) {
+        return NextResponse.json(
+          { error: "Question is not part of this practice session" },
+          { status: 403 },
+        );
+      }
+    } catch (error) {
+      captureApiError(error, "/api/ucat/practice-sessions/[id]");
+      return NextResponse.json(
+        { error: "Failed to validate practice questions" },
+        { status: 500 },
+      );
+    }
+
+    const scoreByQuestionId = new Map(
+      questionScores.map((question) => [question.questionId, question.score]),
+    );
+    try {
+      await persistQuestionAttemptBatch(
+        supabaseAdmin,
+        student.id,
+        {
+          studentQuestionSetAttemptId: null,
+          studentPracticeSessionId: sessionId,
+          learningModuleBlockId: null,
+        },
+        body.answers.map((answer) => ({
+          ...answer,
+          submittedByStem: true,
+          score: scoreByQuestionId.get(answer.questionId) ?? answer.score ?? 0,
+        })),
+      );
+    } catch (error) {
+      captureApiError(error, "/api/ucat/practice-sessions/[id]");
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save final answers",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  const { data: attempts, error: attemptsError } = body.answers
+    ? { data: null, error: null }
+    : await supabaseAdmin
+        .from("student_question_attempts")
+        .select("id, question_id, student_id")
+        .eq("student_practice_session_id", sessionId)
+        .eq("student_id", student.id);
 
   if (attemptsError) {
+    captureApiError(attemptsError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: attemptsError.message }, { status: 500 });
   }
 
@@ -190,6 +278,7 @@ export async function PATCH(
       .upsert(updates, { onConflict: "id" });
 
     if (updateError) {
+      captureApiError(updateError, "/api/ucat/practice-sessions/[id]");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
   }
@@ -202,15 +291,29 @@ export async function PATCH(
       total_points: totalPoints,
       question_count: questionCount,
       stems_snapshot: stemsSnapshot,
+      prefetched_stem_snapshot: null,
       engine_snapshot: null,
       current_segment_ends_at: null,
     })
     .eq("id", sessionId)
-    .eq("student_id", student.id);
+    .eq("student_id", student.id)
+    .is("discarded_at", null)
+    .is("expired_at", null);
 
   if (updateError) {
+    captureApiError(updateError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  await captureUcatLearningActivityCompleted({
+    userId: user.id,
+    activityType: "practice",
+    activityId: sessionId,
+    properties: {
+      completion_source: "practice_session",
+      question_count: questionCount,
+    },
+  });
 
   const discount = await maybeGrantPracticeDayDiscount(
     supabaseAdmin,

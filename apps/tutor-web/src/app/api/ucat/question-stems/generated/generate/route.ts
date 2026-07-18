@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ runId }, { status: 202 })
   } catch (error) {
+    captureApiError(error, "/api/ucat/question-stems/generated/generate");
     if (runId) {
       await client
         .from('ucat_ai_generation_runs')

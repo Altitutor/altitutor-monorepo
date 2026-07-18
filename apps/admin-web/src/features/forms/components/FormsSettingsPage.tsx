@@ -201,6 +201,7 @@ export function FormsSettingsPage() {
   const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingBlockDeleteId, setPendingBlockDeleteId] = useState<string | null>(null);
   const [pendingSaveIntent, setPendingSaveIntent] = useState<FormSaveIntent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formLinks, setFormLinks] = useState<Record<string, FormLinks>>({});
@@ -242,6 +243,7 @@ export function FormsSettingsPage() {
     setVersions([]);
     setTokens([]);
     setDeleteConfirmOpen(false);
+    setPendingBlockDeleteId(null);
     setPendingSaveIntent(null);
     setActiveTab('properties');
   };
@@ -608,6 +610,7 @@ export function FormsSettingsPage() {
                 selected={selected}
                 updateSelected={updateSelected}
                 updateBlock={updateBlock}
+                onRequestDeleteBlock={setPendingBlockDeleteId}
               />
             ) : null}
 
@@ -621,6 +624,43 @@ export function FormsSettingsPage() {
           <div className="py-12 text-center text-muted-foreground">Loading form...</div>
         )}
       </AdminDialogShell>
+
+      <AlertDialog
+        open={pendingBlockDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingBlockDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete block{' '}
+              {Math.max(0, selected?.draft_blocks.findIndex((block) => block.id === pendingBlockDeleteId) ?? -1) + 1}.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                const blockId = pendingBlockDeleteId;
+                if (!blockId) return;
+                setSelected((current) =>
+                  current
+                    ? { ...current, draft_blocks: current.draft_blocks.filter((block) => block.id !== blockId) }
+                    : current,
+                );
+                setPendingBlockDeleteId(null);
+              }}
+            >
+              Delete block
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={deleteConfirmOpen}
@@ -846,10 +886,12 @@ function FormQuestionsEditor({
   selected,
   updateSelected,
   updateBlock,
+  onRequestDeleteBlock,
 }: {
   selected: AdminFormRow;
   updateSelected: (patch: Partial<AdminFormRow>) => void;
   updateBlock: (index: number, block: FormBlock) => void;
+  onRequestDeleteBlock: (blockId: string) => void;
 }) {
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
 
@@ -885,10 +927,7 @@ function FormQuestionsEditor({
               updateSelected({ draft_blocks: next });
               setHighlightedBlockId(block.id);
             }}
-            onDelete={() => {
-              if (!window.confirm(`Delete block ${index + 1}? This cannot be undone.`)) return;
-              updateSelected({ draft_blocks: selected.draft_blocks.filter((_, i) => i !== index) });
-            }}
+            onDelete={() => onRequestDeleteBlock(block.id)}
           />
           <BlockInsertControl onInsert={(type) => handleInsert(type, index + 1)} />
         </div>
@@ -966,7 +1005,13 @@ function BlockEditor({
             <Button variant="outline" size="icon" onClick={() => onMove(1)} type="button">
               <ArrowDown className="h-4 w-4" />
             </Button>
-            <Button variant="destructive" size="icon" onClick={onDelete} type="button">
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={onDelete}
+              type="button"
+              aria-label={`Delete block ${index + 1}`}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>

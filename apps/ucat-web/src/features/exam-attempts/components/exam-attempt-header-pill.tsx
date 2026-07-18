@@ -1,6 +1,15 @@
 "use client";
 
 import { CheckCircle2, Clock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
@@ -16,6 +25,7 @@ import { getRemainingSecondsFromEndsAt } from "@/lib/ucat/exam-attempt/timing";
 import { formatTimeRemaining } from "@/features/question-engine/lib/timing";
 import { isPracticeEngineRoute } from "@/features/ucat-access/lib/quota-area-for-pathname";
 import { HeaderStatusPill } from "@/shared/components/header-status-pill";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 
 const DISMISSED_STORAGE_KEY = "ucat-dismissed-exam-attempts";
 
@@ -43,11 +53,13 @@ function persistDismissedAttemptId(attemptId: string) {
 
 export function ExamAttemptHeaderPill() {
   const pathname = usePathname();
-  const { active, refresh } = useActiveExamAttempt();
+  const { active, refresh, clearLocal } = useActiveExamAttempt();
   const { isBlocked: questionEngineTourBlocked } =
     useQuestionEngineTutorialGate();
   const [tick, setTick] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const catchUpRequestedRef = useRef(false);
 
   useEffect(() => {
@@ -65,7 +77,9 @@ export function ExamAttemptHeaderPill() {
       catchUpRequestedRef.current = false;
       return;
     }
-    const remaining = getRemainingSecondsFromEndsAt(active.currentSegmentEndsAt);
+    const remaining = getRemainingSecondsFromEndsAt(
+      active.currentSegmentEndsAt,
+    );
     if (remaining > 0) {
       catchUpRequestedRef.current = false;
       return;
@@ -93,7 +107,10 @@ export function ExamAttemptHeaderPill() {
   if (isImmersiveHeaderRoute(pathname)) return null;
   if (!active) return null;
 
-  if (atResults && (viewingCompletedAttempt || dismissedIds.has(active.attemptId))) {
+  if (
+    atResults &&
+    (viewingCompletedAttempt || dismissedIds.has(active.attemptId))
+  ) {
     return null;
   }
 
@@ -109,30 +126,83 @@ export function ExamAttemptHeaderPill() {
   const actionHref = atResults ? active.resultsHref : resumeHref;
   const actionLabel = atResults ? "View attempt" : "Resume";
 
+  async function confirmDiscard() {
+    if (!active || atResults) return;
+    setIsDiscarding(true);
+    try {
+      await discardExamAttempt({
+        kind: active.kind,
+        attemptId: active.attemptId,
+      });
+      clearLocal();
+      setConfirmDiscardOpen(false);
+      await refresh();
+    } finally {
+      setIsDiscarding(false);
+    }
+  }
+
   return (
-    <HeaderStatusPill
-      variant={atResults ? "emerald" : "amber"}
-      icon={
-        atResults ? (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        ) : (
-          <Clock className="h-3.5 w-3.5" />
-        )
-      }
-      action={{
-        type: "link",
-        href: actionHref,
-        label: actionLabel,
-      }}
-      onDismiss={atResults ? () => dismiss(active.attemptId) : undefined}
-    >
-      <span className="font-medium">{statusLabel}</span>
-      <span className="hidden sm:inline"> · {active.label}</span>
-      {remaining != null ? (
-        <span className="ml-1 tabular-nums opacity-80">
-          ({formatTimeRemaining(remaining)})
-        </span>
-      ) : null}
-    </HeaderStatusPill>
+    <>
+      <HeaderStatusPill
+        variant={atResults ? "emerald" : "amber"}
+        icon={
+          atResults ? (
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          ) : (
+            <Clock className="h-3.5 w-3.5" />
+          )
+        }
+        action={{
+          type: "link",
+          href: actionHref,
+          label: actionLabel,
+        }}
+        onDismiss={
+          atResults
+            ? () => dismiss(active.attemptId)
+            : () => setConfirmDiscardOpen(true)
+        }
+        dismissLabel={atResults ? "Dismiss" : "Discard attempt"}
+      >
+        <span className="font-medium">{statusLabel}</span>
+        <span className="hidden sm:inline"> · {active.label}</span>
+        {remaining != null ? (
+          <span className="ml-1 tabular-nums opacity-80">
+            ({formatTimeRemaining(remaining)})
+          </span>
+        ) : null}
+      </HeaderStatusPill>
+      <AlertDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this attempt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your saved answers will be kept for audit, but the attempt will
+              not be scored or appear in your attempt history. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDiscardOpen(false)}
+            >
+              Keep attempt
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDiscard()}
+              disabled={isDiscarding}
+            >
+              {isDiscarding ? "Discarding…" : "Discard attempt"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

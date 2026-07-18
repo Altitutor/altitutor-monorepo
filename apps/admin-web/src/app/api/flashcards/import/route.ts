@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     }));
 
   const { error } = await supabaseAdmin.from('flashcards').insert(rows);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/import", NextResponse.json({ error: error.message }, { status: 500 }));
 
   return NextResponse.json({ data: { inserted: rows.length, rejected: parsed.rejected } });
 }

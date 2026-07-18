@@ -1,5 +1,10 @@
 # Altitutor domain glossary
 
+## Tutor timetable
+
+- **Calendar subscription** — A tutor-owned, read-only calendar feed containing that tutor's active assigned sessions. Calendar providers poll the subscription so session additions, changes, and cancellations flow through without tutors importing events again.
+  _Avoid_: Calendar export, calendar sync, shared calendar
+
 ## Public web surfaces
 
 - **Marketing site** — The public, search-indexable website served from `altitutor.com`. It presents Altitutor's courses, resources, company information, and acquisition pages; it does not own authenticated learning, booking, checkout, or account workflows.
@@ -74,19 +79,25 @@
 - **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.
   _Avoid_: Launch click, first answer, session created
 
-- **Incomplete UCAT exam attempt** — A started set attempt, mock attempt, or practice session that has no `completed_at` yet. Remains incomplete until the student explicitly submits or a timed segment expires and the attempt is finalized. Visible in progress as in-progress, not only after submission.
+- **Incomplete UCAT exam attempt** — A started set attempt, mock attempt, or practice session that is still eligible to resume. It remains incomplete until the student submits, a timed attempt is finalized by its server deadline, the student discards it, or an untimed attempt expires seven days after its last activity.
   _Avoid_: Unsubmitted answers, draft session
+
+- **Expired UCAT exam attempt** — An untimed incomplete set attempt, mock attempt, or practice session whose last activity was more than seven days ago. Expiry frees the student's in-progress slot and preserves the attempt for audit, but does not score it or place it in completed history.
+  _Avoid_: Timed expiry, automatic submission, completed attempt
+
+- **Discarded UCAT exam attempt** — An incomplete set attempt, mock attempt, or practice session that the student explicitly ends without submitting for a score. Discard preserves the attempt and answers for audit, frees the in-progress slot, and never places the attempt in completed history.
+  _Avoid_: Delete attempt, submit partial attempt, scored attempt
 
 - **UCAT exam timing segment** — One timed or untimed portion of an exam attempt with its own rules and optional server countdown. Examples: set instructions, set questions, one mock set’s instructions, one mock set’s questions, one practice question unit (single question or whole stem). Timed segments store a server `ends_at` while active; untimed segments have no countdown. The server clock applies to the **current segment only**, not the whole mock or practice session in one lump.
   _Avoid_: Whole-exam timer, session timeout
 
-- **UCAT question active time** — The time attributed to a question while it is the student's current question in an exam timing segment. It continues while the browser tab is backgrounded, pauses only when the student moves to another question or leaves the question segment, and resumes from the accumulated value when the student returns to that question.
-  _Avoid_: Visible time, focus time, dwell time
+- **UCAT question active time** — The time attributed to a question while it is current and the UCAT question engine is visible. It pauses when the page is hidden, disconnected, or leaves the question segment, then resumes from the accumulated value when the student returns; a timed exam segment's server countdown continues independently while the student is away.
+  _Avoid_: Wall-clock session time, background time, dwell time
 
-- **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **finalize** it (submit scoring with answers so far) and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
+- **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **discard** it unscored and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
   _Avoid_: Multiple drafts, parallel mocks
 
-- **UCAT exam attempt finalization** — Closing out an incomplete attempt by setting `completed_at` and scoring all questions with current answers (unanswered = 0). Applies equally to: explicit submit, timer expiry, and choosing **finalize** from the in-progress dialog when starting a new exam. Finalized attempts appear in progress with a real score; they are not silently discarded.
+- **UCAT exam attempt finalization** — Closing out an incomplete attempt as a scored result by setting `completed_at` and scoring all questions with current answers (unanswered = 0). Applies to explicit submit and timed-attempt deadline expiry; expiration and discard are unscored terminal outcomes and do not appear in completed history.
   _Avoid_: Abandon without record, discard draft
 
 - **UCAT exam segment catch-up** — When a student returns after being away, the server replays any timing segments whose `ends_at` has already passed: each expired segment is finalized the same way as in-session time expiry (unanswered in that segment score 0; mocks advance to the next segment). Catch-up runs until the current segment still has time remaining or the whole attempt is complete. The student then resumes at that computed position.
@@ -95,7 +106,7 @@
 - **UCAT exam attempt resume snapshot** — Server-persisted JSON of question-engine state for an incomplete attempt: phase, segment position, question index, visited and flagged questions, selected answers, syllogism snapshots, practice-specific position, and current segment `ends_at` when timed. Updated as the student works so reload, new device, or explicit resume restores the same screen. Answer rows in `student_question_attempts` are kept in sync for scoring; the snapshot is the source of truth for UI position.
   _Avoid_: Session storage only, client-only state
 
-- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done** or chooses **finalize** from the in-progress dialog. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits.
+- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, discards it, or it expires after seven days without activity. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits while it remains incomplete.
 
 - **Practice review timing** — The student's choice to see feedback after each question stem or only after the practice session is submitted. Review-at-end practice does not use the question engine's pre-submission review screen; finishing submits the entered stems and opens the completed practice-attempt page.
   _Avoid_: Practice mode, set mode
@@ -107,7 +118,7 @@
 - **Admin UCAT quota reset** — A staff-only corrective action that immediately resets a selected student's current UCAT Free quota usage for one quota area. It is an operational adjustment tool, not a student-held entitlement and not a Pro access grant.
   _Avoid_: Quota reset entitlement, Force Pro, manual online access
 
-- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** with a resume action. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows the resume-or-finalize dialog. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
+- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** whose primary action resumes the attempt and whose secondary action discards it after confirmation. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows one resume-or-discard dialog that includes the discard warning without opening a second confirmation. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
   _Avoid_: In progress tab, session storage resume
 
 - **UCAT exam attempt lifecycle (scope)** — The hardened attempt model (start at Ready to Begin, server segment clock, resume snapshot, one in-progress slot, site banner, finalization rules) applies to **sets**, **mocks**, and **practice** only. Session-linked sets and mocks follow the same rules. **Learn** lesson question blocks and **skill trainer** are out of scope for this shared in-progress slot; skill trainer keeps its own attempt rules.
@@ -509,7 +520,7 @@
 - **UCAT Free quota** — A limit on how much of a specific online product area a UCAT Free student may use within a configured time period. Each area has its own quota and period; quotas do not share a pool. Areas: Learn (learning modules), Practice (questions on submitted practice stems), Sets (set attempts started), Mocks (mock attempts started), Skill trainer (attempts started). A quota of zero disables that area for UCAT Free students.
   _Avoid_: Usage limit, rate limit
 
-- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: each new unique question on a submitted practice stem counts, including unanswered questions on that stem. Learn: each never-before-viewed lesson first opened during the quota period counts; reopening a started or complete lesson does not count again in any future period. Sets, mocks, and skill trainer attempts: when the attempt is started. Consumption timing is independent per area.
+- **Quota consumption** — When a UCAT Free quota unit is counted. Practice: each new unique question counts when it first becomes the student's current visible question in the engine; selection, loading, and prefetch do not count, and resuming or revisiting the same question within the quota period does not count again. Learn: each never-before-viewed lesson first opened during the quota period counts; reopening a started or complete lesson does not count again in any future period. Sets, mocks, and skill trainer attempts: when the attempt is started, including attempts later discarded or expired. Consumption timing is independent per area.
   _Avoid_: Usage event, quota hit
 
 - **Quota exhaustion** — What happens when a UCAT Free student reaches an area's limit. Practice: fixed practice may start only within the remaining new unique question allowance for the quota period; if the selected batch is larger, the student may confirm a reduced batch capped at that remaining allowance. Unlimited practice lets the student finish all questions on the currently delivered stem, including answers and feedback, then blocks fetching the next stem once the allowance is exhausted. Sets, mocks, learn, and skill trainer: allow the current in-progress attempt to finish; block starting the next one.
@@ -531,6 +542,7 @@
   _Avoid_: Usage widget, limit banner
 
 - **App-scoped notification** — A durable inbox item addressed to exactly one student or staff member and owned by one Altitutor application surface. UCAT notifications appear only in the UCAT app even when the same student also uses the student portal.
+- **UCAT exam attempt expiry notification** — A normal-priority, dismissible `ucat_web` inbox item created once per attempt when an untimed persistent attempt expires after seven inactive days. Its attempt-specific dedupe key prevents repeated expiry sweeps from creating duplicates; it has no navigation action because expired attempts are audit-only.
   _Avoid_: Announcement, activity event, toast
 
 - **Notification resolution** — The underlying condition represented by an actionable notification is no longer active, independently of whether the recipient read it. For example, a failed-payment notification is resolved when that invoice is paid.

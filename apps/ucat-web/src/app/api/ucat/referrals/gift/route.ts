@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -61,6 +62,7 @@ export async function GET() {
 
   if (error) {
     console.error("[ucat referral gift] Failed to load gift", error);
+    captureApiError(error, "/api/ucat/referrals/gift");
     return NextResponse.json(
       { error: "Failed to load referral gift" },
       { status: 500 },
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
   );
   if (error) {
     console.error("[ucat referral gift] Failed to reject gift", error);
+    captureApiError(error, "/api/ucat/referrals/gift");
     return NextResponse.json(
       { error: "Failed to reject referral gift" },
       { status: 500 },

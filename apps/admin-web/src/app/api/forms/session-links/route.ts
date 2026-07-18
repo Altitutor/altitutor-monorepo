@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 import type { Json } from '@altitutor/shared';
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     created_by: auth.staffId,
     metadata,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/session-links", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const baseUrl = process.env.NODE_ENV === 'development'
     ? (process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001')

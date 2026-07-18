@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -25,6 +26,7 @@ export async function PATCH(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -43,6 +45,7 @@ export async function PATCH(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -58,6 +61,7 @@ export async function PATCH(
     
     if (blockoutError) {
       console.error('Error checking blockout access:', blockoutError);
+      captureApiError(blockoutError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to verify blockout access' },
         { status: 500 }
@@ -113,6 +117,7 @@ export async function PATCH(
     
     if (error) {
       console.error('Error updating blockout:', error);
+      captureApiError(error, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to update blockout' },
         { status: 500 }
@@ -125,6 +130,7 @@ export async function PATCH(
     });
     
   } catch (error) {
+    captureApiError(error, "/api/blockouts/[id]");
     console.error('Error in PATCH /api/blockouts/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -155,6 +161,7 @@ export async function DELETE(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -173,6 +180,7 @@ export async function DELETE(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -188,6 +196,7 @@ export async function DELETE(
     
     if (blockoutError) {
       console.error('Error checking blockout access:', blockoutError);
+      captureApiError(blockoutError, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to verify blockout access' },
         { status: 500 }
@@ -212,6 +221,7 @@ export async function DELETE(
     
     if (error) {
       console.error('Error deleting blockout:', error);
+      captureApiError(error, "/api/blockouts/[id]");
       return NextResponse.json(
         { error: 'Failed to delete blockout' },
         { status: 500 }
@@ -223,6 +233,7 @@ export async function DELETE(
     });
     
   } catch (error) {
+    captureApiError(error, "/api/blockouts/[id]");
     console.error('Error in DELETE /api/blockouts/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

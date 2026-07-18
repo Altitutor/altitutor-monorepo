@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { PracticeAttemptDetailResponse } from "@/app/api/ucat/progress/practice-sessions/[id]/route";
 
-async function fetchPracticeAttemptDetail(
+export async function fetchPracticeAttemptDetail(
   attemptId: string,
 ): Promise<PracticeAttemptDetailResponse> {
   const res = await fetch(`/api/ucat/progress/practice-sessions/${attemptId}`);
@@ -12,10 +12,14 @@ async function fetchPracticeAttemptDetail(
   return res.json();
 }
 
+export const practiceAttemptDetailQueryKey = (attemptId: string | null) =>
+  ["ucat", "progress", "practice-attempt", attemptId] as const;
+
 export function usePracticeAttemptDetail(attemptId: string | null) {
   return useQuery({
-    queryKey: ["ucat", "progress", "practice-attempt", attemptId],
+    queryKey: practiceAttemptDetailQueryKey(attemptId),
     queryFn: () => fetchPracticeAttemptDetail(attemptId!),
     enabled: !!attemptId,
+    staleTime: 30_000,
   });
 }

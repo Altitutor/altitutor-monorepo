@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -183,6 +184,7 @@ export async function POST(request: NextRequest) {
         inviteUrl // Return URL for reference
       }, { status: 200 });
     } catch (error) {
+      captureApiError(error, "/api/invites/send-email");
       console.error('Failed to send invite email:', error);
       return NextResponse.json(
         { error: `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}` },
@@ -190,6 +192,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
+    captureApiError(error, "/api/invites/send-email");
     console.error('Unexpected error sending invite email:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

@@ -1158,16 +1158,28 @@ export async function createExtraStudyTask(
 export async function getStudyPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
-  options: { allowAutomaticReplan?: boolean } = {},
+  options: {
+    allowAutomaticReplan?: boolean;
+    reconcileTasks?: boolean;
+  } = {},
 ): Promise<StudyPlanResponse> {
   const admin = requireAdmin();
   const studentId = await resolveStudentId(userId);
-  const profileResult = await admin
-    .from("ucat_student_study_plan_profiles")
-    .select("*")
-    .eq("student_id", studentId)
-    .maybeSingle();
+  const [profileResult, initialGenerationResult] = await Promise.all([
+    admin
+      .from("ucat_student_study_plan_profiles")
+      .select("*")
+      .eq("student_id", studentId)
+      .maybeSingle(),
+    admin
+      .from("ucat_student_study_plan_generations")
+      .select("*")
+      .eq("student_id", studentId)
+      .is("superseded_at", null)
+      .maybeSingle(),
+  ]);
   if (profileResult.error) throw profileResult.error;
+  if (initialGenerationResult.error) throw initialGenerationResult.error;
   let profile = profileResult.data;
   if (!profile) {
     return {
@@ -1179,17 +1191,11 @@ export async function getStudyPlan(
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
     };
   }
-  const generationResult = await admin
-    .from("ucat_student_study_plan_generations")
-    .select("*")
-    .eq("student_id", studentId)
-    .is("superseded_at", null)
-    .maybeSingle();
-  if (generationResult.error) throw generationResult.error;
-  let generation = generationResult.data;
-  const latestCompletedMocks = generation
-    ? await completedMockCount(studentId)
-    : 0;
+  let generation = initialGenerationResult.data;
+  const latestCompletedMocks =
+    generation && options.allowAutomaticReplan !== false
+      ? await completedMockCount(studentId)
+      : 0;
   const mockCompletedSinceGeneration = generation
     ? latestCompletedMocks > readCompletedMockCount(generation.input_snapshot)
     : false;
@@ -1238,57 +1244,59 @@ export async function getStudyPlan(
       .order("sort_order");
     if (taskResult.error) throw taskResult.error;
     taskRows = taskResult.data ?? [];
-    await reconcileTasks(studentId, generation, taskRows);
-    const refreshed = await admin
-      .from("ucat_student_study_plan_tasks")
-      .select("*")
-      .eq("generation_id", generation.id)
-      .order("scheduled_date")
-      .order("sort_order");
-    if (refreshed.error) throw refreshed.error;
-    taskRows = refreshed.data ?? [];
-    const completedBenchmarkSinceGeneration = taskRows.some(
-      (task) =>
-        task.task_type === "section_benchmark" &&
-        task.status === "completed" &&
-        task.completed_at != null &&
-        task.completed_at >= generation!.generated_at,
-    );
-    if (
-      options.allowAutomaticReplan !== false &&
-      completedBenchmarkSinceGeneration
-    ) {
-      await generateForProfile(
-        supabase,
-        studentId,
-        profile,
-        "significant_activity",
-      );
-      const [nextProfileResult, nextGenerationResult] = await Promise.all([
-        admin
-          .from("ucat_student_study_plan_profiles")
-          .select("*")
-          .eq("id", profile.id)
-          .single(),
-        admin
-          .from("ucat_student_study_plan_generations")
-          .select("*")
-          .eq("student_id", studentId)
-          .is("superseded_at", null)
-          .single(),
-      ]);
-      if (nextProfileResult.error) throw nextProfileResult.error;
-      if (nextGenerationResult.error) throw nextGenerationResult.error;
-      profile = nextProfileResult.data;
-      generation = nextGenerationResult.data;
-      const nextTaskResult = await admin
+    if (options.reconcileTasks !== false) {
+      await reconcileTasks(studentId, generation, taskRows);
+      const refreshed = await admin
         .from("ucat_student_study_plan_tasks")
         .select("*")
         .eq("generation_id", generation.id)
         .order("scheduled_date")
         .order("sort_order");
-      if (nextTaskResult.error) throw nextTaskResult.error;
-      taskRows = nextTaskResult.data ?? [];
+      if (refreshed.error) throw refreshed.error;
+      taskRows = refreshed.data ?? [];
+      const completedBenchmarkSinceGeneration = taskRows.some(
+        (task) =>
+          task.task_type === "section_benchmark" &&
+          task.status === "completed" &&
+          task.completed_at != null &&
+          task.completed_at >= generation!.generated_at,
+      );
+      if (
+        options.allowAutomaticReplan !== false &&
+        completedBenchmarkSinceGeneration
+      ) {
+        await generateForProfile(
+          supabase,
+          studentId,
+          profile,
+          "significant_activity",
+        );
+        const [nextProfileResult, nextGenerationResult] = await Promise.all([
+          admin
+            .from("ucat_student_study_plan_profiles")
+            .select("*")
+            .eq("id", profile.id)
+            .single(),
+          admin
+            .from("ucat_student_study_plan_generations")
+            .select("*")
+            .eq("student_id", studentId)
+            .is("superseded_at", null)
+            .single(),
+        ]);
+        if (nextProfileResult.error) throw nextProfileResult.error;
+        if (nextGenerationResult.error) throw nextGenerationResult.error;
+        profile = nextProfileResult.data;
+        generation = nextGenerationResult.data;
+        const nextTaskResult = await admin
+          .from("ucat_student_study_plan_tasks")
+          .select("*")
+          .eq("generation_id", generation.id)
+          .order("scheduled_date")
+          .order("sort_order");
+        if (nextTaskResult.error) throw nextTaskResult.error;
+        taskRows = nextTaskResult.data ?? [];
+      }
     }
   }
   const planning = await planningDateFor(profile);

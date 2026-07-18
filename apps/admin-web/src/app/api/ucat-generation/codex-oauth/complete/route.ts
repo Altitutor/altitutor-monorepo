@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { Json } from '@altitutor/shared';
@@ -160,6 +161,7 @@ export async function POST(request: NextRequest) {
       modelCreated: !existingModel,
     });
   } catch (error) {
+    captureApiError(error, "/api/ucat-generation/codex-oauth/complete");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to complete Codex OAuth' },
       { status: 500 },

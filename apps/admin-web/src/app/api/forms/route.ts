@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import {
@@ -24,6 +25,7 @@ export async function GET() {
     .order('updated_at', { ascending: false });
 
   if (error) {
+    captureApiError(error, "/api/forms");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -98,6 +100,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    captureApiError(error, "/api/forms");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

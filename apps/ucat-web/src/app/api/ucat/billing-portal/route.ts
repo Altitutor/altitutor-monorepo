@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
+    captureApiError(err, "/api/ucat/billing-portal");
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ucat billing-portal] Stripe error:", msg);
     return NextResponse.json(

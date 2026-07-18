@@ -1,24 +1,43 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@altitutor/ui';
-import { FileText } from 'lucide-react';
-import { TutorClassesTable } from '@/features/classes/components/TutorClassesTable';
-import { SessionsCalendarView } from '@/features/sessions/components/SessionsCalendarView';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { LogSessionModal, UnloggedSessionsTableSection } from '@/features/tutor-logs/components';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { TutorPageContainer } from '@/shared/components/layouts';
+import { useEffect, useState } from "react";
+import { Button } from "@altitutor/ui";
+import { CalendarPlus, FileText } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarSubscriptionDialog } from "@/features/calendar/components";
+import { TutorClassesTable } from "@/features/classes/components/TutorClassesTable";
+import { SessionsCalendarView } from "@/features/sessions/components/SessionsCalendarView";
+import { SessionModal } from "@/features/sessions/components/SessionModal";
+import {
+  LogSessionModal,
+  UnloggedSessionsTableSection,
+} from "@/features/tutor-logs/components";
+import { useCurrentStaff } from "@/features/staff/hooks/useStaffQuery";
+import { TutorPageContainer } from "@/shared/components/layouts";
 
 export default function ClassesPage() {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
-  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
-  const [logSessionPreselectedId, setLogSessionPreselectedId] = useState<string | undefined>(
-    undefined
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
   );
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [isCalendarDialogOpen, setIsCalendarDialogOpen] = useState(false);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [logSessionPreselectedId, setLogSessionPreselectedId] = useState<
+    string | undefined
+  >(undefined);
   const [logSessionCompletedCount, setLogSessionCompletedCount] = useState(0);
   const { data: currentStaff } = useCurrentStaff();
+
+  useEffect(() => {
+    const linkedSessionId = searchParams.get("session");
+    if (!linkedSessionId) return;
+
+    setSelectedSessionId(linkedSessionId);
+    setIsSessionModalOpen(true);
+    router.replace("/classes", { scroll: false });
+  }, [router, searchParams]);
 
   const handleOpenSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -51,15 +70,25 @@ export default function ClassesPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
           </div>
-          {currentStaff?.id && (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              onClick={() => handleOpenLogSession()}
+              variant="outline"
+              onClick={() => setIsCalendarDialogOpen(true)}
               className="flex items-center gap-2 rounded-xl shadow-sm"
             >
-              <FileText className="h-4 w-4" />
-              Submit Tutor Log
+              <CalendarPlus className="h-4 w-4" />
+              Add to calendar
             </Button>
-          )}
+            {currentStaff?.id && (
+              <Button
+                onClick={() => handleOpenLogSession()}
+                className="flex items-center gap-2 rounded-xl shadow-sm"
+              >
+                <FileText className="h-4 w-4" />
+                Submit Tutor Log
+              </Button>
+            )}
+          </div>
         </header>
 
         <section aria-labelledby="classes-heading" className="space-y-4">
@@ -89,10 +118,17 @@ export default function ClassesPage() {
         isOpen={isSessionModalOpen}
         sessionId={selectedSessionId}
         onClose={handleCloseSessionModal}
-        onLogSessionClick={() => handleOpenLogSession(selectedSessionId ?? undefined)}
+        onLogSessionClick={() =>
+          handleOpenLogSession(selectedSessionId ?? undefined)
+        }
         currentStaffId={currentStaff?.id ?? null}
         currentStaffIdForNotes={currentStaff?.id ?? null}
         refreshTrigger={logSessionCompletedCount}
+      />
+
+      <CalendarSubscriptionDialog
+        open={isCalendarDialogOpen}
+        onOpenChange={setIsCalendarDialogOpen}
       />
 
       {/* Log Session Modal - composed at app level */}

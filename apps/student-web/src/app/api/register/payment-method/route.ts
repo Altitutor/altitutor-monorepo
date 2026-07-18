@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseClient } from '@/shared/lib/supabase/server';
 
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[register/payment-method] Edge function error', error);
+      captureApiError(error, "/api/register/payment-method");
       return NextResponse.json(
         { error: error.message || 'Failed to process payment method request' },
         { status: 500 }
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
 
   } catch (error) {
+    captureApiError(error, "/api/register/payment-method");
     console.error('[register/payment-method] error', error);
     return NextResponse.json(
       { 

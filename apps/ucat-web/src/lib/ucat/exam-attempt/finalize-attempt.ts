@@ -5,6 +5,7 @@ import {
 } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
+import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 
 type AdminClient = SupabaseClient;
 
@@ -87,17 +88,32 @@ async function completeStudentMockAttempt(
   studentId: string,
   attemptId: string,
   finalAnswers?: FinalExamQuestionAttemptInput[],
-): Promise<void> {
+): Promise<{
+  earnedDiscount: boolean;
+  discountCents: number;
+  newlyCompleted: boolean;
+}> {
   const { data: attempt, error: attemptError } = await admin
     .from("student_ucat_mock_attempts")
-    .select("attempted_at, completed_at, ucat_mock_id")
+    .select(
+      "attempted_at, completed_at, discarded_at, expired_at, ucat_mock_id",
+    )
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
 
   if (attemptError) throw new Error(attemptError.message);
   if (!attempt) throw new Error("Mock attempt not found");
-  if (attempt.completed_at) return;
+  if (attempt.completed_at) {
+    return {
+      earnedDiscount: false,
+      discountCents: 0,
+      newlyCompleted: false,
+    };
+  }
+  if (attempt.discarded_at || attempt.expired_at) {
+    throw new Error("Attempt is no longer active");
+  }
   if (!attempt.ucat_mock_id) throw new Error("Mock attempt has no mock");
 
   const now = new Date();
@@ -133,20 +149,34 @@ async function completeStudentMockAttempt(
     answersByQuestionSetId.set(answer.questionSetId, list);
   }
 
-  const selectedSetAttemptIds: string[] = [];
-  for (const questionSetId of configuredSetIds) {
-    const setAnswers = answersByQuestionSetId.get(questionSetId) ?? [];
-    const wasTimed = setAnswers.some((answer) => answer.wasTimed === true);
-    const setAttemptId = await ensureMockSetAttemptForFinalize(
-      admin,
-      studentId,
-      attemptId,
-      questionSetId,
-      wasTimed,
-    );
-    selectedSetAttemptIds.push(setAttemptId);
-    await completeStudentSetAttempt(admin, studentId, setAttemptId, setAnswers);
-  }
+  const setAttempts = await Promise.all(
+    configuredSetIds.map(async (questionSetId) => {
+      const setAnswers = answersByQuestionSetId.get(questionSetId) ?? [];
+      const wasTimed = setAnswers.some((answer) => answer.wasTimed === true);
+      const setAttemptId = await ensureMockSetAttemptForFinalize(
+        admin,
+        studentId,
+        attemptId,
+        questionSetId,
+        wasTimed,
+      );
+      return { setAttemptId, setAnswers };
+    }),
+  );
+  const selectedSetAttemptIds = setAttempts.map(
+    ({ setAttemptId }) => setAttemptId,
+  );
+
+  // Each set is independent. Score them concurrently, but grant the daily
+  // discount only once after the mock is durable to avoid duplicate Stripe
+  // calls racing across its constituent sets.
+  await Promise.all(
+    setAttempts.map(({ setAttemptId, setAnswers }) =>
+      completeStudentSetAttempt(admin, studentId, setAttemptId, setAnswers, {
+        grantDiscount: false,
+      }),
+    ),
+  );
 
   const { data: completedSetAttempts, error: completedSetAttemptsError } =
     await admin
@@ -225,7 +255,7 @@ async function completeStudentMockAttempt(
       ? mockTimeLimitSeconds / timeTaken
       : null;
 
-  const { error: updateError } = await admin
+  const { data: updatedMock, error: updateError } = await admin
     .from("student_ucat_mock_attempts")
     .update({
       completed_at: now.toISOString(),
@@ -244,20 +274,29 @@ async function completeStudentMockAttempt(
       current_segment_ends_at: null,
     })
     .eq("id", attemptId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) throw new Error(updateError.message);
+  if (!updatedMock) throw new Error("Attempt is no longer active");
+
+  const discount = await maybeGrantPracticeDayDiscount(admin, studentId);
+  return { ...discount, newlyCompleted: true };
 }
 
 async function completeStudentPracticeSession(
   admin: AdminClient,
   studentId: string,
   sessionId: string,
-): Promise<void> {
+): Promise<boolean> {
   const { data: session, error: sessionError } = await admin
     .from("student_practice_sessions")
     .select(
-      "id, completed_at, score_points, total_points, question_count, stems_snapshot",
+      "id, completed_at, discarded_at, expired_at, score_points, total_points, question_count, stems_snapshot",
     )
     .eq("id", sessionId)
     .eq("student_id", studentId)
@@ -265,7 +304,10 @@ async function completeStudentPracticeSession(
 
   if (sessionError) throw new Error(sessionError.message);
   if (!session) throw new Error("Practice session not found");
-  if (session.completed_at) return;
+  if (session.completed_at) return false;
+  if (session.discarded_at || session.expired_at) {
+    throw new Error("Attempt is no longer active");
+  }
 
   const { data: attempts } = await admin
     .from("student_question_attempts")
@@ -294,7 +336,7 @@ async function completeStudentPracticeSession(
     (attempts ?? []).reduce((sum, row) => sum + Number(row.score ?? 0), 0);
   const questionCount = session.question_count ?? (attempts ?? []).length;
 
-  const { error: updateSessionError } = await admin
+  const { data: updatedSession, error: updateSessionError } = await admin
     .from("student_practice_sessions")
     .update({
       completed_at: new Date().toISOString(),
@@ -302,13 +344,21 @@ async function completeStudentPracticeSession(
       total_points: session.total_points ?? scorePoints,
       question_count: questionCount,
       stems_snapshot: session.stems_snapshot,
+      prefetched_stem_snapshot: null,
       engine_snapshot: null,
       current_segment_ends_at: null,
     })
     .eq("id", sessionId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateSessionError) throw new Error(updateSessionError.message);
+  if (!updatedSession) throw new Error("Attempt is no longer active");
+  return true;
 }
 
 export async function finalizeExamAttemptOnServer(
@@ -321,6 +371,7 @@ export async function finalizeExamAttemptOnServer(
   success: true;
   earnedDiscount?: boolean;
   discountCents?: number;
+  newlyCompleted: boolean;
 }> {
   switch (kind) {
     case "set": {
@@ -332,17 +383,24 @@ export async function finalizeExamAttemptOnServer(
       );
       return { success: true, ...result };
     }
-    case "mock":
-      await completeStudentMockAttempt(
+    case "mock": {
+      const result = await completeStudentMockAttempt(
         admin,
         studentId,
         attemptId,
         finalAnswers,
       );
-      return { success: true };
+      return { success: true, ...result };
+    }
     case "practice":
-      await completeStudentPracticeSession(admin, studentId, attemptId);
-      return { success: true };
+      return {
+        success: true,
+        newlyCompleted: await completeStudentPracticeSession(
+          admin,
+          studentId,
+          attemptId,
+        ),
+      };
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

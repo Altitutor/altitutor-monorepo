@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
@@ -79,13 +80,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
   } catch (orderError) {
+    captureApiError(orderError, "/api/flashcards/cards/[id]");
     const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
   const { data, error } = await serviceClient.from('flashcards').update(updates).eq('id', params.id).select('*').single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ data });
 }
 
@@ -103,7 +105,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     .update({ deleted_at: new Date().toISOString(), deleted_by: staffId ?? null })
     .eq('id', params.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   try {
     const siblings = (await listAccessibleFlashcards(existingCard.topic_id)).filter((card) => card.id !== params.id);
     await persistTopicFlashcardOrder(serviceClient, existingCard.topic_id, siblings.map((card) => card.id));

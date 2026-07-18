@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -173,6 +174,7 @@ export async function PATCH(request: NextRequest) {
     .eq("id", student.id);
 
   if (updateError) {
+    captureApiError(updateError, "/api/ucat/profile");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
@@ -181,6 +183,7 @@ export async function PATCH(request: NextRequest) {
       data: { first_name: firstNameRaw, last_name: lastNameRaw },
     });
     if (metaError) {
+      captureApiError(metaError, "/api/ucat/profile");
       return NextResponse.json(
         { error: metaError.message ?? "Failed to sync name to session" },
         { status: 500 },

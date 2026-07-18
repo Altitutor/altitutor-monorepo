@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
@@ -267,6 +268,7 @@ export async function POST(
       message: `Invoice email sent to ${sent.length} recipient(s)${failed.length > 0 ? `, failed for ${failed.length} recipient(s)` : ''}`,
     });
   } catch (error) {
+    captureApiError(error, "/api/invoices/[id]/send-invoice");
     console.error('[api/invoices/send-invoice] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },

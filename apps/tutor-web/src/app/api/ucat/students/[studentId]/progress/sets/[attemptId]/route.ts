@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
@@ -61,6 +62,7 @@ export async function GET(
     .maybeSingle()
 
   if (attemptError) {
+    captureApiError(attemptError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
     return NextResponse.json({ error: attemptError.message }, { status: 500 })
   }
 
@@ -84,6 +86,7 @@ export async function GET(
     .maybeSingle()
 
   if (setError) {
+    captureApiError(setError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
     return NextResponse.json({ error: setError.message }, { status: 500 })
   }
 
@@ -141,6 +144,7 @@ export async function GET(
     .eq('is_submitted', true)
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
     return NextResponse.json({ error: qaError.message }, { status: 500 })
   }
 
