@@ -50,7 +50,7 @@ function QuestionAttemptsCard({
   onBarClick: (index: number) => void;
 }) {
   const [navigatorView, setNavigatorView] = useState<"simple" | "timing">(
-    "timing",
+    "simple",
   );
   const groupedQuestions = chartData.reduce<
     Array<{
