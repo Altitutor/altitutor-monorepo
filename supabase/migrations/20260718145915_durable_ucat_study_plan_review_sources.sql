@@ -8,7 +8,7 @@ ALTER TABLE public.ucat_student_study_plan_tasks
   FOREIGN KEY (source_task_id)
   REFERENCES public.ucat_student_study_plan_tasks(id)
   ON DELETE CASCADE
-  DEFERRABLE INITIALLY DEFERRED,
+  DEFERRABLE INITIALLY IMMEDIATE,
   ADD CONSTRAINT ucat_student_study_plan_tasks_source_shape_check CHECK (
     task_type = 'review' OR source_task_id IS NULL
   ),
