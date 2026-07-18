@@ -26483,6 +26483,15 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_sample_question_stem_ids: {
+        Args: {
+          p_category_id?: string
+          p_include_ai_source_stems?: boolean
+          p_limit?: number
+          p_section_id: string
+        }
+        Returns: string[]
+      }
       tutor_ucat_set_content_access: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
