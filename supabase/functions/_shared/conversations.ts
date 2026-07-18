@@ -34,7 +34,6 @@ export async function ensureConversation(
       owned_number_id: ownedNumberId,
       status: 'OPEN',
       is_group_chat: false,
-      last_message_at: new Date().toISOString(),
     })
     .select('id')
     .maybeSingle();
@@ -99,7 +98,6 @@ export async function ensureGroupChatConversation(
         status: 'OPEN',
         is_group_chat: true,
         contact_id: null, // Group chats don't have a single contact
-        last_message_at: new Date().toISOString(),
       })
       .select('id')
       .maybeSingle();

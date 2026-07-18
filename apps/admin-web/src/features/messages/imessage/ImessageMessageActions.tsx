@@ -11,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -20,94 +21,133 @@ import {
 import { MoreHorizontal } from 'lucide-react';
 import { useImessageControl } from './hooks';
 import { ImessageCommandDialog } from './ImessageCommandDialog';
+import type { IssueWithTags } from '@/features/issues/types';
 
 interface ImessageMessageActionsProps {
   messageId: string;
-  imessageGuid: string;
+  conversationId?: string | null;
+  imessageGuid?: string | null;
   body: string;
   isOwnMessage: boolean;
+  showCreateIssue?: boolean;
+  matchedIssues?: IssueWithTags[];
+  issueActionLoading?: boolean;
+  onCreateIssue?: () => void;
+  onAddToIssue?: (issue: IssueWithTags) => void;
 }
 
-type DestructiveAction = 'unsend_message' | 'delete_message';
-
 const TAPBACKS = [
-  ['love', 'Love', '❤️'],
-  ['like', 'Like', '👍'],
-  ['dislike', 'Dislike', '👎'],
-  ['laugh', 'Laugh', '😂'],
-  ['emphasize', 'Emphasize', '‼️'],
-  ['question', 'Question', '❓'],
+  ['love', '❤️'],
+  ['like', '👍'],
+  ['dislike', '👎'],
+  ['laugh', '😂'],
+  ['emphasize', '‼️'],
+  ['question', '❓'],
 ] as const;
 
 export function ImessageMessageActions({
   messageId,
+  conversationId,
   imessageGuid,
   body,
   isOwnMessage,
+  showCreateIssue = false,
+  matchedIssues = [],
+  issueActionLoading = false,
+  onCreateIssue,
+  onAddToIssue,
 }: ImessageMessageActionsProps) {
   const control = useImessageControl();
   const [editOpen, setEditOpen] = useState(false);
   const [editedBody, setEditedBody] = useState(body);
-  const [destructiveAction, setDestructiveAction] = useState<DestructiveAction | null>(null);
+  const [unsendOpen, setUnsendOpen] = useState(false);
+
+  const hasImessageActions = Boolean(imessageGuid);
+  const hasIssueActions = showCreateIssue && Boolean(onCreateIssue);
+  if (!hasImessageActions && !hasIssueActions) return null;
 
   const editMessage = async () => {
+    if (!imessageGuid) return;
     await control.mutateAsync({
       commandType: 'edit_message',
       messageId,
+      conversationId: conversationId ?? undefined,
       payload: { imessageGuid, text: editedBody.trim() },
     });
     setEditOpen(false);
   };
 
-  const confirmDestructive = async (reason?: string) => {
-    if (!destructiveAction) return;
+  const confirmUnsend = async (reason?: string) => {
+    if (!imessageGuid) return;
     await control.mutateAsync({
-      commandType: destructiveAction,
+      commandType: 'unsend_message',
       messageId,
-      payload: { imessageGuid, scope: destructiveAction === 'delete_message' ? 'local_chat_record' : 'imessage' },
+      conversationId: conversationId ?? undefined,
+      payload: { imessageGuid },
       reason,
     });
-    setDestructiveAction(null);
+    setUnsendOpen(false);
   };
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="iMessage actions">
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Message actions">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align={isOwnMessage ? 'end' : 'start'}>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>React / Tapback</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {TAPBACKS.map(([reaction, label, emoji]) => (
+          {hasIssueActions && (
+            <>
+              <DropdownMenuItem
+                disabled={issueActionLoading}
+                onClick={() => onCreateIssue?.()}
+              >
+                Create issue
+              </DropdownMenuItem>
+              {matchedIssues.map((issue) => (
                 <DropdownMenuItem
-                  key={reaction}
-                  onClick={() => control.mutate({
-                    commandType: 'react',
-                    messageId,
-                    payload: { imessageGuid, reaction },
-                  })}
+                  key={issue.id}
+                  disabled={issueActionLoading}
+                  onClick={() => onAddToIssue?.(issue)}
                 >
-                  <span className="mr-2" aria-hidden>{emoji}</span>
-                  {label}
+                  Add to open issue: {issue.name ?? ''}
                 </DropdownMenuItem>
               ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          {isOwnMessage && (
-            <>
-              <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit sent message</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDestructiveAction('unsend_message')}>
-                Unsend for everyone…
-              </DropdownMenuItem>
+              {hasImessageActions && <DropdownMenuSeparator />}
             </>
           )}
-          <DropdownMenuItem onClick={() => setDestructiveAction('delete_message')}>
-            Delete local/chat record…
-          </DropdownMenuItem>
+          {hasImessageActions && (
+            <>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>React</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {TAPBACKS.map(([reaction, emoji]) => (
+                    <DropdownMenuItem
+                      key={reaction}
+                      onClick={() => control.mutate({
+                        commandType: 'react',
+                        messageId,
+                        conversationId: conversationId ?? undefined,
+                        payload: { imessageGuid, reaction },
+                      })}
+                    >
+                      <span className="text-base leading-none">{emoji}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {isOwnMessage && (
+                <>
+                  <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit sent message</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setUnsendOpen(true)}>
+                    Unsend for everyone…
+                  </DropdownMenuItem>
+                </>
+              )}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -123,18 +163,14 @@ export function ImessageMessageActions({
       </Dialog>
 
       <ImessageCommandDialog
-        open={destructiveAction !== null}
-        onOpenChange={(open) => !open && setDestructiveAction(null)}
-        title={destructiveAction === 'unsend_message' ? 'Unsend this iMessage?' : 'Delete local/chat record?'}
-        description={
-          destructiveAction === 'unsend_message'
-            ? 'This requests removal for all iMessage participants.'
-            : 'This deletes the message from the connector chat record. It is not labelled as an unsend.'
-        }
-        confirmLabel={destructiveAction === 'unsend_message' ? 'Unsend message' : 'Delete local/chat record'}
+        open={unsendOpen}
+        onOpenChange={(open) => !open && setUnsendOpen(false)}
+        title="Unsend this iMessage?"
+        description="This requests removal for all iMessage participants."
+        confirmLabel="Unsend message"
         destructive
         pending={control.isPending}
-        onConfirm={confirmDestructive}
+        onConfirm={confirmUnsend}
       />
     </>
   );
