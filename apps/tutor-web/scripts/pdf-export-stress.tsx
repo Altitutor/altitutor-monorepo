@@ -13,7 +13,7 @@ const richText = (text: string) => ({
 const group: UcatPdfGroup = {
   id: 'group-1',
   title: 'Large set',
-  stems: Array.from({ length: 30 }, (_, stemIndex) => ({
+  stems: Array.from({ length: Number(process.env.PDF_STRESS_COUNT ?? 30) }, (_, stemIndex) => ({
     id: `stem-${stemIndex}`,
     section_name: 'Verbal Reasoning',
     stem_text: richText(`Passage ${stemIndex + 1} `.repeat(80)),
@@ -22,13 +22,17 @@ const group: UcatPdfGroup = {
       index: questionIndex,
       question_type: 'multiple_choice' as const,
       question_text: richText(`Question ${questionIndex + 1}`),
-      answer_explanation: richText('Explanation '.repeat(25)),
+      answer_explanation: process.env.PDF_STRESS_EXPLANATIONS === 'false'
+        ? null
+        : richText('Explanation '.repeat(25)),
       answer_options: Array.from({ length: 4 }, (_, optionIndex) => ({
         id: `option-${stemIndex}-${questionIndex}-${optionIndex}`,
         index: optionIndex,
         is_answer: optionIndex === 0,
         answer_text: richText(`Option ${optionIndex + 1} `.repeat(8)),
-        answer_explanation: richText('Option explanation '.repeat(8)),
+          answer_explanation: process.env.PDF_STRESS_EXPLANATIONS === 'false'
+            ? null
+            : richText('Option explanation '.repeat(8)),
       })),
     })),
   })),
@@ -39,8 +43,8 @@ async function main() {
     <UcatQuestionExportDocument
       title="Stress test"
       groups={[group]}
-      includeAnswers
-      repeatStems
+      includeAnswers={process.env.PDF_STRESS_ANSWERS !== 'false'}
+      repeatStems={process.env.PDF_STRESS_REPEAT !== 'false'}
     />,
   )
 
