@@ -720,6 +720,7 @@ export function useExamAttemptLifecycle({
     enabled,
     exam,
     kind,
+    hydrationStatus,
     activeQuestionTimingKey,
     syncQuestionTiming,
     suppressQuestionTimingSyncRef,
