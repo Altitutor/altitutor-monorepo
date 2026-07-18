@@ -96,8 +96,6 @@ type StemDetailRow = {
   stem_text: unknown
   question_stem_category_id: string | null
   category_name?: string | null
-  source_channel?: string | null
-  status?: 'draft' | 'in_review' | 'published' | null
   deleted_at: string | null
   questions: QuestionRow[]
 }
@@ -111,25 +109,52 @@ export async function GET() {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
-  const { data: stems, error } = await access.userClient
-    .from('vtutor_ucat_question_stem_detail')
-    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,source_channel,status,deleted_at,questions')
-    .is('deleted_at', null)
+  // These views are independent. Fetch them in one concurrent wave so the endpoint
+  // pays for the slowest query instead of the sum of every query's latency.
+  const [stemsResult, stemsListResult, sectionsResult, setsResult, mockDetailsResult] =
+    await Promise.all([
+      access.userClient
+        .from('vtutor_ucat_question_stem_detail')
+        .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,deleted_at,questions')
+        .is('deleted_at', null),
+      access.userClient
+        .from('vtutor_ucat_question_stems')
+        .select('id,access_scope,set_names')
+        .is('deleted_at', null),
+      access.userClient
+        .from('vtutor_ucat_sections')
+        .select('id,section_number,name,number_of_questions,time_limit_seconds'),
+      access.userClient
+        .from('vtutor_ucat_question_sets')
+        .select('id,name,sections,stem_count,question_count,time_limit_seconds')
+        .is('deleted_at', null),
+      access.userClient
+        .from('vtutor_ucat_mock_detail')
+        .select('id,name,sets')
+        .is('deleted_at', null),
+    ])
 
-  if (error) return captureApiErrorResponse(error, "/api/ucat/reconciliation", NextResponse.json({ error: error.message }, { status: 500 }))
+  for (const result of [
+    stemsResult,
+    stemsListResult,
+    sectionsResult,
+    setsResult,
+    mockDetailsResult,
+  ]) {
+    if (result.error) {
+      return captureApiErrorResponse(
+        result.error,
+        '/api/ucat/reconciliation',
+        NextResponse.json({ error: result.error.message }, { status: 500 }),
+      )
+    }
+  }
 
-  const rows = (stems ?? []) as StemDetailRow[]
-
-  const { data: stemsList, error: stemsListError } = await access.userClient
-    .from('vtutor_ucat_question_stems')
-    .select('id,access_scope,set_names')
-    .is('deleted_at', null)
-
-  if (stemsListError) return captureApiErrorResponse(stemsListError, "/api/ucat/reconciliation", NextResponse.json({ error: stemsListError.message }, { status: 500 }))
+  const rows = (stemsResult.data ?? []) as StemDetailRow[]
 
   const stemMetaById = new Map<string, StemListMeta>()
   const privateStemIdsNotInSet = new Set<string>()
-  for (const s of stemsList ?? []) {
+  for (const s of stemsListResult.data ?? []) {
     const row = s as { id: string; access_scope: 'public' | 'private'; set_names: unknown }
     const setNames = parseSetNames(row.set_names)
     stemMetaById.set(row.id, { isPrivate: row.access_scope === 'private', setNames })
@@ -201,18 +226,6 @@ export async function GET() {
       }
     }
   }
-
-  const pendingGeneratedStems = rows
-    .filter((r) => r.source_channel === 'ai_generation' && r.status === 'in_review')
-    .map((r) => ({
-      id: r.id,
-      sectionId: r.section_id,
-      sectionName: r.section_name ?? '',
-      categoryId: r.question_stem_category_id,
-      categoryName: r.category_name ?? null,
-      stemText: r.stem_text,
-      questions: (r.questions ?? []) as QuestionRow[],
-    }))
 
   const privateStemsNotInSet = rows
     .filter((r) => privateStemIdsNotInSet.has(r.id))
@@ -332,13 +345,7 @@ export async function GET() {
     return a.sectionName.localeCompare(b.sectionName)
   })
 
-  // Fetch sections for set/mock status computation
-  const { data: sectionsData, error: sectionsError } = await access.userClient
-    .from('vtutor_ucat_sections')
-    .select('id,section_number,name,number_of_questions,time_limit_seconds')
-
-  if (sectionsError) return captureApiErrorResponse(sectionsError, "/api/ucat/reconciliation", NextResponse.json({ error: sectionsError.message }, { status: 500 }))
-  const sections: UcatSectionForStatus[] = (sectionsData ?? []).map((s) => {
+  const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map((s) => {
     const row = s as { id?: string; section_number?: number; name?: unknown; number_of_questions?: number; time_limit_seconds?: number }
     const nameVal = row.name
     const nameStr: string | null = nameVal == null ? null : typeof nameVal === 'string' ? nameVal : (proseMirrorToPlainText(nameVal as import('@altitutor/shared').Json) ?? null)
@@ -351,14 +358,7 @@ export async function GET() {
     }
   })
 
-  // Fetch active tutor-authored sets.
-  const { data: setsData, error: setsError } = await access.userClient
-    .from('vtutor_ucat_question_sets')
-    .select('id,name,sections,stem_count,question_count,time_limit_seconds')
-    .is('deleted_at', null)
-
-  if (setsError) return captureApiErrorResponse(setsError, "/api/ucat/reconciliation", NextResponse.json({ error: setsError.message }, { status: 500 }))
-  const allSets = (setsData ?? []) as Array<{
+  const allSets = (setsResult.data ?? []) as Array<{
     id: string
     name: unknown
     sections: unknown
@@ -420,25 +420,17 @@ export async function GET() {
   })
   const setsWithMultipleSections = setRows.filter((r) => r.sectionCount > 1)
 
-  // Fetch mocks: exclude deleted
-  const { data: mocksData, error: mocksError } = await access.userClient
-    .from('vtutor_ucat_mocks')
-    .select('id,name,set_count')
-    .is('deleted_at', null)
-
-  if (mocksError) return captureApiErrorResponse(mocksError, "/api/ucat/reconciliation", NextResponse.json({ error: mocksError.message }, { status: 500 }))
-  const mocksList = (mocksData ?? []) as Array<{ id: string; name: unknown; set_count: number }>
+  const mocksList = (mockDetailsResult.data ?? []) as Array<{
+    id: string
+    name: unknown
+    sets?: Array<{ id: string; name?: unknown; sections?: unknown }> | null
+  }>
 
   const mocksWithIncorrectSets: Array<{ id: string; name: string; setCount: number; sets: Array<{ id: string; name: string }> }> = []
   for (const mock of mocksList) {
-    const { data: mockDetail } = await access.userClient
-      .from('vtutor_ucat_mock_detail')
-      .select('sets')
-      .eq('id', mock.id)
-      .maybeSingle()
-
-    const sets = (mockDetail as { sets?: Array<{ id: string; name?: unknown; sections?: unknown }> } | null)?.sets ?? []
-    const correct = isMockSetOrderCorrect(mock.set_count ?? 0, sets, sections)
+    const sets = mock.sets ?? []
+    const setCount = sets.length
+    const correct = isMockSetOrderCorrect(setCount, sets, sections)
     if (!correct) {
       const mockNameStr =
         typeof mock.name === 'string'
@@ -451,14 +443,13 @@ export async function GET() {
       mocksWithIncorrectSets.push({
         id: mock.id,
         name: mockNameStr,
-        setCount: mock.set_count ?? 0,
+        setCount,
         sets: setsDisplay,
       })
     }
   }
 
   return NextResponse.json({
-    pendingGeneratedStems,
     stemsWithNoCategory,
     questionsWithNoExplanation,
     untaggedQuestions,

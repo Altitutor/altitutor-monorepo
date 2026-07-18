@@ -2,6 +2,7 @@ import React, { type ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import type { Json } from '@altitutor/shared'
 import { hasRichContent } from '@/features/ucat/shared/pdf/rich-content'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type UcatPdfAnswerOption = {
   id: string
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textTransform: 'uppercase',
   },
-  questionGap: { height: 14 },
+  question: { marginBottom: 20 },
   questionHeading: { fontSize: 11, fontWeight: 700, marginBottom: 7 },
   paragraph: { marginBottom: 5 },
   heading1: { fontSize: 15, fontWeight: 700, marginBottom: 6, marginTop: 3 },
@@ -87,10 +88,10 @@ const styles = StyleSheet.create({
   heading3: { fontSize: 11, fontWeight: 700, marginBottom: 4, marginTop: 2 },
   listItem: { flexDirection: 'row', marginBottom: 3 },
   listMarker: { width: 18 },
-  listBody: { width: 475 },
-  option: { marginBottom: 6, paddingLeft: 22, position: 'relative' },
-  optionMarker: { color: colours.muted, fontWeight: 700, left: 0, position: 'absolute', top: 0 },
-  optionBody: {},
+  listBody: { flexGrow: 1, flexBasis: 0 },
+  option: { flexDirection: 'row', marginBottom: 6 },
+  optionMarker: { color: colours.muted, fontWeight: 700, width: 22 },
+  optionBody: { flexGrow: 1, flexBasis: 0 },
   syllogismOption: {
     borderBottomColor: colours.line,
     borderBottomWidth: 0.6,
@@ -101,7 +102,6 @@ const styles = StyleSheet.create({
   answerBox: {
     backgroundColor: colours.answer,
     marginTop: 7,
-    marginBottom: 4,
     paddingHorizontal: 9,
     paddingVertical: 7,
   },
@@ -321,23 +321,19 @@ function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdf
           <View style={styles.optionBody}>
             <RichBlocks value={option.answer_text} />
             {includeAnswers && hasRichContent(option.answer_explanation) ? (
-              <>
-                <Text style={[styles.answerBox, styles.answerLabel]}>
-                  {option.is_answer ? 'Correct option' : 'Option explanation'}
-                </Text>
+              <View style={styles.answerBox}>
+                <Text style={styles.answerLabel}>{option.is_answer ? 'Correct option' : 'Option explanation'}</Text>
                 <Explanation value={option.answer_explanation} />
-              </>
+              </View>
             ) : null}
           </View>
         </View>
       ))}
       {includeAnswers ? (
-        <>
-          <Text style={[styles.answerBox, styles.answerLabel]}>
-            Answer: {correctLabels.join(', ') || 'No answer set'}
-          </Text>
+        <View style={styles.answerBox}>
+          <Text style={styles.answerLabel}>Answer: {correctLabels.join(', ') || 'No answer set'}</Text>
           <Explanation value={question.answer_explanation} />
-        </>
+        </View>
       ) : null}
     </>
   )
@@ -359,10 +355,10 @@ function SyllogismOptions({ question, includeAnswers }: { question: UcatPdfQuest
           </View>
         ))}
       {includeAnswers && hasRichContent(question.answer_explanation) ? (
-        <>
-          <Text style={[styles.answerBox, styles.answerLabel]}>Explanation</Text>
+        <View style={styles.answerBox}>
+          <Text style={styles.answerLabel}>Explanation</Text>
           <Explanation value={question.answer_explanation} />
-        </>
+        </View>
       ) : null}
     </View>
   )
@@ -378,7 +374,7 @@ function QuestionBlock({
   includeAnswers: boolean
 }) {
   return (
-    <>
+    <View style={styles.question}>
       <Text style={styles.questionHeading} minPresenceAhead={45}>
         Question {questionNumber}
       </Text>
@@ -388,45 +384,65 @@ function QuestionBlock({
       ) : (
         <MultipleChoiceOptions question={question} includeAnswers={includeAnswers} />
       )}
-      <View style={styles.questionGap} />
-    </>
+    </View>
   )
+}
+
+function imageCount(value: Json | null | undefined): number {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 0
+  const node = value as RichNode
+  return (node.type === 'image' ? 1 : 0) + nodeChildren(node).reduce((sum, child) => sum + imageCount(child as Json), 0)
+}
+
+function questionFitsOnOnePage(question: UcatPdfQuestion, includeAnswers: boolean) {
+  const values = [
+    question.question_text,
+    ...question.answer_options.map((option) => option.answer_text),
+    ...(includeAnswers
+      ? [
+          question.answer_explanation,
+          ...question.answer_options.map((option) => option.answer_explanation),
+        ]
+      : []),
+  ]
+  const characters = values.reduce<number>((sum, value) => sum + proseMirrorToPlainText(value ?? null).length, 0)
+  const images = values.reduce<number>((sum, value) => sum + imageCount(value), 0)
+  const estimatedLines = Math.ceil(characters / 75) + question.answer_options.length * 2 + images * 18
+  return estimatedLines <= 40
 }
 
 function GroupContent({
   group,
   includeAnswers,
   repeatStems,
+  avoidQuestionPageBreaks,
 }: {
   group: UcatPdfGroup
   includeAnswers: boolean
   repeatStems: boolean
+  avoidQuestionPageBreaks: boolean
 }) {
   let questionNumber = 0
-  const blocks = group.stems.flatMap((stem, stemIndex) => {
-    const questions = [...stem.questions]
-      .sort((left, right) => left.index - right.index)
-      .flatMap((question) => {
-        questionNumber += 1
-        return [
-          <React.Fragment key={question.id}>
-            {repeatStems ? <StemBlock stem={stem} stemNumber={stemIndex + 1} /> : null}
-            <QuestionBlock question={question} questionNumber={questionNumber} includeAnswers={includeAnswers} />
-          </React.Fragment>,
-        ]
-      })
-
-    return repeatStems
-      ? questions
-      : [
-          <StemBlock key={`${stem.id}-stem`} stem={stem} stemNumber={stemIndex + 1} />,
-          ...questions,
-        ]
-  })
-
   return (
     <>
-      {blocks}
+      {group.stems.map((stem, stemIndex) => (
+        <View key={stem.id}>
+          {!repeatStems ? <StemBlock stem={stem} stemNumber={stemIndex + 1} /> : null}
+          {[...stem.questions]
+            .sort((left, right) => left.index - right.index)
+            .map((question) => {
+              questionNumber += 1
+              return (
+                <React.Fragment key={question.id}>
+                  {repeatStems ? <StemBlock stem={stem} stemNumber={stemIndex + 1} /> : null}
+                  <View wrap={!avoidQuestionPageBreaks || !questionFitsOnOnePage(question, includeAnswers)}>
+                    <QuestionBlock question={question} questionNumber={questionNumber} includeAnswers={includeAnswers} />
+                  </View>
+                </React.Fragment>
+              )
+            })}
+        </View>
+      ))}
     </>
   )
 }
@@ -436,12 +452,14 @@ export function UcatQuestionExportDocument({
   groups,
   includeAnswers,
   repeatStems,
+  avoidQuestionPageBreaks,
   notice,
 }: {
   title: string
   groups: UcatPdfGroup[]
   includeAnswers: boolean
   repeatStems: boolean
+  avoidQuestionPageBreaks: boolean
   notice?: string
 }) {
   const exportedAt = new Intl.DateTimeFormat('en-AU', {
@@ -461,8 +479,13 @@ export function UcatQuestionExportDocument({
             </>
           ) : null}
           <Text style={styles.groupTitle}>{group.title}</Text>
-          <GroupContent group={group} includeAnswers={includeAnswers} repeatStems={repeatStems} />
-          <Text style={styles.footer} fixed>{title}</Text>
+          <GroupContent
+            group={group}
+            includeAnswers={includeAnswers}
+            repeatStems={repeatStems}
+            avoidQuestionPageBreaks={avoidQuestionPageBreaks}
+          />
+          <Text style={styles.footer} fixed>Altitutor UCAT export</Text>
         </Page>
       ))}
     </Document>

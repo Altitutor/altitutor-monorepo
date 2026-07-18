@@ -8457,8 +8457,8 @@ export type Database = {
           question_count: number | null
           score_points: number | null
           section_key: string
-          stem_delivery_revision: number
           started_at: string
+          stem_delivery_revision: number
           stems_snapshot: Json | null
           student_id: string
           total_points: number | null
@@ -8479,8 +8479,8 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key: string
-          stem_delivery_revision?: number
           started_at?: string
+          stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id: string
           total_points?: number | null
@@ -8501,8 +8501,8 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key?: string
-          stem_delivery_revision?: number
           started_at?: string
+          stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id?: string
           total_points?: number | null
@@ -26661,9 +26661,27 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      student_has_in_person_ucat_session_resource: {
+        Args: {
+          p_resource_id: string
+          p_resource_type: string
+          p_student_id: string
+        }
+        Returns: boolean
+      }
       student_has_ucat_pro_subscription: {
         Args: { p_student_id: string }
         Returns: boolean
+      }
+      student_in_person_ucat_session_resource_ids: {
+        Args: {
+          p_resource_ids: string[]
+          p_resource_type: string
+          p_student_id: string
+        }
+        Returns: {
+          resource_id: string
+        }[]
       }
       student_reset_onboarding_progress: { Args: never; Returns: Json }
       student_reset_onboarding_tour: {
@@ -27243,3 +27261,4 @@ export const Constants = {
     },
   },
 } as const
+

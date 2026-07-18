@@ -17,6 +17,10 @@ import {
   type UcatFreeQuotaConfig,
 } from "@/lib/ucat/quota/config";
 import { createUcatNotification } from "@/lib/notifications/create-ucat-notification";
+import {
+  getInPersonSessionResourceEntitlementIds,
+  hasInPersonSessionResourceEntitlement,
+} from "@/lib/ucat/quota/in-person-session-entitlement";
 
 type AdminClient = SupabaseClient<Database>;
 
@@ -160,12 +164,9 @@ async function countLearnStarts(
   studentId: string,
   periodStart: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("ucat_student_learning_module_progress")
-    .select("id, ucat_learning_modules!inner(kind)", {
-      count: "exact",
-      head: true,
-    })
+    .select("learning_module_id, ucat_learning_modules!inner(kind)")
     .eq("student_id", studentId)
     .eq("ucat_learning_modules.kind", "lesson")
     .gte("started_at", periodStart);
@@ -176,7 +177,15 @@ async function countLearnStarts(
     }
     throw new Error(error.message);
   }
-  return count ?? 0;
+
+  const moduleIds = (data ?? []).map((row) => row.learning_module_id);
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "learning_module",
+    moduleIds,
+  );
+  return moduleIds.filter((id) => !entitledIds.has(id)).length;
 }
 
 async function countSkillTrainerStarts(
@@ -184,9 +193,9 @@ async function countSkillTrainerStarts(
   studentId: string,
   periodStart: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("student_skill_trainer_attempts")
-    .select("id", { count: "exact", head: true })
+    .select("skill_trainer_id")
     .eq("student_id", studentId)
     .is("learning_module_block_id", null)
     .gte("started_at", periodStart);
@@ -198,7 +207,15 @@ async function countSkillTrainerStarts(
     }
     throw new Error(error.message);
   }
-  return count ?? 0;
+
+  const trainerIds = (data ?? []).map((row) => row.skill_trainer_id);
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "skill_trainer",
+    trainerIds,
+  );
+  return trainerIds.filter((id) => !entitledIds.has(id)).length;
 }
 
 async function countPracticeUsage(
@@ -217,8 +234,20 @@ async function countPracticeUsage(
 
   if (error) throw new Error(error.message);
 
-  const unique = new Set((data ?? []).map((r) => r.question_id));
-  return unique.size;
+  const questionIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => row.question_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "question",
+    questionIds,
+  );
+  return questionIds.filter((id) => !entitledIds.has(id)).length;
 }
 
 async function countStandaloneSetStarts(
@@ -226,15 +255,22 @@ async function countStandaloneSetStarts(
   studentId: string,
   periodStart: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("student_question_set_attempts")
-    .select("id", { count: "exact", head: true })
+    .select("question_set_id")
     .eq("student_id", studentId)
     .is("student_ucat_mock_attempt_id", null)
     .gte("attempted_at", periodStart);
 
   if (error) throw new Error(error.message);
-  return count ?? 0;
+  const setIds = (data ?? []).map((row) => row.question_set_id);
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "question_set",
+    setIds,
+  );
+  return setIds.filter((id) => !entitledIds.has(id)).length;
 }
 
 async function countMockStarts(
@@ -242,14 +278,21 @@ async function countMockStarts(
   studentId: string,
   periodStart: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("student_ucat_mock_attempts")
-    .select("id", { count: "exact", head: true })
+    .select("ucat_mock_id")
     .eq("student_id", studentId)
     .gte("attempted_at", periodStart);
 
   if (error) throw new Error(error.message);
-  return count ?? 0;
+  const mockIds = (data ?? []).map((row) => row.ucat_mock_id);
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "mock",
+    mockIds,
+  );
+  return mockIds.filter((id) => !entitledIds.has(id)).length;
 }
 
 export async function getQuotaUsageForStudent(
@@ -416,7 +459,15 @@ export async function countNewPracticeQuestionsForStudent(
   if (error) throw new Error(error.message);
 
   const existing = new Set((data ?? []).map((row) => row.question_id));
-  return uniqueQuestionIds.filter((id) => !existing.has(id)).length;
+  const entitledIds = await getInPersonSessionResourceEntitlementIds(
+    supabase,
+    studentId,
+    "question",
+    uniqueQuestionIds,
+  );
+  return uniqueQuestionIds.filter(
+    (id) => !existing.has(id) && !entitledIds.has(id),
+  ).length;
 }
 
 export async function checkPracticeStartQuota(
@@ -427,21 +478,13 @@ export async function checkPracticeStartQuota(
   const status = await getPracticeQuotaStatusForStudent(supabase, studentId);
   if (!status || status.isQuotaExempt) return { allowed: true };
 
-  if (status.limit === 0 || status.remaining === 0) {
-    return rejectQuotaAction(supabase, studentId, {
-      code: "QUOTA_EXCEEDED",
-      area: "practice",
-      used: status.used,
-      limit: status.limit,
-      period: status.period,
-    });
-  }
-
   const newQuestionCount = await countNewPracticeQuestionsForStudent(
     supabase,
     studentId,
     questionIds,
   );
+  if (newQuestionCount === 0) return { allowed: true };
+
   if (newQuestionCount > (status.remaining ?? 0)) {
     return rejectQuotaAction(supabase, studentId, {
       code: "QUOTA_EXCEEDED",
@@ -463,10 +506,49 @@ export async function checkQuotaForAction(
     practiceQuestionId?: string;
     hasAnswer?: boolean;
     learningModuleId?: string;
+    questionSetId?: string;
+    mockId?: string;
+    skillTrainerId?: string;
   },
 ): Promise<QuotaCheckResult> {
   const ctx = await resolveStudentQuotaContext(supabase, studentId);
   if (!ctx || ctx.isQuotaExempt) return { allowed: true };
+
+  const inPersonResource = (
+    area === "practice" && options?.practiceQuestionId
+      ? ["question", options.practiceQuestionId]
+      : area === "sets" && options?.questionSetId
+        ? ["question_set", options.questionSetId]
+        : area === "mocks" && options?.mockId
+          ? ["mock", options.mockId]
+          : area === "learn" && options?.learningModuleId
+            ? ["learning_module", options.learningModuleId]
+            : area === "skill_trainer" && options?.skillTrainerId
+              ? ["skill_trainer", options.skillTrainerId]
+              : null
+  ) as
+    | [
+        (
+          | "question"
+          | "question_set"
+          | "mock"
+          | "learning_module"
+          | "skill_trainer"
+        ),
+        string,
+      ]
+    | null;
+  if (
+    inPersonResource &&
+    (await hasInPersonSessionResourceEntitlement(
+      supabase,
+      studentId,
+      inPersonResource[0],
+      inPersonResource[1],
+    ))
+  ) {
+    return { allowed: true };
+  }
 
   const config = await loadQuotaConfig(supabase);
   const { limit, period } = getAreaConfig(config, area);

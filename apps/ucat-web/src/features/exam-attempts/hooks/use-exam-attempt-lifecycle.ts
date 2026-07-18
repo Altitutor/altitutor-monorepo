@@ -142,6 +142,13 @@ export function getExamSnapshotSyncDelay(
   );
 }
 
+export function isCurrentSegmentSyncResponse(
+  requestedSegmentKey: string,
+  currentSegmentKey: string | null,
+): boolean {
+  return requestedSegmentKey === currentSegmentKey;
+}
+
 export function useExamAttemptLifecycle({
   enabled,
   exam,
@@ -623,6 +630,7 @@ export function useExamAttemptLifecycle({
     const shouldPreserveLocalElapsed =
       localSegmentEndsAt != null && Date.now() - state.timerStartedAt! > 1000;
     const attemptId = attemptIdRef.current;
+    const requestedSegmentKey = segmentKey;
     segmentStartPendingRef.current = true;
     setServerSegmentEndsAt(null);
     void enqueueSync(() =>
@@ -655,6 +663,17 @@ export function useExamAttemptLifecycle({
             Object.entries(setAttemptIdsBySetId),
           );
         }
+        if (
+          !isCurrentSegmentSyncResponse(
+            requestedSegmentKey,
+            segmentKeyRef.current,
+          )
+        ) {
+          if (setAttemptIdsBySetId) {
+            updateLocal(attemptId, { setAttemptIdsBySetId });
+          }
+          return;
+        }
         setServerSegmentEndsAt(currentSegmentEndsAt);
         updateLocal(attemptId, {
           currentSegmentEndsAt,
@@ -666,7 +685,9 @@ export function useExamAttemptLifecycle({
         // A failed background sync must not crash the question engine.
       })
       .finally(() => {
-        segmentStartPendingRef.current = false;
+        if (segmentKeyRef.current === requestedSegmentKey) {
+          segmentStartPendingRef.current = false;
+        }
       });
   }, [
     enabled,
@@ -701,6 +722,7 @@ export function useExamAttemptLifecycle({
       if (kind && isExamAttemptAtResults(kind, state.phase)) return;
       const engineSnapshot = toExamEngineSnapshot(state);
       const attemptId = attemptIdRef.current!;
+      const requestedSegmentKey = getTimedSegmentKey(exam, state);
       void enqueueSync(() =>
         syncExamAttempt({
           kind,
@@ -725,6 +747,17 @@ export function useExamAttemptLifecycle({
             attemptStateRef.current.setAttemptIdsBySetId = new Map(
               Object.entries(setAttemptIdsBySetId),
             );
+          }
+          if (
+            !isCurrentSegmentSyncResponse(
+              requestedSegmentKey,
+              segmentKeyRef.current,
+            )
+          ) {
+            if (setAttemptIdsBySetId) {
+              updateLocal(attemptId, { setAttemptIdsBySetId });
+            }
+            return;
           }
           setServerSegmentEndsAt(currentSegmentEndsAt);
           updateLocal(attemptId, {
@@ -788,6 +821,7 @@ export function useExamAttemptLifecycle({
       mockAttemptId: attemptStateRef.current.mockAttemptId,
       questionActiveTiming: latestQuestionTimingRef.current,
     };
+    const requestedSegmentKey = getTimedSegmentKey(exam, state);
     try {
       const { currentSegmentEndsAt, setAttemptIdsBySetId } = await enqueueSync(
         () => syncExamAttempt(input),
@@ -796,6 +830,17 @@ export function useExamAttemptLifecycle({
         attemptStateRef.current.setAttemptIdsBySetId = new Map(
           Object.entries(setAttemptIdsBySetId),
         );
+      }
+      if (
+        !isCurrentSegmentSyncResponse(
+          requestedSegmentKey,
+          segmentKeyRef.current,
+        )
+      ) {
+        if (setAttemptIdsBySetId) {
+          updateLocal(attemptIdRef.current!, { setAttemptIdsBySetId });
+        }
+        return true;
       }
       setServerSegmentEndsAt(currentSegmentEndsAt);
       updateLocal(attemptIdRef.current!, {
@@ -853,6 +898,7 @@ export function useExamAttemptLifecycle({
       }
       if (!attemptIdRef.current) return false;
       const attemptId = attemptIdRef.current;
+      const requestedSegmentKey = getTimedSegmentKey(exam, engineState);
       if (syncBlockedRef.current) return false;
       if (kind && isExamAttemptAtResults(kind, engineState.phase)) return false;
 
@@ -881,6 +927,17 @@ export function useExamAttemptLifecycle({
           attemptStateRef.current.setAttemptIdsBySetId = new Map(
             Object.entries(setAttemptIdsBySetId),
           );
+        }
+        if (
+          !isCurrentSegmentSyncResponse(
+            requestedSegmentKey,
+            segmentKeyRef.current,
+          )
+        ) {
+          if (setAttemptIdsBySetId) {
+            updateLocal(attemptId, { setAttemptIdsBySetId });
+          }
+          return true;
         }
         setServerSegmentEndsAt(currentSegmentEndsAt);
         updateLocal(attemptId, {
@@ -930,6 +987,7 @@ export function useExamAttemptLifecycle({
 
   return {
     serverSegmentEndsAt,
+    serverSegmentKey: segmentKeyRef.current,
     attemptId: attemptIdRef.current,
     isHydrating: hydrationStatus === "hydrating",
     flushQuestionTiming,

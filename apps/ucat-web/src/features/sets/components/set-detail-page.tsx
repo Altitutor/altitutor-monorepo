@@ -82,7 +82,11 @@ export function SetDetailPage({
   const attemptsHeadingId = useId();
 
   const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
-  const examHref = `/exam/sets?id=${encodeURIComponent(setId)}`;
+  const examHref = `/exam/sets?id=${encodeURIComponent(setId)}${
+    sessionEntryContext
+      ? `&session=${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : ""
+  }`;
 
   useEffect(() => {
     if (!set) return;
@@ -120,7 +124,11 @@ export function SetDetailPage({
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "set" &&
       activeExamAttempt.resourceId === setId;
-    if (!canResumeCurrentAttempt && (setQuota?.disabled || setQuota?.atLimit)) {
+    if (
+      sessionEntryContext == null &&
+      !canResumeCurrentAttempt &&
+      (setQuota?.disabled || setQuota?.atLimit)
+    ) {
       openQuotaLimit(quotaPayloadFromUsage(setQuota), {
         dismissAction: {
           label: "Dismiss",

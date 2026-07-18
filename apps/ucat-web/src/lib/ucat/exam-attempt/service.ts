@@ -1230,7 +1230,9 @@ export async function beginExamAttempt(
   });
 
   if (input.kind === "set") {
-    const quotaCheck = await checkQuotaForAction(admin, studentId, "sets");
+    const quotaCheck = await checkQuotaForAction(admin, studentId, "sets", {
+      questionSetId: input.resourceId,
+    });
     if (!quotaCheck.allowed) {
       throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(quotaCheck.payload)}`);
     }
@@ -1281,7 +1283,9 @@ export async function beginExamAttempt(
   }
 
   if (input.kind === "mock") {
-    const quotaCheck = await checkQuotaForAction(admin, studentId, "mocks");
+    const quotaCheck = await checkQuotaForAction(admin, studentId, "mocks", {
+      mockId: input.resourceId,
+    });
     if (!quotaCheck.allowed) {
       throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(quotaCheck.payload)}`);
     }

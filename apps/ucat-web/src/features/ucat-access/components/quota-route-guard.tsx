@@ -35,6 +35,10 @@ export function QuotaRouteGuard() {
   const lastOpenedKeyRef = useRef<string | null>(null);
 
   const route = useMemo<BlockedQuotaRoute | null>(() => {
+    // Session-linked launches are validated against the student's in-person
+    // enrollment by the server-side quota check.
+    if (searchParams.has("session")) return null;
+
     if (isSetEngineRoute(pathname)) {
       const setId = getSearchValue(searchParams, ["setId", "id"]);
       const isCurrentAttempt =

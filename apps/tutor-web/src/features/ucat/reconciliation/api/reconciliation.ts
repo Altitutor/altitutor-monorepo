@@ -37,16 +37,6 @@ export type PrivateStemNotInSet = {
   questions: Array<{ id: string; question_text: unknown; index: number; answer_options?: Array<{ answer_text?: unknown }> }>
 }
 
-export type PendingGeneratedStem = {
-  id: string
-  sectionId: string
-  sectionName: string
-  categoryId: string | null
-  categoryName: string | null
-  stemText: unknown
-  questions: Array<{ id: string; question_text: unknown; index: number; answer_options?: Array<{ answer_text?: unknown }> }>
-}
-
 export type SetReconciliationRow = {
   id: string
   name: string
@@ -98,7 +88,6 @@ export type PotentialDuplicatePair = {
 }
 
 export type ReconciliationData = {
-  pendingGeneratedStems: PendingGeneratedStem[]
   stemsWithNoCategory: StemWithNoCategory[]
   questionsWithNoExplanation: QuestionWithNoExplanation[]
   untaggedQuestions: UntaggedQuestion[]

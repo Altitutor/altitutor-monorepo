@@ -16,12 +16,14 @@ import {
 } from '@/features/ucat/shared/pdf/UcatQuestionExportDocument'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { simplifyPdfGroups } from '@/features/ucat/shared/pdf/simplify-content'
+import { embedPdfImageSource } from '@/features/ucat/shared/pdf/image-sources'
 
 export const runtime = 'nodejs'
 
 const OptionsSchema = z.object({
   includeAnswers: z.boolean(),
   repeatStems: z.boolean(),
+  avoidQuestionPageBreaks: z.boolean().default(true),
 })
 
 const BodySchema = z.discriminatedUnion('kind', [
@@ -71,10 +73,48 @@ function collectRichDocuments(stems: UcatPdfStem[]) {
     .filter((value): value is Json => value != null)
 }
 
+function collectInlineImageSources(documents: Json[]) {
+  const sources = new Set<string>()
+  function walk(node: Record<string, unknown>) {
+    if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
+      const src = (node.attrs as Record<string, unknown>).src
+      if (typeof src === 'string' && src.startsWith('data:image/')) sources.add(src)
+    }
+    if (Array.isArray(node.content)) {
+      for (const child of node.content) {
+        if (child && typeof child === 'object' && !Array.isArray(child)) walk(child as Record<string, unknown>)
+      }
+    }
+  }
+  for (const value of documents) {
+    const doc = asRichDoc(value)
+    if (doc) walk(doc)
+  }
+  return sources
+}
+
+function applyEmbeddedSources(doc: Record<string, unknown>, sourceMap: Map<string, string>) {
+  const result = JSON.parse(JSON.stringify(doc)) as Record<string, unknown>
+  function walk(node: Record<string, unknown>) {
+    if (node.type === 'image' && node.attrs && typeof node.attrs === 'object') {
+      const attrs = node.attrs as Record<string, unknown>
+      if (typeof attrs.src === 'string') attrs.src = sourceMap.get(attrs.src) ?? attrs.src
+    }
+    if (Array.isArray(node.content)) {
+      for (const child of node.content) {
+        if (child && typeof child === 'object' && !Array.isArray(child)) walk(child as Record<string, unknown>)
+      }
+    }
+  }
+  walk(result)
+  return result
+}
+
 async function refreshImageUrls(stems: UcatPdfStem[]): Promise<UcatPdfStem[]> {
   const documents = collectRichDocuments(stems)
   const paths = new Set<string>()
   const fileIds = new Set<string>()
+  const inlineSources = collectInlineImageSources(documents)
 
   for (const value of documents) {
     const doc = asRichDoc(value)
@@ -84,7 +124,7 @@ async function refreshImageUrls(stems: UcatPdfStem[]): Promise<UcatPdfStem[]> {
     refs.fileIds.forEach((fileId) => fileIds.add(fileId))
   }
 
-  if (paths.size === 0 && fileIds.size === 0) return stems
+  if (paths.size === 0 && fileIds.size === 0 && inlineSources.size === 0) return stems
 
   const admin = getServiceRoleClient()
   const pathByFileId = new Map<string, string>()
@@ -98,26 +138,34 @@ async function refreshImageUrls(stems: UcatPdfStem[]): Promise<UcatPdfStem[]> {
       if (file.bucket === 'ucat-images' && file.storage_path) pathByFileId.set(file.id, file.storage_path)
     }
   }
+  const unresolvedFileIds = [...fileIds].filter((fileId) => !pathByFileId.has(fileId))
+  if (unresolvedFileIds.length > 0) throw new Error('One or more embedded images are no longer available.')
 
   const allPaths = [...new Set([...paths, ...pathByFileId.values()])]
   const signedEntries = await Promise.all(
     allPaths.map(async (path) => {
       const { data, error } = await admin.storage.from('ucat-images').createSignedUrl(path, 900)
-      if (error || !data?.signedUrl) return [path, ''] as const
-      return [path, data.signedUrl] as const
+      if (error || !data?.signedUrl) throw error ?? new Error('Could not load an embedded image.')
+      return [path, await embedPdfImageSource(data.signedUrl)] as const
     }),
   )
-  const pathToUrl = new Map(signedEntries.filter((entry) => entry[1]))
+  const pathToUrl = new Map(signedEntries)
   const fileIdToUrl = new Map(
     [...pathByFileId].flatMap(([fileId, path]) => {
       const url = pathToUrl.get(path)
       return url ? [[fileId, url] as const] : []
     }),
   )
+  const inlineEntries = await Promise.all(
+    [...inlineSources].map(async (source) => [source, await embedPdfImageSource(source)] as const),
+  )
+  const inlineSourceMap = new Map(inlineEntries)
 
   const refresh = (value: Json | null): Json | null => {
     const doc = asRichDoc(value)
-    return doc ? (applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl) as Json) : value
+    if (!doc) return value
+    const withStoredImages = applySignedUrlsToDoc(doc, pathToUrl, fileIdToUrl)
+    return applyEmbeddedSources(withStoredImages, inlineSourceMap) as Json
   }
 
   return stems.map((stem) => ({
@@ -191,7 +239,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'One or more question stems are no longer available.' }, { status: 409 })
   }
 
-  const stems = await refreshImageUrls(rawStems).catch(() => rawStems)
+  let stems: UcatPdfStem[]
+  try {
+    stems = await refreshImageUrls(rawStems)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Could not prepare embedded images for export.' },
+      { status: 422 },
+    )
+  }
   const stemById = new Map(stems.map((stem) => [stem.id, stem]))
   const groups: UcatPdfGroup[] = requestedGroups.map((group) => ({
     id: group.id,
@@ -208,29 +264,22 @@ export async function POST(request: NextRequest) {
       groups={renderGroups}
       includeAnswers={parsed.data.options.includeAnswers}
       repeatStems={parsed.data.options.repeatStems}
+      avoidQuestionPageBreaks={parsed.data.options.avoidQuestionPageBreaks}
       notice={notice}
     />,
   )
 
   try {
-    let mode: 'rich' | 'simplified' | 'text-only' = 'rich'
+    let mode: 'rich' | 'simplified' = 'rich'
     let buffer: Buffer
     try {
       buffer = await render(groups)
     } catch {
       mode = 'simplified'
-      try {
-        buffer = await render(
-          simplifyPdfGroups(groups, true),
-          'Rich formatting was simplified to keep this document printable.',
-        )
-      } catch {
-        mode = 'text-only'
-        buffer = await render(
-          simplifyPdfGroups(groups, false),
-          'Rich formatting and images were omitted because an embedded asset could not be rendered.',
-        )
-      }
+      buffer = await render(
+        simplifyPdfGroups(groups, true),
+        'Rich formatting was simplified to keep this document printable.',
+      )
     }
 
     return new Response(new Uint8Array(buffer), {
