@@ -40,7 +40,7 @@ WITH candidates AS (
   JOIN public.ucat_student_study_plan_tasks AS source
     ON source.generation_id = review.generation_id
    AND source.student_id = review.student_id
-   AND source.scheduled_date = review.launch_config->>'sourceTaskScheduledDate'
+   AND source.scheduled_date::TEXT = review.launch_config->>'sourceTaskScheduledDate'
    AND source.sort_order = (review.launch_config->>'sourceTaskSortOrder')::INTEGER
    AND source.task_type IN ('practice', 'section_benchmark', 'mock')
   WHERE review.task_type = 'review'
@@ -119,10 +119,6 @@ WHERE generation.id = review.generation_id
   AND review.source_task_id IS NULL;
 
 CREATE UNIQUE INDEX idx_ucat_student_study_plan_tasks_one_review_per_source
-  ON public.ucat_student_study_plan_tasks (source_task_id)
-  WHERE source_task_id IS NOT NULL;
-
-CREATE INDEX idx_ucat_student_study_plan_tasks_source
   ON public.ucat_student_study_plan_tasks (source_task_id)
   WHERE source_task_id IS NOT NULL;
 
