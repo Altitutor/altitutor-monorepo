@@ -230,14 +230,30 @@ async function upsertAttachments(
   if (error) throw error;
 }
 
+/** Reconciliation overlap re-emits recent live traffic; only older catch-up is historical. */
+const HISTORICAL_IMPORT_AGE_MS = 10 * 60 * 1000;
+
+function isHistoricalImportEvent(
+  sourceEventType: string,
+  messageDateIso: string,
+): boolean {
+  if (sourceEventType !== "reconciliation-message") return false;
+  const ts = Date.parse(messageDateIso);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() - ts >= HISTORICAL_IMPORT_AGE_MS;
+}
+
 async function processMessage(
   supabase: SupabaseClient,
   owned: OwnedNumber,
   event: ParsedIMessageEvent,
 ): Promise<void> {
   const message = normalizeMessage(event);
-  const isHistoricalImport =
-    event.sourceEventType === "reconciliation-message";
+  const fromLiveWebhook = event.sourceEventType === "new-message";
+  const isHistoricalImport = isHistoricalImportEvent(
+    event.sourceEventType,
+    message.date,
+  );
   const statusUpdatedAt = message.readAt ?? message.deliveredAt ?? message.date;
   const conversationId = await ensureMessageConversation(
     supabase,
@@ -270,9 +286,15 @@ async function processMessage(
 
   const incomingStatus = message.status;
   let messageId: string;
+  const isNewRow = !existing;
   if (existing) {
     messageId = String(existing.id);
     const status = monotonicStatus(String(existing.status), incomingStatus);
+    // Never upgrade a live row to historical via reconciliation overlap.
+    // Live webhooks clear the flag if a missed webhook arrives after catch-up.
+    const nextHistorical = fromLiveWebhook
+      ? false
+      : existing.is_historical_import === true;
     const { error } = await supabase.from("messages").update({
       imessage_guid: message.guid,
       imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
@@ -287,8 +309,7 @@ async function processMessage(
       provider_error_at: status === "FAILED" ? message.date : undefined,
       error_message: status === "FAILED" ? "iMessage delivery failed" : null,
       provider_error_code: status === "FAILED" ? message.errorCode : null,
-      is_historical_import: isHistoricalImport ||
-        existing.is_historical_import === true,
+      is_historical_import: nextHistorical,
     }).eq("id", messageId);
     if (error) throw error;
   } else {
@@ -330,24 +351,26 @@ async function processMessage(
   const { error: conversationError } = await supabase.from("conversations")
     .update({
       last_message_at: message.date,
-    }).eq("id", conversationId).lt("last_message_at", message.date);
+    }).eq("id", conversationId).or(
+      `last_message_at.is.null,last_message_at.lt."${message.date}"`,
+    );
   if (conversationError) throw conversationError;
 
-  // Historical imports (inbound or outbound) must not inflate unread.
-  // Live inbound new-message clears read state.
-  if (
-    isHistoricalImport ||
-    (!message.isFromMe && event.sourceEventType === "new-message")
-  ) {
-    const { error: readStateError } = await supabase.rpc(
-      "sync_imessage_message_read_state",
-      {
-        p_conversation_id: conversationId,
-        p_message_id: messageId,
-        p_historical: isHistoricalImport,
-      },
-    );
-    if (readStateError) throw readStateError;
+  if (!message.isFromMe) {
+    // New inserts sync unread/historical read state. Reconciliation updates of
+    // already-imported rows must not re-mark chats read. Late live webhooks
+    // clear unread after a prior historical insert.
+    if (isNewRow || fromLiveWebhook) {
+      const { error: readStateError } = await supabase.rpc(
+        "sync_imessage_message_read_state",
+        {
+          p_conversation_id: conversationId,
+          p_message_id: messageId,
+          p_historical: isNewRow ? isHistoricalImport : false,
+        },
+      );
+      if (readStateError) throw readStateError;
+    }
   }
 }
 

@@ -895,8 +895,14 @@ export function MessageThread({
                           <ImessageMessageActions
                             messageId={m.id}
                             conversationId={m.conversation_id}
+                            contactId={contactId}
                             imessageGuid={m.imessage_guid}
-                            body={m.body}
+                            body={(m.body ?? '')
+                              .replace(/\uFFFC/g, '')
+                              .replace(/OBJ/gi, '')
+                              .trim()}
+                            sentAt={m.sent_at}
+                            createdAt={m.created_at}
                             isOwnMessage={direction === 'OUTBOUND'}
                             showCreateIssue={!hideAddIssueHover}
                             matchedIssues={matchedIssues}
