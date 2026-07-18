@@ -12,10 +12,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("https://altitutor.com/ucat/"), 308);
-  }
-
   // PKCE magic links: do not run Supabase session logic here. getUser() refreshes cookies and
   // can clear PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
   if (pathname === "/auth/callback") {

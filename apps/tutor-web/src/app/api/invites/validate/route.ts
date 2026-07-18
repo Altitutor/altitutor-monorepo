@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
     if (staffError) {
       // eslint-disable-next-line no-console
       console.error('[TUTOR INVITE VALIDATE] Error validating staff invite token:', staffError);
+      captureApiError(staffError, "/api/invites/validate");
       return NextResponse.json(
         { error: 'Failed to validate token' },
         { status: 500 }
@@ -62,6 +64,7 @@ export async function GET(request: NextRequest) {
       { status: 404 }
     );
   } catch (error) {
+    captureApiError(error, "/api/invites/validate");
     // eslint-disable-next-line no-console
     console.error('Unexpected error validating invite token:', error);
     return NextResponse.json(

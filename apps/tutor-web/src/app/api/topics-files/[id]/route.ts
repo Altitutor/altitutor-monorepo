@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -29,6 +30,7 @@ export async function PATCH(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/topics-files/[id]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -51,6 +53,7 @@ export async function PATCH(
     
     if (topicsFileError) {
       console.error('Error checking topics_file access:', topicsFileError);
+      captureApiError(topicsFileError, "/api/topics-files/[id]");
       return NextResponse.json(
         { error: 'Failed to verify topics_file access' },
         { status: 500 }
@@ -92,6 +95,7 @@ export async function PATCH(
     
     if (error) {
       console.error('Error updating topics_file:', error);
+      captureApiError(error, "/api/topics-files/[id]");
       return NextResponse.json(
         { error: 'Failed to update topics_file' },
         { status: 500 }
@@ -105,6 +109,7 @@ export async function PATCH(
     });
     
   } catch (error) {
+    captureApiError(error, "/api/topics-files/[id]");
     console.error('Error in PATCH /api/topics-files/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

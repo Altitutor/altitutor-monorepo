@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { startCodexDeviceFlow } from '@/features/ucat-generation-settings/server/codex-oauth';
@@ -36,6 +37,7 @@ export async function POST() {
     const flow = await startCodexDeviceFlow();
     return NextResponse.json(flow);
   } catch (error) {
+    captureApiError(error, "/api/ucat-generation/codex-oauth/start");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to start Codex OAuth' },
       { status: 500 },

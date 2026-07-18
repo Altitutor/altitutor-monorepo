@@ -16,6 +16,7 @@ import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
+import { formatSpeedMultiplier } from "@/features/progress/lib/format-speed-multiplier";
 
 const DEFAULT_QUESTION_COUNT = 20;
 
@@ -337,7 +338,7 @@ export function usePracticeFilters(options: UsePracticeFiltersOptions = {}) {
             : "—"
           : input.timeMode === "speed"
             ? speedTimeMinutes != null
-              ? `${speedTimeMinutes} min (${Math.round(input.timeSpeedMultiplier * 100)}% exam speed)`
+              ? `${speedTimeMinutes} min (${formatSpeedMultiplier(input.timeSpeedMultiplier)} exam speed)`
               : "—"
             : input.customTimeMinutes != null
               ? `${input.customTimeMinutes} min (custom)`

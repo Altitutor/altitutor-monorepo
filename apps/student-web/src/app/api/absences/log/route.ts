@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@altitutor/shared';
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
 
     if (studentCheckError) {
       console.error('Error checking student status:', studentCheckError);
+      captureApiError(studentCheckError, "/api/absences/log");
       return NextResponse.json(
         { error: 'Failed to verify student status' },
         { status: 500 }
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
 
     if (studentIdError || !studentId) {
       console.error('Error getting student ID:', studentIdError);
+      captureApiError(studentIdError, "/api/absences/log");
       return NextResponse.json(
         { error: 'Failed to get student ID' },
         { status: 500 }
@@ -75,6 +78,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Error calling log_student_absences_self RPC:', error);
+      captureApiError(error, "/api/absences/log");
       return NextResponse.json(
         { error: error.message || 'Failed to log absences' },
         { status: 500 }
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
+    captureApiError(error, "/api/absences/log");
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     console.error('Unexpected error in log absences API route:', error);
     return NextResponse.json(

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -54,6 +56,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
     
     if (sessionError) {
       console.error('Error checking session access:', sessionError);
+      captureApiError(sessionError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to verify session access' },
         { status: 500 }
@@ -103,6 +107,7 @@ export async function POST(request: NextRequest) {
     
     if (existingLogError) {
       console.error('Error checking existing log:', existingLogError);
+      captureApiError(existingLogError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to check for existing log' },
         { status: 500 }
@@ -184,6 +189,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error calling create_tutor_log RPC:', error);
+      captureApiError(error, "/api/tutor-logs");
       return NextResponse.json(
         { error: error.message || 'Failed to create tutor log' },
         { status: 500 }
@@ -211,6 +217,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    captureApiError(error, "/api/tutor-logs");
     console.error('Unexpected error in POST /api/tutor-logs:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },

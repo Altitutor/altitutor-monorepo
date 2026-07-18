@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('Failed to update invite token:', updateError);
+        captureApiError(updateError, "/api/students/send-registration-invite");
         return NextResponse.json(
           { error: `Failed to generate invite token: ${updateError.message}` },
           { status: 500 }
@@ -477,6 +479,7 @@ export async function POST(request: NextRequest) {
           attachments: attachments.length > 0 ? attachments : undefined,
         });
       } catch (error) {
+        captureApiError(error, "/api/students/send-registration-invite");
         const errorMsg = `Failed to send email to ${recipient.email}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error('Failed to send email:', errorMsg, error);
         return NextResponse.json(
@@ -514,6 +517,7 @@ export async function POST(request: NextRequest) {
           if (createContactError || !newContact) {
             const errorMsg = `Failed to create contact: ${createContactError?.message || 'Unknown error'}`;
             console.error('Failed to create contact:', createContactError);
+            captureApiError(createContactError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -554,6 +558,7 @@ export async function POST(request: NextRequest) {
           if (ownedError || !data) {
             const errorMsg = `No owned number found: ${ownedError?.message || 'Unknown error'}`;
             console.error('No owned number found:', ownedError);
+            captureApiError(ownedError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -586,6 +591,7 @@ export async function POST(request: NextRequest) {
           if (convoCreateError || !newConvo) {
             const errorMsg = `Failed to create conversation: ${convoCreateError?.message || 'Unknown error'}`;
             console.error('Failed to create conversation:', convoCreateError);
+            captureApiError(convoCreateError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -622,6 +628,7 @@ export async function POST(request: NextRequest) {
         if (messageError || !message) {
           const errorMsg = `Failed to create message: ${messageError?.message || 'Unknown error'}`;
           console.error('Failed to create message:', messageError);
+          captureApiError(messageError, "/api/students/send-registration-invite");
           return NextResponse.json(
             { error: errorMsg },
             { status: 500 }
@@ -660,6 +667,7 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (smsError) {
+        captureApiError(smsError, "/api/students/send-registration-invite");
         const errorMsg = `Exception sending SMS to ${recipient.phone}: ${smsError instanceof Error ? smsError.message : 'Unknown error'}`;
         console.error('Exception sending SMS:', smsError);
         return NextResponse.json(
@@ -676,6 +684,7 @@ export async function POST(request: NextRequest) {
       message: shouldSendEmail || shouldSendSms ? 'Registration invite sent successfully' : 'Registration link generated',
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/students/send-registration-invite");
     console.error('Unexpected error sending registration invite:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

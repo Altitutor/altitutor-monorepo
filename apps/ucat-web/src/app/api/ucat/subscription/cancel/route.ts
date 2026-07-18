@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ cancelAt: cancellationDate(updated) });
   } catch (error) {
+    captureApiError(error, "/api/ucat/subscription/cancel");
     console.error(
       "[ucat subscription cancellation] Stripe error:",
       error instanceof Error ? error.message : String(error),
@@ -147,6 +149,7 @@ export async function DELETE() {
     );
     return NextResponse.json({ cancelAt: cancellationDate(updated) });
   } catch (error) {
+    captureApiError(error, "/api/ucat/subscription/cancel");
     console.error(
       "[ucat subscription resume] Stripe error:",
       error instanceof Error ? error.message : String(error),
@@ -226,6 +229,7 @@ export async function PUT() {
 
     return NextResponse.json({ cancelAt: canceledAt });
   } catch (error) {
+    captureApiError(error, "/api/ucat/subscription/cancel");
     console.error(
       "[ucat immediate subscription cancellation] Stripe error:",
       error instanceof Error ? error.message : String(error),

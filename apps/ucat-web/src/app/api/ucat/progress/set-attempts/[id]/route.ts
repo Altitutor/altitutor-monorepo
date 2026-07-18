@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
@@ -92,6 +93,7 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -108,6 +110,7 @@ export async function GET(
     .maybeSingle();
 
   if (attemptError) {
+    captureApiError(attemptError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: attemptError.message }, { status: 500 });
   }
 
@@ -151,6 +154,7 @@ export async function GET(
   const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
 

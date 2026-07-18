@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     .select('id, class_id, classes(id, short_name, long_name)')
     .eq('student_id', studentId)
     .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/exit-requests", NextResponse.json({ error: error.message }, { status: 500 }));
   const classIds = (enrolments ?? []).map((row) => row.class_id);
   const { data: sessions } = classIds.length
     ? await admin.from('sessions').select('id, class_id, start_at, short_name, long_name').in('class_id', classIds).gte('start_at', new Date().toISOString()).order('start_at')
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
       .eq('student_id', body.studentId)
       .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
     if (activeStudentEnrolmentsError) {
+      captureApiError(activeStudentEnrolmentsError, "/api/forms/exit-requests");
       return NextResponse.json({ error: activeStudentEnrolmentsError.message }, { status: 500 });
     }
     ids = (activeStudentEnrolments ?? []).map((row) => row.id);
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
     expires_at: expiresAt,
     created_by: auth.staffId,
   }).select('id').single();
-  if (tokenError) return NextResponse.json({ error: tokenError.message }, { status: 500 });
+  if (tokenError) return captureApiErrorResponse(tokenError, "/api/forms/exit-requests", NextResponse.json({ error: tokenError.message }, { status: 500 }));
   const { data: exitRequest, error: requestError } = await admin.from('student_exit_requests').insert({
     workflow_key: body.workflowKey,
     student_id: body.studentId,
@@ -137,7 +139,7 @@ export async function POST(request: Request) {
     requested_by: auth.staffId,
     expires_at: expiresAt,
   }).select('id').single();
-  if (requestError) return NextResponse.json({ error: requestError.message }, { status: 500 });
+  if (requestError) return captureApiErrorResponse(requestError, "/api/forms/exit-requests", NextResponse.json({ error: requestError.message }, { status: 500 }));
   const requestEnrolments = body.workflowKey === 'student_discontinuation'
     ? ids.map((classesStudentsId) => ({ classesStudentsId, finalSessionAt: null, unenrolledAt: null }))
     : targetedClassesStudentsId
@@ -151,6 +153,6 @@ export async function POST(request: Request) {
       unenrolled_at: row.unenrolledAt ?? null,
     })),
   ) : { error: null };
-  if (enrolmentError) return NextResponse.json({ error: enrolmentError.message }, { status: 500 });
+  if (enrolmentError) return captureApiErrorResponse(enrolmentError, "/api/forms/exit-requests", NextResponse.json({ error: enrolmentError.message }, { status: 500 }));
   return NextResponse.json({ request: exitRequest, token, url: studentFormUrl(token), expiresAt });
 }

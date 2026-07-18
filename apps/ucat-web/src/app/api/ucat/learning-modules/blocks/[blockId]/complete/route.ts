@@ -1,9 +1,11 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import {
   recalculateLessonProgress,
   upsertBlockProgress,
 } from "@/lib/ucat/learning/progress-service";
+import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
 
 type RouteContext = { params: Promise<{ blockId: string }> };
 
@@ -20,6 +22,10 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(
+      blockError,
+      "/api/ucat/learning-modules/blocks/[blockId]/complete",
+    );
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (!block) {
@@ -31,15 +37,32 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       manuallyCompleted: true,
       completed: true,
     });
-    await recalculateLessonProgress(
+    const progress = await recalculateLessonProgress(
       auth.admin,
       auth.studentId,
       block.learning_module_id,
     );
+    if (progress.newlyCompleted) {
+      await captureUcatLearningActivityCompleted({
+        userId: auth.userId,
+        activityType: "lesson",
+        activityId: block.learning_module_id,
+        properties: { completion_source: "lesson_block_manual" },
+      });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
+    captureApiError(
+      error,
+      "/api/ucat/learning-modules/blocks/[blockId]/complete",
+    );
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to mark block complete" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to mark block complete",
+      },
       { status: 500 },
     );
   }

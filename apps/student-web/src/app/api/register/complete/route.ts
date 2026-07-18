@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
 
     if (pmError) {
       console.error('Error checking payment methods:', pmError);
+      captureApiError(pmError, "/api/register/complete");
       return NextResponse.json(
         { error: 'Failed to verify payment method' },
         { status: 500 }
@@ -214,6 +216,7 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('Database function error:', dbError);
+      captureApiError(dbError, "/api/register/complete");
       return NextResponse.json(
         { error: `Registration failed: ${dbError.message}` },
         { status: 500 }
@@ -257,6 +260,7 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('Failed to verify student update:', updateError);
+        captureApiError(updateError, "/api/register/complete");
         return NextResponse.json(
           { error: 'Failed to verify registration' },
           { status: 500 }
@@ -304,6 +308,7 @@ export async function POST(request: NextRequest) {
       // Note: The database function already updated the student, but we can't rollback
       // In a real scenario, we might want to revert the student status
       // For now, we'll return an error and the student can try again with a new token
+      captureApiError(createAuthError, "/api/register/complete");
       return NextResponse.json(
         { error: `Failed to create account: ${createAuthError.message}` },
         { status: 500 }
@@ -361,6 +366,7 @@ export async function POST(request: NextRequest) {
       redirectTo: '/dashboard',
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/register/complete");
     console.error('Unexpected error completing registration:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

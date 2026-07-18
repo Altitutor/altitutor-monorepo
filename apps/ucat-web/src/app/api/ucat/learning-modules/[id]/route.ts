@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
@@ -22,6 +23,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (moduleError) {
+    captureApiError(moduleError, "/api/ucat/learning-modules/[id]");
     return NextResponse.json({ error: moduleError.message }, { status: 500 });
   }
   if (!module || module.kind !== "lesson") {
@@ -45,6 +47,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .order("index", { ascending: true });
 
   if (blocksError) {
+    captureApiError(blocksError, "/api/ucat/learning-modules/[id]");
     return NextResponse.json({ error: blocksError.message }, { status: 500 });
   }
 

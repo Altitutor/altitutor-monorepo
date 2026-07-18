@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPayTiers } from '@/features/pay-tiers/server/payTierService';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
@@ -9,6 +10,7 @@ export async function GET() {
     const tiers = await fetchPayTiers(auth.admin);
     return NextResponse.json({ tiers });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers");
     console.error('GET pay-tiers:', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to load tiers' },
@@ -40,9 +42,10 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/pay-tiers", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ tier: data });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers");
     console.error('POST pay-tiers:', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to create tier' },

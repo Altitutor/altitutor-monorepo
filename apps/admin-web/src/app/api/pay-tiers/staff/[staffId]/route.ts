@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchStaffTierProgress } from '@/features/pay-tiers/server/payTierService';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
@@ -12,6 +13,7 @@ export async function GET(
     const progress = await fetchStaffTierProgress(auth.admin, params.staffId);
     return NextResponse.json({ progress });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers/staff/[staffId]");
     console.error('GET pay-tiers/staff:', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to load progress' },
@@ -45,11 +47,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
   const { error } = await auth.admin.from('staff').update(updates).eq('id', params.staffId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/staff/[staffId]", NextResponse.json({ error: error.message }, { status: 500 }));
   try {
     const progress = await fetchStaffTierProgress(auth.admin, params.staffId);
     return NextResponse.json({ progress });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers/staff/[staffId]");
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Updated but failed to reload progress' },
       { status: 500 }

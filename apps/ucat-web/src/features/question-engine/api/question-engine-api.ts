@@ -38,6 +38,21 @@ type MockDetailRow = {
   sets: MockSetMeta[];
 };
 
+type SetEnginePayload = {
+  source_type: "set";
+  set_detail: SetDetailRow;
+  stem_details: StemDetailRow[];
+};
+
+type MockEnginePayload = {
+  source_type: "mock";
+  mock_detail: MockDetailRow;
+  sets: Array<{
+    set_detail: SetDetailRow;
+    stem_details: StemDetailRow[];
+  }>;
+};
+
 type StemDetailQuestion = {
   id: string;
   question_text: unknown;
@@ -200,128 +215,38 @@ function mapSetToQuestions(
   return questions;
 }
 
-async function loadSetDetail(setId: string): Promise<SetDetailRow> {
+async function loadEnginePayload(
+  sourceType: DbQuestionEngineMode,
+  sourceId: string,
+): Promise<SetEnginePayload | MockEnginePayload> {
   const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => {
-          maybeSingle: () => Promise<{
-            data: SetDetailRow | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
+    rpc: (
+      fn: string,
+      args: { p_source_type: DbQuestionEngineMode; p_source_id: string },
+    ) => Promise<{
+      data: SetEnginePayload | MockEnginePayload | null;
+      error: { message: string } | null;
+    }>;
   };
+  const { data, error } = await supabase.rpc(
+    "get_student_ucat_question_engine_payload",
+    { p_source_type: sourceType, p_source_id: sourceId },
+  );
 
-  const { data, error } = await supabase
-    .from("vstudent_ucat_question_set_detail")
-    .select("id,name,description,time_limit_seconds,stems")
-    .eq("id", setId)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load question set detail");
-  }
-
-  return data;
-}
-
-async function loadSetDetails(setIds: string[]): Promise<SetDetailRow[]> {
-  if (setIds.length === 0) return [];
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        in: (
-          column: string,
-          values: string[],
-        ) => Promise<{
-          data: SetDetailRow[] | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-  };
-  const { data, error } = await supabase
-    .from("vstudent_ucat_question_set_detail")
-    .select("id,name,description,time_limit_seconds,stems")
-    .in("id", setIds);
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load question set details");
-  }
-  return data;
-}
-
-async function loadStemDetails(stemIds: string[]): Promise<StemDetailRow[]> {
-  if (stemIds.length === 0) {
-    return [];
-  }
-
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        in: (
-          column: string,
-          values: string[],
-        ) => Promise<{
-          data: StemDetailRow[] | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-  };
-
-  const { data, error } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
-    .select(
-      "id,section_name,display_columns,section_instructions_text,section_instructions_time_limit_seconds,section_time_limit_seconds,stem_text,questions",
-    )
-    .in("id", stemIds);
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load question stem details");
-  }
-
-  return data;
-}
-
-async function loadMockDetail(mockId: string): Promise<MockDetailRow> {
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => {
-          maybeSingle: () => Promise<{
-            data: MockDetailRow | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
-  };
-
-  const { data, error } = await supabase
-    .from("vstudent_ucat_mock_detail")
-    .select("id,name,instructions_text,sets")
-    .eq("id", mockId)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load mock detail");
+  if (error || !data || data.source_type !== sourceType) {
+    throw new Error(error?.message ?? `Unable to load ${sourceType} detail`);
   }
 
   return data;
 }
 
 async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
-  const setDetail = await loadSetDetail(setId);
-  const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id);
-  const stemDetails = await loadStemDetails(stemIds);
+  const payload = await loadEnginePayload("set", setId);
+  if (payload.source_type !== "set") {
+    throw new Error("Unable to load question set detail");
+  }
+  const setDetail = payload.set_detail;
+  const stemDetails = payload.stem_details;
 
   const title =
     extractTextFromRichJson(setDetail.name as JsonLike) ||
@@ -373,29 +298,23 @@ type SetPayloadWithTiming = {
 };
 
 async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
-  const mockDetail = await loadMockDetail(mockId);
+  const payload = await loadEnginePayload("mock", mockId);
+  if (payload.source_type !== "mock") {
+    throw new Error("Unable to load mock detail");
+  }
+  const mockDetail = payload.mock_detail;
   const setIds = (mockDetail.sets || []).map((set) => set.id) as string[];
-
-  const setDetails = await loadSetDetails(setIds);
-  const setDetailById = new Map(setDetails.map((set) => [set.id, set]));
-  const allStemIds = [
-    ...new Set(
-      setDetails.flatMap((set) =>
-        (set.stems || []).map((stem) => stem.stem_id),
-      ),
-    ),
-  ];
-  const allStemDetails = await loadStemDetails(allStemIds);
-  const stemDetailById = new Map(allStemDetails.map((stem) => [stem.id, stem]));
+  const setPayloadById = new Map(
+    payload.sets.map((setPayload) => [setPayload.set_detail.id, setPayload]),
+  );
 
   const setPayloadsWithTiming = setIds.map((setId, idx) => {
-    const setDetail = setDetailById.get(setId);
-    if (!setDetail) {
+    const setPayload = setPayloadById.get(setId);
+    if (!setPayload) {
       throw new Error(`Unable to load question set detail: ${setId}`);
     }
-    const stemDetails = (setDetail.stems || [])
-      .map((stem) => stemDetailById.get(stem.stem_id))
-      .filter((stem): stem is StemDetailRow => stem != null);
+    const setDetail = setPayload.set_detail;
+    const stemDetails = setPayload.stem_details;
     const questions = mapSetToQuestions(setDetail, stemDetails);
     const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
     const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;

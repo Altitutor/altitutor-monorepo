@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
@@ -102,6 +103,7 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/ucat/progress/mock-attempts/[id]");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -118,6 +120,7 @@ export async function GET(
     .maybeSingle();
 
   if (mockError) {
+    captureApiError(mockError, "/api/ucat/progress/mock-attempts/[id]");
     return NextResponse.json({ error: mockError.message }, { status: 500 });
   }
 
@@ -153,6 +156,7 @@ export async function GET(
   const { data: setAttemptsRaw, error: setAttemptsError } = setAttemptsResult;
 
   if (setAttemptsError) {
+    captureApiError(setAttemptsError, "/api/ucat/progress/mock-attempts/[id]");
     return NextResponse.json(
       { error: setAttemptsError.message },
       { status: 500 },
@@ -175,6 +179,7 @@ export async function GET(
     .eq("is_submitted", true);
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/progress/mock-attempts/[id]");
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
 

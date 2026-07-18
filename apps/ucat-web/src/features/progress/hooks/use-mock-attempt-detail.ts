@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MockAttemptDetailResponse } from "@/app/api/ucat/progress/mock-attempts/[id]/route";
 
-async function fetchMockAttemptDetail(
+export async function fetchMockAttemptDetail(
   mockAttemptId: string,
 ): Promise<MockAttemptDetailResponse> {
   const res = await fetch(`/api/ucat/progress/mock-attempts/${mockAttemptId}`);
@@ -12,10 +12,14 @@ async function fetchMockAttemptDetail(
   return res.json();
 }
 
+export const mockAttemptDetailQueryKey = (mockAttemptId: string | null) =>
+  ["ucat", "progress", "mock-attempt", mockAttemptId] as const;
+
 export function useMockAttemptDetail(mockAttemptId: string | null) {
   return useQuery({
-    queryKey: ["ucat", "progress", "mock-attempt", mockAttemptId],
+    queryKey: mockAttemptDetailQueryKey(mockAttemptId),
     queryFn: () => fetchMockAttemptDetail(mockAttemptId!),
     enabled: !!mockAttemptId,
+    staleTime: 30_000,
   });
 }

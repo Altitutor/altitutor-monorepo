@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
     const data = await listAccessibleFlashcards(topicId);
     return NextResponse.json({ data });
   } catch (error) {
+    captureApiError(error, "/api/flashcards");
     const message = error instanceof Error ? error.message : 'Unable to fetch flashcards';
     return NextResponse.json({ error: message }, { status: message === 'Topic not accessible' ? 403 : 500 });
   }
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
 
   try {
     await persistTopicFlashcardOrder(
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
       insertIdAtIndex(siblings.map((card) => card.id), data.id, requestedIndex),
     );
   } catch (orderError) {
+    captureApiError(orderError, "/api/flashcards");
     const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
     return NextResponse.json({ error: message }, { status: 500 });
   }

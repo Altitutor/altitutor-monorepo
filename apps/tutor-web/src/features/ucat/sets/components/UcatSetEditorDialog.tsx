@@ -35,6 +35,9 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
+import { UcatSetPreviewContent } from '@/features/ucat/sets/components/UcatSetPreviewContent'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
+import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -77,6 +80,8 @@ export function UcatSetEditorDialog({
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [showAnswer, setShowAnswer] = useState(false)
 
   useEffect(() => {
     const current = detail.data
@@ -107,7 +112,11 @@ export function UcatSetEditorDialog({
   }, [detail.data])
 
   useEffect(() => {
-    if (!open) setActiveTextEditor(null)
+    if (!open) {
+      setActiveTextEditor(null)
+      setEditorMode('edit')
+      setShowAnswer(false)
+    }
   }, [open])
 
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
@@ -305,30 +314,27 @@ export function UcatSetEditorDialog({
         )
       : null
 
-  const headerActions =
-    setId != null
-      ? (
-          <UcatRowActions
-            actions={[
-              ...(copyIdAction ? [copyIdAction] : []),
-              {
-                label: 'Open in page',
-                href: `/ucat/sets/${setId}`,
-              },
-              ...(onDelete
-                ? [
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 className="h-4 w-4" />,
-                      onClick: onDelete,
-                      destructive: true,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        )
-      : null
+  const headerActions = setId != null ? (
+        <UcatRowActions
+          actions={[
+            ...(copyIdAction ? [copyIdAction] : []),
+            {
+              label: 'Open in page',
+              href: `/ucat/sets/${setId}`,
+            },
+            ...(onDelete
+              ? [
+                  {
+                    label: 'Delete',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: onDelete,
+                    destructive: true,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : null
 
   return (
     <>
@@ -336,65 +342,88 @@ export function UcatSetEditorDialog({
         open={open}
         onClose={handleRequestClose}
         title="Edit Set"
-        subtitle="Reorder stems and update set properties"
+        subtitle={
+          editorMode === 'edit'
+            ? 'Reorder stems and update set properties'
+            : 'Preview every question in this set'
+        }
         onSave={save}
         saveDisabled={!isDirty || !isTimeLimitValid || updateSet.isPending}
         isSaving={updateSet.isPending}
+        headerControls={
+          <UcatStemEditorHeaderControls
+            mode={editorMode}
+            onModeChange={setEditorMode}
+            showAnswer={showAnswer}
+            onShowAnswerChange={setShowAnswer}
+          />
+        }
         headerActions={headerActions}
         warningPills={warningPills}
         hideCancel
         defaultExpanded
-        richTextToolbarEditor={activeTextEditor}
+        mobileFullscreen
+        richTextToolbarEditor={editorMode === 'edit' ? activeTextEditor : null}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <UcatSetEditorContent
-          draftName={draftName}
-          draftDescription={draftDescription}
-          draftIsTimed={draftIsTimed}
-          draftTimeLimitMinutes={draftTimeLimitMinutes}
-          draftTimeLimitSeconds={draftTimeLimitSeconds}
-          draftTimeLimitSource={draftTimeLimitSource}
-          draftTimeLimitSpeed={draftTimeLimitSpeed}
-          draftPrivate={draftPrivate}
-          draftStemIds={draftStemIds}
-          setDraftStemIds={setDraftStemIds}
-          stemCatalog={stemCatalog as UcatStemCatalogItem[]}
-          search={search}
-          setSearch={setSearch}
-          filters={filters}
-          setFilters={setFilters}
-          filterDefinitions={filterDefinitions}
-          categoryPathLookup={categoryPathLookup}
-          filterSearchValues={{ question_set_id: setFilterSearch }}
-          onFilterSearchChange={(filterKey, value) => {
-            if (filterKey === 'question_set_id') setSetFilterSearch(value)
-          }}
-          stemCatalogLoading={stemCatalogQuery.isLoading}
-          onEditStem={(id) => setEditingStemId(id)}
-          onChangeName={setDraftName}
-          onChangeDescription={setDraftDescription}
-          onChangeIsTimed={(v) => {
-            setDraftIsTimed(v)
-            if (!v) {
-              setDraftTimeLimitMinutes('')
-              setDraftTimeLimitSeconds('')
-              setDraftTimeLimitSource('untimed')
-            }
-          }}
-          onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
-          onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
-          onChangeTimeLimitSource={setDraftTimeLimitSource}
-          onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
-          onChangePrivate={(value) => setDraftPrivate(value)}
-          onActiveTextEditorChange={setActiveTextEditor}
-          sections={(sectionsQuery.data ?? []).map((s) => ({
-            id: s.id ?? '',
-            name: s.name ?? null,
-            time_limit_seconds: s.time_limit_seconds ?? null,
-            time_per_question: s.time_per_question ?? null,
-            number_of_questions: s.number_of_questions ?? null,
-          }))}
-        />
+          {editorMode === 'edit' ? (
+            <UcatSetEditorContent
+              draftName={draftName}
+              draftDescription={draftDescription}
+              draftIsTimed={draftIsTimed}
+              draftTimeLimitMinutes={draftTimeLimitMinutes}
+              draftTimeLimitSeconds={draftTimeLimitSeconds}
+              draftTimeLimitSource={draftTimeLimitSource}
+              draftTimeLimitSpeed={draftTimeLimitSpeed}
+              draftPrivate={draftPrivate}
+              draftStemIds={draftStemIds}
+              setDraftStemIds={setDraftStemIds}
+              stemCatalog={stemCatalog as UcatStemCatalogItem[]}
+              search={search}
+              setSearch={setSearch}
+              filters={filters}
+              setFilters={setFilters}
+              filterDefinitions={filterDefinitions}
+              categoryPathLookup={categoryPathLookup}
+              filterSearchValues={{ question_set_id: setFilterSearch }}
+              onFilterSearchChange={(filterKey, value) => {
+                if (filterKey === 'question_set_id') setSetFilterSearch(value)
+              }}
+              stemCatalogLoading={stemCatalogQuery.isLoading}
+              onEditStem={(id) => setEditingStemId(id)}
+              onChangeName={setDraftName}
+              onChangeDescription={setDraftDescription}
+              onChangeIsTimed={(v) => {
+                setDraftIsTimed(v)
+                if (!v) {
+                  setDraftTimeLimitMinutes('')
+                  setDraftTimeLimitSeconds('')
+                  setDraftTimeLimitSource('untimed')
+                }
+              }}
+              onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
+              onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
+              onChangeTimeLimitSource={setDraftTimeLimitSource}
+              onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
+              onChangePrivate={(value) => setDraftPrivate(value)}
+              onActiveTextEditorChange={setActiveTextEditor}
+              sections={(sectionsQuery.data ?? []).map((s) => ({
+                id: s.id ?? '',
+                name: s.name ?? null,
+                time_limit_seconds: s.time_limit_seconds ?? null,
+                time_per_question: s.time_per_question ?? null,
+                number_of_questions: s.number_of_questions ?? null,
+              }))}
+            />
+          ) : (
+            <UcatSetPreviewContent
+              stemIds={draftStemIds}
+              stemCatalog={stemCatalog as UcatStemCatalogItem[]}
+              showAnswer={showAnswer}
+              isLoading={stemCatalogQuery.isLoading}
+              showDistribution
+            />
+          )}
         </div>
       </UcatDialogShell>
 

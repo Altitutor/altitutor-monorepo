@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@altitutor/shared';
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Error calling log_student_absences RPC:', error);
+      captureApiError(error, "/api/absences/log");
       return NextResponse.json(
         { error: error.message || 'Failed to log absences' },
         { status: 500 }
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
+    captureApiError(error, "/api/absences/log");
     console.error('Unexpected error in log absences API route:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },

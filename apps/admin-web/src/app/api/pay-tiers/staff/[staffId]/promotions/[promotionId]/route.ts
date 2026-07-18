@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getHighestEligiblePromotionTier,
@@ -115,6 +116,7 @@ export async function PATCH(
     })
     .eq('id', params.promotionId);
   if (updatePromoError) {
+    captureApiError(updatePromoError, "/api/pay-tiers/staff/[staffId]/promotions/[promotionId]");
     return NextResponse.json({ error: updatePromoError.message }, { status: 500 });
   }
 
@@ -131,6 +133,7 @@ export async function PATCH(
       .update({ current_tier_number: newStaffTier })
       .eq('id', params.staffId);
     if (tierError) {
+      captureApiError(tierError, "/api/pay-tiers/staff/[staffId]/promotions/[promotionId]");
       return NextResponse.json({ error: tierError.message }, { status: 500 });
     }
   }
@@ -145,6 +148,7 @@ export async function PATCH(
           : undefined,
     });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers/staff/[staffId]/promotions/[promotionId]");
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Review updated but failed to reload' },
       { status: 500 }

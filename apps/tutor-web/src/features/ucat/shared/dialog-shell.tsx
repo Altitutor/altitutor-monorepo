@@ -41,6 +41,7 @@ export function UcatDialogShell({
   isSaving,
   hideCancel = false,
   footerActions,
+  headerControls,
   headerActions,
   warningPills,
   defaultExpanded = false,
@@ -58,6 +59,8 @@ export function UcatDialogShell({
   isSaving?: boolean
   hideCancel?: boolean
   footerActions?: ReactNode
+  /** Primary mode controls shown immediately before the expand button. */
+  headerControls?: ReactNode
   headerActions?: ReactNode
   warningPills?: string[]
   defaultExpanded?: boolean
@@ -90,7 +93,7 @@ export function UcatDialogShell({
         )}
       >
         <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="flex flex-1 items-center gap-3">
               <Button variant="outline" size="icon" onClick={onClose} className={tutorBtnIconOutline}>
                 <X className="h-4 w-4" />
@@ -111,7 +114,8 @@ export function UcatDialogShell({
                 ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex w-full flex-shrink-0 items-center justify-end gap-2 sm:w-auto">
+              {headerControls ? headerControls : null}
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               {headerActions ? headerActions : null}
             </div>

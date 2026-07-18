@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -13,6 +14,24 @@ import {
   getPracticeQuotaStatusForStudent,
   quotaExceededResponse,
 } from "@/lib/ucat/quota/quota-service";
+
+type UnlimitedPracticeSessionRow = {
+  id: string;
+  stems_snapshot: Json | null;
+  prefetched_stem_snapshot: Json | null;
+  unlimited: boolean;
+  completed_at: string | null;
+  discarded_at: string | null;
+  expired_at: string | null;
+};
+
+function asStemSnapshot(value: Json | null): QuestionStemWithQuestions | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") return null;
+  const candidate = value as unknown as QuestionStemWithQuestions;
+  return typeof candidate.id === "string" && Array.isArray(candidate.questions)
+    ? candidate
+    : null;
+}
 
 /**
  * Fetches the next stem for unlimited practice mode.
@@ -100,15 +119,25 @@ export async function POST(request: NextRequest) {
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("student_practice_sessions")
-    .select("id, stems_snapshot, unlimited, completed_at")
+    .select(
+      "id, stems_snapshot, prefetched_stem_snapshot, unlimited, completed_at, discarded_at, expired_at",
+    )
     .eq("id", practiceSessionId)
     .eq("student_id", student.id)
     .maybeSingle();
 
   if (sessionError) {
+    captureApiError(sessionError, "/api/ucat/practice-stems/next");
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
-  if (!session || !session.unlimited || session.completed_at) {
+  const sessionRow = session as unknown as UnlimitedPracticeSessionRow | null;
+  if (
+    !sessionRow ||
+    !sessionRow.unlimited ||
+    sessionRow.completed_at ||
+    sessionRow.discarded_at ||
+    sessionRow.expired_at
+  ) {
     return NextResponse.json(
       { error: "Practice session not found" },
       { status: 404 },
@@ -133,10 +162,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const deliveredStems = Array.isArray(session.stems_snapshot)
-    ? (session.stems_snapshot as QuestionStemWithQuestions[])
+  const deliveredStems = Array.isArray(sessionRow.stems_snapshot)
+    ? (sessionRow.stems_snapshot as unknown as QuestionStemWithQuestions[])
     : [];
   const deliveredStemIds = deliveredStems.map((stem) => stem.id);
+  const prefetchedStem = asStemSnapshot(sessionRow.prefetched_stem_snapshot);
 
   if (body.deliverStemId) {
     const alreadyDelivered = deliveredStems.find(
@@ -146,32 +176,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ stem: alreadyDelivered });
     }
 
-    const { data: stemDetails, error: stemDetailsError } = await supabase
-      .from("vstudent_ucat_question_stem_detail")
-      .select("id,section_name,display_columns,stem_text,questions")
-      .eq("id", body.deliverStemId)
-      .maybeSingle();
-    if (stemDetailsError || !stemDetails) {
+    if (!prefetchedStem || prefetchedStem.id !== body.deliverStemId) {
       return NextResponse.json(
-        { error: stemDetailsError?.message ?? "Practice stem not found" },
-        { status: 404 },
+        { error: "Prefetched practice stem is no longer available" },
+        { status: 409 },
       );
     }
 
-    const stem = mapStemDetailToQuestionStemWithQuestions(
-      stemDetails as StemDetailRowFromDb,
-    );
     const { error: updateError } = await supabaseAdmin
       .from("student_practice_sessions")
       .update({
-        stems_snapshot: [...deliveredStems, stem] as unknown as Json,
+        stems_snapshot: [...deliveredStems, prefetchedStem] as unknown as Json,
+        prefetched_stem_snapshot: null,
       })
       .eq("id", practiceSessionId)
       .eq("student_id", student.id);
     if (updateError) {
+      captureApiError(updateError, "/api/ucat/practice-stems/next");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
-    return NextResponse.json({ stem });
+    return NextResponse.json({ stem: prefetchedStem });
+  }
+
+  const excludedIds = new Set([...excludeStemIds, ...deliveredStemIds]);
+  if (prefetchedStem && !excludedIds.has(prefetchedStem.id)) {
+    if (body.preview) {
+      return NextResponse.json({ stem: prefetchedStem });
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("student_practice_sessions")
+      .update({
+        stems_snapshot: [...deliveredStems, prefetchedStem] as unknown as Json,
+        prefetched_stem_snapshot: null,
+      })
+      .eq("id", practiceSessionId)
+      .eq("student_id", student.id);
+    if (updateError) {
+      captureApiError(updateError, "/api/ucat/practice-stems/next");
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    return NextResponse.json({ stem: prefetchedStem });
   }
 
   const result = await pickStems(supabase, input, {
@@ -186,11 +231,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: stemDetails, error: stemDetailsError } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
+    .from("vstudent_ucat_question_stem_delivery")
     .select("id,section_name,display_columns,stem_text,questions")
     .in("id", result.chosenStemIds);
 
   if (stemDetailsError || !stemDetails?.length) {
+    captureApiError(stemDetailsError, "/api/ucat/practice-stems/next");
     return NextResponse.json(
       { error: stemDetailsError?.message ?? "Failed to load stem details" },
       { status: 500 },
@@ -201,17 +247,33 @@ export async function POST(request: NextRequest) {
   const stem = mapStemDetailToQuestionStemWithQuestions(stemRow);
 
   if (body.preview) {
+    const { error: prefetchUpdateError } = await supabaseAdmin
+      .from("student_practice_sessions")
+      .update({ prefetched_stem_snapshot: stem as unknown as Json })
+      .eq("id", practiceSessionId)
+      .eq("student_id", student.id);
+    if (prefetchUpdateError) {
+      captureApiError(prefetchUpdateError, "/api/ucat/practice-stems/next");
+      return NextResponse.json(
+        { error: prefetchUpdateError.message },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ stem });
   }
 
   const nextDeliveredStems = [...deliveredStems, stem];
   const { error: updateError } = await supabaseAdmin
     .from("student_practice_sessions")
-    .update({ stems_snapshot: nextDeliveredStems as unknown as Json })
+    .update({
+      stems_snapshot: nextDeliveredStems as unknown as Json,
+      prefetched_stem_snapshot: null,
+    })
     .eq("id", practiceSessionId)
     .eq("student_id", student.id);
 
   if (updateError) {
+    captureApiError(updateError, "/api/ucat/practice-stems/next");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

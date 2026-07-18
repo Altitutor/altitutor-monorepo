@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -174,6 +175,7 @@ export async function GET() {
       currentPeriodEnd: subscription.current_period_end,
     });
   } catch (err) {
+    captureApiError(err, "/api/ucat/subscription/upgrade-preview");
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ucat upgrade-preview] Stripe error:", msg);
     return NextResponse.json(

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (deleteError) {
       console.error('Error unlinking Stripe customer:', deleteError);
+      captureApiError(deleteError, "/api/stripe/unlink");
       return NextResponse.json(
         { error: 'Failed to unlink Stripe customer: ' + deleteError.message },
         { status: 500 }
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    captureApiError(error, "/api/stripe/unlink");
     const errorMessage = getErrorMessage(error);
     console.error('Error unlinking Stripe customer:', error);
     return NextResponse.json(

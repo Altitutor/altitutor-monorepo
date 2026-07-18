@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[newsletter subscribe] Failed to save subscriber:", error);
+    captureApiError(error, "/api/ucat/newsletter/subscribe");
     return NextResponse.json(
       { error: "Failed to subscribe" },
       { status: 500 },

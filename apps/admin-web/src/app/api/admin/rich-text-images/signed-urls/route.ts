@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/admin/rich-text-images/signed-urls");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
 
     if (error) {
+      captureApiError(error, "/api/admin/rich-text-images/signed-urls");
       return NextResponse.json(
         { error: error.message, path },
         { status: error.message === 'Object not found' ? 404 : 500 }

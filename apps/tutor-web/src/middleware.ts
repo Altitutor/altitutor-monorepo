@@ -1,15 +1,22 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@altitutor/shared';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import type { Database } from "@altitutor/shared";
 
 export async function middleware(req: NextRequest) {
-  const { pathname, origin } = new URL(req.url);
+  const { pathname, search, origin } = new URL(req.url);
 
   // Public paths that don't require authentication
-  const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth') || pathname.startsWith('/form/') || pathname.startsWith('/sentry-example-page');
+  const isPublicPath =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/form/") ||
+    pathname.startsWith("/sentry-example-page");
 
-  if (pathname.startsWith('/api') || isPublicPath) {
+  if (pathname.startsWith("/api") || isPublicPath) {
     return NextResponse.next({
       request: req,
     });
@@ -40,9 +47,9 @@ export async function middleware(req: NextRequest) {
         },
       },
       cookieOptions: {
-        name: 'tutor-auth',
+        name: "tutor-auth",
       },
-    }
+    },
   );
 
   // IMPORTANT: Use getUser() to validate and refresh auth token
@@ -53,9 +60,11 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   // If no user and trying to access protected route, redirect to login
-  const isProtected = pathname !== '/' && !isPublicPath;
+  const isProtected = pathname !== "/" && !isPublicPath;
   if (!user && isProtected) {
-    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
+    const loginUrl = new URL("/login", origin);
+    loginUrl.searchParams.set("next", `${pathname}${search}`);
+    const redirectResponse = NextResponse.redirect(loginUrl);
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value);
@@ -69,29 +78,33 @@ export async function middleware(req: NextRequest) {
   // Check if user is staff using vtutor_profile view
   // This view is accessible to tutors (unlike direct staff table access which may have RLS restrictions)
   // The view automatically filters to the current user's record via current_tutor_id() function
-  const { data: staff, error: staffError } = await (supabase as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        maybeSingle: () => Promise<{
-          data: { role: 'ADMINSTAFF' | 'TUTOR' } | null;
-          error: Error | null;
-        }>;
+  const { data: staff, error: staffError } = await (
+    supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          maybeSingle: () => Promise<{
+            data: { role: "ADMINSTAFF" | "TUTOR" } | null;
+            error: Error | null;
+          }>;
+        };
       };
-    };
-  })
-    .from('vtutor_profile')
-    .select('role')
+    }
+  )
+    .from("vtutor_profile")
+    .select("role")
     .maybeSingle();
 
   if (staffError) {
     // Error fetching staff - log but continue
     // eslint-disable-next-line no-console
-    console.error('[TUTOR-WEB MIDDLEWARE] Error fetching staff:', staffError);
+    console.error("[TUTOR-WEB MIDDLEWARE] Error fetching staff:", staffError);
   }
 
   // Block students - if not in staff table, redirect to login
   if (!staff) {
-    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
+    const redirectResponse = NextResponse.redirect(
+      new URL("/login?error=access_denied", origin),
+    );
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value);
@@ -99,8 +112,10 @@ export async function middleware(req: NextRequest) {
     return redirectResponse;
   }
 
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
+  if (pathname === "/") {
+    const redirectResponse = NextResponse.redirect(
+      new URL("/dashboard", origin),
+    );
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value);
@@ -114,6 +129,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
   ],
 };

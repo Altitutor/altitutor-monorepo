@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -124,6 +125,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Failed to update invite token:', error);
+        captureApiError(error, "/api/invites/generate");
         return NextResponse.json(
           { error: `Failed to generate invite token: ${error.message}` },
           { status: 500 }
@@ -140,6 +142,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ token, id: existingRecord.id }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/invites/generate");
     console.error('Unexpected error generating invite token:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

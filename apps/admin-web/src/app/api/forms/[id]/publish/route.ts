@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
@@ -56,6 +57,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     .single();
 
   if (versionError) {
+    captureApiError(versionError, "/api/forms/[id]/publish");
     return NextResponse.json({ error: versionError.message }, { status: 500 });
   }
 
@@ -74,6 +76,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     .single();
 
   if (tokenError) {
+    captureApiError(tokenError, "/api/forms/[id]/publish");
     return NextResponse.json({ error: tokenError.message }, { status: 500 });
   }
 

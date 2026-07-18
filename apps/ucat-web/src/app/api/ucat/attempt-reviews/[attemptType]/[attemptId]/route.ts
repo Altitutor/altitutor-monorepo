@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import {
   startAttemptReview,
@@ -69,6 +70,7 @@ export async function PUT(
       ),
     );
   } catch (error) {
+    captureApiError(error, "/api/ucat/attempt-reviews/[attemptType]/[attemptId]");
     return NextResponse.json(
       {
         error:
@@ -121,6 +123,7 @@ export async function PATCH(
       ),
     );
   } catch (error) {
+    captureApiError(error, "/api/ucat/attempt-reviews/[attemptType]/[attemptId]");
     return NextResponse.json(
       {
         error:

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getHighestEligiblePromotionTier,
@@ -127,6 +128,7 @@ export async function POST(
     reviewed_by: auth.staffId,
   });
   if (promoError) {
+    captureApiError(promoError, "/api/pay-tiers/staff/[staffId]/promotions");
     return NextResponse.json({ error: promoError.message }, { status: 500 });
   }
 
@@ -136,6 +138,7 @@ export async function POST(
       .update({ current_tier_number: toTier })
       .eq('id', params.staffId);
     if (updateError) {
+      captureApiError(updateError, "/api/pay-tiers/staff/[staffId]/promotions");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
   }
@@ -150,6 +153,7 @@ export async function POST(
           : undefined,
     });
   } catch (e) {
+    captureApiError(e, "/api/pay-tiers/staff/[staffId]/promotions");
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Promotion recorded but failed to reload' },
       { status: 500 }

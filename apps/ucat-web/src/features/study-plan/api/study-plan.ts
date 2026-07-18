@@ -20,6 +20,12 @@ export function fetchStudyPlan(): Promise<StudyPlanResponse> {
   );
 }
 
+export function fetchDashboardStudyPlan(): Promise<StudyPlanResponse> {
+  return fetch("/api/ucat/study-plan?view=dashboard", {
+    cache: "no-store",
+  }).then(parseResponse);
+}
+
 export function saveStudyPlan(
   input: StudyPlanProfileInput,
 ): Promise<StudyPlanResponse> {

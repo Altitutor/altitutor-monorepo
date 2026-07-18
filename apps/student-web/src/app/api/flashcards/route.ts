@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 
@@ -12,6 +13,6 @@ export async function GET(request: NextRequest) {
     .eq('topic_id', topicId)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ data: data ?? null });
 }

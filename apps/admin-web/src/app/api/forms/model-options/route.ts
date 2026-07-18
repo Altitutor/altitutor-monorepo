@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import {
   FORM_MODEL_OPTION_SOURCES,
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await auth.admin.rpc('get_form_model_options', { p_source: source });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/model-options", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const options = ((data ?? []) as OptionRow[]).map<FormChoiceOption>((row) => ({
     id: `${source}_${row.value}`,

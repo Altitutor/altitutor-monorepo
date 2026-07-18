@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -58,6 +59,7 @@ export async function DELETE(
       .eq('id', studentId);
 
     if (deleteError) {
+      captureApiError(deleteError, "/api/students/[id]/delete");
       return NextResponse.json(
         { error: `Failed to delete student: ${deleteError.message}` },
         { status: 500 }
@@ -75,6 +77,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/students/[id]/delete");
     console.error('Unexpected error deleting student:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

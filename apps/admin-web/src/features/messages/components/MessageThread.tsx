@@ -17,8 +17,17 @@ import { useIssues } from '@/features/issues/api/queries';
 import { issuesApi } from '@/features/issues/api/issues';
 import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
 import { extractMentions } from '@/shared/utils/extractMentions';
+import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
+import {
+  buildReactionsByTargetGuid,
+  collectAttachedReactionIds,
+  normalizeImessageGuid,
+  reactionTypeToEmoji,
+  reactionTypeToLabel,
+  type MessageReaction,
+} from '../utils/reactions';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
@@ -500,46 +509,68 @@ export function MessageThread({
     };
   }, [contactId, conversationId, ownedNumberId, qc]);
 
-  // Filter and process messages for search
+  // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
     const items = data.pages.flatMap(p => p.items);
-    
+    const reactionsByTarget = buildReactionsByTargetGuid(items);
+    const attachedReactionIds = collectAttachedReactionIds(items, reactionsByTarget);
+
     type MessageItem = typeof items[number];
-    type ProcessedMessageItem = 
-      | (MessageItem & { type: 'message'; searchTerm?: string })
+    type ProcessedMessageItem =
+      | (MessageItem & {
+          type: 'message';
+          searchTerm?: string;
+          reactions: MessageReaction[];
+          orphanReactionEmoji?: string | null;
+        })
       | { type: 'separator'; count: number; id: string };
-    
+
+    const withReactions = (message: MessageItem, search?: string): Extract<ProcessedMessageItem, { type: 'message' }> => {
+      const targetGuid = normalizeImessageGuid(message.imessage_guid);
+      const reactions = (!message.is_reaction && targetGuid
+        ? reactionsByTarget.get(targetGuid)
+        : undefined) ?? [];
+
+      return {
+        ...message,
+        type: 'message' as const,
+        searchTerm: search,
+        reactions,
+        orphanReactionEmoji: message.is_reaction && !attachedReactionIds.has(message.id)
+          ? reactionTypeToEmoji(message.reaction_type)
+          : null,
+      };
+    };
+
+    const visibleItems = items.filter((message) => !attachedReactionIds.has(message.id));
+
     if (!isSearching || !searchTerm.trim()) {
-      // When not searching, return items with type 'message' - newest first for column-reverse
-      return items.map((m) => ({ ...m, type: 'message' as const })) as ProcessedMessageItem[];
+      return visibleItems.map((message) => withReactions(message)) as ProcessedMessageItem[];
     }
-    
+
     const search = searchTerm.toLowerCase();
-    const itemsToFilter = items;
     const filtered: ProcessedMessageItem[] = [];
     let hiddenCount = 0;
-    
-    itemsToFilter.forEach((m, index) => {
-      const matches = m.body.toLowerCase().includes(search);
-      
+
+    visibleItems.forEach((message, index) => {
+      const matches = message.body.toLowerCase().includes(search);
+
       if (matches) {
-        // Add separator for hidden messages before this one
         if (hiddenCount > 0) {
           filtered.push({ type: 'separator', count: hiddenCount, id: `sep-${index}` });
           hiddenCount = 0;
         }
-        filtered.push({ ...m, type: 'message', searchTerm });
+        filtered.push(withReactions(message, searchTerm));
       } else {
         hiddenCount++;
       }
     });
-    
-    // Add final separator if needed
+
     if (hiddenCount > 0) {
       filtered.push({ type: 'separator', count: hiddenCount, id: `sep-end` });
     }
-    
+
     return filtered;
   }, [data, isSearching, searchTerm]);
 
@@ -785,44 +816,73 @@ export function MessageThread({
                           </Badge>
                         </div>
                       )}
-                      {/* Attachments */}
-                      {m.message_attachments && m.message_attachments.length > 0 && (
-                        <div className={`mb-2 flex flex-col gap-2 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                          {m.message_attachments.map((attachment) => (
-                            <MessageAttachment 
-                              key={attachment.id} 
-                              attachment={attachment as Tables<'message_attachments'>} 
-                              direction={direction}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {/* Message body */}
-                      {m.is_reaction && (
-                        <div className="mb-1 text-xs text-muted-foreground">
-                          {m.reaction_type?.toLowerCase().startsWith('remove')
-                            ? `Tapback removed: ${m.reaction_type.replace(/^remove[_ ]?/i, '') || 'reaction'}`
-                            : `Tapback: ${m.reaction_type ?? 'reaction'}`}
-                        </div>
-                      )}
+                      {/* Attachments + body, with iMessage-style reaction badges */}
                       {(() => {
+                        if (m.is_reaction) {
+                          const emoji = m.orphanReactionEmoji ?? reactionTypeToEmoji(m.reaction_type);
+                          if (!emoji) return null;
+                          return (
+                            <div
+                              className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border bg-background px-2 text-base shadow-sm"
+                              title={reactionTypeToLabel(m.reaction_type)}
+                            >
+                              {emoji}
+                            </div>
+                          );
+                        }
+
                         // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
                         // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
                         const cleanedBody = m.body
                           ?.replace(/\uFFFC/g, '') // Remove Unicode object replacement character
                           .replace(/OBJ/gi, '') // Remove "OBJ" text as fallback
                           .trim() || '';
-                        // Only render message body if it has content after cleaning
-                        if (!cleanedBody) return null;
+                        const attachments = m.message_attachments ?? [];
+                        const hasAttachments = attachments.length > 0;
+                        if (!cleanedBody && !hasAttachments) return null;
+
                         return (
-                          <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                            direction === 'OUTBOUND' 
-                              ? (m.sender?.provider === 'TWILIO' 
-                                  ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
-                                  : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
-                              : 'bg-muted'
-                          } break-words [overflow-wrap:anywhere] max-w-full`}>
-                            {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
+                          <div className={cn('relative inline-block max-w-full', m.reactions.length > 0 && 'mb-2')}>
+                            {hasAttachments && (
+                              <div className={cn('flex flex-col gap-2', cleanedBody && 'mb-2', direction === 'OUTBOUND' ? 'items-end' : 'items-start')}>
+                                {attachments.map((attachment) => (
+                                  <MessageAttachment
+                                    key={attachment.id}
+                                    attachment={attachment as Tables<'message_attachments'>}
+                                    direction={direction}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {cleanedBody ? (
+                              <div className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                                direction === 'OUTBOUND'
+                                  ? (m.sender?.provider === 'TWILIO'
+                                      ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white'
+                                      : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
+                                  : 'bg-muted'
+                              } break-words [overflow-wrap:anywhere] max-w-full`}>
+                                {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
+                              </div>
+                            ) : null}
+                            {m.reactions.length > 0 && (
+                              <div
+                                className={cn(
+                                  'absolute -bottom-2 z-10 flex items-center gap-0.5',
+                                  direction === 'OUTBOUND' ? 'left-1' : 'right-1'
+                                )}
+                              >
+                                {m.reactions.map((reaction) => (
+                                  <span
+                                    key={reaction.id}
+                                    title={reaction.label}
+                                    className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-black/5 bg-background px-1 text-[13px] shadow-sm dark:border-white/10"
+                                  >
+                                    {reaction.emoji}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}

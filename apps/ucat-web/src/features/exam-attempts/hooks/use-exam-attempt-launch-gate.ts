@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import type {
   ActiveExamAttempt,
@@ -20,7 +20,7 @@ export function useExamAttemptLaunchGate(
   );
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
-  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
 
   useEffect(() => {
     if (!kind || !resourceId) {
@@ -44,11 +44,11 @@ export function useExamAttemptLaunchGate(
     setStatus("blocked");
   }, [kind, resourceId, active, isLoading]);
 
-  async function finalizeConflictAndContinue() {
+  async function discardConflictAndContinue() {
     if (!conflictActive) return;
-    setIsFinalizing(true);
+    setIsDiscarding(true);
     try {
-      await finalizeExamAttempt({
+      await discardExamAttempt({
         kind: conflictActive.kind,
         attemptId: conflictActive.attemptId,
       });
@@ -56,7 +56,7 @@ export function useExamAttemptLaunchGate(
       setConflictActive(null);
       setStatus("allowed");
     } finally {
-      setIsFinalizing(false);
+      setIsDiscarding(false);
     }
   }
 
@@ -64,7 +64,7 @@ export function useExamAttemptLaunchGate(
     launchAllowed: status === "allowed",
     isCheckingLaunch: status === "checking",
     conflictActive: status === "blocked" ? conflictActive : null,
-    isFinalizingConflict: isFinalizing,
-    finalizeConflictAndContinue,
+    isDiscardingConflict: isDiscarding,
+    discardConflictAndContinue,
   };
 }

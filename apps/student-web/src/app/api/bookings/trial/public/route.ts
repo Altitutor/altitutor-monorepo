@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -208,6 +209,7 @@ export async function POST(request: NextRequest) {
       });
     
   } catch (error: unknown) {
+    captureApiError(error, "/api/bookings/trial/public");
     console.error('API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

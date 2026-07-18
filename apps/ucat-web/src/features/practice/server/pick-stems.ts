@@ -8,20 +8,11 @@ type SectionRow = {
   number_of_questions: number | null;
 };
 
-type StemListRow = {
+type StemIndexRow = {
   id: string;
   section_id: string;
   question_stem_category_id: string | null;
-};
-
-type StemDetailQuestion = {
-  id: string;
-};
-
-type StemDetailRow = {
-  id: string;
-  section_id: string;
-  questions: StemDetailQuestion[] | null;
+  question_ids: string[] | null;
 };
 
 type QuestionAttemptRow = {
@@ -90,7 +81,7 @@ export type PickStemsResult = {
   totalMatchingQuestions: number;
   questionCount: number;
   sectionRows: SectionRow[];
-  stemDetailRows: StemDetailRow[];
+  stemDetailRows: StemIndexRow[];
 };
 
 /**
@@ -135,10 +126,9 @@ export async function pickStems(
   const sectionIds = sectionRows.map((row) => row.id);
 
   let stemsQuery = supabase
-    .from("vstudent_ucat_question_stems")
-    .select("id,section_id,question_stem_category_id")
-    .in("section_id", sectionIds)
-    .eq("is_available_for_practice", true);
+    .from("vstudent_ucat_practice_stem_index")
+    .select("id,section_id,question_stem_category_id,question_ids")
+    .in("section_id", sectionIds);
 
   if (input.categoryIds && input.categoryIds.length > 0) {
     stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);
@@ -156,30 +146,12 @@ export async function pickStems(
     };
   }
 
-  const stemRows = stems as StemListRow[];
-  const stemIds = stemRows.map((row) => row.id);
+  const stemDetailRows = stems as StemIndexRow[];
 
-  const { data: stemDetails, error: stemDetailsError } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
-    .select("id,section_id,questions")
-    .in("id", stemIds);
-
-  if (stemDetailsError || !stemDetails?.length) {
-    return {
-      chosenStemIds: [],
-      totalMatchingQuestions: 0,
-      questionCount: 0,
-      sectionRows,
-      stemDetailRows: [],
-    };
-  }
-
-  const stemDetailRows = (stemDetails ?? []) as StemDetailRow[];
-
-  const allQuestions: { stemId: string; question: StemDetailQuestion }[] = [];
+  const allQuestions: { stemId: string; questionId: string }[] = [];
   for (const stem of stemDetailRows) {
-    for (const q of stem.questions ?? []) {
-      allQuestions.push({ stemId: stem.id, question: q });
+    for (const questionId of stem.question_ids ?? []) {
+      allQuestions.push({ stemId: stem.id, questionId });
     }
   }
 
@@ -197,7 +169,7 @@ export async function pickStems(
 
   if (input.unansweredOnly || input.incorrectOnly) {
     const questionIds = Array.from(
-      new Set(allQuestions.map((q) => q.question.id)),
+      new Set(allQuestions.map((q) => q.questionId)),
     );
 
     const { data: attempts, error: attemptsError } = await supabase
@@ -217,7 +189,7 @@ export async function pickStems(
   }
 
   type StemAggregate = {
-    stem: StemDetailRow;
+    stem: StemIndexRow;
     allQuestionsCount: number;
     matchingQuestionsCount: number;
   };
@@ -225,16 +197,18 @@ export async function pickStems(
   const aggregatesByStemId = new Map<string, StemAggregate>();
 
   for (const stem of stemDetailRows) {
-    const questions = stem.questions ?? [];
+    const questionIds = stem.question_ids ?? [];
     let allCount = 0;
     let matchingCount = 0;
 
-    for (const q of questions) {
+    for (const questionId of questionIds) {
       allCount += 1;
 
       let performanceOk = true;
       if (input.unansweredOnly || input.incorrectOnly) {
-        const status = computeQuestionStatus(attemptsByQuestionId.get(q.id));
+        const status = computeQuestionStatus(
+          attemptsByQuestionId.get(questionId),
+        );
         if (input.unansweredOnly) {
           performanceOk = status === "unanswered";
         } else if (input.incorrectOnly) {
@@ -296,7 +270,7 @@ export async function pickStems(
           availableQuestions,
         );
 
-  const chosenStems: StemDetailRow[] = [];
+  const chosenStems: StemIndexRow[] = [];
   let runningQuestions = 0;
 
   // Random order so repeated sessions with the same filters vary.

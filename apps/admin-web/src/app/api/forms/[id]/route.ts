@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import {
@@ -103,6 +104,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .single();
 
   if (error) {
+    captureApiError(error, "/api/forms/[id]");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -135,9 +137,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   ]);
 
   if (error) {
+    captureApiError(error, "/api/forms/[id]");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (revokeError) {
+    captureApiError(revokeError, "/api/forms/[id]");
     return NextResponse.json({ error: revokeError.message }, { status: 500 });
   }
   if (!form) {

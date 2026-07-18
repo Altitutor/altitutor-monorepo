@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
+    captureApiError(error, "/api/billing/soft-delete-void-invoice");
     console.error('soft-delete-void-invoice:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: getErrorMessage(error) },

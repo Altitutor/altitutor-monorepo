@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import type { TablesInsert } from '@altitutor/shared';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       contentType: file.type,
     });
 
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+  if (uploadError) return captureApiErrorResponse(uploadError, "/api/flashcards/images/upload", NextResponse.json({ error: uploadError.message }, { status: 500 }));
 
   const fileInsert: TablesInsert<'files'> = {
     mimetype: file.type,
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
 
   if (fileError || !fileRow) {
     await serviceClient.storage.from(BUCKET).remove([uploadData.path]);
+    captureApiError(fileError, "/api/flashcards/images/upload");
     return NextResponse.json({ error: fileError?.message ?? 'Failed to create file row' }, { status: 500 });
   }
 
@@ -86,6 +88,7 @@ export async function POST(request: Request) {
     .createSignedUrl(uploadData.path, SIGNED_URL_EXPIRY_SECONDS);
 
   if (signedError || !signed?.signedUrl) {
+    captureApiError(signedError, "/api/flashcards/images/upload");
     return NextResponse.json({ error: signedError?.message ?? 'Failed to create signed URL' }, { status: 500 });
   }
 

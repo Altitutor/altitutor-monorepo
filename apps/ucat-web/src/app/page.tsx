@@ -1,5 +1,5 @@
-import { permanentRedirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
-export default function LandingRedirect() {
-  permanentRedirect("https://altitutor.com/ucat/");
+export default function AppEntryRedirect() {
+  redirect("/login");
 }

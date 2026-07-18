@@ -5,6 +5,8 @@ import {
   Button,
   Input,
   SearchableSelect,
+  Tabs,
+  TabsContent,
 } from '@altitutor/ui'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
@@ -13,10 +15,12 @@ import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { UcatSetCatalogListPanel } from '@/features/ucat/shared/components/ucat-set-catalog-panel'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@/shared/components/segmented-tab-panel'
+  UcatAuthoringWorkspaceTabs,
+  type UcatAuthoringWorkspaceTab,
+} from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import { cn } from '@/shared/utils'
 
 type UcatMockEditorContentProps = {
   name: string
@@ -68,6 +72,7 @@ export function UcatMockEditorContent({
   onEditSet,
 }: UcatMockEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-sets'>('properties')
+  const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
   const orderedSections = useMemo(
     () => [...sections].sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)),
     [sections],
@@ -105,9 +110,26 @@ export function UcatMockEditorContent({
     setDraftSetIds(nextIds)
   }
 
+  function handleWorkspaceChange(value: UcatAuthoringWorkspaceTab) {
+    setActiveWorkspace(value)
+    if (value === 'properties') setSideTab('properties')
+    if (value === 'ai') setSideTab('add-sets')
+  }
+
   return (
-    <div className="flex h-full min-h-0">
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r p-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <UcatAuthoringWorkspaceTabs
+        value={activeWorkspace}
+        onValueChange={handleWorkspaceChange}
+        editorLabel="Sections"
+        aiLabel="Add sets"
+        className="shrink-0 border-b bg-background p-2 lg:hidden"
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <section className={cn(
+        'flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-4 lg:flex lg:border-r lg:p-6',
+        activeWorkspace !== 'editor' && 'hidden',
+      )}>
         <h2 className="mb-1 shrink-0 font-semibold">Mock sections</h2>
         <p className="mb-4 text-sm text-muted-foreground">Choose one set for each UCAT section.</p>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -172,21 +194,28 @@ export function UcatMockEditorContent({
         </div>
       </section>
 
-      <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l p-6">
-        <SegmentedTabPanel
+      <aside className={cn(
+        'h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 sm:p-4 lg:flex lg:w-80 lg:border-l',
+        activeWorkspace === 'editor' && 'hidden',
+        activeWorkspace !== 'editor' && 'flex',
+      )}>
+        <Tabs
           value={sideTab}
-          onValueChange={(value) => setSideTab(value)}
-          className="min-h-0 flex-1"
-          options={[
-            { value: 'properties', label: 'Properties' },
-            { value: 'add-sets', label: 'Add sets' },
-          ]}
+          onValueChange={(value) => setSideTab(value as 'properties' | 'add-sets')}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <SegmentedTabPanelContent
-            when="properties"
-            activeTab={sideTab}
-            className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-4"
-          >
+          <div className="hidden lg:block">
+            <SegmentedControl
+              fullWidth
+              value={sideTab}
+              onValueChange={setSideTab}
+              options={[
+                { value: 'properties', label: 'Properties' },
+                { value: 'add-sets', label: 'Add sets' },
+              ]}
+            />
+          </div>
+          <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
             <h2 className="font-semibold">Mock properties</h2>
             <label className="block text-sm">
               <span className="mb-1 block font-medium">Name</span>
@@ -225,12 +254,8 @@ export function UcatMockEditorContent({
                 />
               </div>
             </label>
-          </SegmentedTabPanelContent>
-          <SegmentedTabPanelContent
-            when="add-sets"
-            activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col pt-2"
-          >
+          </TabsContent>
+          <TabsContent value="add-sets" className="m-0 mt-3 min-h-0 flex-1 flex-col data-[state=active]:flex">
             <UcatSetCatalogListPanel
               sets={availableSets}
               excludedIds={draftSetIds}
@@ -247,9 +272,10 @@ export function UcatMockEditorContent({
               onAddSet={addSet}
               onEditSet={onEditSet}
             />
-          </SegmentedTabPanelContent>
-        </SegmentedTabPanel>
+          </TabsContent>
+        </Tabs>
       </aside>
+      </div>
     </div>
   )
 }

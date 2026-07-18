@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -142,6 +143,7 @@ export async function PUT(
       .eq('id', tutorLogId);
 
     if (updateError) {
+      captureApiError(updateError, "/api/tutor-logs/[id]/update");
       return NextResponse.json(
         { error: updateError.message || 'Failed to update tutor log' },
         { status: 500 }
@@ -191,6 +193,7 @@ export async function PUT(
         );
 
       if (staffError) {
+        captureApiError(staffError, "/api/tutor-logs/[id]/update");
         return NextResponse.json(
           { error: staffError.message || 'Failed to update staff attendance' },
           { status: 500 }
@@ -212,6 +215,7 @@ export async function PUT(
         );
 
       if (studentError) {
+        captureApiError(studentError, "/api/tutor-logs/[id]/update");
         return NextResponse.json(
           { error: studentError.message || 'Failed to update student attendance' },
           { status: 500 }
@@ -233,6 +237,7 @@ export async function PUT(
         );
 
       if (parentError) {
+        captureApiError(parentError, "/api/tutor-logs/[id]/update");
         return NextResponse.json(
           { error: parentError.message || 'Failed to update parent attendance' },
           { status: 500 }
@@ -253,6 +258,7 @@ export async function PUT(
         .single();
 
       if (topicError) {
+        captureApiError(topicError, "/api/tutor-logs/[id]/update");
         return NextResponse.json(
           { error: topicError.message || 'Failed to update topics' },
           { status: 500 }
@@ -272,6 +278,7 @@ export async function PUT(
           );
 
         if (topicStudentsError) {
+          captureApiError(topicStudentsError, "/api/tutor-logs/[id]/update");
           return NextResponse.json(
             { error: topicStudentsError.message || 'Failed to update topic students' },
             { status: 500 }
@@ -293,6 +300,7 @@ export async function PUT(
         .single();
 
       if (fileError) {
+        captureApiError(fileError, "/api/tutor-logs/[id]/update");
         return NextResponse.json(
           { error: fileError.message || 'Failed to update topic files' },
           { status: 500 }
@@ -312,6 +320,7 @@ export async function PUT(
           );
 
         if (fileStudentsError) {
+          captureApiError(fileStudentsError, "/api/tutor-logs/[id]/update");
           return NextResponse.json(
             { error: fileStudentsError.message || 'Failed to update file students' },
             { status: 500 }
@@ -322,6 +331,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    captureApiError(error, "/api/tutor-logs/[id]/update");
     console.error('Error updating tutor log:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },

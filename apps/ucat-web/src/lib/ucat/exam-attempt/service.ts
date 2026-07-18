@@ -413,6 +413,7 @@ export async function getActiveExamAttempt(
   studentId: string,
   options?: QuestionEngineExam | null | GetActiveExamAttemptOptions,
 ): Promise<ActiveExamAttempt | null> {
+  await expireStaleExamAttempts(admin, studentId);
   const resolvedOptions: GetActiveExamAttemptOptions =
     options != null &&
     typeof options === "object" &&
@@ -427,6 +428,8 @@ export async function getActiveExamAttempt(
       )
       .eq("student_id", studentId)
       .is("completed_at", null)
+      .is("discarded_at", null)
+      .is("expired_at", null)
       .not("engine_snapshot", "is", null)
       .is("student_ucat_mock_attempt_id", null)
       .order("attempted_at", { ascending: false })
@@ -435,10 +438,12 @@ export async function getActiveExamAttempt(
     admin
       .from("student_ucat_mock_attempts")
       .select(
-        "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at",
+        "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed",
       )
       .eq("student_id", studentId)
       .is("completed_at", null)
+      .is("discarded_at", null)
+      .is("expired_at", null)
       .not("engine_snapshot", "is", null)
       .order("attempted_at", { ascending: false })
       .limit(1)
@@ -446,10 +451,12 @@ export async function getActiveExamAttempt(
     admin
       .from("student_practice_sessions")
       .select(
-        "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id",
+        "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id, was_timed",
       )
       .eq("student_id", studentId)
       .is("completed_at", null)
+      .is("discarded_at", null)
+      .is("expired_at", null)
       .not("engine_snapshot", "is", null)
       .order("started_at", { ascending: false })
       .limit(1)
@@ -568,6 +575,7 @@ export async function getActiveExamAttempt(
           resourceId: mockRes.data.ucat_mock_id,
           label,
           mockAttemptId: mockRes.data.id,
+          wasTimed: mockRes.data.was_timed,
           resultsHref,
         },
         stored,
@@ -637,6 +645,7 @@ export async function getActiveExamAttempt(
           resourceId: practiceRes.data.id,
           label,
           practiceSessionId: practiceRes.data.id,
+          wasTimed: practiceRes.data.was_timed,
           resultsHref,
         },
         stored,
@@ -751,7 +760,8 @@ async function loadPersistedAttemptSnapshot(
   kind: ExamAttemptKind,
   attemptId: string,
 ): Promise<PersistedAttemptSnapshot> {
-  const select = "completed_at, engine_snapshot, current_segment_ends_at";
+  const select =
+    "completed_at, discarded_at, expired_at, engine_snapshot, current_segment_ends_at";
   if (kind === "set") {
     const { data } = await admin
       .from("student_question_set_attempts")
@@ -760,7 +770,11 @@ async function loadPersistedAttemptSnapshot(
       .eq("student_id", studentId)
       .maybeSingle();
     return {
-      inProgress: data != null && data.completed_at == null,
+      inProgress:
+        data != null &&
+        data.completed_at == null &&
+        data.discarded_at == null &&
+        data.expired_at == null,
       stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
       currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
     };
@@ -773,7 +787,11 @@ async function loadPersistedAttemptSnapshot(
       .eq("student_id", studentId)
       .maybeSingle();
     return {
-      inProgress: data != null && data.completed_at == null,
+      inProgress:
+        data != null &&
+        data.completed_at == null &&
+        data.discarded_at == null &&
+        data.expired_at == null,
       stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
       currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
     };
@@ -785,7 +803,11 @@ async function loadPersistedAttemptSnapshot(
     .eq("student_id", studentId)
     .maybeSingle();
   return {
-    inProgress: data != null && data.completed_at == null,
+    inProgress:
+      data != null &&
+      data.completed_at == null &&
+      data.discarded_at == null &&
+      data.expired_at == null,
     stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
     currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
   };
@@ -905,7 +927,7 @@ async function incrementQuestionActiveTime({
   attemptId,
   setAttemptIdsBySetId,
   context,
-  elapsedSeconds,
+  elapsedMilliseconds,
 }: {
   admin: AdminClient;
   studentId: string;
@@ -913,10 +935,8 @@ async function incrementQuestionActiveTime({
   attemptId: string;
   setAttemptIdsBySetId: Record<string, string>;
   context: QuestionActiveTimingContext;
-  elapsedSeconds: number;
+  elapsedMilliseconds: number;
 }): Promise<Record<string, string>> {
-  if (elapsedSeconds <= 0) return setAttemptIdsBySetId;
-
   const nextSetAttemptIds = { ...setAttemptIdsBySetId };
   const setAttemptId = await resolveQuestionTimingSetAttemptId({
     admin,
@@ -930,54 +950,19 @@ async function incrementQuestionActiveTime({
     nextSetAttemptIds[context.questionSetId] = setAttemptId;
   }
 
-  let query = admin
-    .from("student_question_attempts")
-    .select("id, time_spent_seconds")
-    .eq("student_id", studentId)
-    .eq("question_id", context.questionId);
-
-  if (kind === "practice") {
-    query = query
-      .is("student_question_set_attempt_id", null)
-      .eq("student_practice_session_id", attemptId);
-  } else if (setAttemptId) {
-    query = query.eq("student_question_set_attempt_id", setAttemptId);
-  } else {
+  if (kind !== "practice" && !setAttemptId) {
     return nextSetAttemptIds;
   }
-
-  const { data: existing } = await query.maybeSingle();
-  const nextSeconds = Math.max(
-    0,
-    (existing?.time_spent_seconds ?? 0) + elapsedSeconds,
-  );
-
-  if (existing?.id) {
-    await admin
-      .from("student_question_attempts")
-      .update({
-        time_spent_seconds: nextSeconds,
-        was_timed: context.wasTimed,
-        mode: toQuestionAttemptMode(context.mode),
-      })
-      .eq("id", existing.id)
-      .eq("student_id", studentId);
-    return nextSetAttemptIds;
-  }
-
-  await admin.from("student_question_attempts").insert({
-    student_id: studentId,
-    student_question_set_attempt_id: kind === "practice" ? null : setAttemptId,
-    student_practice_session_id: kind === "practice" ? attemptId : null,
-    question_id: context.questionId,
-    question_answer_option_id: null,
-    answer_snapshot: null,
-    is_flagged: false,
-    is_submitted: false,
-    time_spent_seconds: nextSeconds,
-    was_timed: context.wasTimed,
-    mode: toQuestionAttemptMode(context.mode),
+  const { error } = await admin.rpc("increment_ucat_question_active_time", {
+    p_student_id: studentId,
+    p_question_id: context.questionId,
+    p_set_attempt_id: kind === "practice" ? null : setAttemptId,
+    p_practice_session_id: kind === "practice" ? attemptId : null,
+    p_elapsed_milliseconds: Math.max(0, Math.round(elapsedMilliseconds)),
+    p_was_timed: context.wasTimed,
+    p_mode: toQuestionAttemptMode(context.mode),
   });
+  if (error) throw new Error(error.message);
   return nextSetAttemptIds;
 }
 
@@ -1011,9 +996,31 @@ async function applyQuestionActiveTiming({
     current?.questionId &&
     isSameQuestionTimingContext(previous, current)
   ) {
+    const intervalEnd = clampIntervalEnd(
+      previous.startedAt,
+      now,
+      previous.segmentEndsAt ?? segmentEndsAt,
+    );
+    const rawElapsedMilliseconds = Math.max(
+      0,
+      intervalEnd.getTime() - new Date(previous.startedAt).getTime(),
+    );
+    const elapsedMilliseconds = previous.wasTimed
+      ? rawElapsedMilliseconds
+      : Math.min(rawElapsedMilliseconds, 30_000);
+    nextSetAttemptIds = await incrementQuestionActiveTime({
+      admin,
+      studentId,
+      kind,
+      attemptId,
+      setAttemptIdsBySetId: nextSetAttemptIds,
+      context: previous,
+      elapsedMilliseconds,
+    });
     return {
       activeQuestionTiming: {
-        ...previous,
+        ...current,
+        startedAt: now.toISOString(),
         segmentEndsAt,
       },
       setAttemptIdsBySetId: nextSetAttemptIds,
@@ -1026,12 +1033,13 @@ async function applyQuestionActiveTiming({
       now,
       previous.segmentEndsAt ?? segmentEndsAt,
     );
-    const elapsedSeconds = Math.max(
+    const rawElapsedMilliseconds = Math.max(
       0,
-      Math.floor(
-        (intervalEnd.getTime() - new Date(previous.startedAt).getTime()) / 1000,
-      ),
+      intervalEnd.getTime() - new Date(previous.startedAt).getTime(),
     );
+    const elapsedMilliseconds = previous.wasTimed
+      ? rawElapsedMilliseconds
+      : Math.min(rawElapsedMilliseconds, 30_000);
     nextSetAttemptIds = await incrementQuestionActiveTime({
       admin,
       studentId,
@@ -1039,7 +1047,7 @@ async function applyQuestionActiveTiming({
       attemptId,
       setAttemptIdsBySetId: nextSetAttemptIds,
       context: previous,
-      elapsedSeconds,
+      elapsedMilliseconds,
     });
   }
 
@@ -1049,6 +1057,17 @@ async function applyQuestionActiveTiming({
       setAttemptIdsBySetId: nextSetAttemptIds,
     };
   }
+
+  // The zero-duration upsert records first visibility for practice quota.
+  nextSetAttemptIds = await incrementQuestionActiveTime({
+    admin,
+    studentId,
+    kind,
+    attemptId,
+    setAttemptIdsBySetId: nextSetAttemptIds,
+    context: current,
+    elapsedMilliseconds: 0,
+  });
 
   return {
     activeQuestionTiming: {
@@ -1138,6 +1157,7 @@ async function persistSnapshot(
   const payload = {
     engine_snapshot: stored as unknown as Json,
     current_segment_ends_at: currentSegmentEndsAt,
+    last_activity_at: new Date().toISOString(),
   };
 
   if (kind === "set") {
@@ -1204,6 +1224,15 @@ export async function beginExamAttempt(
   }
 
   const endsAt = computeSegmentEndsAt(input.segmentTimeLimitSeconds);
+  const attemptWasTimed = Boolean(
+    input.wasTimed ||
+      input.segmentTimeLimitSeconds ||
+      examTiming?.setModeTiming?.setTimeLimitSeconds ||
+      examTiming?.mockTimingSegments?.some(
+        (segment) => (segment.timeLimitSeconds ?? 0) > 0,
+      ) ||
+      (examTiming?.timePerQuestionSeconds ?? 0) > 0,
+  );
   const stored = wrapStoredSnapshot({
     state: input.engineSnapshot,
     exam: examMeta,
@@ -1222,9 +1251,10 @@ export async function beginExamAttempt(
       .insert({
         student_id: studentId,
         question_set_id: input.resourceId,
-        was_timed: input.wasTimed,
+        was_timed: attemptWasTimed,
         engine_snapshot: stored as unknown as Json,
         current_segment_ends_at: endsAt,
+        last_activity_at: new Date().toISOString(),
       })
       .select("id, question_set_id, was_timed")
       .maybeSingle();
@@ -1282,6 +1312,8 @@ export async function beginExamAttempt(
         ucat_mock_id: input.resourceId,
         engine_snapshot: stored as unknown as Json,
         current_segment_ends_at: endsAt,
+        last_activity_at: new Date().toISOString(),
+        was_timed: attemptWasTimed,
       })
       .select("id, ucat_mock_id")
       .maybeSingle();
@@ -1334,7 +1366,7 @@ export async function beginExamAttempt(
         mockAttemptId: data.id,
         setAttemptIdsBySetId,
         practiceSessionId: null,
-        wasTimed: input.wasTimed,
+        wasTimed: attemptWasTimed,
       },
       resumed: false,
     };
@@ -1346,10 +1378,14 @@ export async function beginExamAttempt(
     .update({
       engine_snapshot: stored as unknown as Json,
       current_segment_ends_at: endsAt,
+      last_activity_at: new Date().toISOString(),
+      was_timed: attemptWasTimed,
     })
     .eq("id", sessionId)
     .eq("student_id", studentId)
     .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
     .select("id, section_key, ucat_section_id")
     .maybeSingle();
   if (error || !session) {
@@ -1384,7 +1420,7 @@ export async function beginExamAttempt(
       mockAttemptId: null,
       setAttemptIdsBySetId: {},
       practiceSessionId: session.id,
-      wasTimed: input.wasTimed,
+      wasTimed: attemptWasTimed,
     },
     resumed: false,
   };
@@ -1486,4 +1522,30 @@ export async function clearExamAttemptProgress(
     .update(payload)
     .eq("id", attemptId)
     .eq("student_id", studentId);
+}
+
+export async function expireStaleExamAttempts(
+  admin: AdminClient,
+  studentId: string,
+): Promise<number> {
+  const { data, error } = await admin.rpc("expire_stale_ucat_exam_attempts", {
+    p_student_id: studentId,
+  });
+  if (error) throw new Error(error.message);
+  return typeof data === "number" ? data : 0;
+}
+
+export async function discardExamAttempt(
+  admin: AdminClient,
+  studentId: string,
+  kind: ExamAttemptKind,
+  attemptId: string,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("discard_ucat_exam_attempt", {
+    p_student_id: studentId,
+    p_attempt_kind: kind,
+    p_attempt_id: attemptId,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
 }

@@ -40,6 +40,7 @@
     "next-themes": "^0.2.1",
     "nextstepjs": "^2.2.0",
     "posthog-js": "^1.402.0",
+    "posthog-node": "^5.45.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.7.0",

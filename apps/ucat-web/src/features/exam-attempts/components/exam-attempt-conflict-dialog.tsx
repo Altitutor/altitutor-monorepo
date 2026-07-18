@@ -19,15 +19,15 @@ export function ExamAttemptConflictDialog({
   open,
   active,
   pendingLabel,
-  isFinalizing,
-  onFinalizeAndContinue,
+  isDiscarding,
+  onDiscardAndContinue,
   onCancel,
 }: {
   open: boolean;
   active: ActiveExamAttempt | null;
   pendingLabel: string;
-  isFinalizing: boolean;
-  onFinalizeAndContinue: () => void;
+  isDiscarding: boolean;
+  onDiscardAndContinue: () => void;
   onCancel: () => void;
 }) {
   const { isBlocked: questionEngineTourBlocked } =
@@ -52,18 +52,23 @@ export function ExamAttemptConflictDialog({
           <AlertDialogDescription asChild>
             <p>
               You have an unfinished attempt: <strong>{active.label}</strong>.
-              Resume it, or submit your current answers and start{" "}
-              <strong>{pendingLabel}</strong>.
+              Resume it, or discard it and start <strong>{pendingLabel}</strong>
+              . Discarding keeps its saved answers for audit, but it will not be
+              scored or appear in your attempt history.
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <Button type="button" variant="outline" className="w-full" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={onCancel}
+          >
             Cancel
           </Button>
           <Button
             type="button"
-            variant="outline"
             className="w-full"
             onClick={() => {
               window.location.assign(resumeHref);
@@ -73,11 +78,12 @@ export function ExamAttemptConflictDialog({
           </Button>
           <Button
             type="button"
+            variant="outline"
             className="w-full"
-            onClick={onFinalizeAndContinue}
-            disabled={isFinalizing}
+            onClick={onDiscardAndContinue}
+            disabled={isDiscarding}
           >
-            {isFinalizing ? "Submitting…" : "Submit current & start new"}
+            {isDiscarding ? "Discarding…" : "Discard & start new"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

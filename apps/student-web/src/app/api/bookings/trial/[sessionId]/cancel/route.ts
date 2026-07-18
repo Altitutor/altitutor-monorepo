@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createServiceRoleClient,
@@ -53,6 +54,7 @@ export async function POST(
 
     if (updateError) {
       console.error('Failed to soft-cancel public booking:', updateError);
+      captureApiError(updateError, "/api/bookings/trial/[sessionId]/cancel");
       return NextResponse.json(
         { error: 'Failed to cancel booking' },
         { status: 500 }
@@ -87,6 +89,7 @@ export async function POST(
       cancelled: true,
     });
   } catch (error) {
+    captureApiError(error, "/api/bookings/trial/[sessionId]/cancel");
     console.error('Public booking cancel error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

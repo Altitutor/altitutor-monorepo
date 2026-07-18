@@ -37,6 +37,7 @@ import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/sh
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
@@ -122,6 +123,8 @@ export function UcatQuestionStemDialog({
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
+  const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
+  const [showAnswer, setShowAnswer] = useState(false)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -166,8 +169,13 @@ export function UcatQuestionStemDialog({
       setActiveTextEditor(null)
       setCreateMore(false)
       createResetOpenRef.current = false
+      setShowAnswer(false)
     }
   }, [open])
+
+  useEffect(() => {
+    if (open) setEditorMode(initialEditorMode)
+  }, [open, initial?.id, initialEditorMode])
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
@@ -327,9 +335,7 @@ export function UcatQuestionStemDialog({
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
 
-  const headerActions = (
-    <div className="flex items-center gap-2">
-      {stemId != null ? (
+  const headerActions = stemId != null ? (
         <UcatRowActions
           actions={[
             ...(copyIdAction ? [copyIdAction] : []),
@@ -350,9 +356,7 @@ export function UcatQuestionStemDialog({
               : []),
           ]}
         />
-      ) : null}
-    </div>
-  )
+      ) : null
 
   function handleRequestClose() {
     if (!hasUnsavedChanges || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -389,6 +393,14 @@ export function UcatQuestionStemDialog({
           </label>
         ) : undefined
       }
+      headerControls={
+        <UcatStemEditorHeaderControls
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+        />
+      }
       headerActions={headerActions}
       warningPills={warningPills}
       hideCancel
@@ -406,6 +418,11 @@ export function UcatQuestionStemDialog({
           stemId={stemId ?? null}
           initialQuestionIndex={initialQuestionIndex}
           initialEditorMode={initialEditorMode}
+          editorMode={editorMode}
+          onEditorModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+          showModeControls={false}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
@@ -425,7 +442,6 @@ export function UcatQuestionStemDialog({
             })
           }
           metadataRecommendation={showCreateMore ? metadataRecommendation : null}
-          onDeleteStem={!readOnly ? onDelete : undefined}
         />
       </div>
     </UcatDialogShell>

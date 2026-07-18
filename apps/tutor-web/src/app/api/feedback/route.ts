@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     await sendFeedbackEmail(body);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    captureApiError(error, "/api/feedback");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to send feedback" },
       { status: 500 },

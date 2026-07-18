@@ -25,12 +25,13 @@ import {
   type PracticeSessionData,
   type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
-import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
+import { formatSpeedPercentAsMultiplier } from "@/features/progress/lib/format-speed-multiplier";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
@@ -47,12 +48,7 @@ import {
   UCAT_PRIMARY_ACTION_BUTTON,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 
 /** Side-by-side from tablet when the nav is collapsed; stack when it takes horizontal space. */
@@ -182,7 +178,9 @@ function buildPracticeSessionTitle({
         ? Math.round((examSeconds / timePerQuestionSeconds) * 100)
         : null;
     timingPhrase = ` @ ${formatSecondsPerQuestion(timePerQuestionSeconds)} per question${
-      speedPercent != null ? ` (${speedPercent}% of exam speed)` : ""
+      speedPercent != null
+        ? ` (${formatSpeedPercentAsMultiplier(speedPercent)} exam speed)`
+        : ""
     }`;
   }
 
@@ -385,7 +383,7 @@ export function PracticeSessionPage() {
   const pendingGateHandledRef = useRef(false);
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
-  const [isFinalizingConflict, setIsFinalizingConflict] = useState(false);
+  const [isDiscardingConflict, setIsDiscardingConflict] = useState(false);
   const [pendingConflictStart, setPendingConflictStart] =
     useState<PracticeSessionStartInput | null>(null);
   const [reducedStart, setReducedStart] = useState<{
@@ -634,11 +632,11 @@ export function PracticeSessionPage() {
     router,
   ]);
 
-  async function handleFinalizeConflictAndStart() {
+  async function handleDiscardConflictAndStart() {
     if (!conflictActive || !pendingConflictStart) return;
-    setIsFinalizingConflict(true);
+    setIsDiscardingConflict(true);
     try {
-      await finalizeExamAttempt({
+      await discardExamAttempt({
         kind: conflictActive.kind,
         attemptId: conflictActive.attemptId,
       });
@@ -686,7 +684,7 @@ export function PracticeSessionPage() {
         }
       }
     } finally {
-      setIsFinalizingConflict(false);
+      setIsDiscardingConflict(false);
     }
   }
 
@@ -709,7 +707,8 @@ export function PracticeSessionPage() {
     return () => clearInterval(id);
   }, [session]);
 
-  const activeSessionId = session === "loading" || !session ? null : session.sessionId;
+  const activeSessionId =
+    session === "loading" || !session ? null : session.sessionId;
   useEffect(() => {
     if (!activeSessionId) return;
     return () => clearLivePractice(activeSessionId);
@@ -720,12 +719,14 @@ export function PracticeSessionPage() {
     reportLivePractice({
       sessionId: session.sessionId,
       studyPlanTaskId: session.studyPlan?.taskId ?? null,
-      title: session.studyPlan?.title ??
+      title:
+        session.studyPlan?.title ??
         `${session.filterMeta?.sectionLabel ?? "UCAT"} practice`,
       answeredCount: liveStats?.answeredCount ?? 0,
       currentQuestionNumber: liveStats?.currentQuestionNumber ?? 1,
       targetUnits: session.studyPlan?.targetUnits ?? null,
-      totalQuestionLabel: liveStats?.totalQuestionLabel ??
+      totalQuestionLabel:
+        liveStats?.totalQuestionLabel ??
         (session.studyPlan?.targetUnits != null
           ? String(session.studyPlan.targetUnits)
           : "—"),
@@ -747,8 +748,8 @@ export function PracticeSessionPage() {
           open={conflictActive != null}
           active={conflictActive}
           pendingLabel="new practice session"
-          isFinalizing={isFinalizingConflict}
-          onFinalizeAndContinue={() => void handleFinalizeConflictAndStart()}
+          isDiscarding={isDiscardingConflict}
+          onDiscardAndContinue={() => void handleDiscardConflictAndStart()}
           onCancel={abandonPendingStart}
         />
         <PracticeReducedStartDialog
@@ -946,17 +947,10 @@ function UnlimitedPracticeEngine({
     async (excludeStemIds: string[]) => {
       try {
         const next = prefetchedStem
-          ? await fetchNextStem(
-              sessionId,
-              filtersRef.current,
-              excludeStemIds,
-              { deliverStemId: prefetchedStem.id },
-            )
-          : await fetchNextStem(
-              sessionId,
-              filtersRef.current,
-              excludeStemIds,
-            );
+          ? await fetchNextStem(sessionId, filtersRef.current, excludeStemIds, {
+              deliverStemId: prefetchedStem.id,
+            })
+          : await fetchNextStem(sessionId, filtersRef.current, excludeStemIds);
         if (next?.length) {
           setPrefetchedStem(null);
           setStems((prev) => {

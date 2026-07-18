@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -128,6 +129,7 @@ export async function GET(
 
     return NextResponse.json(bookingData);
   } catch (error) {
+    captureApiError(error, "/api/bookings/trial/[sessionId]");
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     console.error('API error:', error);
     return NextResponse.json(

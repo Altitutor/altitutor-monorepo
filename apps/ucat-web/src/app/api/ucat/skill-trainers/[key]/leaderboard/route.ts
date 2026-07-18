@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import { getLeaderboard } from "@/lib/ucat/skill-trainer/attempt-service";
@@ -33,6 +34,7 @@ export async function GET(
     );
     return NextResponse.json({ entries, window });
   } catch (error) {
+    captureApiError(error, "/api/ucat/skill-trainers/[key]/leaderboard");
     const message = error instanceof Error ? error.message : "Failed to load leaderboard";
     return NextResponse.json(
       { error: message },

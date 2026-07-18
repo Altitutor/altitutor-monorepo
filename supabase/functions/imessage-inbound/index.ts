@@ -333,9 +333,11 @@ async function processMessage(
     }).eq("id", conversationId).lt("last_message_at", message.date);
   if (conversationError) throw conversationError;
 
+  // Historical imports (inbound or outbound) must not inflate unread.
+  // Live inbound new-message clears read state.
   if (
-    !message.isFromMe &&
-    (isHistoricalImport || event.sourceEventType === "new-message")
+    isHistoricalImport ||
+    (!message.isFromMe && event.sourceEventType === "new-message")
   ) {
     const { error: readStateError } = await supabase.rpc(
       "sync_imessage_message_read_state",

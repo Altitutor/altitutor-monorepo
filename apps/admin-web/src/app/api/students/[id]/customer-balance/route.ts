@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -93,6 +94,7 @@ export async function GET(
       updated_at: new Date().toISOString(),
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/students/[id]/customer-balance");
     console.error('[api/students/customer-balance] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },
@@ -245,6 +247,7 @@ export async function POST(
       updated_at: new Date().toISOString(),
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/students/[id]/customer-balance");
     console.error('[api/students/customer-balance] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },

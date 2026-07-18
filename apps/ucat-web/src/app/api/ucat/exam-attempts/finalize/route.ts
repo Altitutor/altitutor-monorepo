@@ -1,9 +1,11 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { finalizeExamAttemptOnServer } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
+import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/exam-attempts/finalize");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -63,8 +66,17 @@ export async function POST(request: NextRequest) {
       body.attemptId,
       body.answers,
     );
+    if (result.newlyCompleted) {
+      await captureUcatLearningActivityCompleted({
+        userId: user.id,
+        activityType: body.kind,
+        activityId: body.attemptId,
+        properties: { completion_source: "question_engine" },
+      });
+    }
     return NextResponse.json(result);
   } catch (error) {
+    captureApiError(error, "/api/ucat/exam-attempts/finalize");
     return NextResponse.json(
       {
         error:

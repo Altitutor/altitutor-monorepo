@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -48,6 +49,7 @@ export async function GET(
 
   if (error) {
     console.error('[policies] GET error:', error);
+    captureApiError(error, "/api/policies/[key]");
     return NextResponse.json({ error: (error as { message: string }).message }, { status: 500 });
   }
 
@@ -79,6 +81,7 @@ export async function PUT(
 
   if (error) {
     console.error('[policies] PUT error:', error);
+    captureApiError(error, "/api/policies/[key]");
     return NextResponse.json({ error: (error as { message: string }).message }, { status: 500 });
   }
 

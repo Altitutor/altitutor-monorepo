@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
@@ -87,6 +88,7 @@ export async function GET(
     .maybeSingle()
 
   if (mockError) {
+    captureApiError(mockError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
     return NextResponse.json({ error: mockError.message }, { status: 500 })
   }
 
@@ -110,6 +112,7 @@ export async function GET(
     .maybeSingle()
 
   if (mockDetailError) {
+    captureApiError(mockDetailError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
     return NextResponse.json({ error: mockDetailError.message }, { status: 500 })
   }
 
@@ -145,6 +148,7 @@ export async function GET(
     .eq('student_ucat_mock_attempt_id', mockId)
 
   if (setAttemptsError) {
+    captureApiError(setAttemptsError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
     return NextResponse.json({ error: setAttemptsError.message }, { status: 500 })
   }
 
@@ -164,6 +168,7 @@ export async function GET(
     .eq('is_submitted', true)
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
     return NextResponse.json({ error: qaError.message }, { status: 500 })
   }
 

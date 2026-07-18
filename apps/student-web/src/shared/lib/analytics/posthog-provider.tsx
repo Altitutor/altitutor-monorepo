@@ -67,6 +67,7 @@ export function StudentPostHogProvider({ children }: { children: React.ReactNode
       posthog.init(token, {
         api_host:
           process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
         capture_pageview: false,
         capture_pageleave: true,
         autocapture: false,
@@ -76,7 +77,13 @@ export function StudentPostHogProvider({ children }: { children: React.ReactNode
         disable_session_recording: true,
         disable_surveys: true,
       });
-      posthog.register(STUDENT_ANALYTICS_CONTEXT);
+      posthog.register({
+        ...STUDENT_ANALYTICS_CONTEXT,
+        environment:
+          process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ??
+          process.env.NODE_ENV ??
+          'development',
+      });
       initialized = true;
     }
 

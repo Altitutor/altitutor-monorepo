@@ -221,6 +221,8 @@ deploy_sentry_project() {
     deploy_vercel_secret "SENTRY_PROJECT" "$sentry_project" "$vercel_project" "$environment"
     deploy_vercel_secret "SENTRY_ORG" "$sentry_org" "$vercel_project" "$environment"
     deploy_vercel_secret "SENTRY_AUTH_TOKEN" "$auth_token" "$vercel_project" "$environment"
+    deploy_vercel_secret "NEXT_PUBLIC_SENTRY_ENVIRONMENT" "$environment" "$vercel_project" "$environment"
+    deploy_vercel_secret "SENTRY_ENVIRONMENT" "$environment" "$vercel_project" "$environment"
 }
 
 deploy_public_analytics_secret() {

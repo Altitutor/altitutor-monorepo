@@ -9,6 +9,12 @@ export type BlockProgressUpdate = {
   manuallyCompleted?: boolean;
 };
 
+export type LessonProgressResult = {
+  completionPercent: number;
+  completedAt: string | null;
+  newlyCompleted: boolean;
+};
+
 async function loadLessonBlockIds(
   supabase: AdminClient,
   lessonId: string,
@@ -46,12 +52,22 @@ export async function recalculateLessonProgress(
   supabase: AdminClient,
   studentId: string,
   lessonId: string,
-): Promise<{ completionPercent: number; completedAt: string | null }> {
+): Promise<LessonProgressResult> {
   const blockIds = await loadLessonBlockIds(supabase, lessonId);
-  const completed = await countCompletedBlocks(supabase, studentId, blockIds);
+  const [completed, previousResult] = await Promise.all([
+    countCompletedBlocks(supabase, studentId, blockIds),
+    supabase
+      .from("ucat_student_learning_module_progress")
+      .select("completed_at")
+      .eq("student_id", studentId)
+      .eq("learning_module_id", lessonId)
+      .maybeSingle(),
+  ]);
+  if (previousResult.error) throw new Error(previousResult.error.message);
   const completionPercent =
     blockIds.length === 0 ? 0 : Math.round((completed / blockIds.length) * 100);
-  const completedAt = completionPercent >= 100 ? new Date().toISOString() : null;
+  const completedAt =
+    completionPercent >= 100 ? new Date().toISOString() : null;
 
   const { error } = await supabase
     .from("ucat_student_learning_module_progress")
@@ -66,7 +82,12 @@ export async function recalculateLessonProgress(
     );
 
   if (error) throw new Error(error.message);
-  return { completionPercent, completedAt };
+  return {
+    completionPercent,
+    completedAt,
+    newlyCompleted:
+      completedAt != null && previousResult.data?.completed_at == null,
+  };
 }
 
 export async function ensureLessonStarted(
@@ -153,7 +174,7 @@ export async function markAllLessonBlocksComplete(
   supabase: AdminClient,
   studentId: string,
   lessonId: string,
-): Promise<void> {
+): Promise<LessonProgressResult> {
   const blockIds = await loadLessonBlockIds(supabase, lessonId);
   const now = new Date().toISOString();
 
@@ -161,6 +182,14 @@ export async function markAllLessonBlocksComplete(
   // lesson (especially draft/test content). Recalculation alone would turn it
   // back into 0% because there are no blocks to count.
   if (blockIds.length === 0) {
+    const { data: previous, error: previousError } = await supabase
+      .from("ucat_student_learning_module_progress")
+      .select("completed_at")
+      .eq("student_id", studentId)
+      .eq("learning_module_id", lessonId)
+      .maybeSingle();
+    if (previousError) throw new Error(previousError.message);
+
     const { error } = await supabase
       .from("ucat_student_learning_module_progress")
       .upsert(
@@ -173,7 +202,11 @@ export async function markAllLessonBlocksComplete(
         { onConflict: "student_id,learning_module_id" },
       );
     if (error) throw new Error(error.message);
-    return;
+    return {
+      completionPercent: 100,
+      completedAt: now,
+      newlyCompleted: previous?.completed_at == null,
+    };
   }
 
   for (const blockId of blockIds) {
@@ -206,7 +239,7 @@ export async function markAllLessonBlocksComplete(
     }
   }
 
-  await recalculateLessonProgress(supabase, studentId, lessonId);
+  return recalculateLessonProgress(supabase, studentId, lessonId);
 }
 
 export async function resetLessonProgress(
@@ -308,7 +341,11 @@ export async function maybeAutoCompleteQuestionBlock(
   supabase: AdminClient,
   studentId: string,
   blockId: string,
-): Promise<boolean> {
+): Promise<{
+  blockCompleted: boolean;
+  lessonId: string | null;
+  lessonNewlyCompleted: boolean;
+}> {
   const { data: block, error: blockError } = await supabase
     .from("ucat_learning_module_blocks")
     .select("id, learning_module_id, block_type")
@@ -321,11 +358,21 @@ export async function maybeAutoCompleteQuestionBlock(
     !block ||
     (block.block_type !== "question" && block.block_type !== "question_stem")
   ) {
-    return false;
+    return {
+      blockCompleted: false,
+      lessonId: block?.learning_module_id ?? null,
+      lessonNewlyCompleted: false,
+    };
   }
 
   const requiredIds = await getRequiredQuestionIdsForBlock(supabase, blockId);
-  if (requiredIds.length === 0) return false;
+  if (requiredIds.length === 0) {
+    return {
+      blockCompleted: false,
+      lessonId: block.learning_module_id,
+      lessonNewlyCompleted: false,
+    };
+  }
 
   const { data: attempts, error: attemptsError } = await supabase
     .from("student_question_attempts")
@@ -343,20 +390,36 @@ export async function maybeAutoCompleteQuestionBlock(
   );
 
   const allAnswered = requiredIds.every((id) => answeredIds.has(id));
-  if (!allAnswered) return false;
+  if (!allAnswered) {
+    return {
+      blockCompleted: false,
+      lessonId: block.learning_module_id,
+      lessonNewlyCompleted: false,
+    };
+  }
 
   const alreadyComplete = await isBlockCompleteForStudent(
     supabase,
     studentId,
     blockId,
   );
-  if (alreadyComplete) return false;
+  if (alreadyComplete) {
+    return {
+      blockCompleted: false,
+      lessonId: block.learning_module_id,
+      lessonNewlyCompleted: false,
+    };
+  }
 
   await upsertBlockProgress(supabase, studentId, blockId, { completed: true });
-  await recalculateLessonProgress(
+  const lessonProgress = await recalculateLessonProgress(
     supabase,
     studentId,
     block.learning_module_id,
   );
-  return true;
+  return {
+    blockCompleted: true,
+    lessonId: block.learning_module_id,
+    lessonNewlyCompleted: lessonProgress.newlyCompleted,
+  };
 }

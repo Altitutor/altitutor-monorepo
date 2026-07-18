@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/students/search");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -59,6 +61,7 @@ export async function GET(request: NextRequest) {
     
     if (error) {
       console.error('Error searching students:', error);
+      captureApiError(error, "/api/students/search");
       return NextResponse.json(
         { error: 'Failed to search students' },
         { status: 500 }
@@ -67,6 +70,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ students: (data ?? []) as Tables<'students'>[] });
   } catch (error) {
+    captureApiError(error, "/api/students/search");
     console.error('Unexpected error in GET /api/students/search:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

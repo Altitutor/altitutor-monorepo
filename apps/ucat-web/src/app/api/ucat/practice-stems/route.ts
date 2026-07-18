@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
       }),
     );
   } catch (error) {
+    captureApiError(error, "/api/ucat/practice-stems");
     if (error instanceof QuotaExceededError) {
       return quotaExceededResponse(error.payload);
     }

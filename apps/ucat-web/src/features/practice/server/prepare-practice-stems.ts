@@ -42,7 +42,7 @@ export async function preparePracticeStems({
   }
 
   const { data, error } = await reader
-    .from("vstudent_ucat_question_stem_detail")
+    .from("vstudent_ucat_question_stem_delivery")
     .select("id,section_name,display_columns,stem_text,questions")
     .in("id", result.chosenStemIds);
   if (error || !data?.length) {

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -56,6 +57,7 @@ export async function PATCH(request: NextRequest) {
     
     if (staffError) {
       console.error('Error fetching staff record:', staffError);
+      captureApiError(staffError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to verify staff status' },
         { status: 500 }
@@ -137,6 +139,7 @@ export async function PATCH(request: NextRequest) {
     
     if (error) {
       console.error('Error updating profile:', error);
+      captureApiError(error, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
@@ -150,6 +153,7 @@ export async function PATCH(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/profile");
     console.error('Error in PATCH /api/profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

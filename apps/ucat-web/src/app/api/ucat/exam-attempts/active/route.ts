@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -32,6 +33,7 @@ export async function GET() {
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/exam-attempts/active");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import type { TablesInsert } from '@altitutor/shared'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError || !uploadData) {
+      captureApiError(uploadError, "/api/ucat/learning-modules/files/upload");
       return NextResponse.json(
         { error: uploadError?.message ?? 'Failed to upload file' },
         { status: 500 },
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
 
     if (fileError || !fileRow) {
       await service.storage.from(BUCKET).remove([uploadData.path])
+      captureApiError(fileError, "/api/ucat/learning-modules/files/upload");
       return NextResponse.json(
         { error: fileError?.message ?? 'Failed to create file record' },
         { status: 500 },
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(uploadData.path, 3600)
 
     if (signedError) {
+      captureApiError(signedError, "/api/ucat/learning-modules/files/upload");
       return NextResponse.json({ error: signedError.message }, { status: 500 })
     }
 
@@ -93,6 +97,7 @@ export async function POST(request: NextRequest) {
       signedUrl: signed.signedUrl,
     })
   } catch (error) {
+    captureApiError(error, "/api/ucat/learning-modules/files/upload");
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 },

@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -280,6 +281,7 @@ export async function POST(request: NextRequest) {
     try {
       referralTrialContext = await loadReferralTrialContext(student.id);
     } catch (error: unknown) {
+      captureApiError(error, "/api/ucat/checkout");
       console.error(
         "[ucat checkout] Failed to resolve trial eligibility:",
         error,
@@ -471,6 +473,7 @@ export async function POST(request: NextRequest) {
       trialDays: trialEligible ? trialDays : 0,
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/ucat/checkout");
     console.error(
       "[ucat checkout] Stripe error:",
       error instanceof Error ? error.message : String(error),

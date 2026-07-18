@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -34,6 +35,7 @@ export async function GET() {
     .insert({ student_id: studentId });
   if (insertError && insertError.code !== "23505") {
     console.error("[ucat referrals] Failed to create share code", insertError);
+    captureApiError(insertError, "/api/ucat/referrals");
     return NextResponse.json(
       { error: "Failed to create referral link" },
       { status: 500 },

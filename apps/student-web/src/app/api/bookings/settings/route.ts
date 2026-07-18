@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ setting_value: data?.setting_value ?? null });
   } catch (error) {
+    captureApiError(error, "/api/bookings/settings");
     console.error('Error fetching booking setting:', error);
     return NextResponse.json(
       { error: 'Failed to fetch booking setting' },

@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
   Button,
   Input,
   SearchableSelect,
   Slider,
+  Tabs,
+  TabsContent,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -20,14 +22,16 @@ import {
   UcatStemMembershipListPanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
-import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@/shared/components/segmented-tab-panel'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import type { RichTextJson } from '@/features/ucat/shared/types'
+import { SegmentedControl } from '@/shared/components/segmented-control'
+import {
+  UcatAuthoringWorkspaceTabs,
+  type UcatAuthoringWorkspaceTab,
+} from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import { cn } from '@/shared/utils'
 
 export type UcatSectionForTimeLimit = {
   id: string
@@ -35,6 +39,15 @@ export type UcatSectionForTimeLimit = {
   time_limit_seconds: number | null
   time_per_question?: number | null
   number_of_questions?: number | null
+}
+
+function SetPropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="w-[34%] shrink-0 pt-2 text-sm text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
 }
 
 type UcatSetEditorContentProps = {
@@ -105,6 +118,7 @@ export function UcatSetEditorContent({
   onActiveTextEditorChange,
 }: UcatSetEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-stems'>('properties')
+  const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
   const [isEditingTimeLimit, setIsEditingTimeLimit] = useState(false)
 
   const handleTextEditorActive = useCallback(
@@ -217,9 +231,26 @@ export function UcatSetEditorContent({
     [sectionFullTimeFormatted, sectionAutoTimeFormatted, setSectionCount],
   )
 
+  function handleWorkspaceChange(value: UcatAuthoringWorkspaceTab) {
+    setActiveWorkspace(value)
+    if (value === 'properties') setSideTab('properties')
+    if (value === 'ai') setSideTab('add-stems')
+  }
+
   return (
-    <div className="flex h-full min-h-0">
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r p-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <UcatAuthoringWorkspaceTabs
+        value={activeWorkspace}
+        onValueChange={handleWorkspaceChange}
+        editorLabel="Stems"
+        aiLabel="Add stems"
+        className="shrink-0 border-b bg-background p-2 lg:hidden"
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <section className={cn(
+          'flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-4 lg:flex lg:border-r lg:p-6',
+          activeWorkspace !== 'editor' && 'hidden',
+        )}>
           <h2 className="mb-3 shrink-0 font-semibold">Stems in set</h2>
           <UcatStemMembershipListPanel
             stemIds={draftStemIds}
@@ -233,28 +264,33 @@ export function UcatSetEditorContent({
           />
         </section>
 
-      <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l p-6">
-        <SegmentedTabPanel
+      <aside className={cn(
+        'h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 sm:p-4 lg:flex lg:w-80 lg:border-l',
+        activeWorkspace === 'editor' && 'hidden',
+        activeWorkspace !== 'editor' && 'flex',
+      )}>
+        <Tabs
           value={sideTab}
-          onValueChange={(value) => setSideTab(value)}
-          className="min-h-0 flex-1"
-          options={[
-            { value: 'properties', label: 'Properties' },
-            { value: 'add-stems', label: 'Add stems' },
-          ]}
+          onValueChange={(value) => setSideTab(value as 'properties' | 'add-stems')}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <SegmentedTabPanelContent
-            when="properties"
-            activeTab={sideTab}
-            className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-4"
-          >
+          <div className="hidden lg:block">
+            <SegmentedControl
+              fullWidth
+              value={sideTab}
+              onValueChange={setSideTab}
+              options={[
+                { value: 'properties', label: 'Properties' },
+                { value: 'add-stems', label: 'Add stems' },
+              ]}
+            />
+          </div>
+          <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
             <h2 className="font-semibold">Set properties</h2>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Name</span>
+            <SetPropertyRow label="Name">
               <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Description</span>
+            </SetPropertyRow>
+            <SetPropertyRow label="Description">
               <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                 <UcatRichTextEditor
                   value={draftDescription}
@@ -264,9 +300,9 @@ export function UcatSetEditorContent({
                   onEditorReady={(editor) => bindRichTextToolbarFocus(editor, handleTextEditorActive)}
                 />
               </div>
-            </label>
-            <div className="block text-sm">
-              <span className="mb-1 block font-medium">Time limit</span>
+            </SetPropertyRow>
+            <SetPropertyRow label="Time limit">
+              <div className="text-sm">
               {!isEditingTimeLimit ? (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">
@@ -371,11 +407,9 @@ export function UcatSetEditorContent({
                   </Button>
                 </div>
               )}
-            </div>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">
-                <UcatVisibilityFieldLabel />
-              </span>
+              </div>
+            </SetPropertyRow>
+            <SetPropertyRow label={<UcatVisibilityFieldLabel />}>
               <SearchableSelect<{ value: string; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
@@ -390,13 +424,9 @@ export function UcatSetEditorContent({
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
               />
-            </label>
-          </SegmentedTabPanelContent>
-          <SegmentedTabPanelContent
-            when="add-stems"
-            activeTab={sideTab}
-            className="m-0 mt-3 flex min-h-0 flex-1 flex-col pt-2"
-          >
+            </SetPropertyRow>
+          </TabsContent>
+          <TabsContent value="add-stems" className="m-0 mt-3 min-h-0 flex-1 flex-col data-[state=active]:flex">
             <UcatStemCatalogListPanel
               stems={stemCatalog}
               excludedIds={draftStemIds}
@@ -415,9 +445,10 @@ export function UcatSetEditorContent({
               compact
               emptyMessage="No stems to add, or all matching stems are already in the set."
             />
-          </SegmentedTabPanelContent>
-        </SegmentedTabPanel>
+          </TabsContent>
+        </Tabs>
       </aside>
+      </div>
     </div>
   )
 }

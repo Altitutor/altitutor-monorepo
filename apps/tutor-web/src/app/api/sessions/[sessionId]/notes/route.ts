@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -59,6 +60,7 @@ export async function POST(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/sessions/[sessionId]/notes");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -77,6 +79,7 @@ export async function POST(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/sessions/[sessionId]/notes");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -92,6 +95,7 @@ export async function POST(
     
     if (sessionError) {
       console.error('Error checking session access:', sessionError);
+      captureApiError(sessionError, "/api/sessions/[sessionId]/notes");
       return NextResponse.json(
         { error: 'Failed to verify session access' },
         { status: 500 }
@@ -123,6 +127,7 @@ export async function POST(
     
     if (error) {
       console.error('Error creating note:', error);
+      captureApiError(error, "/api/sessions/[sessionId]/notes");
       return NextResponse.json(
         { error: 'Failed to create note' },
         { status: 500 }
@@ -132,6 +137,7 @@ export async function POST(
     return NextResponse.json(data);
     
   } catch (error) {
+    captureApiError(error, "/api/sessions/[sessionId]/notes");
     console.error('Error in POST /api/sessions/[sessionId]/notes:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useToast } from '@altitutor/ui'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
@@ -16,6 +16,10 @@ import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
+import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
+import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
 
 export type SetOption = {
   id: string
@@ -61,6 +65,9 @@ export function UcatMockEditorDialog({
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [showAnswer, setShowAnswer] = useState(false)
+  const stemCatalogQuery = useUcatStemCatalog(open)
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -102,6 +109,13 @@ export function UcatMockEditorDialog({
       })
   }, [sets.data])
 
+  useEffect(() => {
+    if (!open) {
+      setEditorMode('edit')
+      setShowAnswer(false)
+    }
+  }, [open])
+
   function handleRequestClose() {
     if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
       onClose()
@@ -126,30 +140,27 @@ export function UcatMockEditorDialog({
         )
       : null
 
-  const headerActions =
-    mockId != null
-      ? (
-          <UcatRowActions
-            actions={[
-              ...(copyIdAction ? [copyIdAction] : []),
+  const headerActions = mockId != null ? (
+    <UcatRowActions
+      actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
+        {
+          label: 'Open in page',
+          href: `/ucat/mocks/${mockId}`,
+        },
+        ...(onDelete
+          ? [
               {
-                label: 'Open in page',
-                href: `/ucat/mocks/${mockId}`,
+                label: 'Delete',
+                icon: <Trash2 className="h-4 w-4" />,
+                onClick: onDelete,
+                destructive: true,
               },
-              ...(onDelete
-                ? [
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 className="h-4 w-4" />,
-                      onClick: onDelete,
-                      destructive: true,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        )
-      : null
+            ]
+          : []),
+      ]}
+    />
+  ) : null
 
   return (
     <UcatDialogShell
@@ -166,48 +177,67 @@ export function UcatMockEditorDialog({
           const parsed = parseUcatVisibilityError(msg)
           toast({
             title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
+            description: parsed.link ? (
+              <span>
+                {parsed.textBeforeLink}{' '}
+                <Link href={parsed.link.href} className="underline font-medium">
+                  {parsed.link.label}
+                </Link>
+              </span>
+            ) : (
+              msg
+            ),
             variant: 'destructive',
           })
         }
       }}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
-        headerActions={headerActions}
-        warningPills={warningPills}
-        hideCancel
-        defaultExpanded
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
+      headerControls={
+        <UcatStemEditorHeaderControls
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+        />
+      }
+      headerActions={headerActions}
+      warningPills={warningPills}
+      hideCancel
+      defaultExpanded
+      mobileFullscreen
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        {editorMode === 'edit' ? (
           <UcatMockEditorContent
-        name={name}
-        isPrivate={isPrivate}
-        instructionsText={instructionsText}
-        setInstructionsText={setInstructionsText}
-        setName={setName}
-        setIsPrivate={(value) => setIsPrivate(value)}
-        draftSetIds={draftSetIds}
-        setDraftSetIds={setDraftSetIds}
-        search={search}
-        setSearch={setSearch}
-        filters={filters}
-        setFilters={setFilters}
-        filterDefinitions={setFilterDefinitions}
-        setCatalog={setCatalog}
-        setCatalogLoading={sets.isLoading}
-        sections={sections}
-        onEditSet={onEditSet}
-      />
-        </div>
+            name={name}
+            isPrivate={isPrivate}
+            instructionsText={instructionsText}
+            setInstructionsText={setInstructionsText}
+            setName={setName}
+            setIsPrivate={(value) => setIsPrivate(value)}
+            draftSetIds={draftSetIds}
+            setDraftSetIds={setDraftSetIds}
+            search={search}
+            setSearch={setSearch}
+            filters={filters}
+            setFilters={setFilters}
+            filterDefinitions={setFilterDefinitions}
+            setCatalog={setCatalog}
+            setCatalogLoading={sets.isLoading}
+            sections={sections}
+            onEditSet={onEditSet}
+          />
+        ) : (
+          <UcatMockPreviewContent
+            setIds={draftSetIds}
+            stemCatalog={stemCatalogQuery.data ?? []}
+            showAnswer={showAnswer}
+            catalogLoading={stemCatalogQuery.isLoading}
+            setCatalog={setCatalog}
+          />
+        )}
+      </div>
     </UcatDialogShell>
   )
 }

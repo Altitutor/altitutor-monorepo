@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import {
   normalizeFormAnswers,
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
+    captureApiError(error, "/api/forms/responses");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -74,7 +76,7 @@ export async function PUT(request: Request) {
     .eq('id', body.responseId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/forms/responses", NextResponse.json({ error: error.message }, { status: 500 }));
   if (!response?.form_versions) return NextResponse.json({ error: 'Response not found.' }, { status: 404 });
 
   const blocks = await resolveFormBlocks(auth.admin, asBlocks(response.form_versions.blocks));
@@ -96,15 +98,15 @@ export async function PUT(request: Request) {
     number_value: answer.numberValue ?? null,
   }));
   const { error: deleteError } = await auth.admin.from('form_response_answers').delete().eq('form_response_id', response.id);
-  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  if (deleteError) return captureApiErrorResponse(deleteError, "/api/forms/responses", NextResponse.json({ error: deleteError.message }, { status: 500 }));
   if (normalized.length) {
     const { error: insertError } = await auth.admin.from('form_response_answers').insert(normalized);
-    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (insertError) return captureApiErrorResponse(insertError, "/api/forms/responses", NextResponse.json({ error: insertError.message }, { status: 500 }));
   }
   const { error: updateError } = await auth.admin.from('form_responses')
     .update({ response_json: { answers } as Json })
     .eq('id', response.id);
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (updateError) return captureApiErrorResponse(updateError, "/api/forms/responses", NextResponse.json({ error: updateError.message }, { status: 500 }));
 
   const formName = response.forms && typeof response.forms === 'object' && 'name' in response.forms
     ? response.forms.name

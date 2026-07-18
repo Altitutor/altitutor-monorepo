@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -319,6 +320,7 @@ export async function GET(request: NextRequest) {
     .order('last_name', { ascending: true });
 
   if (studentsError) {
+    captureApiError(studentsError, "/api/ucat/free-tier-quotas");
     return NextResponse.json({ error: studentsError.message }, { status: 500 });
   }
 
@@ -327,7 +329,7 @@ export async function GET(request: NextRequest) {
     const { data: tier, error } = await supabaseAdmin!.rpc('get_student_ucat_online_tier', {
       p_student_id: student.id,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/ucat/free-tier-quotas", NextResponse.json({ error: error.message }, { status: 500 }));
     if ((tier as UcatOnlineTier | null) === 'free') freeStudents.push(student);
   }
 
@@ -384,7 +386,7 @@ export async function POST(request: NextRequest) {
       .from('students')
       .select('id, timezone')
       .in('id', studentIds);
-    if (studentsError) return NextResponse.json({ error: studentsError.message }, { status: 500 });
+    if (studentsError) return captureApiErrorResponse(studentsError, "/api/ucat/free-tier-quotas", NextResponse.json({ error: studentsError.message }, { status: 500 }));
 
     const rows = (students ?? []).map((student) => {
       const expiresAt = zonedEndOfDayUtc(body.expiresOn!, student.timezone ?? 'Australia/Adelaide');
@@ -403,7 +405,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabaseAdmin!
       .from('ucat_free_quota_reset_entitlements')
       .insert(rows as NonNullable<(typeof rows)[number]>[]);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/ucat/free-tier-quotas", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ ok: true });
   }
 
@@ -423,7 +425,7 @@ export async function POST(request: NextRequest) {
           created_by_staff_id: auth.staffId,
         })),
       );
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/ucat/free-tier-quotas", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ ok: true });
   }
 

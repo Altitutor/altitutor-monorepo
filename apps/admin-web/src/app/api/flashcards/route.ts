@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     .eq('topic_id', topicId)
     .order('index', { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ data: data ?? [] });
 }
 
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
 
   if (body.index !== undefined) {
     try {
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
         insertIdAtIndex((siblings ?? []).map((card) => card.id), data.id, requestedIndex),
       );
     } catch (orderError) {
+      captureApiError(orderError, "/api/flashcards");
       const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
       .eq('id', data.id)
       .single();
 
-    if (reorderFetchError) return NextResponse.json({ error: reorderFetchError.message }, { status: 500 });
+    if (reorderFetchError) return captureApiErrorResponse(reorderFetchError, "/api/flashcards", NextResponse.json({ error: reorderFetchError.message }, { status: 500 }));
     return NextResponse.json({ data: reordered });
   }
 

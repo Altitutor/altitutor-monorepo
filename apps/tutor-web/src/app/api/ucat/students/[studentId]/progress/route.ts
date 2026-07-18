@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
 import {
@@ -117,6 +118,7 @@ export async function GET(
     .eq('is_submitted', true)
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/students/[studentId]/progress");
     return NextResponse.json({ error: qaError.message }, { status: 500 })
   }
 
@@ -225,6 +227,7 @@ export async function GET(
     .not('completed_at', 'is', null)
 
   if (setError) {
+    captureApiError(setError, "/api/ucat/students/[studentId]/progress");
     return NextResponse.json({ error: setError.message }, { status: 500 })
   }
 
@@ -589,6 +592,7 @@ export async function GET(
     .not('completed_at', 'is', null)
 
   if (mockError) {
+    captureApiError(mockError, "/api/ucat/students/[studentId]/progress");
     return NextResponse.json({ error: mockError.message }, { status: 500 })
   }
 

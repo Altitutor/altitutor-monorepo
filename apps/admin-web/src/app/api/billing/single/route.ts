@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Tables } from '@altitutor/shared';
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: unknown) {
+    captureApiError(error, "/api/billing/single");
     console.error('Error invoicing single session:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: getErrorMessage(error) },
