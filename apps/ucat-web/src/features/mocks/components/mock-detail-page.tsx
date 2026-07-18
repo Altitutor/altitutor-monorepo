@@ -77,7 +77,11 @@ export function MockDetailPage({
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
-  const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}`;
+  const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}${
+    sessionEntryContext
+      ? `&session=${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : ""
+  }`;
 
   const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 2 : 1;
   const backHref =
@@ -184,6 +188,7 @@ export function MockDetailPage({
       activeExamAttempt?.kind === "mock" &&
       activeExamAttempt.resourceId === mockId;
     if (
+      sessionEntryContext == null &&
       !canResumeCurrentAttempt &&
       (mockQuota?.disabled || mockQuota?.atLimit)
     ) {

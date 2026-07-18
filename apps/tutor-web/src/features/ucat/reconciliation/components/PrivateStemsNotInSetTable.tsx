@@ -24,6 +24,7 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import type { PrivateStemNotInSet } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatCategories, useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -83,6 +84,7 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetPending, setBulkSetPending] = useState(false)
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'category_name', 'section_name'])
   const [queueOpen, setQueueOpen] = useState(false)
+  const [makingPublicStemId, setMakingPublicStemId] = useState<string | null>(null)
   const [setWarning, setSetWarning] = useState<{
     setId: string
     setName: string
@@ -212,6 +214,30 @@ export function PrivateStemsNotInSetTable({
     },
     [addStemToSet, staffSets, sectionsQuery.data]
   )
+
+  const handleMakePublic = useCallback(async (item: PrivateStemNotInSet) => {
+    setMakingPublicStemId(item.id)
+    try {
+      await ucatQuestionsApi.bulkUpdateMetadata([item.id], { accessScope: 'public' })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
+      ])
+      toast({
+        title: 'Question stem made public',
+        description: 'It no longer needs to belong to a question set.',
+      })
+    } catch {
+      toast({
+        title: 'Failed to make question stem public',
+        description: 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setMakingPublicStemId(null)
+    }
+  }, [queryClient, toast])
 
   const toggleStemSelection = useCallback((id: string) => {
     setSelectedStemIds((prev) => {
@@ -357,6 +383,8 @@ export function PrivateStemsNotInSetTable({
             visibleColumnKeys={visibleColumnKeys}
             selection={sel}
             onAddToSet={(setId) => handleAddToSet(item, setId)}
+            onMakePublic={() => handleMakePublic(item)}
+            isMakingPublic={makingPublicStemId === item.id}
             onOpenStemDialog={onOpenStemDialog}
           />
         )}
@@ -464,6 +492,8 @@ function PrivateStemNotInSetRow({
   visibleColumnKeys,
   selection,
   onAddToSet,
+  onMakePublic,
+  isMakingPublic,
   onOpenStemDialog,
 }: {
   item: PrivateStemNotInSet
@@ -476,6 +506,8 @@ function PrivateStemNotInSetRow({
     onToggleSelection: (id: string) => void
   }
   onAddToSet: (setId: string) => Promise<void>
+  onMakePublic: () => Promise<void>
+  isMakingPublic: boolean
   onOpenStemDialog?: (stemId: string) => void
 }) {
   const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
@@ -485,6 +517,19 @@ function PrivateStemNotInSetRow({
     return sorted
       .map((q, i) => `${i + 1}. ${truncate(proseMirrorToPlainText(q.question_text as import('@altitutor/shared').Json) ?? '', 60)}`)
       .join(' ')
+  }, [item.questions])
+  const compactQuestionsDisplay = useMemo(() => {
+    const sorted = [...(item.questions ?? [])].sort((a, b) => a.index - b.index)
+    const firstQuestion = sorted[0]
+    if (!firstQuestion) return ''
+    const firstQuestionText = truncate(
+      proseMirrorToPlainText(firstQuestion.question_text as import('@altitutor/shared').Json) ?? '',
+      80,
+    )
+    const remainingCount = sorted.length - 1
+    return remainingCount > 0
+      ? `${firstQuestionText} (+${remainingCount} more)`
+      : firstQuestionText
   }, [item.questions])
 
   const cells: Record<string, React.ReactNode> = {
@@ -499,8 +544,8 @@ function PrivateStemNotInSetRow({
       </TableCell>
     ),
     questions: (
-      <TableCell className="max-w-[400px] text-muted-foreground" title={questionsDisplay}>
-        <span className="block truncate">{questionsDisplay || '—'}</span>
+      <TableCell className="w-[320px] max-w-[320px] text-muted-foreground" title={questionsDisplay}>
+        <span className="block truncate">{compactQuestionsDisplay || '—'}</span>
       </TableCell>
     ),
   }
@@ -525,9 +570,18 @@ function PrivateStemNotInSetRow({
       )}
       {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={() => onOpenStemDialog?.(item.id)}>
             View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={tutorBtnOutline}
+            onClick={() => void onMakePublic()}
+            disabled={isMakingPublic}
+          >
+            {isMakingPublic ? 'Making public…' : 'Make public'}
           </Button>
           <AddToSetSelect sets={sets} onSelect={onAddToSet} />
         </div>

@@ -6,7 +6,6 @@ export function getStemReconciliationWarnings(
 ): string[] {
   if (!data || !stemId) return []
   const warnings: string[] = []
-  if (data.pendingGeneratedStems.some((stem) => stem.id === stemId)) warnings.push('Pending AI approval')
   if (data.stemsWithNoCategory.some((stem) => stem.id === stemId)) warnings.push('Missing category')
   const missingExplanationCount = data.questionsWithNoExplanation.filter((question) => question.stemId === stemId).length
   if (missingExplanationCount > 0) {

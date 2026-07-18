@@ -36,10 +36,19 @@ export async function POST(request: NextRequest) {
       timing.mark("discard-active");
     }
 
+    const { data: trainer, error: trainerError } = await auth.admin
+      .from("ucat_skill_trainers")
+      .select("id")
+      .eq("key", body.trainerKey)
+      .eq("is_enabled", true)
+      .maybeSingle();
+    if (trainerError) throw new Error(trainerError.message);
+
     const quotaCheck = await checkQuotaForAction(
       auth.admin,
       auth.studentId,
       "skill_trainer",
+      { skillTrainerId: trainer?.id },
     );
     timing.mark("quota");
     if (!quotaCheck.allowed) {

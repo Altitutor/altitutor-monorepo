@@ -85,7 +85,7 @@ function getWasTimedForSet(
       (s) =>
         s.type === "questions" &&
         questionIndex >= s.questionStartIndex &&
-        questionIndex <= s.questionEndIndex,
+        questionIndex < s.questionEndIndex,
     );
     if (!segment || segment.type !== "questions") return false;
     return (segment.timeLimitSeconds ?? 0) > 0;
@@ -106,6 +106,39 @@ function toDbMode(mode: QuestionEngineMode): QuestionAttemptMode {
     default:
       return "question";
   }
+}
+
+export function buildFinalExamQuestionAttempts(
+  mode: Extract<QuestionEngineMode, "set" | "mock">,
+  exam: QuestionEngineExam,
+  state: Pick<
+    QuestionEngineState,
+    "selectedAnswers" | "syllogismSnapshots" | "flaggedIds"
+  >,
+): FinalExamQuestionAttemptInput[] {
+  return exam.questions.map((question) => {
+    const selectedOptionId = state.selectedAnswers[question.id];
+    const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+    const isSyllogism = question.questionType === "syllogism";
+    const answer: FinalExamQuestionAttemptInput = {
+      questionSetId: question.questionSetId,
+      questionId: question.id,
+      questionAnswerOptionId: isSyllogism ? null : (selectedOptionId ?? null),
+      isFlagged: state.flaggedIds.includes(question.id),
+      wasTimed: getWasTimedForSet(mode, exam, question),
+      mode: toDbMode(mode),
+    };
+    if (isSyllogism && syllogismSnapshot) {
+      answer.answerSnapshot = {
+        type: "syllogism_v1",
+        answers: Object.entries(syllogismSnapshot).map(([optionId, value]) => ({
+          question_answer_option_id: optionId,
+          answer: value,
+        })),
+      };
+    }
+    return answer;
+  });
 }
 
 export function useQuestionEnginePersistence({
@@ -458,44 +491,7 @@ export function useQuestionEnginePersistence({
       }
     }
 
-    const finalAnswers: FinalExamQuestionAttemptInput[] = [];
-    if (mode === "set" || mode === "mock") {
-      for (const question of exam.questions) {
-        const selectedOptionId = state.selectedAnswers[question.id];
-        const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
-        const isSyllogism = question.questionType === "syllogism";
-        const hasSyllogismAnswer =
-          isSyllogism &&
-          syllogismSnapshot &&
-          Object.keys(syllogismSnapshot).length > 0;
-        if (!selectedOptionId && !hasSyllogismAnswer) continue;
-
-        const isFlagged = state.flaggedIds.includes(question.id);
-        const wasTimed = getWasTimedForSet(mode, exam, question);
-        const base: FinalExamQuestionAttemptInput = {
-          questionSetId: question.questionSetId,
-          questionId: question.id,
-          questionAnswerOptionId: isSyllogism
-            ? null
-            : (selectedOptionId ?? null),
-          isFlagged,
-          wasTimed,
-          mode: toDbMode(mode),
-        };
-        if (isSyllogism && syllogismSnapshot) {
-          base.answerSnapshot = {
-            type: "syllogism_v1",
-            answers: Object.entries(syllogismSnapshot).map(
-              ([optionId, value]) => ({
-                question_answer_option_id: optionId,
-                answer: value,
-              }),
-            ),
-          };
-        }
-        finalAnswers.push(base);
-      }
-    }
+    const finalAnswers = buildFinalExamQuestionAttempts(mode, exam, state);
 
     let finalizeResult: FinalizeAttemptResponse | null = null;
     if (mode === "set") {

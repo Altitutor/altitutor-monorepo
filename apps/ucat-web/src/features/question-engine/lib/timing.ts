@@ -174,6 +174,82 @@ export function getNextSetSegmentFromReview(
 }
 
 /**
+ * Resolves the segment whose clock starts when a mock section expires.
+ * Review shares the section's question clock, but it is not itself a timing
+ * segment, so it must advance via the current set index rather than the
+ * current phase/index lookup used by instruction and question screens.
+ */
+export function getNextMockSegmentAfterExpiry(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+): (MockTimingSegment & { segmentIndex: number }) | null {
+  if (exam.sourceType !== "mock") return null;
+  if (state.phase === "review") {
+    return getNextSetSegmentFromReview(exam, state.mockCurrentSetIndex ?? 0);
+  }
+  return getNextMockSegment(exam, state);
+}
+
+/** Advances through any mock segments that elapsed while the expiry dialog was open. */
+export function advanceMockAfterTimeExpired(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  firstSegment: MockTimingSegment & { segmentIndex: number },
+  segmentStartedAt: number,
+  now = Date.now(),
+): QuestionEngineState {
+  const next: QuestionEngineState = {
+    ...state,
+    showTimeExpiredDialog: false,
+    nextSegmentTimerStartedAt: null,
+  };
+  let activeSegment: (MockTimingSegment & { segmentIndex: number }) | null =
+    firstSegment;
+  let activeSegmentStartedAt = segmentStartedAt;
+
+  while (activeSegment) {
+    if (activeSegment.type === "instructions") {
+      next.phase = "instructions";
+      next.instructionsIndex = activeSegment.instructionsIndex;
+      const upcomingQuestions = exam.mockTimingSegments
+        ?.slice(activeSegment.segmentIndex + 1)
+        .find((segment) => segment.type === "questions");
+      if (upcomingQuestions?.type === "questions") {
+        next.mockCurrentSetIndex = upcomingQuestions.setIndex;
+      }
+    } else {
+      next.phase = "question";
+      next.currentIndex = activeSegment.questionStartIndex;
+      next.mockCurrentSetIndex = activeSegment.setIndex;
+    }
+
+    const limit = activeSegment.timeLimitSeconds ?? 0;
+    if (limit <= 0) {
+      next.timerStartedAt = null;
+      break;
+    }
+
+    const segmentEndsAt = activeSegmentStartedAt + limit * 1000;
+    if (segmentEndsAt > now) {
+      next.timerStartedAt = activeSegmentStartedAt;
+      break;
+    }
+
+    const followingSegment = getNextMockSegment(exam, next);
+    if (!followingSegment) {
+      next.phase = "mockScore";
+      next.timerStartedAt = null;
+      break;
+    }
+
+    activeSegment = followingSegment;
+    activeSegmentStartedAt = segmentEndsAt;
+  }
+
+  return next;
+}
+
+/**
  * Format seconds as MM:SS for timer display.
  */
 export function formatTimeRemaining(seconds: number): string {

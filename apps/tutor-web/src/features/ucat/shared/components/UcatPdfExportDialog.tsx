@@ -31,12 +31,14 @@ export function UcatPdfExportDialog({
   const { toast } = useToast()
   const [includeAnswers, setIncludeAnswers] = useState(false)
   const [repeatStems, setRepeatStems] = useState(false)
+  const [avoidQuestionPageBreaks, setAvoidQuestionPageBreaks] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     if (!open) {
       setIncludeAnswers(false)
       setRepeatStems(false)
+      setAvoidQuestionPageBreaks(true)
       setIsExporting(false)
     }
   }, [open])
@@ -51,7 +53,7 @@ export function UcatPdfExportDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...source,
-          options: { includeAnswers, repeatStems },
+          options: { includeAnswers, repeatStems, avoidQuestionPageBreaks },
         }),
       })
       if (!response.ok) {
@@ -128,6 +130,21 @@ export function UcatPdfExportDialog({
               </p>
             </div>
             <Switch id="pdf-repeat-stems" checked={repeatStems} onCheckedChange={setRepeatStems} />
+          </div>
+          <div className="flex items-start justify-between gap-6 p-4">
+            <div className="space-y-1">
+              <Label htmlFor="pdf-avoid-question-page-breaks" className="text-sm font-medium">
+                Don&apos;t break questions over pages
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Keep each question together on one page when its content fits.
+              </p>
+            </div>
+            <Switch
+              id="pdf-avoid-question-page-breaks"
+              checked={avoidQuestionPageBreaks}
+              onCheckedChange={setAvoidQuestionPageBreaks}
+            />
           </div>
         </div>
       </div>

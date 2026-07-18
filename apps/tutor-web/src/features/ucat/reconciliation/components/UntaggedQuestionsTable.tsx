@@ -2,6 +2,7 @@
 
 import React, { useMemo, useCallback, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar, useToast } from '@altitutor/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { ReconciliationTable } from './ReconciliationTable'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UntaggedQuestion } from '../api/reconciliation'
@@ -18,6 +19,8 @@ import {
 import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import { inferBulkImportTagIdsForParsedQuestion } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
 const TRUNCATE_LEN = 80
 
@@ -53,12 +56,14 @@ export function UntaggedQuestionsTable({
   onOpenStemDialog?: (stemId: string) => void
 }) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
   const tagsQuery = useUcatTags()
   const addTagsMutation = useAddQuestionTags()
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'question_text', 'section_id'])
   const [queueOpen, setQueueOpen] = useState(false)
+  const [autoAllPending, setAutoAllPending] = useState(false)
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -180,6 +185,59 @@ export function UntaggedQuestionsTable({
     [addTagsMutation, tagsQuery.data, toast, onOpenStemDialog]
   )
 
+  const handleAutoAddAllTags = useCallback(async () => {
+    const questions = data?.untaggedQuestions ?? []
+    const updates: Array<{ stemId: string; questionId: string; tagIds: string[] }> = []
+    let skippedCount = 0
+
+    for (const question of questions) {
+      const section = bulkImportSectionFromUcatName(question.sectionName)
+      if (!section) {
+        skippedCount += 1
+        continue
+      }
+      const parsedStem = toParsedStem(question)
+      const tagIds = inferBulkImportTagIdsForParsedQuestion({
+        stem: parsedStem,
+        question: parsedStem.questions[0]!,
+        section,
+        sectionId: question.sectionId,
+        tags: tagsQuery.data ?? [],
+      })
+      if (tagIds.length === 0) {
+        skippedCount += 1
+        continue
+      }
+      updates.push({ stemId: question.stemId, questionId: question.questionId, tagIds })
+    }
+
+    if (updates.length === 0) {
+      toast({
+        title: 'Could not infer tags',
+        description: 'No matching tags were found for the untagged questions.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setAutoAllPending(true)
+    try {
+      const result = await ucatQuestionsApi.addQuestionTagsBulk(updates)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
+      ])
+      toast({
+        title: result.failedQuestionCount === 0 ? 'Tags added' : 'Some tags could not be saved',
+        description: `${result.updatedQuestionCount} tagged, ${skippedCount} had no parser match, and ${result.failedQuestionCount} failed to save.`,
+        variant: result.failedQuestionCount === 0 ? 'default' : 'destructive',
+      })
+    } finally {
+      setAutoAllPending(false)
+    }
+  }, [data?.untaggedQuestions, queryClient, tagsQuery.data, toast])
+
   const toolbar = (
     <DataTableToolbar
       state={tableState.state}
@@ -215,9 +273,24 @@ export function UntaggedQuestionsTable({
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
-            Begin reconciling
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={tutorBtnOutline}
+              onClick={() => void handleAutoAddAllTags()}
+              disabled={
+                autoAllPending ||
+                tagsQuery.isLoading ||
+                (data?.untaggedQuestions.length ?? 0) === 0
+              }
+            >
+              {autoAllPending ? 'Auto-adding…' : 'Auto-add all tags'}
+            </Button>
+            <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+              Begin reconciling
+            </Button>
+          </div>
         }
         renderRow={(item, _index, visibleColumnKeys) => {
         const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''

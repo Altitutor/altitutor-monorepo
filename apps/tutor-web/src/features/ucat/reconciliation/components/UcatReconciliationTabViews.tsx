@@ -3,7 +3,6 @@
 import { AlertCircle } from 'lucide-react'
 import { SkeletonTable } from '@altitutor/ui'
 import { StemsWithNoCategoryTable } from '@/features/ucat/reconciliation/components/StemsWithNoCategoryTable'
-import { PendingGeneratedStemsTable } from '@/features/ucat/reconciliation/components/PendingGeneratedStemsTable'
 import { QuestionsWithNoExplanationTable } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationTable'
 import { UntaggedQuestionsTable } from '@/features/ucat/reconciliation/components/UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from '@/features/ucat/reconciliation/components/PrivateStemsNotInSetTable'
@@ -16,7 +15,6 @@ import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useR
 function QuestionsTabSkeleton() {
   return (
     <div className="mt-6 space-y-6" aria-busy="true">
-      <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={5} />
@@ -58,7 +56,6 @@ function TabError({ message }: { message: string }) {
 function questionsTabCount(data: NonNullable<ReturnType<typeof useReconciliationData>['data']>) {
   return (
     data.stemsWithNoCategory.length +
-    data.pendingGeneratedStems.length +
     data.questionsWithNoExplanation.length +
     data.untaggedQuestions.length +
     data.privateStemsNotInSet.length +
@@ -86,7 +83,6 @@ export function UcatReconciliationQuestionsTab() {
 
   return (
     <div className="mt-6 space-y-8">
-      <PendingGeneratedStemsTable onOpenStemDialog={onOpenStemDialog} />
       <StemsWithNoCategoryTable onOpenStemDialog={onOpenStemDialog} />
       <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
       <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />

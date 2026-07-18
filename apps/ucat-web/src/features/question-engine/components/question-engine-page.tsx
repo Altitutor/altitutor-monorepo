@@ -54,10 +54,12 @@ import { ReviewInstructionsDialog } from "@/features/question-engine/components/
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
 import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
+  advanceMockAfterTimeExpired,
   formatTimeRemaining,
   getCurrentMockSegment,
   getCurrentSegmentTimeLimitSeconds,
   getNextMockSegment,
+  getNextMockSegmentAfterExpiry,
   getNextSetSegmentFromReview,
   getRemainingSeconds,
 } from "@/features/question-engine/lib/timing";
@@ -914,6 +916,7 @@ export function QuestionEnginePage({
 
   const {
     serverSegmentEndsAt,
+    serverSegmentKey,
     isHydrating: isHydratingExamAttempt,
     flushQuestionTiming,
   } = useExamAttemptLifecycle({
@@ -994,7 +997,9 @@ export function QuestionEnginePage({
       : null;
   const isTimed =
     currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
-  const activeServerSegmentEndsAt = isTimed ? serverSegmentEndsAt : null;
+  const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
+  const activeServerSegmentEndsAt =
+    isTimed && serverSegmentKey === segmentKey ? serverSegmentEndsAt : null;
   const remainingSeconds =
     exam && isTimed
       ? examAttemptManaged && !activeServerSegmentEndsAt
@@ -1006,8 +1011,6 @@ export function QuestionEnginePage({
             activeServerSegmentEndsAt,
           )
       : null;
-  const segmentKey = exam ? getTimedSegmentKey(exam, state) : "";
-  const reviewTimedExpiryRef = useRef(false);
   const awaitingServerSegmentStartRef = useRef(false);
   const displayRemainingSeconds =
     exam && isTimed
@@ -1050,6 +1053,7 @@ export function QuestionEnginePage({
           const nextSeg = getNextMockSegment(exam!, prev);
           if (nextSeg?.type === "questions") {
             next.currentIndex = nextSeg.questionStartIndex;
+            next.mockCurrentSetIndex = nextSeg.setIndex;
             next.timerStartedAt =
               (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
           } else {
@@ -1075,7 +1079,10 @@ export function QuestionEnginePage({
     expiredMockNextSegmentRef.current =
       exam.sourceType === "mock"
         ? {
-            segment: getNextMockSegment(exam, engineStateRef.current),
+            segment: getNextMockSegmentAfterExpiry(
+              exam,
+              engineStateRef.current,
+            ),
             startedAt: Date.now(),
           }
         : null;
@@ -1364,26 +1371,6 @@ export function QuestionEnginePage({
     router,
     setState,
     attemptStateRef,
-  ]);
-
-  useEffect(() => {
-    if (!exam || remainingSeconds !== 0) {
-      reviewTimedExpiryRef.current = false;
-      return;
-    }
-    if (state.phase !== "review" || state.reviewFilter) return;
-    if (!isTimed) return;
-    if (exam.sourceType !== "set" && exam.sourceType !== "mock") return;
-    if (reviewTimedExpiryRef.current) return;
-    reviewTimedExpiryRef.current = true;
-    void handleEndReview();
-  }, [
-    exam,
-    remainingSeconds,
-    state.phase,
-    state.reviewFilter,
-    isTimed,
-    handleEndReview,
   ]);
 
   const hasPreviousQuestion =
@@ -2279,6 +2266,30 @@ export function QuestionEnginePage({
   const currentInstructionsScreen =
     state.phase === "instructions" &&
     instructionsScreens[state.instructionsIndex];
+  const currentInstructionsSectionTitle = (() => {
+    if (exam.sourceType !== "mock" || state.phase !== "instructions") {
+      return exam.title;
+    }
+    const currentSegmentIndex = exam.mockTimingSegments?.findIndex(
+      (segment) =>
+        segment.type === "instructions" &&
+        segment.instructionsIndex === state.instructionsIndex,
+    );
+    if (currentSegmentIndex == null || currentSegmentIndex < 0) {
+      return exam.title;
+    }
+    const nextQuestionsSegment = exam.mockTimingSegments
+      ?.slice(currentSegmentIndex + 1)
+      .find((segment) => segment.type === "questions");
+    if (!nextQuestionsSegment || nextQuestionsSegment.type !== "questions") {
+      return exam.title;
+    }
+    return (
+      exam.questions[nextQuestionsSegment.questionStartIndex]?.sectionName ??
+      exam.mockSetSummaries?.[nextQuestionsSegment.setIndex]?.name ??
+      exam.title
+    );
+  })();
   const isInstructionsPhase = state.phase === "instructions";
   const isReviewPhase = state.phase === "review";
   const isMarkingPhase = state.phase === "marking";
@@ -2491,7 +2502,7 @@ export function QuestionEnginePage({
     const nextSeg =
       capturedNextSegment != null
         ? capturedNextSegment.segment
-        : getNextMockSegment(exam, state);
+        : getNextMockSegmentAfterExpiry(exam, state);
     expiredMockNextSegmentRef.current = null;
     if (!nextSeg) {
       void runWithLag(async () => {
@@ -2516,53 +2527,16 @@ export function QuestionEnginePage({
       return;
     }
     void runWithLag(() => {
-      setState((current) => {
-        const next: typeof current = {
-          ...current,
-          showTimeExpiredDialog: false,
-          nextSegmentTimerStartedAt: null,
-        };
-
-        let activeSeg = nextSeg;
-        let segmentStartedAt =
+      setState((current) =>
+        advanceMockAfterTimeExpired(
+          exam,
+          current,
+          nextSeg,
           capturedNextSegment?.startedAt ??
-          current.nextSegmentTimerStartedAt ??
-          Date.now();
-
-        while (activeSeg) {
-          if (activeSeg.type === "instructions") {
-            next.phase = "instructions";
-            next.instructionsIndex = activeSeg.instructionsIndex;
-          } else {
-            next.phase = "question";
-            next.currentIndex = activeSeg.questionStartIndex;
-            next.mockCurrentSetIndex = activeSeg.setIndex;
-          }
-
-          const limit = activeSeg.timeLimitSeconds ?? 0;
-          if (limit <= 0) {
-            next.timerStartedAt = null;
-            break;
-          }
-
-          const segmentEndsAt = segmentStartedAt + limit * 1000;
-          if (segmentEndsAt > Date.now()) {
-            next.timerStartedAt = segmentStartedAt;
-            break;
-          }
-
-          const followingSeg = getNextMockSegment(exam, next);
-          if (!followingSeg) {
-            next.phase = "mockScore";
-            next.timerStartedAt = null;
-            break;
-          }
-
-          activeSeg = followingSeg;
-          segmentStartedAt = segmentEndsAt;
-        }
-        return next;
-      });
+            current.nextSegmentTimerStartedAt ??
+            Date.now(),
+        ),
+      );
     });
   }
 
@@ -2832,7 +2806,9 @@ export function QuestionEnginePage({
                   ? `${exam.title} – Results`
                   : isReviewScreen
                     ? exam.title
-                    : (currentQuestion?.sectionName ?? exam.title)
+                    : isInstructionsPhase
+                      ? currentInstructionsSectionTitle
+                      : (currentQuestion?.sectionName ?? exam.title)
           }
           sectionTitleRight={
             isReviewScreen

@@ -13,6 +13,7 @@ import {
 } from "@/features/exam-attempts/api/exam-attempts-api";
 import {
   getExamSnapshotSyncDelay,
+  isCurrentSegmentSyncResponse,
   sanitizeEngineSnapshotForExam,
   useExamAttemptLifecycle,
 } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
@@ -496,6 +497,26 @@ describe("getExamSnapshotSyncDelay", () => {
     expect(getExamSnapshotSyncDelay(1_000, 1_100)).toBe(800);
     expect(getExamSnapshotSyncDelay(1_000, 2_700)).toBe(300);
     expect(getExamSnapshotSyncDelay(1_000, 3_100)).toBe(0);
+  });
+});
+
+describe("isCurrentSegmentSyncResponse", () => {
+  it("rejects a question-section deadline that resolves after instructions begin", () => {
+    expect(
+      isCurrentSegmentSyncResponse(
+        "mock-set-0-questions",
+        "mock-instructions-2",
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts the deadline for the segment that is still displayed", () => {
+    expect(
+      isCurrentSegmentSyncResponse(
+        "mock-instructions-2",
+        "mock-instructions-2",
+      ),
+    ).toBe(true);
   });
 });
 

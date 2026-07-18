@@ -510,6 +510,66 @@ export const ucatQuestionsApi = {
     return this.update(stemId, payload)
   },
 
+  async addQuestionTagsBulk(
+    updates: Array<{ stemId: string; questionId: string; tagIds: string[] }>,
+  ) {
+    const updatesByStem = new Map<string, Map<string, Set<string>>>()
+    for (const update of updates) {
+      let questions = updatesByStem.get(update.stemId)
+      if (!questions) {
+        questions = new Map()
+        updatesByStem.set(update.stemId, questions)
+      }
+      let tagIds = questions.get(update.questionId)
+      if (!tagIds) {
+        tagIds = new Set()
+        questions.set(update.questionId, tagIds)
+      }
+      update.tagIds.forEach((tagId) => tagIds.add(tagId))
+    }
+
+    const stemUpdates = Array.from(updatesByStem.entries())
+    const concurrency = 5
+    let updatedQuestionCount = 0
+    let failedQuestionCount = 0
+    const failedStemIds: string[] = []
+
+    for (let index = 0; index < stemUpdates.length; index += concurrency) {
+      const batch = stemUpdates.slice(index, index + concurrency)
+      const results = await Promise.allSettled(
+        batch.map(async ([stemId, questionUpdates]) => {
+          const detail = await this.getDetail(stemId)
+          if (!detail) throw new Error('Question stem not found')
+          const payload = stemDetailToBundlePayload(detail, (question) => {
+            const existingTagIds = (question.tags ?? []).map((tag) => tag.id)
+            const inferredTagIds = questionUpdates.get(question.id)
+            return inferredTagIds
+              ? Array.from(new Set([...existingTagIds, ...inferredTagIds]))
+              : existingTagIds
+          })
+          await this.update(stemId, payload)
+          return questionUpdates.size
+        }),
+      )
+
+      results.forEach((result, resultIndex) => {
+        if (result.status === 'fulfilled') {
+          updatedQuestionCount += result.value
+          return
+        }
+        const [stemId, questionUpdates] = batch[resultIndex]
+        failedStemIds.push(stemId)
+        failedQuestionCount += questionUpdates.size
+      })
+    }
+
+    return {
+      updatedQuestionCount,
+      failedQuestionCount,
+      failedStemIds,
+    }
+  },
+
   async remove(stemId: string) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, { method: 'DELETE' })
     if (!response.ok) {

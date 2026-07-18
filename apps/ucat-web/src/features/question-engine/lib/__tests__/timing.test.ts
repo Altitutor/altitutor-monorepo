@@ -3,8 +3,10 @@
  */
 
 import {
+  advanceMockAfterTimeExpired,
   getCurrentSegmentTimeLimitSeconds,
   formatTimeRemaining,
+  getNextMockSegmentAfterExpiry,
 } from "../timing";
 import type {
   QuestionEngineExam,
@@ -104,5 +106,123 @@ describe("formatTimeRemaining", () => {
     expect(formatTimeRemaining(90)).toBe("1:30");
     expect(formatTimeRemaining(0)).toBe("0:00");
     expect(formatTimeRemaining(125)).toBe("2:05");
+  });
+});
+
+describe("getNextMockSegmentAfterExpiry", () => {
+  const mockExam: QuestionEngineExam = {
+    sourceType: "mock",
+    sourceId: "mock-1",
+    title: "Mock 1",
+    questions: [],
+    instructionsScreens: [
+      { instructionsJson: null },
+      { instructionsJson: null },
+      { instructionsJson: null },
+    ],
+    mockTimingSegments: [
+      { type: "instructions", instructionsIndex: 0, timeLimitSeconds: 90 },
+      {
+        type: "questions",
+        setIndex: 0,
+        questionStartIndex: 0,
+        questionEndIndex: 44,
+        timeLimitSeconds: 1320,
+      },
+      { type: "instructions", instructionsIndex: 1, timeLimitSeconds: 90 },
+      {
+        type: "questions",
+        setIndex: 1,
+        questionStartIndex: 44,
+        questionEndIndex: 79,
+        timeLimitSeconds: 761,
+      },
+      { type: "instructions", instructionsIndex: 2, timeLimitSeconds: 120 },
+      {
+        type: "questions",
+        setIndex: 2,
+        questionStartIndex: 79,
+        questionEndIndex: 115,
+        timeLimitSeconds: 823,
+      },
+    ],
+    mockSetSummaries: [
+      {
+        setIndex: 0,
+        name: "VR",
+        questionStartIndex: 0,
+        questionEndIndex: 44,
+      },
+      {
+        setIndex: 1,
+        name: "DM",
+        questionStartIndex: 44,
+        questionEndIndex: 79,
+      },
+      {
+        setIndex: 2,
+        name: "QR",
+        questionStartIndex: 79,
+        questionEndIndex: 115,
+      },
+    ],
+  };
+
+  it("advances DM review expiry to QR instructions", () => {
+    expect(
+      getNextMockSegmentAfterExpiry(
+        mockExam,
+        createBaseState({ phase: "review", mockCurrentSetIndex: 1 }),
+      ),
+    ).toMatchObject({
+      type: "instructions",
+      instructionsIndex: 2,
+      timeLimitSeconds: 120,
+      segmentIndex: 4,
+    });
+  });
+
+  it("only returns null when the final set expires", () => {
+    expect(
+      getNextMockSegmentAfterExpiry(
+        mockExam,
+        createBaseState({ phase: "review", mockCurrentSetIndex: 2 }),
+      ),
+    ).toBeNull();
+  });
+
+  it("enters QR instructions four seconds into their existing clock", () => {
+    const expiredAt = 1_000_000;
+    const qrInstructions = getNextMockSegmentAfterExpiry(
+      mockExam,
+      createBaseState({ phase: "review", mockCurrentSetIndex: 1 }),
+    );
+    expect(qrInstructions).not.toBeNull();
+
+    const next = advanceMockAfterTimeExpired(
+      mockExam,
+      createBaseState({
+        phase: "review",
+        mockCurrentSetIndex: 1,
+        showTimeExpiredDialog: true,
+        nextSegmentTimerStartedAt: expiredAt,
+      }),
+      qrInstructions!,
+      expiredAt,
+      expiredAt + 4_000,
+    );
+
+    expect(next).toMatchObject({
+      phase: "instructions",
+      instructionsIndex: 2,
+      mockCurrentSetIndex: 2,
+      timerStartedAt: expiredAt,
+      showTimeExpiredDialog: false,
+      nextSegmentTimerStartedAt: null,
+    });
+    expect(
+      getCurrentSegmentTimeLimitSeconds(mockExam, next)! -
+        (expiredAt + 4_000 - next.timerStartedAt!) / 1000,
+    ).toBe(116);
   });
 });
