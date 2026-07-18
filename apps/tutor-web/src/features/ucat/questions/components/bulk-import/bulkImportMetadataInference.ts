@@ -263,18 +263,24 @@ export function inferManualStemMetadataRecommendation(args: {
   const stem = formValuesToParsedStem(args.values)
   if (!hasManualStemContent(stem)) return null
 
-  const sectionCandidate = findSectionDetectionCandidate({
-    stem,
-    sections: args.sections,
-    categories: args.categories,
-  })
   const currentSection =
     args.sections.find((section) => section.id === args.values.sectionId) ?? null
-  const fallbackSection = currentSection?.id
+  const currentParseSection = currentSection?.id
     ? bulkImportSectionFromUcatName(currentSection.name)
     : null
+
+  // When a section is already set, only suggest category/tags within that section.
+  // Never propose switching away from the tutor's chosen section.
+  const sectionCandidate = currentParseSection
+    ? null
+    : findSectionDetectionCandidate({
+        stem,
+        sections: args.sections,
+        categories: args.categories,
+      })
+
   const sectionId = sectionCandidate?.sectionId ?? currentSection?.id ?? null
-  const section = sectionCandidate?.section ?? fallbackSection
+  const section = sectionCandidate?.section ?? currentParseSection
   const categoryId =
     sectionCandidate?.categoryId ??
     (section && sectionId
@@ -296,11 +302,15 @@ export function inferManualStemMetadataRecommendation(args: {
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}
   if (section && sectionId) {
+    const sectionNameForTags =
+      currentSection?.name ??
+      args.sections.find((row) => row.id === sectionCandidate?.sectionId)?.name ??
+      null
     Object.assign(tagIdsByQuestionIndex, inferQuestionTagIdsForFormValues({
       values: args.values,
       sectionId,
       section,
-      sectionName: currentSection?.name ?? null,
+      sectionName: sectionNameForTags,
       tags: args.tags,
     }))
   }

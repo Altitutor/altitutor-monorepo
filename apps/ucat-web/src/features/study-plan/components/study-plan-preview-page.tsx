@@ -132,6 +132,7 @@ function task(
     matchedActivityType: status === "completed" ? taskType : null,
     matchedActivityId: status === "completed" ? `activity-${id}` : null,
     ...overrides,
+    sourceTaskId: overrides.sourceTaskId ?? null,
   };
 }
 

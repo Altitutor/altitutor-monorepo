@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { MockAttemptDetailPage } from "@/features/progress";
+import { MockAttemptDetailPage } from "@/features/progress/components/mock-attempt-detail-page";
 import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
 
 type PageProps = {

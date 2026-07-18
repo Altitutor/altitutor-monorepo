@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
 import { scaleTo300_900 } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,6 +23,7 @@ import {
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
+import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
 import {
   matchLearningModuleProgress,
   matchPracticeSession,
@@ -563,7 +565,13 @@ async function persistGeneration(
   const admin = requireAdmin();
   const generatedAt = new Date().toISOString();
   const preserveThrough = reason === "onboarding" ? null : todayIso();
-  const taskRows = result.tasks.map((task) => ({
+  const preparedTasks = prepareStudyPlanTasks(
+    result.tasks,
+    preserveThrough,
+    randomUUID,
+  );
+  const taskRows = preparedTasks.map((task) => ({
+    id: task.id,
     scheduled_date: task.scheduledDate,
     sort_order: task.sortOrder,
     task_type: task.taskType,
@@ -581,6 +589,7 @@ async function persistGeneration(
     skill_trainer_id: task.skillTrainerId,
     launch_path: task.launchPath,
     launch_config: task.launchConfig,
+    source_task_id: task.sourceTaskId,
   }));
   const { error } = await admin.rpc("replace_ucat_study_plan_generation", {
     p_student_id: studentId,
@@ -648,20 +657,6 @@ async function generateForProfile(
   );
 }
 
-function reviewSourceSortOrder(value: Json): number | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const sortOrder = (value as Record<string, Json | undefined>)
-    .sourceTaskSortOrder;
-  return typeof sortOrder === "number" ? sortOrder : null;
-}
-
-function reviewSourceScheduledDate(value: Json): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const date = (value as Record<string, Json | undefined>)
-    .sourceTaskScheduledDate;
-  return typeof date === "string" ? date : null;
-}
-
 async function linkCompanionReview(
   tasks: TaskRow[],
   sourceTask: TaskRow,
@@ -673,10 +668,7 @@ async function linkCompanionReview(
 ): Promise<void> {
   const review = tasks.find(
     (task) =>
-      task.task_type === "review" &&
-      reviewSourceSortOrder(task.launch_config) === sourceTask.sort_order &&
-      reviewSourceScheduledDate(task.launch_config) ===
-        sourceTask.scheduled_date,
+      task.task_type === "review" && task.source_task_id === sourceTask.id,
   );
   if (!review) return;
   const currentConfig =
@@ -689,6 +681,14 @@ async function linkCompanionReview(
     activity.type === "mock_attempt"
       ? `/progress/mock-attempts/${activity.id}`
       : `/progress/practice-sessions/${activity.id}`;
+  if (
+    review.matched_activity_type === activity.type &&
+    review.matched_activity_id === activity.id &&
+    review.launch_path === launchPath &&
+    currentConfig.awaitingAttempt === false
+  ) {
+    return;
+  }
   const { error } = await requireAdmin()
     .from("ucat_student_study_plan_tasks")
     .update({
@@ -726,6 +726,22 @@ async function reconcileTasks(
       today,
     ),
   );
+  for (const sourceTask of tasks) {
+    if (
+      sourceTask.matched_activity_id &&
+      (sourceTask.matched_activity_type === "practice_session" ||
+        sourceTask.matched_activity_type === "mock_attempt")
+    ) {
+      await linkCompanionReview(tasks, sourceTask, {
+        id: sourceTask.matched_activity_id,
+        type: sourceTask.matched_activity_type,
+        questionCount:
+          sourceTask.matched_activity_type === "practice_session"
+            ? sourceTask.completed_units
+            : null,
+      });
+    }
+  }
   if (!actionable.length) return;
   const evidenceSince = actionable.reduce(
     (earliest, task) =>
@@ -905,6 +921,7 @@ async function reconcileTasks(
 function mapTask(row: TaskRow): StudyPlanTask {
   return {
     id: row.id,
+    sourceTaskId: row.source_task_id,
     scheduledDate: row.scheduled_date,
     sortOrder: row.sort_order,
     taskType: row.task_type as StudyPlanTask["taskType"],
@@ -1125,10 +1142,12 @@ export async function createExtraStudyTask(
         },
       ]
     : extraTasks;
+  const preparedTasks = prepareStudyPlanTasks(tasksToInsert, null, randomUUID);
   const { error } = await requireAdmin()
     .from("ucat_student_study_plan_tasks")
     .insert(
-      tasksToInsert.map((task) => ({
+      preparedTasks.map((task) => ({
+        id: task.id,
         generation_id: currentPlan.generation!.id,
         student_id: studentId,
         scheduled_date: task.scheduledDate,
@@ -1148,6 +1167,7 @@ export async function createExtraStudyTask(
         skill_trainer_id: task.skillTrainerId,
         launch_path: task.launchPath,
         launch_config: task.launchConfig as Json,
+        source_task_id: task.sourceTaskId,
       })),
     );
   if (error) throw error;
@@ -1395,50 +1415,37 @@ export async function updateStudyPlanTask(
   if (error) throw error;
 
   if (action === "skip" && task.task_type !== "review") {
-    const { data: generationTasks, error: generationTasksError } = await admin
+    const { data: companion, error: companionError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("id, task_type, scheduled_date, launch_config")
-      .eq("generation_id", task.generation_id)
-      .eq("scheduled_date", task.scheduled_date);
-    if (generationTasksError) throw generationTasksError;
-    const companion = (generationTasks ?? []).find(
-      (candidate) =>
-        candidate.task_type === "review" &&
-        reviewSourceSortOrder(candidate.launch_config) === task.sort_order,
-    );
+      .select("id")
+      .eq("source_task_id", task.id)
+      .maybeSingle();
+    if (companionError) throw companionError;
     if (companion) {
-      const { error: companionError } = await admin
+      const { error: skipCompanionError } = await admin
         .from("ucat_student_study_plan_tasks")
         .update({ status: "skipped", skipped_at: now })
         .eq("id", companion.id);
-      if (companionError) throw companionError;
+      if (skipCompanionError) throw skipCompanionError;
     }
   }
 
   if (action === "unskip" && task.task_type !== "review") {
-    const { data: generationTasks, error: generationTasksError } = await admin
+    const { data: companion, error: companionError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select(
-        "id, status, task_type, scheduled_date, launch_config, started_at",
-      )
-      .eq("generation_id", task.generation_id)
-      .eq("scheduled_date", task.scheduled_date);
-    if (generationTasksError) throw generationTasksError;
-    const companion = (generationTasks ?? []).find(
-      (candidate) =>
-        candidate.task_type === "review" &&
-        candidate.status === "skipped" &&
-        reviewSourceSortOrder(candidate.launch_config) === task.sort_order,
-    );
-    if (companion) {
-      const { error: companionError } = await admin
+      .select("id,status,started_at")
+      .eq("source_task_id", task.id)
+      .maybeSingle();
+    if (companionError) throw companionError;
+    if (companion?.status === "skipped") {
+      const { error: unskipCompanionError } = await admin
         .from("ucat_student_study_plan_tasks")
         .update({
           status: companion.started_at ? "in_progress" : "planned",
           skipped_at: null,
         })
         .eq("id", companion.id);
-      if (companionError) throw companionError;
+      if (unskipCompanionError) throw unskipCompanionError;
     }
   }
 }

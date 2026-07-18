@@ -14,14 +14,17 @@ import {
   preparePracticeStems,
   PracticeStemSelectionError,
 } from "@/features/practice/server/prepare-practice-stems";
+import { ServerTiming } from "@/lib/performance/server-timing";
 
 export async function POST(request: NextRequest) {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
 
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -58,6 +61,7 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
+  timing.mark("student");
 
   if (studentError) {
     return NextResponse.json(
@@ -89,6 +93,7 @@ export async function POST(request: NextRequest) {
         input: body.filtersSnapshot as PracticeSelectionInput,
       });
       body.stemsSnapshot = prepared.stems;
+      timing.mark("prepare");
     } catch (error) {
       captureApiError(error, "/api/ucat/practice-sessions");
       if (error instanceof QuotaExceededError) {
@@ -166,6 +171,7 @@ export async function POST(request: NextRequest) {
     .insert(insertPayload)
     .select("id")
     .maybeSingle();
+  timing.mark("insert");
 
   if (insertError || !inserted) {
     captureApiError(insertError, "/api/ucat/practice-sessions");
@@ -176,8 +182,10 @@ export async function POST(request: NextRequest) {
   }
 
   const insertedData = inserted as { id?: string };
-  return NextResponse.json({
-    id: insertedData.id ?? "",
-    ...(prepared ?? {}),
-  });
+  return timing.apply(
+    NextResponse.json({
+      id: insertedData.id ?? "",
+      ...(prepared ?? {}),
+    }),
+  );
 }

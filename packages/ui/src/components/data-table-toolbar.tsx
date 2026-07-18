@@ -162,6 +162,8 @@ export function DataTableToolbar({
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);
   const isInternalUpdateRef = React.useRef(false);
+  const onSearchChangeRef = React.useRef(onSearchChange);
+  onSearchChangeRef.current = onSearchChange;
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
 
@@ -182,14 +184,14 @@ export function DataTableToolbar({
     }
   }, [state.search]);
 
-  // Call onSearchChange when debounced value changes
+  // Push debounced local search to parent. Keep the callback in a ref so URL-driven
+  // parent identity churn (common on tab switches) cannot re-fire this effect and
+  // fight an external reset into an update-depth loop.
   React.useEffect(() => {
-    // Only trigger if the debounced value is different from the current state search
-    if (debouncedSearch !== state.search) {
-      isInternalUpdateRef.current = true;
-      onSearchChange(debouncedSearch);
-    }
-  }, [debouncedSearch, onSearchChange, state.search]);
+    if (debouncedSearch === state.search) return;
+    isInternalUpdateRef.current = true;
+    onSearchChangeRef.current(debouncedSearch);
+  }, [debouncedSearch, state.search]);
 
   const rangeFilterDefs = filterDefinitions.filter((d) => d.type === 'number-range' && d.minKey && d.maxKey);
   const dateRangeFilterDefs = filterDefinitions.filter(

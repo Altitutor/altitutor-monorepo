@@ -30,7 +30,9 @@ export function useUcatRowSelection<T extends RowWithId>(paginatedRows: T[]) {
     })
   }, [paginatedRows])
 
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+  const clearSelection = useCallback(() => {
+    setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()))
+  }, [])
   const selectedIdsArray = useMemo(() => Array.from(selectedIds), [selectedIds])
 
   return {

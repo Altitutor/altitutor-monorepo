@@ -35,6 +35,7 @@ import {
 } from "@/features/study-plan/lib/companion";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 import { cn } from "@/lib/utils";
+import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
 const EXPAND_DURATION = 0.22;
@@ -88,15 +89,18 @@ function taskStatusLabel(task: StudyPlanTask): string {
 export function StudyPlanCompanion({
   hidden = false,
   placement = "floating",
+  onVisibilityChange,
 }: {
   hidden?: boolean;
   placement?: "floating" | "sidebar";
+  onVisibilityChange?: (visible: boolean) => void;
 }) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const query = useStudyPlan();
   const { refetch } = query;
   const { livePractice } = useStudyPlanCompanion();
+  const { bottomFloatingDockVisible } = useAppShellLayout();
   const [expanded, setExpanded] = useState(false);
   const [celebration, setCelebration] = useState<StudyPlanTask | null>(null);
   const previousStatusesRef = useRef<Map<
@@ -134,7 +138,7 @@ export function StudyPlanCompanion({
     pathname === "/practice/session" ||
     pathname.startsWith("/practice/stem/") ||
     /^\/skill-trainer\/[^/]+\/play$/.test(pathname);
-  const settingsOffset = pathname.startsWith("/settings")
+  const floatingBottomOffset = bottomFloatingDockVisible
     ? "bottom-24"
     : "bottom-4";
   const expandTransition = {
@@ -145,6 +149,7 @@ export function StudyPlanCompanion({
   useEffect(() => {
     if (previousPathnameRef.current === pathname) return;
     previousPathnameRef.current = pathname;
+    setExpanded(false);
     if (!hidden) void refetch();
   }, [hidden, pathname, refetch]);
 
@@ -174,10 +179,8 @@ export function StudyPlanCompanion({
     if (forcedCollapsed) setExpanded(false);
   }, [forcedCollapsed]);
 
-  if (!data?.profile || query.isError || hidden) return null;
-
   const liveTask = livePractice?.studyPlanTaskId
-    ? (data.tasks.find((task) => task.id === livePractice.studyPlanTaskId) ??
+    ? (data?.tasks.find((task) => task.id === livePractice.studyPlanTaskId) ??
       null)
     : null;
   const deliveredLiveTarget =
@@ -193,18 +196,31 @@ export function StudyPlanCompanion({
         )
       : null;
   const showExpanded = expanded && !forcedCollapsed && !celebration;
+  const visible = Boolean(data?.profile && !query.isError && !hidden);
   const allTodayTasksComplete =
     !livePractice &&
     progress.total > 0 &&
     progress.completed === progress.total;
+
+  useEffect(() => {
+    onVisibilityChange?.(visible);
+    return () => onVisibilityChange?.(false);
+  }, [onVisibilityChange, visible]);
+
+  if (!visible) return null;
 
   return (
     <aside
       className={cn(
         placement === "sidebar"
           ? "w-full min-w-0"
-          : "fixed right-4 z-40 w-[min(390px,calc(100vw-2rem))]",
-        placement === "floating" && settingsOffset,
+          : cn(
+              "fixed right-3 z-40 transition-[width] duration-200 md:right-4 md:w-[min(390px,calc(100vw-2rem))]",
+              showExpanded || celebration
+                ? "w-[min(390px,calc(100vw-1.5rem))]"
+                : "w-14",
+            ),
+        placement === "floating" && floatingBottomOffset,
       )}
       aria-label="Study plan companion"
     >
@@ -213,7 +229,12 @@ export function StudyPlanCompanion({
           "overflow-hidden border border-border/60",
           placement === "sidebar"
             ? "rounded-xl bg-card shadow-sm"
-            : "rounded-2xl bg-background/[0.97] shadow-[0_18px_55px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.03] backdrop-blur-xl dark:bg-background/[0.96] dark:ring-white/[0.06]",
+            : cn(
+                "bg-background/[0.97] shadow-[0_18px_55px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.03] backdrop-blur-xl dark:bg-background/[0.96] dark:ring-white/[0.06]",
+                showExpanded || celebration
+                  ? "rounded-2xl"
+                  : "rounded-full md:rounded-2xl",
+              ),
           celebration && "bg-muted/[0.97] dark:bg-muted/[0.96]",
         )}
       >
@@ -260,12 +281,24 @@ export function StudyPlanCompanion({
                 )}
                 aria-hidden={showExpanded}
               >
-                <div className="flex min-h-20 items-center gap-2 p-2">
+                <div
+                  className={cn(
+                    "flex items-center gap-2",
+                    placement === "floating"
+                      ? "min-h-14 p-1 md:min-h-20 md:p-2"
+                      : "min-h-20 p-2",
+                  )}
+                >
                   <button
                     type="button"
                     onClick={() => !forcedCollapsed && setExpanded(true)}
                     disabled={forcedCollapsed}
-                    className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors enabled:hover:bg-muted/60"
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-3 text-left transition-colors enabled:hover:bg-muted/60",
+                      placement === "floating"
+                        ? "justify-center rounded-full p-0 md:justify-start md:rounded-xl md:px-2 md:py-1.5"
+                        : "rounded-xl px-2 py-1.5",
+                    )}
                     aria-expanded={false}
                     aria-label={
                       forcedCollapsed
@@ -329,7 +362,13 @@ export function StudyPlanCompanion({
                         />
                       </svg>
                     </div>
-                    <div className="min-w-0 flex-1" aria-live="polite">
+                    <div
+                      className={cn(
+                        "min-w-0 flex-1",
+                        placement === "floating" && "hidden md:block",
+                      )}
+                      aria-live="polite"
+                    >
                       {livePractice ? (
                         <>
                           <p className="text-xs font-semibold uppercase tracking-[0.13em] text-primary">
@@ -395,7 +434,12 @@ export function StudyPlanCompanion({
                       )}
                     </div>
                     {!forcedCollapsed ? (
-                      <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <ChevronUp
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-muted-foreground",
+                          placement === "floating" && "hidden md:block",
+                        )}
+                      />
                     ) : null}
                   </button>
                   {!livePractice && nextTask && !forcedCollapsed ? (
@@ -403,7 +447,10 @@ export function StudyPlanCompanion({
                       size="sm"
                       onClick={() => void actions.startTask()}
                       disabled={actions.pendingAction != null}
-                      className="shrink-0"
+                      className={cn(
+                        "shrink-0",
+                        placement === "floating" && "hidden md:inline-flex",
+                      )}
                       tabIndex={showExpanded ? -1 : undefined}
                     >
                       {actions.pendingAction === "start" ? (

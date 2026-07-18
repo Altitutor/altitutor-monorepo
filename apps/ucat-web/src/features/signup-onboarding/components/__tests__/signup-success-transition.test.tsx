@@ -98,4 +98,25 @@ describe("SignupSuccessTransition", () => {
       screen.queryByText("Thank you for joining us"),
     ).not.toBeInTheDocument();
   });
+
+  it("folds a newly created Study plan into the workspace setup animation", () => {
+    render(
+      <SignupSuccessTransition
+        {...defaultProps}
+        journey="free"
+        studyPlanStatus="created"
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Setting up your UCAT workspace",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Study plan saved")).toBeInTheDocument();
+    expect(screen.getByText("Your Study plan is ready")).toBeInTheDocument();
+    expect(
+      screen.getByText(/dashboard and first recommended tasks/i),
+    ).toBeInTheDocument();
+  });
 });

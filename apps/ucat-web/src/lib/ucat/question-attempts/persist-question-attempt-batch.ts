@@ -12,6 +12,8 @@ export type QuestionAttemptBatchInput = {
   mode?: "question" | "question_stem" | "set" | "mock" | "learn";
   submittedByStem?: boolean;
   score?: number;
+  /** Client-observed total for completion fallback; merged with server timing by max. */
+  timeSpentMilliseconds?: number;
 };
 
 export type QuestionAttemptBatchContext = {
@@ -41,7 +43,7 @@ export async function persistQuestionAttemptBatch(
   const questionIds = inputs.map((input) => input.questionId);
   let existingQuery = admin
     .from("student_question_attempts")
-    .select("id, question_id")
+    .select("id, question_id, time_spent_milliseconds")
     .eq("student_id", studentId)
     .in("question_id", questionIds);
 
@@ -69,11 +71,17 @@ export async function persistQuestionAttemptBatch(
   const { data: existing, error: existingError } = await existingQuery;
   if (existingError) throw new Error(existingError.message);
 
-  const existingByQuestionId = new Map<string, string[]>();
+  const existingByQuestionId = new Map<
+    string,
+    Array<{ id: string; timeSpentMilliseconds: number }>
+  >();
   for (const row of existing ?? []) {
-    const ids = existingByQuestionId.get(row.question_id) ?? [];
-    ids.push(row.id);
-    existingByQuestionId.set(row.question_id, ids);
+    const rows = existingByQuestionId.get(row.question_id) ?? [];
+    rows.push({
+      id: row.id,
+      timeSpentMilliseconds: Math.max(0, row.time_spent_milliseconds ?? 0),
+    });
+    existingByQuestionId.set(row.question_id, rows);
   }
 
   const updates: Array<Record<string, unknown>> = [];
@@ -99,15 +107,28 @@ export async function persistQuestionAttemptBatch(
       ...(input.mode ? { mode: input.mode } : {}),
       ...(typeof input.score === "number" ? { score: input.score } : {}),
     };
-    const existingIds = existingByQuestionId.get(input.questionId) ?? [];
+    const existingRows = existingByQuestionId.get(input.questionId) ?? [];
 
-    if (existingIds.length > 0) {
-      for (const id of existingIds) {
+    if (existingRows.length > 0) {
+      for (const row of existingRows) {
+        const timeSpentMilliseconds = Math.max(
+          row.timeSpentMilliseconds,
+          Math.max(0, input.timeSpentMilliseconds ?? 0),
+        );
         updates.push({
-          id,
+          id: row.id,
           question_id: input.questionId,
           student_id: studentId,
           ...shared,
+          ...(input.timeSpentMilliseconds != null
+            ? {
+                time_spent_milliseconds: timeSpentMilliseconds,
+                time_spent_seconds:
+                  timeSpentMilliseconds > 0
+                    ? Math.ceil(timeSpentMilliseconds / 1000)
+                    : null,
+              }
+            : {}),
         });
       }
       continue;
@@ -126,7 +147,14 @@ export async function persistQuestionAttemptBatch(
       answer_snapshot: input.answerSnapshot ?? null,
       is_flagged: input.isFlagged ?? false,
       is_submitted: input.submittedByStem === true,
-      time_spent_seconds: null,
+      time_spent_seconds:
+        input.timeSpentMilliseconds != null && input.timeSpentMilliseconds > 0
+          ? Math.ceil(input.timeSpentMilliseconds / 1000)
+          : null,
+      time_spent_milliseconds:
+        input.timeSpentMilliseconds != null
+          ? Math.max(0, input.timeSpentMilliseconds)
+          : null,
       ...(context.studentPracticeSessionId
         ? { first_seen_at: new Date().toISOString() }
         : {}),

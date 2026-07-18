@@ -4,24 +4,14 @@ import { notFound, redirect } from "next/navigation";
 
 export default function SkillTrainerPlayRoute({
   params,
-  searchParams,
 }: {
   params: { key: string };
-  searchParams: { attemptId?: string };
 }) {
   const trainerKey = trainerSlugToKey(params.key);
-  if (!trainerKey || !searchParams.attemptId) notFound();
+  if (!trainerKey) notFound();
   if (params.key.includes("_")) {
     const slug = trainerKeyToSlug(trainerKey);
-    const query = new URLSearchParams(
-      Object.entries(searchParams).filter((entry): entry is [string, string] => entry[1] != null),
-    );
-    redirect(`/skill-trainer/${slug}/play?${query.toString()}`);
+    redirect(`/skill-trainer/${slug}/play`);
   }
-  return (
-    <SkillTrainerPlayPage
-      trainerKey={trainerKey}
-      attemptId={searchParams.attemptId}
-    />
-  );
+  return <SkillTrainerPlayPage trainerKey={trainerKey} />;
 }

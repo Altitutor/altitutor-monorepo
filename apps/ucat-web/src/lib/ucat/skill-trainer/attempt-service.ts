@@ -53,7 +53,9 @@ type AttemptRow = {
   ends_at: string;
   started_at: string;
   completed_at: string | null;
+  discarded_at: string | null;
   trainer_key?: string;
+  version: number;
 };
 
 type ItemRow = {
@@ -145,7 +147,7 @@ export async function finalizeAttemptIfExpired(
   supabase: AdminClient,
   attempt: AttemptRow,
 ): Promise<AttemptRow> {
-  if (attempt.completed_at) return attempt;
+  if (attempt.completed_at || attempt.discarded_at) return attempt;
   if (getRemainingSeconds(attempt.ends_at) > 0) return attempt;
 
   const { data, error } = await supabase
@@ -155,69 +157,39 @@ export async function finalizeAttemptIfExpired(
       progress: null,
     })
     .eq("id", attempt.id)
+    .is("completed_at", null)
+    .is("discarded_at", null)
     .select("*")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return mapAttemptRow(data ?? attempt, attempt.trainer_key);
+  if (data) return mapAttemptRow(data, attempt.trainer_key);
+  return getAttemptForStudent(supabase, attempt.id, attempt.student_id);
 }
 
-export async function completeSkillTrainerAttempt(
+export async function discardSkillTrainerAttempt(
   supabase: AdminClient,
   attemptId: string,
   studentId: string,
-): Promise<{ state: SkillTrainerAttemptState; newlyCompleted: boolean }> {
-  const { data: rawAttempt, error: loadError } = await supabase
-    .from("student_skill_trainer_attempts")
-    .select("*, ucat_skill_trainers(key, is_enabled)")
-    .eq("id", attemptId)
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (loadError) throw new Error(loadError.message);
-  if (!rawAttempt) throw new Error("ATTEMPT_NOT_FOUND");
-
-  const trainer = (
-    rawAttempt as { ucat_skill_trainers?: AttemptTrainerRelation }
-  ).ucat_skill_trainers;
-  if (trainer?.is_enabled !== true) throw new Error("TRAINER_NOT_FOUND");
-  const trainerKey = trainer.key ?? undefined;
-  const attempt = mapAttemptRow(
-    rawAttempt as Record<string, unknown>,
-    trainerKey,
-  );
-
-  if (attempt.completed_at) {
-    return {
-      state: await buildAttemptState(supabase, attempt),
-      newlyCompleted: false,
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("student_skill_trainer_attempts")
-    .update({
-      completed_at: new Date().toISOString(),
-      progress: null,
-    })
-    .eq("id", attempt.id)
-    .eq("student_id", studentId)
-    .select("*, ucat_skill_trainers(key, is_enabled)")
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("ATTEMPT_NOT_FOUND");
-
-  const completedTrainerKey =
-    (data as { ucat_skill_trainers?: AttemptTrainerRelation })
-      .ucat_skill_trainers?.key ?? undefined;
-  return {
-    state: await buildAttemptState(
-      supabase,
-      mapAttemptRow(data as Record<string, unknown>, completedTrainerKey),
-    ),
-    newlyCompleted: true,
+): Promise<boolean> {
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      functionName: "discard_ucat_skill_trainer_attempt",
+      params: { p_student_id: string; p_attempt_id: string },
+    ) => Promise<{
+      data: boolean | null;
+      error: { message: string } | null;
+    }>;
   };
+  const { data, error } = await rpcClient.rpc(
+    "discard_ucat_skill_trainer_attempt",
+    {
+      p_student_id: studentId,
+      p_attempt_id: attemptId,
+    },
+  );
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 function mapAttemptRow(
@@ -243,7 +215,9 @@ function mapAttemptRow(
     ends_at: row.ends_at as string,
     started_at: row.started_at as string,
     completed_at: (row.completed_at as string | null) ?? null,
+    discarded_at: (row.discarded_at as string | null) ?? null,
     trainer_key: trainerKey,
+    version: Number(row.version ?? 0),
   };
 }
 
@@ -266,7 +240,25 @@ async function loadTrainerByKey(
 async function loadApprovedItemIds(
   supabase: AdminClient,
   skillTrainerId: string,
+  limit?: number,
 ): Promise<string[]> {
+  if (limit != null) {
+    const rpcClient = supabase as unknown as {
+      rpc: (
+        functionName: "get_skill_trainer_item_queue",
+        params: { p_skill_trainer_id: string; p_limit: number },
+      ) => Promise<{
+        data: string[] | null;
+        error: { message: string } | null;
+      }>;
+    };
+    const { data, error } = await rpcClient.rpc(
+      "get_skill_trainer_item_queue",
+      { p_skill_trainer_id: skillTrainerId, p_limit: limit },
+    );
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  }
   const { data, error } = await supabase
     .from("ucat_skill_trainer_items")
     .select("id")
@@ -310,7 +302,7 @@ async function loadItemsById(
   );
 }
 
-export async function getActiveAttemptForStudent(
+export async function getUnfinishedSkillTrainerAttempt(
   supabase: AdminClient,
   studentId: string,
 ): Promise<AttemptRow | null> {
@@ -319,6 +311,7 @@ export async function getActiveAttemptForStudent(
     .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("student_id", studentId)
     .is("completed_at", null)
+    .is("discarded_at", null)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -332,7 +325,8 @@ export async function getActiveAttemptForStudent(
       .update({ completed_at: new Date().toISOString(), progress: null })
       .eq("id", data.id)
       .eq("student_id", studentId)
-      .is("completed_at", null);
+      .is("completed_at", null)
+      .is("discarded_at", null);
     if (closeError) throw new Error(closeError.message);
     return null;
   }
@@ -340,7 +334,30 @@ export async function getActiveAttemptForStudent(
   const trainerKey = trainer.key ?? undefined;
   const attempt = mapAttemptRow(data as Record<string, unknown>, trainerKey);
 
-  return finalizeAttemptIfExpired(supabase, attempt);
+  return attempt;
+}
+
+async function getAttemptForStudent(
+  supabase: AdminClient,
+  attemptId: string,
+  studentId: string,
+): Promise<AttemptRow> {
+  const { data, error } = await supabase
+    .from("student_skill_trainer_attempts")
+    .select("*, ucat_skill_trainers(key, is_enabled)")
+    .eq("id", attemptId)
+    .eq("student_id", studentId)
+    .is("discarded_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("ATTEMPT_NOT_FOUND");
+  const trainer = (data as { ucat_skill_trainers?: AttemptTrainerRelation })
+    .ucat_skill_trainers;
+  if (trainer?.is_enabled !== true) throw new Error("TRAINER_NOT_FOUND");
+  return mapAttemptRow(
+    data as unknown as Record<string, unknown>,
+    trainer.key ?? undefined,
+  );
 }
 
 export async function buildAttemptState(
@@ -359,7 +376,10 @@ export async function buildAttemptState(
   const nextItem = nextItemId ? (items.get(nextItemId) ?? null) : null;
   const remainingSeconds = getRemainingSeconds(finalized.ends_at);
   const isExpired = remainingSeconds <= 0;
-  const isCompleted = finalized.completed_at != null || isExpired;
+  const isCompleted =
+    finalized.completed_at != null ||
+    finalized.discarded_at != null ||
+    isExpired;
 
   return {
     attempt: {
@@ -379,29 +399,20 @@ export async function startSkillTrainerAttempt(
   studentId: string,
   trainerKey: string,
 ): Promise<SkillTrainerAttemptState> {
-  const existing = await getActiveAttemptForStudent(supabase, studentId);
-  if (
-    existing &&
-    !existing.completed_at &&
-    getRemainingSeconds(existing.ends_at) > 0
-  ) {
-    if (existing.trainer_key !== trainerKey) {
-      throw new Error("ANOTHER_ATTEMPT_IN_PROGRESS");
-    }
-    return buildAttemptState(supabase, existing);
-  }
-
   const trainer = await loadTrainerByKey(supabase, trainerKey);
   if (!trainer) throw new Error("TRAINER_NOT_FOUND");
 
-  const itemIds = await loadApprovedItemIds(supabase, trainer.id);
+  const [itemIds, configResult] = await Promise.all([
+    loadApprovedItemIds(supabase, trainer.id, 64),
+    supabase
+      .from("ucat_skill_trainer_config")
+      .select("*")
+      .eq("skill_trainer_id", trainer.id)
+      .maybeSingle(),
+  ]);
   if (itemIds.length === 0) throw new Error("NO_ITEMS_AVAILABLE");
 
-  const { data: configRow, error: configError } = await supabase
-    .from("ucat_skill_trainer_config")
-    .select("*")
-    .eq("skill_trainer_id", trainer.id)
-    .maybeSingle();
+  const { data: configRow, error: configError } = configResult;
   if (configError) throw new Error(configError.message);
   if (!configRow) throw new Error("TRAINER_CONFIG_NOT_FOUND");
 
@@ -451,17 +462,12 @@ async function completeCurrentItem(
   supabase: AdminClient,
   attempt: AttemptRow,
   itemId: string,
+  actionId: string,
+  expectedVersion: number,
   scoreDelta: number,
   result: Record<string, unknown>,
   loadAllItemIds: () => Promise<string[]>,
-): Promise<AttemptRow> {
-  await supabase.from("student_skill_trainer_attempt_items").insert({
-    skill_trainer_attempt_id: attempt.id,
-    skill_trainer_item_id: itemId,
-    score_delta: scoreDelta,
-    result: result as Json,
-  });
-
+): Promise<AttemptRow | null> {
   const newScore = Number(attempt.score) + scoreDelta;
   const currentQueue = parseQueue(attempt.item_queue_snapshot);
   let queue = currentQueue;
@@ -481,19 +487,22 @@ async function completeCurrentItem(
   const trainerKey = attempt.config_snapshot.trainer_key;
   const nextProgress = defaultProgress(trainerKey);
   const nextItemStartedAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("student_skill_trainer_attempts")
-    .update({
-      score: newScore,
-      streak_count: attempt.streak_count,
-      item_queue_snapshot: queue,
-      current_item_index: currentIndex,
-      current_item_started_at: nextItemStartedAt,
-      progress: nextProgress,
-    })
-    .eq("id", attempt.id);
-
-  if (error) throw new Error(error.message);
+  const version = await commitSkillTrainerAction(supabase, {
+    attempt,
+    actionId,
+    expectedVersion,
+    expectedItemId: itemId,
+    score: newScore,
+    streakCount: attempt.streak_count,
+    progress: nextProgress,
+    queue,
+    currentItemIndex: currentIndex,
+    currentItemStartedAt: nextItemStartedAt,
+    itemCompleted: true,
+    scoreDelta,
+    result,
+  });
+  if (version == null) return null;
   return {
     ...attempt,
     score: newScore,
@@ -501,7 +510,67 @@ async function completeCurrentItem(
     current_item_index: currentIndex,
     current_item_started_at: nextItemStartedAt,
     progress: nextProgress,
+    version,
   };
+}
+
+type CommitSkillTrainerActionInput = {
+  attempt: AttemptRow;
+  actionId: string;
+  expectedVersion: number;
+  expectedItemId: string;
+  score: number;
+  streakCount: number;
+  progress: SkillTrainerAttemptProgress;
+  queue: string[];
+  currentItemIndex: number;
+  currentItemStartedAt: string | null;
+  itemCompleted: boolean;
+  scoreDelta: number;
+  result: Record<string, unknown>;
+};
+
+async function commitSkillTrainerAction(
+  supabase: AdminClient,
+  input: CommitSkillTrainerActionInput,
+): Promise<number | null> {
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      functionName: "commit_student_skill_trainer_action",
+      params: Record<string, unknown>,
+    ) => Promise<{
+      data: { status?: string; version?: number } | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc(
+    "commit_student_skill_trainer_action",
+    {
+      p_attempt_id: input.attempt.id,
+      p_student_id: input.attempt.student_id,
+      p_action_id: input.actionId,
+      p_expected_version: input.expectedVersion,
+      p_expected_item_id: input.expectedItemId,
+      p_score: input.score,
+      p_streak_count: input.streakCount,
+      p_progress: input.progress as unknown as Json,
+      p_item_queue_snapshot: input.queue as unknown as Json,
+      p_current_item_index: input.currentItemIndex,
+      p_current_item_started_at: input.currentItemStartedAt,
+      p_item_completed: input.itemCompleted,
+      p_score_delta: input.scoreDelta,
+      p_result: input.result as Json,
+    },
+  );
+  if (error) throw new Error(error.message);
+  if (data?.status === "duplicate") return null;
+  if (data?.status === "stale") throw new Error("STALE_ATTEMPT");
+  if (data?.status === "not_found") throw new Error("ATTEMPT_NOT_FOUND");
+  if (data?.status === "completed") throw new Error("ATTEMPT_COMPLETED");
+  if (data?.status !== "applied" || !Number.isSafeInteger(data.version)) {
+    throw new Error("FAILED_TO_COMMIT_ACTION");
+  }
+  return data.version as number;
 }
 
 export async function submitSkillTrainerAction(
@@ -509,12 +578,15 @@ export async function submitSkillTrainerAction(
   attemptId: string,
   studentId: string,
   payload: SubmitActionPayload,
+  actionId: string,
+  expectedVersion: number,
 ): Promise<SkillTrainerAttemptState> {
   const { data: rawAttempt, error } = await supabase
     .from("student_skill_trainer_attempts")
     .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("id", attemptId)
     .eq("student_id", studentId)
+    .is("discarded_at", null)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -755,6 +827,8 @@ export async function submitSkillTrainerAction(
       supabase,
       { ...attempt, streak_count: newStreak },
       currentItemId,
+      actionId,
+      expectedVersion,
       finalScoreDelta,
       {
         action: payload.type,
@@ -763,26 +837,48 @@ export async function submitSkillTrainerAction(
       },
       loadAllItemIds,
     );
+    if (!updated) {
+      const canonical = await getAttemptForStudent(
+        supabase,
+        attemptId,
+        studentId,
+      );
+      return buildAttemptState(supabase, canonical);
+    }
     return buildAttemptState(supabase, { ...updated, streak_count: newStreak });
   }
 
   const partialScore = Number(attempt.score) + scoreDelta;
-  const { error: updateError } = await supabase
-    .from("student_skill_trainer_attempts")
-    .update({
-      score: partialScore,
-      streak_count: newStreak,
-      progress,
-    })
-    .eq("id", attempt.id);
-
-  if (updateError) throw new Error(updateError.message);
+  const version = await commitSkillTrainerAction(supabase, {
+    attempt,
+    actionId,
+    expectedVersion,
+    expectedItemId: currentItemId,
+    score: partialScore,
+    streakCount: newStreak,
+    progress,
+    queue,
+    currentItemIndex: attempt.current_item_index,
+    currentItemStartedAt: attempt.current_item_started_at,
+    itemCompleted: false,
+    scoreDelta,
+    result: { action: payload.type, correct: scoreDelta >= 0 },
+  });
+  if (version == null) {
+    const canonical = await getAttemptForStudent(
+      supabase,
+      attemptId,
+      studentId,
+    );
+    return buildAttemptState(supabase, canonical);
+  }
 
   return buildAttemptState(supabase, {
     ...attempt,
     progress,
     streak_count: newStreak,
     score: partialScore,
+    version,
   });
 }
 

@@ -1,11 +1,21 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useRef, useState } from "react";
+import {
+  createElement,
+  StrictMode,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   beginExamAttempt,
   fetchActiveExamAttempt,
   syncExamAttempt,
 } from "@/features/exam-attempts/api/exam-attempts-api";
-import { useExamAttemptLifecycle } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
+import {
+  getExamSnapshotSyncDelay,
+  sanitizeEngineSnapshotForExam,
+  useExamAttemptLifecycle,
+} from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
 import type {
   QuestionEngineExam,
   QuestionEngineState,
@@ -63,6 +73,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function StrictModeWrapper({ children }: { children: ReactNode }) {
+  return createElement(StrictMode, null, children);
+}
+
 function createState(): QuestionEngineState {
   return {
     phase: "instructions",
@@ -117,7 +131,7 @@ const exam: QuestionEngineExam = {
 
 function createAttempt(
   state: QuestionEngineState,
-  currentSegmentEndsAt = "2099-07-17T12:01:00.000Z",
+  currentSegmentEndsAt: string | null = "2099-07-17T12:01:00.000Z",
 ): ActiveExamAttempt {
   return {
     kind: "set",
@@ -162,6 +176,37 @@ function useLifecycleHarness() {
     state,
     setState,
     practice: false,
+    attemptStateRef,
+  });
+  return { state, setState, lifecycle };
+}
+
+const practiceExam: QuestionEngineExam = {
+  ...exam,
+  sourceType: "questionStem",
+  sourceId: "practice-source",
+  title: "Practice",
+  setModeTiming: undefined,
+};
+
+function usePracticeLifecycleHarness() {
+  const [state, setState] = useState<QuestionEngineState>(() => ({
+    ...createState(),
+    phase: "question",
+    timerStartedAt: null,
+    visitedQuestionIds: ["question-1"],
+  }));
+  const attemptStateRef = useRef({
+    mockAttemptId: null as string | null,
+    setAttemptIdsBySetId: new Map<string, string>(),
+  });
+  const lifecycle = useExamAttemptLifecycle({
+    enabled: true,
+    exam: practiceExam,
+    state,
+    setState,
+    practice: true,
+    practiceSessionId: "practice-session-1",
     attemptStateRef,
   });
   return { state, setState, lifecycle };
@@ -237,7 +282,7 @@ describe("useExamAttemptLifecycle request races", () => {
     unmount();
   });
 
-  it("does not let a delayed resume hydration overwrite local navigation", async () => {
+  it("restores the server snapshot despite automatic local startup changes", async () => {
     const instructionsState = createState();
     const activeAttempt = createAttempt(instructionsState);
     const pendingActiveFetch = deferred<ActiveExamAttempt | null>();
@@ -269,28 +314,213 @@ describe("useExamAttemptLifecycle request races", () => {
     );
     expect(mockBeginExamAttempt).not.toHaveBeenCalled();
     expect(result.current.state).toMatchObject({
-      phase: "question",
-      selectedAnswers: { "question-1": "option-1" },
+      phase: "instructions",
+      selectedAnswers: {},
     });
     expect(mockSetLocal).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        currentSegmentEndsAt: null,
+        currentSegmentEndsAt: "2099-07-17T12:01:00.000Z",
         engineSnapshot: expect.objectContaining({
-          phase: "question",
-          selectedAnswers: { "question-1": "option-1" },
+          phase: "instructions",
+          selectedAnswers: {},
         }),
       }),
     );
+
+    unmount();
+  });
+
+  it("waits for an in-flight begin before flushing question timing", async () => {
+    const pendingBegin =
+      deferred<Awaited<ReturnType<typeof beginExamAttempt>>>();
+    const instructionsState = createState();
+    mockBeginExamAttempt.mockReturnValue(pendingBegin.promise);
+
+    const { result, unmount } = renderHook(useLifecycleHarness);
+
+    await waitFor(() => expect(mockBeginExamAttempt).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        phase: "question",
+        timerStartedAt: Date.now(),
+        visitedQuestionIds: ["question-1"],
+      }));
+    });
+
+    let flushPromise!: Promise<boolean>;
+    act(() => {
+      flushPromise = result.current.lifecycle.flushQuestionTiming();
+    });
+    expect(mockSyncExamAttempt).not.toHaveBeenCalled();
+
+    await act(async () => {
+      pendingBegin.resolve({
+        attempt: createAttempt(instructionsState),
+        resumed: false,
+      });
+      await pendingBegin.promise;
+      await flushPromise;
+    });
+
+    expect(mockSyncExamAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attemptId: "attempt-1",
+        questionActiveTiming: null,
+      }),
+    );
+
+    unmount();
+  });
+
+  it("opens timing for the first practice question after begin resolves", async () => {
+    const initialState: QuestionEngineState = {
+      ...createState(),
+      phase: "question",
+      timerStartedAt: null,
+      visitedQuestionIds: ["question-1"],
+    };
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: {
+        ...createAttempt(initialState, null),
+        kind: "practice",
+        attemptId: "practice-session-1",
+        resourceId: "practice-session-1",
+        label: "Practice",
+        currentSegmentEndsAt: null,
+        engineSnapshot: initialState,
+        setAttemptIdsBySetId: {},
+        practiceSessionId: "practice-session-1",
+        wasTimed: false,
+      },
+      resumed: false,
+    });
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness, {
+      wrapper: StrictModeWrapper,
+    });
+
     await waitFor(() =>
       expect(mockSyncExamAttempt).toHaveBeenCalledWith(
         expect.objectContaining({
-          currentSegmentEndsAt: null,
-          startSegmentTimeLimitSeconds: 600,
-          engineSnapshot: expect.objectContaining({ phase: "question" }),
+          kind: "practice",
+          attemptId: "practice-session-1",
+          questionActiveTiming: expect.objectContaining({
+            questionId: "question-1",
+            wasTimed: false,
+          }),
         }),
       ),
     );
 
+    mockSyncExamAttempt.mockClear();
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(
+      () =>
+        expect(mockSyncExamAttempt).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: "practice",
+            attemptId: "practice-session-1",
+            engineSnapshot: expect.objectContaining({
+              selectedAnswers: { "question-1": "option-1" },
+            }),
+          }),
+        ),
+      { timeout: 2_500 },
+    );
+
     unmount();
+  });
+
+  it("restores saved practice answers when local UI state changes during resume", async () => {
+    const savedState: QuestionEngineState = {
+      ...createState(),
+      phase: "question",
+      timerStartedAt: null,
+      visitedQuestionIds: ["question-1"],
+      selectedAnswers: { "question-1": "option-1" },
+    };
+    const activePracticeAttempt: ActiveExamAttempt = {
+      ...createAttempt(savedState, null),
+      kind: "practice",
+      attemptId: "practice-session-1",
+      resourceId: "practice-session-1",
+      label: "Practice",
+      engineSnapshot: createAttempt(savedState, null).engineSnapshot,
+      setAttemptIdsBySetId: {},
+      practiceSessionId: "practice-session-1",
+      wasTimed: false,
+    };
+    const pendingActiveFetch = deferred<ActiveExamAttempt | null>();
+    mockActive = activePracticeAttempt;
+    mockFetchActiveExamAttempt.mockReturnValue(pendingActiveFetch.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+    await waitFor(() =>
+      expect(mockFetchActiveExamAttempt).toHaveBeenCalledTimes(1),
+    );
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        showCalculator: true,
+      }));
+    });
+
+    await act(async () => {
+      pendingActiveFetch.resolve(activePracticeAttempt);
+      await pendingActiveFetch.promise;
+    });
+
+    await waitFor(() =>
+      expect(result.current.lifecycle.isHydrating).toBe(false),
+    );
+    expect(result.current.state.selectedAnswers).toEqual({
+      "question-1": "option-1",
+    });
+    expect(result.current.state.showCalculator).toBe(true);
+
+    unmount();
+  });
+});
+
+describe("getExamSnapshotSyncDelay", () => {
+  it("debounces ordinary updates but enforces a maximum wait", () => {
+    expect(getExamSnapshotSyncDelay(1_000, 1_100)).toBe(800);
+    expect(getExamSnapshotSyncDelay(1_000, 2_700)).toBe(300);
+    expect(getExamSnapshotSyncDelay(1_000, 3_100)).toBe(0);
+  });
+});
+
+describe("sanitizeEngineSnapshotForExam", () => {
+  it("drops answers and navigation state for questions outside the loaded exam", () => {
+    const stale = createAttempt(createState()).engineSnapshot;
+    stale.currentIndex = 99;
+    stale.viewingQuestionIndex = 99;
+    stale.visitedQuestionIds = ["stale-question", "question-1"];
+    stale.flaggedIds = ["stale-question"];
+    stale.selectedAnswers = {
+      "stale-question": "stale-option",
+      "question-1": "option-1",
+    };
+    stale.syllogismSnapshots = {
+      "stale-question": { "stale-option": true },
+    };
+
+    expect(sanitizeEngineSnapshotForExam(exam, stale)).toMatchObject({
+      currentIndex: 0,
+      viewingQuestionIndex: 0,
+      visitedQuestionIds: ["question-1"],
+      flaggedIds: [],
+      selectedAnswers: { "question-1": "option-1" },
+      syllogismSnapshots: {},
+    });
   });
 });

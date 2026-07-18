@@ -8457,6 +8457,7 @@ export type Database = {
           question_count: number | null
           score_points: number | null
           section_key: string
+          stem_delivery_revision: number
           started_at: string
           stems_snapshot: Json | null
           student_id: string
@@ -8478,6 +8479,7 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key: string
+          stem_delivery_revision?: number
           started_at?: string
           stems_snapshot?: Json | null
           student_id: string
@@ -8499,6 +8501,7 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key?: string
+          stem_delivery_revision?: number
           started_at?: string
           stems_snapshot?: Json | null
           student_id?: string
@@ -9064,6 +9067,7 @@ export type Database = {
           config_snapshot: Json
           current_item_index: number
           current_item_started_at: string | null
+          discarded_at: string | null
           ends_at: string
           id: string
           item_queue_snapshot: Json
@@ -9081,6 +9085,7 @@ export type Database = {
           config_snapshot?: Json
           current_item_index?: number
           current_item_started_at?: string | null
+          discarded_at?: string | null
           ends_at: string
           id?: string
           item_queue_snapshot?: Json
@@ -9098,6 +9103,7 @@ export type Database = {
           config_snapshot?: Json
           current_item_index?: number
           current_item_started_at?: string | null
+          discarded_at?: string | null
           ends_at?: string
           id?: string
           item_queue_snapshot?: Json
@@ -15731,6 +15737,7 @@ export type Database = {
           skill_trainer_id: string | null
           skipped_at: string | null
           sort_order: number
+          source_task_id: string | null
           started_at: string | null
           status: string
           student_id: string
@@ -15762,6 +15769,7 @@ export type Database = {
           skill_trainer_id?: string | null
           skipped_at?: string | null
           sort_order?: number
+          source_task_id?: string | null
           started_at?: string | null
           status?: string
           student_id: string
@@ -15793,6 +15801,7 @@ export type Database = {
           skill_trainer_id?: string | null
           skipped_at?: string | null
           sort_order?: number
+          source_task_id?: string | null
           started_at?: string | null
           status?: string
           student_id?: string
@@ -16010,6 +16019,13 @@ export type Database = {
             columns: ["skill_trainer_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_study_plan_tasks_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
             referencedColumns: ["id"]
           },
           {
@@ -25929,6 +25945,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      discard_ucat_skill_trainer_attempt: {
+        Args: { p_attempt_id: string; p_student_id: string }
+        Returns: boolean
+      }
       discontinue_student: {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
@@ -26662,6 +26682,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      sync_ucat_practice_attempt_snapshot: {
+        Args: {
+          p_current_segment_ends_at: string
+          p_engine_snapshot: Json
+          p_question_active_timing: Json
+          p_session_id: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
       try_acquire_billing_runner_lock: {
         Args: {
           p_lock_name?: string
@@ -27213,4 +27243,3 @@ export const Constants = {
     },
   },
 } as const
-

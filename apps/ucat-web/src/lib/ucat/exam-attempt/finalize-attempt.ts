@@ -88,6 +88,7 @@ async function completeStudentMockAttempt(
   studentId: string,
   attemptId: string,
   finalAnswers?: FinalExamQuestionAttemptInput[],
+  options: { grantDiscount?: boolean } = {},
 ): Promise<{
   earnedDiscount: boolean;
   discountCents: number;
@@ -282,9 +283,28 @@ async function completeStudentMockAttempt(
     .maybeSingle();
 
   if (updateError) throw new Error(updateError.message);
-  if (!updatedMock) throw new Error("Attempt is no longer active");
+  if (!updatedMock) {
+    const { data: terminal, error: terminalError } = await admin
+      .from("student_ucat_mock_attempts")
+      .select("completed_at")
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (terminalError) throw new Error(terminalError.message);
+    if (terminal?.completed_at) {
+      return {
+        earnedDiscount: false,
+        discountCents: 0,
+        newlyCompleted: false,
+      };
+    }
+    throw new Error("Attempt is no longer active");
+  }
 
-  const discount = await maybeGrantPracticeDayDiscount(admin, studentId);
+  const discount =
+    options.grantDiscount === false
+      ? { earnedDiscount: false, discountCents: 0 }
+      : await maybeGrantPracticeDayDiscount(admin, studentId);
   return { ...discount, newlyCompleted: true };
 }
 
@@ -357,7 +377,17 @@ async function completeStudentPracticeSession(
     .maybeSingle();
 
   if (updateSessionError) throw new Error(updateSessionError.message);
-  if (!updatedSession) throw new Error("Attempt is no longer active");
+  if (!updatedSession) {
+    const { data: terminal, error: terminalError } = await admin
+      .from("student_practice_sessions")
+      .select("completed_at")
+      .eq("id", sessionId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (terminalError) throw new Error(terminalError.message);
+    if (terminal?.completed_at) return false;
+    throw new Error("Attempt is no longer active");
+  }
   return true;
 }
 
@@ -367,6 +397,7 @@ export async function finalizeExamAttemptOnServer(
   kind: ExamAttemptKind,
   attemptId: string,
   finalAnswers?: FinalExamQuestionAttemptInput[],
+  options: { grantDiscount?: boolean } = {},
 ): Promise<{
   success: true;
   earnedDiscount?: boolean;
@@ -380,6 +411,7 @@ export async function finalizeExamAttemptOnServer(
         studentId,
         attemptId,
         finalAnswers,
+        options,
       );
       return { success: true, ...result };
     }
@@ -389,6 +421,7 @@ export async function finalizeExamAttemptOnServer(
         studentId,
         attemptId,
         finalAnswers,
+        options,
       );
       return { success: true, ...result };
     }

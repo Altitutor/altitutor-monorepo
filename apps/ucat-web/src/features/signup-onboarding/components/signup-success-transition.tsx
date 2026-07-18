@@ -5,7 +5,9 @@ import {
   BarChart3,
   BookOpen,
   BrainCircuit,
+  CalendarCheck2,
   Check,
+  ListChecks,
   Sparkles,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -60,7 +62,29 @@ const FREE_BENEFITS: ReadonlyArray<SignupBenefit> = [
   },
 ];
 
+const STUDY_PLAN_BENEFITS: ReadonlyArray<SignupBenefit> = [
+  {
+    title: "Your Study plan is ready",
+    description:
+      "Your target, UCAT year and realistic weekly rhythm are saved.",
+    icon: CalendarCheck2,
+  },
+  {
+    title: "Your first tasks are prepared",
+    description:
+      "Your dashboard will open with a clear recommendation for what to do first.",
+    icon: ListChecks,
+  },
+  {
+    title: "Your plan will keep adapting",
+    description:
+      "As you complete real work, your results will sharpen what comes next.",
+    icon: BarChart3,
+  },
+];
+
 export type SignupSuccessTransitionPhase = "confirming" | "welcome";
+export type StudyPlanCompletionStatus = "created" | "skipped";
 
 type SignupSuccessTransitionProps = {
   journey: SignupSuccessJourney;
@@ -70,6 +94,7 @@ type SignupSuccessTransitionProps = {
   error: string | null;
   onRetry: () => void;
   onComplete: () => void;
+  studyPlanStatus?: StudyPlanCompletionStatus;
 };
 
 export function SignupSuccessTransition({
@@ -80,12 +105,19 @@ export function SignupSuccessTransition({
   error,
   onRetry,
   onComplete,
+  studyPlanStatus,
 }: SignupSuccessTransitionProps) {
   const reduceMotion = useReducedMotion();
   const [benefitIndex, setBenefitIndex] = useState(0);
   const isPaidJourney = journey === "paid";
   const isUpgrade = occasion === "upgrade";
-  const benefits = isPaidJourney ? PAID_BENEFITS : FREE_BENEFITS;
+  const isStudyPlanCompletion = studyPlanStatus != null;
+  const benefits =
+    studyPlanStatus === "created"
+      ? STUDY_PLAN_BENEFITS
+      : isPaidJourney
+        ? PAID_BENEFITS
+        : FREE_BENEFITS;
 
   useEffect(() => {
     if (phase !== "confirming" || reduceMotion) return;
@@ -171,23 +203,33 @@ export function SignupSuccessTransition({
             <p
               className={`text-xs font-bold uppercase tracking-[0.24em] text-marketing-accent ${typo.dataMono}`}
             >
-              {isPaidJourney
-                ? "Your plan is unlocking"
-                : "Your UCAT journey starts here"}
+              {studyPlanStatus === "created"
+                ? "Study plan saved"
+                : studyPlanStatus === "skipped"
+                  ? "Finishing your setup"
+                  : isPaidJourney
+                    ? "Your plan is unlocking"
+                    : "Your UCAT journey starts here"}
             </p>
             <h1
               className={`mt-3 text-3xl font-bold sm:text-4xl ${typo.headingSans}`}
             >
-              {isPaidJourney
-                ? "Building your UCAT workspace"
-                : "Personalising your UCAT workspace"}
+              {isStudyPlanCompletion
+                ? "Setting up your UCAT workspace"
+                : isPaidJourney
+                  ? "Building your UCAT workspace"
+                  : "Personalising your UCAT workspace"}
             </h1>
             <p
               className={`mt-3 max-w-md text-marketing-cream/60 ${typo.secondarySans}`}
             >
-              {isPaidJourney
-                ? "Your payment is complete. We’re preparing everything included in your plan."
-                : "Your Free plan is ready. We’re preparing a clear place to learn, practise and improve."}
+              {studyPlanStatus === "created"
+                ? "Your Study plan is saved. We’re preparing your dashboard and first recommended tasks around it."
+                : studyPlanStatus === "skipped"
+                  ? "We’re preparing your dashboard now. You can build a Study plan later from Settings."
+                  : isPaidJourney
+                    ? "Your payment is complete. We’re preparing everything included in your plan."
+                    : "Your Free plan is ready. We’re preparing a clear place to learn, practise and improve."}
             </p>
 
             <div
@@ -250,7 +292,7 @@ export function SignupSuccessTransition({
                   Try again
                 </Button>
               </div>
-            ) : isPaidJourney && isTakingLonger ? (
+            ) : !isStudyPlanCompletion && isPaidJourney && isTakingLonger ? (
               <p
                 className={`mt-5 text-sm text-marketing-cream/50 ${typo.secondarySans}`}
                 role="status"
@@ -263,9 +305,13 @@ export function SignupSuccessTransition({
                 className={`mt-5 text-sm text-marketing-cream/40 ${typo.secondarySans}`}
                 role="status"
               >
-                {isPaidJourney
-                  ? "Finishing the last few details…"
-                  : "Preparing your dashboard…"}
+                {studyPlanStatus === "created"
+                  ? "Preparing your dashboard and first tasks…"
+                  : studyPlanStatus === "skipped"
+                    ? "Preparing your dashboard…"
+                    : isPaidJourney
+                      ? "Finishing the last few details…"
+                      : "Preparing your dashboard…"}
               </p>
             )}
           </motion.main>

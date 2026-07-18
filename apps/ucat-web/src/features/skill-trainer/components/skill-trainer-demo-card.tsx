@@ -210,9 +210,7 @@ function DemoButton({
       data-demo-active={active || undefined}
       className={cn(
         "rounded-md border px-3 py-2 text-center text-sm font-medium transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "bg-background",
+        active ? "bg-muted" : "bg-background",
       )}
     >
       {children}
@@ -323,7 +321,7 @@ function TrainerDemo({
             data-demo-target="passage-word"
             className={cn(
               "rounded px-1",
-              stepIndex >= 3 && "bg-primary text-primary-foreground",
+              stepIndex >= 3 && "bg-muted",
             )}
           >
             library
@@ -350,7 +348,7 @@ function TrainerDemo({
             data-demo-target="concept-one"
             className={cn(
               "rounded px-1",
-              stepIndex >= 2 && "bg-primary text-primary-foreground",
+              stepIndex >= 2 && "bg-muted",
             )}
           >
             reduce waste
@@ -360,7 +358,7 @@ function TrainerDemo({
             data-demo-target="concept-two"
             className={cn(
               "rounded px-1",
-              stepIndex >= 4 && "bg-primary text-primary-foreground",
+              stepIndex >= 4 && "bg-muted",
             )}
           >
             reduce waste

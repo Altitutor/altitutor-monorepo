@@ -294,6 +294,7 @@ function completeLocalItemWithItems(
       current_item_index: nextIndex,
       progress: isCompleted ? null : defaultProgress(state.attempt.config_snapshot.trainer_key),
       completed_at: isCompleted ? new Date().toISOString() : null,
+      discarded_at: null,
     },
     currentItem: nextItem,
     nextItem: afterNextItemId ? itemsById.get(afterNextItemId) ?? null : null,

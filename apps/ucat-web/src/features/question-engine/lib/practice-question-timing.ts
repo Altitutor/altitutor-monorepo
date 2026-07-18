@@ -46,14 +46,14 @@ export function getQuestionDisplaySeconds(
 }
 
 export type ClientPracticeQuestionTiming = {
-  secondsByQuestionId: Record<string, number>;
+  millisecondsByQuestionId: Record<string, number>;
   activeQuestionId: string | null;
   activeStartedAtMs: number | null;
 };
 
 export const EMPTY_CLIENT_PRACTICE_QUESTION_TIMING: ClientPracticeQuestionTiming =
   {
-    secondsByQuestionId: {},
+    millisecondsByQuestionId: {},
     activeQuestionId: null,
     activeStartedAtMs: null,
   };
@@ -70,15 +70,13 @@ export function flushActiveClientPracticeQuestionTiming(
     };
   }
 
-  const elapsed = Math.max(
-    0,
-    Math.floor((nowMs - state.activeStartedAtMs) / 1000),
-  );
+  const elapsedMilliseconds = Math.max(0, nowMs - state.activeStartedAtMs);
   return {
-    secondsByQuestionId: {
-      ...state.secondsByQuestionId,
+    millisecondsByQuestionId: {
+      ...state.millisecondsByQuestionId,
       [state.activeQuestionId]:
-        (state.secondsByQuestionId[state.activeQuestionId] ?? 0) + elapsed,
+        (state.millisecondsByQuestionId[state.activeQuestionId] ?? 0) +
+        elapsedMilliseconds,
     },
     activeQuestionId: null,
     activeStartedAtMs: null,
@@ -103,16 +101,28 @@ export function getClientPracticeQuestionDisplaySeconds(
   state: ClientPracticeQuestionTiming,
   nowMs: number = Date.now(),
 ): number {
-  const persistedSeconds = Math.max(0, state.secondsByQuestionId[questionId] ?? 0);
+  const persistedMilliseconds = getClientPracticeQuestionElapsedMilliseconds(
+    questionId,
+    state,
+    nowMs,
+  );
+  return Math.floor(persistedMilliseconds / 1000);
+}
+
+export function getClientPracticeQuestionElapsedMilliseconds(
+  questionId: string,
+  state: ClientPracticeQuestionTiming,
+  nowMs: number = Date.now(),
+): number {
+  const persistedMilliseconds = Math.max(
+    0,
+    state.millisecondsByQuestionId[questionId] ?? 0,
+  );
   if (
     state.activeQuestionId !== questionId ||
     state.activeStartedAtMs == null
   ) {
-    return persistedSeconds;
+    return persistedMilliseconds;
   }
-  const openSeconds = Math.max(
-    0,
-    Math.floor((nowMs - state.activeStartedAtMs) / 1000),
-  );
-  return persistedSeconds + openSeconds;
+  return persistedMilliseconds + Math.max(0, nowMs - state.activeStartedAtMs);
 }

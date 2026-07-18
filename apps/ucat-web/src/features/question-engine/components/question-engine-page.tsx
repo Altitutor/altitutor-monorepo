@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +30,6 @@ import {
   type OnNeedMoreStems,
 } from "@/features/question-engine/hooks/use-question-engine-state";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
-import { CalculatorPanel } from "@/features/question-engine/components/calculator-panel";
 import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import {
   ConfirmFinishPracticeDialog,
@@ -49,9 +49,6 @@ import {
   computeMarkingResult,
   MarkingBody,
 } from "@/features/question-engine/components/marking-body";
-import { MockScoreBody } from "@/features/question-engine/components/mock-score-body";
-import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
-import { ReviewBody } from "@/features/question-engine/components/review-body";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
@@ -77,12 +74,13 @@ import {
 } from "@/features/question-engine/model/types";
 import {
   computeClientStemQuestionTimes,
-  computeStemQuestionTimes,
+  computeReconciledStemQuestionTimes,
   getStemBoundaries,
 } from "@/features/question-engine/lib/practice";
 import {
   EMPTY_CLIENT_PRACTICE_QUESTION_TIMING,
   flushActiveClientPracticeQuestionTiming,
+  getClientPracticeQuestionElapsedMilliseconds,
   switchClientPracticeQuestionTiming,
   type ClientPracticeQuestionTiming,
   type PracticeQuestionTimingData,
@@ -107,14 +105,43 @@ import {
   mockAttemptDetailQueryKey,
 } from "@/features/progress/hooks/use-mock-attempt-detail";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
-import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
-import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
 import { useNextStep } from "nextstepjs";
 import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-steps";
+
+const CalculatorPanel = dynamic(() =>
+  import("@/features/question-engine/components/calculator-panel").then(
+    (module) => module.CalculatorPanel,
+  ),
+);
+const MockScoreBody = dynamic(() =>
+  import("@/features/question-engine/components/mock-score-body").then(
+    (module) => module.MockScoreBody,
+  ),
+);
+const ResultsQuestionViewer = dynamic(() =>
+  import("@/features/question-engine/components/results-question-viewer").then(
+    (module) => module.ResultsQuestionViewer,
+  ),
+);
+const ReviewBody = dynamic(() =>
+  import("@/features/question-engine/components/review-body").then(
+    (module) => module.ReviewBody,
+  ),
+);
+const PlanPicker = dynamic(() =>
+  import("@/features/subscription/components/plan-picker/plan-picker").then(
+    (module) => module.PlanPicker,
+  ),
+);
+const PlanPickerDialogShell = dynamic(() =>
+  import(
+    "@/features/subscription/components/plan-picker/plan-picker-dialog-shell"
+  ).then((module) => module.PlanPickerDialogShell),
+);
 
 /**
  * Standalone practice (e.g. `/practice/stem/[id]`): fill the padded app-shell
@@ -359,6 +386,7 @@ export function QuestionEnginePage({
   timePerQuestionSeconds = null,
   backHref,
   onBack,
+  onPracticeSessionCompleted,
   onNeedMoreStems,
   practiceQuotaReached,
   learningModuleBlockId,
@@ -405,6 +433,8 @@ export function QuestionEnginePage({
   backHref?: string;
   /** When provided, used instead of router.back() for Done/Exit. Enables clearing session state before navigating. */
   onBack?: () => void;
+  /** Lets the practice page own cleanup and navigation after durable completion. */
+  onPracticeSessionCompleted?: (attemptHref: string) => void;
   /** Unlimited mode: fetch another stem or report why the session cannot continue. */
   onNeedMoreStems?: OnNeedMoreStems;
   /** Unlimited practice: quota was reached while trying to fetch the next stem. */
@@ -839,6 +869,18 @@ export function QuestionEnginePage({
     state.syllogismSnapshots,
   ]);
 
+  const getFinalPracticeAnswers = useCallback(() => {
+    const nowMs = Date.now();
+    return finalPracticeAnswers.map((answer) => ({
+      ...answer,
+      timeSpentMilliseconds: getClientPracticeQuestionElapsedMilliseconds(
+        answer.questionId,
+        clientPracticeTimingRef.current,
+        nowMs,
+      ),
+    }));
+  }, [finalPracticeAnswers]);
+
   const prefetchAttemptResults = useCallback(() => {
     if (practiceSessionId) {
       return queryClient.prefetchQuery({
@@ -1145,6 +1187,10 @@ export function QuestionEnginePage({
         redirectHref: string | null;
       };
       if (practice && practiceSessionId && exam) {
+        clientPracticeTimingRef.current =
+          flushActiveClientPracticeQuestionTiming(
+            clientPracticeTimingRef.current,
+          );
         await flushQuestionTiming();
         const result = computeMarkingResult(
           exam.questions,
@@ -1161,7 +1207,7 @@ export function QuestionEnginePage({
             questionId: row.question.id,
             score: row.points,
           })),
-          answers: finalPracticeAnswers,
+          answers: getFinalPracticeAnswers(),
         });
         completion = {
           earnedDiscount: response.earnedDiscount ?? false,
@@ -1173,6 +1219,9 @@ export function QuestionEnginePage({
       }
       const { earnedDiscount, discountCents, redirectHref } = completion;
       void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+      if (redirectHref && practice && practiceSessionId) {
+        onPracticeSessionCompleted?.(redirectHref);
+      }
       if (examAttemptManaged) {
         clearActiveExamAttempt();
       }
@@ -1186,7 +1235,9 @@ export function QuestionEnginePage({
         skipBeforeUnloadRef.current = true;
         clearActiveExamAttempt();
         void prefetchAttemptResults();
-        router.push(redirectHref);
+        if (!(practice && practiceSessionId && onPracticeSessionCompleted)) {
+          router.replace(redirectHref);
+        }
         return true;
       }
       return false;
@@ -1198,11 +1249,12 @@ export function QuestionEnginePage({
     handleExamCompleted,
     practice,
     practiceSessionId,
+    onPracticeSessionCompleted,
     exam,
     state.selectedAnswers,
     state.syllogismSnapshots,
     completePracticeSession,
-    finalPracticeAnswers,
+    getFinalPracticeAnswers,
     questionStemsForExam,
     questionStems,
     flushQuestionTiming,
@@ -1385,6 +1437,9 @@ export function QuestionEnginePage({
     const qs = exam.questions;
     try {
       await practiceUnitSavePromiseRef.current;
+      clientPracticeTimingRef.current = flushActiveClientPracticeQuestionTiming(
+        clientPracticeTimingRef.current,
+      );
 
       if (state.phase === "question") {
         const { startIndex, endIndex } = getStemBoundaries(
@@ -1423,7 +1478,7 @@ export function QuestionEnginePage({
           questionCount: qs.length,
           stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
           questionScores,
-          answers: finalPracticeAnswers,
+          answers: getFinalPracticeAnswers(),
         });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
           toast({
@@ -1439,10 +1494,14 @@ export function QuestionEnginePage({
       }
 
       if (practiceSessionId) {
+        const attemptHref = `/progress/practice-sessions/${practiceSessionId}`;
+        onPracticeSessionCompleted?.(attemptHref);
         clearActiveExamAttempt();
         skipBeforeUnloadRef.current = true;
         void prefetchAttemptResults();
-        router.push(`/progress/practice-sessions/${practiceSessionId}`);
+        if (!onPracticeSessionCompleted) {
+          router.replace(attemptHref);
+        }
         return;
       }
 
@@ -1466,11 +1525,12 @@ export function QuestionEnginePage({
     state.currentIndex,
     mode,
     recordAnswersForUnit,
-    finalPracticeAnswers,
+    getFinalPracticeAnswers,
     learningModuleBlockId,
     disableQuestionAttemptLogging,
     onLearnProgress,
     practiceSessionId,
+    onPracticeSessionCompleted,
     practiceMarkingResult,
     completePracticeSession,
     questionStems,
@@ -1631,11 +1691,6 @@ export function QuestionEnginePage({
         return;
       }
 
-      if (isSavingPracticeUnit) {
-        event.preventDefault();
-        return;
-      }
-
       if (isEditable) {
         return;
       }
@@ -1692,6 +1747,20 @@ export function QuestionEnginePage({
           : key;
       parts.push(letterForShortcut);
       const shortcutKey = parts.join("+");
+
+      if (isSavingPracticeUnit) {
+        const viewing = state.viewingQuestionIndex ?? 0;
+        const unitStart = state.practiceAnswerUnitStartIndex ?? 0;
+        const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
+        const canMoveWithinRenderedStem =
+          state.phase === "practiceAnswer" &&
+          ((shortcutKey === "alt+p" && viewing > unitStart) ||
+            (shortcutKey === "alt+n" && viewing < unitEnd));
+        if (!canMoveWithinRenderedStem) {
+          event.preventDefault();
+          return;
+        }
+      }
 
       // When confirm practice transition dialogs are open, Alt+Y / Alt+N = Yes / No
       if (
@@ -2045,8 +2114,22 @@ export function QuestionEnginePage({
     const persistedSecondsByQuestionId =
       practiceTimingQuery.data?.persistedSecondsByQuestionId ?? {};
     const totalAnsweredTimeSeconds = Array.from(submittedIds).reduce(
-      (total, questionId) =>
-        total + Math.max(0, persistedSecondsByQuestionId[questionId] ?? 0),
+      (total, questionId) => {
+        const clientSeconds = Math.floor(
+          getClientPracticeQuestionElapsedMilliseconds(
+            questionId,
+            clientPracticeTimingRef.current,
+          ) / 1000,
+        );
+        return (
+          total +
+          Math.max(
+            0,
+            persistedSecondsByQuestionId[questionId] ?? 0,
+            clientSeconds,
+          )
+        );
+      },
       0,
     );
 
@@ -2069,12 +2152,13 @@ export function QuestionEnginePage({
     const nowMs = Date.now();
     const { stemTimeSeconds, stemQuestionTimes } =
       timingPhase === "practiceAnswer"
-        ? computeStemQuestionTimes(
+        ? computeReconciledStemQuestionTimes(
             questions,
             stemBounds.startIndex,
             stemBounds.endIndex,
             persistedSecondsByQuestionId,
-            { nowMs },
+            clientPracticeTimingRef.current,
+            nowMs,
           )
         : computeClientStemQuestionTimes(
             questions,
@@ -2201,6 +2285,13 @@ export function QuestionEnginePage({
   const isMockScorePhase = state.phase === "mockScore";
   const isResultsPhase = isMarkingPhase || isMockScorePhase;
   const isPracticeAnswerPhase = state.phase === "practiceAnswer";
+  const practiceAnswerViewingIndex = state.viewingQuestionIndex ?? 0;
+  const practiceAnswerUnitEndIndex =
+    state.practiceAnswerUnitEndIndex ?? practiceAnswerViewingIndex;
+  const isLeavingPracticeAnswerUnit =
+    practiceAnswerViewingIndex >= practiceAnswerUnitEndIndex;
+  const isSavingPracticeTransition =
+    isSavingPracticeUnit && isLeavingPracticeAnswerUnit;
   const isPracticeCompletePhase = state.phase === "practiceComplete";
   const isLoadingMorePhase = state.phase === "loadingMore";
   const hasRetainedLoadingContent = immediatePracticeReview
@@ -2914,7 +3005,6 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) >
                 (state.practiceAnswerUnitStartIndex ?? 0) ? (
                   <UcatExamActionButton
-                    disabled={isSavingPracticeUnit}
                     onClick={() => void runWithLag(() => goPrevious())}
                     icon={<ArrowLeft className="h-4 w-4" />}
                   >
@@ -2926,7 +3016,7 @@ export function QuestionEnginePage({
                 {(state.viewingQuestionIndex ?? 0) === questions.length - 1 &&
                 !onNeedMoreStems ? (
                   <UcatExamActionButton
-                    disabled={isSavingPracticeUnit}
+                    disabled={isSavingPracticeTransition}
                     data-tour="question-engine-finish-practice"
                     onClick={() =>
                       void runWithLag(() => {
@@ -2935,7 +3025,7 @@ export function QuestionEnginePage({
                     }
                     variant="highlight"
                     icon={
-                      isSavingPracticeUnit ? (
+                      isSavingPracticeTransition ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <ArrowRight className="h-4 w-4" />
@@ -2944,12 +3034,12 @@ export function QuestionEnginePage({
                     iconRight
                   >
                     <span className="text-[14pt]">
-                      {isSavingPracticeUnit ? "Saving..." : "Finish"}
+                      {isSavingPracticeTransition ? "Saving..." : "Finish"}
                     </span>
                   </UcatExamActionButton>
                 ) : (
                   <UcatExamActionButton
-                    disabled={isSavingPracticeUnit}
+                    disabled={isSavingPracticeTransition}
                     onClick={() =>
                       void runWithLag(() => {
                         const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
@@ -2964,7 +3054,7 @@ export function QuestionEnginePage({
                     }
                     variant="highlight"
                     icon={
-                      isSavingPracticeUnit ? (
+                      isSavingPracticeTransition ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <ArrowRight className="h-4 w-4" />
@@ -2973,7 +3063,7 @@ export function QuestionEnginePage({
                     iconRight
                   >
                     <span className="text-[14pt]">
-                      {isSavingPracticeUnit ? (
+                      {isSavingPracticeTransition ? (
                         "Saving..."
                       ) : (state.viewingQuestionIndex ?? 0) >=
                         (state.practiceAnswerUnitEndIndex ?? 0) ? (

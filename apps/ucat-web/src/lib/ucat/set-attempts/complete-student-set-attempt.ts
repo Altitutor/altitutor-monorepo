@@ -428,7 +428,23 @@ export async function completeStudentSetAttempt(
   if (updateSetError) {
     throw new Error(updateSetError.message);
   }
-  if (!updatedSet) throw new Error("Attempt is no longer active");
+  if (!updatedSet) {
+    const { data: terminal, error: terminalError } = await admin
+      .from("student_question_set_attempts")
+      .select("completed_at")
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (terminalError) throw new Error(terminalError.message);
+    if (terminal?.completed_at) {
+      return {
+        earnedDiscount: false,
+        discountCents: 0,
+        newlyCompleted: false,
+      };
+    }
+    throw new Error("Attempt is no longer active");
+  }
 
   if (options.grantDiscount === false) {
     return {

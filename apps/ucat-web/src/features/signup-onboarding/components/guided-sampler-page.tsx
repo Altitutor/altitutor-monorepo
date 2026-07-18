@@ -565,6 +565,116 @@ function FamiliarityEntry({
   );
 }
 
+const FAMILIARITY_INTRO_COPY: Record<UcatFamiliarity, string> = {
+  new: "We’ll coach you through the method and controls step by step, then gradually give you more space.",
+  familiar:
+    "We’ll give you a quick orientation to Alti UCAT, then keep the guidance brief unless you get stuck.",
+  experienced:
+    "We’ll keep guidance minimal so you can focus on how the Alti UCAT controls feel.",
+};
+
+const SAMPLER_INTRO_FEATURES = [
+  {
+    Icon: ListChecks,
+    title: "See every section",
+    body: "Meet the question formats without starting a real Attempt.",
+  },
+  {
+    Icon: Calculator,
+    title: "Try the controls",
+    body: "Use Navigator, Flag and the calculator in context.",
+  },
+  {
+    Icon: Lightbulb,
+    title: "Learn as you answer",
+    body: "Get explanations and progressively clearer hints when needed.",
+  },
+] as const;
+
+function SamplerIntroduction({
+  familiarity,
+  pending,
+  error,
+  onStart,
+  onSkip,
+}: {
+  familiarity: UcatFamiliarity;
+  pending: boolean;
+  error: string | null;
+  onStart: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 py-10">
+      <NoiseOverlay />
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative z-10 w-full max-w-3xl rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur sm:p-8"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marketing-accent">
+          Guided UCAT sampler
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-marketing-cream sm:text-4xl">
+          Get familiar with the Alti UCAT system
+        </h1>
+        <p className="mt-3 max-w-2xl leading-relaxed text-marketing-cream/65">
+          Try two approachable questions from each UCAT section using the same
+          controls you’ll see in practice and mocks. We’ll mark each answer as
+          you go—this is a guided tour, not a test.
+        </p>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {SAMPLER_INTRO_FEATURES.map(({ Icon, title, body }) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+            >
+              <Icon className="h-5 w-5 text-marketing-accent" aria-hidden />
+              <h2 className="mt-3 font-semibold text-marketing-cream">
+                {title}
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-marketing-cream/50">
+                {body}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-marketing-accent/20 bg-marketing-accent/[0.08] px-4 py-3 text-sm leading-relaxed text-marketing-cream/70">
+          {FAMILIARITY_INTRO_COPY[familiarity]}
+        </div>
+
+        {error ? (
+          <p className="mt-4 text-sm text-red-200" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onSkip}
+            disabled={pending}
+            className="text-marketing-cream/60 hover:bg-white/[0.06] hover:text-marketing-cream"
+          >
+            {pending ? "Skipping…" : "Skip for now"}
+          </Button>
+          <Button
+            type="button"
+            onClick={onStart}
+            className="bg-marketing-accent text-marketing-charcoal hover:bg-marketing-accent/90"
+          >
+            Start sampler
+            <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+          </Button>
+        </div>
+      </motion.div>
+    </main>
+  );
+}
+
 export function GuidedSamplerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -572,6 +682,7 @@ export function GuidedSamplerPage() {
     parseFamiliarity(searchParams.get("familiarity")),
   );
   const [sectionIndex, setSectionIndex] = useState(0);
+  const [samplerStarted, setSamplerStarted] = useState(false);
   const [seenControls, setSeenControls] = useState<Set<SeenControl>>(
     () => new Set(),
   );
@@ -603,6 +714,9 @@ export function GuidedSamplerPage() {
   const lockedQuestionIds = useMemo(
     () => [...correctQuestionIds],
     [correctQuestionIds],
+  );
+  const currentQuestionIsCorrect = Boolean(
+    snapshot.questionId && correctQuestionIds.has(snapshot.questionId),
   );
 
   const handleTutorialStateChange = useCallback(
@@ -878,6 +992,27 @@ export function GuidedSamplerPage() {
     return "/signup/complete?sampler=complete";
   }, [afterPlan, replay]);
 
+  const dismissFeedback = useCallback(() => {
+    setFeedback((current) => {
+      const questionId = current?.questionId;
+      if (
+        current?.kind !== "correct" &&
+        questionId &&
+        correctQuestionIds.has(questionId)
+      ) {
+        return {
+          kind: "correct",
+          title: "That’s correct",
+          body:
+            GUIDED_SAMPLER_FEEDBACK[questionId]?.explanation ??
+            "You used the information correctly.",
+          questionId,
+        };
+      }
+      return null;
+    });
+  }, [correctQuestionIds]);
+
   async function persistDecision(completed: boolean) {
     setPending(true);
     setError(null);
@@ -911,6 +1046,18 @@ export function GuidedSamplerPage() {
     return <FamiliarityEntry onChoose={setFamiliarity} />;
   }
 
+  if (!samplerStarted) {
+    return (
+      <SamplerIntroduction
+        familiarity={familiarity}
+        pending={pending}
+        error={error}
+        onStart={() => setSamplerStarted(true)}
+        onSkip={() => void persistDecision(false)}
+      />
+    );
+  }
+
   if (showReadout) {
     return (
       <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 py-10">
@@ -930,9 +1077,7 @@ export function GuidedSamplerPage() {
             You’ve explored the whole UCAT experience
           </h1>
           <p className="mt-3 text-marketing-cream/60">
-            You worked every question through to the correct answer. This was
-            guided practice, not a diagnostic; your Study plan will calibrate
-            from real completed work.
+            You worked every question through to the correct answer.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
@@ -1048,18 +1193,16 @@ export function GuidedSamplerPage() {
                 aria-label="Previous tried"
               />
             ) : null}
-            {familiarity === "experienced" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8"
-                onClick={() => void persistDecision(false)}
-                disabled={pending}
-              >
-                Skip sampler
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8"
+              onClick={() => void persistDecision(false)}
+              disabled={pending}
+            >
+              Skip sampler
+            </Button>
           </div>
         </div>
       </div>
@@ -1077,7 +1220,7 @@ export function GuidedSamplerPage() {
           tutorialHidePrevious
           tutorialSyllogismDragOnly
           tutorialPrimaryActionLabel="Submit"
-          tutorialHidePrimaryAction={feedback?.kind === "correct"}
+          tutorialHidePrimaryAction={currentQuestionIsCorrect}
           tutorialLockedQuestionIds={lockedQuestionIds}
           tutorialLockedSyllogismOptionIds={correctSyllogismRows}
           tutorialCorrectSyllogismOptionIds={correctSyllogismRows}
@@ -1112,7 +1255,7 @@ export function GuidedSamplerPage() {
           <SamplerFeedbackCard
             key={`feedback-${feedback.kind}-${feedback.title}`}
             feedback={feedback}
-            onDismiss={() => setFeedback(null)}
+            onDismiss={dismissFeedback}
             onNext={
               feedback.kind === "correct"
                 ? () => tutorialAdvanceRef.current()

@@ -100,10 +100,14 @@ export function useStudyPlanTaskActions(
       }
       await updateStudyPlanTask(taskToStart.id, "start");
       await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+      const skillTrainerKey = taskToStart.launchConfig.skillTrainerKey;
       const launchPath =
-        taskToStart.taskType === "review"
-          ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
-          : taskToStart.launchPath;
+        taskToStart.taskType === "skill_trainer" &&
+        typeof skillTrainerKey === "string"
+          ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play`
+          : taskToStart.taskType === "review"
+            ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
+            : taskToStart.launchPath;
       setPendingAction(null);
       router.push(launchPath);
     } catch (caught) {

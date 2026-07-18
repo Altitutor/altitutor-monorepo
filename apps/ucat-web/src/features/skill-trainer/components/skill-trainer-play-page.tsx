@@ -14,7 +14,7 @@ import {
   Skeleton,
 } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
-import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
+import { trainerKeyToSlug } from "@altitutor/shared";
 import {
   extractSkillTrainerPlainText,
   findFindWordKeywordOccurrences,
@@ -22,7 +22,6 @@ import {
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
-import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import type {
   SkillTrainerAttemptState,
@@ -45,9 +44,7 @@ import {
   submitLocalSkillTrainerAction,
 } from "@/features/skill-trainer/lib/local-session";
 import { ScoreBarFeedback } from "@/features/skill-trainer/components/score-bar-feedback";
-
-const LEAVE_MESSAGE =
-  "Leave this skill trainer? Your timed run will keep going in the background.";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 
 function getAttemptRemainingSeconds(state: SkillTrainerAttemptState): number {
   const endsAtMs = Date.parse(state.attempt.ends_at);
@@ -342,7 +339,6 @@ function advanceToPrefetchedItem(
 
 export function SkillTrainerPlayPage({
   trainerKey,
-  attemptId,
   embedded = false,
   initialState,
   localItems,
@@ -350,7 +346,6 @@ export function SkillTrainerPlayPage({
   onRestart,
 }: {
   trainerKey: UcatSkillTrainerKey;
-  attemptId?: string;
   /** In-lesson embed: skip shell chrome and call onComplete when finished. */
   embedded?: boolean;
   initialState?: SkillTrainerAttemptState;
@@ -361,10 +356,11 @@ export function SkillTrainerPlayPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const slug = trainerKeyToSlug(trainerKey);
+  const effectiveInitialState = initialState ?? null;
   const [state, setState] = useState<SkillTrainerAttemptState | null>(
-    initialState ?? null,
+    effectiveInitialState,
   );
-  const [loading, setLoading] = useState(initialState == null);
+  const [loading, setLoading] = useState(effectiveInitialState == null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [numericInput, setNumericInput] = useState("");
   const [numpadInput, setNumpadInput] = useState<string[]>([]);
@@ -380,17 +376,16 @@ export function SkillTrainerPlayPage({
   const [actionInFlight, setActionInFlight] = useState(false);
   const [optimisticAdvanced, setOptimisticAdvanced] = useState(false);
   const actionInFlightRef = useRef(false);
+  const initialStartPromiseRef =
+    useRef<Promise<SkillTrainerAttemptState> | null>(null);
   const stateRef = useRef<SkillTrainerAttemptState | null>(
-    initialState ?? null,
+    effectiveInitialState,
   );
   const completionNotifiedRef = useRef<string | null>(null);
   const numpadInputRef = useRef<string[]>([]);
   const lastInteractionPointRef = useRef<{ x: number; y: number } | null>(null);
   const sidebarOverride = useSidebarOverride();
-  const {
-    setLocal: setActiveSkillTrainerAttempt,
-    clearLocal: clearActiveSkillTrainerAttempt,
-  } = useActiveSkillTrainerAttempt();
+  const { setActivityComplete } = useStudyPlanCompanion();
   const { feedback, feedbackOrigin, scoreDelta, showFeedback, trackResult } =
     useActionFeedback();
   const localItemsById = useMemo(
@@ -399,12 +394,18 @@ export function SkillTrainerPlayPage({
   );
   const localMode = initialState != null;
   const inProgress = Boolean(state && !state.isCompleted && !embedded);
-  const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
+  const { confirmDiscard } = useLeaveGuard(inProgress, state?.attempt.id);
 
   const applyState = useCallback((next: SkillTrainerAttemptState | null) => {
     stateRef.current = next;
     setState(next);
   }, []);
+
+  useEffect(() => {
+    if (embedded) return;
+    setActivityComplete(Boolean(state?.isCompleted));
+    return () => setActivityComplete(false);
+  }, [embedded, setActivityComplete, state?.isCompleted]);
 
   useEffect(() => {
     stateRef.current = state;
@@ -432,38 +433,49 @@ export function SkillTrainerPlayPage({
       }
       return initialState;
     }
-    if (!attemptId) return null;
-    const next = await skillTrainerApi.getAttempt(attemptId);
+    const currentAttemptId = stateRef.current?.attempt.id;
+    let next: SkillTrainerAttemptState;
+    if (currentAttemptId) {
+      next = await skillTrainerApi.getAttempt(currentAttemptId);
+    } else {
+      initialStartPromiseRef.current ??=
+        skillTrainerApi.startAttempt(trainerKey);
+      try {
+        next = await initialStartPromiseRef.current;
+      } catch (error) {
+        initialStartPromiseRef.current = null;
+        throw error;
+      }
+    }
     applyState(next);
     if (next.isCompleted) {
-      clearActiveSkillTrainerAttempt();
       await queryClient.invalidateQueries({
         queryKey: ["skill-trainers", "leaderboard", trainerKey],
       });
-    } else {
-      setActiveSkillTrainerAttempt(next);
     }
     return next;
-  }, [
-    attemptId,
-    applyState,
-    clearActiveSkillTrainerAttempt,
-    initialState,
-    localMode,
-    queryClient,
-    setActiveSkillTrainerAttempt,
-    trainerKey,
-  ]);
+  }, [applyState, initialState, localMode, queryClient, trainerKey]);
 
   useEffect(() => {
     void (async () => {
       try {
         await refresh();
+      } catch (error) {
+        setActionError(
+          error instanceof Error ? error.message : "Could not start trainer",
+        );
       } finally {
         setLoading(false);
       }
     })();
   }, [refresh]);
+
+  const startNewAttempt = useCallback(async () => {
+    const next = await skillTrainerApi.startAttempt(trainerKey);
+    completionNotifiedRef.current = null;
+    setActionError(null);
+    applyState(next);
+  }, [applyState, trainerKey]);
 
   const onExpire = useCallback(() => {
     if (localMode) {
@@ -594,20 +606,31 @@ export function SkillTrainerPlayPage({
           applyState(next);
           return;
         }
-        if (!attemptId) throw new Error("Attempt not found");
-        const next = await skillTrainerApi.submitAction(attemptId, payload);
+        const attemptId = currentState.attempt.id;
+        const next = await skillTrainerApi.submitAction(
+          attemptId,
+          payload,
+          prev.attempt.version,
+        );
         trackResult(next, prev, localFeedback, actionOrigin);
         applyState(next);
         if (next.isCompleted) {
-          clearActiveSkillTrainerAttempt();
           await queryClient.invalidateQueries({
             queryKey: ["skill-trainers", "leaderboard", trainerKey],
           });
-        } else {
-          setActiveSkillTrainerAttempt(next);
         }
         if (next.isCompleted) return;
       } catch (err) {
+        if ((err as { stale?: boolean }).stale) {
+          const canonical = await skillTrainerApi.getAttempt(
+            currentState.attempt.id,
+          );
+          applyState(canonical);
+          setActionError(
+            "This attempt changed in another tab. Your latest state has been restored.",
+          );
+          return;
+        }
         if (optimisticNext || optimisticProgressNext) {
           applyState(prev);
         }
@@ -619,14 +642,11 @@ export function SkillTrainerPlayPage({
       }
     },
     [
-      attemptId,
       applyState,
-      clearActiveSkillTrainerAttempt,
       localItemsById,
       localMode,
       queryClient,
       resetActionInputs,
-      setActiveSkillTrainerAttempt,
       showFeedback,
       trackResult,
       trainerKey,
@@ -650,15 +670,7 @@ export function SkillTrainerPlayPage({
   const calculatorMathsContent = asCalculatorMathsContent(
     state?.currentItem?.content,
   );
-  const activeTrainerKey =
-    state?.attempt.config_snapshot.trainer_key ??
-    (state?.attempt.trainer_key &&
-    isUcatSkillTrainerKey(state.attempt.trainer_key)
-      ? state.attempt.trainer_key
-      : null);
   const completedAttemptId = state?.isCompleted ? state.attempt.id : null;
-  const trainerMismatch =
-    activeTrainerKey != null && activeTrainerKey !== trainerKey;
   const hasRenderableContent =
     (trainerKey === "find_word" && Boolean(findWordContent)) ||
     (trainerKey === "find_concept" && Boolean(findConceptContent)) ||
@@ -699,14 +711,14 @@ export function SkillTrainerPlayPage({
         onComplete?.();
       }
     }
-  }, [completedAttemptId, refresh, embedded, localMode, onComplete, queryClient]);
-
-  useEffect(() => {
-    if (!state || !trainerMismatch || embedded || !activeTrainerKey) return;
-    router.replace(
-      `/skill-trainer/${trainerKeyToSlug(activeTrainerKey)}/play?attemptId=${attemptId}`,
-    );
-  }, [activeTrainerKey, attemptId, embedded, router, state, trainerMismatch]);
+  }, [
+    completedAttemptId,
+    refresh,
+    embedded,
+    localMode,
+    onComplete,
+    queryClient,
+  ]);
 
   useEffect(() => {
     setAnswerFocus(trainerKey === "calculator_maths");
@@ -736,11 +748,18 @@ export function SkillTrainerPlayPage({
     });
   }, []);
 
-  const handleExit = useCallback(() => {
-    if (!window.confirm(LEAVE_MESSAGE)) return;
-    allowLeave();
-    router.push(`/skill-trainer/${slug}`);
-  }, [allowLeave, router, slug]);
+  const handleExit = useCallback(async () => {
+    setActionError(null);
+    try {
+      if (await confirmDiscard()) {
+        router.push(`/skill-trainer/${slug}`);
+      }
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to discard attempt",
+      );
+    }
+  }, [confirmDiscard, router, slug]);
 
   if (loading) {
     return (
@@ -754,12 +773,10 @@ export function SkillTrainerPlayPage({
       </div>
     );
   }
-  if (!state)
-    return <p className="text-sm text-destructive">Attempt not found.</p>;
-  if (trainerMismatch) {
+  if (!state) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Loading the active trainer…
+      <p className="text-sm text-destructive">
+        {actionError ?? "Could not start skill trainer."}
       </p>
     );
   }
@@ -797,7 +814,7 @@ export function SkillTrainerPlayPage({
       <SkillTrainerCompleteScreen
         trainerKey={trainerKey}
         finalScore={state.attempt.score}
-        onLeave={allowLeave}
+        onPlayAgain={startNewAttempt}
       />
     );
   }
@@ -821,7 +838,7 @@ export function SkillTrainerPlayPage({
             streak={streak}
             streakEnabled={state.attempt.config_snapshot.streak_enabled}
             scoreDelta={scoreDelta}
-            onExit={embedded ? undefined : handleExit}
+            onExit={embedded ? undefined : () => void handleExit()}
           />
         </div>
 
@@ -839,111 +856,114 @@ export function SkillTrainerPlayPage({
         <div id="tour-skill-trainer-workspace">
           {trainerKey === "find_word" && findWordContent ? (
             <FindWordTrainer
-            content={findWordContent}
-            shuffleKey={currentItemId ?? undefined}
-            placedIds={
-              state.attempt.progress?.type === "find_word"
-                ? state.attempt.progress.placed_keyword_ids
-                : []
-            }
-            selectedKeywordId={selectedKeywordId}
-            draggingKeywordId={draggingKeywordId}
-            onSelectKeyword={setSelectedKeywordId}
-            onDragKeyword={setDraggingKeywordId}
-            disabled={disabled && trainerKey !== "find_word"}
-            onPlace={(keywordId, characterIndex) =>
-              void submit({
-                type: "place_word",
-                keyword_id: keywordId,
-                character_index: characterIndex,
-              })
-            }
+              content={findWordContent}
+              shuffleKey={currentItemId ?? undefined}
+              placedIds={
+                state.attempt.progress?.type === "find_word"
+                  ? state.attempt.progress.placed_keyword_ids
+                  : []
+              }
+              selectedKeywordId={selectedKeywordId}
+              draggingKeywordId={draggingKeywordId}
+              onSelectKeyword={setSelectedKeywordId}
+              onDragKeyword={setDraggingKeywordId}
+              disabled={disabled && trainerKey !== "find_word"}
+              onPlace={(keywordId, characterIndex) =>
+                void submit({
+                  type: "place_word",
+                  keyword_id: keywordId,
+                  character_index: characterIndex,
+                })
+              }
             />
           ) : null}
 
-        {trainerKey === "find_concept" && findConceptContent ? (
-          <FindConceptTrainer
-            content={findConceptContent}
-            foundIndexes={
-              state.attempt.progress?.type === "find_concept"
-                ? state.attempt.progress.found_occurrence_indexes
-                : []
-            }
-            disabled={disabled}
-            onClickOccurrence={(index) =>
-              void submit({ type: "click_occurrence", occurrence_index: index })
-            }
-            onSkip={() => void submit({ type: "skip_concept" })}
-          />
-        ) : null}
-
-        {trainerKey === "quick_syllogism" && syllogismContent ? (
-          <QuickSyllogismTrainer
-            content={syllogismContent}
-            disabled={disabled}
-            onAnswer={(answer) =>
-              void submit({ type: "syllogism_answer", answer })
-            }
-          />
-        ) : null}
-
-        {trainerKey === "mental_maths" && mentalMathsContent ? (
-          <MentalMathsTrainer
-            content={mentalMathsContent}
-            value={numericInput}
-            inputKey={currentItemId ?? "mental"}
-            onChange={setNumericInput}
-            disabled={disabled}
-            onSubmit={(origin) => {
-              const n = Number(numericInput);
-              if (Number.isNaN(n) || numericInput.trim() === "") return;
-              void submit({ type: "numeric_answer", answer: n }, origin);
-            }}
-          />
-        ) : null}
-
-        {trainerKey === "numpad_speed" && numpadContent ? (
-          <NumpadTrainer
-            content={numpadContent}
-            sequence={numpadInput}
-            onCalcKey={(key) => {
-              if (key === "=") {
-                submitNumpadSequenceFromOrigin();
-                return;
+          {trainerKey === "find_concept" && findConceptContent ? (
+            <FindConceptTrainer
+              content={findConceptContent}
+              foundIndexes={
+                state.attempt.progress?.type === "find_concept"
+                  ? state.attempt.progress.found_occurrence_indexes
+                  : []
               }
-              appendNumpadKey(key);
-            }}
-            onRemoveKey={(index) => {
-              setNumpadInput((prev) => {
-                const next = prev.filter((_, i) => i !== index);
-                numpadInputRef.current = next;
-                return next;
-              });
-            }}
-            onSubmit={submitNumpadSequenceFromOrigin}
-            disabled={disabled}
-          />
-        ) : null}
+              disabled={disabled}
+              onClickOccurrence={(index) =>
+                void submit({
+                  type: "click_occurrence",
+                  occurrence_index: index,
+                })
+              }
+              onSkip={() => void submit({ type: "skip_concept" })}
+            />
+          ) : null}
 
-        {trainerKey === "calculator_maths" && calculatorMathsContent ? (
-          <CalculatorMathsTrainer
-            content={calculatorMathsContent}
-            value={numericInput}
-            calcDisplay={calcDisplay}
-            answerFocused={answerFocus}
-            onAnswerFocus={() => setAnswerFocus(true)}
-            onCalcFocus={() => setAnswerFocus(false)}
-            onChange={setNumericInput}
-            onCalcKey={handleCalcKey}
-            disabled={disabled}
-            onSubmit={(origin) => {
-              const n = Number(numericInput);
-              if (Number.isNaN(n) || numericInput.trim() === "") return;
-              void submit({ type: "numeric_answer", answer: n }, origin);
-            }}
-            RichContent={RichContentBlock}
-          />
-        ) : null}
+          {trainerKey === "quick_syllogism" && syllogismContent ? (
+            <QuickSyllogismTrainer
+              content={syllogismContent}
+              disabled={disabled}
+              onAnswer={(answer) =>
+                void submit({ type: "syllogism_answer", answer })
+              }
+            />
+          ) : null}
+
+          {trainerKey === "mental_maths" && mentalMathsContent ? (
+            <MentalMathsTrainer
+              content={mentalMathsContent}
+              value={numericInput}
+              inputKey={currentItemId ?? "mental"}
+              onChange={setNumericInput}
+              disabled={disabled}
+              onSubmit={(origin) => {
+                const n = Number(numericInput);
+                if (Number.isNaN(n) || numericInput.trim() === "") return;
+                void submit({ type: "numeric_answer", answer: n }, origin);
+              }}
+            />
+          ) : null}
+
+          {trainerKey === "numpad_speed" && numpadContent ? (
+            <NumpadTrainer
+              content={numpadContent}
+              sequence={numpadInput}
+              onCalcKey={(key) => {
+                if (key === "=") {
+                  submitNumpadSequenceFromOrigin();
+                  return;
+                }
+                appendNumpadKey(key);
+              }}
+              onRemoveKey={(index) => {
+                setNumpadInput((prev) => {
+                  const next = prev.filter((_, i) => i !== index);
+                  numpadInputRef.current = next;
+                  return next;
+                });
+              }}
+              onSubmit={submitNumpadSequenceFromOrigin}
+              disabled={disabled}
+            />
+          ) : null}
+
+          {trainerKey === "calculator_maths" && calculatorMathsContent ? (
+            <CalculatorMathsTrainer
+              content={calculatorMathsContent}
+              value={numericInput}
+              calcDisplay={calcDisplay}
+              answerFocused={answerFocus}
+              onAnswerFocus={() => setAnswerFocus(true)}
+              onCalcFocus={() => setAnswerFocus(false)}
+              onChange={setNumericInput}
+              onCalcKey={handleCalcKey}
+              disabled={disabled}
+              onSubmit={(origin) => {
+                const n = Number(numericInput);
+                if (Number.isNaN(n) || numericInput.trim() === "") return;
+                void submit({ type: "numeric_answer", answer: n }, origin);
+              }}
+              RichContent={RichContentBlock}
+            />
+          ) : null}
         </div>
       </div>
     </>

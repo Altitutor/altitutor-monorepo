@@ -191,31 +191,51 @@ export async function maybeGrantPracticeDayDiscount(
   });
 
   const discountCents = rule.discountPerDayCents;
+  const reservationId = crypto.randomUUID();
+  const pendingInvoiceItemId = `pending:${reservationId}`;
 
-  let invoiceItemId: string;
-  try {
-    const item = await stripe.invoiceItems.create({
-      customer: customerId,
-      subscription: sub.stripe_subscription_id,
-      amount: -discountCents,
-      currency: "aud",
-      description: "Practice day discount",
+  const { error: reservationError } = await supabase
+    .from("student_ucat_practice_day_credits")
+    .insert({
+      id: reservationId,
+      student_id: studentId,
+      credit_date: dateStr,
+      stripe_invoice_item_id: pendingInvoiceItemId,
+      discount_cents: discountCents,
     });
-    invoiceItemId = item.id;
-  } catch {
+  if (reservationError) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const { error: insertErr } = await supabase
-    .from("student_ucat_practice_day_credits")
-    .insert({
-      student_id: studentId,
-      credit_date: dateStr,
-      stripe_invoice_item_id: invoiceItemId,
-      discount_cents: discountCents,
-    });
+  let invoiceItemId: string;
+  try {
+    const item = await stripe.invoiceItems.create(
+      {
+        customer: customerId,
+        subscription: sub.stripe_subscription_id,
+        amount: -discountCents,
+        currency: "aud",
+        description: "Practice day discount",
+      },
+      { idempotencyKey: `ucat-practice-day-credit:${studentId}:${dateStr}` },
+    );
+    invoiceItemId = item.id;
+  } catch {
+    await supabase
+      .from("student_ucat_practice_day_credits")
+      .delete()
+      .eq("id", reservationId)
+      .eq("stripe_invoice_item_id", pendingInvoiceItemId);
+    return { earnedDiscount: false, discountCents: 0 };
+  }
 
-  if (insertErr) {
+  const { error: updateErr } = await supabase
+    .from("student_ucat_practice_day_credits")
+    .update({ stripe_invoice_item_id: invoiceItemId })
+    .eq("id", reservationId)
+    .eq("stripe_invoice_item_id", pendingInvoiceItemId);
+
+  if (updateErr) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 

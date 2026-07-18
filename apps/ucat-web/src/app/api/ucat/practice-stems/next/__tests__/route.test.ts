@@ -30,7 +30,7 @@ describe("POST /api/ucat/practice-stems/next", () => {
     jest.clearAllMocks();
   });
 
-  it("commits the server-prefetched snapshot without rebuilding the stem", async () => {
+  it("commits a prefetched stem despite unrelated session activity", async () => {
     const prefetchedStem = {
       id: "stem-2",
       questionSetId: "practice",
@@ -53,11 +53,19 @@ describe("POST /api/ucat/practice-stems/next", () => {
       from: readerFrom,
     } as never);
 
-    const update = jest.fn(() => ({
-      eq: jest.fn(() => ({
-        eq: jest.fn(async () => ({ error: null })),
+    const updateBuilder = {
+      eq: jest.fn(),
+      is: jest.fn(),
+      select: jest.fn(),
+      maybeSingle: jest.fn(async () => ({
+        data: { id: "session-1" },
+        error: null,
       })),
-    }));
+    };
+    updateBuilder.eq.mockReturnValue(updateBuilder);
+    updateBuilder.is.mockReturnValue(updateBuilder);
+    updateBuilder.select.mockReturnValue(updateBuilder);
+    const update = jest.fn(() => updateBuilder);
     const adminFrom = jest.mocked(supabaseAdmin!.from);
     adminFrom.mockImplementation((relation: string) => {
       if (relation === "students") {
@@ -84,6 +92,10 @@ describe("POST /api/ucat/practice-stems/next", () => {
                     prefetched_stem_snapshot: prefetchedStem,
                     unlimited: true,
                     completed_at: null,
+                    discarded_at: null,
+                    expired_at: null,
+                    last_activity_at: "2026-07-18T14:00:00.000Z",
+                    stem_delivery_revision: 7,
                   },
                   error: null,
                 })),
@@ -121,10 +133,30 @@ describe("POST /api/ucat/practice-stems/next", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ stem: prefetchedStem });
-    expect(update).toHaveBeenCalledWith({
-      stems_snapshot: [prefetchedStem],
-      prefetched_stem_snapshot: null,
-    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stems_snapshot: [prefetchedStem],
+        prefetched_stem_snapshot: null,
+        last_activity_at: expect.any(String),
+        stem_delivery_revision: 8,
+      }),
+    );
+    expect(updateBuilder.eq).toHaveBeenCalledWith(
+      "stem_delivery_revision",
+      7,
+    );
+    expect(updateBuilder.eq).not.toHaveBeenCalledWith(
+      "last_activity_at",
+      expect.anything(),
+    );
+    expect(updateBuilder.eq).not.toHaveBeenCalledWith(
+      "stems_snapshot",
+      expect.anything(),
+    );
+    expect(updateBuilder.eq).not.toHaveBeenCalledWith(
+      "prefetched_stem_snapshot",
+      expect.anything(),
+    );
     expect(mockedPickStems).not.toHaveBeenCalled();
     expect(readerFrom).not.toHaveBeenCalled();
   });

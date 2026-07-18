@@ -1,18 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
-import { UCAT_CARD_CHROME, UCAT_CARD_CONTENT_AFTER_HEADER, UCAT_CARD_HEADER_ROW } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_CONTENT_AFTER_HEADER,
+  UCAT_CARD_HEADER_ROW,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { MockSetInfo } from "@/app/api/ucat/progress/mock-attempts/[id]/route";
 import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
 import { computeSetRanges } from "../lib/attempt-analysis-chart-layout";
 import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
-import {
-  MockAttemptAnalysisChart,
-  type MockQuestionAttemptForChart,
-} from "./mock-attempt-analysis-chart";
+import type { MockQuestionAttemptForChart } from "./mock-attempt-analysis-chart";
+
+const MockAttemptAnalysisChart = dynamic(
+  () =>
+    import("./mock-attempt-analysis-chart").then(
+      (module) => module.MockAttemptAnalysisChart,
+    ),
+  {
+    loading: () => (
+      <div className="h-72 animate-pulse rounded-xl bg-muted/50" />
+    ),
+  },
+);
 
 type MockAttemptQuestionAttemptsCardProps = {
   chartData: MockQuestionAttemptForChart[];
@@ -91,9 +105,14 @@ export function MockAttemptQuestionAttemptsCard({
   );
 
   return (
-    <Card id="tour-attempt-navigator" className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}>
+    <Card
+      id="tour-attempt-navigator"
+      className={cn(UCAT_CARD_CHROME, "min-w-0 overflow-hidden")}
+    >
       <CardHeader className={UCAT_CARD_HEADER_ROW}>
-        <CardTitle className="text-base font-medium">Question attempts</CardTitle>
+        <CardTitle className="text-base font-medium">
+          Question attempts
+        </CardTitle>
         <SegmentedControl
           value={navigatorView}
           onValueChange={setNavigatorView}
@@ -103,7 +122,12 @@ export function MockAttemptQuestionAttemptsCard({
           ]}
         />
       </CardHeader>
-      <CardContent className={cn("min-w-0 overflow-hidden", UCAT_CARD_CONTENT_AFTER_HEADER)}>
+      <CardContent
+        className={cn(
+          "min-w-0 overflow-hidden",
+          UCAT_CARD_CONTENT_AFTER_HEADER,
+        )}
+      >
         {navigatorView === "timing" ? (
           <MockAttemptAnalysisChart
             data={chartData}

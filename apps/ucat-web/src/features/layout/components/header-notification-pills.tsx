@@ -2,7 +2,6 @@
 
 import { motion } from "motion/react";
 import { ExamAttemptHeaderPill } from "@/features/exam-attempts/components/exam-attempt-header-pill";
-import { SkillTrainerAttemptHeaderPill } from "@/features/skill-trainer/components/skill-trainer-attempt-header-pill";
 import { QuotaHeaderPill } from "@/features/ucat-access/components/quota-header-pill";
 import { BillingRecoveryHeaderPill } from "@/features/subscription/components/billing-recovery-header-pill";
 
@@ -10,7 +9,6 @@ export function HeaderNotificationPills() {
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
       <ExamAttemptHeaderPill />
-      <SkillTrainerAttemptHeaderPill />
       <BillingRecoveryHeaderPill />
       <motion.div
         layout

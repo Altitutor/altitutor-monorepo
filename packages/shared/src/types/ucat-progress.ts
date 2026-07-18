@@ -117,4 +117,10 @@ export type ProgressResponse = {
   totalPublicUntimedSetsBySection?: Record<string, number>
   /** Per-section: total count of public timed sets (for breakdown denominator) */
   totalPublicTimedSetsBySection?: Record<string, number>
+  /** Daily score projections, exposed to authorised tutors for the selected student. */
+  scoreProjectionSnapshots?: Array<{
+    date: string
+    confidence: 'low' | 'medium' | 'high'
+    sectionEstimates: Record<string, number>
+  }>
 }

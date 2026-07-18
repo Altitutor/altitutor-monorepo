@@ -26,7 +26,9 @@ export type SkillTrainerAttemptState = {
     ends_at: string;
     started_at: string;
     completed_at: string | null;
+    discarded_at: string | null;
     trainer_key?: string;
+    version: number;
   };
   currentItem: {
     id: string;

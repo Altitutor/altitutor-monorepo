@@ -1,85 +1,19 @@
 'use client'
 
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import type { SectionProgress } from '@altitutor/shared'
 import type { ProgressMode } from '../lib/progress-mode'
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[]
-  /** When true, cards link to section detail page */
   linkToSection?: boolean
-  /** Base path for links (e.g. /ucat/students/123) - progress routes are under basePath/sections, basePath/sets, etc. */
   basePath?: string
   mode: ProgressMode
   timeFrameDays: string
-}
-
-function CircularProgress({
-  percentage,
-  total,
-  size = 120,
-  strokeWidth = 10,
-  className,
-}: {
-  percentage: number
-  total: number
-  size?: number
-  strokeWidth?: number
-  className?: string
-}) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
-
-  return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center gap-2',
-        className
-      )}
-    >
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg
-          width={size}
-          height={size}
-          className="-rotate-90"
-          aria-label={`${percentage}% progress`}
-        >
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            className="text-muted/30"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-semibold tabular-nums">
-            {percentage}%
-          </span>
-        </div>
-      </div>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {total} questions completed
-      </span>
-    </div>
-  )
 }
 
 export function SectionProgressCards({
@@ -89,71 +23,100 @@ export function SectionProgressCards({
   mode,
   timeFrameDays: _timeFrameDays,
 }: SectionProgressCardsProps) {
-  const getScaledScore = (section: SectionProgress): number | null =>
-    mode === 'weighted'
-      ? (section.weightedAverageScaledScore ?? null)
-      : (section.averageScaledScore ?? null)
-
-  const getPercentage = (section: SectionProgress): number =>
-    mode === 'weighted' && section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {sections.map((section) => {
-          const score = getScaledScore(section)
-          const card = (
-            <Card
-              key={section.sectionId}
-              className={cn(
-                'rounded-xl border-border',
-                linkToSection && 'transition-colors hover:bg-muted/50'
-              )}
+    <div className="grid grid-cols-2 gap-4">
+      {sections.map((section) => {
+        const score =
+          mode === 'weighted'
+            ? (section.weightedAverageScaledScore ??
+              section.averageScaledScore ??
+              null)
+            : (section.averageScaledScore ??
+              section.weightedAverageScaledScore ??
+              null)
+        const scorePosition =
+          score == null
+            ? null
+            : Math.max(0, Math.min(100, ((score - 300) / 600) * 100))
+        const percentage =
+          mode === 'weighted' && section.weightedAveragePercentage != null
+            ? Math.round(section.weightedAveragePercentage)
+            : section.percentage
+        const card = (
+          <Card
+            className={cn(
+              'h-full rounded-2xl border-0 shadow-sm ring-1 ring-black/[0.06] dark:ring-white/10',
+              linkToSection &&
+                'transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md',
+            )}
+          >
+            <CardHeader
+              className={cn('pb-2', linkToSection && 'relative pr-12')}
             >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">
-                  {section.sectionName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Scaled score
-                  </div>
-                  <div
-                    className={cn(
-                      'text-3xl font-bold tabular-nums',
-                      score == null && 'text-muted-foreground'
-                    )}
-                  >
-                    {score != null ? Math.round(score) : '—'}
-                  </div>
+              <CardTitle className="text-base font-medium">
+                {section.sectionName}
+              </CardTitle>
+              {linkToSection ? (
+                <ChevronRight className="absolute right-4 top-6 size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">
+                  Estimated score
                 </div>
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Percentage correct
-                  </div>
-                  <CircularProgress
-                    percentage={getPercentage(section)}
-                    total={section.maxScore}
-                    className="text-accent"
-                  />
+                <div
+                  className={cn(
+                    'text-3xl font-bold tabular-nums',
+                    score == null && 'text-muted-foreground',
+                  )}
+                >
+                  {score == null ? '—' : Math.round(score)}
                 </div>
-              </CardContent>
-            </Card>
-          )
-          const sectionHref = basePath ? `${basePath}/sections/${section.sectionId}` : null
-          return linkToSection && sectionHref ? (
-            <Link key={section.sectionId} href={sectionHref}>
-              {card}
-            </Link>
-          ) : (
-            <div key={section.sectionId}>{card}</div>
-          )
-        })}
-      </div>
+              </div>
+              <div className="space-y-2">
+                <div
+                  className="relative h-7"
+                  aria-label={`Score scale from 300 to 900${score == null ? '' : `, estimate ${Math.round(score)}`}`}
+                >
+                  <div className="absolute inset-x-0 top-3 h-1 rounded-full bg-muted" />
+                  {scorePosition != null ? (
+                    <div
+                      className="absolute top-1.5 size-4 -translate-x-1/2 rounded-full border-[3px] border-background bg-primary shadow-sm ring-1 ring-primary/35"
+                      style={{ left: `${scorePosition}%` }}
+                    />
+                  ) : null}
+                </div>
+                <div className="flex justify-between text-[11px] leading-none tabular-nums text-muted-foreground">
+                  <span>300</span>
+                  <span>900</span>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 border-t border-border/50 pt-3 text-xs">
+                <span className="text-muted-foreground">Accuracy</span>
+                <span className="font-semibold tabular-nums">
+                  {percentage}%
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )
+        const sectionHref = basePath
+          ? `${basePath}/sections/${section.sectionId}`
+          : null
+        return linkToSection && sectionHref ? (
+          <Link
+            key={section.sectionId}
+            href={sectionHref}
+            className="group block"
+            aria-label={`View ${section.sectionName} section progress`}
+          >
+            {card}
+          </Link>
+        ) : (
+          <Fragment key={section.sectionId}>{card}</Fragment>
+        )
+      })}
     </div>
   )
 }

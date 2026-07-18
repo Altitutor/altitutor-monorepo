@@ -1,7 +1,7 @@
 "use client";
 
 import type { AuthError } from "@supabase/supabase-js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -14,6 +14,11 @@ import { Check } from "lucide-react";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
 import type { UcatReferralOfferPreview } from "@/lib/ucat/referrals/capture-referral";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import {
+  clearPendingSignupEmail,
+  getPendingSignupEmail,
+  savePendingSignupEmail,
+} from "@/features/auth/lib/pending-signup-email";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -84,6 +89,7 @@ export function SignupForm({
     () => parseSignupPlanIntent(redirectTo),
     [redirectTo],
   );
+  const pendingSignupContext = `${redirectTo}\n${referralCode ?? ""}`;
   const planName = planIntent?.tier === "pro" ? "UCAT Pro" : "UCAT Unlimited";
   const planFeatures =
     planIntent?.tier === "pro"
@@ -99,6 +105,15 @@ export function SignupForm({
           "Adaptive skill trainer and progress analytics",
           "Accountability pricing that rewards daily practice",
         ];
+
+  useEffect(() => {
+    const pendingEmail = getPendingSignupEmail(pendingSignupContext);
+    if (!pendingEmail) return;
+
+    setEmail(pendingEmail);
+    setSubmittedEmail(pendingEmail);
+    setFormState("submitted");
+  }, [pendingSignupContext]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -127,6 +142,7 @@ export function SignupForm({
   }
 
   function returnToSignupForm() {
+    clearPendingSignupEmail(pendingSignupContext);
     setFormState("idle");
     setOtpCode("");
     setOtpError(null);
@@ -167,25 +183,6 @@ export function SignupForm({
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      const checkRes = await fetch("/api/ucat/signup/check-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail }),
-      });
-
-      if (checkRes.ok) {
-        const checkData = (await checkRes.json()) as { exists?: boolean };
-        if (checkData.exists) {
-          const loginParams = new URLSearchParams({
-            email: normalizedEmail,
-            redirect: referralCode ? `/signup?ref=${referralCode}` : redirectTo,
-            existing: "1",
-          });
-          router.push(`/login?${loginParams.toString()}`);
-          return;
-        }
-      }
-
       if (newsletter) {
         void subscribeToNewsletter(normalizedEmail);
       }
@@ -211,6 +208,7 @@ export function SignupForm({
       setOtpCode("");
       setOtpError(null);
       setFormState("submitted");
+      savePendingSignupEmail(normalizedEmail, pendingSignupContext);
     } finally {
       submitInFlightRef.current = false;
       setIsSubmitting(false);
@@ -239,6 +237,7 @@ export function SignupForm({
         type: "email",
       });
       if (!error) {
+        clearPendingSignupEmail(pendingSignupContext);
         captureUcatEvent("signup_completed", {
           intended_plan: planIntent?.tier ?? "free",
           billing_interval: planIntent?.interval ?? null,

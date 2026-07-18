@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
 import {
   type ProgressMode,
   type TimeFrameDays,
@@ -64,7 +65,48 @@ export async function GET(request: NextRequest) {
     .map((s) => s.student_id)
     .filter((id): id is string => !!id)
 
-  type SectionRow = { id: string | null; name: string | null; section_number: number | null }
+  // Projection snapshots are service-role-only. Scope the admin query to the
+  // student IDs already authorized by the tutor view above before reading them.
+  const latestProjectionByStudent = new Map<string, Record<string, number>>()
+  if (supabaseAdmin && studentIds.length > 0) {
+    const { data: projectionSnapshots, error: projectionError } =
+      await supabaseAdmin
+        .from('ucat_score_projection_snapshots')
+        .select('student_id, snapshot_date, section_estimates')
+        .in('student_id', studentIds)
+        .order('snapshot_date', { ascending: false })
+
+    if (projectionError) {
+      console.warn(
+        '[tutor-progress-summary] Projection snapshots unavailable',
+        projectionError
+      )
+    } else {
+      for (const snapshot of projectionSnapshots ?? []) {
+        if (latestProjectionByStudent.has(snapshot.student_id)) continue
+        const estimates = snapshot.section_estimates
+        latestProjectionByStudent.set(
+          snapshot.student_id,
+          estimates &&
+            typeof estimates === 'object' &&
+            !Array.isArray(estimates)
+            ? Object.fromEntries(
+                Object.entries(estimates).filter(
+                  (entry): entry is [string, number] =>
+                    typeof entry[1] === 'number'
+                )
+              )
+            : {}
+        )
+      }
+    }
+  }
+
+  type SectionRow = {
+    id: string | null
+    name: string | null
+    section_number: number | null
+  }
   const { data: sectionsData } = await supabase
     .from('vtutor_ucat_sections')
     .select('id, name, section_number')
@@ -163,9 +205,7 @@ export async function GET(request: NextRequest) {
       mocks: 0,
       examScores: [],
       lastAttempted: null,
-      sectionScores: new Map(
-        sectionList.map((sec) => [sec.id!, []])
-      ),
+      sectionScores: new Map(sectionList.map((sec) => [sec.id!, []])),
     })
   }
 
@@ -231,64 +271,61 @@ export async function GET(request: NextRequest) {
 
   const result = {
     students: students
-    .filter((s) => s.student_id)
-    .map((s) => {
-      const id = s.student_id!
-      const entry = byStudent.get(id)
-      if (!entry) {
+      .filter((s) => s.student_id)
+      .map((s) => {
+        const id = s.student_id!
+        const entry = byStudent.get(id)
+        if (!entry) {
+          return {
+            student_id: id,
+            student_name: s.student_name ?? '-',
+            total_questions: 0,
+            total_sets_attempted: 0,
+            total_mocks_attempted: 0,
+            exam: null,
+            last_attempted_at: null,
+            section_scores: Object.fromEntries(
+              sectionList.map((sec) => [sec.id!, null])
+            ) as Record<string, number | null>,
+          }
+        }
+
+        const examScoresByDate = [...entry.examScores].sort((a, b) =>
+          a.date.localeCompare(b.date)
+        )
+        const examScoresOrdered = examScoresByDate.map((x) => x.score)
+        const exam =
+          mode === 'weighted' && examScoresOrdered.length > 0
+            ? computeEma(examScoresOrdered)
+            : examScoresOrdered.length > 0
+              ? examScoresOrdered.reduce((a, b) => a + b, 0) /
+                examScoresOrdered.length
+              : null
+
+        const predictedScores = latestProjectionByStudent.get(id) ?? {}
+        const sectionScores: Record<string, number | null> = Object.fromEntries(
+          sectionList.map((section) => [
+            section.id,
+            predictedScores[section.id] != null
+              ? Math.round(predictedScores[section.id])
+              : null,
+          ])
+        )
+
         return {
           student_id: id,
           student_name: s.student_name ?? '-',
-          total_questions: 0,
-          total_sets_attempted: 0,
-          total_mocks_attempted: 0,
-          exam: null,
-          last_attempted_at: null,
-          section_scores: Object.fromEntries(
-            sectionList.map((sec) => [sec.id!, null])
-          ) as Record<string, number | null>,
+          total_questions: entry.questions,
+          total_sets_attempted: entry.sets.size,
+          total_mocks_attempted: entry.mocks,
+          exam: exam != null ? Math.round(exam) : null,
+          last_attempted_at: entry.lastAttempted,
+          section_scores: sectionScores,
         }
-      }
-
-      const examScoresByDate = [...entry.examScores].sort((a, b) =>
-        a.date.localeCompare(b.date)
-      )
-      const examScoresOrdered = examScoresByDate.map((x) => x.score)
-      const exam =
-        mode === 'weighted' && examScoresOrdered.length > 0
-          ? computeEma(examScoresOrdered)
-          : examScoresOrdered.length > 0
-            ? examScoresOrdered.reduce((a, b) => a + b, 0) / examScoresOrdered.length
-            : null
-
-      const sectionScores: Record<string, number | null> = {}
-      for (const [sectionId, items] of entry.sectionScores) {
-        if (items.length === 0) {
-          sectionScores[sectionId] = null
-        } else if (mode === 'weighted') {
-          const ordered = [...items]
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .map((x) => x.score)
-          sectionScores[sectionId] = computeEma(ordered)
-        } else {
-          const avg =
-            items.reduce((a, b) => a + b.score, 0) / items.length
-          sectionScores[sectionId] = Math.round(avg * 10) / 10
-        }
-      }
-
-      return {
-        student_id: id,
-        student_name: s.student_name ?? '-',
-        total_questions: entry.questions,
-        total_sets_attempted: entry.sets.size,
-        total_mocks_attempted: entry.mocks,
-        exam: exam != null ? Math.round(exam) : null,
-        last_attempted_at: entry.lastAttempted,
-        section_scores: sectionScores,
-      }
-    })
-    .sort((a, b) => (b.last_attempted_at ?? '').localeCompare(a.last_attempted_at ?? '')),
+      })
+      .sort((a, b) =>
+        (b.last_attempted_at ?? '').localeCompare(a.last_attempted_at ?? '')
+      ),
     sections: sectionsMeta,
   }
 

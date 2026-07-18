@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import {
@@ -9,10 +10,7 @@ import {
   UCAT_CARD_HEADER_ROW,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  SetAttemptAnalysisChart,
-  type QuestionAttemptForChart,
-} from "./set-attempt-analysis-chart";
+import type { QuestionAttemptForChart } from "./set-attempt-analysis-chart";
 import { AttemptReviewScoreCard } from "./attempt-review-score-card";
 import { PercentileCard } from "./percentile-card";
 import {
@@ -24,6 +22,18 @@ import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
 import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
+
+const SetAttemptAnalysisChart = dynamic(
+  () =>
+    import("./set-attempt-analysis-chart").then(
+      (module) => module.SetAttemptAnalysisChart,
+    ),
+  {
+    loading: () => (
+      <div className="h-72 animate-pulse rounded-xl bg-muted/50" />
+    ),
+  },
+);
 
 type AttemptReviewSummaryGridProps = {
   points: number;
@@ -187,13 +197,14 @@ export function AttemptReviewSummaryGrid({
       onBarClick={onBarClick}
     />
   );
-  const percentileCard = percentile ? (
-    <PercentileCard
-      scaledScore={scaledScore}
-      percentile={percentile}
-      scope="set"
-    />
-  ) : null;
+  const percentileCard =
+    percentile?.status === "available" ? (
+      <PercentileCard
+        scaledScore={scaledScore}
+        percentile={percentile}
+        scope="set"
+      />
+    ) : null;
 
   if (timing != null || practiceTiming != null) {
     return (

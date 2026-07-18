@@ -32,8 +32,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/reset-password" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config" ||
-    pathname === "/api/ucat/signup/check-email";
+    pathname === "/api/ucat/subscription-config";
 
   if (isNoAuthPublicPath) {
     return NextResponse.next({ request });

@@ -1,37 +1,18 @@
 'use client'
 
 import { useMemo } from 'react'
-import { UcatPageHeader } from '@/features/ucat/shared/components'
-import { useProgress } from '../hooks/useProgress'
-import { useProgressMode } from '../hooks/useProgressMode'
-import { ProgressModeSelector } from './progress-mode-selector'
-import { SetAttemptsCard } from './set-attempts-card'
-import { QuestionAttemptsCard } from './question-attempts-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/shared/utils'
+import { Card, CardContent } from '@altitutor/ui'
 import {
   sumCorrectScoreFromAttempts,
   sumProgressPointsFromAttempts,
+  type SectionCategoryProgress,
 } from '@altitutor/shared'
-import {
-  filterByTimeFrame,
-  computeSingleSectionFromFiltered,
-  computeCategoryProgressFromFiltered,
-  getBestAttemptPerQuestion,
-  applyAttemptFilterToProgress,
-  getSharedDateRange,
-} from '../lib/progress-data-utils'
-import type {
-  SectionCategoryProgress,
-  QuestionAttemptRow,
-  SetAttemptRow,
-} from '@altitutor/shared'
-import { useUcatCategories } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import {
-  buildTaxonomyPathLookup,
-  categoriesToTaxonomyNodes,
-  resolveCategoryPathLabel,
-} from '@/features/ucat/shared/lib/taxonomy-paths'
+import { UcatPageHeader } from '@/features/ucat/shared/components'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { useProgress } from '../hooks/useProgress'
+import { getBestAttemptPerQuestion } from '../lib/progress-data-utils'
+import { StudentSectionProgressHero } from './student-section-progress-hero'
+import { StudentAttemptHistoryExplorer } from './student-attempt-history-explorer'
 
 type SectionProgressPageProps = {
   studentId: string
@@ -40,74 +21,39 @@ type SectionProgressPageProps = {
   studentName?: string
 }
 
-function CircularProgress({
-  percentage,
-  size = 120,
-  strokeWidth,
-  className,
-  showLabel = true,
-}: {
-  percentage: number
-  size?: number
-  strokeWidth?: number
-  className?: string
-  showLabel?: boolean
-}) {
-  const sw = strokeWidth ?? (size <= 56 ? 4 : 10)
-  const radius = (size - sw) / 2
+function ProgressCircular({ percentage }: { percentage: number }) {
+  const capped = Math.max(0, Math.min(100, percentage))
+  const radius = 20
   const circumference = 2 * Math.PI * radius
-  const capped = Math.min(100, Math.max(0, percentage))
-  const offset = circumference - (capped / 100) * circumference
-
   return (
-    <div
-      className={cn(
-        'relative inline-flex flex-col items-center justify-center shrink-0',
-        className
-      )}
-      style={{ width: size, height: size }}
+    <svg
+      viewBox="0 0 48 48"
+      className="size-12 shrink-0 -rotate-90 text-accent"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(capped)}
     >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-label={`${percentage}% progress`}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          className="text-muted/30"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-        />
-      </svg>
-      {showLabel && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className={cn(
-              'font-semibold tabular-nums',
-              size <= 56 ? 'text-xs' : 'text-lg'
-            )}
-          >
-            {capped}%
-          </span>
-        </div>
-      )}
-    </div>
+      <circle
+        cx="24"
+        cy="24"
+        r={radius}
+        fill="none"
+        stroke="hsl(var(--muted))"
+        strokeWidth="5"
+      />
+      <circle
+        cx="24"
+        cy="24"
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - capped / 100)}
+      />
+    </svg>
   )
 }
 
@@ -115,97 +61,31 @@ export function SectionProgressPage({
   studentId,
   sectionId,
   basePath,
-  studentName,
+  studentName: _studentName,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress(studentId)
-  const progressMode = useProgressMode()
-  const categoriesQuery = useUcatCategories()
-  const categoryPathLookup = useMemo(
-    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
-    [categoriesQuery.data]
+
+  const section = data?.sectionProgress.find(
+    (item) => item.sectionId === sectionId
   )
-  const filteredData = useMemo(() => {
-    if (!data) return null
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
-  }, [data, progressMode.attemptFilter])
+  const questionAttempts = useMemo(
+    () =>
+      data?.questionAttempts.filter(
+        (attempt) => attempt.ucatSectionId === sectionId
+      ) ?? [],
+    [data?.questionAttempts, sectionId]
+  )
+  const setAttempts = useMemo(
+    () =>
+      data?.setAttempts.filter(
+        (attempt) =>
+          attempt.sectionId === sectionId && !attempt.studentUcatMockAttemptId
+      ) ?? [],
+    [data?.setAttempts, sectionId]
+  )
+  const categoryProgress = data?.sectionCategoryProgress?.[sectionId] ?? []
 
-  const { section, categoryProgress, filteredQuestionAttempts, filteredSetAttempts, sharedDateRange } =
-    useMemo(() => {
-      if (!filteredData) {
-        return {
-          section: null,
-          categoryProgress: [] as SectionCategoryProgress[],
-          filteredQuestionAttempts: [] as QuestionAttemptRow[],
-          filteredSetAttempts: [] as SetAttemptRow[],
-          sharedDateRange: undefined,
-        }
-      }
-      const { mode, timeFrameDays } = progressMode
-      const filteredQA = filteredData.questionAttempts.filter(
-        (a) => a.ucatSectionId === sectionId
-      )
-      const filteredSA = filteredData.setAttempts.filter(
-        (a) => a.sectionId === sectionId
-      )
-      const timeFilteredQA = filterByTimeFrame(filteredQA, mode, timeFrameDays)
-      const timeFilteredSA = filterByTimeFrame(filteredSA, mode, timeFrameDays)
-
-      const baseSection = filteredData.sectionProgress.find((s) => s.sectionId === sectionId)
-      const section =
-        mode === 'time_frame' && baseSection
-          ? computeSingleSectionFromFiltered(
-              timeFilteredQA,
-              timeFilteredSA,
-              baseSection
-            )
-          : baseSection ?? null
-      if (!section) {
-        return {
-          section: null,
-          categoryProgress: [] as SectionCategoryProgress[],
-          filteredQuestionAttempts: filteredQA,
-          filteredSetAttempts: filteredSA,
-          sharedDateRange: getSharedDateRange(
-            filteredData.questionAttempts,
-            filteredData.setAttempts,
-            filteredData.mockAttempts,
-            mode,
-            timeFrameDays
-          ),
-        }
-      }
-
-      const categoryProgress =
-        mode === 'time_frame'
-          ? computeCategoryProgressFromFiltered(
-              timeFilteredQA,
-              filteredData.sectionCategoryProgress ?? {}
-            )[sectionId] ?? []
-          : filteredData.sectionCategoryProgress?.[sectionId] ?? []
-
-      return {
-        section,
-        categoryProgress,
-        filteredQuestionAttempts: filteredQA,
-        filteredSetAttempts: filteredSA,
-        sharedDateRange: getSharedDateRange(
-          filteredData.questionAttempts,
-          filteredData.setAttempts,
-          filteredData.mockAttempts,
-          mode,
-          timeFrameDays
-        ),
-      }
-    }, [filteredData, sectionId, progressMode])
-
-  const backHref = basePath.replace(/\/sections\/[^/]+$/, '').replace(/\/$/, '') || basePath
-  const breadcrumbs = [
-    { label: 'UCAT', href: '/ucat' },
-    { label: 'Students', href: '/ucat/students' },
-    { label: studentName ?? 'Student', href: basePath.replace(/\/progress.*$/, '') },
-    { label: 'Progress', href: basePath.replace(/\/sections\/[^/]+$/, '') },
-    { label: section?.sectionName ?? 'Section' },
-  ]
+  const backHref = basePath
 
   if (isLoading) {
     return (
@@ -216,36 +96,28 @@ export function SectionProgressPage({
           backLabel="Back to progress"
         />
         <div className="animate-pulse space-y-6">
-          <div className="h-48 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
+          <div className="h-[520px] rounded-2xl bg-muted" />
+          <div className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-48 rounded-2xl bg-muted" />
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Progress"
-          description="Could not load progress."
           backHref={backHref}
           backLabel="Back to progress"
         />
-        <p className="text-sm text-destructive">{error.message}</p>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="space-y-6 py-8 md:py-10">
-        <UcatPageHeader
-          title="Progress"
-          description="No progress data available."
-          backHref={backHref}
-          backLabel="Back to progress"
-        />
+        <p className="text-sm text-destructive">
+          {error?.message ?? 'No progress data available.'}
+        </p>
       </div>
     )
   }
@@ -255,7 +127,6 @@ export function SectionProgressPage({
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Section not found"
-          description="This section could not be found."
           backHref={backHref}
           backLabel="Back to progress"
         />
@@ -263,365 +134,219 @@ export function SectionProgressPage({
     )
   }
 
-  const score =
-    progressMode.mode === 'weighted'
-      ? (section.weightedAverageScaledScore ?? null)
-      : (section.averageScaledScore ?? null)
-  const percentage =
-    progressMode.mode === 'weighted' &&
-    section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage
-
-  return (
-    <div className="space-y-6 py-8 md:py-10">
-      <SectionProgressContent
-      section={section}
-      score={score}
-      percentage={percentage}
-      totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={filteredData?.totalPublicSetsBySection?.[sectionId]}
-      totalPublicUntimedSets={
-        filteredData?.totalPublicUntimedSetsBySection?.[sectionId]
-      }
-      totalPublicTimedSets={
-        filteredData?.totalPublicTimedSetsBySection?.[sectionId]
-      }
-      filteredQuestionAttempts={filteredQuestionAttempts}
-      filteredSetAttempts={filteredSetAttempts}
-      categoryProgress={categoryProgress}
-      categoryPathLookup={categoryPathLookup}
-      progressMode={progressMode}
-      sharedDateRange={sharedDateRange}
-      basePath={basePath}
-      breadcrumbs={breadcrumbs}
-    />
-    </div>
+  const uniqueQuestionAttempts = getBestAttemptPerQuestion(questionAttempts)
+  const completedQuestions = sumProgressPointsFromAttempts(
+    uniqueQuestionAttempts
   )
-}
-
-function SectionProgressContent({
-  section,
-  score,
-  percentage,
-  totalPublicQuestions,
-  totalPublicSets,
-  totalPublicUntimedSets,
-  totalPublicTimedSets,
-  filteredQuestionAttempts,
-  filteredSetAttempts,
-  categoryProgress,
-  categoryPathLookup,
-  progressMode,
-  sharedDateRange,
-  basePath,
-  breadcrumbs,
-}: {
-  section: { sectionId: string; sectionName: string }
-  score: number | null
-  percentage: number
-  totalPublicQuestions?: number
-  totalPublicSets?: number
-  totalPublicUntimedSets?: number
-  totalPublicTimedSets?: number
-  filteredQuestionAttempts: QuestionAttemptRow[]
-  filteredSetAttempts: SetAttemptRow[]
-  categoryProgress: SectionCategoryProgress[]
-  categoryPathLookup: ReturnType<typeof buildTaxonomyPathLookup>
-  progressMode: ReturnType<typeof useProgressMode>
-  sharedDateRange?: ReturnType<typeof getSharedDateRange>
-  basePath: string
-  breadcrumbs: { label: string; href?: string }[]
-}) {
-  const stats = useMemo(() => {
-    const timeFiltered =
-      progressMode.mode === 'time_frame'
-        ? filterByTimeFrame(
-            filteredQuestionAttempts,
-            progressMode.mode,
-            progressMode.timeFrameDays
-          )
-        : filteredQuestionAttempts
-    const unique = getBestAttemptPerQuestion(timeFiltered)
-    const completed = sumProgressPointsFromAttempts(unique)
-    const correct = sumCorrectScoreFromAttempts(unique)
-    return {
-      completed,
-      correct,
-      incorrect: completed - correct,
+  const correctQuestions = sumCorrectScoreFromAttempts(uniqueQuestionAttempts)
+  const projectionHistory = (data.scoreProjectionSnapshots ?? []).flatMap(
+    (snapshot) => {
+      const value = snapshot.sectionEstimates[sectionId]
+      return value == null ? [] : [{ date: snapshot.date, value }]
     }
-  }, [
-    filteredQuestionAttempts,
-    progressMode.mode,
-    progressMode.timeFrameDays,
-  ])
-
-  const setsStats = useMemo(() => {
-    const timeFiltered =
-      progressMode.mode === 'time_frame'
-        ? filterByTimeFrame(
-            filteredSetAttempts,
-            progressMode.mode,
-            progressMode.timeFrameDays
-          )
-        : filteredSetAttempts
-    const uniqueSetIds = new Set(timeFiltered.map((a) => a.questionSetId))
-    const untimedCompleted = new Set(
-      timeFiltered.filter((a) => !a.wasTimed).map((a) => a.questionSetId)
-    )
-    const timedCompleted = new Set(
-      timeFiltered.filter((a) => a.wasTimed).map((a) => a.questionSetId)
-    )
-    return {
-      totalCompleted: uniqueSetIds.size,
-      untimedCompleted: untimedCompleted.size,
-      timedCompleted: timedCompleted.size,
-    }
-  }, [
-    filteredSetAttempts,
-    progressMode.mode,
-    progressMode.timeFrameDays,
-  ])
+  )
+  const latestProjection = data.scoreProjectionSnapshots?.at(-1)
+  const score = latestProjection?.sectionEstimates[sectionId] ?? null
+  const percentage = Math.round(section.percentage)
+  const totalPublicQuestions = section.totalPublicQuestions
+  const totalPublicSets = data.totalPublicSetsBySection?.[sectionId]
+  const uniqueSets = new Set(
+    setAttempts
+      .filter((attempt) => !attempt.studentUcatMockAttemptId)
+      .map((attempt) => attempt.questionSetId)
+  )
+  const untimedSets = new Set(
+    setAttempts
+      .filter(
+        (attempt) => !attempt.studentUcatMockAttemptId && !attempt.wasTimed
+      )
+      .map((attempt) => attempt.questionSetId)
+  )
+  const timedSets = new Set(
+    setAttempts
+      .filter(
+        (attempt) => !attempt.studentUcatMockAttemptId && attempt.wasTimed
+      )
+      .map((attempt) => attempt.questionSetId)
+  )
+  const questionCompletion =
+    totalPublicQuestions && totalPublicQuestions > 0
+      ? (completedQuestions / totalPublicQuestions) * 100
+      : completedQuestions > 0
+        ? 100
+        : 0
+  const setCompletion =
+    totalPublicSets && totalPublicSets > 0
+      ? (uniqueSets.size / totalPublicSets) * 100
+      : uniqueSets.size > 0
+        ? 100
+        : 0
+  const attemptedCategories = categoryProgress.filter(
+    (category) => category.maxScore > 0
+  )
+  const bestCategory = attemptedCategories.reduce<
+    SectionCategoryProgress | undefined
+  >(
+    (best, category) =>
+      !best || category.percentage > best.percentage ? category : best,
+    undefined
+  )
+  const weakestCategory = attemptedCategories.reduce<
+    SectionCategoryProgress | undefined
+  >(
+    (weakest, category) =>
+      !weakest || category.percentage < weakest.percentage ? category : weakest,
+    undefined
+  )
 
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={section.sectionName}
-        description={`Progress for ${section.sectionName}`}
-        backHref={basePath.replace(/\/sections\/[^/]+$/, '')}
-        backLabel="Back to progress"
-        breadcrumbs={breadcrumbs}
+    <div className="space-y-6 pb-8">
+      <StudentSectionProgressHero
+        sectionName={section.sectionName}
+        score={score}
+        confidence={latestProjection?.confidence ?? null}
+        projectionHistory={projectionHistory}
+        percentage={percentage}
+        attempts={setAttempts}
+        categories={categoryProgress}
       />
 
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
-      />
-
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-center">
-          <Card className="w-full max-w-xs rounded-xl border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                Scaled score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  'text-4xl font-bold tabular-nums text-center',
-                  score == null && 'text-muted-foreground'
-                )}
-              >
-                {score != null ? Math.round(score) : '—'}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="rounded-xl border-border">
+      <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className={tutorCardCn()}>
             <CardContent className="flex flex-col gap-4 pt-6">
-              <div className="flex flex-row justify-between items-center gap-4">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="text-base font-medium text-muted-foreground">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-muted-foreground">
                     Questions correct
-                  </div>
-                  <span className="text-2xl font-bold tabular-nums">
-                    {stats.correct} / {stats.completed}
-                  </span>
+                  </p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums">
+                    {correctQuestions} / {completedQuestions}
+                  </p>
                 </div>
-                <CircularProgress
-                  percentage={stats.completed > 0 ? percentage : 0}
-                  size={48}
-                  className="text-accent shrink-0"
+                <ProgressCircular
+                  percentage={completedQuestions > 0 ? percentage : 0}
                 />
               </div>
-              {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">
+              {categoryProgress.length ? (
+                <div className="space-y-1.5 border-t border-border/50 pt-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
                     Category breakdown
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {(() => {
-                      const catsWithAttempts = categoryProgress.filter(
-                        (c) => c.maxScore > 0
-                      )
-                      const pct = (c: SectionCategoryProgress) =>
-                        progressMode.mode === 'weighted' &&
-                        c.weightedAveragePercentage != null
-                          ? c.weightedAveragePercentage
-                          : c.percentage
-                      const best =
-                        catsWithAttempts.length > 0
-                          ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) >= pct(b) ? a : b
-                            )
-                          : null
-                      const worst =
-                        catsWithAttempts.length > 1
-                          ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) <= pct(b) ? a : b
-                            )
-                          : null
-                      return categoryProgress.map((cat) => (
-                        <div
-                          key={cat.categoryId}
-                          className="flex justify-between items-center text-sm tabular-nums gap-2"
-                        >
-                          <span className="text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
-                            {cat === best && (
-                              <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                Best
-                              </span>
-                            )}
-                            {cat === worst && cat !== best && (
-                              <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                                Worst
-                              </span>
-                            )}
-                            {resolveCategoryPathLabel(
-                              categoryPathLookup,
-                              cat.categoryId,
-                              cat.categoryName
-                            )}
+                  </p>
+                  {categoryProgress.map((category) => (
+                    <div
+                      key={category.categoryId}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5 truncate text-muted-foreground">
+                        {category === bestCategory ? (
+                          <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                            Best
                           </span>
-                          <span className="shrink-0">
-                            {cat.maxScore > 0
-                              ? `${cat.correctScore} / ${cat.maxScore}`
-                              : '—'}
+                        ) : null}
+                        {category === weakestCategory &&
+                        category !== bestCategory ? (
+                          <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            Worst
                           </span>
-                        </div>
-                      ))
-                    })()}
-                  </div>
+                        ) : null}
+                        <span className="truncate">
+                          {category.categoryName}
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">
+                        {category.maxScore > 0
+                          ? `${category.correctScore} / ${category.maxScore}`
+                          : '—'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ) : null}
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={tutorCardCn()}>
             <CardContent className="flex flex-col gap-4 pt-6">
-              <div className="flex flex-row justify-between items-center gap-4">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="text-base font-medium text-muted-foreground">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-muted-foreground">
                     Total questions completed
-                  </div>
-                  <span className="text-2xl font-bold tabular-nums">
-                    {stats.completed}
-                    {progressMode.mode !== 'time_frame' &&
-                    totalPublicQuestions != null
+                  </p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums">
+                    {completedQuestions}
+                    {totalPublicQuestions != null
                       ? ` / ${totalPublicQuestions}`
                       : ''}
-                  </span>
+                  </p>
                 </div>
-                <CircularProgress
-                  percentage={
-                    totalPublicQuestions != null && totalPublicQuestions > 0
-                      ? Math.round(
-                          (stats.completed / totalPublicQuestions) * 100
-                        )
-                      : stats.completed > 0
-                        ? 100
-                        : 0
-                  }
-                  size={48}
-                  className="text-accent shrink-0"
-                />
+                <ProgressCircular percentage={questionCompletion} />
               </div>
-              {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">
+              {categoryProgress.length ? (
+                <div className="space-y-1.5 border-t border-border/50 pt-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
                     Category breakdown
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {categoryProgress.map((cat) => (
-                      <div
-                        key={cat.categoryId}
-                        className="flex justify-between text-sm tabular-nums"
-                      >
-                        <span className="text-muted-foreground truncate mr-2">
-                          {resolveCategoryPathLabel(
-                            categoryPathLookup,
-                            cat.categoryId,
-                            cat.categoryName
-                          )}
-                        </span>
-                        <span className="shrink-0">
-                          {cat.totalPublicQuestions != null
-                            ? `${cat.maxScore} / ${cat.totalPublicQuestions}`
-                            : `${cat.maxScore} questions`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  </p>
+                  {categoryProgress.map((category) => (
+                    <div
+                      key={category.categoryId}
+                      className="flex justify-between gap-3 text-sm tabular-nums"
+                    >
+                      <span className="truncate text-muted-foreground">
+                        {category.categoryName}
+                      </span>
+                      <span className="shrink-0">
+                        {category.maxScore}
+                        {category.totalPublicQuestions != null
+                          ? ` / ${category.totalPublicQuestions}`
+                          : ' questions'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ) : null}
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={tutorCardCn()}>
             <CardContent className="flex flex-col gap-4 pt-6">
-              <div className="flex flex-row justify-between items-center gap-4">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="text-base font-medium text-muted-foreground">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-muted-foreground">
                     Total sets completed
-                  </div>
-                  <span className="text-2xl font-bold tabular-nums">
-                    {setsStats.totalCompleted}
-                    {progressMode.mode !== 'time_frame' &&
-                    totalPublicSets != null
-                      ? ` / ${totalPublicSets}`
+                  </p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums">
+                    {uniqueSets.size}
+                    {totalPublicSets != null ? ` / ${totalPublicSets}` : ''}
+                  </p>
+                </div>
+                <ProgressCircular percentage={setCompletion} />
+              </div>
+              <div className="space-y-1.5 border-t border-border/50 pt-3 text-sm tabular-nums">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Breakdown
+                </p>
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    Untimed sets completed
+                  </span>
+                  <span>
+                    {untimedSets.size}
+                    {data.totalPublicUntimedSetsBySection?.[sectionId] != null
+                      ? ` / ${data.totalPublicUntimedSetsBySection[sectionId]}`
                       : ''}
                   </span>
                 </div>
-                <CircularProgress
-                  percentage={
-                    totalPublicSets != null && totalPublicSets > 0
-                      ? Math.round(
-                          (setsStats.totalCompleted / totalPublicSets) * 100
-                        )
-                      : setsStats.totalCompleted > 0
-                        ? 100
-                        : 0
-                  }
-                  size={48}
-                  className="text-accent shrink-0"
-                />
-              </div>
-              <div className="border-t border-border pt-3">
-                <div className="text-xs font-medium text-muted-foreground mb-2">
-                  Breakdown
-                </div>
-                <div className="flex flex-col gap-1.5 text-sm tabular-nums">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Untimed sets completed
-                    </span>
-                    <span className="shrink-0">
-                      {setsStats.untimedCompleted}
-                      {progressMode.mode !== 'time_frame' &&
-                      totalPublicUntimedSets != null
-                        ? ` / ${totalPublicUntimedSets}`
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Timed sets completed
-                    </span>
-                    <span className="shrink-0">
-                      {setsStats.timedCompleted}
-                      {progressMode.mode !== 'time_frame' &&
-                      totalPublicTimedSets != null
-                        ? ` / ${totalPublicTimedSets}`
-                        : ''}
-                    </span>
-                  </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    Timed sets completed
+                  </span>
+                  <span>
+                    {timedSets.size}
+                    {data.totalPublicTimedSetsBySection?.[sectionId] != null
+                      ? ` / ${data.totalPublicTimedSetsBySection[sectionId]}`
+                      : ''}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -629,18 +354,21 @@ function SectionProgressContent({
         </div>
       </div>
 
-      <QuestionAttemptsCard
-        attempts={filteredQuestionAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
+      <StudentAttemptHistoryExplorer
+        source="practice"
+        title="Practice sessions"
+        description="Accuracy and activity by day. Inspect the student's completed sessions."
+        attempts={data.practiceAttempts.filter(
+          (attempt) => attempt.ucatSectionId === sectionId
+        )}
+        basePath={basePath}
       />
-      <SetAttemptsCard
-        attempts={filteredSetAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-        basePath={basePath.replace(/\/sections\/[^/]+$/, '')}
+      <StudentAttemptHistoryExplorer
+        source="set"
+        title="Set attempts"
+        description="Scaled score, accuracy and timing across completed sets."
+        attempts={setAttempts}
+        basePath={basePath}
       />
     </div>
   )

@@ -5,18 +5,20 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   beginExamAttempt,
   checkExamAttemptConflict,
-  resumeExistingExamAttempt,
   type StoredExamSnapshot,
 } from "@/lib/ucat/exam-attempt/service";
 import type { BeginExamAttemptInput } from "@/lib/ucat/exam-attempt/types";
 import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
+import { ServerTiming } from "@/lib/performance/server-timing";
 
 export async function POST(request: NextRequest) {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -54,6 +56,7 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
+  timing.mark("student");
 
   if (studentError) {
     captureApiError(studentError, "/api/ucat/exam-attempts/begin");
@@ -66,31 +69,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (body.resumeOnly) {
-    const existing = await resumeExistingExamAttempt(
-      supabaseAdmin,
-      student.id,
-      body.kind,
-      body.resourceId,
-    );
-    if (existing) {
-      return NextResponse.json({ attempt: existing, resumed: true });
-    }
-  }
-
-  const conflict = await checkExamAttemptConflict(
-    supabaseAdmin,
-    student.id,
-    body.kind,
-    body.resourceId,
-  );
-  if (conflict) {
-    return NextResponse.json(
-      { error: "EXAM_ATTEMPT_IN_PROGRESS", active: conflict },
-      { status: 409 },
-    );
-  }
-
   try {
     const result = await beginExamAttempt(
       supabaseAdmin,
@@ -99,10 +77,13 @@ export async function POST(request: NextRequest) {
       body.examMeta,
       body.examTiming,
     );
-    return NextResponse.json({
-      attempt: result.attempt,
-      resumed: result.resumed,
-    });
+    timing.mark("begin");
+    return timing.apply(
+      NextResponse.json({
+        attempt: result.attempt,
+        resumed: result.resumed,
+      }),
+    );
   } catch (error) {
     captureApiError(error, "/api/ucat/exam-attempts/begin");
     const message = error instanceof Error ? error.message : "Failed to begin";

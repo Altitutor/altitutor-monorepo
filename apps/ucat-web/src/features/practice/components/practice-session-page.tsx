@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@altitutor/ui";
 import { QuestionEnginePage } from "@/features/question-engine";
@@ -11,6 +11,10 @@ import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-exp
 import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
 import type { PracticeSessionStartInput } from "@/features/practice/api/create-practice-session";
 import { PracticeReducedStartDialog } from "@/features/practice/components/practice-reduced-start-dialog";
+import {
+  fetchDeliveredPracticeStem,
+  fetchNextPracticeStem,
+} from "@/features/practice/api/fetch-next-practice-stem";
 import {
   claimAndCreatePracticeSessionFromPending,
   getInFlightPendingPracticeCreate,
@@ -36,13 +40,9 @@ import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
-import {
-  assertOkOrQuotaExceeded,
-  QuotaExceededError,
-} from "@/lib/ucat/quota/parse-quota-error";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { sectionLabels } from "@/features/practice/model/sections";
 import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
-import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
 import {
   UCAT_CARD_CHROME,
   UCAT_PRIMARY_ACTION_BUTTON,
@@ -89,33 +89,6 @@ function practiceSessionEngineSlotClass(
     "h-[calc(100dvh-12rem)] min-h-0 w-full overflow-hidden",
     mainContentHasSidebarInset ? "xl:h-full" : "md:h-full",
   );
-}
-
-async function fetchNextStem(
-  practiceSessionId: string,
-  input: PracticeSelectionInput,
-  excludeStemIds: string[],
-  options?: { preview?: boolean; deliverStemId?: string },
-): Promise<QuestionStemWithQuestions[] | null> {
-  const response = await fetch("/api/ucat/practice-stems/next", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input,
-      excludeStemIds,
-      practiceSessionId,
-      preview: options?.preview,
-      deliverStemId: options?.deliverStemId,
-    }),
-  });
-  if (!response.ok) {
-    await assertOkOrQuotaExceeded(response);
-    return null;
-  }
-  const data = (await response.json()) as {
-    stem: QuestionStemWithQuestions | null;
-  };
-  return data.stem ? [data.stem] : null;
 }
 
 function getPracticeCategoryList(
@@ -275,49 +248,45 @@ function PracticeStemTimingSection({
   );
 }
 
-function PracticeSessionStatsCards({
+export function PracticeSessionStatsCards({
   stats,
   elapsedSeconds,
+  showAnswerStats = true,
   onFinishPractice,
 }: {
   stats: PracticeEngineLiveStats | null;
   elapsedSeconds: number;
+  showAnswerStats?: boolean;
   onFinishPractice?: () => void;
 }) {
   const answeredCount = stats?.answeredCount ?? 0;
   const correctCount = stats?.correctCount ?? 0;
   const incorrectCount = stats?.incorrectCount ?? 0;
-  const answeredTimeSeconds = stats?.totalAnsweredTimeSeconds ?? 0;
-  const averageSeconds =
-    answeredCount > 0 ? answeredTimeSeconds / answeredCount : null;
 
   return (
     <div className="space-y-3">
-      <StudyPlanCompanion placement="sidebar" />
-      <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Answers</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <dl className="space-y-2">
-            <InlineStatRow label="Answered" value={String(answeredCount)} />
-            {stats?.revealAccuracy !== false ? (
-              <>
-                <InlineStatRow
-                  label="Correct"
-                  value={String(correctCount)}
-                  valueClassName="text-emerald-600 dark:text-emerald-400"
-                />
-                <InlineStatRow
-                  label="Incorrect"
-                  value={String(incorrectCount)}
-                  valueClassName="text-red-600 dark:text-red-400"
-                />
-              </>
-            ) : null}
-          </dl>
-        </CardContent>
-      </Card>
+      {showAnswerStats ? (
+        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Answers</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <dl className="space-y-2">
+              <InlineStatRow label="Answered" value={String(answeredCount)} />
+              <InlineStatRow
+                label="Correct"
+                value={String(correctCount)}
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+              />
+              <InlineStatRow
+                label="Incorrect"
+                value={String(incorrectCount)}
+                valueClassName="text-red-600 dark:text-red-400"
+              />
+            </dl>
+          </CardContent>
+        </Card>
+      ) : null}
       <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Timing</CardTitle>
@@ -329,14 +298,6 @@ function PracticeSessionStatsCards({
               value={formatPracticeDuration(elapsedSeconds)}
             />
             <PracticeStemTimingSection stats={stats} />
-            <InlineStatRow
-              label="Average time / question"
-              value={
-                averageSeconds != null
-                  ? formatPracticeDuration(averageSeconds)
-                  : "—"
-              }
-            />
           </dl>
         </CardContent>
       </Card>
@@ -380,6 +341,7 @@ export function PracticeSessionPage() {
   );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const openFinishPracticeDialogRef = useRef<(() => void) | null>(null);
+  const completionNavigationRef = useRef(false);
   const pendingGateHandledRef = useRef(false);
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
@@ -456,11 +418,49 @@ export function PracticeSessionPage() {
     // Wait for the tutorial gate so we never begin a practice attempt that
     // will immediately be redirected away.
     if (!questionEngineTourReady) return;
+    if (completionNavigationRef.current) return;
 
     let cancelled = false;
+    const isObsolete = () => cancelled || completionNavigationRef.current;
     const localSession = getPracticeSession();
     if (localSession) {
-      setSession(localSession);
+      if (localSession.mode !== "unlimited") {
+        setSession(localSession);
+        return () => {
+          cancelled = true;
+        };
+      }
+      // Session storage is only a launch cache. Reconcile it with the
+      // server-owned delivery snapshot for unlimited sessions before mounting
+      // the engine, where concurrent next-stem requests can otherwise leave a
+      // racing tab with a question the session did not commit.
+      void fetch(`/api/ucat/practice-sessions/${localSession.sessionId}`)
+        .then(async (response) => {
+          if (!response.ok) return localSession;
+          const detail = (await response.json()) as {
+            stemsSnapshot?: QuestionStemWithQuestions[];
+            completedAt?: string | null;
+          };
+          if (detail.completedAt) return null;
+          const reconciled = {
+            ...localSession,
+            stems: detail.stemsSnapshot ?? [],
+          } as PracticeSessionData;
+          if (isObsolete()) return null;
+          setPracticeSession(reconciled);
+          return reconciled;
+        })
+        .catch(() => localSession)
+        .then((reconciled) => {
+          if (isObsolete()) return;
+          if (!reconciled) {
+            clearPracticeSession();
+            setSession(null);
+            router.replace("/practice");
+            return;
+          }
+          setSession(reconciled);
+        });
       return () => {
         cancelled = true;
       };
@@ -470,10 +470,10 @@ export function PracticeSessionPage() {
     if (inFlight) {
       void inFlight
         .then((data) => {
-          if (!cancelled) setSession(data);
+          if (!isObsolete()) setSession(data);
         })
         .catch(() => {
-          if (!cancelled) {
+          if (!isObsolete()) {
             setSession(null);
             router.replace("/practice");
           }
@@ -554,7 +554,9 @@ export function PracticeSessionPage() {
               reviewTiming?: PracticeReviewTiming;
             };
             unlimited?: boolean;
+            startedAt?: string;
           };
+          if (isObsolete()) return;
           if (detail.unlimited && detail.filtersSnapshot) {
             data = {
               mode: "unlimited",
@@ -563,7 +565,9 @@ export function PracticeSessionPage() {
               stems: detail.stemsSnapshot ?? [],
               timePerQuestionSeconds:
                 detail.filtersSnapshot.timePerQuestionSeconds ?? null,
-              startedAtMs: Date.now(),
+              startedAtMs: detail.startedAt
+                ? Date.parse(detail.startedAt)
+                : Date.now(),
               reviewTiming:
                 detail.filtersSnapshot.reviewTiming ?? "afterEachStem",
             };
@@ -575,7 +579,9 @@ export function PracticeSessionPage() {
               filters: detail.filtersSnapshot,
               timePerQuestionSeconds:
                 detail.filtersSnapshot?.timePerQuestionSeconds ?? null,
-              startedAtMs: Date.now(),
+              startedAtMs: detail.startedAt
+                ? Date.parse(detail.startedAt)
+                : Date.now(),
               reviewTiming:
                 detail.filtersSnapshot?.reviewTiming ?? "afterEachStem",
             };
@@ -583,7 +589,7 @@ export function PracticeSessionPage() {
           if (data) setPracticeSession(data);
         }
       }
-      if (cancelled) return;
+      if (isObsolete()) return;
       if (!data) {
         if (quotaLoading) return;
         const practiceQuota = quota?.areas.find(
@@ -688,10 +694,15 @@ export function PracticeSessionPage() {
     }
   }
 
-  const handleDone = useCallback(() => {
-    clearPracticeSession();
-    router.replace("/practice");
-  }, [router]);
+  const handlePracticeSessionCompleted = useCallback(
+    (attemptHref: string) => {
+      completionNavigationRef.current = true;
+      clearPracticeSession();
+      setSession(null);
+      router.replace(attemptHref);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (session === "loading" || !session) return;
@@ -793,7 +804,7 @@ export function PracticeSessionPage() {
                 sessionMeta={session}
                 timePerQuestionSeconds={session.timePerQuestionSeconds}
                 reviewTiming={session.reviewTiming ?? "afterEachStem"}
-                onBack={handleDone}
+                onPracticeSessionCompleted={handlePracticeSessionCompleted}
                 onPracticeStatsChange={setLiveStats}
                 onRegisterFinishPracticeDialog={
                   handleRegisterFinishPracticeDialog
@@ -803,6 +814,9 @@ export function PracticeSessionPage() {
             <PracticeSessionStatsCards
               stats={liveStats}
               elapsedSeconds={elapsedSeconds}
+              showAnswerStats={
+                (session.reviewTiming ?? "afterEachStem") === "afterEachStem"
+              }
               onFinishPractice={handleFinishPracticeFromSidebar}
             />
           </div>
@@ -829,13 +843,15 @@ export function PracticeSessionPage() {
               reviewTiming={session.reviewTiming ?? "afterEachStem"}
               onPracticeStatsChange={setLiveStats}
               timePerQuestionSeconds={session.timePerQuestionSeconds}
-              backHref="/practice"
-              onBack={handleDone}
+              onPracticeSessionCompleted={handlePracticeSessionCompleted}
             />
           </div>
           <PracticeSessionStatsCards
             stats={liveStats}
             elapsedSeconds={elapsedSeconds}
+            showAnswerStats={
+              (session.reviewTiming ?? "afterEachStem") === "afterEachStem"
+            }
           />
         </div>
       </div>
@@ -850,7 +866,7 @@ function UnlimitedPracticeEngine({
   sessionMeta,
   timePerQuestionSeconds,
   reviewTiming,
-  onBack,
+  onPracticeSessionCompleted,
   onPracticeStatsChange,
   onRegisterFinishPracticeDialog,
 }: {
@@ -860,14 +876,19 @@ function UnlimitedPracticeEngine({
   sessionMeta: Extract<PracticeSessionData, { mode: "unlimited" }>;
   timePerQuestionSeconds: number | null;
   reviewTiming: PracticeReviewTiming;
-  onBack: () => void;
+  onPracticeSessionCompleted: (attemptHref: string) => void;
   onPracticeStatsChange: (stats: PracticeEngineLiveStats | null) => void;
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
 }) {
+  const router = useRouter();
   const [stems, setStems] = useState<QuestionStemWithQuestions[]>(initialStems);
   const [prefetchedStem, setPrefetchedStem] =
     useState<QuestionStemWithQuestions | null>(null);
   const prefetchingRef = useRef(false);
+  const initialStemRequestRef = useRef<{
+    sessionId: string;
+    promise: Promise<QuestionStemWithQuestions | null>;
+  } | null>(null);
   const [loading, setLoading] = useState(initialStems.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [quotaReached, setQuotaReached] = useState<QuotaExceededPayload | null>(
@@ -890,14 +911,14 @@ function UnlimitedPracticeEngine({
     if (stems.length === 0) return;
     let cancelled = false;
     prefetchingRef.current = true;
-    void fetchNextStem(
+    void fetchNextPracticeStem(
       sessionId,
       filtersRef.current,
       stems.map((stem) => stem.id),
       { preview: true },
     )
       .then((next) => {
-        if (!cancelled) setPrefetchedStem(next?.[0] ?? null);
+        if (!cancelled) setPrefetchedStem(next);
       })
       .catch(() => {
         // Lookahead is opportunistic. Surface errors only when the student
@@ -914,13 +935,19 @@ function UnlimitedPracticeEngine({
   useEffect(() => {
     if (initialStems.length > 0) return;
     let cancelled = false;
+    const cachedRequest = initialStemRequestRef.current;
+    const request =
+      cachedRequest?.sessionId === sessionId
+        ? cachedRequest.promise
+        : fetchNextPracticeStem(sessionId, filtersRef.current, []);
+    initialStemRequestRef.current = { sessionId, promise: request };
     void (async () => {
       try {
-        const next = await fetchNextStem(sessionId, filtersRef.current, []);
+        const next = await request;
         if (cancelled) return;
-        if (next?.length) {
-          setStems(next);
-          setPracticeSession({ ...sessionMeta, stems: next });
+        if (next) {
+          setStems([next]);
+          setPracticeSession({ ...sessionMeta, stems: [next] });
         } else {
           setError("No question stems match these filters.");
         }
@@ -933,10 +960,12 @@ function UnlimitedPracticeEngine({
           clearPracticeSession();
           setError("Practice limit reached.");
         } else {
-          setError("No question stems match these filters.");
+          setError(
+            "We couldn't load your practice questions. Please try again.",
+          );
         }
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -946,19 +975,23 @@ function UnlimitedPracticeEngine({
   const handleNeedMoreStems = useCallback(
     async (excludeStemIds: string[]) => {
       try {
-        const next = prefetchedStem
-          ? await fetchNextStem(sessionId, filtersRef.current, excludeStemIds, {
-              deliverStemId: prefetchedStem.id,
-            })
-          : await fetchNextStem(sessionId, filtersRef.current, excludeStemIds);
-        if (next?.length) {
+        const next = await fetchDeliveredPracticeStem(
+          sessionId,
+          filtersRef.current,
+          excludeStemIds,
+          prefetchedStem?.id,
+        );
+
+        if (next) {
+          setError(null);
           setPrefetchedStem(null);
           setStems((prev) => {
-            const updated = [...prev, ...next];
+            if (prev.some((stem) => stem.id === next.id)) return prev;
+            const updated = [...prev, next];
             setPracticeSession({ ...sessionMeta, stems: updated });
             return updated;
           });
-          return { status: "loaded" as const, stems: next };
+          return { status: "loaded" as const, stems: [next] };
         }
         return { status: "exhausted" as const };
       } catch (error) {
@@ -968,7 +1001,6 @@ function UnlimitedPracticeEngine({
           }
           return { status: "quotaReached" as const };
         } else {
-          setError("No question stems match these filters.");
           return { status: "error" as const };
         }
       }
@@ -997,7 +1029,7 @@ function UnlimitedPracticeEngine({
         </p>
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => router.replace("/practice")}
           className="rounded-lg bg-sidebar px-4 py-2 text-sm font-medium text-sidebar-foreground"
         >
           Back to practice
@@ -1017,8 +1049,7 @@ function UnlimitedPracticeEngine({
       reviewTiming={reviewTiming}
       onPracticeStatsChange={onPracticeStatsChange}
       timePerQuestionSeconds={timePerQuestionSeconds}
-      backHref="/practice"
-      onBack={onBack}
+      onPracticeSessionCompleted={onPracticeSessionCompleted}
       onNeedMoreStems={handleNeedMoreStems}
       practiceQuotaReached={quotaReached}
       onRegisterFinishPracticeDialog={onRegisterFinishPracticeDialog}

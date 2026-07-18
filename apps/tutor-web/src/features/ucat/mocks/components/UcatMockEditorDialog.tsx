@@ -10,7 +10,7 @@ import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { Trash2 } from 'lucide-react'
+import { FileDown, Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -20,6 +20,7 @@ import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuest
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
+import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 
 export type SetOption = {
   id: string
@@ -67,6 +68,7 @@ export function UcatMockEditorDialog({
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const stemCatalogQuery = useUcatStemCatalog(open)
 
   const setFilterDefinitions = useMemo(
@@ -113,6 +115,7 @@ export function UcatMockEditorDialog({
     if (!open) {
       setEditorMode('edit')
       setShowAnswer(false)
+      setExportDialogOpen(false)
     }
   }, [open])
 
@@ -144,6 +147,11 @@ export function UcatMockEditorDialog({
     <UcatRowActions
       actions={[
         ...(copyIdAction ? [copyIdAction] : []),
+        {
+          label: 'Export as PDF',
+          icon: <FileDown className="h-4 w-4" />,
+          onClick: () => setExportDialogOpen(true),
+        },
         {
           label: 'Open in page',
           href: `/ucat/mocks/${mockId}`,
@@ -238,6 +246,11 @@ export function UcatMockEditorDialog({
           />
         )}
       </div>
+      <UcatPdfExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        source={{ kind: 'mock', title: name.trim() || 'Untitled mock', setIds: draftSetIds }}
+      />
     </UcatDialogShell>
   )
 }

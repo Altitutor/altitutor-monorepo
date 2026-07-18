@@ -1,7 +1,8 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
@@ -32,6 +33,7 @@ import {
 import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
 
 type SetDetailPageProps = {
   setId: string;
@@ -65,6 +67,7 @@ export function SetDetailPage({
   sessionEntryContext,
 }: SetDetailPageProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
@@ -79,6 +82,17 @@ export function SetDetailPage({
   const attemptsHeadingId = useId();
 
   const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
+  const examHref = `/exam/sets?id=${encodeURIComponent(setId)}`;
+
+  useEffect(() => {
+    if (!set) return;
+    router.prefetch(examHref);
+    void queryClient.prefetchQuery({
+      queryKey: ["question-engine", "set", setId, null],
+      queryFn: () => getQuestionEngineExam({ mode: "set", setId }),
+      staleTime: 10 * 60 * 1000,
+    });
+  }, [examHref, queryClient, router, set, setId]);
 
   const backHref =
     backHrefProp ??
@@ -99,7 +113,6 @@ export function SetDetailPage({
 
   const handleLaunchSet = () => {
     if (questionEngineTourLoading) return;
-    const examHref = `/exam/sets?id=${encodeURIComponent(setId)}`;
     if (questionEngineTourBlocked) {
       router.push(buildQuestionEngineTutorialHref(examHref));
       return;

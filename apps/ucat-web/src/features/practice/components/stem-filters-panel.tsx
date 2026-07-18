@@ -60,13 +60,6 @@ export type StemFiltersPanelProps = {
   onWizardStepChange?: (state: StemFiltersWizardStep) => void;
 };
 
-const sectionDescriptions: Record<SectionKey, string> = {
-  verbal_reasoning: "Read and reason from written passages.",
-  decision_making: "Apply logic and evaluate information.",
-  quantitative_reasoning: "Solve problems using numerical data.",
-  situational_judgement: "Assess professional scenarios.",
-};
-
 const performanceOptions: Array<{ value: PerformanceFilter; label: string }> = [
   { value: "unanswered", label: "Unanswered" },
   { value: "incorrect", label: "Previously incorrect" },
@@ -365,9 +358,6 @@ export function StemFiltersPanel({
                         <h3 className="mt-4 font-semibold">
                           {sectionLabels[section]}
                         </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {sectionDescriptions[section]}
-                        </p>
                       </button>
                       <AnimatePresence initial={false}>
                         {selected ? (

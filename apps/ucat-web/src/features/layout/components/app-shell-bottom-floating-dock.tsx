@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +23,14 @@ export function AppShellBottomFloatingDock({
   innerClassName,
   tourAnchorId,
 }: AppShellBottomFloatingDockProps) {
-  const { mainContentHasSidebarInset } = useAppShellLayout();
+  const { mainContentHasSidebarInset, setBottomFloatingDockVisible } =
+    useAppShellLayout();
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    setBottomFloatingDockVisible(visible);
+    return () => setBottomFloatingDockVisible(false);
+  }, [setBottomFloatingDockVisible, visible]);
 
   return (
     <div

@@ -103,6 +103,11 @@ export type GeneratedStudyPlanTask = {
   skillTrainerId: string | null;
   launchPath: string;
   launchConfig: Record<string, unknown>;
+  /** Ephemeral generator-only link resolved to sourceTaskId before persistence. */
+  sourceTaskRef?: {
+    scheduledDate: string;
+    sortOrder: number;
+  };
 };
 
 export type StudyPlanCapacityRisk = {
@@ -127,6 +132,7 @@ export type StudyPlanGenerationResult = {
 
 export type StudyPlanTask = GeneratedStudyPlanTask & {
   id: string;
+  sourceTaskId: string | null;
   status: StudyPlanTaskStatus;
   completedUnits: number;
   startedAt: string | null;
@@ -137,12 +143,14 @@ export type StudyPlanTask = GeneratedStudyPlanTask & {
 };
 
 export type StudyPlanResponse = {
-  profile: (StudyPlanProfileInput & {
-    id: string;
-    planningDate: string;
-    planningDateIsProvisional: boolean;
-    nextWeeklyReplanOn: string | null;
-  }) | null;
+  profile:
+    | (StudyPlanProfileInput & {
+        id: string;
+        planningDate: string;
+        planningDateIsProvisional: boolean;
+        nextWeeklyReplanOn: string | null;
+      })
+    | null;
   generation: {
     id: string;
     generatedAt: string;

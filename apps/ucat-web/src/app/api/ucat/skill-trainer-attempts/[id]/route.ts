@@ -3,9 +3,8 @@ import { NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import {
   buildAttemptState,
-  completeSkillTrainerAttempt,
+  discardSkillTrainerAttempt,
 } from "@/lib/ucat/skill-trainer/attempt-service";
-import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
 
 export async function GET(
   _request: Request,
@@ -19,6 +18,7 @@ export async function GET(
     .select("*, ucat_skill_trainers(key, is_enabled)")
     .eq("id", params.id)
     .eq("student_id", auth.studentId)
+    .is("discarded_at", null)
     .maybeSingle();
 
   if (error) {
@@ -63,7 +63,9 @@ export async function GET(
       ends_at: data.ends_at,
       started_at: data.started_at,
       completed_at: data.completed_at,
+      discarded_at: data.discarded_at,
       trainer_key: trainerKey,
+      version: data.version,
     });
     return NextResponse.json({ attempt: state });
   } catch (err) {
@@ -75,50 +77,33 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
+export async function DELETE(
+  _request: Request,
   { params }: { params: { id: string } },
 ) {
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 
-  const body = (await request.json().catch(() => ({}))) as {
-    complete?: boolean;
-  };
-  if (!body.complete) {
-    return NextResponse.json({ error: "Unsupported update" }, { status: 400 });
-  }
-
   try {
-    const completion = await completeSkillTrainerAttempt(
+    const discarded = await discardSkillTrainerAttempt(
       auth.admin,
       params.id,
       auth.studentId,
     );
-    if (completion.newlyCompleted) {
-      await captureUcatLearningActivityCompleted({
-        userId: auth.userId,
-        activityType: "skill_trainer",
-        activityId: params.id,
-        properties: {
-          completion_source: "skill_trainer",
-          trainer_key: completion.state.attempt.trainer_key ?? null,
-        },
-      });
+    if (!discarded) {
+      return NextResponse.json(
+        { error: "Attempt not found or already finished" },
+        { status: 404 },
+      );
     }
-    return NextResponse.json({ attempt: completion.state });
+    return NextResponse.json({ success: true });
   } catch (err) {
     captureApiError(err, "/api/ucat/skill-trainer-attempts/[id]");
-    const message =
-      err instanceof Error ? err.message : "Failed to update attempt";
     return NextResponse.json(
-      { error: message },
       {
-        status:
-          message === "ATTEMPT_NOT_FOUND" || message === "TRAINER_NOT_FOUND"
-            ? 404
-            : 500,
+        error: err instanceof Error ? err.message : "Failed to discard attempt",
       },
+      { status: 500 },
     );
   }
 }

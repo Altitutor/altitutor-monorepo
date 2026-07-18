@@ -106,4 +106,20 @@ describe("applyNeedMoreStemsResult", () => {
       loadingMoreExcludeStemIds: undefined,
     });
   });
+
+  it("returns to the last question when review-at-end delivery fails transiently", () => {
+    const next = applyNeedMoreStemsResult(
+      loadingMoreState(),
+      { status: "error" },
+      { reviewAtEnd: true },
+    );
+
+    expect(next).toMatchObject({
+      phase: "question",
+      currentIndex: 3,
+      viewingQuestionIndex: null,
+      loadingMoreTargetIndex: undefined,
+      loadingMoreExcludeStemIds: undefined,
+    });
+  });
 });
