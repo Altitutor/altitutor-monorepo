@@ -272,6 +272,70 @@ set
   attempt_id = excluded.attempt_id,
   last_activity_at = excluded.last_activity_at;
 
+-- A historical race could create more than one child set attempt for the same
+-- mock and question set. Repoint every question attempt to the best preserved
+-- parent before the question-level consolidation below, then remove the extra
+-- parents. Drop our indexes first so this remains safe when an idempotent local
+-- re-run is validating a newly introduced production fixture.
+drop index if exists public.student_question_attempts_set_question_unique;
+drop index if exists public.student_question_attempts_practice_question_unique;
+drop index if exists public.student_question_set_attempts_mock_set_unique;
+drop index if exists public.idx_student_question_set_attempts_active_mock_set_unique;
+
+with ranked_mock_sets as (
+  select
+    id,
+    first_value(id) over (
+      partition by student_ucat_mock_attempt_id, question_set_id
+      order by
+        (completed_at is not null) desc,
+        (score_points is not null) desc,
+        (content_snapshot is not null) desc,
+        (engine_snapshot is not null) desc,
+        attempted_at asc,
+        id asc
+      rows between unbounded preceding and unbounded following
+    ) as keeper_id,
+    row_number() over (
+      partition by student_ucat_mock_attempt_id, question_set_id
+      order by
+        (completed_at is not null) desc,
+        (score_points is not null) desc,
+        (content_snapshot is not null) desc,
+        (engine_snapshot is not null) desc,
+        attempted_at asc,
+        id asc
+    ) as position
+  from public.student_question_set_attempts
+  where student_ucat_mock_attempt_id is not null
+)
+update public.student_question_attempts question_attempt
+set student_question_set_attempt_id = ranked_mock_sets.keeper_id
+from ranked_mock_sets
+where ranked_mock_sets.position > 1
+  and question_attempt.student_question_set_attempt_id = ranked_mock_sets.id;
+
+with ranked_mock_sets as (
+  select
+    id,
+    row_number() over (
+      partition by student_ucat_mock_attempt_id, question_set_id
+      order by
+        (completed_at is not null) desc,
+        (score_points is not null) desc,
+        (content_snapshot is not null) desc,
+        (engine_snapshot is not null) desc,
+        attempted_at asc,
+        id asc
+    ) as position
+  from public.student_question_set_attempts
+  where student_ucat_mock_attempt_id is not null
+)
+delete from public.student_question_set_attempts set_attempt
+using ranked_mock_sets
+where ranked_mock_sets.position > 1
+  and set_attempt.id = ranked_mock_sets.id;
+
 -- Consolidate only resumable-context duplicates. Standalone practice may
 -- intentionally contain repeat attempts for the same question.
 with grouped as (
