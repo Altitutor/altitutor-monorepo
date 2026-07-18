@@ -60,13 +60,19 @@ export function useMessageSubscription() {
           console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
         }
         
-        // Fetch conversation with contact info to get sender name
+        // Fetch conversation with contact info to get sender name + open target
         let senderName = 'Unknown';
+        let contactId: string | null = null;
+        let isGroupChat = false;
+        let groupChatName: string | null = null;
         try {
           const { data: conversation } = await supabase
             .from('conversations')
             .select(`
               id,
+              contact_id,
+              is_group_chat,
+              group_chat_name,
               contacts (
                 id, phone_e164, contact_type,
                 students (id, first_name, last_name),
@@ -77,8 +83,13 @@ export function useMessageSubscription() {
             .eq('id', row.conversation_id)
             .maybeSingle();
           
+          contactId = conversation?.contact_id ?? null;
+          isGroupChat = conversation?.is_group_chat === true;
+          groupChatName = conversation?.group_chat_name ?? null;
           if (conversation?.contacts) {
             senderName = formatContactName({ contacts: conversation.contacts });
+          } else if (isGroupChat && groupChatName) {
+            senderName = groupChatName;
           }
         } catch (error: unknown) {
           console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
@@ -87,7 +98,27 @@ export function useMessageSubscription() {
         if (hasWindowRef.current(row.conversation_id)) {
           incrementUnreadRef.current(row.conversation_id);
         }
-        toast({ title: `${senderName}: ${row.body}`, description: '' });
+
+        const toastTitle = row.body?.trim()
+          ? `${senderName}: ${row.body}`
+          : `${senderName}: New message`;
+
+        toast({
+          title: toastTitle,
+          action: {
+            label: 'Reply',
+            onClick: () => {
+              if (isGroupChat || !contactId) {
+                window.location.assign(`/messages?group=${row.conversation_id}`);
+                return;
+              }
+              useChatStore.getState().openWindow({
+                conversationId: row.conversation_id,
+                title: senderName,
+              });
+            },
+          },
+        });
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIPTION_ERROR') {

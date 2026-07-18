@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   type FormBlock,
 } from '@altitutor/shared';
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import { resolveFormBlocks } from '@/features/forms/server/resolve-form-blocks';
 
@@ -32,19 +33,61 @@ export async function GET(request: Request) {
   const sessionId = new URL(request.url).searchParams.get('sessionId');
   if (!sessionId) return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
   const admin = auth.admin;
-  const [{ data: students }, { data: staff }, { data: forms }] = await Promise.all([
+  const [
+    { data: students, error: studentsError },
+    { data: staff, error: staffError },
+    { data: sessionParents, error: sessionParentsError },
+    { data: forms, error: formsError },
+  ] = await Promise.all([
     admin.from('sessions_students').select('student:students(id, first_name, last_name)').eq('session_id', sessionId),
-    admin.from('sessions_staff').select('staff:staff(id, first_name, last_name)').eq('session_id', sessionId),
+    admin
+      .from('sessions_staff')
+      .select('staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name)')
+      .eq('session_id', sessionId),
+    admin.from('sessions_parents').select('parent:parents(id, first_name, last_name)').eq('session_id', sessionId),
     admin.from('forms').select('id, name, purpose, latest_published_version_id, form_versions!forms_latest_published_version_id_fkey(id, version_number, blocks, thank_you_message)')
       .eq('status', 'published').is('archived_at', null).is('workflow_key', null).not('latest_published_version_id', 'is', null).order('name'),
   ]);
+  const queryError = studentsError ?? staffError ?? sessionParentsError ?? formsError;
+  if (queryError) {
+    return captureApiErrorResponse(
+      queryError,
+      '/api/forms/session-responses',
+      NextResponse.json({ error: queryError.message }, { status: 500 }),
+    );
+  }
+
   const studentRows = (students ?? [])
     .map((row) => asPerson(row.student))
     .filter((person): person is PersonRow => person !== null);
+  const staffRows = (staff ?? [])
+    .map((row) => asPerson(row.staff))
+    .filter((person): person is PersonRow => person !== null);
+  const sessionParentRows = (sessionParents ?? [])
+    .map((row) => asPerson(row.parent))
+    .filter((person): person is PersonRow => person !== null);
+
   const parentIds = studentRows.map((student) => student.id);
-  const { data: parentLinks } = parentIds.length
+  const { data: parentLinks, error: parentLinksError } = parentIds.length
     ? await admin.from('parents_students').select('parent:parents(id, first_name, last_name)').in('student_id', parentIds)
-    : { data: [] as Array<{ parent: unknown }> };
+    : { data: [] as Array<{ parent: unknown }>, error: null };
+  if (parentLinksError) {
+    return captureApiErrorResponse(
+      parentLinksError,
+      '/api/forms/session-responses',
+      NextResponse.json({ error: parentLinksError.message }, { status: 500 }),
+    );
+  }
+
+  const linkedParentRows = (parentLinks ?? [])
+    .map((row) => asPerson(row.parent))
+    .filter((person): person is PersonRow => person !== null);
+  const uniqueParents = [
+    ...new Map(
+      [...sessionParentRows, ...linkedParentRows].map((person) => [person.id, person]),
+    ).values(),
+  ];
+
   const resolvedForms = await Promise.all(((forms ?? []) as unknown as Array<{
     id: string;
     name: string;
@@ -58,17 +101,11 @@ export async function GET(request: Request) {
       blocks: await resolveFormBlocks(admin, asFormBlocks(form.form_versions.blocks)),
     } : null,
   })));
-  const parentRows = (parentLinks ?? [])
-    .map((row) => asPerson(row.parent))
-    .filter((person): person is PersonRow => person !== null);
-  const uniqueParents = [...new Map(parentRows.map((person) => [person.id, person])).values()];
+
   return NextResponse.json({
     participants: [
       ...studentRows.map((person) => ({ ...person, type: 'student' as const })),
-      ...(staff ?? [])
-        .map((row) => asPerson(row.staff))
-        .filter((person): person is PersonRow => person !== null)
-        .map((person) => ({ ...person, type: 'staff' as const })),
+      ...staffRows.map((person) => ({ ...person, type: 'staff' as const })),
       ...uniqueParents.map((person) => ({ ...person, type: 'parent' as const })),
     ],
     forms: resolvedForms,
