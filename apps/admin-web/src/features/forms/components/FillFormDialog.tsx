@@ -205,7 +205,7 @@ export function FillFormDialog({
               setRespondentType(value.type ?? respondentType);
               setCopiedUrl(null);
             }}
-            getItemId={(item) => item.id}
+            getItemId={(item) => item.type ? `${item.type}:${item.id}` : item.id}
             getItemLabel={(item) => personLabel(item, Boolean(sessionId))}
             onSearchChange={sessionId ? undefined : setSearch}
             loading={loading || searching}

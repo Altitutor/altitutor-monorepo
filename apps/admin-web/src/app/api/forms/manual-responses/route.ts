@@ -75,12 +75,18 @@ export async function POST(request: Request) {
         .select('id').eq('session_id', body.sessionId).eq('student_id', body.respondentId).maybeSingle();
       if (!participant) return NextResponse.json({ error: 'That student is not part of this session.' }, { status: 409 });
     } else if (respondentType === 'parent') {
-      const { data: sessionStudents } = await auth.admin.from('sessions_students').select('student_id').eq('session_id', body.sessionId);
-      const studentIds = (sessionStudents ?? []).map((row) => row.student_id);
-      const { data: parentLink } = studentIds.length
-        ? await auth.admin.from('parents_students').select('id').eq('parent_id', body.respondentId).in('student_id', studentIds).limit(1).maybeSingle()
-        : { data: null };
-      if (!parentLink) return NextResponse.json({ error: 'That parent is not connected to a student in this session.' }, { status: 409 });
+      const { data: sessionParent } = await auth.admin.from('sessions_parents')
+        .select('id').eq('session_id', body.sessionId).eq('parent_id', body.respondentId).maybeSingle();
+      if (!sessionParent) {
+        const { data: sessionStudents } = await auth.admin.from('sessions_students').select('student_id').eq('session_id', body.sessionId);
+        const studentIds = (sessionStudents ?? []).map((row) => row.student_id);
+        const { data: parentLink } = studentIds.length
+          ? await auth.admin.from('parents_students').select('id').eq('parent_id', body.respondentId).in('student_id', studentIds).limit(1).maybeSingle()
+          : { data: null };
+        if (!parentLink) {
+          return NextResponse.json({ error: 'That parent is not part of this session.' }, { status: 409 });
+        }
+      }
     } else {
       const { data: participant } = await auth.admin.from('sessions_staff')
         .select('id').eq('session_id', body.sessionId).eq('staff_id', body.respondentId).maybeSingle();
