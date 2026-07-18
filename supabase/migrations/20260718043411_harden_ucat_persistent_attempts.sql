@@ -23,6 +23,19 @@ alter table public.student_question_attempts
   add column if not exists first_seen_at timestamptz,
   add column if not exists time_spent_milliseconds bigint;
 
+-- These snapshot checks are intentionally NOT VALID so historical rows whose
+-- source content was already deleted can remain as audit records. PostgreSQL
+-- still applies a NOT VALID check to every updated row, though, which would
+-- block the metadata-only backfills below. Drop the checks for this transaction
+-- and restore them after every legacy row update. Snapshot capture triggers
+-- continue protecting all new attempts while the migration runs.
+alter table public.student_question_attempts
+  drop constraint if exists student_question_attempts_content_snapshot_required;
+alter table public.student_question_set_attempts
+  drop constraint if exists student_question_set_attempts_content_snapshot_required;
+alter table public.student_ucat_mock_attempts
+  drop constraint if exists student_ucat_mock_attempts_content_snapshot_required;
+
 update public.student_question_set_attempts
 set last_activity_at = coalesce(last_activity_at, completed_at, attempted_at);
 
@@ -573,3 +586,13 @@ revoke all on function public.expire_stale_ucat_exam_attempts(uuid)
   from public, anon, authenticated;
 grant execute on function public.expire_stale_ucat_exam_attempts(uuid)
   to service_role;
+
+alter table public.student_question_attempts
+  add constraint student_question_attempts_content_snapshot_required
+  check (content_snapshot is not null) not valid;
+alter table public.student_question_set_attempts
+  add constraint student_question_set_attempts_content_snapshot_required
+  check (content_snapshot is not null) not valid;
+alter table public.student_ucat_mock_attempts
+  add constraint student_ucat_mock_attempts_content_snapshot_required
+  check (content_snapshot is not null) not valid;
