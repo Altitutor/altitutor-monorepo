@@ -36,51 +36,58 @@ export function useMessageSubscription() {
       .channel('messages-inbound')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const row = payload.new as Database['public']['Tables']['messages']['Row'];
-        if (row?.direction === 'INBOUND' && !row.is_historical_import) {
-          // Mark conversation as unread for all staff by deleting conversation_reads
-          try {
-            await supabase
-              .from('conversation_reads')
-              .delete()
-              .eq('conversation_id', row.conversation_id);
-            
-            // Invalidate conversations queries to update unread indicators
-            queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
-            queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-            queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-          } catch (error: unknown) {
-            console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
-          }
+        if (row?.direction !== 'INBOUND') return;
+
+        // Always refresh inbox/thread caches; historical backfill should not toast/unread.
+        queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
+        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+        queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+        queryClient.invalidateQueries({ queryKey: messagesKeys.messages(row.conversation_id) });
+
+        if (row.is_historical_import) return;
+
+        // Mark conversation as unread for all staff by deleting conversation_reads
+        try {
+          await supabase
+            .from('conversation_reads')
+            .delete()
+            .eq('conversation_id', row.conversation_id);
           
-          // Fetch conversation with contact info to get sender name
-          let senderName = 'Unknown';
-          try {
-            const { data: conversation } = await supabase
-              .from('conversations')
-              .select(`
-                id,
-                contacts (
-                  id, phone_e164, contact_type,
-                  students (id, first_name, last_name),
-                  parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-                  staff (id, first_name, last_name)
-                )
-              `)
-              .eq('id', row.conversation_id)
-              .maybeSingle();
-            
-            if (conversation?.contacts) {
-              senderName = formatContactName({ contacts: conversation.contacts });
-            }
-          } catch (error: unknown) {
-            console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
-          }
-          
-          if (hasWindowRef.current(row.conversation_id)) {
-            incrementUnreadRef.current(row.conversation_id);
-          }
-          toast({ title: `${senderName}: ${row.body}`, description: '' });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+        } catch (error: unknown) {
+          console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
         }
+        
+        // Fetch conversation with contact info to get sender name
+        let senderName = 'Unknown';
+        try {
+          const { data: conversation } = await supabase
+            .from('conversations')
+            .select(`
+              id,
+              contacts (
+                id, phone_e164, contact_type,
+                students (id, first_name, last_name),
+                parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+                staff (id, first_name, last_name)
+              )
+            `)
+            .eq('id', row.conversation_id)
+            .maybeSingle();
+          
+          if (conversation?.contacts) {
+            senderName = formatContactName({ contacts: conversation.contacts });
+          }
+        } catch (error: unknown) {
+          console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
+        }
+        
+        if (hasWindowRef.current(row.conversation_id)) {
+          incrementUnreadRef.current(row.conversation_id);
+        }
+        toast({ title: `${senderName}: ${row.body}`, description: '' });
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIPTION_ERROR') {

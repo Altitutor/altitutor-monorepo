@@ -43,7 +43,9 @@ events cannot overwrite a known delivered/read result.
 
 ## Inbound and reconciliation events
 
-`new-message` and `reconciliation-message` are message-producing events. Both are idempotent by
+`new-message` and `reconciliation-message` are message-producing events. Recent
+reconciliation catch-up (message age under ~10 minutes) is treated as live for
+unread/notifications; older reconciliation is historical backfill. Both are idempotent by
 provider GUID and can correlate an existing outbound row by temp GUID.
 
 `message-send-error` updates a correlated outbound row. Group-name and participant events update

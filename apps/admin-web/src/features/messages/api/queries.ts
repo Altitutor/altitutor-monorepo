@@ -80,8 +80,9 @@ export function useUnreadConversationCount() {
   return useQuery({
     queryKey: messagesKeys.unreadCount(),
     queryFn: fetchUnreadConversationCount,
-    staleTime: 1000 * 30,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 15,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 30,
   });
 }
 
@@ -118,7 +119,7 @@ export function useConversations() {
       }));
     },
     staleTime: 1000 * 30, // 30 seconds
-    refetchOnWindowFocus: false, // Realtime handles updates
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -166,9 +167,9 @@ export function useMessages(conversationId: string) {
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!conversationId,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 15,
     retry: 1, // Only retry once instead of 3 times
-    refetchOnWindowFocus: false, // Realtime handles updates
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -517,8 +518,8 @@ export function useConversationsByContact(
   return useQuery({
     queryKey: messagesKeys.conversationsByContact(ownedNumberId),
     queryFn: () => fetchConversationsByContact(ownedNumberId),
-    staleTime: 1000 * 30, // 30 seconds
-    refetchOnWindowFocus: false, // Realtime handles updates
+    staleTime: 1000 * 15,
+    refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,
   });
 }
@@ -530,8 +531,8 @@ export function useConversationList(
   return useQuery({
     queryKey: [...messagesKeys.conversationsByContact(ownedNumberId), 'including-groups'],
     queryFn: () => fetchConversationList(ownedNumberId),
-    staleTime: 1000 * 30,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 15,
+    refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,
   });
 }
@@ -626,9 +627,9 @@ export function useMessagesForContact(contactId: string | null, ownedNumberId?: 
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!contactId,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 15,
     retry: 1,
-    refetchOnWindowFocus: false, // Realtime handles updates
+    refetchOnWindowFocus: true,
   });
 }
 

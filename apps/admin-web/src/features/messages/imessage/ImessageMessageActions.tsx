@@ -1,13 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -16,18 +11,30 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  Input,
 } from '@altitutor/ui';
 import { MoreHorizontal } from 'lucide-react';
 import { useImessageControl } from './hooks';
 import { ImessageCommandDialog } from './ImessageCommandDialog';
+import { ImessageEditDialog } from './ImessageEditDialog';
+import {
+  IMESSAGE_EDIT_WINDOW_MS,
+  IMESSAGE_UNSEND_WINDOW_MS,
+  canEditImessage,
+  canUnsendImessage,
+  formatImessageWindowRemaining,
+  imessageWindowRemainingMs,
+  messageSentAtMs,
+} from './imessageWindows';
 import type { IssueWithTags } from '@/features/issues/types';
 
 interface ImessageMessageActionsProps {
   messageId: string;
   conversationId?: string | null;
+  contactId?: string | null;
   imessageGuid?: string | null;
   body: string;
+  sentAt?: string | null;
+  createdAt?: string | null;
   isOwnMessage: boolean;
   showCreateIssue?: boolean;
   matchedIssues?: IssueWithTags[];
@@ -48,8 +55,11 @@ const TAPBACKS = [
 export function ImessageMessageActions({
   messageId,
   conversationId,
+  contactId,
   imessageGuid,
   body,
+  sentAt,
+  createdAt,
   isOwnMessage,
   showCreateIssue = false,
   matchedIssues = [],
@@ -59,26 +69,39 @@ export function ImessageMessageActions({
 }: ImessageMessageActionsProps) {
   const control = useImessageControl();
   const [editOpen, setEditOpen] = useState(false);
-  const [editedBody, setEditedBody] = useState(body);
   const [unsendOpen, setUnsendOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   const hasImessageActions = Boolean(imessageGuid);
   const hasIssueActions = showCreateIssue && Boolean(onCreateIssue);
+  const sentAtMs = messageSentAtMs(sentAt, createdAt);
+  const canEdit = isOwnMessage && hasImessageActions && canEditImessage(sentAtMs, now);
+  const canUnsend = isOwnMessage && hasImessageActions && canUnsendImessage(sentAtMs, now);
+  const editRemaining = imessageWindowRemainingMs(sentAtMs, IMESSAGE_EDIT_WINDOW_MS, now);
+  const unsendRemaining = imessageWindowRemainingMs(sentAtMs, IMESSAGE_UNSEND_WINDOW_MS, now);
+
+  useEffect(() => {
+    if (!isOwnMessage || !hasImessageActions) return;
+    if (!canEditImessage(sentAtMs) && !canUnsendImessage(sentAtMs)) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [isOwnMessage, hasImessageActions, sentAtMs]);
+
   if (!hasImessageActions && !hasIssueActions) return null;
 
-  const editMessage = async () => {
-    if (!imessageGuid) return;
+  const editMessage = async (text: string) => {
+    if (!imessageGuid || !canEditImessage(messageSentAtMs(sentAt, createdAt))) return;
     await control.mutateAsync({
       commandType: 'edit_message',
       messageId,
       conversationId: conversationId ?? undefined,
-      payload: { imessageGuid, text: editedBody.trim() },
+      payload: { imessageGuid, text },
     });
     setEditOpen(false);
   };
 
   const confirmUnsend = async (reason?: string) => {
-    if (!imessageGuid) return;
+    if (!imessageGuid || !canUnsendImessage(messageSentAtMs(sentAt, createdAt))) return;
     await control.mutateAsync({
       commandType: 'unsend_message',
       messageId,
@@ -138,35 +161,37 @@ export function ImessageMessageActions({
                   ))}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              {isOwnMessage && (
-                <>
-                  <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit sent message</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setUnsendOpen(true)}>
-                    Unsend for everyone…
-                  </DropdownMenuItem>
-                </>
+              {canEdit && (
+                <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                  Edit sent message ({formatImessageWindowRemaining(editRemaining)})
+                </DropdownMenuItem>
+              )}
+              {canUnsend && (
+                <DropdownMenuItem onClick={() => setUnsendOpen(true)}>
+                  Unsend for everyone… ({formatImessageWindowRemaining(unsendRemaining)})
+                </DropdownMenuItem>
               )}
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit iMessage</DialogTitle></DialogHeader>
-          <Input value={editedBody} onChange={(event) => setEditedBody(event.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button disabled={!editedBody.trim() || control.isPending} onClick={editMessage}>Queue edit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ImessageEditDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        initialBody={body}
+        contactId={contactId}
+        sentAt={sentAt}
+        createdAt={createdAt}
+        pending={control.isPending}
+        onSave={editMessage}
+      />
 
       <ImessageCommandDialog
         open={unsendOpen}
         onOpenChange={(open) => !open && setUnsendOpen(false)}
         title="Unsend this iMessage?"
-        description="This requests removal for all iMessage participants."
+        description={`This requests removal for all iMessage participants. Apple only allows unsending for 2 minutes after send (${formatImessageWindowRemaining(unsendRemaining)}).`}
         confirmLabel="Unsend message"
         destructive
         pending={control.isPending}
