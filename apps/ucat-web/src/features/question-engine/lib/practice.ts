@@ -98,6 +98,35 @@ export function computeClientStemQuestionTimes(
   );
 }
 
+export function computeReconciledStemQuestionTimes(
+  questions: QuestionItem[],
+  startIndex: number,
+  endIndex: number,
+  persistedSecondsByQuestionId: Record<string, number>,
+  clientTiming: ClientPracticeQuestionTiming,
+  nowMs: number = Date.now(),
+): { stemTimeSeconds: number; stemQuestionTimes: StemQuestionTime[] } {
+  return computeStemQuestionTimesFromDisplay(
+    questions,
+    startIndex,
+    endIndex,
+    (questionId) =>
+      Math.max(
+        getQuestionDisplaySeconds(
+          questionId,
+          persistedSecondsByQuestionId,
+          null,
+          nowMs,
+        ),
+        getClientPracticeQuestionDisplaySeconds(
+          questionId,
+          clientTiming,
+          nowMs,
+        ),
+      ),
+  );
+}
+
 function computeStemQuestionTimesFromDisplay(
   questions: QuestionItem[],
   startIndex: number,

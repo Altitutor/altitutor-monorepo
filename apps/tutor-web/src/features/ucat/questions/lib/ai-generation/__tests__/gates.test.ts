@@ -24,7 +24,7 @@ function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {})
 
 function stem(overrides: Partial<GeneratedStem> = {}): GeneratedStem {
   return {
-    stemText: 'Paragraph one.\n\nParagraph two.',
+    stemText: 'The first passage paragraph.\n\nThe second passage paragraph.',
     categoryName: 'Reading Comprehension',
     difficultyTarget: 'medium',
     timeBurdenTarget: 'medium',
@@ -42,6 +42,24 @@ describe('validateGeneratedStemCandidate', () => {
     })
 
     expect(issues.filter((issue) => issue.severity === 'blocking')).toEqual([])
+  })
+
+  it.each([
+    'Paragraph 1: The first passage paragraph.\n\nParagraph 2: The second passage paragraph.',
+    [
+      { type: 'paragraph' as const, text: 'Paragraph one. The first passage paragraph.' },
+      { type: 'paragraph' as const, text: '**Paragraph 2** The second passage paragraph.' },
+    ],
+  ])('blocks explicit paragraph labels in VR passage text', (stemText) => {
+    const issues = validateGeneratedStemCandidate(stem({ stemText }), 0, {
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+    })
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'vr_passage_paragraph_label',
+      severity: 'blocking',
+    }))
   })
 
   it('blocks VR true false cannot tell option mismatches', () => {

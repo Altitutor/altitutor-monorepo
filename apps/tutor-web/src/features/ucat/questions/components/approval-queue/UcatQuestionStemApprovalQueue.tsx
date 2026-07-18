@@ -34,8 +34,9 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { useManualStemMetadataAutoApply } from '@/features/ucat/questions/hooks/useManualStemMetadataAutoApply'
+import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
+import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -216,7 +217,7 @@ function UcatQuestionStemApprovalQueue({
     detailQuery.isLoading || sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
   const isMutating = updateMutation.isPending || statusMutation.isPending || deleteMutation.isPending
   const isAiMode = currentEntry?.mode === 'ai_approval'
-  const metadataRecommendation = useManualStemMetadataAutoApply({
+  const metadataDetection = useManualStemMetadataDetection({
     enabled: isAiMode && !isLoading && detailQuery.data != null,
     resetKey: currentEntry?.stemId ?? null,
     form,
@@ -450,6 +451,16 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {isAiMode ? (
+              <UcatDetectedStemMetadataControl
+                pendingDiff={metadataDetection.pendingDiff}
+                sections={sections}
+                categories={categories}
+                tags={tags}
+                onAccept={metadataDetection.accept}
+                onDismiss={metadataDetection.dismiss}
+              />
+            ) : null}
             {onToggleExpanded && expanded != null ? (
               <ExpandButton expanded={expanded} onToggle={onToggleExpanded} />
             ) : null}
@@ -511,7 +522,6 @@ function UcatQuestionStemApprovalQueue({
             statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
             statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
             statusChangedAt={detailQuery.data?.status_changed_at ?? null}
-            metadataRecommendation={isAiMode ? metadataRecommendation : null}
           />
         )}
       </div>

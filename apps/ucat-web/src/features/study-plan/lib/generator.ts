@@ -339,7 +339,7 @@ function skillTrainerTask(
     questionSetId: null,
     mockId: null,
     skillTrainerId: trainer.id,
-    launchPath: `/skill-trainer/${trainer.key.replaceAll("_", "-")}`,
+    launchPath: `/skill-trainer/${trainer.key.replaceAll("_", "-")}/play`,
     launchConfig: {
       kind: "skill_trainer",
       skillTrainerId: trainer.id,
@@ -381,9 +381,11 @@ export function reviewTask(
     launchPath: "/progress",
     launchConfig: {
       kind: "review",
-      sourceTaskSortOrder: sourceTask.sortOrder,
-      sourceTaskScheduledDate: sourceTask.scheduledDate,
       awaitingAttempt: true,
+    },
+    sourceTaskRef: {
+      scheduledDate: sourceTask.scheduledDate,
+      sortOrder: sourceTask.sortOrder,
     },
   };
 }

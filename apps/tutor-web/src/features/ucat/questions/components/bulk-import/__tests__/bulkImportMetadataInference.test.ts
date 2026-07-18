@@ -63,9 +63,10 @@ describe('inferManualStemMetadataRecommendation', () => {
     expect(recommendation).toBeNull()
   })
 
-  it('detects a distinctive category and recommends the linked section', () => {
+  it('detects a distinctive category within the current section without switching', () => {
     const recommendation = inferManualStemMetadataRecommendation({
       values: stemValues({
+        sectionId: 'qr-section',
         stemText: text('The line graph below shows clinic attendance over six months.'),
         questions: [
           {
@@ -79,13 +80,38 @@ describe('inferManualStemMetadataRecommendation', () => {
       tags: [],
     })
 
-    expect(recommendation?.sectionId).toBe('qr-section')
+    expect(recommendation?.sectionId).toBeNull()
     expect(recommendation?.categoryId).toBe('qr-graphs')
   })
 
-  it('recommends syllogism question type when the Syllogisms category is detected', () => {
+  it('does not switch away from Verbal Reasoning when the stem contains percentages', () => {
     const recommendation = inferManualStemMetadataRecommendation({
       values: stemValues({
+        sectionId: 'vr-section',
+        categoryId: 'vr-reading',
+        stemText: text(
+          'In Bellwater, 61% of surveyed members borrowed at least one item. Fees rose from $18 to higher rates.',
+        ),
+        questions: [
+          {
+            ...stemValues().questions[0]!,
+            questionText: text('Which statement is best supported by the passage?'),
+          },
+        ],
+      }),
+      sections,
+      categories,
+      tags: [],
+    })
+
+    expect(recommendation?.sectionId).toBeNull()
+    expect(recommendation?.categoryId).toBe('vr-reading')
+  })
+
+  it('recommends syllogism question type when already in Decision Making', () => {
+    const recommendation = inferManualStemMetadataRecommendation({
+      values: stemValues({
+        sectionId: 'dm-section',
         stemText: text('All tutors are mentors. Some mentors are clinicians.'),
         questions: [
           {
@@ -106,9 +132,30 @@ describe('inferManualStemMetadataRecommendation', () => {
       tags: [],
     })
 
-    expect(recommendation?.sectionId).toBe('dm-section')
+    expect(recommendation?.sectionId).toBeNull()
     expect(recommendation?.categoryId).toBe('dm-syllogisms')
     expect(recommendation?.questionType).toBe('syllogism')
+  })
+
+  it('can still detect a section when none is currently set', () => {
+    const recommendation = inferManualStemMetadataRecommendation({
+      values: stemValues({
+        sectionId: '',
+        stemText: text('The line graph below shows clinic attendance over six months.'),
+        questions: [
+          {
+            ...stemValues().questions[0]!,
+            questionText: text('What was the percentage increase from January to March?'),
+          },
+        ],
+      }),
+      sections,
+      categories,
+      tags: [],
+    })
+
+    expect(recommendation?.sectionId).toBe('qr-section')
+    expect(recommendation?.categoryId).toBe('qr-graphs')
   })
 
   it('does not switch section from broad fallback categories', () => {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useEffect, useId, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
@@ -34,6 +35,7 @@ import {
 import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
 
 type MockDetailPageProps = {
   mockId: string;
@@ -61,6 +63,7 @@ export function MockDetailPage({
   sessionEntryContext,
 }: MockDetailPageProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
@@ -74,6 +77,7 @@ export function MockDetailPage({
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
+  const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}`;
 
   const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 2 : 1;
   const backHref =
@@ -89,6 +93,16 @@ export function MockDetailPage({
     () => (mocks ?? []).find((item) => item.id === mockId),
     [mocks, mockId],
   );
+
+  useEffect(() => {
+    if (!mock) return;
+    router.prefetch(examHref);
+    void queryClient.prefetchQuery({
+      queryKey: ["question-engine", "mock", null, mockId],
+      queryFn: () => getQuestionEngineExam({ mode: "mock", mockId }),
+      staleTime: 10 * 60 * 1000,
+    });
+  }, [examHref, mock, mockId, queryClient, router]);
 
   if (isLoading) {
     return <AppPageSkeleton variant="detail" />;
@@ -162,7 +176,6 @@ export function MockDetailPage({
 
   const handleLaunchMock = () => {
     if (questionEngineTourLoading) return;
-    const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}`;
     if (questionEngineTourBlocked) {
       router.push(buildQuestionEngineTutorialHref(examHref));
       return;

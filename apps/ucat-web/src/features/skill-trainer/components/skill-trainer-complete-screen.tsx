@@ -2,32 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { trainerKeyToSlug, type UcatSkillTrainerKey } from "@altitutor/shared";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
-import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
-import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function SkillTrainerCompleteScreen({
   trainerKey,
   finalScore,
-  onLeave,
+  onPlayAgain,
 }: {
   trainerKey: UcatSkillTrainerKey;
   finalScore: number;
-  onLeave: () => void;
+  onPlayAgain: () => Promise<void>;
 }) {
-  const router = useRouter();
   const slug = trainerKeyToSlug(trainerKey);
   const { data: quota } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { openQuotaLimit } = useQuotaLimitDialog();
-  const { setLocal } = useActiveSkillTrainerAttempt();
 
   const skillTrainerQuota = quota?.areas.find(
     (a) => a.area === "skill_trainer",
@@ -57,15 +52,7 @@ export function SkillTrainerCompleteScreen({
     setStarting(true);
     setError(null);
     try {
-      onLeave();
-      const state = await skillTrainerApi.startAttempt(trainerKey);
-      setLocal(state);
-      const activeSlug = trainerKeyToSlug(
-        state.attempt.config_snapshot.trainer_key,
-      );
-      router.push(
-        `/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`,
-      );
+      await onPlayAgain();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not start";
       if (message.includes("QUOTA") || message.includes("quota")) {

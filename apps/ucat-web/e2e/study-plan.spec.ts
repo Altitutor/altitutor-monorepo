@@ -73,7 +73,7 @@ test.describe("personalised Study plan", () => {
     await expect(page.getByLabel("Study plan calendar")).toBeVisible();
     const { data: generatedTasks, error: generatedTasksError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("task_type,question_stem_category_id")
+      .select("task_type,question_stem_category_id,source_task_id")
       .eq("student_id", "10000000-0000-0000-0000-000000000001");
     if (generatedTasksError) throw generatedTasksError;
     expect(
@@ -82,6 +82,11 @@ test.describe("personalised Study plan", () => {
     expect(generatedTasks?.some((task) => task.task_type === "review")).toBe(
       true,
     );
+    expect(
+      generatedTasks
+        ?.filter((task) => task.task_type === "review")
+        .every((task) => task.source_task_id != null),
+    ).toBe(true);
     expect(
       generatedTasks?.some((task) => task.question_stem_category_id != null),
     ).toBe(true);
@@ -173,7 +178,9 @@ test.describe("personalised Study plan", () => {
 
     const { data: nextTasks, error: nextTasksError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("id, scheduled_date, sort_order, launch_config")
+      .select(
+        "id, scheduled_date, sort_order, task_type, launch_config, source_task_id",
+      )
       .eq("generation_id", generation.id)
       .order("scheduled_date")
       .order("sort_order");
@@ -196,15 +203,14 @@ test.describe("personalised Study plan", () => {
     );
     const nextTaskIds = new Set((nextTasks ?? []).map((task) => task.id));
     expect(futureTasks.every((task) => nextTaskIds.has(task.id))).toBe(true);
-    const deferredReview = (nextTasks ?? []).find((task) => {
-      const config = task.launch_config as {
-        sourceTaskScheduledDate?: string;
-      } | null;
-      return (
+    const extraPractice = extraTasks.find(
+      (task) => task.task_type === "practice",
+    );
+    const deferredReview = (nextTasks ?? []).find(
+      (task) =>
         task.scheduled_date > generation.starts_on &&
-        config?.sourceTaskScheduledDate === generation.starts_on
-      );
-    });
+        task.source_task_id === extraPractice?.id,
+    );
     expect(deferredReview).toBeDefined();
     await expect(extraButton).toHaveCount(0);
   });
@@ -274,6 +280,55 @@ test.describe("personalised Study plan", () => {
       })
       .eq("id", firstTask.id);
     if (completionError) throw completionError;
+    const dependentSourceId = randomUUID();
+    const dependentReviewId = randomUUID();
+    const reviewDate = new Date(`${generation.starts_on}T00:00:00Z`);
+    reviewDate.setUTCDate(reviewDate.getUTCDate() + 1);
+    const reviewDateKey = reviewDate.toISOString().slice(0, 10);
+    const { data: occupied, error: occupiedError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("scheduled_date,sort_order")
+      .eq("generation_id", generation.id)
+      .in("scheduled_date", [generation.starts_on, reviewDateKey]);
+    if (occupiedError) throw occupiedError;
+    const nextSortOrder = (date: string) =>
+      Math.max(
+        -1,
+        ...(occupied ?? [])
+          .filter((task) => task.scheduled_date === date)
+          .map((task) => task.sort_order),
+      ) + 1;
+    const { error: dependentTasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .insert([
+        {
+          id: dependentSourceId,
+          generation_id: generation.id,
+          student_id: studentId,
+          scheduled_date: generation.starts_on,
+          sort_order: nextSortOrder(generation.starts_on),
+          task_type: "practice",
+          status: "completed",
+          title: "E2E preserved practice",
+          estimated_minutes: 5,
+          completed_units: 5,
+          completed_at: completedAt,
+        },
+        {
+          id: dependentReviewId,
+          generation_id: generation.id,
+          student_id: studentId,
+          scheduled_date: reviewDateKey,
+          sort_order: nextSortOrder(reviewDateKey),
+          task_type: "review",
+          status: "planned",
+          completed_units: 0,
+          title: "Review · E2E preserved practice",
+          estimated_minutes: 3,
+          source_task_id: dependentSourceId,
+        },
+      ]);
+    if (dependentTasksError) throw dependentTasksError;
     const { data: before, error: beforeError } = await admin
       .from("ucat_student_study_plan_tasks")
       .select("id,status,completed_at,matched_activity_id")
@@ -309,6 +364,16 @@ test.describe("personalised Study plan", () => {
       .order("sort_order");
     if (afterError) throw afterError;
     expect(after).toEqual(before);
+    const { data: carriedReview, error: carriedReviewError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("generation_id,source_task_id")
+      .eq("id", dependentReviewId)
+      .single();
+    if (carriedReviewError) throw carriedReviewError;
+    expect(carriedReview).toEqual({
+      generation_id: nextGeneration.id,
+      source_task_id: dependentSourceId,
+    });
   });
 
   test("unlocks a mock only for the persona with completed cognitive section sets", async ({
@@ -413,33 +478,107 @@ test.describe("personalised Study plan", () => {
       .delete()
       .eq("student_id", studentId);
     if (sessionResetError) throw sessionResetError;
-    await signIn(page, "fiona.harris@student.test");
-    await expect(page.getByText(/Review ·/).first()).toBeVisible({
-      timeout: 30_000,
-    });
-
-    const { data: task, error: taskError } = await admin
-      .from("ucat_student_study_plan_tasks")
-      .select(
-        "id, title, target_units, section_id, question_stem_category_id, launch_config",
-      )
+    const { data: profile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select("id,test_date")
       .eq("student_id", studentId)
-      .eq("task_type", "practice")
-      .order("scheduled_date")
-      .order("sort_order")
+      .single();
+    if (profileError) throw profileError;
+    const planningDate = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Australia/Adelaide",
+    });
+    const generationId = randomUUID();
+    const { error: generationFixtureError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .insert({
+        id: generationId,
+        student_id: studentId,
+        profile_id: profile.id,
+        reason: "manual",
+        planning_date: planningDate,
+        starts_on: planningDate,
+        ends_on: profile.test_date,
+      });
+    if (generationFixtureError) throw generationFixtureError;
+    await signIn(page, "fiona.harris@student.test");
+
+    const { data: generation, error: generationError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .select("id,starts_on")
+      .eq("student_id", studentId)
+      .is("superseded_at", null)
+      .single();
+    if (generationError) throw generationError;
+    expect(generation.id).toBe(generationId);
+    const { data: section, error: sectionError } = await admin
+      .from("ucat_sections")
+      .select("id")
+      .eq("section_number", 2)
+      .single();
+    if (sectionError) throw sectionError;
+    const { data: category, error: categoryError } = await admin
+      .from("question_stem_categories")
+      .select("id")
+      .eq("ucat_section_id", section.id)
       .limit(1)
-      .maybeSingle();
-    if (taskError) throw taskError;
-    if (
-      !task?.section_id ||
-      !task.question_stem_category_id ||
-      !task.target_units
-    ) {
-      throw new Error("Fiona has no actionable category practice task.");
-    }
-    const launchConfig = task.launch_config as { section?: string } | null;
-    if (!launchConfig?.section)
-      throw new Error("Practice fixture is missing its section key.");
+      .single();
+    if (categoryError) throw categoryError;
+    const { data: dayTasks, error: dayTasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("sort_order")
+      .eq("generation_id", generation.id)
+      .eq("scheduled_date", generation.starts_on);
+    if (dayTasksError) throw dayTasksError;
+    const sourceSortOrder =
+      Math.max(-1, ...(dayTasks ?? []).map((item) => item.sort_order)) + 1;
+    const task = {
+      id: randomUUID(),
+      title: "E2E category practice",
+      target_units: 10,
+      section_id: section.id,
+      question_stem_category_id: category.id,
+    };
+    const linkedReview = {
+      id: randomUUID(),
+      scheduled_date: generation.starts_on,
+    };
+    const { error: fixtureError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .insert([
+        {
+          id: task.id,
+          generation_id: generation.id,
+          student_id: studentId,
+          scheduled_date: generation.starts_on,
+          sort_order: sourceSortOrder,
+          task_type: "practice",
+          status: "planned",
+          title: task.title,
+          estimated_minutes: 10,
+          target_units: task.target_units,
+          completed_units: 0,
+          section_id: task.section_id,
+          question_stem_category_id: task.question_stem_category_id,
+          launch_path: "/practice",
+          launch_config: { section: "decision_making" },
+        },
+        {
+          id: linkedReview.id,
+          generation_id: generation.id,
+          student_id: studentId,
+          scheduled_date: linkedReview.scheduled_date,
+          sort_order: sourceSortOrder + 1,
+          task_type: "review",
+          status: "planned",
+          title: `Review · ${task.title}`,
+          estimated_minutes: 3,
+          completed_units: 0,
+          source_task_id: task.id,
+          launch_path: "/progress",
+          launch_config: { kind: "review", awaitingAttempt: true },
+        },
+      ]);
+    if (fixtureError) throw fixtureError;
     const completedQuestions = Math.max(1, task.target_units - 1);
     const sessionId = randomUUID();
     const completedAt = new Date().toISOString();
@@ -449,7 +588,7 @@ test.describe("personalised Study plan", () => {
         id: sessionId,
         student_id: studentId,
         ucat_section_id: task.section_id,
-        section_key: launchConfig.section,
+        section_key: "decision_making",
         filters_snapshot: {
           categoryIds: [task.question_stem_category_id],
           questionCount: task.target_units,
@@ -478,13 +617,7 @@ test.describe("personalised Study plan", () => {
     if (legacyPartialError) throw legacyPartialError;
 
     await page.reload();
-    const practiceTask = page
-      .locator("li")
-      .filter({ hasText: task.title })
-      .first();
-    await expect(practiceTask.getByText(task.title)).toHaveClass(
-      /line-through/,
-    );
+    await selectCalendarDate(page, linkedReview.scheduled_date);
     const reviewTitle = `Review · ${task.title}`;
     const reviewTask = page
       .locator("li")
@@ -517,9 +650,7 @@ test.describe("personalised Study plan", () => {
     );
   });
 
-  test("keeps the companion collapsed with live progress during ordinary practice", async ({
-    page,
-  }) => {
+  test("hides the companion during ordinary practice", async ({ page }) => {
     const admin = localAdmin();
     const studentId = "10000000-0000-0000-0000-000000000006";
     const { error: generationResetError } = await admin
@@ -563,24 +694,9 @@ test.describe("personalised Study plan", () => {
       timeout: 30_000,
     });
 
-    const companion = page.getByRole("complementary", {
-      name: "Study plan companion",
-    });
-    await expect(companion).toBeVisible();
-    await expect(companion.getByText("Practice in progress")).toBeVisible({
-      timeout: 30_000,
-    });
     await expect(
-      companion.getByText(task.title, { exact: true }).first(),
-    ).toBeVisible();
-    await expect(
-      companion.getByRole("button", { name: "Study plan progress" }),
-    ).toBeDisabled();
-    await expect
-      .poll(async () =>
-        companion.evaluate((element) => getComputedStyle(element).position),
-      )
-      .toBe("static");
+      page.getByRole("complementary", { name: "Study plan companion" }),
+    ).toHaveCount(0);
     const { data: session, error: sessionError } = await admin
       .from("student_practice_sessions")
       .select("stems_snapshot, filters_snapshot")
@@ -601,12 +717,6 @@ test.describe("personalised Study plan", () => {
     expect(session?.filters_snapshot).toMatchObject({
       studyPlanTaskId: task.id,
     });
-    const liveProgress = companion
-      .locator("p")
-      .filter({ hasText: `of ${deliveredCount} answered` })
-      .first();
-    await expect(liveProgress).toContainText("0");
-
     await page.goto("/exam/tutorial");
     await expect(
       page.getByRole("complementary", { name: "Study plan companion" }),

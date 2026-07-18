@@ -115,4 +115,65 @@ describe("persistQuestionAttemptBatch", () => {
       { onConflict: "id" },
     );
   });
+
+  it("uses client timing as a completion fallback without reducing server timing", async () => {
+    const selectQuery = thenableQuery({
+      data: [
+        {
+          id: "attempt-1",
+          question_id: "question-1",
+          time_spent_milliseconds: 2400,
+        },
+        {
+          id: "attempt-2",
+          question_id: "question-2",
+          time_spent_milliseconds: 5100,
+        },
+      ],
+      error: null,
+    });
+    const updateUpsert = jest.fn().mockResolvedValue({ error: null });
+    const from = jest
+      .fn()
+      .mockReturnValueOnce(selectQuery)
+      .mockReturnValueOnce({ upsert: updateUpsert });
+
+    await persistQuestionAttemptBatch(
+      { from } as never,
+      "student-1",
+      {
+        studentQuestionSetAttemptId: null,
+        studentPracticeSessionId: "session-1",
+        learningModuleBlockId: null,
+      },
+      [
+        {
+          questionId: "question-1",
+          questionAnswerOptionId: "option-1",
+          timeSpentMilliseconds: 3900,
+        },
+        {
+          questionId: "question-2",
+          questionAnswerOptionId: "option-2",
+          timeSpentMilliseconds: 1000,
+        },
+      ],
+    );
+
+    expect(updateUpsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: "attempt-1",
+          time_spent_milliseconds: 3900,
+          time_spent_seconds: 4,
+        }),
+        expect.objectContaining({
+          id: "attempt-2",
+          time_spent_milliseconds: 5100,
+          time_spent_seconds: 6,
+        }),
+      ],
+      { onConflict: "id" },
+    );
+  });
 });

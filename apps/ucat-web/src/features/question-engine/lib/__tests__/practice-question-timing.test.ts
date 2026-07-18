@@ -55,12 +55,32 @@ describe("practice-question-timing", () => {
 
   it("accumulates client timing when switching questions", () => {
     let state = switchClientPracticeQuestionTiming(
-      { secondsByQuestionId: {}, activeQuestionId: null, activeStartedAtMs: null },
+      {
+        millisecondsByQuestionId: {},
+        activeQuestionId: null,
+        activeStartedAtMs: null,
+      },
       "q1",
       0,
     );
     state = switchClientPracticeQuestionTiming(state, "q2", 5000);
     expect(getClientPracticeQuestionDisplaySeconds("q1", state, 5000)).toBe(5);
     expect(getClientPracticeQuestionDisplaySeconds("q2", state, 8000)).toBe(3);
+  });
+
+  it("preserves sub-second intervals across question switches", () => {
+    let state = switchClientPracticeQuestionTiming(
+      {
+        millisecondsByQuestionId: {},
+        activeQuestionId: null,
+        activeStartedAtMs: null,
+      },
+      "q1",
+      0,
+    );
+    state = switchClientPracticeQuestionTiming(state, "q2", 600);
+    state = switchClientPracticeQuestionTiming(state, "q1", 1200);
+
+    expect(getClientPracticeQuestionDisplaySeconds("q1", state, 1600)).toBe(1);
   });
 });

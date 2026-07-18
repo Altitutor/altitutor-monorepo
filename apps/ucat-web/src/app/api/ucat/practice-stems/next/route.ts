@@ -23,6 +23,7 @@ type UnlimitedPracticeSessionRow = {
   completed_at: string | null;
   discarded_at: string | null;
   expired_at: string | null;
+  stem_delivery_revision: number;
 };
 
 function asStemSnapshot(value: Json | null): QuestionStemWithQuestions | null {
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("student_practice_sessions")
     .select(
-      "id, stems_snapshot, prefetched_stem_snapshot, unlimited, completed_at, discarded_at, expired_at",
+      "id, stems_snapshot, prefetched_stem_snapshot, unlimited, completed_at, discarded_at, expired_at, stem_delivery_revision",
     )
     .eq("id", practiceSessionId)
     .eq("student_id", student.id)
@@ -183,17 +184,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: updateError } = await supabaseAdmin
+    const deliveryQuery = supabaseAdmin
       .from("student_practice_sessions")
       .update({
         stems_snapshot: [...deliveredStems, prefetchedStem] as unknown as Json,
         prefetched_stem_snapshot: null,
+        last_activity_at: new Date().toISOString(),
+        stem_delivery_revision: sessionRow.stem_delivery_revision + 1,
       })
       .eq("id", practiceSessionId)
-      .eq("student_id", student.id);
+      .eq("student_id", student.id)
+      .eq("stem_delivery_revision", sessionRow.stem_delivery_revision);
+    const { data: committed, error: updateError } = await deliveryQuery
+      .select("id")
+      .maybeSingle();
     if (updateError) {
       captureApiError(updateError, "/api/ucat/practice-stems/next");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    if (!committed) {
+      const { data: currentSession, error: currentSessionError } =
+        await supabaseAdmin
+          .from("student_practice_sessions")
+          .select("stems_snapshot")
+          .eq("id", practiceSessionId)
+          .eq("student_id", student.id)
+          .maybeSingle();
+      if (currentSessionError) {
+        captureApiError(currentSessionError, "/api/ucat/practice-stems/next");
+        return NextResponse.json(
+          { error: currentSessionError.message },
+          { status: 500 },
+        );
+      }
+      const currentStems = Array.isArray(currentSession?.stems_snapshot)
+        ? (currentSession.stems_snapshot as unknown as QuestionStemWithQuestions[])
+        : [];
+      const concurrentlyDelivered = currentStems.find(
+        (currentStem) => currentStem.id === body.deliverStemId,
+      );
+      if (concurrentlyDelivered) {
+        return NextResponse.json({ stem: concurrentlyDelivered });
+      }
+      return NextResponse.json(
+        { error: "Practice stem delivery changed; please retry" },
+        { status: 409 },
+      );
     }
     return NextResponse.json({ stem: prefetchedStem });
   }
@@ -204,17 +240,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ stem: prefetchedStem });
     }
 
-    const { error: updateError } = await supabaseAdmin
+    const deliveryQuery = supabaseAdmin
       .from("student_practice_sessions")
       .update({
         stems_snapshot: [...deliveredStems, prefetchedStem] as unknown as Json,
         prefetched_stem_snapshot: null,
+        last_activity_at: new Date().toISOString(),
+        stem_delivery_revision: sessionRow.stem_delivery_revision + 1,
       })
       .eq("id", practiceSessionId)
-      .eq("student_id", student.id);
+      .eq("student_id", student.id)
+      .eq("stem_delivery_revision", sessionRow.stem_delivery_revision);
+    const { data: committed, error: updateError } = await deliveryQuery
+      .select("id")
+      .maybeSingle();
     if (updateError) {
       captureApiError(updateError, "/api/ucat/practice-stems/next");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    if (!committed) {
+      return NextResponse.json(
+        { error: "Practice stem delivery changed; please retry" },
+        { status: 409 },
+      );
     }
     return NextResponse.json({ stem: prefetchedStem });
   }
@@ -247,11 +295,19 @@ export async function POST(request: NextRequest) {
   const stem = mapStemDetailToQuestionStemWithQuestions(stemRow);
 
   if (body.preview) {
-    const { error: prefetchUpdateError } = await supabaseAdmin
+    const prefetchQuery = supabaseAdmin
       .from("student_practice_sessions")
-      .update({ prefetched_stem_snapshot: stem as unknown as Json })
+      .update({
+        prefetched_stem_snapshot: stem as unknown as Json,
+        last_activity_at: new Date().toISOString(),
+        stem_delivery_revision: sessionRow.stem_delivery_revision + 1,
+      })
       .eq("id", practiceSessionId)
-      .eq("student_id", student.id);
+      .eq("student_id", student.id)
+      .eq("stem_delivery_revision", sessionRow.stem_delivery_revision);
+    const { data: committed, error: prefetchUpdateError } = await prefetchQuery
+      .select("id")
+      .maybeSingle();
     if (prefetchUpdateError) {
       captureApiError(prefetchUpdateError, "/api/ucat/practice-stems/next");
       return NextResponse.json(
@@ -259,22 +315,87 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+    if (!committed) {
+      const { data: currentSession, error: currentSessionError } =
+        await supabaseAdmin
+          .from("student_practice_sessions")
+          .select("prefetched_stem_snapshot")
+          .eq("id", practiceSessionId)
+          .eq("student_id", student.id)
+          .maybeSingle();
+      if (currentSessionError) {
+        captureApiError(currentSessionError, "/api/ucat/practice-stems/next");
+        return NextResponse.json(
+          { error: currentSessionError.message },
+          { status: 500 },
+        );
+      }
+      const concurrentPrefetch = asStemSnapshot(
+        currentSession?.prefetched_stem_snapshot ?? null,
+      );
+      if (concurrentPrefetch) {
+        return NextResponse.json({ stem: concurrentPrefetch });
+      }
+      return NextResponse.json(
+        { error: "Practice stem prefetch changed; please retry" },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ stem });
   }
 
   const nextDeliveredStems = [...deliveredStems, stem];
-  const { error: updateError } = await supabaseAdmin
+  const commitQuery = supabaseAdmin
     .from("student_practice_sessions")
     .update({
       stems_snapshot: nextDeliveredStems as unknown as Json,
       prefetched_stem_snapshot: null,
+      last_activity_at: new Date().toISOString(),
+      stem_delivery_revision: sessionRow.stem_delivery_revision + 1,
     })
     .eq("id", practiceSessionId)
-    .eq("student_id", student.id);
+    .eq("student_id", student.id)
+    .eq("stem_delivery_revision", sessionRow.stem_delivery_revision);
+  const { data: committed, error: updateError } = await commitQuery
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     captureApiError(updateError, "/api/ucat/practice-stems/next");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (!committed) {
+    // Another tab/request delivered from the same snapshot first. Return the
+    // server winner instead of showing a different question whose membership
+    // was never committed to this session.
+    const { data: currentSession, error: currentSessionError } =
+      await supabaseAdmin
+        .from("student_practice_sessions")
+        .select("stems_snapshot")
+        .eq("id", practiceSessionId)
+        .eq("student_id", student.id)
+        .maybeSingle();
+    if (currentSessionError) {
+      captureApiError(currentSessionError, "/api/ucat/practice-stems/next");
+      return NextResponse.json(
+        { error: currentSessionError.message },
+        { status: 500 },
+      );
+    }
+    const currentStems = Array.isArray(currentSession?.stems_snapshot)
+      ? (currentSession.stems_snapshot as unknown as QuestionStemWithQuestions[])
+      : [];
+    const deliveredByConcurrentRequest = currentStems.find(
+      (currentStem) => !deliveredStemIds.includes(currentStem.id),
+    );
+    if (deliveredByConcurrentRequest) {
+      return NextResponse.json({ stem: deliveredByConcurrentRequest });
+    }
+    return NextResponse.json(
+      { error: "Practice stem delivery changed; please retry" },
+      { status: 409 },
+    );
   }
 
   return NextResponse.json({ stem });

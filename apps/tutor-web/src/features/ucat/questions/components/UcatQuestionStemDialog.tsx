@@ -27,7 +27,7 @@ import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/
 import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
-import { useManualStemMetadataAutoApply } from '@/features/ucat/questions/hooks/useManualStemMetadataAutoApply'
+import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 import { useSetUcatQuestionStemStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -37,6 +37,7 @@ import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/sh
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
@@ -317,9 +318,9 @@ export function UcatQuestionStemDialog({
 
   const watchedValues = form.watch()
   const showCreateMore = !initial && !readOnly
-  const metadataRecommendation = useManualStemMetadataAutoApply({
-    enabled: open && showCreateMore,
-    resetKey: open ? 'create' : null,
+  const metadataDetection = useManualStemMetadataDetection({
+    enabled: open && !readOnly,
+    resetKey: open ? (initial?.id ?? 'create') : null,
     form,
     values: watchedValues,
     sections,
@@ -394,12 +395,22 @@ export function UcatQuestionStemDialog({
         ) : undefined
       }
       headerControls={
-        <UcatStemEditorHeaderControls
-          mode={editorMode}
-          onModeChange={setEditorMode}
-          showAnswer={showAnswer}
-          onShowAnswerChange={setShowAnswer}
-        />
+        <>
+          <UcatDetectedStemMetadataControl
+            pendingDiff={metadataDetection.pendingDiff}
+            sections={sections}
+            categories={categories}
+            tags={tags}
+            onAccept={metadataDetection.accept}
+            onDismiss={metadataDetection.dismiss}
+          />
+          <UcatStemEditorHeaderControls
+            mode={editorMode}
+            onModeChange={setEditorMode}
+            showAnswer={showAnswer}
+            onShowAnswerChange={setShowAnswer}
+          />
+        </>
       }
       headerActions={headerActions}
       warningPills={warningPills}
@@ -441,7 +452,6 @@ export function UcatQuestionStemDialog({
               return next
             })
           }
-          metadataRecommendation={showCreateMore ? metadataRecommendation : null}
         />
       </div>
     </UcatDialogShell>

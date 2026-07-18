@@ -1,9 +1,15 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StudyPlanActivationPage } from "@/features/study-plan/components/study-plan-activation-page";
+import type {
+  SignupSuccessTransitionPhase,
+  StudyPlanCompletionStatus,
+} from "@/features/signup-onboarding/components/signup-success-transition";
 
 const replace = jest.fn();
+const prefetch = jest.fn();
+const mockSaveStudyPlan = jest.fn();
 
 class ResizeObserverMock {
   observe() {}
@@ -22,8 +28,12 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
 });
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, prefetch }),
   useSearchParams: () => new URLSearchParams("activation=1"),
+}));
+
+jest.mock("@/features/study-plan/api/study-plan", () => ({
+  saveStudyPlan: (...args: unknown[]) => mockSaveStudyPlan(...args),
 }));
 
 jest.mock("motion/react", () => ({
@@ -57,7 +67,19 @@ jest.mock("@/features/ucat-access/hooks/use-ucat-access", () => ({
 
 jest.mock(
   "@/features/signup-onboarding/components/signup-success-transition",
-  () => ({ SignupSuccessTransition: () => <div>Completion animation</div> }),
+  () => ({
+    SignupSuccessTransition: ({
+      phase,
+      studyPlanStatus,
+    }: {
+      phase: SignupSuccessTransitionPhase;
+      studyPlanStatus?: StudyPlanCompletionStatus;
+    }) => (
+      <div>
+        Completion animation: {phase}, {studyPlanStatus}
+      </div>
+    ),
+  }),
 );
 
 function renderPage() {
@@ -72,10 +94,16 @@ function renderPage() {
 }
 
 describe("StudyPlanActivationPage", () => {
+  beforeEach(() => {
+    replace.mockClear();
+    prefetch.mockClear();
+    mockSaveStudyPlan.mockReset();
+  });
+
   it("starts at 2200 with no year or exact-date field selected", () => {
     renderPage();
 
-    expect(screen.getByLabelText("Target cognitive score")).toHaveValue(2200);
+    expect(screen.getByLabelText("Target UCAT score")).toHaveValue(2200);
     expect(screen.getByText("Select your UCAT year")).toBeInTheDocument();
     expect(screen.queryByLabelText("Exact date (optional)")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Not sure what to set?" })).toBeInTheDocument();
@@ -101,5 +129,58 @@ describe("StudyPlanActivationPage", () => {
     const switches = screen.getAllByRole("switch");
     expect(switches).toHaveLength(7);
     expect(switches.filter((control) => control.getAttribute("data-state") === "checked")).toHaveLength(5);
+  });
+
+  it("moves a saved Study plan into setup animation before the welcome reveal", async () => {
+    jest.useFakeTimers();
+    mockSaveStudyPlan.mockResolvedValue({
+      profile: {
+        id: "profile-1",
+        targetScore: 2200,
+        testYear: new Date().getFullYear(),
+        testDate: null,
+        availableDays: [
+          { weekday: 1, maxMinutes: 60 },
+          { weekday: 2, maxMinutes: 60 },
+          { weekday: 3, maxMinutes: 60 },
+          { weekday: 4, maxMinutes: 60 },
+          { weekday: 5, maxMinutes: 60 },
+        ],
+        preferredMockWeekday: 5,
+        planningDate: "2026-07-18",
+        planningDateIsProvisional: true,
+        nextWeeklyReplanOn: null,
+      },
+      generation: null,
+      tasks: [],
+      today: "2026-07-18",
+      todayTasks: [],
+      completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
+    });
+    renderPage();
+    const year = String(new Date().getFullYear());
+
+    fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
+    fireEvent.click(screen.getByRole("option", { name: year }));
+    fireEvent.click(screen.getByRole("button", { name: /Choose my study week/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Build my Study plan" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Completion animation: confirming, created"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Your Study plan is ready")).not.toBeInTheDocument();
+    expect(prefetch).toHaveBeenCalledWith("/dashboard");
+
+    await act(async () => {
+      jest.advanceTimersByTime(4_100);
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByText("Completion animation: welcome, created"),
+    ).toBeInTheDocument();
+    jest.useRealTimers();
   });
 });

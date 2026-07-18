@@ -25,6 +25,8 @@ export type UseUcatTableUrlStateOptions = {
   enabled?: boolean
 }
 
+const EMPTY_FILTERS: Record<string, unknown[]> = {}
+
 function buildDefaultState(
   initialVisibleColumns: string[],
   defaultFilters: Record<string, unknown[]>,
@@ -48,7 +50,7 @@ export function useUcatTableUrlState(
   options?: UseUcatTableUrlStateOptions,
 ) {
   const {
-    defaultFilters = {},
+    defaultFilters = EMPTY_FILTERS,
     defaultPageSize = 20,
     paramPrefix,
     availableColumns,
@@ -94,24 +96,30 @@ export function useUcatTableUrlState(
   const lastWrittenQueryRef = useRef<string | null>(null)
   const stateRef = useRef(state)
   const showDeletedRef = useRef(showDeleted)
+  const searchParamsStringRef = useRef(searchParamsString)
+  const pathnameRef = useRef(pathname)
   stateRef.current = state
   showDeletedRef.current = showDeleted
+  searchParamsStringRef.current = searchParamsString
+  pathnameRef.current = pathname
 
   const syncToUrl = useCallback(
     (nextState: DataTableState, nextShowDeleted?: boolean) => {
       if (!enabled) return
-      const params = new URLSearchParams(searchParamsString)
+      const currentQuery = searchParamsStringRef.current
+      const params = new URLSearchParams(currentQuery)
       writeUcatTableStateToUrl(params, nextState, { paramPrefix, defaultPageSize, reservedParams })
       if (syncShowDeleted) {
         writeShowDeletedToUrl(params, nextShowDeleted ?? showDeletedRef.current, { paramPrefix })
       }
       const query = params.toString()
-      if (query === searchParamsString) return
+      if (query === currentQuery) return
       lastWrittenQueryRef.current = query
       skipUrlSyncRef.current = true
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+      const path = pathnameRef.current
+      router.replace(query ? `${path}?${query}` : path, { scroll: false })
     },
-    [enabled, searchParamsString, paramPrefix, defaultPageSize, reservedParams, syncShowDeleted, router, pathname],
+    [enabled, paramPrefix, defaultPageSize, reservedParams, syncShowDeleted, router],
   )
 
   useEffect(() => {
@@ -127,11 +135,19 @@ export function useUcatTableUrlState(
 
     const params = new URLSearchParams(searchParamsString)
     const nextState = parseUcatTableStateFromUrl(params, parseOptions)
-    setState((prev) => (isUcatTableStateEqual(prev, nextState) ? prev : nextState))
+    setState((prev) => {
+      if (isUcatTableStateEqual(prev, nextState)) return prev
+      stateRef.current = nextState
+      return nextState
+    })
 
     if (syncShowDeleted) {
       const nextShowDeleted = parseShowDeletedFromUrl(params, { paramPrefix })
-      setShowDeletedState((prev) => (prev === nextShowDeleted ? prev : nextShowDeleted))
+      setShowDeletedState((prev) => {
+        if (prev === nextShowDeleted) return prev
+        showDeletedRef.current = nextShowDeleted
+        return nextShowDeleted
+      })
     }
   }, [enabled, searchParamsString, parseOptions, syncShowDeleted, paramPrefix])
 
@@ -180,8 +196,18 @@ export function useUcatTableUrlState(
         })),
       onReset: () => {
         const resetState = buildDefaultState(initialVisibleColumns, defaultFilters, defaultPageSize)
+        if (
+          isUcatTableStateEqual(stateRef.current, resetState) &&
+          (!syncShowDeleted || showDeletedRef.current === false)
+        ) {
+          return
+        }
+        stateRef.current = resetState
         setState(resetState)
-        if (syncShowDeleted) setShowDeletedState(false)
+        if (syncShowDeleted) {
+          showDeletedRef.current = false
+          setShowDeletedState(false)
+        }
         syncToUrl(resetState, syncShowDeleted ? false : undefined)
       },
       onPageChange: (page: number) => updateState((prev) => ({ ...prev, page })),
@@ -193,13 +219,16 @@ export function useUcatTableUrlState(
 
   const clearUrlParams = useCallback(() => {
     if (!enabled) return
-    const params = new URLSearchParams(searchParamsString)
+    const currentQuery = searchParamsStringRef.current
+    const params = new URLSearchParams(currentQuery)
     clearUcatTableUrlParams(params, { paramPrefix, reservedParams })
     const query = params.toString()
+    if (query === currentQuery) return
     lastWrittenQueryRef.current = query
     skipUrlSyncRef.current = true
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-  }, [enabled, searchParamsString, paramPrefix, reservedParams, router, pathname])
+    const path = pathnameRef.current
+    router.replace(query ? `${path}?${query}` : path, { scroll: false })
+  }, [enabled, paramPrefix, reservedParams, router])
 
   return {
     state,

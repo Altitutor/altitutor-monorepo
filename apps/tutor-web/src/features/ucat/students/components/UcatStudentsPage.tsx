@@ -130,7 +130,7 @@ export function UcatStudentsPage() {
       key: `section_${sec.id}`,
       column: {
         id: `section_${sec.id}`,
-        header: sec.name,
+        header: `${sec.name} predicted`,
         accessorFn: (row: StudentProgressSummaryRow) =>
           row.section_scores[sec.id] ?? null,
         cell: ({ row }: { row: { original: StudentProgressSummaryRow } }) => {
@@ -183,7 +183,7 @@ export function UcatStudentsPage() {
 
   const visibleColumns = useVisibleColumns(
     allColumns,
-    [...tableState.state.visibleColumns, 'actions'].filter(
+    [...tableState.state.visibleColumns, ...sectionKeys, 'actions'].filter(
       (k, i, arr) => arr.indexOf(k) === i
     )
   )
@@ -202,8 +202,8 @@ export function UcatStudentsPage() {
         { key: 'total_mocks_attempted', label: 'Mock attempts', visibleByDefault: true },
         ...(progress.data?.sections ?? []).map((sec) => ({
           key: `section_${sec.id}`,
-          label: sec.name,
-          visibleByDefault: false,
+          label: `${sec.name} predicted`,
+          visibleByDefault: true,
         })),
         { key: 'exam', label: 'Exam', visibleByDefault: true },
         { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: false },
@@ -219,7 +219,7 @@ export function UcatStudentsPage() {
       { key: 'total_mocks_attempted', label: 'Mock attempts' },
       ...(progress.data?.sections ?? []).map((sec) => ({
         key: `section_${sec.id}`,
-        label: sec.name,
+        label: `${sec.name} predicted`,
       })),
       { key: 'exam', label: 'Exam' },
       { key: 'last_attempted_at', label: 'Last Attempted' },

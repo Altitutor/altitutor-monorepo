@@ -10,6 +10,7 @@ import {
 } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
 import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
+import { ServerTiming } from "@/lib/performance/server-timing";
 
 export async function GET(
   _request: NextRequest,
@@ -55,7 +56,7 @@ export async function GET(
   const { data: session, error } = await supabaseAdmin
     .from("student_practice_sessions")
     .select(
-      "id, stems_snapshot, filters_snapshot, unlimited, completed_at, discarded_at, expired_at",
+      "id, stems_snapshot, filters_snapshot, unlimited, started_at, completed_at, discarded_at, expired_at",
     )
     .eq("id", params.id)
     .eq("student_id", student.id)
@@ -77,6 +78,7 @@ export async function GET(
     stemsSnapshot: session.stems_snapshot,
     filtersSnapshot: session.filters_snapshot,
     unlimited: session.unlimited,
+    startedAt: session.started_at,
     completedAt: session.completed_at,
   });
 }
@@ -85,12 +87,14 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
 
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -135,6 +139,7 @@ export async function PATCH(
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
+  timing.mark("student");
 
   if (studentError) {
     captureApiError(studentError, "/api/ucat/practice-sessions/[id]");
@@ -246,6 +251,7 @@ export async function PATCH(
       );
     }
   }
+  timing.mark("answers");
 
   const { data: attempts, error: attemptsError } = body.answers
     ? { data: null, error: null }
@@ -283,7 +289,7 @@ export async function PATCH(
     }
   }
 
-  const { error: updateError } = await supabaseAdmin
+  const { data: completedSession, error: updateError } = await supabaseAdmin
     .from("student_practice_sessions")
     .update({
       completed_at: new Date().toISOString(),
@@ -297,31 +303,44 @@ export async function PATCH(
     })
     .eq("id", sessionId)
     .eq("student_id", student.id)
+    .is("completed_at", null)
     .is("discarded_at", null)
-    .is("expired_at", null);
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     captureApiError(updateError, "/api/ucat/practice-sessions/[id]");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+  if (!completedSession) {
+    return NextResponse.json({
+      success: true,
+      alreadyCompleted: true,
+      earnedDiscount: false,
+      discountCents: 0,
+    });
+  }
+  timing.mark("complete");
 
-  await captureUcatLearningActivityCompleted({
-    userId: user.id,
-    activityType: "practice",
-    activityId: sessionId,
-    properties: {
-      completion_source: "practice_session",
-      question_count: questionCount,
-    },
-  });
-
-  const discount = await maybeGrantPracticeDayDiscount(
-    supabaseAdmin,
-    student.id,
+  const [, discount] = await Promise.all([
+    captureUcatLearningActivityCompleted({
+      userId: user.id,
+      activityType: "practice",
+      activityId: sessionId,
+      properties: {
+        completion_source: "practice_session",
+        question_count: questionCount,
+      },
+    }),
+    maybeGrantPracticeDayDiscount(supabaseAdmin, student.id),
+  ]);
+  timing.mark("side_effects");
+  return timing.apply(
+    NextResponse.json({
+      success: true,
+      earnedDiscount: discount.earnedDiscount,
+      discountCents: discount.discountCents,
+    }),
   );
-  return NextResponse.json({
-    success: true,
-    earnedDiscount: discount.earnedDiscount,
-    discountCents: discount.discountCents,
-  });
 }

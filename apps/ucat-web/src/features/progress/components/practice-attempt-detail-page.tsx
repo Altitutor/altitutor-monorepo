@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { usePracticeAttemptDetail } from "../hooks/use-practice-attempt-detail";
 import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-question-index";
-import { SetAnswersCard } from "./set-answers-card";
 import { AttemptReviewSummaryGrid } from "./attempt-review-summary-grid";
 import { computeCategoryBreakdown } from "../lib/compute-category-breakdown";
 import {
@@ -20,6 +20,15 @@ import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-comp
 import { useAttemptReviewTracking } from "../hooks/use-attempt-review-tracking";
 import { AttemptReviewProgress } from "./attempt-review-progress";
 import { buildAttemptOverallInsight } from "../lib/attempt-insights";
+
+const SetAnswersCard = dynamic(
+  () => import("./set-answers-card").then((module) => module.SetAnswersCard),
+  {
+    loading: () => (
+      <div className="h-64 animate-pulse rounded-xl bg-muted/50" />
+    ),
+  },
+);
 
 type PracticeAttemptDetailPageProps = {
   attemptId: string;

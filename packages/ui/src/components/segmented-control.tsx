@@ -96,19 +96,33 @@ export function SegmentedControl<T extends string>({
     const container = containerRef.current
     const activeEl = segmentRefs.current.get(value)
     if (!container || !activeEl) {
-      setIndicator(null)
+      setIndicator((prev) => (prev === null ? prev : null))
       return
     }
 
     const containerRect = container.getBoundingClientRect()
     const activeRect = activeEl.getBoundingClientRect()
-    setIndicator({
+    const next = {
       left: activeRect.left - containerRect.left,
       top: activeRect.top - containerRect.top,
       width: activeRect.width,
       height: activeRect.height,
+    }
+    setIndicator((prev) => {
+      if (
+        prev &&
+        prev.left === next.left &&
+        prev.top === next.top &&
+        prev.width === next.width &&
+        prev.height === next.height
+      ) {
+        return prev
+      }
+      return next
     })
   }, [value])
+
+  const optionsKey = options.map((option) => option.value).join('\0')
 
   useLayoutEffect(() => {
     updateIndicator()
@@ -127,7 +141,7 @@ export function SegmentedControl<T extends string>({
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateIndicator)
     }
-  }, [updateIndicator, options])
+  }, [updateIndicator, optionsKey])
 
   const textSizeClass = size === 'sm' ? 'text-[10pt]' : 'text-xs'
   const radii = SEGMENTED_RADII[isLight ? 'light' : 'default']

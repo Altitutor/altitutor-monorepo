@@ -35,6 +35,7 @@ type UpsertQuestionAttemptInput = {
   wasTimed?: boolean;
   mode?: QuestionAttemptMode;
   submittedByStem?: boolean;
+  timeSpentMilliseconds?: number;
 };
 
 type FinalizeAttemptResponse = {

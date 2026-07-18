@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
-import { SectionProgressPage } from "@/features/progress";
+import { SectionProgressPage } from "@/features/progress/components/section-progress-page";
 
 type PageProps = {
   params: Promise<{ sectionNumber: string }>;

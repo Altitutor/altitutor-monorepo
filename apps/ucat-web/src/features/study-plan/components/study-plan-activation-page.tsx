@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -39,7 +39,10 @@ import {
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { inferPreferredMockWeekday } from "@/features/study-plan/lib/activation";
-import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import {
+  STUDY_PLAN_QUERY_KEY,
+  useStudyPlan,
+} from "@/features/study-plan/hooks/use-study-plan";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import type {
   StudyPlanAvailability,
@@ -49,7 +52,11 @@ import type {
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { SignupSuccessTransition } from "@/features/signup-onboarding/components/signup-success-transition";
+import {
+  SignupSuccessTransition,
+  type SignupSuccessTransitionPhase,
+  type StudyPlanCompletionStatus,
+} from "@/features/signup-onboarding/components/signup-success-transition";
 
 const DAYS: Array<{ value: StudyPlanWeekday; label: string; short: string }> = [
   { value: 1, label: "Monday", short: "Mon" },
@@ -68,6 +75,8 @@ const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
   { weekday: 4, maxMinutes: 60 },
   { weekday: 5, maxMinutes: 60 },
 ];
+
+const WORKSPACE_SETUP_ANIMATION_MS = 4_100;
 
 type YearOption = { year: number };
 
@@ -226,7 +235,13 @@ export function StudyPlanActivationPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
-  const [showCompletion, setShowCompletion] = useState(false);
+  const [completion, setCompletion] = useState<{
+    phase: SignupSuccessTransitionPhase;
+    studyPlanStatus: StudyPlanCompletionStatus;
+  } | null>(null);
+  const [completionReady, setCompletionReady] = useState(false);
+  const [completionMinimumElapsed, setCompletionMinimumElapsed] =
+    useState(false);
   const plan = savedPlan ?? query.data;
   const selectedYear =
     yearOptions.find((option) => option.year === testYear) ?? null;
@@ -234,6 +249,29 @@ export function StudyPlanActivationPage() {
     access.onlineTier === "unlimited" ||
     access.onlineTier === "unlimited_trial" ||
     access.onlineTier === "pro";
+  const completionPhase = completion?.phase ?? null;
+
+  useEffect(() => {
+    if (completionPhase !== "confirming") return;
+    const timer = window.setTimeout(
+      () => setCompletionMinimumElapsed(true),
+      WORKSPACE_SETUP_ANIMATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [completionPhase]);
+
+  useEffect(() => {
+    if (
+      completionPhase !== "confirming" ||
+      !completionReady ||
+      !completionMinimumElapsed
+    ) {
+      return;
+    }
+    setCompletion((current) =>
+      current ? { ...current, phase: "welcome" } : current,
+    );
+  }, [completionMinimumElapsed, completionPhase, completionReady]);
 
   function toggleDay(weekday: StudyPlanWeekday) {
     setAvailability((current) =>
@@ -246,12 +284,26 @@ export function StudyPlanActivationPage() {
     );
   }
 
-  function finishActivation() {
-    if (activationJourney) {
-      setShowCompletion(true);
+  async function runWorkspaceSetupTransition(
+    studyPlanStatus: StudyPlanCompletionStatus,
+    readiness: Promise<unknown> = Promise.resolve(),
+  ) {
+    if (!activationJourney) {
+      await readiness;
+      router.replace("/dashboard");
       return;
     }
-    router.replace("/dashboard");
+
+    setCompletionReady(false);
+    setCompletionMinimumElapsed(false);
+    setCompletion({ phase: "confirming", studyPlanStatus });
+    router.prefetch("/dashboard");
+    await readiness.catch(() => undefined);
+    setCompletionReady(true);
+  }
+
+  function finishActivation() {
+    void runWorkspaceSetupTransition("skipped");
   }
 
   async function buildPlan() {
@@ -267,8 +319,11 @@ export function StudyPlanActivationPage() {
         preferredMockWeekday: inferPreferredMockWeekday(availability),
       });
       setSavedPlan(nextPlan);
-      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
-      if (activationJourney) setShowCompletion(true);
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await runWorkspaceSetupTransition(
+        "created",
+        queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY }),
+      );
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -280,16 +335,17 @@ export function StudyPlanActivationPage() {
     }
   }
 
-  if (showCompletion) {
+  if (completion) {
     return (
       <SignupSuccessTransition
         journey={isPaidJourney ? "paid" : "free"}
         occasion="signup"
-        phase="welcome"
+        phase={completion.phase}
         isTakingLonger={false}
         error={null}
         onRetry={() => undefined}
         onComplete={() => router.replace("/dashboard")}
+        studyPlanStatus={completion.studyPlanStatus}
       />
     );
   }
@@ -340,7 +396,7 @@ export function StudyPlanActivationPage() {
           kicker: "Study plan setup · 2 of 2",
           title: "When could you realistically study?",
           description:
-            "Choose your usual study days. The time you enter is a ceiling, not a commitment.",
+            "Choose your preferred study days. The time you enter is a ceiling, not a commitment.",
         };
 
   return (
@@ -403,7 +459,7 @@ export function StudyPlanActivationPage() {
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="activation-target">
-                        Target cognitive score
+                        Target UCAT score
                       </Label>
                       <Input
                         id="activation-target"

@@ -21,25 +21,41 @@ export type StudyPlanLivePractice = {
 
 type StudyPlanCompanionContextValue = {
   livePractice: StudyPlanLivePractice | null;
+  activityComplete: boolean;
+  setActivityComplete: (complete: boolean) => void;
   reportLivePractice: (activity: StudyPlanLivePractice) => void;
   clearLivePractice: (sessionId: string) => void;
 };
 
-const StudyPlanCompanionContext = createContext<StudyPlanCompanionContextValue | null>(null);
+const StudyPlanCompanionContext =
+  createContext<StudyPlanCompanionContextValue | null>(null);
 
-export function StudyPlanCompanionProvider({ children }: { children: ReactNode }) {
-  const [livePractice, setLivePractice] = useState<StudyPlanLivePractice | null>(null);
+export function StudyPlanCompanionProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [livePractice, setLivePractice] =
+    useState<StudyPlanLivePractice | null>(null);
+  const [activityComplete, setActivityComplete] = useState(false);
   const reportLivePractice = useCallback((activity: StudyPlanLivePractice) => {
     setLivePractice(activity);
   }, []);
   const clearLivePractice = useCallback((sessionId: string) => {
-    setLivePractice((current) => current?.sessionId === sessionId ? null : current);
+    setLivePractice((current) =>
+      current?.sessionId === sessionId ? null : current,
+    );
   }, []);
-  const value = useMemo(() => ({
-    livePractice,
-    reportLivePractice,
-    clearLivePractice,
-  }), [clearLivePractice, livePractice, reportLivePractice]);
+  const value = useMemo(
+    () => ({
+      livePractice,
+      activityComplete,
+      setActivityComplete,
+      reportLivePractice,
+      clearLivePractice,
+    }),
+    [activityComplete, clearLivePractice, livePractice, reportLivePractice],
+  );
 
   return (
     <StudyPlanCompanionContext.Provider value={value}>
@@ -51,7 +67,9 @@ export function StudyPlanCompanionProvider({ children }: { children: ReactNode }
 export function useStudyPlanCompanion() {
   const value = useContext(StudyPlanCompanionContext);
   if (!value) {
-    throw new Error("useStudyPlanCompanion must be used inside StudyPlanCompanionProvider");
+    throw new Error(
+      "useStudyPlanCompanion must be used inside StudyPlanCompanionProvider",
+    );
   }
   return value;
 }

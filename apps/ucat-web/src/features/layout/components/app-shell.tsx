@@ -25,8 +25,12 @@ import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
 import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
-import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
+import {
+  StudyPlanCompanionProvider,
+  useStudyPlanCompanion,
+} from "@/features/study-plan/context/study-plan-companion-context";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
+import { getStudyPlanCompanionMode } from "@/features/study-plan/lib/companion-mode";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -42,22 +46,28 @@ function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
+  const { activityComplete } = useStudyPlanCompanion();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   const prevIsMobileRef = useRef<boolean | null>(null);
   const preImmersiveCollapsedRef = useRef<boolean | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [
+    floatingStudyPlanCompanionVisible,
+    setFloatingStudyPlanCompanionVisible,
+  ] = useState(false);
+  const [bottomFloatingDockVisible, setBottomFloatingDockVisible] =
+    useState(false);
   const sidebarOverride = useSidebarOverride();
   const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
+  const studyPlanCompanionMode = getStudyPlanCompanionMode(pathname);
   const hideFloatingStudyPlanCompanion =
-    isExamRoute ||
-    isPracticeEngineRoute(pathname) ||
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/study-plan");
+    studyPlanCompanionMode === "hidden" ||
+    (studyPlanCompanionMode === "activity" && !activityComplete);
 
   useEffect(() => {
     if (isImmersiveRoute) {
@@ -149,10 +159,19 @@ function AppShellInner({ children }: AppShellProps) {
   const isCanvasRoute =
     pathname.startsWith("/dashboard") || isProgressCanvasRoute;
   const mainPaddingClass = hideTopBar
-    ? "p-4"
+    ? "px-4 pt-4"
     : isCanvasRoute
-      ? "p-0 pt-20"
-      : "p-6 pt-28";
+      ? "px-0 pt-20"
+      : "px-6 pt-28";
+  const mainBottomPaddingClass = floatingStudyPlanCompanionVisible
+    ? bottomFloatingDockVisible
+      ? "pb-[calc(12rem+env(safe-area-inset-bottom,0px))]"
+      : "pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
+    : hideTopBar
+      ? "pb-4"
+      : isCanvasRoute
+        ? "pb-0"
+        : "pb-6";
 
   return (
     <ComingSoonProvider
@@ -170,6 +189,8 @@ function AppShellInner({ children }: AppShellProps) {
         <AppShellLayoutProvider
           value={{
             mainContentHasSidebarInset: sidebarExpanded && !isMobile,
+            bottomFloatingDockVisible,
+            setBottomFloatingDockVisible,
           }}
         >
           <div
@@ -240,6 +261,7 @@ function AppShellInner({ children }: AppShellProps) {
                         "mx-auto w-full min-w-0",
                         isCanvasRoute ? "max-w-none" : "max-w-[1400px]",
                         mainPaddingClass,
+                        mainBottomPaddingClass,
                       )}
                     >
                       <motion.div
@@ -260,7 +282,10 @@ function AppShellInner({ children }: AppShellProps) {
               )}
             </div>
           </div>
-          <StudyPlanCompanion hidden={hideFloatingStudyPlanCompanion} />
+          <StudyPlanCompanion
+            hidden={hideFloatingStudyPlanCompanion}
+            onVisibilityChange={setFloatingStudyPlanCompanionVisible}
+          />
         </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>

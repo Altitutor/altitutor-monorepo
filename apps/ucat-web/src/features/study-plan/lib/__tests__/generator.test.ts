@@ -221,8 +221,12 @@ describe("generateStudyPlan", () => {
     expect(mock).toBeDefined();
     expect(review?.scheduledDate).toBe("2026-07-11");
     expect(review?.launchConfig).toMatchObject({
-      sourceTaskScheduledDate: mock?.scheduledDate,
-      sourceTaskSortOrder: mock?.sortOrder,
+      kind: "review",
+      awaitingAttempt: true,
+    });
+    expect(review?.sourceTaskRef).toEqual({
+      scheduledDate: mock?.scheduledDate,
+      sortOrder: mock?.sortOrder,
     });
   });
 });
@@ -284,6 +288,7 @@ describe("generateExtraStudyTasks", () => {
       taskType: "skill_trainer",
       sectionId: "vr",
       skillTrainerId: "vr-trainer",
+      launchPath: "/skill-trainer/verbal-reasoning-warmup/play",
     });
     expect(tasks[0].launchConfig).toMatchObject({
       extraStudy: true,
@@ -314,11 +319,8 @@ describe("generateExtraStudyTasks", () => {
     });
 
     expect(
-      reviewTask(
-        { ...practice, targetUnits: 5 },
-        practice.scheduledDate,
-        1,
-      ).estimatedMinutes,
+      reviewTask({ ...practice, targetUnits: 5 }, practice.scheduledDate, 1)
+        .estimatedMinutes,
     ).toBe(3);
     expect(
       reviewTask({ ...practice, targetUnits: 30 }, practice.scheduledDate, 1)

@@ -30,9 +30,16 @@ export function MockAttemptScoreTimingRow({
   percentile,
   timing,
 }: MockAttemptScoreTimingRowProps) {
+  const showPercentile = percentile.status === "available";
+
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Card id="tour-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full")}>
+    <div
+      className={cn(
+        "grid gap-4",
+        showPercentile ? "lg:grid-cols-3" : "lg:grid-cols-2",
+      )}
+    >
+      <Card id="mock-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Overall scaled score
@@ -73,11 +80,13 @@ export function MockAttemptScoreTimingRow({
         </CardContent>
       </Card>
 
-      <PercentileCard
-        scaledScore={scaledScore}
-        percentile={percentile}
-        scope="mock"
-      />
+      {showPercentile ? (
+        <PercentileCard
+          scaledScore={scaledScore}
+          percentile={percentile}
+          scope="mock"
+        />
+      ) : null}
 
       <AttemptReviewTimingCard timing={timing} scopeLabel="mock" />
     </div>

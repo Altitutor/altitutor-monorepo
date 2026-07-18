@@ -218,6 +218,7 @@ function makeTask(
     matchedActivityType: null,
     matchedActivityId: null,
     ...overrides,
+    sourceTaskId: overrides.sourceTaskId ?? null,
   };
 }
 

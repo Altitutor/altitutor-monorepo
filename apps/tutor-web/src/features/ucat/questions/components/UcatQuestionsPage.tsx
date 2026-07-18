@@ -37,6 +37,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Eye,
   FilePenLine,
   ListChecks,
   Pencil,
@@ -181,6 +182,12 @@ const defaultVisibleAnswerOptionColumns = answerOptionColumnDefinitions
 function parseQuestionsTab(value: string | null): QuestionsTab {
   return value === 'in_review' || value === 'published' ? value : 'draft'
 }
+
+const QUESTIONS_TAB_OPTIONS = [
+  { value: 'draft' as const, label: 'Draft' },
+  { value: 'in_review' as const, label: 'In review' },
+  { value: 'published' as const, label: 'Published' },
+]
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -432,12 +439,12 @@ export function UcatQuestionsPage() {
   useEffect(() => {
     if (previousTabRef.current === activeTab) return
     previousTabRef.current = activeTab
-    tableActionsRef.current.onVisibleColumnsChange(initialVisibleColumns)
+    // setActiveTab already cleared table URL params; reset local table state to match.
     tableActionsRef.current.onReset()
     clearSelection()
     setExpandedStemIds(new Set())
     setExpandedQuestionKeys(new Set())
-  }, [activeTab, initialVisibleColumns, clearSelection])
+  }, [activeTab, clearSelection])
 
   const reviewQueueEntries = useMemo<UcatApprovalQueueEntry[]>(
     () => {
@@ -971,11 +978,7 @@ export function UcatQuestionsPage() {
         className="w-fit max-w-full"
         value={activeTab}
         onValueChange={(value) => setActiveTab(parseQuestionsTab(value))}
-        options={[
-          { value: 'draft', label: 'Draft' },
-          { value: 'in_review', label: 'In review' },
-          { value: 'published', label: 'Published' },
-        ]}
+        options={QUESTIONS_TAB_OPTIONS}
       />
 
       <DataTableToolbar
@@ -1193,7 +1196,16 @@ export function UcatQuestionsPage() {
                       <div className="flex justify-end">
                         <UcatRowActions
                           actions={[
-                            { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.id) },
+                            {
+                              label: row.status === 'published' ? 'View' : 'Edit',
+                              icon:
+                                row.status === 'published' ? (
+                                  <Eye className="h-4 w-4" />
+                                ) : (
+                                  <Pencil className="h-4 w-4" />
+                                ),
+                              onClick: () => setEditingStemId(row.id),
+                            },
                             ...(!showDeleted && row.status === 'draft'
                               ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', row.status, 'Cannot send for review') }]
                               : []),

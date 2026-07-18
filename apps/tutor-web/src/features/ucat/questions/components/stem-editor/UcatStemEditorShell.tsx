@@ -23,7 +23,6 @@ import type {
   TagOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import type { ManualStemMetadataRecommendation } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import {
   UcatAuthoringWorkspaceTabs,
   type UcatAuthoringWorkspaceTab,
@@ -68,7 +67,6 @@ type UcatStemEditorShellProps = {
   statusChangedByFirstName?: string | null
   statusChangedByLastName?: string | null
   statusChangedAt?: string | null
-  metadataRecommendation?: ManualStemMetadataRecommendation | null
 }
 
 export function UcatStemEditorShell({
@@ -102,7 +100,6 @@ export function UcatStemEditorShell({
   statusChangedByFirstName = null,
   statusChangedByLastName = null,
   statusChangedAt = null,
-  metadataRecommendation = null,
 }: UcatStemEditorShellProps) {
   const [localEditorMode, setLocalEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [localShowAnswer, setLocalShowAnswer] = useState(false)
@@ -259,7 +256,6 @@ export function UcatStemEditorShell({
         statusChangedByFirstName={statusChangedByFirstName}
         statusChangedByLastName={statusChangedByLastName}
         statusChangedAt={statusChangedAt}
-        metadataRecommendation={metadataRecommendation}
         activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
         onActiveTabChange={setActiveWorkspace}
         className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}

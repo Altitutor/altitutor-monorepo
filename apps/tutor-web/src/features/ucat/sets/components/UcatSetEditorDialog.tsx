@@ -29,7 +29,7 @@ import type { CategoryOption, TagOption } from '@/features/ucat/questions/compon
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { Trash2 } from 'lucide-react'
+import { FileDown, Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -38,6 +38,7 @@ import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEdi
 import { UcatSetPreviewContent } from '@/features/ucat/sets/components/UcatSetPreviewContent'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -82,6 +83,7 @@ export function UcatSetEditorDialog({
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
 
   useEffect(() => {
     const current = detail.data
@@ -116,6 +118,7 @@ export function UcatSetEditorDialog({
       setActiveTextEditor(null)
       setEditorMode('edit')
       setShowAnswer(false)
+      setExportDialogOpen(false)
     }
   }, [open])
 
@@ -319,6 +322,11 @@ export function UcatSetEditorDialog({
           actions={[
             ...(copyIdAction ? [copyIdAction] : []),
             {
+              label: 'Export as PDF',
+              icon: <FileDown className="h-4 w-4" />,
+              onClick: () => setExportDialogOpen(true),
+            },
+            {
               label: 'Open in page',
               href: `/ucat/sets/${setId}`,
             },
@@ -442,6 +450,16 @@ export function UcatSetEditorDialog({
         tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
+      />
+
+      <UcatPdfExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        source={{
+          kind: 'set',
+          title: draftName.trim() || 'Untitled set',
+          stemIds: draftStemIds,
+        }}
       />
     </>
   )

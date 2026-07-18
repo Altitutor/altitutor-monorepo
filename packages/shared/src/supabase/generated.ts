@@ -8452,6 +8452,7 @@ export type Database = {
           question_count: number | null
           score_points: number | null
           section_key: string
+          stem_delivery_revision: number
           started_at: string
           stems_snapshot: Json | null
           student_id: string
@@ -8473,6 +8474,7 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key: string
+          stem_delivery_revision?: number
           started_at?: string
           stems_snapshot?: Json | null
           student_id: string
@@ -8494,6 +8496,7 @@ export type Database = {
           question_count?: number | null
           score_points?: number | null
           section_key?: string
+          stem_delivery_revision?: number
           started_at?: string
           stems_snapshot?: Json | null
           student_id?: string
@@ -27235,4 +27238,3 @@ export const Constants = {
     },
   },
 } as const
-

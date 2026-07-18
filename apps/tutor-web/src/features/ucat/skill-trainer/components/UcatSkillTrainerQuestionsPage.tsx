@@ -142,12 +142,14 @@ export function UcatSkillTrainerQuestionsPage() {
   })
 
   const previousTabRef = useRef(activeTab)
+  const tableActionsRef = useRef(tableState.actions)
+  tableActionsRef.current = tableState.actions
   useEffect(() => {
     if (previousTabRef.current === activeTab) return
     previousTabRef.current = activeTab
-    tableState.actions.onReset()
+    tableActionsRef.current.onReset()
     setSelectedItemIds(new Set())
-  }, [activeTab, tableState.actions])
+  }, [activeTab])
 
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
     return [

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
@@ -10,12 +11,20 @@ import { useAttemptReviewQuestionIndex } from "../hooks/use-attempt-review-quest
 import { MockAttemptQuestionAttemptsCard } from "./mock-attempt-question-attempts-card";
 import { MockAttemptScoreTimingRow } from "./mock-attempt-score-timing-row";
 import { MockAttemptSetCards } from "./mock-attempt-set-cards";
-import { SetAnswersCard } from "./set-answers-card";
 import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
 import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
 import { useAttemptReviewTracking } from "../hooks/use-attempt-review-tracking";
 import { AttemptReviewProgress } from "./attempt-review-progress";
 import { buildAttemptOverallInsight } from "../lib/attempt-insights";
+
+const SetAnswersCard = dynamic(
+  () => import("./set-answers-card").then((module) => module.SetAnswersCard),
+  {
+    loading: () => (
+      <div className="h-64 animate-pulse rounded-xl bg-muted/50" />
+    ),
+  },
+);
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;

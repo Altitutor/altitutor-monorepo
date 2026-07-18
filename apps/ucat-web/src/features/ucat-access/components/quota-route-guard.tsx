@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
-import { useActiveSkillTrainerAttempt } from "@/features/skill-trainer/context/active-skill-trainer-attempt-context";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import {
   isMockEngineRoute,
   isSetEngineRoute,
-  isSkillTrainerPlayRoute,
 } from "@/features/ucat-access/lib/quota-area-for-pathname";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
@@ -33,10 +31,6 @@ export function QuotaRouteGuard() {
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
   const { active: activeExamAttempt, isLoading: activeExamLoading } =
     useActiveExamAttempt();
-  const {
-    active: activeSkillTrainerAttempt,
-    isLoading: activeSkillTrainerLoading,
-  } = useActiveSkillTrainerAttempt();
   const { open, openQuotaLimit } = useQuotaLimitDialog();
   const lastOpenedKeyRef = useRef<string | null>(null);
 
@@ -61,25 +55,8 @@ export function QuotaRouteGuard() {
       return { area: "mocks" };
     }
 
-    if (isSkillTrainerPlayRoute(pathname)) {
-      const attemptId = searchParams.get("attemptId");
-      const isCurrentAttempt =
-        attemptId != null &&
-        activeSkillTrainerAttempt?.attempt.id === attemptId &&
-        !activeSkillTrainerAttempt.isCompleted;
-      if (activeSkillTrainerLoading || isCurrentAttempt) return null;
-      return { area: "skill_trainer" };
-    }
-
     return null;
-  }, [
-    activeExamAttempt,
-    activeExamLoading,
-    activeSkillTrainerAttempt,
-    activeSkillTrainerLoading,
-    pathname,
-    searchParams,
-  ]);
+  }, [activeExamAttempt, activeExamLoading, pathname, searchParams]);
 
   useEffect(() => {
     if (!route || open || quotaLoading) return;

@@ -37,6 +37,7 @@ function task(overrides: Partial<StudyPlanTask> = {}): StudyPlanTask {
     matchedActivityType: null,
     matchedActivityId: null,
     ...overrides,
+    sourceTaskId: overrides.sourceTaskId ?? null,
   };
 }
 

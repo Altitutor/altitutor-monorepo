@@ -96,14 +96,39 @@ jest.mock("@/features/question-engine/components/question-engine-page", () => ({
         >
           Calculator
         </button>
+        <button
+          type="button"
+          onClick={() => props.onTutorialControl?.("navigator", snapshot)}
+        >
+          Navigator
+        </button>
       </div>
     );
   },
 }));
 
+function renderStartedSampler() {
+  render(<GuidedSamplerPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Start sampler" }));
+}
+
 describe("GuidedSamplerPage marking", () => {
-  it("keeps the student on the question and reveals a hint after a wrong answer", () => {
+  it("explains the Alti UCAT sampler before familiar students enter the engine", () => {
     render(<GuidedSamplerPage />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Get familiar with the Alti UCAT system",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/quick orientation to Alti UCAT/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Skip for now" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the student on the question and reveals a hint after a wrong answer", () => {
+    renderStartedSampler();
 
     fireEvent.click(screen.getByRole("button", { name: "Choose wrong" }));
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
@@ -120,7 +145,7 @@ describe("GuidedSamplerPage marking", () => {
   });
 
   it("shows the explanation after the correct answer", () => {
-    render(<GuidedSamplerPage />);
+    renderStartedSampler();
 
     fireEvent.click(screen.getByRole("button", { name: "Choose correct" }));
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
@@ -133,11 +158,28 @@ describe("GuidedSamplerPage marking", () => {
   });
 
   it("redirects calculator use during Verbal Reasoning", () => {
-    render(<GuidedSamplerPage />);
+    renderStartedSampler();
 
     fireEvent.click(screen.getByRole("button", { name: "Calculator" }));
 
     expect(screen.getByText("Stay with the passage")).toBeInTheDocument();
     expect(screen.getByText(/Quantitative Reasoning/)).toBeInTheDocument();
+  });
+
+  it("restores correct-answer feedback after finding the Navigator", () => {
+    renderStartedSampler();
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose correct" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Navigator" }));
+
+    expect(screen.getByText("You found the Navigator")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to question" }));
+
+    expect(screen.getByText("That’s correct")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 });

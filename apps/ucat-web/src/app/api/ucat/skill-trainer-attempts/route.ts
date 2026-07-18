@@ -6,31 +6,16 @@ import {
 } from "@/lib/ucat/quota/quota-service";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import {
-  buildAttemptState,
-  getActiveAttemptForStudent,
+  discardSkillTrainerAttempt,
+  getUnfinishedSkillTrainerAttempt,
   startSkillTrainerAttempt,
 } from "@/lib/ucat/skill-trainer/attempt-service";
-
-export async function GET() {
-  const auth = await requireStudentAdminClient();
-  if (!auth.ok) return auth.response;
-
-  try {
-    const active = await getActiveAttemptForStudent(auth.admin, auth.studentId);
-    if (!active) return NextResponse.json({ attempt: null });
-    const state = await buildAttemptState(auth.admin, active);
-    return NextResponse.json({ attempt: state });
-  } catch (error) {
-    captureApiError(error, "/api/ucat/skill-trainer-attempts");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load attempt" },
-      { status: 500 },
-    );
-  }
-}
+import { ServerTiming } from "@/lib/performance/server-timing";
 
 export async function POST(request: NextRequest) {
+  const timing = new ServerTiming();
   const auth = await requireStudentAdminClient();
+  timing.mark("auth");
   if (!auth.ok) return auth.response;
 
   const body = (await request.json()) as {
@@ -41,22 +26,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const existing = await getActiveAttemptForStudent(auth.admin, auth.studentId);
+    const existing = await getUnfinishedSkillTrainerAttempt(
+      auth.admin,
+      auth.studentId,
+    );
+    timing.mark("active");
     if (existing && !existing.completed_at) {
-      const state = await buildAttemptState(auth.admin, existing);
-      if (!state.isCompleted) {
-        if (existing.trainer_key !== body.trainerKey) {
-          return NextResponse.json(
-            {
-              error: "ANOTHER_ATTEMPT_IN_PROGRESS",
-              activeTrainerKey: existing.trainer_key,
-              attempt: state,
-            },
-            { status: 409 },
-          );
-        }
-        return NextResponse.json({ attempt: state });
-      }
+      await discardSkillTrainerAttempt(auth.admin, existing.id, auth.studentId);
+      timing.mark("discard-active");
     }
 
     const quotaCheck = await checkQuotaForAction(
@@ -64,6 +41,7 @@ export async function POST(request: NextRequest) {
       auth.studentId,
       "skill_trainer",
     );
+    timing.mark("quota");
     if (!quotaCheck.allowed) {
       return quotaExceededResponse(quotaCheck.payload);
     }
@@ -73,12 +51,17 @@ export async function POST(request: NextRequest) {
       auth.studentId,
       body.trainerKey,
     );
-    return NextResponse.json({ attempt: state });
+    timing.mark("start");
+    return timing.apply(NextResponse.json({ attempt: state }));
   } catch (error) {
     captureApiError(error, "/api/ucat/skill-trainer-attempts");
-    const message = error instanceof Error ? error.message : "Failed to start attempt";
+    const message =
+      error instanceof Error ? error.message : "Failed to start attempt";
     if (message === "ANOTHER_ATTEMPT_IN_PROGRESS") {
-      return NextResponse.json({ error: message }, { status: 409 });
+      return NextResponse.json(
+        { error: "Please try starting the trainer again" },
+        { status: 409 },
+      );
     }
     if (message === "NO_ITEMS_AVAILABLE") {
       return NextResponse.json({ error: message }, { status: 422 });

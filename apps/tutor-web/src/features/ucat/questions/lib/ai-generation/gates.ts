@@ -309,6 +309,18 @@ function validateVr(stem: GeneratedStem, stemIndex: number, categoryName: string
   if (count < 2 || count > 6) {
     add(issues, 'blocking', 'vr_paragraph_count', 'Verbal Reasoning stems must contain 2 to 6 paragraphs.', stemIndex)
   }
+  const passageParagraphs = typeof stem.stemText === 'string'
+    ? stem.stemText.split(/\n{2,}|\r?\n/u)
+    : stem.stemText.flatMap((block) => block.type === 'paragraph' ? [block.text] : [])
+  if (passageParagraphs.some((paragraph) => /^\s*(?:\*\*)?paragraph\s+(?:\d+|one|two|three|four|five|six)\b/iu.test(paragraph))) {
+    add(
+      issues,
+      'blocking',
+      'vr_passage_paragraph_label',
+      'Verbal Reasoning passage paragraphs must not include explicit labels such as "Paragraph 1"; paragraph numbering is only for answer explanations.',
+      stemIndex
+    )
+  }
   if (category !== 'reading comprehension' && category !== "true, false, can't tell") {
     add(issues, 'blocking', 'vr_category', 'Verbal Reasoning stems must use Reading Comprehension or True, False, Can\'t Tell.', stemIndex)
   }

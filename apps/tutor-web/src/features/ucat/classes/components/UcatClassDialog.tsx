@@ -15,13 +15,28 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, ListToolbar } from '@altitutor/ui'
+import {
+  Button,
+  ListToolbar,
+  SegmentedControl,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@altitutor/ui'
 import {
   SegmentedTabPanel,
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel'
-import { tutorToolbarProps } from '@/shared/lib/tutor-visual'
-import { GripVertical, Trash2 } from 'lucide-react'
+import {
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+  tutorToolbarProps,
+} from '@/shared/lib/tutor-visual'
+import { Eye, GripVertical, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
@@ -46,6 +61,10 @@ import {
   type DraftResource,
   useUcatClassResourceDrafts,
 } from '@/features/ucat/classes/hooks/useUcatClassResourceDrafts'
+import {
+  useUcatClassStudentIds,
+  useUcatStudentProgressSummary,
+} from '@/features/ucat/students/hooks/useUcatStudents'
 
 /** Stable empty array so useEffect([open, sessions]) does not re-run when query is disabled (data undefined). */
 const EMPTY_SESSIONS: UcatSessionWithResources[] = []
@@ -285,8 +304,11 @@ export function UcatClassDialog({
   onClose: () => void
   onSaved?: () => void
 }) {
+  const [dialogTab, setDialogTab] = useState<'sessions' | 'students'>('sessions')
   const { data: sessionsData, isLoading: sessionsLoading } = useUcatClassSessions(open ? classId : null)
   const sessions = sessionsData ?? EMPTY_SESSIONS
+  const classStudentIds = useUcatClassStudentIds(open ? classId : null)
+  const studentProgress = useUcatStudentProgressSummary('all_time', '30')
   const { data: setsList = [] } = useUcatSets()
   const { data: mocksList = [] } = useUcatMocks()
   const { data: stemsList = [] } = useQuery({
@@ -325,6 +347,7 @@ export function UcatClassDialog({
   const [searchMocks, setSearchMocks] = useState('')
   const [searchStems, setSearchStems] = useState('')
   const [searchLessons, setSearchLessons] = useState('')
+  const [searchStudents, setSearchStudents] = useState('')
   const [resourceTab, setResourceTab] = useState<'sets' | 'mocks' | 'stems' | 'lessons'>('sets')
   const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
     from: [format(new Date(), 'yyyy-MM-dd')],
@@ -419,6 +442,10 @@ export function UcatClassDialog({
     ],
     []
   )
+
+  useEffect(() => {
+    if (open) setDialogTab('sessions')
+  }, [open, classId])
 
   useEffect(() => {
     if (open && sessions.length > 0) {
@@ -624,6 +651,16 @@ export function UcatClassDialog({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
+  const classStudents = useMemo(() => {
+    const allowedIds = new Set(classStudentIds.data ?? [])
+    const query = searchStudents.trim().toLowerCase()
+    return (studentProgress.data?.students ?? []).filter(
+      (student) =>
+        allowedIds.has(student.student_id) &&
+        (!query || student.student_name.toLowerCase().includes(query))
+    )
+  }, [classStudentIds.data, searchStudents, studentProgress.data?.students])
+
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -705,20 +742,37 @@ export function UcatClassDialog({
     <UcatDialogShell
       open={open}
       onClose={onClose}
-      title="Edit class sessions"
-      subtitle="Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list. Save when done."
+      title="Class details"
+      subtitle={
+        dialogTab === 'sessions'
+          ? 'Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list.'
+          : 'View the UCAT students enrolled in this class and open their progress.'
+      }
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
+      headerControls={
+        <SegmentedControl
+          value={dialogTab}
+          onValueChange={setDialogTab}
+          options={[
+            { value: 'sessions', label: 'Sessions' },
+            { value: 'students', label: 'Students' },
+          ]}
+          aria-label="Class detail view"
+          fullWidth={false}
+        />
+      }
       headerActions={headerActions}
     >
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="h-full flex">
+      {dialogTab === 'sessions' ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="h-full flex">
           <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
             <h2 className="font-semibold">Sessions</h2>
             <ListToolbar
@@ -877,8 +931,77 @@ export function UcatClassDialog({
               </SegmentedTabPanelContent>
             </SegmentedTabPanel>
           </aside>
-        </div>
-      </DndContext>
+          </div>
+        </DndContext>
+      ) : (
+        <section className="h-full overflow-y-auto p-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-semibold">Students</h2>
+              <p className="text-sm text-muted-foreground">
+                {classStudentIds.data?.length ?? 0} enrolled student
+                {(classStudentIds.data?.length ?? 0) === 1 ? '' : 's'}
+              </p>
+            </div>
+            <ListToolbar
+              search={searchStudents}
+              onSearchChange={setSearchStudents}
+              {...tutorToolbarProps}
+              searchPlaceholder="Search class students"
+            />
+            <div className={tutorTableShell}>
+              <Table>
+                <TableHeader className="[&_tr]:border-b-0">
+                  <TableRow className={tutorTableHeaderRow}>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Question attempts</TableHead>
+                    <TableHead>Set attempts</TableHead>
+                    <TableHead>Mock attempts</TableHead>
+                    <TableHead>Exam score</TableHead>
+                    <TableHead className="w-16" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {classStudentIds.isLoading || studentProgress.isLoading ? (
+                    <TableRow className={tutorTableBodyRow}>
+                      <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                        Loading students...
+                      </TableCell>
+                    </TableRow>
+                  ) : classStudents.length === 0 ? (
+                    <TableRow className={tutorTableBodyRow}>
+                      <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                        {searchStudents ? 'No students match your search.' : 'No students are enrolled in this class.'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    classStudents.map((student) => (
+                      <TableRow key={student.student_id} className={tutorTableBodyRow}>
+                        <TableCell className="font-medium">{student.student_name}</TableCell>
+                        <TableCell className="tabular-nums">{student.total_questions}</TableCell>
+                        <TableCell className="tabular-nums">{student.total_sets_attempted}</TableCell>
+                        <TableCell className="tabular-nums">{student.total_mocks_attempted}</TableCell>
+                        <TableCell className="tabular-nums">{student.exam ?? '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <UcatRowActions
+                            actions={[
+                              {
+                                label: 'View progress',
+                                icon: <Eye className="h-4 w-4" />,
+                                href: `/ucat/students/${student.student_id}`,
+                              },
+                            ]}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </section>
+      )}
     </UcatDialogShell>
   )
 }

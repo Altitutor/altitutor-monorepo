@@ -30,6 +30,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Use only one correct answer per question.
 - Questions must be answerable from the passage alone. Wrong options should be tempting because they overstate, reverse, confuse scope, import outside knowledge, or match only part of the passage.
 - Do not write comprehension questions that can be answered by keyword matching alone.
+- Passage paragraphs are unnumbered prose. Never prefix passage text with labels or headings such as "Paragraph 1", "Paragraph 2", or "Paragraph 3". Paragraph numbers are positional references used only in answer explanations.
 - Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.
 - In every answerExplanation, identify the passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, e.g. "Paragraph 2 states..." or "This is supported by paragraph 4."`,
   decision_making: `Decision Making rules:
@@ -326,6 +327,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Follow the planned passage length/time burden and test four distinct reading skills, but avoid making all four questions global synthesis questions.',
               'Where it fits the passage naturally, include questions that can be answered efficiently by locating a distinctive phrase, number, name, or paragraph-level clue. Do not force a fixed number of scan-first questions.',
               "For True, False, Can't Tell, questionText must contain only the statement being assessed. Never state or hint whether it is True, False, or Can't Tell in questionText.",
+              'Do not write paragraph numbers, labels, or headings inside stemText. Each passage paragraph must begin directly with its prose; Paragraph 1, Paragraph 2, and similar labels are reserved for answerExplanation references only.',
               'In answerExplanation, cite the relevant passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, using labels such as Paragraph 1 or Paragraph 3.',
             ]
           : []),

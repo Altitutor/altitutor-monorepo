@@ -64,6 +64,17 @@ export function applyNeedMoreStemsResult(
     };
   }
 
+  if (result.status === "error" && options?.reviewAtEnd) {
+    return {
+      ...current,
+      phase: "question",
+      currentIndex: Math.max(current.loadingMoreTargetIndex! - 1, 0),
+      viewingQuestionIndex: null,
+      loadingMoreTargetIndex: undefined,
+      loadingMoreExcludeStemIds: undefined,
+    };
+  }
+
   if (result.status === "quotaReached" || result.status === "error") {
     if (options?.reviewAtEnd) {
       return {

@@ -33,6 +33,24 @@ describe('QR writer prompts', () => {
   })
 })
 
+describe('VR writer prompts', () => {
+  it('reserves paragraph labels for explanations and prohibits them in passage text', () => {
+    const prompt = buildWriterPrompt({
+      ...brief,
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+      availableCategories: [],
+      plan: { plans: [{ stemIndex: 0, categoryName: 'Reading Comprehension' }] },
+    })
+    const payload = JSON.parse(prompt) as { sectionRules: string; requirements: string[] }
+
+    expect(payload.sectionRules).toContain('Passage paragraphs are unnumbered prose')
+    expect(payload.requirements).toContain(
+      'Do not write paragraph numbers, labels, or headings inside stemText. Each passage paragraph must begin directly with its prose; Paragraph 1, Paragraph 2, and similar labels are reserved for answerExplanation references only.'
+    )
+  })
+})
+
 describe('DM Venn writer prompts', () => {
   it('preserves complex multi-shape diagrams and diagram answer options', () => {
     const prompt = buildWriterPrompt({
