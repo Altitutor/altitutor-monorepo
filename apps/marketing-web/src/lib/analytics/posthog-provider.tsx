@@ -42,6 +42,7 @@ export function MarketingPostHogProvider({
       posthog.init(token, {
         api_host:
           process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+        defaults: "2026-05-30",
         capture_pageview: false,
         capture_pageleave: true,
         autocapture: false,
@@ -51,7 +52,13 @@ export function MarketingPostHogProvider({
         disable_session_recording: true,
         disable_surveys: true,
       });
-      posthog.register(MARKETING_ANALYTICS_CONTEXT);
+      posthog.register({
+        ...MARKETING_ANALYTICS_CONTEXT,
+        environment:
+          process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ??
+          process.env.NODE_ENV ??
+          "development",
+      });
       initialized = true;
     }
 
