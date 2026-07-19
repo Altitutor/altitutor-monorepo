@@ -664,7 +664,28 @@ export type Database = {
             foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -1147,7 +1168,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -6654,7 +6696,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -7448,7 +7511,28 @@ export type Database = {
             foreignKeyName: "slot_reservations_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -7843,7 +7927,28 @@ export type Database = {
             foreignKeyName: "staff_subjects_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -9305,7 +9410,28 @@ export type Database = {
             foreignKeyName: "student_subscriptions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -9432,7 +9558,28 @@ export type Database = {
             foreignKeyName: "student_subsidies_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -10066,7 +10213,28 @@ export type Database = {
             foreignKeyName: "students_online_access_manual_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_online_access_manual_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_online_access_manual_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_online_access_manual_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -10178,7 +10346,28 @@ export type Database = {
             foreignKeyName: "students_subjects_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -10318,7 +10507,28 @@ export type Database = {
             foreignKeyName: "subjects_files_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: true
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -10629,7 +10839,28 @@ export type Database = {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -15539,6 +15770,306 @@ export type Database = {
           },
         ]
       }
+      ucat_student_next_steps: {
+        Row: {
+          created_at: string
+          description: string
+          estimated_minutes: number
+          generated_on: string
+          id: string
+          launch_config: Json
+          launch_path: string
+          learning_module_id: string | null
+          mock_id: string | null
+          position: number
+          question_set_id: string | null
+          question_stem_category_id: string | null
+          rationale: string
+          section_id: string | null
+          skill_trainer_id: string | null
+          source_attempt_id: string | null
+          source_attempt_type: string | null
+          student_id: string
+          task_type: string
+          title: string
+          trigger_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          estimated_minutes: number
+          generated_on: string
+          id?: string
+          launch_config?: Json
+          launch_path: string
+          learning_module_id?: string | null
+          mock_id?: string | null
+          position: number
+          question_set_id?: string | null
+          question_stem_category_id?: string | null
+          rationale?: string
+          section_id?: string | null
+          skill_trainer_id?: string | null
+          source_attempt_id?: string | null
+          source_attempt_type?: string | null
+          student_id: string
+          task_type: string
+          title: string
+          trigger_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          estimated_minutes?: number
+          generated_on?: string
+          id?: string
+          launch_config?: Json
+          launch_path?: string
+          learning_module_id?: string | null
+          mock_id?: string | null
+          position?: number
+          question_set_id?: string | null
+          question_stem_category_id?: string | null
+          rationale?: string
+          section_id?: string | null
+          skill_trainer_id?: string | null
+          source_attempt_id?: string | null
+          source_attempt_type?: string | null
+          student_id?: string
+          task_type?: string
+          title?: string
+          trigger_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_student_next_steps_learning_module_id_fkey"
+            columns: ["learning_module_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_learning_module_id_fkey"
+            columns: ["learning_module_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_accessible_learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_learning_module_id_fkey"
+            columns: ["learning_module_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_learning_module_id_fkey"
+            columns: ["learning_module_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_accessible_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_accessible_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_set_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_set_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_skill_trainer_id_fkey"
+            columns: ["skill_trainer_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_skill_trainers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       ucat_student_study_plan_generations: {
         Row: {
           capacity_risk: Json | null
@@ -15637,6 +16168,7 @@ export type Database = {
           preferred_mock_weekday: number
           setup_completed_at: string | null
           student_id: string
+          study_plan_enabled: boolean
           target_score: number
           test_date: string | null
           test_year: number
@@ -15651,6 +16183,7 @@ export type Database = {
           preferred_mock_weekday: number
           setup_completed_at?: string | null
           student_id: string
+          study_plan_enabled?: boolean
           target_score: number
           test_date?: string | null
           test_year: number
@@ -15665,6 +16198,7 @@ export type Database = {
           preferred_mock_weekday?: number
           setup_completed_at?: string | null
           student_id?: string
+          study_plan_enabled?: boolean
           target_score?: number
           test_date?: string | null
           test_year?: number
@@ -16276,7 +16810,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -16412,7 +16967,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -16489,7 +17065,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -16761,7 +17358,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -16859,7 +17477,28 @@ export type Database = {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -17147,7 +17786,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -17327,7 +17987,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -17461,6 +18142,22 @@ export type Database = {
           title?: string | null
           topic_id?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vstudent_in_person_subjects: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          discipline: Database["public"]["Enums"]["subject_discipline"] | null
+          id: string | null
+          level: string | null
+          long_name: string | null
+          name: string | null
+          short_name: string | null
+          updated_at: string | null
+          year_level: number | null
         }
         Relationships: []
       }
@@ -17825,6 +18522,30 @@ export type Database = {
           },
         ]
       }
+      vstudent_online_subject_access: {
+        Row: {
+          access_source: string | null
+          student_id: string | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
+      vstudent_online_subjects: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          discipline: Database["public"]["Enums"]["subject_discipline"] | null
+          id: string | null
+          level: string | null
+          long_name: string | null
+          name: string | null
+          short_name: string | null
+          updated_at: string | null
+          year_level: number | null
+        }
+        Relationships: []
+      }
       vstudent_profile: {
         Row: {
           availability_friday: boolean | null
@@ -17985,7 +18706,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18082,7 +18824,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18177,7 +18940,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18263,7 +19047,28 @@ export type Database = {
             foreignKeyName: "slot_reservations_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18301,7 +19106,28 @@ export type Database = {
             foreignKeyName: "subjects_files_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: true
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18327,6 +19153,22 @@ export type Database = {
         Relationships: []
       }
       vstudent_subjects: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          discipline: Database["public"]["Enums"]["subject_discipline"] | null
+          id: string | null
+          level: string | null
+          long_name: string | null
+          name: string | null
+          short_name: string | null
+          updated_at: string | null
+          year_level: number | null
+        }
+        Relationships: []
+      }
+      vstudent_subscription_subjects: {
         Row: {
           color: string | null
           created_at: string | null
@@ -18453,7 +19295,28 @@ export type Database = {
             foreignKeyName: "student_subscriptions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -18588,7 +19451,28 @@ export type Database = {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -21004,7 +21888,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -21053,7 +21958,28 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -21503,7 +22429,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -21589,7 +22536,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -21831,7 +22799,28 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -22043,7 +23032,28 @@ export type Database = {
             foreignKeyName: "subjects_files_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: true
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -22194,7 +23204,28 @@ export type Database = {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -26778,6 +27809,10 @@ export type Database = {
       }
       tutor_ucat_delete_question_stem: {
         Args: { p_stem_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_merge_question_stems: {
+        Args: { p_source_stem_id: string; p_target_stem_id: string }
         Returns: undefined
       }
       tutor_ucat_reorder_learning_modules: {
