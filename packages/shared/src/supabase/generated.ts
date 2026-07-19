@@ -16169,6 +16169,7 @@ export type Database = {
           setup_completed_at: string | null
           student_id: string
           study_plan_enabled: boolean
+          study_suggestions_enabled: boolean
           target_score: number
           test_date: string | null
           test_year: number
@@ -16184,6 +16185,7 @@ export type Database = {
           setup_completed_at?: string | null
           student_id: string
           study_plan_enabled?: boolean
+          study_suggestions_enabled?: boolean
           target_score: number
           test_date?: string | null
           test_year: number
@@ -16199,6 +16201,7 @@ export type Database = {
           setup_completed_at?: string | null
           student_id?: string
           study_plan_enabled?: boolean
+          study_suggestions_enabled?: boolean
           target_score?: number
           test_date?: string | null
           test_year?: number
