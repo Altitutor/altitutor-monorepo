@@ -66,6 +66,8 @@ type AttemptHistoryExplorerProps = {
   isMockContext?: boolean;
   yAxisMax?: number;
   previewData?: AttemptHistoryPreviewData;
+  emptyActionHref?: string;
+  emptyActionLabel?: string;
 };
 
 export type AttemptHistoryPreviewData = {
@@ -175,6 +177,8 @@ export function AttemptHistoryExplorer({
   isMockContext = false,
   yAxisMax,
   previewData,
+  emptyActionHref,
+  emptyActionLabel,
 }: AttemptHistoryExplorerProps) {
   const [metric, setMetric] = useState<GraphDataType>(defaultMetric);
   const [tableMetric, setTableMetric] = useState<AttemptTableMetric>(() =>
@@ -239,6 +243,8 @@ export function AttemptHistoryExplorer({
       ),
     [dateRange, metric, previewData?.series, seriesQuery.data?.points],
   );
+  const rawSeries = previewData?.series ?? seriesQuery.data?.points ?? [];
+  const hasAnyAttempts = rawSeries.some((point) => point.attemptCount > 0);
   const recentAttempts = previewData
     ? previewRecentAttempts.slice(0, RECENT_ATTEMPTS_LIMIT)
     : (recentQuery.data?.attempts ?? []);
@@ -295,6 +301,8 @@ export function AttemptHistoryExplorer({
           onPointSelect={handlePointSelect}
           trailingSpace
           className="pt-1"
+          emptyMessage={`${title} will appear here`}
+          emptyDescription="Complete an attempt to start building this graph."
         />
         <div className="sr-only" aria-label={`Selectable ${title} periods`}>
           {graphData
@@ -411,14 +419,20 @@ export function AttemptHistoryExplorer({
             )}
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(UCAT_NEUTRAL_ACTION_HOVER, "mt-4 w-full shrink-0")}
-            onClick={() => setDialogOpen(true)}
-          >
-            View all attempts
-          </Button>
+          {!hasAnyAttempts && emptyActionHref && emptyActionLabel ? (
+            <Button asChild className="mt-4 w-full shrink-0">
+              <Link href={emptyActionHref}>{emptyActionLabel}</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(UCAT_NEUTRAL_ACTION_HOVER, "mt-4 w-full shrink-0")}
+              onClick={() => setDialogOpen(true)}
+            >
+              View all attempts
+            </Button>
+          )}
         </aside>
       </div>
 

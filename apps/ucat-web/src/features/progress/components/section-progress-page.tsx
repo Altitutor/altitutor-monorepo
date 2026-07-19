@@ -31,6 +31,8 @@ import {
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import { SegmentedControl } from "./segmented-control";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type SectionProgressPageProps = {
   sectionNumber: number;
@@ -253,7 +255,7 @@ export function SectionProgressContent({
             ? ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`
             : ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so timing and accuracy should improve together.`
       }`
-    : "Timed sets and mock sections will reveal which category and timing pattern is holding the estimate back.";
+    : "Complete timed sets to get an estimated score for this section";
   const resolvedTimingSeries =
     timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
   const trajectoryToggle = (
@@ -277,8 +279,8 @@ export function SectionProgressContent({
           title={`${section.sectionName} progress`}
           description={
             targetScore == null
-              ? `Current estimate ${score ?? "—"}`
-              : `Current estimate ${score ?? "—"} · Target ${targetScore}`
+              ? `Current estimate ${score ?? "pending"}`
+              : `Current estimate ${score ?? "pending"} · Target ${targetScore}`
           }
           statusLabel={
             score == null
@@ -313,19 +315,23 @@ export function SectionProgressContent({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Current estimate</span>
-                <span className="font-medium tabular-nums">{score ?? "—"}</span>
+                <span className="font-medium tabular-nums">{score ?? "Pending"}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Target</span>
-                <span className="font-medium tabular-nums">
-                  {targetScore ?? "Not set"}
-                </span>
+                {targetScore == null ? (
+                  <Button asChild size="sm">
+                    <Link href="/study-plan/setup">Set target</Link>
+                  </Button>
+                ) : (
+                  <span className="font-medium tabular-nums">{targetScore}</span>
+                )}
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Gap</span>
                 <span className="font-medium tabular-nums">
                   {score == null || targetScore == null
-                    ? "—"
+                    ? "Pending"
                     : targetScore <= score
                       ? `${score - targetScore} ahead`
                       : `${targetScore - score} points`}
@@ -575,6 +581,8 @@ export function SectionProgressContent({
           defaultMetric="percentage"
           metricOptions={PRACTICE_METRICS}
           previewData={attemptHistoryPreviewData?.practice}
+          emptyActionHref="/practice"
+          emptyActionLabel="Go to practice"
         />
       </motion.div>
       <motion.div id="tour-section-set-attempts" variants={itemVariants}>
@@ -586,6 +594,8 @@ export function SectionProgressContent({
           defaultMetric="scaled_score"
           metricOptions={SET_AND_MOCK_METRICS}
           previewData={attemptHistoryPreviewData?.set}
+          emptyActionHref={`/sets/sections/${section.sectionNumber}`}
+          emptyActionLabel="Go to sets"
         />
       </motion.div>
     </motion.div>

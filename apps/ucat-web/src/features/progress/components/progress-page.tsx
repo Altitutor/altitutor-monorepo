@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Skeleton } from "@altitutor/ui";
+import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { lookupUcatAnzTotalPercentile } from "@altitutor/ucat-percentiles";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
@@ -14,6 +14,9 @@ import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights"
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
+import { AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type {
   SectionScoreProjection,
@@ -27,6 +30,49 @@ function MetricRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-medium tabular-nums">{value}</span>
     </div>
+  );
+}
+
+function QuestionsCompletedCard({ sections }: { sections: SectionProgress[] }) {
+  const totalCompleted = sections.reduce((sum, section) => sum + section.maxScore, 0);
+  const totals = sections.map((section) => section.totalPublicQuestions);
+  const totalAvailable = totals.every((total) => total != null)
+    ? totals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
+    : null;
+  const percentage =
+    totalAvailable != null && totalAvailable > 0
+      ? Math.round((totalCompleted / totalAvailable) * 100)
+      : totalCompleted > 0
+        ? 100
+        : 0;
+
+  return (
+    <Card className={UCAT_CARD_CHROME}>
+      <CardContent className="flex flex-col gap-4 pt-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-base font-medium text-muted-foreground">Total questions completed</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">
+              <AnimatedInteger value={totalCompleted} />
+              {totalAvailable != null ? ` / ${totalAvailable}` : null}
+            </p>
+          </div>
+          <ProgressCircular percentage={percentage} size={48} className="shrink-0 text-accent" />
+        </div>
+        <div className={cn(UCAT_DIVIDER_TOP, "space-y-1.5 pt-3")}>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Section breakdown</p>
+          {sections.map((section) => (
+            <div key={section.sectionId} className="flex justify-between gap-3 text-sm tabular-nums">
+              <span className="truncate text-muted-foreground">{section.sectionName}</span>
+              <span className="shrink-0 font-medium">
+                {section.maxScore}
+                {section.totalPublicQuestions != null ? ` / ${section.totalPublicQuestions}` : " questions"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -184,8 +230,8 @@ export function ProgressPageContent({
         title="Score progress"
         description={
           targetScore != null
-            ? `Current estimate ${currentEstimate ?? "—"} · Target ${targetScore}`
-            : `Current estimate ${currentEstimate ?? "—"}`
+            ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
+            : `Current estimate ${currentEstimate ?? "pending"}`
         }
         statusLabel={statusLabel}
         projection={totalProjection}
@@ -199,20 +245,18 @@ export function ProgressPageContent({
           <div>
             <MetricRow
               label="Current estimate"
-              value={currentEstimate == null ? "—" : String(currentEstimate)}
+              value={currentEstimate == null ? "Pending" : String(currentEstimate)}
             />
             <MetricRow
               label="UCAT ANZ benchmark"
               value={benchmark.percentileLabel ?? "Not available yet"}
             />
-            <MetricRow
-              label="90-day change"
-              value={
-                projectedGain == null
-                  ? "—"
-                  : `${projectedGain >= 0 ? "+" : ""}${projectedGain}`
-              }
-            />
+            {projectedGain != null ? (
+              <MetricRow
+                label="90-day change"
+                value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+              />
+            ) : null}
           </div>
         }
       />
@@ -232,8 +276,13 @@ export function ProgressPageContent({
             scoreProjections={scoreProjections}
             sectionTargets={sectionTargets}
             mockRecentWeightedAverage={mockRecentWeightedAverage}
+            mockTargetScore={targetScore}
           />
         </section>
+      </div>
+
+      <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
+        <QuestionsCompletedCard sections={sections} />
       </div>
     </div>
   );

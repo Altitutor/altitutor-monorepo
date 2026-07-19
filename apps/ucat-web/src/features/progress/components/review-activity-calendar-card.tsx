@@ -182,45 +182,54 @@ export function ReviewActivityCalendarCard({
     return null;
   }
 
-  // No activity and no recorded touchpoint yet — nothing meaningful to show.
-  if (!data.startedAt && data.days.length === 0) {
-    return null;
-  }
+  const isEmpty = !data.startedAt && data.days.length === 0;
 
   return (
     <TooltipProvider delayDuration={200}>
-      <UcatMonthCalendar
-        className={className}
-        months={months}
-        initialMonthKey={todayKey.slice(0, 7)}
-        ariaLabel="Review activity calendar"
-        title="Review activity"
-        description="Daily question and set attempts."
-        headerAction={
-          showViewAllProgressLink ? (
-            <Link
-              href="/progress"
-              className={cn(
-                "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
-                UCAT_SURFACE_MOTION,
-                UCAT_PRESSABLE_LIFT_HOVER,
-              )}
-              aria-label="View all progress"
-            >
-              <UcatHoverChevron className="h-5 w-5" />
-            </Link>
-          ) : null
-        }
-        legend={<UcatActivityIntensityLegend label="Activity" />}
-        renderDay={(day) => (
-          <ReviewDayCell
-            day={day}
-            activity={activityByDate.get(day.dateKey)}
-            isToday={day.dateKey === todayKey}
-            isFuture={day.dateKey > todayKey}
+      <div className={cn("relative", className)}>
+        <div className={cn(isEmpty && "pointer-events-none opacity-40")} aria-hidden={isEmpty || undefined}>
+          <UcatMonthCalendar
+            className="h-full"
+            months={months}
+            initialMonthKey={todayKey.slice(0, 7)}
+            ariaLabel="Review activity calendar"
+            title="Review activity"
+            description="Daily question and set attempts."
+            headerAction={
+              showViewAllProgressLink ? (
+                <Link
+                  href="/progress"
+                  className={cn(
+                    "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+                    UCAT_SURFACE_MOTION,
+                    UCAT_PRESSABLE_LIFT_HOVER,
+                  )}
+                  aria-label="View all progress"
+                >
+                  <UcatHoverChevron className="h-5 w-5" />
+                </Link>
+              ) : null
+            }
+            legend={<UcatActivityIntensityLegend label="Activity" />}
+            renderDay={(day) => (
+              <ReviewDayCell
+                day={day}
+                activity={activityByDate.get(day.dateKey)}
+                isToday={day.dateKey === todayKey}
+                isFuture={day.dateKey > todayKey}
+              />
+            )}
           />
-        )}
-      />
+        </div>
+        {isEmpty ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="max-w-xs rounded-xl border border-border bg-background/95 px-5 py-4 text-center shadow-sm backdrop-blur">
+              <p className="text-sm font-medium">Your activity calendar will populate here</p>
+              <p className="mt-1 text-xs text-muted-foreground">It will fill in as you practise questions and complete sets.</p>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </TooltipProvider>
   );
 }

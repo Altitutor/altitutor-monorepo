@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
   UCAT_FLOATING_GRAPH_CARD,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
@@ -136,6 +138,8 @@ export function MockAttemptsCard({
             metricOptions={GRAPH_DATA_TYPES}
             onDataTypeChange={setGraphDataType}
             trailingSpace
+            emptyMessage="Mock attempts will appear here"
+            emptyDescription="Complete a mock to start building your score history."
           />
 
           <aside
@@ -153,7 +157,7 @@ export function MockAttemptsCard({
                   Recent-weighted average
                 </p>
                 <p className="text-4xl font-semibold tabular-nums">
-                  {recentWeightedAverage ?? "—"}
+                  {recentWeightedAverage ?? "Pending"}
                 </p>
               </div>
               <div className="text-right">
@@ -188,18 +192,23 @@ export function MockAttemptsCard({
                       {section.sectionName}
                     </span>
                     <span className="font-medium tabular-nums">
-                      {section.averageScaledScore ?? "—"}
+                      {section.averageScaledScore ?? "Pending"}
                     </span>
                   </div>
                 ))}
             </div>
+            {summary.attemptCount === 0 ? (
+              <Button asChild className="mt-5 w-full">
+                <Link href="/mocks">Go to mocks</Link>
+              </Button>
+            ) : null}
           </aside>
         </div>
       </section>
 
       <section
         aria-label="Mock progress summary"
-        className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:grid-cols-3 sm:px-6"
+        className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:grid-cols-2 sm:px-6"
       >
         <Card className={UCAT_CARD_CHROME}>
           <CardContent className="pt-6">
@@ -213,21 +222,10 @@ export function MockAttemptsCard({
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Average mock score</p>
             <p className="mt-2 text-3xl font-semibold tabular-nums">
-              {summary.averageScaledScore ?? "—"}
+              {summary.averageScaledScore ?? "Pending"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Simple average across completed mocks
-            </p>
-          </CardContent>
-        </Card>
-        <Card className={UCAT_CARD_CHROME}>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Unreviewed attempts</p>
-            <p className="mt-2 text-3xl font-semibold tabular-nums">
-              {summary.unreviewedAttemptCount}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Mocks without a completed review
             </p>
           </CardContent>
         </Card>
