@@ -42,6 +42,13 @@ type DayActivity = {
   setAttempts: number;
 };
 
+function placeholderActivity(dayNumber: number): DayActivity | undefined {
+  if (dayNumber % 6 === 0) return { questionAttempts: 18, setAttempts: 1 };
+  if (dayNumber % 4 === 0) return { questionAttempts: 9, setAttempts: 0 };
+  if (dayNumber % 3 === 0) return { questionAttempts: 4, setAttempts: 0 };
+  return undefined;
+}
+
 function ReviewDayCell({
   day,
   activity,
@@ -187,7 +194,13 @@ export function ReviewActivityCalendarCard({
   return (
     <TooltipProvider delayDuration={200}>
       <div className={cn("relative", className)}>
-        <div className={cn(isEmpty && "pointer-events-none opacity-40")} aria-hidden={isEmpty || undefined}>
+        <div
+          className={cn(
+            "h-full",
+            isEmpty && "pointer-events-none opacity-45 blur-[1px]",
+          )}
+          aria-hidden={isEmpty || undefined}
+        >
           <UcatMonthCalendar
             className="h-full"
             months={months}
@@ -214,7 +227,11 @@ export function ReviewActivityCalendarCard({
             renderDay={(day) => (
               <ReviewDayCell
                 day={day}
-                activity={activityByDate.get(day.dateKey)}
+                activity={
+                  isEmpty
+                    ? placeholderActivity(day.dayNumber)
+                    : activityByDate.get(day.dateKey)
+                }
                 isToday={day.dateKey === todayKey}
                 isFuture={day.dateKey > todayKey}
               />
@@ -222,11 +239,10 @@ export function ReviewActivityCalendarCard({
           />
         </div>
         {isEmpty ? (
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <div className="max-w-xs rounded-xl border border-border bg-background/95 px-5 py-4 text-center shadow-sm backdrop-blur">
-              <p className="text-sm font-medium">Your activity calendar will populate here</p>
-              <p className="mt-1 text-xs text-muted-foreground">It will fill in as you practise questions and complete sets.</p>
-            </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
+            <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur">
+              Practice activity will appear here
+            </p>
           </div>
         ) : null}
       </div>

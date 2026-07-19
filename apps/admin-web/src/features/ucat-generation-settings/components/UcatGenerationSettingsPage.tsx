@@ -53,7 +53,9 @@ type ScopeOption = {
 };
 
 type GeneralSettingRow = {
-  key: keyof Pick<UcatGenerationSettings, 'max_requested_stems_per_run' | 'daily_token_budget' | 'daily_cost_budget_cents'>;
+  key:
+    | keyof Pick<UcatGenerationSettings, 'max_requested_stems_per_run' | 'daily_token_budget' | 'daily_cost_budget_cents'>
+    | 'automatic_review_profiles';
   label: string;
   value: string;
   description: string;
@@ -166,11 +168,15 @@ function FieldLabel({
 function GeneralSettingsDialog({
   open,
   settings,
+  modelProfiles,
+  providers,
   onOpenChange,
   onSaved,
 }: {
   open: boolean;
   settings: UcatGenerationSettings;
+  modelProfiles: UcatGenerationModelProfile[];
+  providers: UcatGenerationProvider[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
@@ -178,6 +184,15 @@ function GeneralSettingsDialog({
   const [dailyTokens, setDailyTokens] = useState(settings.daily_token_budget == null ? '' : String(settings.daily_token_budget));
   const [dailyCost, setDailyCost] = useState(
     settings.daily_cost_budget_cents == null ? '' : String(Math.round(settings.daily_cost_budget_cents / 100)),
+  );
+  const [blindSolverProfileId, setBlindSolverProfileId] = useState(
+    settings.automatic_review_blind_solver_model_profile_id ?? '',
+  );
+  const [useSolverForAssessment, setUseSolverForAssessment] = useState(
+    settings.automatic_review_use_solver_for_assessment,
+  );
+  const [assessmentProfileId, setAssessmentProfileId] = useState(
+    settings.automatic_review_assessment_model_profile_id ?? '',
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,10 +202,17 @@ function GeneralSettingsDialog({
     setMaxStems(String(settings.max_requested_stems_per_run));
     setDailyTokens(settings.daily_token_budget == null ? '' : String(settings.daily_token_budget));
     setDailyCost(settings.daily_cost_budget_cents == null ? '' : String(Math.round(settings.daily_cost_budget_cents / 100)));
+    setBlindSolverProfileId(settings.automatic_review_blind_solver_model_profile_id ?? '');
+    setUseSolverForAssessment(settings.automatic_review_use_solver_for_assessment);
+    setAssessmentProfileId(settings.automatic_review_assessment_model_profile_id ?? '');
     setError(null);
   }, [open, settings]);
 
   async function save() {
+    if (!blindSolverProfileId || (!useSolverForAssessment && !assessmentProfileId)) {
+      setError('Select an enabled model profile for both review stages before saving.')
+      return
+    }
     setSaving(true);
     setError(null);
     try {
@@ -198,6 +220,11 @@ function GeneralSettingsDialog({
         max_requested_stems_per_run: Number.parseInt(maxStems, 10),
         daily_token_budget: parseNullableInt(dailyTokens),
         daily_cost_budget_cents: dailyCost.trim() ? Math.round(Number.parseFloat(dailyCost) * 100) : null,
+        automatic_review_blind_solver_model_profile_id: blindSolverProfileId || null,
+        automatic_review_use_solver_for_assessment: useSolverForAssessment,
+        automatic_review_assessment_model_profile_id: useSolverForAssessment
+          ? null
+          : assessmentProfileId || null,
       });
       await onSaved();
       onOpenChange(false);
@@ -213,13 +240,13 @@ function GeneralSettingsDialog({
       open={open}
       onClose={() => onOpenChange(false)}
       title="Budgets and run limits"
-      subtitle="Global caps used by tutor-web generation runs."
+      subtitle="Shared UCAT AI budgets, generation limits, and automatic review models."
       contentClassName="md:max-w-3xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button type="button" onClick={save} disabled={saving}>
-            {saving ? 'Saving...' : 'Save budgets'}
+            {saving ? 'Saving...' : 'Save settings'}
           </Button>
         </>
       )}
@@ -237,7 +264,7 @@ function GeneralSettingsDialog({
           <div className="space-y-2">
             <FieldLabel
               label="Daily token budget"
-              description="Stops new generation calls after the total provider-reported input and output tokens for the day reaches this amount. Leave blank for no token cap."
+              description="Stops new UCAT AI calls after the total provider-reported input and output tokens for the day reaches this amount. Generation and automatic review share this budget. Leave blank for no token cap."
               htmlFor="daily-token-budget"
             />
             <Input id="daily-token-budget" value={dailyTokens} onChange={(e) => setDailyTokens(e.target.value)} placeholder="No cap" />
@@ -245,11 +272,71 @@ function GeneralSettingsDialog({
           <div className="space-y-2">
             <FieldLabel
               label="Daily cost budget ($)"
-              description="Stops new generation calls after recorded estimated API cost reaches this daily amount. Leave blank for no cost cap."
+              description="Stops new UCAT AI calls after recorded estimated API cost reaches this daily amount. Generation and automatic review share this budget. Leave blank for no cost cap."
               htmlFor="daily-cost-budget"
             />
             <Input id="daily-cost-budget" value={dailyCost} onChange={(e) => setDailyCost(e.target.value)} placeholder="No cap" />
           </div>
+        </div>
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <h3 className="font-medium">Automatic question review</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Select the provider/model profiles used for the blind solve and independent assessment. Automatic review is controlled separately by the server environment gate.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <FieldLabel
+                label="Blind solver profile"
+                description="Solves the question without seeing the keyed answer, explanation, difficulty, or time limit. Choose an enabled vision-capable model because some questions contain images."
+              />
+              <SearchableSelect<UcatGenerationModelProfile>
+                items={modelProfiles.filter((profile) => profile.is_enabled)}
+                value={modelProfiles.find((profile) => profile.id === blindSolverProfileId) ?? null}
+                onValueChange={(profile) => setBlindSolverProfileId(profile?.id ?? '')}
+                getItemId={(profile) => profile.id}
+                getItemLabel={(profile) => `${profile.name} · ${providerName(providers, profile.provider_id)} · ${profile.model}`}
+                placeholder="Select a model profile"
+                searchPlaceholder="Search model profiles..."
+                emptyMessage="No enabled model profiles"
+              />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                <div>
+                  <Label htmlFor="use-solver-for-assessment">Use solver profile for assessment</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Uses the same model profile for both calls.</p>
+                </div>
+                <Switch
+                  id="use-solver-for-assessment"
+                  checked={useSolverForAssessment}
+                  onCheckedChange={setUseSolverForAssessment}
+                />
+              </div>
+              {!useSolverForAssessment ? (
+                <div className="space-y-2">
+                  <FieldLabel
+                    label="Assessment profile"
+                    description="Compares the blind solution with the keyed answer and evaluates accuracy, teaching quality, fairness, authenticity, appropriateness, difficulty, and visual integrity. Choose an enabled vision-capable model."
+                  />
+                  <SearchableSelect<UcatGenerationModelProfile>
+                    items={modelProfiles.filter((profile) => profile.is_enabled)}
+                    value={modelProfiles.find((profile) => profile.id === assessmentProfileId) ?? null}
+                    onValueChange={(profile) => setAssessmentProfileId(profile?.id ?? '')}
+                    getItemId={(profile) => profile.id}
+                    getItemLabel={(profile) => `${profile.name} · ${providerName(providers, profile.provider_id)} · ${profile.model}`}
+                    placeholder="Select a model profile"
+                    searchPlaceholder="Search model profiles..."
+                    emptyMessage="No enabled model profiles"
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Changing these profiles affects only future reviews. Existing reviews are never re-run solely because configuration changes.
+          </p>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </div>
@@ -257,7 +344,17 @@ function GeneralSettingsDialog({
   );
 }
 
-function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationSettings; onSaved: () => void }) {
+function GeneralSettingsTable({
+  settings,
+  modelProfiles,
+  providers,
+  onSaved,
+}: {
+  settings: UcatGenerationSettings;
+  modelProfiles: UcatGenerationModelProfile[];
+  providers: UcatGenerationProvider[];
+  onSaved: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const rows = useMemo<GeneralSettingRow[]>(
     () => [
@@ -271,16 +368,28 @@ function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationS
         key: 'daily_token_budget',
         label: 'Daily token budget',
         value: settings.daily_token_budget == null ? 'No cap' : settings.daily_token_budget.toLocaleString(),
-        description: 'Stops new generation calls when the daily provider-reported token total reaches this amount.',
+        description: 'Stops new generation or automatic-review calls when the shared daily token total reaches this amount.',
       },
       {
         key: 'daily_cost_budget_cents',
         label: 'Daily cost budget',
         value: settings.daily_cost_budget_cents == null ? 'No cap' : `$${(settings.daily_cost_budget_cents / 100).toFixed(2)}`,
-        description: 'Stops new generation calls when recorded estimated API cost reaches this daily amount.',
+        description: 'Stops new generation or automatic-review calls when the shared daily estimated cost reaches this amount.',
+      },
+      {
+        key: 'automatic_review_profiles',
+        label: 'Automatic review models',
+        value: (() => {
+          const solver = modelProfiles.find((profile) => profile.id === settings.automatic_review_blind_solver_model_profile_id)?.name;
+          if (!solver) return 'Not configured';
+          if (settings.automatic_review_use_solver_for_assessment) return `${solver} (both stages)`;
+          const assessor = modelProfiles.find((profile) => profile.id === settings.automatic_review_assessment_model_profile_id)?.name;
+          return `${solver} / ${assessor ?? 'assessment not configured'}`;
+        })(),
+        description: 'Blind-solver and assessment profiles used for newly queued automatic reviews.',
       },
     ],
-    [settings],
+    [modelProfiles, settings],
   );
   const columns = useMemo<SettingsDataTableColumn<GeneralSettingRow>[]>(
     () => [
@@ -315,8 +424,8 @@ function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationS
         data={rows}
         columns={columns}
         getRowId={(row) => row.key}
-        emptyMessage="No generation settings found."
-        searchPlaceholder="Search generation settings..."
+        emptyMessage="No UCAT AI settings found."
+        searchPlaceholder="Search UCAT AI settings..."
         filterKeys={[]}
         defaultSort={{ field: 'label', direction: 'asc' }}
         getActions={() => [
@@ -327,7 +436,14 @@ function GeneralSettingsTable({ settings, onSaved }: { settings: UcatGenerationS
           },
         ]}
       />
-      <GeneralSettingsDialog open={editing} settings={settings} onSaved={onSaved} onOpenChange={setEditing} />
+      <GeneralSettingsDialog
+        open={editing}
+        settings={settings}
+        modelProfiles={modelProfiles}
+        providers={providers}
+        onSaved={onSaved}
+        onOpenChange={setEditing}
+      />
     </>
   );
 }
@@ -1571,8 +1687,8 @@ export function UcatGenerationSettingsPage() {
   if (loadState.status === 'loading') {
     return (
       <div className="space-y-6 p-6">
-        <SettingsPageHeader title="UCAT generation" actions={headerActions} />
-        <p className="text-sm text-muted-foreground">Loading UCAT generation settings...</p>
+        <SettingsPageHeader title="UCAT AI" actions={headerActions} />
+        <p className="text-sm text-muted-foreground">Loading UCAT AI settings...</p>
       </div>
     );
   }
@@ -1580,7 +1696,7 @@ export function UcatGenerationSettingsPage() {
   if (loadState.status === 'error') {
     return (
       <div className="space-y-6 p-6">
-        <SettingsPageHeader title="UCAT generation" actions={headerActions} />
+        <SettingsPageHeader title="UCAT AI" actions={headerActions} />
         <p className="text-sm text-destructive">{loadState.error}</p>
       </div>
     );
@@ -1591,7 +1707,7 @@ export function UcatGenerationSettingsPage() {
   return (
     <TooltipProvider delayDuration={150}>
     <div className="space-y-6 p-6">
-      <SettingsPageHeader title="UCAT generation" actions={headerActions} />
+      <SettingsPageHeader title="UCAT AI" actions={headerActions} />
       <SegmentedControl
         className="w-full max-w-xl min-w-0"
         fullWidth
@@ -1606,7 +1722,12 @@ export function UcatGenerationSettingsPage() {
       />
 
       <SegmentedTabPanelContent when="general" activeTab={activeTab}>
-        <GeneralSettingsTable settings={bundle.settings} onSaved={() => load(false)} />
+        <GeneralSettingsTable
+          settings={bundle.settings}
+          modelProfiles={bundle.modelProfiles}
+          providers={bundle.providers}
+          onSaved={() => load(false)}
+        />
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="providers" activeTab={activeTab}>

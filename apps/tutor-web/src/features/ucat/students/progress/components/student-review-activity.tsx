@@ -56,9 +56,6 @@ export function StudentReviewActivity({ data }: { data: ProgressResponse }) {
       <Card className="h-full rounded-2xl border-0 shadow-sm ring-1 ring-black/[0.06] dark:ring-white/10">
         <CardHeader>
           <CardTitle className="text-base">Review activity</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Daily question and set attempts over the last 12 weeks.
-          </p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-flow-col grid-rows-7 gap-1.5 overflow-x-auto pb-2">

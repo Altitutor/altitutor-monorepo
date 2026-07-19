@@ -316,15 +316,12 @@ export async function GET() {
 
   for (const sectionRows of rowsBySection.values()) {
     const indexed = sectionRows
-      .map((row) => {
-        const questions = ((row.questions ?? []) as QuestionRow[]).filter(
-          (q) => !q.deleted_at,
-        );
-        return buildStemSimilarityIndexEntry(
+      .map((row) =>
+        buildStemSimilarityIndexEntry(
           row.id,
           proseMirrorToPlainText(row.stem_text as Json) ?? "",
-        );
-      })
+        ),
+      )
       .filter((entry): entry is NonNullable<typeof entry> => entry != null);
 
     for (const pair of findPotentialDuplicatePairs(indexed)) {

@@ -26,10 +26,13 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_REFERRAL_SHARED } from "@/features/onboarding/lib/activation-milestones";
 
 export function ReferralSection() {
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
+  const completeMilestone = useCompleteOnboardingTour();
   const { data: summary, error } = useQuery<UcatReferralSummary>({
     queryKey: ["ucat-referrals"],
     queryFn: fetchUcatReferralSummary,
@@ -49,6 +52,7 @@ export function ReferralSection() {
   async function copyReferralLink() {
     if (!referralUrl) return;
     await navigator.clipboard.writeText(referralUrl);
+    completeMilestone.mutate(UCAT_REFERRAL_SHARED);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
@@ -56,6 +60,7 @@ export function ReferralSection() {
   async function shareReferralLink() {
     if (!referralUrl) return;
     if (navigator.share) {
+      completeMilestone.mutate(UCAT_REFERRAL_SHARED);
       await navigator.share({
         title: "Try Altitutor UCAT",
         text: "Join me on Altitutor for UCAT practice.",
@@ -149,7 +154,11 @@ export function ReferralSection() {
                 "They choose",
                 "They have 7 days to accept the Unlimited gift or continue Free.",
               ],
-              ["3", "You earn", "Your reward is based on your plan when you referred them."],
+              [
+                "3",
+                "You earn",
+                "Your reward is based on your plan when you referred them.",
+              ],
             ].map(([step, title, description]) => (
               <li
                 key={step}
@@ -266,7 +275,8 @@ export function ReferralSection() {
             <div className="mt-5 flex items-center justify-between border-t border-primary/15 pt-4 text-sm">
               <span className="text-muted-foreground">Already used</span>
               <span className="font-semibold tabular-nums">
-                {summary.stats.usedFreePeriods + summary.stats.redeemedFreeBills}
+                {summary.stats.usedFreePeriods +
+                  summary.stats.redeemedFreeBills}
               </span>
             </div>
           </div>

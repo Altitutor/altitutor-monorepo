@@ -16,6 +16,12 @@ import type {
 const replace = jest.fn();
 const prefetch = jest.fn();
 const mockSaveStudyPlan = jest.fn();
+let searchParamsValue = "activation=1";
+let mockPlanData: Record<string, unknown> = {
+  profile: null,
+  tasks: [],
+  today: "2026-07-16",
+};
 
 class ResizeObserverMock {
   observe() {}
@@ -35,7 +41,7 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace, prefetch }),
-  useSearchParams: () => new URLSearchParams("activation=1"),
+  useSearchParams: () => new URLSearchParams(searchParamsValue),
 }));
 
 jest.mock("@/features/study-plan/api/study-plan", () => ({
@@ -67,7 +73,7 @@ jest.mock("@/features/landing/components/marketing/noise-overlay", () => ({
 
 jest.mock("@/features/study-plan/hooks/use-study-plan", () => ({
   useStudyPlan: () => ({
-    data: { profile: null, tasks: [], today: "2026-07-16" },
+    data: mockPlanData,
     isLoading: false,
     isError: false,
   }),
@@ -75,6 +81,10 @@ jest.mock("@/features/study-plan/hooks/use-study-plan", () => ({
 
 jest.mock("@/features/ucat-access/hooks/use-ucat-access", () => ({
   useUcatAccess: () => ({ onlineTier: "free" }),
+}));
+
+jest.mock("@/features/onboarding/hooks/use-onboarding-progress", () => ({
+  useCompleteOnboardingTour: () => ({ mutateAsync: jest.fn() }),
 }));
 
 jest.mock(
@@ -110,6 +120,12 @@ describe("StudyPlanActivationPage", () => {
     replace.mockClear();
     prefetch.mockClear();
     mockSaveStudyPlan.mockReset();
+    searchParamsValue = "activation=1";
+    mockPlanData = {
+      profile: null,
+      tasks: [],
+      today: "2026-07-16",
+    };
   });
 
   it("starts at 2200 with no year or exact-date field selected", () => {
@@ -122,6 +138,7 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Build me a Study plan/i }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByLabelText("Target UCAT score")).toHaveValue(2200);
     expect(screen.getByText("Select your UCAT year")).toBeInTheDocument();
@@ -151,6 +168,7 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Build me a Study plan/i }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
     fireEvent.click(
@@ -193,9 +211,10 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /I’ll manage my own plan/i }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
-    fireEvent.click(screen.getByRole("button", { name: "Save my goal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and finish" }));
 
     await waitFor(() =>
       expect(mockSaveStudyPlan).toHaveBeenCalledWith(
@@ -242,6 +261,7 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Build me a Study plan/i }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
     fireEvent.click(
@@ -270,5 +290,73 @@ describe("StudyPlanActivationPage", () => {
       screen.getByText("Completion animation: welcome, created"),
     ).toBeInTheDocument();
     jest.useRealTimers();
+  });
+
+  it("skips goal setup when a saved goal exists", () => {
+    searchParamsValue = "section=plan";
+    mockPlanData = {
+      profile: {
+        studyPlanEnabled: false,
+        studySuggestionsEnabled: true,
+        targetScore: 2300,
+        testYear: new Date().getFullYear(),
+        testDate: null,
+        availableDays: [],
+        preferredMockWeekday: 6,
+      },
+      tasks: [],
+      today: "2026-07-16",
+    };
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build me a Study plan/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(
+      screen.getByRole("heading", {
+        name: "When could you realistically study?",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Target UCAT score"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("finishes immediately when a student with a saved goal manages their own plan", async () => {
+    searchParamsValue = "section=plan";
+    mockPlanData = {
+      profile: {
+        studyPlanEnabled: false,
+        studySuggestionsEnabled: true,
+        targetScore: 2300,
+        testYear: new Date().getFullYear(),
+        testDate: null,
+        availableDays: [],
+        preferredMockWeekday: 6,
+      },
+      tasks: [],
+      today: "2026-07-16",
+    };
+    mockSaveStudyPlan.mockResolvedValue(mockPlanData);
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /I’ll manage my own plan/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() =>
+      expect(mockSaveStudyPlan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          studyPlanEnabled: false,
+          targetScore: 2300,
+        }),
+      ),
+    );
+    expect(
+      screen.queryByLabelText("Target UCAT score"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -28,7 +28,7 @@ type SignupBenefit = {
 
 const PAID_BENEFITS: ReadonlyArray<SignupBenefit> = [
   {
-    title: "Practise without limits",
+    title: "Practice without limits",
     description: "Every UCAT section, mock and skill trainer is ready for you.",
     icon: BrainCircuit,
   },
@@ -229,7 +229,7 @@ export function SignupSuccessTransition({
                   ? "We’re preparing your dashboard now. You can build a Study plan later from Settings."
                   : isPaidJourney
                     ? "Your payment is complete. We’re preparing everything included in your plan."
-                    : "Your Free plan is ready. We’re preparing a clear place to learn, practise and improve."}
+                    : "Your Free plan is ready. We’re preparing a clear place to learn, practice and improve."}
             </p>
 
             <div

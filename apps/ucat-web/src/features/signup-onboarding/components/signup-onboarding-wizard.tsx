@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowRight, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
 import {
@@ -31,7 +29,10 @@ import { NoiseOverlay } from "@/features/landing/components/marketing/noise-over
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
-import type { SignupSuccessJourney } from "@/features/signup-onboarding/components/signup-success-transition";
+import {
+  SignupSuccessTransition,
+  type SignupSuccessJourney,
+} from "@/features/signup-onboarding/components/signup-success-transition";
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
@@ -51,43 +52,19 @@ function PlanChoiceHandoff({
   onRetry: () => void;
 }) {
   return (
-    <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 text-marketing-cream">
-      <NoiseOverlay />
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.05] p-7 text-center shadow-2xl backdrop-blur"
-      >
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-marketing-accent/15 text-marketing-accent">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-        </span>
-        <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent">
-          {journey === "paid" ? "Confirming your plan" : "Saving your choice"}
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">Next, shape your Study plan</h1>
-        <p className="mt-2 text-sm text-marketing-cream/60">
-          We’re saving this step, then you can set your target and a realistic
-          weekly rhythm.
-        </p>
-        {takingLonger ? (
-          <p className="mt-4 text-sm text-marketing-cream/50">
-            Your payment was received; subscription details are taking a little
-            longer to arrive.
-          </p>
-        ) : null}
-        {error ? (
-          <div className="mt-5 rounded-2xl border border-red-300/15 bg-red-400/10 p-4 text-sm text-red-100">
-            <p>{error}</p>
-            <Button type="button" variant="outline" className="mt-3" onClick={onRetry}>
-              Try again
-              <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
-            </Button>
-          </div>
-        ) : null}
-      </motion.div>
-    </div>
+    <SignupSuccessTransition
+      journey={journey}
+      occasion="signup"
+      phase="confirming"
+      isTakingLonger={takingLonger}
+      error={error}
+      onRetry={onRetry}
+      onComplete={() => undefined}
+    />
   );
 }
+
+const PLAN_HANDOFF_MINIMUM_MS = 2_400;
 
 type SignupOnboardingWizardProps = {
   initial: SignupOnboardingInitial;
@@ -165,10 +142,9 @@ export function SignupOnboardingWizard({
     useState<SignupSuccessJourney | null>(() =>
       checkoutReturnedSuccessfully ? "paid" : null,
     );
-  const [signupSuccessPhase, setSignupSuccessPhase] =
-    useState<"confirming" | null>(() =>
-      checkoutReturnedSuccessfully ? "confirming" : null,
-    );
+  const [signupSuccessPhase, setSignupSuccessPhase] = useState<
+    "confirming" | null
+  >(() => (checkoutReturnedSuccessfully ? "confirming" : null));
   const [signupSuccessTakingLonger, setSignupSuccessTakingLonger] =
     useState(false);
   const [signupSuccessError, setSignupSuccessError] = useState<string | null>(
@@ -182,6 +158,9 @@ export function SignupOnboardingWizard({
       : null,
   );
   const checkoutConfirmationStarted = useRef(false);
+  const planHandoffStartedAt = useRef<number | null>(
+    checkoutReturnedSuccessfully ? Date.now() : null,
+  );
   const [details, setDetails] = useState({
     firstName: initial.firstName,
     lastName: initial.lastName,
@@ -206,7 +185,14 @@ export function SignupOnboardingWizard({
       router.replace("/signup/complete/sampler?afterPlan=1&activation=1");
       return;
     }
-    router.replace("/study-plan/setup?activation=1");
+    if (planHandoffStartedAt.current != null) {
+      const elapsed = Date.now() - planHandoffStartedAt.current;
+      const remaining = Math.max(0, PLAN_HANDOFF_MINIMUM_MS - elapsed);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+    }
+    router.replace("/dashboard");
   }, [queryClient, refetchOnboardingProgress, router]);
 
   const completeFreeSignup = useCallback(async () => {
@@ -264,7 +250,7 @@ export function SignupOnboardingWizard({
       return;
     }
 
-    router.prefetch("/study-plan/setup?activation=1");
+    router.prefetch("/dashboard");
     router.prefetch("/signup/complete/sampler?afterPlan=1");
     setSignupSuccessJourney("paid");
     setSignupSuccessPhase((current) => current ?? "confirming");
@@ -334,8 +320,9 @@ export function SignupOnboardingWizard({
 
   const finishOnboarding = () => {
     setError(null);
-    router.prefetch("/study-plan/setup?activation=1");
+    router.prefetch("/dashboard");
     setSignupSuccessJourney("free");
+    planHandoffStartedAt.current = Date.now();
     setSignupSuccessTakingLonger(false);
     setSignupSuccessError(null);
     setSignupSuccessPhase("confirming");

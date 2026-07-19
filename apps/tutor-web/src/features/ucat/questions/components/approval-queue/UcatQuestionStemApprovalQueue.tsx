@@ -37,6 +37,7 @@ import {
 import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
 import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
+import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -451,6 +452,13 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {currentEntry ? (
+              <UcatAiAssessmentControl
+                stemId={currentEntry.stemId}
+                form={form}
+                activeQuestionIndex={activeQuestionIndex}
+              />
+            ) : null}
             {isAiMode ? (
               <UcatDetectedStemMetadataControl
                 pendingDiff={metadataDetection.pendingDiff}

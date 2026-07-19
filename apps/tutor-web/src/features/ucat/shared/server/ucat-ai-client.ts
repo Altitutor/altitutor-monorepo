@@ -88,6 +88,16 @@ export class UcatAiEmptyResponseError extends Error {
   }
 }
 
+export class UcatAiBudgetExceededError extends Error {
+  resetAt: Date
+
+  constructor(message: string, resetAt: Date) {
+    super(message)
+    this.name = 'UcatAiBudgetExceededError'
+    this.resetAt = resetAt
+  }
+}
+
 type ProviderRow = {
   id: string
   name: string
@@ -381,11 +391,14 @@ async function assertBudget(client: SupabaseClient<Database>, settings: Settings
   const tokens = rows.reduce((sum, row) => sum + (row.total_tokens ?? 0), 0)
   const cost = rows.reduce((sum, row) => sum + (row.estimated_cost_cents ?? 0), 0)
 
+  const resetAt = new Date(since)
+  resetAt.setDate(resetAt.getDate() + 1)
+
   if (settings.daily_token_budget && tokens >= settings.daily_token_budget) {
-    throw new Error('UCAT AI daily token budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily token budget has been reached', resetAt)
   }
   if (settings.daily_cost_budget_cents && cost >= settings.daily_cost_budget_cents) {
-    throw new Error('UCAT AI daily cost budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily cost budget has been reached', resetAt)
   }
 }
 

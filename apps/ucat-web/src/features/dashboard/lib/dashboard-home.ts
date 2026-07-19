@@ -44,9 +44,6 @@ export type DashboardNextAction =
       hadTasksToday: boolean;
     }
   | {
-      kind: "sampler";
-    }
-  | {
       kind: "plan_setup";
     }
   | {
@@ -106,8 +103,6 @@ export function resolveDashboardNextAction({
   sessions,
   plan,
   planLoadFailed,
-  samplerDecided,
-  samplerCompleted,
 }: DashboardActionInput): DashboardNextAction {
   const prioritySession = findPrioritySession(sessions, now);
   if (prioritySession) {
@@ -142,10 +137,6 @@ export function resolveDashboardNextAction({
   }
 
   if (planLoadFailed) return { kind: "plan_error" };
-
-  if (samplerDecided && !samplerCompleted) {
-    return { kind: "sampler" };
-  }
 
   return { kind: "plan_setup" };
 }

@@ -170,6 +170,12 @@ export function DashboardRecentAttemptsCard() {
             <p className="mt-1 text-xs text-muted-foreground">
               Finished practice, sets, and mocks will appear here for review.
             </p>
+            <Button asChild size="sm" className="mt-4">
+              <Link href="/practice">
+                Go to practice
+                <ArrowRight className="ml-1.5 size-3.5" aria-hidden />
+              </Link>
+            </Button>
           </div>
         )}
       </CardContent>

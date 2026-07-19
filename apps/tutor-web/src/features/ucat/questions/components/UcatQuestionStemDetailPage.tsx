@@ -28,6 +28,7 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
+import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -83,6 +84,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
   const status = (watchedValues.status ?? initial?.status ?? 'published') as UcatContentStatus
 
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
 
   function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
@@ -142,6 +144,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
         ]}
         actions={
           <div className="flex items-center gap-2">
+            <UcatAiAssessmentControl stemId={stemId} form={form} activeQuestionIndex={activeQuestionIndex} />
             {status !== 'draft' ? (
                 <Button
                   variant="outline"
@@ -208,6 +211,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
           displayColumnsFallback={initial?.display_columns ?? undefined}
           className="flex min-h-0 flex-1 overflow-hidden"
           onActiveTextEditorChange={setActiveTextEditor}
+          onCurrentQuestionIndexChange={setActiveQuestionIndex}
           sourceChannel={initial?.source_channel ?? null}
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}

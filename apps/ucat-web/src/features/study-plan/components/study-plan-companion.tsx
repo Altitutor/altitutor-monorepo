@@ -39,6 +39,11 @@ import type {
   StudyPlanTaskType,
 } from "@/features/study-plan/model/types";
 import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
+import {
+  useCompleteOnboardingTour,
+  useOnboardingProgress,
+} from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_STUDY_ORB_INTRO_SEEN } from "@/features/onboarding/lib/activation-milestones";
 import { cn } from "@/lib/utils";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
@@ -187,7 +192,13 @@ export function StudyPlanCompanion({
   const query = useStudyPlan();
   const { activityComplete } = useStudyPlanCompanion();
   const { bottomFloatingDockVisible } = useAppShellLayout();
+  const onboardingProgress = useOnboardingProgress();
+  const completeMilestone = useCompleteOnboardingTour();
+  const orbIntroSeen = onboardingProgress.isCompleted(
+    UCAT_STUDY_ORB_INTRO_SEEN,
+  );
   const [expanded, setExpanded] = useState(false);
+  const [orbIntroVisible, setOrbIntroVisible] = useState(false);
   const [guidancePending, setGuidancePending] = useState(false);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
   const [latestNotice, setLatestNotice] = useState<GuidanceNotice | null>(null);
@@ -203,6 +214,7 @@ export function StudyPlanCompanion({
     StudyPlanTask["status"]
   > | null>(null);
   const previousGuidanceKeyRef = useRef<string | null>(null);
+  const orbIntroHandledRef = useRef(false);
   const data = query.data;
   const planEnabled = data?.profile?.studyPlanEnabled ?? false;
   const currentPlanTasks = useMemo(
@@ -317,6 +329,22 @@ export function StudyPlanCompanion({
     return () => onVisibilityChange?.(false);
   }, [onVisibilityChange, visible]);
 
+  useEffect(() => {
+    if (!visible || onboardingProgress.isLoading || orbIntroSeen) return;
+    if (orbIntroHandledRef.current) return;
+    orbIntroHandledRef.current = true;
+    setPromptVisible(false);
+    setOrbIntroVisible(true);
+  }, [onboardingProgress.isLoading, orbIntroSeen, visible]);
+
+  function dismissOrbIntro(openOrb = false) {
+    setOrbIntroVisible(false);
+    if (openOrb) setExpanded(true);
+    if (!completeMilestone.isPending) {
+      completeMilestone.mutate(UCAT_STUDY_ORB_INTRO_SEEN);
+    }
+  }
+
   async function startGuidanceItem(item: GuidanceDisplayItem) {
     if (item.planTask) {
       if (item.id === secondary?.id) await secondaryPlanActions.startTask();
@@ -401,7 +429,62 @@ export function StudyPlanCompanion({
       data-activity-complete={activityComplete || undefined}
     >
       <AnimatePresence>
-        {promptVisible && latestNotice && !expanded ? (
+        {orbIntroVisible && !expanded ? (
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.97 }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.28,
+              ease: ENTER_EASE,
+            }}
+            className="absolute bottom-16 right-0 w-[min(330px,calc(100vw-1.5rem))] rounded-2xl border border-border/70 bg-background/95 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+            role="dialog"
+            aria-label="Meet your Study orb"
+          >
+            <motion.span
+              initial={reduceMotion ? false : { rotate: -12, scale: 0.8 }}
+              animate={
+                reduceMotion
+                  ? { rotate: 0, scale: 1 }
+                  : { rotate: [0, 8, -5, 0], scale: [1, 1.08, 1.02, 1] }
+              }
+              transition={{ duration: reduceMotion ? 0 : 0.8, delay: 0.12 }}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden />
+            </motion.span>
+            <p className="mt-3 font-semibold">Meet your Study orb</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {planEnabled
+                ? "Your Study plan lives here. Open the orb to see today’s work and what comes next."
+                : "The orb suggests your next useful activity whenever you want a clear place to start."}
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => dismissOrbIntro(false)}
+              >
+                Got it
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => dismissOrbIntro(true)}
+              >
+                Show me
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </div>
+            <span className="absolute -bottom-2 right-5 h-4 w-4 rotate-45 border-b border-r border-border/70 bg-background/95" />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {promptVisible && latestNotice && !expanded && !orbIntroVisible ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -422,6 +505,7 @@ export function StudyPlanCompanion({
               type="button"
               onClick={() => {
                 setPromptVisible(false);
+                if (orbIntroVisible) dismissOrbIntro(false);
                 setExpanded(true);
               }}
               className="block w-full pr-7 text-left"
@@ -471,7 +555,7 @@ export function StudyPlanCompanion({
             >
               <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/15">
                 <Sparkles className="h-5 w-5" />
-                {promptVisible ? (
+                {promptVisible || orbIntroVisible ? (
                   <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                 ) : null}
               </span>

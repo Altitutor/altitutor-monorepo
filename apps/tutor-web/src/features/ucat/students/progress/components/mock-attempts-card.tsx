@@ -289,9 +289,6 @@ export function MockAttemptsCard({
             <p className="mt-2 text-3xl font-semibold tabular-nums">
               {unreviewedCount}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Mocks without a completed review
-            </p>
           </CardContent>
         </Card>
       </section>

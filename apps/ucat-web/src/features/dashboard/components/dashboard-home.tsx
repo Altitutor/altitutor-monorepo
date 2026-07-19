@@ -27,6 +27,7 @@ import {
   type DashboardTargetBreakdown,
 } from "@/features/dashboard/components/dashboard-trajectory-chart";
 import { DashboardRecentAttemptsCard } from "@/features/dashboard/components/dashboard-recent-attempts-card";
+import { DashboardActivationChecklist } from "@/features/dashboard/components/dashboard-activation-checklist";
 import {
   formatDashboardDate,
   resolveDashboardNextAction,
@@ -132,8 +133,6 @@ function actionIcon(action: DashboardNextAction) {
       return <TaskTypeIcon task={action.primary} />;
     case "caught_up":
       return <Check className="h-5 w-5" aria-hidden />;
-    case "sampler":
-      return <Sparkles className="h-5 w-5" aria-hidden />;
     case "plan_setup":
       return <CalendarCheck2 className="h-5 w-5" aria-hidden />;
     case "plan_error":
@@ -235,33 +234,19 @@ function actionContent(action: DashboardNextAction): {
         secondaryLabel: "View Study plan",
         secondaryHref: "/study-plan",
       };
-    case "sampler":
-      return {
-        eyebrow: "Your next step",
-        title: "Explore all four UCAT sections",
-        description:
-          "Finish the short guided sampler and become comfortable with the real question controls.",
-        rationale:
-          "It is unscored and does not use quota. It simply makes your first real Study plan task easier to begin.",
-        meta: "About 8 min",
-        primaryLabel: "Continue sampler",
-        primaryHref: "/signup/complete/sampler?replay=1&familiarity=familiar",
-        secondaryLabel: "Build Study plan instead",
-        secondaryHref: "/study-plan/setup",
-      };
     case "plan_setup":
       return {
         eyebrow: "Your next step",
-        title: "Build your personalised Study plan",
+        title: "Set your UCAT year and target score",
         description:
-          "Tell us your target, test timing, and availability. Altitutor will choose what to do next.",
+          "Give your dashboard a clear destination before you decide how you want to organise your study.",
         rationale:
-          "Setup takes about three minutes and you can change every planning input later.",
-        meta: "Target · test timing · availability",
-        primaryLabel: "Build my Study plan",
-        primaryHref: "/study-plan/setup",
-        secondaryLabel: "Explore UCAT first",
-        secondaryHref: "/signup/complete/sampler?replay=1&familiarity=familiar",
+          "Your target is a working direction, not a prediction. You can change it at any time.",
+        meta: "UCAT year · working target",
+        primaryLabel: "Set my goal",
+        primaryHref: "/ucat-goal/setup",
+        secondaryLabel: "Set up Study plan",
+        secondaryHref: "/study-plan/setup?section=plan",
       };
     case "plan_error":
       return {
@@ -604,7 +589,7 @@ export function DashboardTrajectoryHero({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {planUnavailable
                 ? "Your existing plan has not been changed. Reload it before starting unrelated work."
-                : "Your target, test timing, and availability give this graph meaning. Until then, it stays an honest preview rather than showing sample scores."}
+                : "The Altitutor system will begin calculating your current score and trajectory once you put in your target score and test date."}
             </p>
             <div className="mt-5 border-t border-border/60 pt-5">
               <DashboardNextActionPanel
@@ -1122,12 +1107,8 @@ export function DashboardHome() {
         onRetryPlan={() => void planQuery.refetch()}
       />
 
-      <div
-        className={cn(
-          "mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6",
-          plan?.profile?.studyPlanEnabled ? "lg:grid-cols-3" : "lg:grid-cols-2",
-        )}
-      >
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6">
+        <DashboardActivationChecklist />
         {plan?.profile?.studyPlanEnabled ? (
           <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
             <CardContent className="p-5 sm:p-6">

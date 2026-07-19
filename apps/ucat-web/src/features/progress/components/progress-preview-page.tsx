@@ -582,7 +582,7 @@ export function ProgressPreviewPage() {
             ),
           )}
           activityPreviewData={model.activity}
-          linkToSections={false}
+          linkToSections
         />
       ) : selectedSection && selectedProgress && selectedProjection ? (
         <SectionProgressContent

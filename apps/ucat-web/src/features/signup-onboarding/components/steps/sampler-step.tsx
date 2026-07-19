@@ -29,7 +29,7 @@ const OPTIONS: Array<{
   {
     value: "familiar",
     title: "I know the UCAT format",
-    description: "Let me solve realistic questions independently.",
+    description: "Give me the guided walkthrough as I try the real controls.",
     Icon: BookOpenCheck,
   },
   {
@@ -146,7 +146,7 @@ export function SignupCompleteSamplerStep({
           }
           className="bg-marketing-accent text-marketing-charcoal hover:bg-marketing-accent/90"
         >
-          Start the guided sampler
+          Start sampler
           <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
         </Button>
       </div>

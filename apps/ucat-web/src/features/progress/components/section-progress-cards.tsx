@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { Button } from "@/components/ui/button";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CONTROL_PRESS,
+  UCAT_PRESSABLE_SURFACE_HOVER,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type { ProgressMode } from "../lib/progress-mode";
@@ -41,18 +45,27 @@ function ScoreScale({
     target == null ? null : Math.max(0, Math.min(100, ((target - minimum) / range) * 100));
 
   if (score == null) {
+    const examplePosition = targetPosition == null ? 58 : Math.max(18, targetPosition - 22);
+
     return (
       <div className="min-w-0 flex-1" aria-label={`${scoreLabel} pending`}>
-        <div className="relative h-8 overflow-hidden rounded-lg border border-dashed border-border bg-muted/35">
-          <div className="absolute inset-x-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted-foreground/15" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="rounded-md bg-background/90 px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
-              Score pending
-            </span>
+        <div className="relative h-7 overflow-hidden" aria-hidden>
+          <div className="absolute inset-0 blur-[1.5px] opacity-50">
+            <div className="absolute inset-x-0 top-3 h-1 rounded-full bg-muted-foreground/35" />
+            <div
+              className="absolute top-1.5 size-4 -translate-x-1/2 rounded-full border-[3px] border-background bg-primary ring-1 ring-primary/40"
+              style={{ left: `${examplePosition}%` }}
+            />
+            {targetPosition != null ? (
+              <div
+                className="absolute top-0 h-7 w-px bg-foreground/70"
+                style={{ left: `${targetPosition}%` }}
+              />
+            ) : null}
           </div>
         </div>
         <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{scoreLabel}</span>
+          <span>{scoreLabel} pending</span>
           <span>{target == null ? "Target not set" : `Target ${target}`}</span>
         </div>
       </div>
@@ -116,51 +129,76 @@ export function SectionProgressCards({
   );
 
   return (
-    <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
-      <CardHeader className="pb-3">
+    <Card className={cn(UCAT_CARD_CHROME, "h-full overflow-hidden")}>
+      <CardHeader className="p-4 pb-2">
         <CardTitle className="text-base font-medium">Score by section</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Current estimates compared with your targets.
-        </p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-border/60">
           {sections.map((section) => {
             const score = scoreBySectionNumber.get(section.sectionNumber)?.currentEstimate ?? null;
             const href = `${sectionHrefPrefix}/${section.sectionNumber}`;
-            return (
-              <div
-                key={section.sectionId}
-                className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(140px,0.8fr)_minmax(220px,1.6fr)_auto] sm:items-center"
-              >
-                <h3 className="text-sm font-semibold">{section.sectionName}</h3>
+            const content = (
+              <>
+                <h3 className="min-w-0 text-sm font-semibold">
+                  {section.sectionName}
+                </h3>
+                {linkToSection ? (
+                  <UcatHoverChevron className="size-4 text-muted-foreground" />
+                ) : null}
+                <div className="col-span-2">
                 <ScoreScale
                   score={score}
                   target={sectionTargets[section.sectionId] ?? null}
                   scoreLabel="Estimate"
                 />
-                {linkToSection ? (
-                  <Button asChild size="sm" className="w-full sm:w-auto">
-                    <Link href={href}>View progress</Link>
-                  </Button>
-                ) : null}
+                </div>
+              </>
+            );
+            return linkToSection ? (
+              <Link
+                key={section.sectionId}
+                href={href}
+                className={cn(
+                  "group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  UCAT_CONTROL_PRESS,
+                  UCAT_PRESSABLE_SURFACE_HOVER,
+                )}
+                aria-label={`View ${section.sectionName} progress`}
+              >
+                {content}
+              </Link>
+            ) : (
+              <div
+                key={section.sectionId}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-3"
+              >
+                {content}
               </div>
             );
           })}
           {linkToSection ? (
-            <div className="grid gap-3 bg-muted/10 px-5 py-4 sm:grid-cols-[minmax(140px,0.8fr)_minmax(220px,1.6fr)_auto] sm:items-center">
+            <Link
+              href="/progress/mocks"
+              className={cn(
+                "group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 bg-muted/10 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                UCAT_CONTROL_PRESS,
+                UCAT_PRESSABLE_SURFACE_HOVER,
+              )}
+              aria-label="View mock progress"
+            >
               <h3 className="text-sm font-semibold">Mocks</h3>
-              <ScoreScale
-                score={mockRecentWeightedAverage}
-                target={mockTargetScore}
-                scoreLabel="Recent weighted average"
-                minimum={900}
-                maximum={2700}
-              />
-              <Button asChild size="sm" className="w-full sm:w-auto">
-                <Link href="/progress/mocks">View mocks</Link>
-              </Button>
-            </div>
+              <UcatHoverChevron className="size-4 text-muted-foreground" />
+              <div className="col-span-2">
+                <ScoreScale
+                  score={mockRecentWeightedAverage}
+                  target={mockTargetScore}
+                  scoreLabel="Weighted average"
+                  minimum={900}
+                  maximum={2700}
+                />
+              </div>
+            </Link>
           ) : null}
         </div>
       </CardContent>

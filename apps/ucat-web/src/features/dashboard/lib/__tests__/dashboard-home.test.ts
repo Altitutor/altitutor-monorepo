@@ -194,7 +194,7 @@ describe("dashboard next action", () => {
     expect(result.kind === "task" && result.fromEarlierStudyDay).toBe(true);
   });
 
-  it("uses the sampler as the next activation milestone before plan setup", () => {
+  it("respects a deliberate sampler skip and moves on to goal setup", () => {
     const result = resolveDashboardNextAction({
       now,
       sessions: [],
@@ -203,7 +203,7 @@ describe("dashboard next action", () => {
       samplerDecided: true,
       samplerCompleted: false,
     });
-    expect(result).toEqual({ kind: "sampler" });
+    expect(result).toEqual({ kind: "plan_setup" });
   });
 
   it("celebrates completed work and identifies the next study day", () => {

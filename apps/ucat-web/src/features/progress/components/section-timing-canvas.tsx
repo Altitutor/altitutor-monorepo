@@ -65,7 +65,7 @@ function timingInsight(pace: number | null, accuracy: number | null) {
   if (pace < 90) {
     return {
       title: "Timing pressure is the clearest constraint",
-      body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. Practise making an earlier decision on difficult questions so you preserve enough time for the questions you are more likely to answer correctly.`,
+      body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. Practice making an earlier decision on difficult questions so you preserve enough time for the questions you are more likely to answer correctly.`,
       status: "Below exam pace",
     };
   }

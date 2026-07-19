@@ -195,9 +195,6 @@ function PreviewChart({
           <p className="text-sm font-medium">
             Your trajectory will appear here
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            We’ll use real timed evidence—not sample scores.
-          </p>
         </div>
       ) : null}
     </div>

@@ -33,7 +33,13 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function QuestionsCompletedCard({ sections }: { sections: SectionProgress[] }) {
+function QuestionsCompletedCard({
+  sections,
+  className,
+}: {
+  sections: SectionProgress[];
+  className?: string;
+}) {
   const totalCompleted = sections.reduce((sum, section) => sum + section.maxScore, 0);
   const totals = sections.map((section) => section.totalPublicQuestions);
   const totalAvailable = totals.every((total) => total != null)
@@ -47,26 +53,41 @@ function QuestionsCompletedCard({ sections }: { sections: SectionProgress[] }) {
         : 0;
 
   return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardContent className="flex flex-col gap-4 pt-6">
+    <Card className={cn(UCAT_CARD_CHROME, className)}>
+      <CardContent className="flex h-full flex-col gap-4 p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-base font-medium text-muted-foreground">Total questions completed</p>
+            <p className="text-base font-medium text-muted-foreground">
+              Total questions completed
+            </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               <AnimatedInteger value={totalCompleted} />
               {totalAvailable != null ? ` / ${totalAvailable}` : null}
             </p>
           </div>
-          <ProgressCircular percentage={percentage} size={48} className="shrink-0 text-accent" />
+          <ProgressCircular
+            percentage={percentage}
+            size={48}
+            className="shrink-0 text-accent"
+          />
         </div>
         <div className={cn(UCAT_DIVIDER_TOP, "space-y-1.5 pt-3")}>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">Section breakdown</p>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Section breakdown
+          </p>
           {sections.map((section) => (
-            <div key={section.sectionId} className="flex justify-between gap-3 text-sm tabular-nums">
-              <span className="truncate text-muted-foreground">{section.sectionName}</span>
+            <div
+              key={section.sectionId}
+              className="flex justify-between gap-3 text-sm tabular-nums"
+            >
+              <span className="truncate text-muted-foreground">
+                {section.sectionName}
+              </span>
               <span className="shrink-0 font-medium">
                 {section.maxScore}
-                {section.totalPublicQuestions != null ? ` / ${section.totalPublicQuestions}` : " questions"}
+                {section.totalPublicQuestions != null
+                  ? ` / ${section.totalPublicQuestions}`
+                  : " questions"}
               </span>
             </div>
           ))}
@@ -215,8 +236,8 @@ export function ProgressPageContent({
       : projectedGain != null && projectedGain > 0
         ? `The current path adds about ${projectedGain} points over 90 days`
         : currentEstimate == null
-          ? "Complete timed work in all three cognitive sections"
-          : "Your estimate is the starting point—not the verdict";
+          ? "Complete timed sets to get a score estimate"
+          : "Your estimate is the starting point - not the verdict";
   const insightBody =
     currentEstimate == null
       ? "A total trajectory appears once Verbal Reasoning, Decision Making and Quantitative Reasoning each have enough timed evidence."
@@ -261,7 +282,7 @@ export function ProgressPageContent({
         }
       />
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-2 lg:items-start">
+      <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3 xl:items-stretch">
         <ReviewActivityCalendarCard
           className="h-full"
           previewData={activityPreviewData}
@@ -279,10 +300,10 @@ export function ProgressPageContent({
             mockTargetScore={targetScore}
           />
         </section>
-      </div>
-
-      <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
-        <QuestionsCompletedCard sections={sections} />
+        <QuestionsCompletedCard
+          sections={sections}
+          className="h-full md:col-span-2 xl:col-span-1"
+        />
       </div>
     </div>
   );

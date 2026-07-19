@@ -315,16 +315,20 @@ export function SectionProgressContent({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Current estimate</span>
-                <span className="font-medium tabular-nums">{score ?? "Pending"}</span>
+                <span className="font-medium tabular-nums">
+                  {score ?? "Pending"}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Target</span>
                 {targetScore == null ? (
                   <Button asChild size="sm">
-                    <Link href="/study-plan/setup">Set target</Link>
+                    <Link href="/ucat-goal/setup">Set target</Link>
                   </Button>
                 ) : (
-                  <span className="font-medium tabular-nums">{targetScore}</span>
+                  <span className="font-medium tabular-nums">
+                    {targetScore}
+                  </span>
                 )}
               </div>
               <div className="flex justify-between gap-4">

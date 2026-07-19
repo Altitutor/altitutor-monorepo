@@ -176,10 +176,6 @@ export function MockAttemptsCard({
                     ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
                     : "Your mock scores are stable. Section-level review is the best way to find the next gain."}
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Recent mocks carry more weight, with influence halving every 60
-              days. The simple average is shown below.
-            </p>
             <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
               {summary.sections
                 .filter((section) => section.sectionNumber <= 3)

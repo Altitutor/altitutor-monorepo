@@ -90,6 +90,7 @@ function AppShellInner({ children }: AppShellProps) {
   const isSubscribeRoute = pathname.startsWith("/subscribe");
   const isSignupSamplerRoute = pathname === "/signup/complete/sampler";
   const isStudyPlanSetupRoute = pathname === "/study-plan/setup";
+  const isGoalSetupRoute = pathname === "/ucat-goal/setup";
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -136,7 +137,7 @@ function AppShellInner({ children }: AppShellProps) {
     return <>{children}</>;
   }
 
-  if (isSignupSamplerRoute || isStudyPlanSetupRoute) {
+  if (isSignupSamplerRoute || isStudyPlanSetupRoute || isGoalSetupRoute) {
     return (
       <OnboardingProvider>
         <UcatLagProvider>{children}</UcatLagProvider>

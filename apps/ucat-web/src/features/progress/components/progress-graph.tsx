@@ -188,6 +188,25 @@ const GRAPH_TOOLTIP_WRAPPER_STYLE = {
   pointerEvents: "none",
 } as const;
 
+const EMPTY_BAR_HEIGHTS = [32, 55, 43, 72, 61, 84, 68, 94, 76, 88];
+
+function EmptyBarGraphPreview() {
+  return (
+    <div
+      className="absolute inset-x-12 bottom-8 top-5 flex items-end gap-2 overflow-hidden opacity-40 blur-[2px] sm:gap-3"
+      aria-hidden
+    >
+      {EMPTY_BAR_HEIGHTS.map((height, index) => (
+        <span
+          key={`${height}-${index}`}
+          className="min-w-0 flex-1 rounded-t bg-accent"
+          style={{ height: `${height}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function GraphColumnCursor({
   x,
   y,
@@ -763,14 +782,17 @@ export function ProgressGraph({
           </ResponsiveContainer>
         </div>
         {isEmpty && emptyMessage ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center">
-            <div className="max-w-sm rounded-xl border border-border bg-background/95 px-5 py-4 shadow-sm backdrop-blur">
-              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+          <>
+            <EmptyBarGraphPreview />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center">
+              <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur">
+                {emptyMessage}
+              </p>
               {emptyDescription ? (
-                <p className="mt-1 text-xs text-muted-foreground">{emptyDescription}</p>
+                <p className="sr-only">{emptyDescription}</p>
               ) : null}
             </div>
-          </div>
+          </>
         ) : null}
       </div>
       {xAxisLabelNode ? (

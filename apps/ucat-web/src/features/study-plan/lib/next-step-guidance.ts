@@ -171,7 +171,7 @@ function targetedPracticeDraft(
   const questionCount = timed ? 20 : 10;
   return baseDraft({
     taskType: "practice",
-    title: `Practise ${category.name}`,
+    title: `Practice ${category.name}`,
     description: `${questionCount} ${timed ? "timed" : "focused"} questions in ${section.shortName}.`,
     rationale:
       category.maxScore >= 4
@@ -202,7 +202,7 @@ function benchmarkDraft(section: StudyPlanSection): NextStepDraft {
   return baseDraft({
     taskType: "section_benchmark",
     title: `Complete a timed ${section.shortName} set`,
-    description: "Practise sustaining your method across an exam-like section.",
+    description: "Practice sustaining your method across an exam-like section.",
     rationale:
       "Your test is getting closer, so longer timed work now has more value.",
     estimatedMinutes: Math.max(

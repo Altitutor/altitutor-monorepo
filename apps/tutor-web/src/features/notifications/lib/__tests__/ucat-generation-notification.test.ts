@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import type { UcatGenerationRun } from '@/features/ucat/questions/api/questions'
 import {
   parseUcatGenerationNotificationMetadata,

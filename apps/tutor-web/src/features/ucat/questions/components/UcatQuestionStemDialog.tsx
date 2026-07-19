@@ -42,6 +42,7 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
+import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
@@ -159,6 +160,7 @@ export function UcatQuestionStemDialog({
   const [createMore, setCreateMore] = useState(false)
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(initialQuestionIndex ?? 0)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [selectedAiImageContext, setSelectedAiImageContext] = useState<{
     image: SelectedVisualImage
@@ -219,8 +221,11 @@ export function UcatQuestionStemDialog({
   }, [open])
 
   useEffect(() => {
-    if (open) setEditorMode(initialEditorMode)
-  }, [open, initial?.id, initialEditorMode])
+    if (open) {
+      setEditorMode(initialEditorMode)
+      setActiveQuestionIndex(initialQuestionIndex ?? 0)
+    }
+  }, [open, initial?.id, initialEditorMode, initialQuestionIndex])
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
@@ -454,6 +459,13 @@ export function UcatQuestionStemDialog({
       }
       headerControls={
         <>
+          {stemId ? (
+            <UcatAiAssessmentControl
+              stemId={stemId}
+              form={form}
+              activeQuestionIndex={activeQuestionIndex}
+            />
+          ) : null}
           <UcatDetectedStemMetadataControl
             pendingDiff={metadataDetection.pendingDiff}
             sections={sections}
@@ -498,6 +510,7 @@ export function UcatQuestionStemDialog({
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           onActiveTextEditorChange={setActiveTextEditor}
+          onCurrentQuestionIndexChange={setActiveQuestionIndex}
           sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}

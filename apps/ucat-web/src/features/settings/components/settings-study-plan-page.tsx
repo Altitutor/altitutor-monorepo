@@ -43,7 +43,9 @@ const WEEKDAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
 
 const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
   { weekday: 1, maxMinutes: 60 },
-  { weekday: 3, maxMinutes: 60 },
+  { weekday: 2, maxMinutes: 60 },
+  { weekday: 4, maxMinutes: 60 },
+  { weekday: 5, maxMinutes: 60 },
   { weekday: 6, maxMinutes: 120 },
 ];
 

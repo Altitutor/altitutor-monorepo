@@ -15,6 +15,10 @@ import {
   throwFirstUcatBulkStatusFailure,
 } from "@/features/ucat/shared/lifecycle-errors";
 import { humanizeQuestionStemError } from "@/features/ucat/questions/lib/question-stem-error";
+import type {
+  UcatAssessmentResponse,
+  UcatFormatCheck,
+} from "@/features/ucat/questions/lib/ai-assessment/schema";
 
 export type UcatGenerationDebugCall = {
   stemIndex: number;
@@ -193,7 +197,104 @@ export type StemDetailRow = {
   questions: StemDetailQuestion[];
 };
 
+export type UcatAiAssessmentRun = {
+  id: string;
+  cycle_id: string;
+  stem_id: string;
+  trigger_kind: string;
+  scope_type: "full" | "questions";
+  target_question_ids: string[];
+  content_fingerprint: string;
+  status: "queued" | "running" | "deferred" | "completed" | "failed" | "superseded" | "format_blocked";
+  attempt_count: number;
+  blind_solver_model: string | null;
+  assessment_model: string | null;
+  format_checks: UcatFormatCheck[];
+  assessment_result: UcatAssessmentResponse | null;
+  error_message: string | null;
+  requested_at: string;
+  started_at: string | null;
+  deferred_until: string | null;
+  completed_at: string | null;
+  sharedCurrent: boolean;
+  currentTargetQuestionIds: string[];
+  contentCurrent: boolean;
+};
+
+export type UcatAiAssessmentDecision = {
+  id: string;
+  run_id: string;
+  finding_key: string;
+  decision: "dismissed" | "suggestion_accepted" | "suggestion_rejected";
+  reason: string | null;
+  reviewed_content_fingerprint: string;
+  patch: Json | null;
+  decided_by: string | null;
+  decided_at: string;
+};
+
+export type UcatAiAssessment = {
+  environment: { enabled: boolean; source: string };
+  status:
+    | "disabled"
+    | "not_requested"
+    | "reviewing"
+    | "deferred"
+    | "format_blocked"
+    | "unavailable"
+    | "unreviewable"
+    | "passed"
+    | "concerns"
+    | "critical";
+  currentContentFingerprint: string;
+  currentCycle: { id: string; stem_id: string; is_current: boolean; started_at: string } | null;
+  cycles: Array<{ id: string; stem_id: string; is_current: boolean; started_at: string }>;
+  runs: UcatAiAssessmentRun[];
+  effectiveRunIds: string[];
+  decisions: UcatAiAssessmentDecision[];
+};
+
 export const ucatQuestionsApi = {
+  async getAiAssessment(stemId: string) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, { cache: "no-store" });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load AI review");
+    }
+    return response.json() as Promise<UcatAiAssessment>;
+  },
+
+  async retryAiAssessment(stemId: string, runId: string) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "retry", runId }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to retry AI review");
+    }
+    return response.json() as Promise<{ queued: boolean }>;
+  },
+
+  async recordAiAssessmentDecision(stemId: string, input: {
+    runId: string;
+    findingKey: string;
+    decision: UcatAiAssessmentDecision["decision"];
+    reason?: string | null;
+  }) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to record AI review decision");
+    }
+    return response.json() as Promise<{ decision: UcatAiAssessmentDecision }>;
+  },
+
   async list(options?: {
     status?: UcatContentStatus | null;
     sourceChannel?: UcatQuestionSourceChannel | null;
